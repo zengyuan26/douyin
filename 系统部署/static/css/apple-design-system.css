@@ -678,6 +678,11 @@ textarea.form-control {
     border-spacing: 0;
 }
 
+.table-responsive {
+    overflow-x: visible;
+    overflow-y: visible;
+}
+
 .table thead th {
     padding: 8px 12px;
     font-size: var(--font-size-xs);
