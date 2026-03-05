@@ -1,0 +1,168 @@
+{
+  "client_id": "CLIENT-食品-20260225-南漳豆",
+  "client_name": "南漳豆芽厂",
+  "industry": "食品行业",
+  "sub_industry": "豆制品",
+  "created_at": "2026-02-25",
+  "updated_at": "2026-02-27",
+  "basic_info": {
+    "client_type": "product/service",
+    "geographic_scope": "local",
+    "brand_type": "personal/company",
+    "business_scope": {
+      "primary": "豆芽生产",
+      "other": ["魔芋豆腐"]
+    },
+    "description": "豆芽、魔芋豆腐生产批发",
+    "target_cities": [
+      "湖北"
+    ],
+    "language_style": "普通话",
+    "product_type": "standard",
+    "product_type_detail": {
+      "standard": ["豆芽批发", "魔芋豆腐批发"],
+      "non_standard": []
+    }
+  },
+  "business_info": {
+    "business_model": "批发",
+    "target_customers": [
+      "超市",
+      "小贩",
+      "餐饮店",
+      "食堂（学校/机关）"
+    ],
+    "delivery_service": true,
+    "daily_output": "20000斤",
+    "core_advantages": [
+      "自有工厂",
+      "送货上门"
+    ]
+  },
+  "contact": {
+    "owner": "负责人姓名",
+    "phone": "电话",
+    "wechat": "微信"
+  },
+  "brand": {
+    "brand_name": "南漳豆芽厂",
+    "slogan": "品牌 slogan",
+    "logo": {
+      "has": true,
+      "path": "品牌资料/logo.png",
+      "description": "Logo 描述"
+    },
+    "spokesperson": {
+      "has": false,
+      "name": "代言人姓名",
+      "type": "owner/celebrity/staff",
+      "description": "代言人描述"
+    }
+  },
+  "products": [
+    {
+      "name": "豆芽",
+      "sku": "SKU-001",
+      "price": "价格",
+      "features": [
+        "新鲜",
+        "口感好"
+      ],
+      "images": [
+        "产品资料/产品1.jpg"
+      ],
+      "packaging": {
+        "type": "包装类型",
+        "size": "规格",
+        "materials": [
+          "包装设计/包装.jpg"
+        ]
+      }
+    }
+  ],
+  "marketing_materials": {
+    "catalog": [
+      "宣传物料/产品目录.jpg"
+    ],
+    "flyer": [
+      "宣传物料/宣传单.jpg"
+    ],
+    "video_intro": [
+      "宣传物料/品牌介绍.mp4"
+    ],
+    "case_studies": [
+      "参考案例/好评.jpg"
+    ]
+  },
+  "assets_for_content": {
+    "design_reference": {
+      "style": "设计风格",
+      "color_scheme": [
+        "主色调"
+      ],
+      "fonts": [
+        "字体"
+      ],
+      "mood": "氛围关键词",
+      "references": [
+        "参考案例/"
+      ]
+    },
+    "product_images": {
+      "finished_products": [
+        "产品资料/"
+      ],
+      "raw_materials": [
+        "产品资料/原料/"
+      ],
+      "production_process": [
+        "产品资料/制作过程/"
+      ]
+    },
+    "persona": {
+      "spokesperson": {
+        "name": "人物名称",
+        "age": "年龄",
+        "appearance": "外貌描述",
+        "personality": "性格特点",
+        "voice": "声音特点",
+        "images": [
+          "人物形象/照片.jpg"
+        ],
+        "videos": [
+          "人物形象/视频.mp4"
+        ]
+      }
+    },
+    "scene_images": {
+      "shop": [
+        "场景素材/店铺.jpg"
+      ],
+      "production_workshop": [
+        "场景素材/车间.jpg"
+      ],
+      "market": [
+        "场景素材/集市.jpg"
+      ],
+      "home_kitchen": [
+        "场景素材/家庭.jpg"
+      ]
+    }
+  },
+  "content_needs": {
+    "primary_keywords": [
+      "豆芽批发",
+      "新鲜豆芽"
+    ],
+    "content_types": [
+      "图文",
+      "短视频"
+    ],
+    "posting_frequency": "daily/weekly",
+    "main_platforms": [
+      "抖音",
+      "小红书"
+    ]
+  },
+  "notes": "豆芽生产批发客户（主营业务：豆芽生产；其他：魔芋豆腐），20000斤/日产量，配送范围：超市、小贩、餐饮店、食堂"
+}

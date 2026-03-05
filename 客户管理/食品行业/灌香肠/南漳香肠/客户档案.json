@@ -1,0 +1,139 @@
+{
+  "client_id": "CLIENT-食品-2026-001",
+  "client_name": "南漳香肠",
+  "nickname": "南漳黄姐灌香肠（22年）",
+  "industry": "食品行业",
+  "sub_industry": "灌香肠",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-02-28",
+  "product_type": "non_standard",
+  "product_type_detail": {
+    "standard": [],
+    "non_standard": ["灌香肠加工", "麻辣香肠", "广味香肠"]
+  },
+  "basic_info": {
+    "client_type": "product",
+    "geographic_scope": "local",
+    "brand_type": "personal",
+    "description": "湖北南漳本地灌香肠加工销售，主要产品为麻辣味和广味香肠",
+    "target_cities": ["襄阳", "南漳"],
+    "language_style": "湖北方言"
+  },
+  
+  "contact": {
+    "owner": "黄姐",
+    "phone": "138xxxx",
+    "wechat": "huangxxxx"
+  },
+  
+  "brand": {
+    "brand_name": "南漳黄姐香肠",
+    "slogan": "22年老味道，灌香肠找黄姐",
+    "logo": {
+      "has": true,
+      "path": "资产/logo.png",
+      "description": "红色为主色调，传统中国风"
+    },
+    "spokesperson": {
+      "has": true,
+      "name": "黄姐（创始人亲自出镜）",
+      "type": "owner",
+      "description": "72岁本地大姐，22年灌香肠经验，朴实接地气"
+    }
+  },
+  
+  "products": [
+    {
+      "name": "麻辣香肠",
+      "sku": "ML-500g",
+      "price": "58元/斤",
+      "features": ["麻辣味", "本地辣椒", "传统工艺"],
+      "images": ["资产/产品/麻辣香肠_成品.jpg"],
+      "packaging": {
+        "type": "真空包装",
+        "size": "500g/袋",
+        "materials": ["资产/包装/麻辣香肠_包装.jpg"]
+      }
+    },
+    {
+      "name": "广味香肠",
+      "sku": "GW-500g",
+      "price": "48元/斤",
+      "features": ["甜味", "肥瘦适中", "老少皆宜"],
+      "images": ["资产/产品/广味香肠_成品.jpg"],
+      "packaging": {
+        "type": "真空包装",
+        "size": "500g/袋",
+        "materials": ["资产/包装/广味香肠_包装.jpg"]
+      }
+    }
+  ],
+  
+  "marketing_materials": {
+    "catalog": ["资产/宣传册/产品目录.jpg"],
+    "flyer": ["资产/宣传单/春节促销.jpg"],
+    "video_intro": ["资产/视频/品牌介绍.mp4"],
+    "case_studies": ["资产/案例/客户好评.jpg"]
+  },
+  
+  "assets_for_content": {
+    "design_reference": {
+      "style": "传统中国风",
+      "color_scheme": ["红色", "金色", "黑色"],
+      "fonts": ["书法体", "宋体"],
+      "mood": "喜庆、接地气、有年味",
+      "references": ["资产/物料设计参考/"]
+    },
+    
+    "product_images": {
+      "finished_products": [
+        "资产/产品/麻辣香肠_成品.jpg",
+        "资产/产品/广味香肠_成品.jpg"
+      ],
+      "raw_materials": [
+        "资产/原料/猪肉.jpg",
+        "资产/原料/辣椒.jpg"
+      ],
+      "production_process": [
+        "资产/制作过程/绞肉.jpg",
+        "资产/制作过程/灌制.jpg",
+        "资产/制作过程/晾晒.jpg"
+      ]
+    },
+    
+    "persona": {
+      "spokesperson": {
+        "name": "黄姐",
+        "age": "72岁",
+        "appearance": "笑容慈祥,穿红色围裙,精神矍铄",
+        "personality": "实在、厚道、手艺精湛、经验丰富",
+        "voice": "湖北方言,声音亲切",
+        "images": ["资产/人物/黄姐_形象照.jpg"],
+        "videos": ["资产/人物/黄姐_介绍.mp4"]
+      },
+      "staff": [
+        {
+          "role": "帮工大姐",
+          "description": "40多岁,动作麻利",
+          "images": ["资产/人物/帮工大姐.jpg"]
+        }
+      ]
+    },
+    
+    "scene_images": {
+      "shop": ["资产/场景/店铺.jpg"],
+      "production_workshop": ["资产/场景/加工车间.jpg"],
+      "market": ["资产/场景/集市.jpg"],
+      "home_kitchen": ["资产/场景/家庭厨房.jpg"]
+    }
+  },
+  
+  "content_needs": {
+    "primary_keywords": ["灌香肠", "南漳香肠", "麻辣香肠"],
+    "content_types": ["图文", "短视频"],
+    "posting_frequency": "daily",
+    "main_platforms": ["抖音", "小红书"]
+  },
+  
+  "notes": "客户主要在春节前销售旺季，现在年后淡季需要消化库存。核心优势：22年灌香肠经验，手艺精湛，老顾客多"
+}

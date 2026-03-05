@@ -1,0 +1,164 @@
+{
+  "client_id": "CLIENT-食品-20260225-LY",
+  "client_name": "龙眼山矿泉水",
+  "industry": "食品行业",
+  "sub_industry": "桶装水",
+  "created_at": "2026-02-25",
+  "updated_at": "2026-02-28",
+  "product_type": "mixed",
+    "product_type_detail": {
+      "standard": ["桶装水配送"],
+      "non_standard": ["瓶装定制水"]
+    },
+  "owner_info": {
+    "name": "小周",
+    "gender": "女",
+    "age": "37岁",
+    "hometown": "湖北咸宁",
+    "business_location": "重庆",
+    "entrepreneurship": "在重庆创业"
+  },
+  "basic_info": {
+    "client_type": "product/service",
+    "geographic_scope": "local",
+    "brand_type": "personal/company",
+    "description": "重庆桶装水配送+瓶装定制水服务，5箱起订即可定制",
+    "target_cities": [
+      "重庆"
+    ],
+    "language_style": "普通话"
+  },
+  "contact": {
+    "owner": "小周",
+    "phone": "电话",
+    "wechat": "微信"
+  },
+  "brand": {
+    "brand_name": "龙眼山矿泉水",
+    "slogan": "源自天然山泉，定制从5箱起",
+    "core_advantage": "5-10箱起订即可定制瓶装水",
+    "logo": {
+      "has": true,
+      "path": "品牌资料/logo.png",
+      "description": "Logo 描述"
+    },
+    "spokesperson": {
+      "has": false,
+      "name": "代言人姓名",
+      "type": "owner/celebrity/staff",
+      "description": "代言人描述"
+    }
+  },
+  "products": [
+    {
+      "name": "产品名称",
+      "sku": "SKU-001",
+      "price": "价格",
+      "features": [
+        "特点1",
+        "特点2"
+      ],
+      "images": [
+        "产品资料/产品1.jpg"
+      ],
+      "packaging": {
+        "type": "包装类型",
+        "size": "规格",
+        "materials": [
+          "包装设计/包装.jpg"
+        ]
+      }
+    }
+  ],
+  "marketing_materials": {
+    "catalog": [
+      "宣传物料/产品目录.jpg"
+    ],
+    "flyer": [
+      "宣传物料/宣传单.jpg"
+    ],
+    "video_intro": [
+      "宣传物料/品牌介绍.mp4"
+    ],
+    "case_studies": [
+      "参考案例/好评.jpg"
+    ]
+  },
+  "assets_for_content": {
+    "design_reference": {
+      "style": "设计风格",
+      "color_scheme": [
+        "主色调"
+      ],
+      "fonts": [
+        "字体"
+      ],
+      "mood": "氛围关键词",
+      "references": [
+        "参考案例/"
+      ]
+    },
+    "product_images": {
+      "finished_products": [
+        "产品资料/"
+      ],
+      "raw_materials": [
+        "产品资料/原料/"
+      ],
+      "production_process": [
+        "产品资料/制作过程/"
+      ]
+    },
+    "persona": {
+      "spokesperson": {
+        "name": "小周",
+        "age": "37岁",
+        "gender": "女",
+        "hometown": "湖北咸宁",
+        "appearance": "创业者形象，亲和力强",
+        "personality": "务实、诚信、勤奋",
+        "voice": "温和、专业",
+        "images": [
+          "人物形象/照片.jpg"
+        ],
+        "videos": [
+          "人物形象/视频.mp4"
+        ]
+      }
+    },
+    "scene_images": {
+      "shop": [
+        "场景素材/店铺.jpg"
+      ],
+      "production_workshop": [
+        "场景素材/车间.jpg"
+      ],
+      "market": [
+        "场景素材/集市.jpg"
+      ],
+      "home_kitchen": [
+        "场景素材/家庭.jpg"
+      ]
+    }
+  },
+  "content_needs": {
+    "primary_keywords": [
+      "桶装水",
+      "矿泉水",
+      "瓶装定制",
+      "重庆桶装水配送",
+      "企业定制水",
+      "5箱起定制"
+    ],
+    "content_types": [
+      "图文",
+      "短视频"
+    ],
+    "posting_frequency": "daily/weekly",
+    "main_platforms": [
+      "抖音",
+      "小红书"
+    ]
+  },
+  "notes": "备注信息"
+}

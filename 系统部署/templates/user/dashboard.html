@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}工作台 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- 客户端切换器 -->
+    <div class="client-selector">
+        <div class="selector-header">
+            <h5 class="mb-0"><i class="bi bi-building me-2"></i>当前客户</h5>
+            <a href="{{ url_for('main.clients') }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-arrow-repeat me-1"></i>切换客户
+            </a>
+        </div>
+        
+        {% if session.get('current_client_name') %}
+        <div class="current-client">
+            <i class="bi bi-shop"></i>
+            <div>
+                <div class="client-name">{{ session.get('current_client_name') }}</div>
+                <small class="text-muted">客户路径: {{ session.get('current_client_path', '未设置') }}</small>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-3">
+            <p class="text-muted mb-2">请选择一个客户开始工作</p>
+            <a href="{{ url_for('main.clients') }}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>选择客户
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- 工作台卡片 -->
+    {% if session.get('current_client_name') %}
+    <div class="dashboard-grid">
+        <!-- 关键词库卡片 -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h5 class="card-title"><i class="bi bi-key"></i> 关键词库</h5>
+                <a href="#" class="btn btn-sm btn-outline-primary">管理</a>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">核心关键词</span>
+                <span class="stat-value">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">长尾关键词</span>
+                <span class="stat-value">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">场景关键词</span>
+                <span class="stat-value">-</span>
+            </div>
+        </div>
+        
+        <!-- 选题库卡片 -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h5 class="card-title"><i class="bi bi-lightbulb"></i> 选题库</h5>
+                <a href="#" class="btn btn-sm btn-outline-primary">管理</a>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">总选题数</span>
+                <span class="stat-value">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">本月更新</span>
+                <span class="stat-value">-</span>
+            </div>
+        </div>
+        
+        <!-- 舆情监控卡片 -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h5 class="card-title"><i class="bi bi-graph-up-arrow"></i> 舆情监控</h5>
+                <a href="#" class="btn btn-sm btn-outline-primary">查看</a>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">监控关键词</span>
+                <span class="stat-value">15/15</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">监控链接</span>
+                <span class="stat-value">0/15</span>
+            </div>
+        </div>
+        
+        <!-- 内容创作卡片 -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h5 class="card-title"><i class="bi bi-palette"></i> 内容创作</h5>
+                <a href="#" class="btn btn-sm btn-outline-primary">新建</a>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">图文内容</span>
+                <span class="stat-value">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">短视频脚本</span>
+                <span class="stat-value">-</span>
+            </div>
+        </div>
+        
+    </div>
+    {% endif %}
+    
+    <!-- 最近操作 -->
+    <div class="row g-4 mt-2">
+        <div class="col-lg-6">
+            <div class="section-card">
+                <div class="section-header">
+                    <h5 class="section-title"><i class="bi bi-clock-history me-2"></i>最近操作</h5>
+                </div>
+                <div class="section-body">
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-clock d-block mb-2" style="font-size: 32px;"></i>
+                        暂无最近操作记录
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="section-card">
+                <div class="section-header">
+                    <h5 class="section-title"><i class="bi bi-question-circle me-2"></i>使用帮助</h5>
+                </div>
+                <div class="section-body">
+                    <div class="help-list">
+                        <div class="help-item">
+                            <i class="bi bi-1-circle text-primary"></i>
+                            <span>先选择客户，然后使用AI助手</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.expert-shortcuts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.expert-shortcut {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg-light);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: var(--transition);
+}
+.expert-shortcut:hover {
+    background: white;
+    box-shadow: var(--shadow-sm);
+}
+.expert-shortcut i {
+    font-size: 20px;
+}
+.expert-shortcut span {
+    font-size: 13px;
+    font-weight: 500;
+}
+.text-purple { color: var(--purple-color); }
+.help-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.help-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+}
+.help-item i {
+    font-size: 18px;
+}
+</style>
+{% endblock %}

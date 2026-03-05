@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}专家管理 - AI棱镜{% endblock %}
+
+{% block extra_css %}
+<style>
+        /* 页面标题 */
+        .page-header {
+            margin-bottom: 24px;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 4px;
+        }
+        
+        .page-subtitle {
+            font-size: 14px;
+            color: var(--color-text-tertiary);
+        }
+        
+        /* 专家卡片 */
+        .expert-card {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border-light);
+            border-radius: 16px;
+            padding: 16px;
+            transition: all var(--transition-fast);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .expert-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .expert-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        
+        .expert-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25);
+        }
+        
+        .expert-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .expert-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 2px;
+        }
+        
+        .expert-title {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            margin-bottom: 0;
+        }
+        
+        .expert-body {
+            flex: 1;
+            margin-bottom: 10px;
+        }
+        
+        .expert-desc {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            line-height: 1.55;
+            margin-bottom: 10px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .expert-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .expert-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 500;
+            border-radius: 6px;
+            background: var(--color-bg-secondary);
+            color: var(--color-text-secondary);
+        }
+        
+        .expert-badge.command {
+            background: rgba(0, 122, 255, 0.1);
+            color: var(--color-primary);
+            font-family: var(--font-family-mono);
+        }
+        
+        .expert-badge.status {
+            background: rgba(52, 199, 89, 0.1);
+            color: var(--color-success);
+        }
+        
+        .expert-badge.status.disabled {
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-tertiary);
+        }
+        
+        .expert-actions { display: none; }
+
+        .expert-edit-btn {
+            flex-shrink: 0;
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 10px;
+        }
+        
+        /* 头像选择器 */
+        .avatar-selector {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 10px;
+            padding: 16px;
+            background: var(--color-bg-secondary);
+            border-radius: 12px;
+        }
+        
+        .avatar-option {
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            transition: all var(--transition-fast);
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .avatar-option:hover {
+            background: var(--color-bg-primary);
+        }
+        
+        .avatar-option.selected {
+            border-color: var(--color-primary);
+            background: rgba(0, 122, 255, 0.08);
+        }
+        
+        .avatar-option input {
+            display: none;
+        }
+        
+        .avatar-icon {
+            font-size: 24px;
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .avatar-selector {
+                grid-template-columns: repeat(5, 1fr);
+            }
+        }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid py-4">
+        <!-- 页面标题 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="page-header">
+                    <h4 class="page-title">专家管理</h4>
+                    <p class="page-subtitle">管理系统中的AI专家角色</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 专家卡片列表 -->
+        <div class="row g-4">
+            {% for expert in experts %}
+            <div class="col-md-6 col-lg-4">
+                <div class="expert-card">
+                    <div class="expert-header">
+                        <div class="expert-avatar">
+                            {{ expert.icon|safe }}
+                        </div>
+                        <div class="expert-info">
+                            <h5 class="expert-name">{{ expert.nickname or expert.name }}</h5>
+                            <p class="expert-title">{{ expert.title or '' }}</p>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary expert-edit-btn"
+                                data-bs-toggle="modal"
+                                data-bs-target="#editExpertModal{{ expert.id }}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </div>
+                    <div class="expert-body">
+                        <p class="expert-desc">{{ expert.description or '暂无描述' }}</p>
+                        <div class="expert-meta">
+                            {% if expert.command %}
+                            <span class="expert-badge command">/{{ expert.command }}</span>
+                            {% endif %}
+                            <span class="expert-badge status {% if not expert.is_active %}disabled{% endif %}">
+                                {% if expert.is_active %}已启用{% else %}已禁用{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="expert-actions"></div>
+                </div>
+            </div>
+            
+            <!-- 每个专家的编辑 Modal -->
+            <div class="modal fade" id="editExpertModal{{ expert.id }}" tabindex="-1">
+                <div class="modal-dialog modal-md modal-dialog-centered" style="max-width: 540px;">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h5 class="modal-title fs-6">编辑专家 - {{ expert.nickname or expert.name }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form method="POST" action="{{ url_for('admin.expert_edit', id=expert.id) }}">
+                            <div class="modal-body py-3">
+                                <!-- 基本信息 -->
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <div class="mb-1">
+                                            <label class="form-label mb-1">昵称</label>
+                                            <input type="text" class="form-control form-control-sm" name="nickname" 
+                                                   value="{{ expert.nickname or '' }}" placeholder="如：约瑟夫·库珀">
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="mb-1">
+                                            <label class="form-label mb-1">职位名称</label>
+                                            <input type="text" class="form-control form-control-sm" name="title" 
+                                                   value="{{ expert.title or '' }}" placeholder="如：首席营销官">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 头像选择 -->
+                                <div class="mb-2">
+                                    <label class="form-label mb-1">选择头像</label>
+                                    <div class="avatar-selector py-2">
+                                        {% set icons = ['&#x1F468;&#x200D;&#x1F4BC;', '&#x1F469;&#x200D;&#x1F4BC;', '&#x1F468;&#x200D;&#x1F52C;', '&#x1F469;&#x200D;&#x1F52C;', 
+                                                       '&#x1F468;&#x200D;&#x1F3A8;', '&#x1F469;&#x200D;&#x1F3A8;', '&#x1F468;&#x200D;&#x1F4BB;', '&#x1F469;&#x200D;&#x1F4BB;',
+                                                       '&#x1F468;&#x200D;&#x1F3EB;', '&#x1F469;&#x200D;&#x1F3EB;', '&#x1F468;&#x200D;&#x2695;&#xFE0F;', '&#x1F469;&#x200D;&#x2695;&#xFE0F;',
+                                                       '&#x1F468;&#x200D;&#x1F527;', '&#x1F469;&#x200D;&#x1F527;', '&#x1F468;&#x200D;&#x1F373;', '&#x1F469;&#x200D;&#x1F373;',
+                                                       '&#x1F468;&#x200D;&#x1F680;', '&#x1F469;&#x200D;&#x1F680;', '&#x1F46E;', '&#x1F575;'] %}
+                                        {% for icon in icons %}
+                                        <label class="avatar-option {% if expert.icon == icon %}selected{% endif %}">
+                                            <input type="radio" name="icon" value="{{ icon }}" 
+                                                   {% if expert.icon == icon %}checked{% endif %}>
+                                            <span class="avatar-icon">{{ icon|safe }}</span>
+                                        </label>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                
+                                <!-- 欢迎语 -->
+                                <div class="mb-2">
+                                    <label class="form-label mb-1">欢迎语</label>
+                                    <textarea class="form-control form-control-sm" name="description" rows="3"
+                                              placeholder="专家的自我介绍欢迎语...">{{ expert.description or '' }}</textarea>
+                                </div>
+                                
+                                <!-- 其他信息 -->
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6">
+                                        <div class="mb-1">
+                                            <label class="form-label mb-1">命令</label>
+                                            <input type="text" class="form-control form-control-sm" name="command" 
+                                                   value="{{ expert.command or '' }}" placeholder="/xxx">
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="mb-1">
+                                            <label class="form-label mb-1">排序</label>
+                                            <input type="number" class="form-control form-control-sm" name="sort_order" 
+                                                   value="{{ expert.sort_order or 0 }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 状态 -->
+                                <div class="mb-0">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="is_active" 
+                                               id="isActive{{ expert.id }}" {% if expert.is_active %}checked{% endif %}>
+                                        <label class="form-check-label" for="isActive{{ expert.id }}">启用该专家</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer py-2">
+                                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+                                <button type="submit" class="btn btn-sm btn-primary">保存修改</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}

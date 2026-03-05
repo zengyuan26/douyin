@@ -1,0 +1,124 @@
+{
+  "client_id": "CLIENT-食品-20260225-罗胖奶",
+  "client_name": "罗胖奶粉",
+  "industry": "食品行业",
+  "business_scope": "进口奶粉",
+  "created_at": "2026-02-25",
+  "updated_at": "2026-02-28",
+  "product_type": "standard",
+  "product_type_detail": {
+    "standard": ["进口奶粉零售"],
+    "non_standard": []
+  },
+  "owner_info": {
+    "name": "罗胖",
+    "gender": "男",
+    "age": 41,
+    "hometown": "湖北咸宁",
+    "business_location": "重庆",
+    "entrepreneurship": "11年进口奶粉、红酒等进口食品贸易经验"
+  },
+  "basic_info": {
+    "client_type": "product",
+    "geographic_scope": "跨区域",
+    "brand_type": "personal",
+    "description": "进口奶粉零售，核心优势：货源正宗、渠道好",
+    "target_cities": ["全国"],
+    "language_style": "普通话"
+  },
+  "contact": {
+    "owner": "罗胖",
+    "phone": "电话",
+    "wechat": "微信"
+  },
+  "brand": {
+    "brand_name": "罗胖奶粉",
+    "slogan": "货源正宗，渠道好",
+    "core_advantage": "货源正宗、渠道好",
+    "logo": {
+      "has": false,
+      "path": "",
+      "description": ""
+    },
+    "spokesperson": {
+      "has": true,
+      "name": "罗胖",
+      "type": "owner",
+      "description": "创始人亲自出镜，11年行业经验"
+    }
+  },
+  "products": [
+    {
+      "name": "进口奶粉",
+      "sku": "IMPORTED-MILK-001",
+      "price": "零售价",
+      "features": [
+        "货源正宗",
+        "渠道正规",
+        "价格优势"
+      ],
+      "images": [
+        "产品资料/进口奶粉.jpg"
+      ],
+      "packaging": {
+        "type": "原装",
+        "size": "规格",
+        "materials": []
+      }
+    }
+  ],
+  "marketing_materials": {
+    "catalog": [],
+    "flyer": [],
+    "video_intro": [],
+    "case_studies": []
+  },
+  "assets_for_content": {
+    "design_reference": {
+      "style": "专业可信",
+      "color_scheme": ["蓝色", "白色"],
+      "fonts": [],
+      "mood": "专业、可信",
+      "references": []
+    },
+    "product_images": {
+      "finished_products": [],
+      "raw_materials": [],
+      "production_process": []
+    },
+    "persona": {
+      "spokesperson": {
+        "name": "罗胖",
+        "age": 41,
+        "appearance": "中年男性",
+        "personality": "实在、专业、诚信",
+        "voice": "浑厚有力",
+        "images": [],
+        "videos": []
+      }
+    },
+    "scene_images": {
+      "shop": [],
+      "production_workshop": [],
+      "market": [],
+      "home_kitchen": []
+    }
+  },
+  "content_needs": {
+    "primary_keywords": [
+      "进口奶粉",
+      "奶粉推荐",
+      "宝宝奶粉",
+      "奶粉哪个牌子好"
+    ],
+    "content_types": [
+      "图文",
+      "短视频"
+    ],
+    "posting_frequency": "daily",
+    "main_platforms": [
+      "抖音"
+    ]
+  },
+  "notes": "跨区域业务，个人IP，11年行业经验，目标客户：C端宝爸宝妈"
+}

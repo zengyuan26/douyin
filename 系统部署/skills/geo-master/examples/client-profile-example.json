@@ -1,0 +1,85 @@
+{
+  "client_profile": {
+    "id": "CP-2025-0212-001",
+    "created_at": "2025-02-12T10:30:00Z",
+    "updated_at": "2025-02-12T10:30:00Z",
+    
+    "basic_info": {
+      "client_type": "service",
+      "client_type_detail": "本地生活服务-小儿推拿",
+      "industry": "母婴护理",
+      "description": "成都本地专业小儿推拿服务机构，提供上门和到店服务"
+    },
+    
+    "geographic": {
+      "scope": "local",
+      "scope_detail": "仅服务成都市区",
+      "local_focus": true,
+      "target_cities": ["成都"],
+      "target_districts": ["武侯区", "高新区", "锦江区"]
+    },
+    
+    "brand": {
+      "personal_brand": true,
+      "personal_brand_detail": "创始人个人IP-张小儿推拿师",
+      "company_brand": true,
+      "company_brand_detail": "XX小儿推拿馆",
+      "brand_priority": "both",
+      "brand_name": "XX小儿推拿馆"
+    },
+    
+    "language_style": {
+      "primary_language": "sichuan",
+      "dialect_detail": "四川话",
+      "dialect_ratio": "dominant",
+      "dialect_ratio_detail": "70%四川话+30%普通话",
+      "target_audience_age": "young",
+      "special_needs": ""
+    },
+    
+    "product_service": {
+      "type": "solution",
+      "price_range": "medium",
+      "unit_price": "200-500元/次",
+      "seasonal": false,
+      "seasonal_detail": {}
+    },
+    
+    "delivery": {
+      "mode": "hybrid",
+      "frequency": "recurring",
+      "unit_price": ""
+    },
+    
+    "goals": {
+      "primary": "conversion",
+      "secondary": ["traffic", "brand"],
+      "timeline": "medium",
+      "budget_level": "medium"
+    },
+    
+    "resources": {
+      "has_team": true,
+      "team_size": "3人（创始人+2技师）",
+      "content_frequency": "daily",
+      "has_references": true,
+      "reference_accounts": ["@XX推拿", "@成都母婴"]
+    },
+    
+    "content_style": {
+      "preferred_style": ["专业严肃型", "故事叙述型"],
+      "notes": "强调专业性和真实案例"
+    }
+  },
+  
+  "recommendations": {
+    "suggested_skill": "douyin",
+    "priority_keywords": ["小儿推拿", "成都小儿推拿", "宝宝推拿"],
+    "content_strategy": "本地化内容为主，强调专业性和真实案例",
+    "notes": [
+      "建议使用四川话增强本地亲和力",
+      "重点打造创始人个人IP",
+      "强调到店引流和上门服务"
+    ]
+  }
+}

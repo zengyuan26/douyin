@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}行业管理 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- 页面标题 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1">行业管理</h4>
+                    <p class="text-muted mb-0">管理客户所属的行业分类，如食品行业、本地服务、教育培训等</p>
+                </div>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addIndustryModal">
+                    <i class="bi bi-plus-lg me-1"></i>新增行业
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 行业卡片列表 -->
+    <div class="row g-4">
+        {% for industry in industries %}
+        <div class="col-md-6 col-lg-4">
+            <div class="industry-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="industry-icon">
+                        {{ industry.icon or '📦' }}
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editIndustryModal{{ industry.id }}">编辑</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{{ url_for('admin.delete_industry', id=industry.id) }}">删除</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <h5 class="industry-name">{{ industry.name }}</h5>
+                <div class="industry-slug">{{ industry.slug }}</div>
+                <p class="industry-desc">{{ industry.description or '暂无描述' }}</p>
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                    <small class="text-muted">排序: {{ industry.sort_order }}</small>
+                    <span class="badge bg-light text-dark">{{ industry.clients.count() }} 个客户</span>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-inbox d-block mb-2" style="font-size: 48px;"></i>
+                <h5>暂无行业数据</h5>
+                <p>点击上方按钮添加第一个行业</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- 预设行业 -->
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="section-card">
+                <div class="section-header">
+                    <h5 class="section-title"><i class="bi bi-stars me-2"></i>预设行业分类</h5>
+                </div>
+                <div class="section-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-center p-3 border rounded">
+                                <span class="fs-3 me-3">🍎</span>
+                                <div>
+                                    <h6 class="mb-0">食品行业</h6>
+                                    <small class="text-muted">食品生产、加工、销售</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-center p-3 border rounded">
+                                <span class="fs-3 me-3">🏠</span>
+                                <div>
+                                    <h6 class="mb-0">本地服务</h6>
+                                    <small class="text-muted">家政、维修、本地生活</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-center p-3 border rounded">
+                                <span class="fs-3 me-3">📚</span>
+                                <div>
+                                    <h6 class="mb-0">教育培训</h6>
+                                    <small class="text-muted">教育、培训、知识付费</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-center p-3 border rounded">
+                                <span class="fs-3 me-3">🛍️</span>
+                                <div>
+                                    <h6 class="mb-0">电商零售</h6>
+                                    <small class="text-muted">线上电商、线下零售</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-center p-3 border rounded">
+                                <span class="fs-3 me-3">🛒</span>
+                                <div>
+                                    <h6 class="mb-0">零售批发</h6>
+                                    <small class="text-muted">零售批发相关</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-center p-3 border rounded">
+                                <span class="fs-3 me-3">📦</span>
+                                <div>
+                                    <h6 class="mb-0">其他</h6>
+                                    <small class="text-muted">其他行业</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增行业 Modal -->
+<div class="modal fade" id="addIndustryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新增行业</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.add_industry') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">行业名称</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Slug (标识)</label>
+                        <input type="text" class="form-control" name="slug" placeholder="如: food" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">图标 (emoji)</label>
+                        <input type="text" class="form-control" name="icon" placeholder="如: 🍎">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea class="form-control" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">排序</label>
+                        <input type="number" class="form-control" name="sort_order" value="10">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

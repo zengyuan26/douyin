@@ -1,0 +1,160 @@
+{
+  "client_id": "CLIENT-本地-20260225-佑爱家",
+  "client_name": "佑爱家政",
+  "industry": "本地服务",
+  "sub_industry": "家政",
+  "created_at": "2026-02-25",
+  "updated_at": "2026-02-27",
+  "basic_info": {
+    "client_type": "service",
+    "product_type": "non_standard",
+    "geographic_scope": "local",
+    "brand_type": "both",
+    "business_scope": {
+      "primary": "清洁服务",
+      "other": ["家政服务", "开锁", "清洗空调", "开荒", "清洗烟机", "除甲醛"]
+    },
+    "description": "清洁服务、家政服务、开锁、清洗空调、开荒、清洗烟机、除甲醛",
+    "target_cities": [
+      "南漳县"
+    ],
+    "language_style": "普通话"
+  },
+  "business_info": {
+    "business_model": "本地经营",
+    "target_customers": [
+      "家庭",
+      "机关单位",
+      "餐馆",
+      "食堂"
+    ],
+    "delivery_service": false,
+    "daily_output": "",
+    "core_advantages": []
+  },
+  "contact": {
+    "owner": "周承诚",
+    "phone": "13343578728",
+    "wechat": ""
+  },
+  "brand": {
+    "brand_name": "佑爱家政",
+    "slogan": "品牌 slogan",
+    "logo": {
+      "has": true,
+      "path": "品牌资料/logo.png",
+      "description": "Logo 描述"
+    },
+    "spokesperson": {
+      "has": false,
+      "name": "代言人姓名",
+      "type": "owner/celebrity/staff",
+      "description": "代言人描述"
+    }
+  },
+  "products": [
+    {
+      "name": "家政服务",
+      "sku": "SKU-001",
+      "price": "价格",
+      "features": [
+        "特点1",
+        "特点2"
+      ],
+      "images": [
+        "产品资料/产品1.jpg"
+      ],
+      "packaging": {
+        "type": "包装类型",
+        "size": "规格",
+        "materials": [
+          "包装设计/包装.jpg"
+        ]
+      }
+    }
+  ],
+  "marketing_materials": {
+    "catalog": [
+      "宣传物料/产品目录.jpg"
+    ],
+    "flyer": [
+      "宣传物料/宣传单.jpg"
+    ],
+    "video_intro": [
+      "宣传物料/品牌介绍.mp4"
+    ],
+    "case_studies": [
+      "参考案例/好评.jpg"
+    ]
+  },
+  "assets_for_content": {
+    "design_reference": {
+      "style": "设计风格",
+      "color_scheme": [
+        "主色调"
+      ],
+      "fonts": [
+        "字体"
+      ],
+      "mood": "氛围关键词",
+      "references": [
+        "参考案例/"
+      ]
+    },
+    "product_images": {
+      "finished_products": [
+        "产品资料/"
+      ],
+      "raw_materials": [
+        "产品资料/原料/"
+      ],
+      "production_process": [
+        "产品资料/制作过程/"
+      ]
+    },
+    "persona": {
+      "spokesperson": {
+        "name": "人物名称",
+        "age": "年龄",
+        "appearance": "外貌描述",
+        "personality": "性格特点",
+        "voice": "声音特点",
+        "images": [
+          "人物形象/照片.jpg"
+        ],
+        "videos": [
+          "人物形象/视频.mp4"
+        ]
+      }
+    },
+    "scene_images": {
+      "shop": [
+        "场景素材/店铺.jpg"
+      ],
+      "production_workshop": [
+        "场景素材/车间.jpg"
+      ],
+      "market": [
+        "场景素材/集市.jpg"
+      ],
+      "home_kitchen": [
+        "场景素材/家庭.jpg"
+      ]
+    }
+  },
+  "content_needs": {
+    "primary_keywords": [
+      "家政服务"
+    ],
+    "content_types": [
+      "图文",
+      "短视频"
+    ],
+    "posting_frequency": "daily/weekly",
+    "main_platforms": [
+      "抖音",
+      "小红书"
+    ]
+  },
+  "notes": "清洁服务、家政服务、开锁、清洗空调、开荒、清洗烟机 | 目标客户：家庭、机关单位、餐馆、酒店等 | 本地经营：南漳县"
+}

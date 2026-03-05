@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI棱镜 - 棱镜AI内容营销系统{% endblock %}</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/apple-design-system.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <style>
+        /* =====================================================
+           导航栏增强样式 - Apple美学深度定制
+           ===================================================== */
+        
+        /* 导航栏容器 - 毛玻璃效果 */
+        .navbar {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.92) !important;
+            border-bottom: 1px solid var(--color-border-light) !important;
+            box-shadow: none !important;
+            height: var(--navbar-height);
+            padding: 0 var(--spacing-lg);
+        }
+        
+        /* Logo区域 */
+        .navbar-brand {
+            font-weight: 600;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        
+        .navbar-brand .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--color-primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: none;
+            transition: transform var(--transition-fast);
+        }
+        
+        .navbar-brand:hover .logo-icon {
+            transform: scale(1.05);
+        }
+        
+        .navbar-brand .logo-icon i {
+            font-size: 18px;
+            color: white;
+        }
+        
+        .navbar-brand .logo-text {
+            color: var(--color-text-primary);
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+        
+        /* 导航链接 - 悬浮态 */
+        .nav-link {
+            font-weight: 500;
+            padding: 8px 14px !important;
+            border-radius: 8px;
+            margin: 0 2px;
+            transition: all var(--transition-fast);
+            color: var(--color-text-primary) !important;
+            font-size: 14px;
+            position: relative;
+        }
+        
+        .nav-link:hover {
+            background: var(--color-bg-secondary);
+            color: var(--color-primary) !important;
+        }
+        
+        .nav-link.active {
+            background: var(--color-bg-secondary);
+            color: var(--color-primary) !important;
+        }
+        
+        /* 活跃状态指示器 */
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 2px;
+            background: var(--color-primary);
+            border-radius: 1px;
+        }
+        
+        /* 管理员专用链接 */
+        .nav-link-admin {
+            background: transparent;
+            color: var(--color-primary) !important;
+        }
+        
+        .nav-link-admin:hover {
+            background: var(--color-bg-secondary);
+            box-shadow: none;
+        }
+        
+        /* 用户菜单 - 精致悬浮卡片 */
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            background: transparent;
+            border-radius: 10px;
+            border: 1px solid var(--color-border-medium);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        
+        .user-menu:hover {
+            background: var(--color-bg-secondary);
+            border-color: var(--color-border-strong);
+        }
+        
+        .user-menu .user-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0, 122, 255, 0.3);
+        }
+        
+        .user-menu .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .user-menu .user-name {
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--color-text-primary);
+            line-height: 1.2;
+        }
+        
+        .user-menu .user-role {
+            font-size: 11px;
+            color: var(--color-text-tertiary);
+            line-height: 1.2;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* 下拉菜单 - 精致阴影 */
+        .dropdown-menu {
+            border: 1px solid var(--color-border-light);
+            border-radius: 14px;
+            box-shadow: var(--shadow-xl);
+            padding: 8px;
+            margin-top: 10px;
+            background: var(--color-bg-primary);
+            min-width: 200px;
+        }
+        
+        .dropdown-item {
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-weight: 500;
+            transition: all var(--transition-fast);
+            margin: 2px 0;
+            font-size: 14px;
+            color: var(--color-text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .dropdown-item:hover {
+            background: var(--color-bg-secondary);
+            color: var(--color-primary);
+        }
+        
+        .dropdown-item i {
+            font-size: 16px;
+            color: var(--color-text-secondary);
+            width: 20px;
+            text-align: center;
+        }
+        
+        .dropdown-item:hover i {
+            color: var(--color-primary);
+        }
+        
+        /* 客户端切换下拉菜单 */
+        .client-dropdown .dropdown-toggle {
+            background: transparent;
+            border: 1px solid var(--color-border-medium);
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-weight: 500;
+            transition: all var(--transition-fast);
+            font-size: 14px;
+            color: var(--color-text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .client-dropdown .dropdown-toggle:hover {
+            background: var(--color-bg-secondary);
+            border-color: var(--color-border-strong);
+        }
+        
+        .client-dropdown .dropdown-toggle::after {
+            margin-left: 6px;
+        }
+        
+        /* 弹窗样式 - macOS风格 */
+        .modal-content {
+            border: 1px solid var(--color-border-light);
+            border-radius: 16px;
+            box-shadow: var(--shadow-2xl);
+            overflow: hidden;
+        }
+        
+        .modal-header {
+            border-bottom: 1px solid var(--color-border-light);
+            padding: 20px 24px;
+            background: var(--color-bg-primary);
+        }
+        
+        .modal-title {
+            font-weight: 600;
+            font-size: 17px;
+            color: var(--color-text-primary);
+        }
+        
+        .modal-body {
+            padding: 24px;
+            background: var(--color-bg-primary);
+        }
+        
+        .modal-footer {
+            border-top: 1px solid var(--color-border-light);
+            padding: 16px 24px;
+            background: var(--color-bg-secondary);
+        }
+        
+        .btn-close {
+            opacity: 0.5;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all var(--transition-fast);
+        }
+        
+        .btn-close:hover {
+            opacity: 1;
+            background: var(--color-bg-tertiary);
+        }
+        
+        /* 表单样式 - 深度定制 */
+        .form-control, .form-select {
+            border: 1px solid var(--color-border-medium);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 14px;
+            background: var(--color-bg-secondary);
+            color: var(--color-text-primary);
+            transition: all var(--transition-fast);
+        }
+        
+        .form-control:hover, .form-select:hover {
+            border-color: var(--color-border-strong);
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            outline: none;
+        }
+        
+        .form-control::placeholder {
+            color: var(--color-text-quaternary);
+        }
+        
+        .form-label {
+            font-weight: 500;
+            color: var(--color-text-primary);
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        
+        /* 按钮样式 - Apple风格 */
+        .btn-primary {
+            background: var(--color-primary);
+            border: none;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all var(--transition-fast);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary:hover {
+            background: var(--color-primary-dark);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-medium);
+            color: var(--color-text-primary);
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all var(--transition-fast);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--color-bg-tertiary);
+            border-color: var(--color-border-strong);
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border-light);
+            border-radius: 14px;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        /* 表格样式 */
+        .table {
+            --bs-table-bg: transparent;
+        }
+        
+        .table thead th {
+            background: var(--color-bg-secondary);
+            border-bottom: 1px solid var(--color-border-light);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--color-text-tertiary);
+            padding: 14px 16px;
+        }
+        
+        .table tbody tr {
+            border-bottom: 1px solid var(--color-border-light);
+        }
+        
+        .table tbody tr:hover {
+            background: var(--color-bg-secondary) !important;
+        }
+        
+        .table td {
+            padding: 14px 16px;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--color-border-light);
+            font-size: 14px;
+            color: var(--color-text-primary);
+        }
+        
+        /* 主内容区 */
+        .main-content {
+            min-height: calc(100vh - var(--navbar-height));
+            background: var(--color-bg-secondary);
+        }
+        
+        /* Toast 消息提示 */
+        .toast-container {
+            z-index: 9999;
+        }
+        
+        .toast {
+            border: none;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .toast-header {
+            border-radius: 12px 12px 0 0 !important;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--color-border-light);
+        }
+        
+        .toast-body {
+            padding: 14px 16px;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        /* 个人资料头像大尺寸 */
+        .profile-avatar-large {
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 32px;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .navbar {
+                height: 56px;
+                padding: 0 12px;
+            }
+            
+            .user-menu .user-info {
+                display: none;
+            }
+            
+            .navbar-brand .logo-text {
+                display: none;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- 顶部导航 -->
+    {% if current_user.is_authenticated %}
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
+        <div class="container-fluid px-4">
+            <!-- Logo -->
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.index') }}">
+                <div class="logo-icon">
+                    <i class="bi bi-gem text-white"></i>
+                </div>
+                <span class="logo-text">AI棱镜</span>
+            </a>
+            
+            <!-- 客户端切换（管理中心不显示） -->
+            {% if session.get('current_client_name') and not (hide_client_switcher|default(false)) and not (request.endpoint and 'admin' in request.endpoint) %}
+            <div class="dropdown client-dropdown me-3">
+                <button class="btn dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-building me-2"></i>
+                    {{ session.get('current_client_name') }}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><h6 class="dropdown-header">切换客户</h6></li>
+                    {% if current_user.role == 'channel' and current_user.channels.first() %}
+                    {% for client in current_user.channels.first().clients.all() %}
+                    <li><a class="dropdown-item" href="{{ url_for('main.client_select', id=client.id) }}"><i class="bi bi-building"></i>{{ client.name }}</a></li>
+                    {% endfor %}
+                    {% endif %}
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('main.clients') }}"><i class="bi bi-plus-circle"></i> 管理客户</a></li>
+                </ul>
+            </div>
+            {% endif %}
+            
+            <!-- 导航折叠按钮 -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border: none; padding: 8px;">
+                <i class="bi bi-list"></i>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'main.workspace' %}active{% endif %}" href="{{ url_for('main.workspace') }}">
+                            <i class="bi bi-grid-1x2 me-1"></i>工作台
+                        </a>
+                    </li>
+                    {% if current_user.role == 'super_admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link nav-link-admin {% if request.endpoint and 'admin' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.dashboard') }}">
+                            <i class="bi bi-gear me-1"></i>管理中心
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if current_user.is_channel() %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'main.clients' %}active{% endif %}" href="{{ url_for('main.clients') }}">
+                            <i class="bi bi-building me-1"></i>客户管理
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                <!-- 用户信息 -->
+                <div class="d-flex align-items-center">
+                    <div class="user-menu">
+                        <div class="user-avatar">
+                            {{ (current_user.nickname or current_user.username or '用户')[0] }}
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name">{{ current_user.nickname or current_user.username or '用户' }}</span>
+                            <span class="user-role">
+                                {% if current_user.role == 'super_admin' %}
+                                <i class="bi bi-shield-check text-success"></i> 超级管理员
+                                {% else %}
+                                <i class="bi bi-person-badge text-primary"></i> 渠道商
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+    
+    <!-- 主内容区 -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Flash 消息 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        {% for category, message in messages %}
+        <div class="toast show" role="alert">
+            <div class="toast-header bg-{{ 'danger' if category == 'danger' else 'success' if category == 'success' else 'info' if category == 'info' else 'warning' }}" style="border-radius: 12px 12px 0 0;">
+                <strong class="me-auto">
+                    {% if category == 'danger' %}<i class="bi bi-exclamation-triangle me-1"></i>
+                    {% elif category == 'success' %}<i class="bi bi-check-circle me-1"></i>
+                    {% elif category == 'info' %}<i class="bi bi-info-circle me-1"></i>
+                    {% else %}<i class="bi bi-exclamation-circle me-1"></i>{% endif %}
+                </strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">{{ message }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    
+    <!-- 个人资料弹窗 -->
+    <div class="modal fade" id="profileModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">个人资料</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <div id="profileAvatar" class="profile-avatar-large">
+                            {{ current_user.nickname[0] if current_user.nickname else current_user.username[0] }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">昵称</label>
+                        <input type="text" class="form-control" id="profileNickname" value="{{ current_user.nickname or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">性别</label>
+                        <select class="form-select" id="profileGender">
+                            <option value="">请选择</option>
+                            <option value="male" {% if current_user.gender == 'male' %}selected{% endif %}>男</option>
+                            <option value="female" {% if current_user.gender == 'female' %}selected{% endif %}>女</option>
+                            <option value="other" {% if current_user.gender == 'other' %}selected{% endif %}>其他</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
+                        <small class="text-muted">用户名不可修改</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveProfileBtn">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 修改密码弹窗 -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">修改密码</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">新密码</label>
+                        <input type="password" class="form-control" id="newPassword" placeholder="请输入新密码">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">确认新密码</label>
+                        <input type="password" class="form-control" id="confirmNewPassword" placeholder="请再次输入新密码">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="changePassword()">确认修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+    let profileModal;
+    
+    // 显示个人资料弹窗
+    function showProfileModal() {
+        console.log('Opening profile modal');
+        const modalEl = document.getElementById('profileModal');
+        if (!profileModal) {
+            profileModal = new bootstrap.Modal(modalEl);
+        }
+        
+        // 绑定保存按钮事件
+        const saveBtn = document.getElementById('saveProfileBtn');
+        if (saveBtn) {
+            saveBtn.onclick = function() {
+                console.log('Save button clicked');
+                updateProfile();
+            };
+        }
+        
+        profileModal.show();
+        console.log('Profile modal should be visible now');
+    }
+    
+    // 更新个人资料
+    function updateProfile() {
+        const nickname = document.getElementById('profileNickname').value.trim();
+        const gender = document.getElementById('profileGender').value;
+        
+        console.log('Saving profile:', { nickname, gender });
+        
+        fetch('/api/user/profile', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                nickname: nickname,
+                gender: gender
+            })
+        })
+        .then(res => {
+            console.log('Response status:', res.status);
+            return res.json();
+        })
+        .then(data => {
+            console.log('Response data:', data);
+            if (data.success) {
+                alert('保存成功');
+                profileModal.hide();
+                location.reload();
+            } else {
+                alert(data.message || '保存失败');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            alert('保存失败，请重试');
+        });
+    }
+    
+    // 实时更新头像预览
+    document.getElementById('profileNickname').addEventListener('input', function(e) {
+        const nickname = e.target.value.trim();
+        const avatar = document.getElementById('profileAvatar');
+        if (nickname) {
+            avatar.textContent = nickname[0];
+        } else {
+            avatar.textContent = '{{ current_user.username[0] }}';
+        }
+    });
+    
+    // 显示修改密码弹窗
+    function showChangePasswordModal() {
+        const modalEl = document.getElementById('changePasswordModal');
+        const modal = new bootstrap.Modal(modalEl);
+        // 清空之前的输入
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmNewPassword').value = '';
+        modal.show();
+    }
+    
+    // 修改密码
+    function changePassword() {
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmNewPassword').value;
+        
+        if (!newPassword) {
+            alert('请输入新密码');
+            return;
+        }
+        
+        if (newPassword.length < 6) {
+            alert('密码长度至少6位');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            alert('两次输入的密码不一致');
+            return;
+        }
+        
+        fetch('/api/user/change-password', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                password: newPassword
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('密码修改成功');
+                bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+            } else {
+                alert(data.message || '修改失败');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('修改失败，请重试');
+        });
+    }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
