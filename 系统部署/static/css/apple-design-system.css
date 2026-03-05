@@ -45,15 +45,15 @@
     --font-family-mono: "SF Mono", "Monaco", "Menlo", monospace;
     
     /* 字号层级 - 基于黄金比例 */
-    --font-size-xs: 11px;
-    --font-size-sm: 12px;
-    --font-size-base: 14px;
-    --font-size-md: 15px;
-    --font-size-lg: 17px;
-    --font-size-xl: 20px;
-    --font-size-2xl: 22px;
-    --font-size-3xl: 28px;
-    --font-size-4xl: 34px;
+    --font-size-xs: 13px;
+    --font-size-sm: 14px;
+    --font-size-base: 16px;
+    --font-size-md: 17px;
+    --font-size-lg: 19px;
+    --font-size-xl: 22px;
+    --font-size-2xl: 24px;
+    --font-size-3xl: 30px;
+    --font-size-4xl: 36px;
     
     /* 字重层级 */
     --font-weight-regular: 400;
@@ -127,12 +127,12 @@
     --content-max-width: 1200px;
     
     /* ---------- 图标尺寸 ---------- */
-    --icon-size-xs: 14px;
-    --icon-size-sm: 16px;
-    --icon-size-base: 18px;
-    --icon-size-lg: 24px;
-    --icon-size-xl: 32px;
-    --icon-size-2xl: 48px;
+    --icon-size-xs: 18px;
+    --icon-size-sm: 20px;
+    --icon-size-base: 24px;
+    --icon-size-lg: 28px;
+    --icon-size-xl: 36px;
+    --icon-size-2xl: 52px;
 }
 
 /* ==================== 重置与基础样式 ==================== */
@@ -143,7 +143,7 @@
 }
 
 html {
-    font-size: 16px;
+    font-size: 18px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
