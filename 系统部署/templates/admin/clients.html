@@ -111,7 +111,31 @@
         <div class="col-12">
             <div class="table-card">
                 <div class="table-header">
-                    <h5 class="table-title"><i class="bi bi-list-ul me-2"></i>客户列表</h5>
+                    <h5 class="table-title mb-0"><i class="bi bi-list-ul me-2"></i>客户列表</h5>
+                    {% if pagination %}
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-muted small d-none d-md-inline">共 {{ pagination.total }} 条</span>
+                        <nav aria-label="客户列表分页-顶部">
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                                    <a class="page-link" href="{{ url_for('admin.clients', page=pagination.prev_num) if pagination.has_prev else '#' }}">上一页</a>
+                                </li>
+                                {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                    {% if p %}
+                                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('admin.clients', page=p) }}">{{ p }}</a>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                                    {% endif %}
+                                {% endfor %}
+                                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                                    <a class="page-link" href="{{ url_for('admin.clients', page=pagination.next_num) if pagination.has_next else '#' }}">下一页</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
@@ -177,30 +201,6 @@
                         </tbody>
                     </table>
                 </div>
-                {% if pagination %}
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 py-2 border-top">
-                    <div class="text-muted small">共 {{ pagination.total }} 条，第 {{ pagination.page }}/{{ pagination.pages }} 页</div>
-                    <nav aria-label="客户列表分页">
-                        <ul class="pagination pagination-sm mb-0">
-                            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                                <a class="page-link" href="{{ url_for('admin.clients', page=pagination.prev_num) if pagination.has_prev else '#' }}">上一页</a>
-                            </li>
-                            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-                                {% if p %}
-                                <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                                    <a class="page-link" href="{{ url_for('admin.clients', page=p) }}">{{ p }}</a>
-                                </li>
-                                {% else %}
-                                <li class="page-item disabled"><span class="page-link">…</span></li>
-                                {% endif %}
-                            {% endfor %}
-                            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                                <a class="page-link" href="{{ url_for('admin.clients', page=pagination.next_num) if pagination.has_next else '#' }}">下一页</a>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
