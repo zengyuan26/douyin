@@ -2,6 +2,7 @@
 抖音营销专家系统 - 主应用
 """
 import logging
+import os
 from flask import Flask
 from flask_login import LoginManager
 from config import config
@@ -43,6 +44,10 @@ def create_app(config_name='default'):
     from routes.api import api as api_blueprint
     app.register_blueprint(api_blueprint, url_prefix='/api')
     
+    # 注册备份 API
+    from routes.backup_api import backup_api as backup_api_blueprint
+    app.register_blueprint(backup_api_blueprint, url_prefix='/api')
+    
     # 注册专家对话 API（基于 Skills 按需加载）
     from routes.expert_api import expert_api as expert_api_blueprint
     app.register_blueprint(expert_api_blueprint, url_prefix='/api/expert')
@@ -52,6 +57,17 @@ def create_app(config_name='default'):
     upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
     if not os.path.exists(upload_folder):
         os.makedirs(upload_folder)
+    
+    # 初始化定时备份服务
+    if os.environ.get('FLASK_RUN') or os.environ.get('WERKZEUG_RUN_MAIN'):
+        try:
+            from services.scheduler_service import scheduler_service
+            scheduler_service.start()
+            # 默认添加每日凌晨2点备份
+            scheduler_service.add_daily_backup(hour=2, minute=0)
+            logging.info("定时备份服务已启动")
+        except Exception as e:
+            logging.warning(f"定时备份服务启动失败: {e}")
     
     return app
 

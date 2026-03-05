@@ -526,7 +526,7 @@ Expert (专家)
 ### Phase 5：系统完善
 - [ ] 知识库系统
 - [ ] 文件上传/导出
-- [ ] 数据备份
+- [x] 数据备份
 - [ ] 性能优化
 
 ---
@@ -969,3 +969,55 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4
 - 支持 `[[A]]` 和 `[A]` 两种选项格式
 - 选项按钮采用 Apple 设计风格，与系统整体一致
 - 后端无需修改，复用现有 Skills API
+
+---
+
+## v3.2.0 更新内容 (2026-03-05)
+
+### 新增功能
+
+**数据库定时自动备份**
+
+- 每日凌晨 2:00 自动备份数据库
+- 备份文件保存在 `instance/backups/` 目录
+- 自动清理旧备份，保留最近 10 份
+- 支持手动备份和恢复
+
+### 技术实现
+
+- 新增 `services/backup_service.py` - 数据库备份服务
+- 新增 `services/scheduler_service.py` - 定时任务调度服务
+- 新增 `routes/backup_api.py` - 备份管理 API
+- 使用 APScheduler 实现定时任务
+- 在应用启动时自动初始化备份服务
+
+### API 接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/backup/create` | POST | 手动创建备份 |
+| `/api/backup/list` | GET | 获取备份列表 |
+| `/api/backup/restore/<filename` | POST | 恢复备份 |
+| `/api/backup/jobs` | GET | 获取定时任务列表 |
+| `/api/backup/jobs` | POST | 添加定时任务 |
+| `/api/backup/jobs/<job_id>` | DELETE | 删除定时任务 |
+
+### 使用方法
+
+```bash
+# 备份目录
+instance/backups/
+
+# 备份文件命名格式
+douyin_system_YYYYMMDD_HHMMSS.db
+```
+
+### 配置说明
+
+默认配置：
+- 备份目录：`系统部署/instance/backups/`
+- 保留数量：10 份
+- 备份时间：每日凌晨 2:00
+
+可在 `services/backup_service.py` 中修改默认配置。
+
