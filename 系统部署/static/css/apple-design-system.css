@@ -157,6 +157,7 @@ body {
     background-color: var(--color-bg-secondary);
     min-height: 100vh;
     overflow-x: hidden;
+    overflow-y: auto;
 }
 
 /* 优化文字渲染 */
@@ -541,11 +542,11 @@ textarea.form-control {
     position: relative;
     display: flex;
     align-items: center;
-    gap: var(--spacing-base);
-    padding: var(--spacing-lg);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
     background-color: var(--color-bg-primary);
     border: 1px solid var(--color-border-light);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
     transition: all var(--transition-fast);
     overflow: hidden;
@@ -654,7 +655,7 @@ textarea.form-control {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-base) var(--spacing-lg);
+    padding: 12px 16px;
     border-bottom: 1px solid var(--color-border-light);
 }
 
