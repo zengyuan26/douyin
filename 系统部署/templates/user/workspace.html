@@ -213,8 +213,9 @@
         
         .expert-list-item:hover {
             background: var(--color-bg-secondary);
+            transform: translateX(4px);
         }
-        
+
         .expert-list-item.active {
             background: var(--color-bg-primary);
             border-color: var(--color-border-light);
@@ -2461,7 +2462,7 @@
         const parsedContent = parseOptionsInContent(content);
 
         const html = `
-            <div class="wechat-message ${role}">
+            <div class="wechat-message ${role} animate-fade-in-up">
                 <div class="message-avatar ${role}">${icon}</div>
                 <div class="message-content">
                     <div class="message-bubble ${role}">${parsedContent}</div>

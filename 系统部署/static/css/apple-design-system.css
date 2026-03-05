@@ -1511,3 +1511,596 @@ textarea.form-control {
     user-select: none;
     -webkit-user-select: none;
 }
+
+/* ==================== 动画效果系统 ==================== */
+
+/* 淡入动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* 淡入上移动画 */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 淡入下移动画 */
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 淡入左移动画 */
+@keyframes fadeInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 淡入右移动画 */
+@keyframes fadeInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 缩放淡入动画 */
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 弹跳动画 */
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* 旋转加载动画 */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 闪烁动画 */
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* 摇摆动画 */
+@keyframes wiggle {
+    0%, 100% {
+        transform: rotate(-3deg);
+    }
+    50% {
+        transform: rotate(3deg);
+    }
+}
+
+/* 心跳动画 */
+@keyframes heartbeat {
+    0% {
+        transform: scale(1);
+    }
+    14% {
+        transform: scale(1.1);
+    }
+    28% {
+        transform: scale(1);
+    }
+    42% {
+        transform: scale(1.1);
+    }
+    70% {
+        transform: scale(1);
+    }
+}
+
+/* 涟漪扩散动画 */
+@keyframes ripple {
+    0% {
+        transform: scale(0);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+/* 打字机动画 */
+@keyframes typewriter {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+
+/* 渐变背景动画 */
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* ==================== 动画工具类 ==================== */
+
+/* 基础动画类 */
+.animate-fade-in {
+    animation: fadeIn 0.3s ease forwards;
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.4s ease forwards;
+}
+
+.animate-fade-in-down {
+    animation: fadeInDown 0.4s ease forwards;
+}
+
+.animate-fade-in-left {
+    animation: fadeInLeft 0.4s ease forwards;
+}
+
+.animate-fade-in-right {
+    animation: fadeInRight 0.4s ease forwards;
+}
+
+.animate-fade-in-scale {
+    animation: fadeInScale 0.3s ease forwards;
+}
+
+.animate-bounce {
+    animation: bounce 0.6s ease;
+}
+
+.animate-pulse {
+    animation: pulse 2s infinite;
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+.animate-wiggle {
+    animation: wiggle 0.5s ease;
+}
+
+.animate-heartbeat {
+    animation: heartbeat 1.5s ease infinite;
+}
+
+/* 延迟动画类 */
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+.delay-5 { animation-delay: 0.5s; }
+
+/* 按钮悬停动画 */
+.btn {
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 122, 255, 0.25);
+}
+
+.btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.15);
+}
+
+/* 主按钮特殊效果 */
+.btn-primary {
+    background: linear-gradient(135deg, #007aff 0%, #0056b3 100%);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #0080ff 0%, #0066c4 100%);
+    box-shadow: 0 8px 25px rgba(0, 122, 255, 0.35);
+}
+
+/* 卡片悬停动画 */
+.card {
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+}
+
+/* 链接悬停动画 */
+a, .link {
+    transition: all 0.2s ease;
+}
+
+a:hover, .link:hover {
+    color: var(--color-primary-dark);
+}
+
+/* 输入框聚焦动画 */
+.form-control, .input {
+    transition: all 0.25s ease;
+    border-color: var(--color-border-medium);
+}
+
+.form-control:focus, .input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+    outline: none;
+}
+
+/* 下拉菜单动画 */
+.dropdown-menu {
+    animation: fadeInScale 0.2s ease;
+    transform-origin: top center;
+}
+
+/* 模态框动画 */
+.modal.fade .modal-dialog {
+    animation: fadeInScale 0.3s ease;
+}
+
+.modal.show .modal-dialog {
+    animation: fadeInScale 0.3s ease;
+}
+
+/* 标签页切换动画 */
+.nav-tabs .nav-link,
+.nav-pills .nav-link {
+    transition: all 0.25s ease;
+}
+
+.nav-tabs .nav-link:hover,
+.nav-pills .nav-link:hover {
+    border-color: transparent;
+    background: rgba(0, 122, 255, 0.08);
+}
+
+.nav-tabs .nav-link.active {
+    animation: fadeIn 0.3s ease;
+}
+
+/* 表格行悬停动画 */
+.table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background: rgba(0, 122, 255, 0.04);
+    transform: scale(1.01);
+}
+
+/* 列表项动画 */
+.list-group-item {
+    transition: all 0.25s ease;
+}
+
+.list-group-item:hover {
+    background: rgba(0, 122, 255, 0.04);
+    padding-left: calc(var(--spacing-base) + 4px);
+}
+
+/* 加载骨架屏动画 */
+.skeleton {
+    background: linear-gradient(90deg,
+        var(--color-bg-tertiary) 25%,
+        var(--color-bg-secondary) 50%,
+        var(--color-bg-tertiary) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+/* 消息气泡动画 */
+.message {
+    animation: fadeInUp 0.3s ease;
+}
+
+.message.sent {
+    animation: fadeInRight 0.3s ease;
+}
+
+.message.received {
+    animation: fadeInLeft 0.3s ease;
+}
+
+/* 打字效果（用于AI回复） */
+.typing-indicator {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.typing-indicator span {
+    width: 8px;
+    height: 8px;
+    background: var(--color-text-tertiary);
+    border-radius: 50%;
+    animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.typing-indicator span:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+/* 徽章动画 */
+.badge {
+    transition: all 0.2s ease;
+}
+
+.badge:hover {
+    transform: scale(1.1);
+}
+
+/* 开关动画 */
+.form-check-input {
+    transition: all 0.3s ease;
+}
+
+.form-check-input:checked {
+    background-color: var(--color-primary);
+    animation: pulse 0.3s ease;
+}
+
+/* 进度条动画 */
+.progress {
+    overflow: hidden;
+}
+
+.progress-bar {
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 工具提示动画 */
+.tooltip {
+    animation: fadeIn 0.2s ease;
+}
+
+/* 警告框动画 */
+.alert {
+    animation: fadeInDown 0.3s ease;
+}
+
+/* 分页动画 */
+.pagination .page-link {
+    transition: all 0.2s ease;
+}
+
+.pagination .page-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 侧边栏菜单动画 */
+.sidebar-menu-item {
+    transition: all 0.25s ease;
+    position: relative;
+}
+
+.sidebar-menu-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 100%;
+    background: rgba(0, 122, 255, 0.08);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    transition: width 0.25s ease;
+}
+
+.sidebar-menu-item:hover::before {
+    width: 3px;
+}
+
+.sidebar-menu-item:hover {
+    padding-left: calc(var(--spacing-base) + 4px);
+}
+
+/* 头像悬停动画 */
+.avatar {
+    transition: all 0.3s ease;
+}
+
+.avatar:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* 标签动画 */
+.tag, .label-tag {
+    transition: all 0.2s ease;
+}
+
+.tag:hover, .label-tag:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 滚动条美化动画 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-bg-secondary);
+    transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-full);
+    transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-quaternary);
+}
+
+/* 页面切换过渡 */
+.page-transition-enter {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.page-transition-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: all 0.3s ease;
+}
+
+.page-transition-exit {
+    opacity: 1;
+}
+
+.page-transition-exit-active {
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+/* 浮动元素动画 */
+.floating {
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* 涟漪点击效果 */
+.ripple-effect {
+    position: relative;
+    overflow: hidden;
+}
+
+.ripple-effect::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 50%;
+    left: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ripple-effect:active::after {
+    animation: ripple 0.6s ease-out;
+}
+
+/* 渐变文字动画 */
+.gradient-text {
+    background: linear-gradient(135deg, #007aff 0%, #5ac8fa 50%, #34c759 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 3s ease infinite;
+}
+
+/* 悬停时文字颜色渐变 */
+.gradient-text-hover {
+    background: linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-primary) 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    transition: all 0.3s ease;
+}
+
+.gradient-text-hover:hover {
+    background-position: right center;
+    animation: gradientShift 2s ease infinite;
+}
+
