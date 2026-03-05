@@ -107,48 +107,25 @@
     </div>
 
     <!-- 客户列表 -->
-    <div class="row g-3">
+    <div class="row g-2">
         <div class="col-12">
             <div class="table-card">
-                <div class="table-header">
+                <div class="table-header py-2">
                     <h5 class="table-title mb-0"><i class="bi bi-list-ul me-2"></i>客户列表</h5>
-                    {% if pagination %}
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="text-muted small d-none d-md-inline">共 {{ pagination.total }} 条</span>
-                        <nav aria-label="客户列表分页-顶部">
-                            <ul class="pagination pagination-sm mb-0">
-                                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                                    <a class="page-link" href="{{ url_for('admin.clients', page=pagination.prev_num) if pagination.has_prev else '#' }}">上一页</a>
-                                </li>
-                                {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-                                    {% if p %}
-                                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                                        <a class="page-link" href="{{ url_for('admin.clients', page=p) }}">{{ p }}</a>
-                                    </li>
-                                    {% else %}
-                                    <li class="page-item disabled"><span class="page-link">…</span></li>
-                                    {% endif %}
-                                {% endfor %}
-                                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                                    <a class="page-link" href="{{ url_for('admin.clients', page=pagination.next_num) if pagination.has_next else '#' }}">下一页</a>
-                                </li>
-                            </ul>
-                        </nav>
-                    </div>
-                    {% endif %}
+                    <span class="badge bg-secondary">{{ pagination.total }}条</span>
                 </div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
+                <div class="table-responsive" style="max-height: calc(100vh - 340px); overflow-y: auto;">
+                    <table class="table table-hover mb-0" style="font-size: 13px;">
+                        <thead style="position: sticky; top: 0; z-index: 1;">
                             <tr>
-                                <th style="width: 60px;">序号</th>
+                                <th style="width: 50px;">序号</th>
                                 <th>客户名称</th>
                                 <th>所属渠道</th>
                                 <th>行业</th>
                                 <th>业务类型</th>
                                 <th>创建时间</th>
                                 <th>状态</th>
-                                <th style="width: 120px;">操作</th>
+                                <th style="width: 100px;">操作</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -201,6 +178,30 @@
                         </tbody>
                     </table>
                 </div>
+                {% if pagination and pagination.pages > 1 %}
+                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-top" style="font-size: 12px;">
+                    <div class="text-muted">共 {{ pagination.total }} 条，第 {{ pagination.page }}/{{ pagination.pages }} 页</div>
+                    <nav aria-label="客户列表分页">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('admin.clients', page=pagination.prev_num) if pagination.has_prev else '#' }}">上一页</a>
+                            </li>
+                            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
+                                {% if p %}
+                                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('admin.clients', page=p) }}">{{ p }}</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                                {% endif %}
+                            {% endfor %}
+                            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('admin.clients', page=pagination.next_num) if pagination.has_next else '#' }}">下一页</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

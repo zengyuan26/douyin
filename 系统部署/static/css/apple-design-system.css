@@ -679,7 +679,7 @@ textarea.form-control {
 }
 
 .table thead th {
-    padding: var(--spacing-base) var(--spacing-lg);
+    padding: 8px 12px;
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
     text-transform: uppercase;
@@ -692,7 +692,7 @@ textarea.form-control {
 }
 
 .table tbody td {
-    padding: 14px var(--spacing-lg);
+    padding: 8px 12px;
     font-size: var(--font-size-base);
     color: var(--color-text-primary);
     background-color: var(--color-bg-primary);
