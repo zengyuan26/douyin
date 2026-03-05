@@ -1002,6 +1002,14 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4
 | `/api/backup/jobs` | POST | 添加定时任务 |
 | `/api/backup/jobs/<job_id>` | DELETE | 删除定时任务 |
 
+---
+
+## v3.2.1 更新内容 (2026-03-05)
+
+### UI 优化
+
+- 工作台左上角增加平台 Logo 和简称“AI棱镜”，统一品牌视觉
+
 ### 使用方法
 
 ```bash
