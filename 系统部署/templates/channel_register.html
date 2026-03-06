@@ -4,9 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>渠道商申请 - AI棱镜</title>
+    
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/apple-design-system.css') }}">
+    
     <style>
+        /* =====================================================
+           注册页面 - 双栏布局现代设计
+           ===================================================== */
+        
         * {
             margin: 0;
             padding: 0;
@@ -14,165 +24,583 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #f5f5f7;
+            font-family: var(--font-family-sans);
             min-height: 100vh;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .register-card {
-            background: #ffffff;
-            border: 1px solid rgba(0,0,0,0.08);
-            border-radius: 16px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-            width: 100%;
-            max-width: 380px;
+            background: #0a0a0f;
             overflow: hidden;
         }
         
-        .register-header {
-            padding: 28px 24px 20px;
-            text-align: center;
-            border-bottom: 1px solid rgba(0,0,0,0.06);
+        /* =====================================================
+           左侧品牌展示区
+           ===================================================== */
+        .register-brand-section {
+            flex: 1;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            overflow: hidden;
         }
         
-        .register-header .logo {
-            width: 44px;
-            height: 44px;
-            background: #007aff;
-            border-radius: 10px;
+        /* 动态背景效果 */
+        .brand-bg-effects {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+        
+        .brand-bg-effects::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 30%, rgba(0, 122, 255, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 70%, rgba(88, 166, 255, 0.1) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+        }
+        
+        .brand-bg-effects::after {
+            content: '';
+            position: absolute;
+            top: 20%;
+            right: -10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 122, 255, 0.3) 0%, transparent 70%);
+            filter: blur(80px);
+            animation: pulse 8s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(30px, 20px) rotate(5deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.1); }
+        }
+        
+        /* 装饰性光点 */
+        .floating-orbs {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            animation: orb-float 15s ease-in-out infinite;
+        }
+
+        .orb-1 {
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(0, 122, 255, 0.2) 0%, transparent 70%);
+            top: 10%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(88, 166, 255, 0.15) 0%, transparent 70%);
+            bottom: 20%;
+            right: 15%;
+            animation-delay: -5s;
+        }
+
+        .orb-3 {
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+            top: 40%;
+            right: 30%;
+            animation-delay: -10s;
+        }
+
+        /* 网格背景动画 */
+        .grid-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: grid-move 20s linear infinite;
+        }
+
+        @keyframes grid-move {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(60px, 60px); }
+        }
+
+        /* 浮动粒子 */
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            animation: particle-float 12s ease-in-out infinite;
+        }
+
+        .particle:nth-child(1) { left: 10%; top: 20%; animation-delay: 0s; animation-duration: 14s; }
+        .particle:nth-child(2) { left: 25%; top: 60%; animation-delay: -2s; animation-duration: 12s; }
+        .particle:nth-child(3) { left: 45%; top: 30%; animation-delay: -4s; animation-duration: 16s; }
+        .particle:nth-child(4) { left: 65%; top: 70%; animation-delay: -6s; animation-duration: 11s; }
+        .particle:nth-child(5) { left: 80%; top: 40%; animation-delay: -8s; animation-duration: 15s; }
+        .particle:nth-child(6) { left: 90%; top: 80%; animation-delay: -10s; animation-duration: 13s; }
+        .particle:nth-child(7) { left: 15%; top: 85%; animation-delay: -3s; animation-duration: 17s; }
+        .particle:nth-child(8) { left: 70%; top: 15%; animation-delay: -7s; animation-duration: 14s; }
+
+        @keyframes particle-float {
+            0%, 100% { transform: translateY(0) translateX(0); opacity: 0.6; }
+            25% { transform: translateY(-30px) translateX(10px); opacity: 1; }
+            50% { transform: translateY(-15px) translateX(-10px); opacity: 0.8; }
+            75% { transform: translateY(-40px) translateX(5px); opacity: 1; }
+        }
+
+        /* 扫描线效果 */
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(88, 166, 255, 0.5), transparent);
+            animation: scan 4s ease-in-out infinite;
+        }
+
+        @keyframes scan {
+            0%, 100% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        @keyframes orb-float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.05); }
+        }
+        
+        /* 品牌内容 */
+        .brand-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            color: white;
+            max-width: 480px;
+        }
+        
+        .brand-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #007AFF 0%, #58A6FF 100%);
+            border-radius: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 10px;
+            margin: 0 auto 32px;
+            box-shadow: 0 20px 60px rgba(0, 122, 255, 0.4);
+            animation: logo-float 6s ease-in-out infinite;
         }
         
-        .register-header .logo i {
-            font-size: 22px;
+        @keyframes logo-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .brand-logo i {
+            font-size: 40px;
             color: white;
         }
         
-        .register-header h3 {
+        .brand-title {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, #ffffff 0%, #a8c0ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .brand-tagline {
             font-size: 20px;
-            font-weight: 600;
-            color: #1d1d1f;
-            margin-bottom: 2px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 48px;
+            font-weight: 400;
         }
         
-        .register-header p {
-            color: #86868b;
+        .brand-features {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .brand-feature {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 15px;
+        }
+        
+        .brand-feature i {
+            font-size: 18px;
+            color: #58A6FF;
+        }
+        
+        /* 底部版权 */
+        .brand-footer {
+            position: absolute;
+            bottom: 32px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.4);
             font-size: 13px;
+            z-index: 2;
         }
         
-        .register-body {
-            padding: 20px 24px;
+        /* =====================================================
+           右侧注册表单区
+           ===================================================== */
+        .register-form-section {
+            width: 560px;
+            background: var(--color-bg-primary);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 48px;
+            position: relative;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+        
+        .form-container {
+            max-width: 440px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        
+        .form-header {
+            margin-bottom: 32px;
+        }
+        
+        .form-header h2 {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+        
+        .form-header p {
+            color: var(--color-text-tertiary);
+            font-size: 15px;
+        }
+        
+        /* 消息提示 */
+        .alert {
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .alert-danger {
+            background: rgba(255, 59, 48, 0.08);
+            color: var(--color-danger);
+        }
+        
+        .alert-success {
+            background: rgba(52, 199, 89, 0.08);
+            color: var(--color-success);
+        }
+        
+        /* 输入框 */
+        .mb-4 {
+            margin-bottom: 18px;
         }
         
         .form-control {
-            border: 1px solid rgba(0,0,0,0.12);
-            border-radius: 10px;
-            padding: 10px 14px;
-            font-size: 14px;
-            background: #fafafa;
-            color: #1d1d1f;
-            transition: all 0.2s;
+            border: 1px solid var(--color-border-medium);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-size: 15px;
+            background: var(--color-bg-secondary);
+            color: var(--color-text-primary);
+            transition: all var(--transition-fast);
+            height: auto;
         }
         
         .form-control::placeholder {
-            color: #a1a1a6;
+            color: var(--color-text-quaternary);
+        }
+        
+        .form-control:hover {
+            border-color: var(--color-border-strong);
         }
         
         .form-control:focus {
-            border-color: #007aff;
-            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
-            background: #ffffff;
-            color: #1d1d1f;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.12);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            outline: none;
         }
         
         .form-label {
             font-weight: 500;
-            color: #1d1d1f;
-            margin-bottom: 6px;
-            font-size: 13px;
+            color: var(--color-text-primary);
+            margin-bottom: 8px;
+            font-size: 14px;
+            display: block;
         }
         
         .id-card-tip {
-            font-size: 11px;
-            color: #86868b;
-            margin-top: 4px;
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
         
+        /* 注册按钮 */
         .btn-register {
-            background: #007aff;
+            background: linear-gradient(135deg, var(--color-primary) 0%, #0066d6 100%);
             border: none;
-            border-radius: 10px;
-            padding: 12px 20px;
-            font-weight: 500;
-            font-size: 14px;
+            border-radius: 12px;
+            padding: 16px 24px;
+            font-weight: 600;
+            font-size: 16px;
             width: 100%;
             color: white;
-            transition: all 0.2s;
+            transition: all var(--transition-base);
+            box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 8px;
         }
         
         .btn-register:hover {
-            background: #0077ed;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(0, 122, 255, 0.4);
+            background: linear-gradient(135deg, #0080ef 0%, #0056b3 100%);
         }
         
-        .alert {
-            border-radius: 10px;
-            padding: 12px 14px;
-            font-size: 13px;
-            margin-bottom: 16px;
-            border: none;
+        .btn-register:active {
+            transform: translateY(0);
         }
         
-        .alert-danger {
-            background: #ffebe9;
-            color: #ff3b30;
-        }
-        
-        .alert-success {
-            background: #dafbe4;
-            color: #34c759;
-        }
-        
+        /* 登录链接 */
         .login-link {
             text-align: center;
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid rgba(0,0,0,0.06);
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--color-border-light);
+        }
+        
+        .login-link p {
+            color: var(--color-text-tertiary);
+            font-size: 14px;
         }
         
         .login-link a {
-            color: #007aff;
+            color: var(--color-primary);
             text-decoration: none;
-            font-size: 13px;
+            font-weight: 500;
+            transition: color var(--transition-fast);
         }
         
         .login-link a:hover {
-            color: #0077ed;
+            color: var(--color-primary-dark);
+        }
+        
+        /* =====================================================
+           响应式设计
+           ===================================================== */
+        @media (max-width: 1200px) {
+            .register-brand-section {
+                flex: 0.6;
+                padding: 40px;
+            }
+            
+            .brand-title {
+                font-size: 36px;
+            }
+            
+            .brand-tagline {
+                font-size: 16px;
+            }
+        }
+        
+        @media (max-width: 992px) {
+            body {
+                flex-direction: column;
+            }
+            
+            .register-brand-section {
+                flex: none;
+                padding: 40px 20px;
+                min-height: 280px;
+            }
+            
+            .brand-features {
+                display: none;
+            }
+            
+            .brand-title {
+                font-size: 32px;
+            }
+            
+            .register-form-section {
+                width: 100%;
+                padding: 40px 24px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .register-brand-section {
+                min-height: 200px;
+                padding: 30px 16px;
+            }
+            
+            .brand-logo {
+                width: 60px;
+                height: 60px;
+                border-radius: 18px;
+            }
+            
+            .brand-logo i {
+                font-size: 30px;
+            }
+            
+            .brand-title {
+                font-size: 28px;
+            }
+            
+            .brand-tagline {
+                font-size: 14px;
+                margin-bottom: 24px;
+            }
+            
+            .register-form-section {
+                padding: 30px 20px;
+            }
+            
+            .form-header h2 {
+                font-size: 24px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="register-card">
-        <div class="register-header">
-            <div class="logo">
+    <!-- 左侧品牌展示区 -->
+    <div class="register-brand-section">
+        <div class="brand-bg-effects"></div>
+        <div class="floating-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+
+        <!-- 网格背景 -->
+        <div class="grid-pattern"></div>
+
+        <!-- 浮动粒子 -->
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+
+        <!-- 扫描线 -->
+        <div class="scan-line"></div>
+        
+        <div class="brand-content">
+            <div class="brand-logo">
                 <i class="bi bi-gem"></i>
             </div>
-            <h3>AI棱镜</h3>
-            <p>渠道商申请注册</p>
+            <h1 class="brand-title">AI棱镜</h1>
+            <p class="brand-tagline">智能内容营销平台</p>
+            
+            <div class="brand-features">
+                <div class="brand-feature">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                    <span>AI 智能生成内容</span>
+                </div>
+                <div class="brand-feature">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    <span>多渠道数据分析</span>
+                </div>
+                <div class="brand-feature">
+                    <i class="bi bi-shield-check"></i>
+                    <span>企业级安全保障</span>
+                </div>
+            </div>
         </div>
         
-        <div class="register-body">
+        <div class="brand-footer">
+            © 2026 AI棱镜 · 智能内容营销平台
+        </div>
+    </div>
+    
+    <!-- 右侧注册表单区 -->
+    <div class="register-form-section">
+        <div class="form-container">
+            <div class="form-header">
+                <h2>申请入驻</h2>
+                <p>填写信息成为渠道商合作伙伴</p>
+            </div>
+            
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
                         <div class="alert alert-{{ category }}" role="alert">
-                            <i class="bi bi-{{ 'exclamation-triangle-fill' if category == 'danger' else 'check-circle-fill' if category == 'success' else 'info-circle-fill' }} me-2"></i>
+                            <i class="bi bi-{{ 'exclamation-triangle-fill' if category == 'danger' else 'check-circle-fill' if category == 'success' else 'info-circle-fill' }}"></i>
                             {{ message }}
                         </div>
                     {% endfor %}
@@ -180,34 +608,37 @@
             {% endwith %}
             
             <form method="POST">
-                <div class="mb-3">
+                <div class="mb-4">
                     <label class="form-label">账号</label>
                     <input type="text" name="username" class="form-control" placeholder="请输入账号" required>
                 </div>
-                <div class="mb-3">
+                <div class="mb-4">
                     <label class="form-label">昵称</label>
                     <input type="text" name="nickname" class="form-control" placeholder="请输入昵称" required>
                 </div>
-                <div class="mb-3">
+                <div class="mb-4">
                     <label class="form-label">身份证号</label>
                     <input type="text" name="id_card" class="form-control" placeholder="请输入18位身份证号码" maxlength="18" required>
                     <div class="id-card-tip">
                         <i class="bi bi-info-circle"></i> 用于忘记密码时验证身份
                     </div>
                 </div>
-                <div class="mb-3">
+                <div class="mb-4">
                     <label class="form-label">密码</label>
                     <input type="password" name="password" class="form-control" placeholder="请输入密码" required>
                 </div>
-                <div class="mb-3">
+                <div class="mb-4">
                     <label class="form-label">确认密码</label>
                     <input type="password" name="confirm_password" class="form-control" placeholder="请再次输入密码" required>
                 </div>
-                <button type="submit" class="btn btn-primary btn-register">提交申请</button>
+                <button type="submit" class="btn btn-primary btn-register">
+                    <i class="bi bi-send"></i>
+                    提交申请
+                </button>
             </form>
             
             <div class="login-link">
-                <a href="{{ url_for('auth.login') }}">已有账号？立即登录</a>
+                <p>已有账号？<a href="{{ url_for('auth.login') }}">立即登录</a></p>
             </div>
         </div>
     </div>
