@@ -96,7 +96,8 @@ class Expert(db.Model):
     description = db.Column(db.Text)
     capabilities = db.Column(db.JSON)  # 能力列表
     command = db.Column(db.String(50))  # 呼出命令
-    icon = db.Column(db.String(50))  # 图标
+    icon = db.Column(db.String(50))  # 图标（emoji）
+    avatar_url = db.Column(db.String(255))  # 自定义头像URL
     sort_order = db.Column(db.Integer, default=0)  # 显示顺序
     is_visible = db.Column(db.Boolean, default=True)  # 是否在列表中可见
     is_active = db.Column(db.Boolean, default=True)

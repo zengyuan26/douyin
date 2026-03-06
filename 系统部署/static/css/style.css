@@ -1754,4 +1754,347 @@ body {
     40% { opacity: 1; }
 }
 
+/* ==================== 管理中心专用动画 ==================== */
+/* 卡片入场动画 */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes scaleInUp {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* 统计卡片入场 */
+.stat-card-animate {
+    opacity: 0;
+    animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.stat-card-animate:nth-child(1) { animation-delay: 0.1s; }
+.stat-card-animate:nth-child(2) { animation-delay: 0.2s; }
+.stat-card-animate:nth-child(3) { animation-delay: 0.3s; }
+.stat-card-animate:nth-child(4) { animation-delay: 0.4s; }
+.stat-card-animate:nth-child(5) { animation-delay: 0.5s; }
+.stat-card-animate:nth-child(6) { animation-delay: 0.6s; }
+
+/* 统计卡片增强悬停效果 */
+.stat-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.stat-card:hover::before {
+    left: 100%;
+}
+
+.stat-card:hover .stat-icon {
+    transform: scale(1.1);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+}
+
+.stat-card .stat-icon {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* 快捷操作按钮动画 */
+.quick-action-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.quick-action-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.4s ease, height 0.4s ease;
+}
+
+.quick-action-btn:hover::before {
+    width: 200px;
+    height: 200px;
+}
+
+.quick-action-btn:hover i {
+    transform: scale(1.2);
+    transition: transform 0.3s ease;
+}
+
+.quick-action-btn i {
+    transition: transform 0.3s ease;
+}
+
+/* 快捷操作入场动画 */
+.quick-action-animate {
+    opacity: 0;
+    animation: scaleInUp 0.4s ease-out forwards;
+}
+
+.quick-action-animate:nth-child(1) { animation-delay: 0.1s; }
+.quick-action-animate:nth-child(2) { animation-delay: 0.15s; }
+.quick-action-animate:nth-child(3) { animation-delay: 0.2s; }
+.quick-action-animate:nth-child(4) { animation-delay: 0.25s; }
+.quick-action-animate:nth-child(5) { animation-delay: 0.3s; }
+
+/* 区块卡片入场 */
+.section-card-animate {
+    opacity: 0;
+    animation: fadeInUp 0.5s ease-out forwards;
+    animation-delay: 0.15s;
+}
+
+/* ==================== 弹窗美化样式 ==================== */
+/* 个人资料弹窗美化 */
+#profileModal .modal-content {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+#profileModal .modal-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    color: white;
+    padding: 20px 24px;
+    border: none;
+}
+
+#profileModal .modal-header .btn-close {
+    filter: brightness(0) invert(1);
+    opacity: 0.8;
+}
+
+#profileModal .modal-header .btn-close:hover {
+    opacity: 1;
+}
+
+#profileModal .modal-body {
+    padding: 28px;
+}
+
+#profileModal .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-light);
+}
+
+/* 头像悬浮动画 */
+#profileModal .profile-avatar-large {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    font-size: 40px;
+    margin: 0 auto 20px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+
+#profileModal .profile-avatar-large:hover {
+    transform: scale(1.05);
+    box-shadow: 0 12px 40px rgba(99, 102, 241, 0.4);
+}
+
+/* 修改密码弹窗美化 */
+#changePasswordModal .modal-content {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+#changePasswordModal .modal-header {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    padding: 20px 24px;
+    border: none;
+}
+
+#changePasswordModal .modal-header .btn-close {
+    filter: brightness(0) invert(1);
+    opacity: 0.8;
+}
+
+#changePasswordModal .modal-header .btn-close:hover {
+    opacity: 1;
+}
+
+#changePasswordModal .modal-body {
+    padding: 28px;
+}
+
+#changePasswordModal .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-light);
+}
+
+/* 表单输入框增强 */
+#profileModal .form-control,
+#changePasswordModal .form-control,
+#profileModal .form-select {
+    border-radius: 12px;
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    background: var(--bg-secondary);
+}
+
+#profileModal .form-control:focus,
+#changePasswordModal .form-control:focus,
+#profileModal .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    outline: none;
+}
+
+/* 按钮增强 */
+#profileModal .btn-primary,
+#changePasswordModal .btn-primary {
+    border-radius: 12px;
+    padding: 12px 28px;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    border: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#profileModal .btn-primary:hover,
+#changePasswordModal .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+}
+
+#profileModal .btn-secondary,
+#changePasswordModal .btn-secondary {
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-weight: 500;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+#profileModal .btn-secondary:hover,
+#changePasswordModal .btn-secondary:hover {
+    background: var(--bg-light);
+    border-color: var(--text-muted);
+    color: var(--text-primary);
+}
+
+/* 弹窗入场动画 */
+.modal.fade .modal-dialog {
+    transform: scale(0.9) translateY(20px);
+    opacity: 0;
+    transition: all 0.3s ease-out;
+}
+
+.modal.show .modal-dialog {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+/* ==================== 管理页面表格样式增强 ==================== */
+.admin-table-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+}
+
+.admin-table-card:hover {
+    box-shadow: 0 12px 40px rgba(31, 38, 135, 0.15);
+}
+
+/* 页面标题入场 */
+.page-header-animate {
+    opacity: 0;
+    animation: fadeInLeft 0.5s ease-out forwards;
+}
+
+/* 表格行悬停效果增强 */
+.table-hover tbody tr {
+    transition: all 0.2s ease;
+}
+
+.table-hover tbody tr:hover {
+    background: rgba(99, 102, 241, 0.05);
+    transform: scale(1.01);
+}
+
+/* 按钮入场动画 */
+.btn-animate {
+    opacity: 0;
+    animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.btn-animate:nth-child(1) { animation-delay: 0.1s; }
+.btn-animate:nth-child(2) { animation-delay: 0.15s; }
+.btn-animate:nth-child(3) { animation-delay: 0.2s; }
+
+/* 徽章动画 */
+.badge-animate {
+    animation: scaleInUp 0.3s ease-out forwards;
+}
+
+/* 列表项入场 */
+.list-item-animate {
+    opacity: 0;
+    animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.list-item-animate:nth-child(1) { animation-delay: 0.05s; }
+.list-item-animate:nth-child(2) { animation-delay: 0.1s; }
+.list-item-animate:nth-child(3) { animation-delay: 0.15s; }
+.list-item-animate:nth-child(4) { animation-delay: 0.2s; }
+.list-item-animate:nth-child(5) { animation-delay: 0.25s; }
+.list-item-animate:nth-child(6) { animation-delay: 0.3s; }
+.list-item-animate:nth-child(7) { animation-delay: 0.35s; }
+.list-item-animate:nth-child(8) { animation-delay: 0.4s; }
+.list-item-animate:nth-child(9) { animation-delay: 0.45s; }
+.list-item-animate:nth-child(10) { animation-delay: 0.5s; }
 

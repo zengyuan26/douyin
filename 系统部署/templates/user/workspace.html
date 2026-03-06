@@ -267,6 +267,129 @@
         .sidebar-footer {
             padding: 16px 20px;
             border-top: 1px solid var(--color-border-light);
+            display: flex;
+            gap: 8px;
+        }
+
+        .sidebar-footer .btn-toggle-sessions {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(0, 122, 255, 0.1) 0%, rgba(0, 122, 255, 0.05) 100%);
+            border: 1px solid rgba(0, 122, 255, 0.2);
+            color: var(--color-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .sidebar-footer .btn-toggle-sessions:hover {
+            background: linear-gradient(135deg, rgba(0, 122, 255, 0.2) 0%, rgba(0, 122, 255, 0.1) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);
+        }
+
+        /* 会话历史列表 */
+        .sessions-section {
+            flex: 1;
+            padding: 0 16px 16px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .sessions-section.show {
+            display: block;
+        }
+
+        .sessions-section-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--color-text-tertiary);
+            margin-bottom: 12px;
+            padding-left: 4px;
+            border-left: 3px solid var(--color-primary);
+            padding-left: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sessions-section-title .btn-new-chat {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .sessions-section-title .btn-new-chat:hover {
+            background: #0056b3;
+        }
+
+        .session-item {
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border: 1px solid transparent;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .session-item:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.1);
+        }
+
+        .session-item.active {
+            background: linear-gradient(135deg, rgba(0, 122, 255, 0.1) 0%, rgba(0, 122, 255, 0.05) 100%);
+            border-color: var(--color-primary);
+        }
+
+        .session-item .session-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .session-item .session-meta {
+            font-size: 11px;
+            color: var(--color-text-tertiary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .session-item .session-expert {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .session-item .session-expert-icon {
+            font-size: 12px;
+        }
+
+        .empty-sessions {
+            text-align: center;
+            padding: 20px;
+            color: var(--color-text-tertiary);
+            font-size: 13px;
         }
         
         /* ---------- 中间聊天区 ---------- */
@@ -1388,9 +1511,22 @@
                 </div>
                 {% endif %}
             </div>
-            
+
+            <!-- 会话历史列表 -->
+            <div class="sessions-section" id="sessionsSection">
+                <div class="sessions-section-title">
+                    <span>会话历史</span>
+                    <button class="btn-new-chat" onclick="showExpertList()">新会话</button>
+                </div>
+                <div id="sessionsList"></div>
+            </div>
+
             <!-- 底部快捷操作 -->
             <div class="sidebar-footer">
+                <button class="btn-toggle-sessions" onclick="showSessionsList()">
+                    <i class="bi bi-clock-history"></i>
+                    <span>会话历史</span>
+                </button>
             </div>
         </div>
         
@@ -1568,9 +1704,12 @@
                     currentClientName = data.data.name;
                     const nameDisplay = document.getElementById('currentClientNameDisplay');
                     if (nameDisplay) nameDisplay.textContent = currentClientName;
-                    
+
                     // 默认加载当前客户的报告历史
                     loadReportHistory(currentClientId);
+
+                    // 加载会话历史列表
+                    loadSessionsList();
                     
                     // 确保右侧产出报告区可见
                     const outputPanel = document.getElementById('workspaceOutput');
@@ -2093,6 +2232,8 @@
                 updateClientStats(clientId);
                 // 切换客户后加载该客户的报告历史
                 loadReportHistory(clientId);
+                // 切换客户后加载会话列表
+                loadSessionsList();
                 // 切换客户后重新加载当前专家的聊天记录
                 if (currentExpertSlug && currentExpertSlug !== '') {
                     loadChatHistory(currentExpertSlug);
@@ -2339,7 +2480,11 @@
                                     chatContainer.scrollTop = chatContainer.scrollHeight;
                                 }
                                 if (data.done) {
-                                    if (data.session_id) currentSessionId = data.session_id;
+                                    if (data.session_id) {
+                                        currentSessionId = data.session_id;
+                                        // 刷新会话列表
+                                        loadSessionsList();
+                                    }
                                     if ((data.client_created && data.new_client_id) || data.client_profile_completed) {
                                         setTimeout(() => location.reload(), 2000);
                                     }
@@ -2669,6 +2814,8 @@
 
         // 有当前客户时，加载该客户的报告历史
         loadReportHistory(currentClientId);
+        // 有当前客户时，加载会话列表
+        loadSessionsList();
     }
 
     // 日期筛选
@@ -3587,7 +3734,134 @@
             }
         }, POLL_INTERVAL);
     }
-    
+
+    // 加载会话历史列表
+    function loadSessionsList() {
+        const sessionsSection = document.getElementById('sessionsSection');
+        const sessionsList = document.getElementById('sessionsList');
+
+        if (!currentClientId) {
+            sessionsList.innerHTML = '<div class="empty-sessions">请先选择客户</div>';
+            return;
+        }
+
+        fetch('/api/chat/sessions')
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 200 && data.data && data.data.sessions.length > 0) {
+                let html = '';
+                data.data.sessions.forEach(session => {
+                    const isActive = session.id === currentSessionId ? 'active' : '';
+                    const expertName = session.expert ? session.expert.nickname || session.expert.name : '未知专家';
+                    const expertIcon = session.expert ? session.expert.icon : '<i class="bi bi-robot"></i>';
+                    const updatedAt = session.updated_at ? formatTime(session.updated_at) : '';
+
+                    html += `
+                    <div class="session-item ${isActive}" onclick="loadSession(${session.id}, '${session.expert ? session.expert.slug : ''}', '${expertName.replace(/'/g, "\\'")}', '${expertIcon.replace(/'/g, "\\'")}')">
+                        <div class="session-title">${session.title || '新会话'}</div>
+                        <div class="session-meta">
+                            <span class="session-expert">
+                                <span class="session-expert-icon">${expertIcon}</span>
+                                ${expertName}
+                            </span>
+                        </div>
+                    </div>
+                    `;
+                });
+                sessionsList.innerHTML = html;
+            } else {
+                sessionsList.innerHTML = '<div class="empty-sessions">暂无会话记录</div>';
+            }
+        })
+        .catch(err => {
+            console.error('加载会话列表失败:', err);
+            sessionsList.innerHTML = '<div class="empty-sessions">加载失败</div>';
+        });
+    }
+
+    // 加载指定会话
+    function loadSession(sessionId, expertSlug, expertName, expertIcon) {
+        if (!sessionId) return;
+
+        currentSessionId = sessionId;
+
+        // 更新选中状态
+        document.querySelectorAll('.session-item').forEach(item => item.classList.remove('active'));
+        event.target.closest('.session-item')?.classList.add('active');
+
+        // 调用API加载该会话的消息
+        fetch('/api/chat/current?session_id=' + sessionId)
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 200 && data.data) {
+                const container = document.getElementById('chatMessages');
+                let html = '';
+
+                if (data.data.messages && data.data.messages.length > 0) {
+                    data.data.messages.forEach(msg => {
+                        const isUser = msg.role === 'user';
+                        const isSystem = msg.role === 'system';
+
+                        if (isSystem) {
+                            html += `<div class="system-message">${msg.content}</div>`;
+                        } else {
+                            const avatar = isUser ? '<div class="message-avatar user"><i class="bi bi-person"></i></div>' :
+                                (msg.expert_icon || expertIcon || '<i class="bi bi-robot"></i>');
+                            const name = isUser ? '你' : (msg.expert_name || expertName);
+
+                            html += `
+                            <div class="wechat-message ${isUser ? 'user' : 'expert'}">
+                                <div class="message-avatar ${isUser ? 'user' : 'expert'}">${avatar}</div>
+                                <div class="message-content">
+                                    <div class="message-sender">${name}</div>
+                                    <div class="message-bubble ${isUser ? 'user' : 'expert'}">${parseOptionsInContent(msg.content || '')}</div>
+                                </div>
+                            </div>
+                            `;
+                        }
+                    });
+                } else {
+                    html = '<div class="empty-sessions">该会话暂无消息</div>';
+                }
+
+                container.innerHTML = html;
+                container.scrollTop = container.scrollHeight;
+                // 绑定选项按钮事件
+                bindOptionButtonEvents();
+            }
+        })
+        .catch(err => {
+            console.error('加载会话失败:', err);
+        });
+    }
+
+    // 显示专家列表，隐藏会话列表
+    function showExpertList() {
+        document.getElementById('sessionsSection').classList.remove('show');
+        document.querySelector('.experts-section').style.display = 'block';
+    }
+
+    // 显示会话列表
+    function showSessionsList() {
+        document.querySelector('.experts-section').style.display = 'none';
+        document.getElementById('sessionsSection').classList.add('show');
+        loadSessionsList();
+    }
+
+    // 格式化时间
+    function formatTime(isoString) {
+        const date = new Date(isoString);
+        const now = new Date();
+        const diff = now - date;
+
+        if (diff < 60000) return '刚刚';
+        if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+        if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+        if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
+
+        return date.toLocaleDateString('zh-CN', {month: 'short', day: 'numeric'});
+    }
+
     // 加载报告历史
     function loadReportHistory(clientId) {
         console.log('[loadReportHistory] 开始加载, clientId:', clientId);

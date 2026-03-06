@@ -597,6 +597,201 @@
                 font-size: 26px;
             }
         }
+
+        /* =====================================================
+           注册弹窗样式
+           ===================================================== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-container {
+            background: var(--color-bg-primary);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 420px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+            transform: scale(0.9);
+            transition: transform 0.2s ease;
+        }
+
+        .modal-overlay.active .modal-container {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 24px 24px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin: 0;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: var(--color-bg-secondary);
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: var(--color-border-medium);
+            color: var(--color-text-primary);
+        }
+
+        .modal-body {
+            padding: 20px 24px 24px;
+        }
+
+        .modal-body .form-label {
+            font-weight: 500;
+            color: var(--color-text-primary);
+            margin-bottom: 6px;
+            font-size: 13px;
+            display: block;
+        }
+
+        .modal-body .mb-3 {
+            margin-bottom: 14px;
+        }
+
+        .modal-body .form-control {
+            border: 1px solid var(--color-border-medium);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 14px;
+            background: var(--color-bg-secondary);
+            color: var(--color-text-primary);
+            transition: all var(--transition-fast);
+        }
+
+        .modal-body .form-control::placeholder {
+            color: var(--color-text-quaternary);
+        }
+
+        .modal-body .form-control:hover {
+            border-color: var(--color-border-strong);
+        }
+
+        .modal-body .form-control:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+            background: var(--color-bg-primary);
+            outline: none;
+        }
+
+        .modal-body .id-card-tip {
+            font-size: 11px;
+            color: var(--color-text-tertiary);
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .modal-body .btn-register {
+            background: linear-gradient(135deg, var(--color-primary) 0%, #0066d6 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 15px;
+            width: 100%;
+            color: white;
+            transition: all var(--transition-base);
+            box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .modal-body .btn-register:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
+        }
+
+        .modal-body .btn-register:active {
+            transform: translateY(0);
+        }
+
+        .modal-body .login-link {
+            text-align: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--color-border-light);
+        }
+
+        .modal-body .login-link p {
+            color: var(--color-text-tertiary);
+            font-size: 13px;
+            margin: 0;
+        }
+
+        .modal-body .login-link a {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color var(--transition-fast);
+        }
+
+        .modal-body .login-link a:hover {
+            color: var(--color-primary-dark);
+        }
+
+        .modal-alert {
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-alert.alert-danger {
+            background: rgba(255, 59, 48, 0.08);
+            color: var(--color-danger);
+        }
+
+        .modal-alert.alert-success {
+            background: rgba(52, 199, 89, 0.08);
+            color: var(--color-success);
+        }
     </style>
 </head>
 <body>
@@ -703,11 +898,86 @@
                 <span>或</span>
             </div>
             
-            <a href="{{ url_for('auth.channel_register') }}" class="btn-register">
+            <a href="#" class="btn-register" onclick="openRegisterModal(); return false;">
                 <i class="bi bi-person-plus"></i>
-                渠道商申请注册
+                注册
             </a>
         </div>
     </div>
+
+    <!-- 注册弹窗 -->
+    <div class="modal-overlay" id="registerModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>申请入驻</h3>
+                <button class="modal-close" onclick="closeRegisterModal()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="modalAlert"></div>
+                
+                <form method="POST" action="{{ url_for('auth.channel_register') }}" id="registerForm">
+                    <div class="mb-3">
+                        <label class="form-label">账号</label>
+                        <input type="text" name="username" class="form-control" placeholder="请输入账号" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">昵称</label>
+                        <input type="text" name="nickname" class="form-control" placeholder="请输入昵称" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">身份证号</label>
+                        <input type="text" name="id_card" class="form-control" placeholder="请输入18位身份证号码" maxlength="18" required>
+                        <div class="id-card-tip">
+                            <i class="bi bi-info-circle"></i> 用于忘记密码时验证身份
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密码</label>
+                        <input type="password" name="password" class="form-control" placeholder="请输入密码" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">确认密码</label>
+                        <input type="password" name="confirm_password" class="form-control" placeholder="请再次输入密码" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-register">
+                        <i class="bi bi-send"></i>
+                        提交申请
+                    </button>
+                </form>
+                
+                <div class="login-link">
+                    <p>已有账号？<a href="#" onclick="closeRegisterModal(); return false;">立即登录</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openRegisterModal() {
+            document.getElementById('registerModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeRegisterModal() {
+            document.getElementById('registerModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // 点击遮罩层关闭
+        document.getElementById('registerModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeRegisterModal();
+            }
+        });
+
+        // ESC键关闭
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeRegisterModal();
+            }
+        });
+    </script>
 </body>
 </html>

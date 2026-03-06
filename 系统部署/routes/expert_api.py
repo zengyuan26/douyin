@@ -264,12 +264,12 @@ def chat_with_skill_stream():
     
     # 构建系统提示词，传入用户角色以决定权限
     system_prompt = skill_loader.build_system_prompt(skill_name, client_info, user_role)
-    
+
     # 获取或创建会话
     chat_session = None
     if session_id:
         chat_session = ChatSession.query.get(session_id)
-    
+
     if not chat_session:
         chat_session = ChatSession(
             user_id=current_user.id,
@@ -279,7 +279,7 @@ def chat_with_skill_stream():
         )
         db.session.add(chat_session)
         db.session.commit()
-    
+
     # 保存用户消息
     user_msg = ChatMessage(
         session_id=chat_session.id,
@@ -287,14 +287,23 @@ def chat_with_skill_stream():
         content=message
     )
     db.session.add(user_msg)
+
+    # 先创建一个空的助手消息，用于流式输出过程中保存中间状态
+    assistant_msg = ChatMessage(
+        session_id=chat_session.id,
+        role='assistant',
+        content=''
+    )
+    db.session.add(assistant_msg)
     db.session.commit()
-    
+    assistant_msg_id = assistant_msg.id
+
     # 获取历史消息
-    history_messages = chat_session.messages.order_by(
-        ChatMessage.created_at.desc()
-    ).limit(10).all()
+    history_messages = chat_session.messages.filter(
+        ChatMessage.id != assistant_msg_id
+    ).order_by(ChatMessage.created_at.desc()).limit(10).all()
     history_messages = list(reversed(history_messages))
-    
+
     # 构建消息列表
     messages_for_llm = [{"role": "system", "content": system_prompt}]
     for msg in history_messages:
@@ -304,30 +313,27 @@ def chat_with_skill_stream():
                 "content": msg.content
             })
     messages_for_llm.append({"role": "user", "content": message})
-    
+
     # 流式输出
     def generate():
         full_response = ""
-        
+
         try:
             for chunk in llm_service.chat_stream(messages_for_llm, temperature=0.7):
                 full_response += chunk
                 # 发送 SSE 格式的数据
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
-            
+
             # 保存完整回复到数据库
             if full_response:
-                assistant_msg = ChatMessage(
-                    session_id=chat_session.id,
-                    role='assistant',
-                    content=full_response
-                )
+                # 更新助手消息内容
+                assistant_msg.content = full_response
                 db.session.add(assistant_msg)
-                
+
                 # 更新会话时间
                 chat_session.updated_at = datetime.utcnow()
                 db.session.commit()
-                
+
                 # 发送会话结束信息
                 end_data = {
                     'done': True,
@@ -336,12 +342,18 @@ def chat_with_skill_stream():
                     'skill_info': skill_info
                 }
                 yield f"data: {json.dumps(end_data)}\n\n"
-        
+
         except Exception as e:
             logger.error(f"流式输出错误: {e}")
-            error_data = {'error': str(e)}
+            # 即使出错，也要保存已生成的部分内容
+            if full_response:
+                assistant_msg.content = full_response
+                db.session.add(assistant_msg)
+                chat_session.updated_at = datetime.utcnow()
+                db.session.commit()
+            error_data = {'error': str(e), 'session_id': chat_session.id, 'partial': True}
             yield f"data: {json.dumps(error_data)}\n\n"
-    
+
     return Response(generate(), mimetype='text/event-stream')
 
 

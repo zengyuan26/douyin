@@ -70,7 +70,8 @@ def init_database():
                 'description': '欢迎回来！我协调大局，实时捕捉高价值的跨渠道机会，并将其转给合适的专家。所有专家的最终输出将收集在右侧的面板中，供您查看。',
                 'capabilities': ['新客户流程', '客户切换', '资料收集', '专家调度', '方案整合'],
                 'command': '/总控',
-                'icon': '👨‍💼',
+                'icon': '👨‍🚀',
+                'avatar_url': '/static/images/avatars/expert_cooper_avatar.png',
                 'sort_order': 1,
                 'is_visible': True
             },
@@ -82,7 +83,8 @@ def init_database():
                 'description': '实时监控、舆情分析、竞品追踪、市场洞察、风险预警',
                 'capabilities': ['社交监控（监控社交媒体讨论与趋势）', '深入研究（进行深入研究报告）'],
                 'command': '/舆情',
-                'icon': '👩‍💼',
+                'icon': '👩‍🔬',
+                'avatar_url': '/static/images/avatars/expert_brand_avatar.png',
                 'sort_order': 2,
                 'is_visible': True
             },
@@ -94,7 +96,8 @@ def init_database():
                 'description': 'AI搜索优化、关键词策略、内容发现、市场机会发现、差异化定位、账号设计',
                 'capabilities': ['AI搜索优化', '关键词策略', '内容发现', '关键词库生成', '选题库生成', '市场分析', '账号设计', '运营规划', '差异化定位'],
                 'command': '/seo',
-                'icon': '👨‍🔬',
+                'icon': '👩‍💻',
+                'avatar_url': '/static/images/avatars/expert_murph_avatar.png',
                 'sort_order': 4,
                 'is_visible': True
             },
@@ -106,19 +109,21 @@ def init_database():
                 'description': '图文规划、短视频脚本、封面设计、消费心理分析、视觉设计评审',
                 'capabilities': ['图文内容生成', '短视频脚本', '封面设计', '内容优化', '消费心理分析', '文案优化', '视觉设计评审', '9:16比例检查', '排版优化'],
                 'command': '/内容',
-                'icon': '👨‍🎨',
+                'icon': '🤖',
+                'avatar_url': '/static/images/avatars/expert_tars_avatar.png',
                 'sort_order': 5,
                 'is_visible': True
             },
             {
                 'name': '知识库专家',
                 'slug': 'knowledge',
-                'nickname': '百科博士',
+                'nickname': '伊森·亨特',
                 'title': '知识库管理专家',
                 'description': '负责知识库的分类管理、内容存储和检索，支持纯文字/图文/短视频分类管理。',
                 'capabilities': ['知识分类管理', '内容存储', '知识检索', '分类维护'],
                 'command': '/知识库',
                 'icon': '📚',
+                'avatar_url': '/static/images/avatars/expert_ethan_avatar.png',
                 'sort_order': 6,
                 'is_visible': True
             }

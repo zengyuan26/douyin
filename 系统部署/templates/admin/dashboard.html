@@ -4,11 +4,11 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    
+
     <!-- 页面标题 -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
                 <div>
                     <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">管理中心</h4>
                     <p class="text-muted mb-0" style="font-size: 16px;">系统概览与数据统计</p>
@@ -16,35 +16,35 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 快捷操作 -->
     <div class="row g-4 mb-4">
         <div class="col-12">
-            <div class="section-card">
+            <div class="section-card section-card-animate">
                 <div class="section-header">
                     <h5 class="section-title"><i class="bi bi-lightning-charge me-2"></i>快捷操作</h5>
                 </div>
                 <div class="section-body">
                     <div class="row g-3">
-                        <div class="col-auto">
+                        <div class="col-auto quick-action-animate">
                             <a href="{{ url_for('admin.experts') }}" class="quick-action-btn">
                                 <i class="bi bi-robot"></i>
                                 <span>专家管理</span>
                             </a>
                         </div>
-                        <div class="col-auto">
+                        <div class="col-auto quick-action-animate">
                             <a href="{{ url_for('admin.channels') }}" class="quick-action-btn">
                                 <i class="bi bi-person-badge"></i>
                                 <span>渠道管理</span>
                             </a>
                         </div>
-                        <div class="col-auto">
+                        <div class="col-auto quick-action-animate">
                             <a href="{{ url_for('admin.clients') }}" class="quick-action-btn">
                                 <i class="bi bi-building"></i>
                                 <span>客户管理</span>
                             </a>
                         </div>
-                        <div class="col-auto">
+                        <div class="col-auto quick-action-animate">
                             <a href="{{ url_for('admin.knowledge') }}" class="quick-action-btn">
                                 <i class="bi bi-book"></i>
                                 <span>知识库</span>
@@ -55,11 +55,11 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 统计卡片 -->
     <div class="row g-4 mb-4">
         <div class="col-6 col-lg-3">
-            <div class="stat-card stat-card-primary">
+            <div class="stat-card stat-card-primary stat-card-animate">
                 <div class="stat-icon">
                     <i class="bi bi-people-fill"></i>
                 </div>
@@ -70,7 +70,7 @@
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="stat-card stat-card-success">
+            <div class="stat-card stat-card-success stat-card-animate">
                 <div class="stat-icon">
                     <i class="bi bi-person-badge-fill"></i>
                 </div>
@@ -81,7 +81,7 @@
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="stat-card stat-card-warning">
+            <div class="stat-card stat-card-warning stat-card-animate">
                 <div class="stat-icon">
                     <i class="bi bi-building-fill"></i>
                 </div>
@@ -92,7 +92,7 @@
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="stat-card stat-card-info">
+            <div class="stat-card stat-card-info stat-card-animate">
                 <div class="stat-icon">
                     <i class="bi bi-robot"></i>
                 </div>
@@ -103,11 +103,11 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 统计卡片第二行 -->
     <div class="row g-4 mb-4">
         <div class="col-6 col-lg-3">
-            <div class="stat-card stat-card-purple">
+            <div class="stat-card stat-card-purple stat-card-animate">
                 <div class="stat-icon">
                     <i class="bi bi-tags-fill"></i>
                 </div>
@@ -118,7 +118,7 @@
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="stat-card" style="--stat-color: #af52de;">
+            <div class="stat-card stat-card-animate" style="--stat-color: #af52de;">
                 <div class="stat-icon">
                     <i class="bi bi-file-text-fill"></i>
                 </div>

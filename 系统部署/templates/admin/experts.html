@@ -58,6 +58,7 @@
             flex-shrink: 0;
             background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
             box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25);
+            object-fit: cover;
         }
         
         .expert-info {
@@ -135,52 +136,6 @@
             font-size: 12px;
             border-radius: 10px;
         }
-        
-        /* 头像选择器 */
-        .avatar-selector {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 10px;
-            padding: 16px;
-            background: var(--color-bg-secondary);
-            border-radius: 12px;
-        }
-        
-        .avatar-option {
-            cursor: pointer;
-            padding: 10px;
-            border-radius: 10px;
-            text-align: center;
-            transition: all var(--transition-fast);
-            border: 2px solid transparent;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .avatar-option:hover {
-            background: var(--color-bg-primary);
-        }
-        
-        .avatar-option.selected {
-            border-color: var(--color-primary);
-            background: rgba(0, 122, 255, 0.08);
-        }
-        
-        .avatar-option input {
-            display: none;
-        }
-        
-        .avatar-icon {
-            font-size: 24px;
-            display: block;
-        }
-        
-        @media (max-width: 768px) {
-            .avatar-selector {
-                grid-template-columns: repeat(5, 1fr);
-            }
-        }
 </style>
 {% endblock %}
 
@@ -189,22 +144,27 @@
         <!-- 页面标题 -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="page-header">
+                <div class="page-header page-header-animate">
                     <h4 class="page-title">专家管理</h4>
                     <p class="page-subtitle">管理系统中的AI专家角色</p>
                 </div>
             </div>
         </div>
-        
+
         <!-- 专家卡片列表 -->
         <div class="row g-4">
             {% for expert in experts %}
             <div class="col-md-6 col-lg-4">
-                <div class="expert-card">
+                <div class="expert-card list-item-animate" style="animation-delay: {{ loop.index0 * 0.05 }}s;">
                     <div class="expert-header">
+                        {% if expert.avatar_url %}
+                        <img src="{{ expert.avatar_url }}" alt="{{ expert.nickname or expert.name }}"
+                             class="expert-avatar" style="object-fit: cover;">
+                        {% else %}
                         <div class="expert-avatar">
                             {{ expert.icon|safe }}
                         </div>
+                        {% endif %}
                         <div class="expert-info">
                             <h5 class="expert-name">{{ expert.nickname or expert.name }}</h5>
                             <p class="expert-title">{{ expert.title or '' }}</p>
@@ -255,25 +215,6 @@
                                             <input type="text" class="form-control form-control-sm" name="title" 
                                                    value="{{ expert.title or '' }}" placeholder="如：首席营销官">
                                         </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- 头像选择 -->
-                                <div class="mb-2">
-                                    <label class="form-label mb-1">选择头像</label>
-                                    <div class="avatar-selector py-2">
-                                        {% set icons = ['&#x1F468;&#x200D;&#x1F4BC;', '&#x1F469;&#x200D;&#x1F4BC;', '&#x1F468;&#x200D;&#x1F52C;', '&#x1F469;&#x200D;&#x1F52C;', 
-                                                       '&#x1F468;&#x200D;&#x1F3A8;', '&#x1F469;&#x200D;&#x1F3A8;', '&#x1F468;&#x200D;&#x1F4BB;', '&#x1F469;&#x200D;&#x1F4BB;',
-                                                       '&#x1F468;&#x200D;&#x1F3EB;', '&#x1F469;&#x200D;&#x1F3EB;', '&#x1F468;&#x200D;&#x2695;&#xFE0F;', '&#x1F469;&#x200D;&#x2695;&#xFE0F;',
-                                                       '&#x1F468;&#x200D;&#x1F527;', '&#x1F469;&#x200D;&#x1F527;', '&#x1F468;&#x200D;&#x1F373;', '&#x1F469;&#x200D;&#x1F373;',
-                                                       '&#x1F468;&#x200D;&#x1F680;', '&#x1F469;&#x200D;&#x1F680;', '&#x1F46E;', '&#x1F575;'] %}
-                                        {% for icon in icons %}
-                                        <label class="avatar-option {% if expert.icon == icon %}selected{% endif %}">
-                                            <input type="radio" name="icon" value="{{ icon }}" 
-                                                   {% if expert.icon == icon %}checked{% endif %}>
-                                            <span class="avatar-icon">{{ icon|safe }}</span>
-                                        </label>
-                                        {% endfor %}
                                     </div>
                                 </div>
                                 

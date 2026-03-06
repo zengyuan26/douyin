@@ -114,7 +114,7 @@ def expert_edit(id):
         expert.title = request.form.get('title', '').strip()
         expert.description = request.form.get('description', '').strip()
         expert.command = request.form.get('command', '').strip()
-        expert.icon = request.form.get('icon', '').strip() or expert.icon  # 如果为空保留原值
+        # icon、avatar_url 由 init_db 等脚本维护，编辑页不再提供修改入口
         expert.sort_order = int(request.form.get('sort_order', 0) or 0)
         expert.is_active = 'is_active' in request.form
         db.session.commit()

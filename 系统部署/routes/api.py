@@ -66,6 +66,8 @@ def switch_client(client_id):
         channel = Channel.query.filter_by(user_id=current_user.id).first()
         if not channel or client.channel_id != channel.id:
             return jsonify({'code': 403, 'message': '没有权限'})
+    elif current_user.role != 'super_admin' and client.user_id != current_user.id:
+        return jsonify({'code': 403, 'message': '没有权限'})
     
     session['current_client_id'] = client.id
     session['current_client_name'] = client.name
@@ -120,6 +122,62 @@ def get_clients():
         })
     
     return jsonify({'code': 200, 'message': 'success', 'data': data})
+
+
+@api.route('/clients/list', methods=['GET'])
+@login_required
+def get_clients_list():
+    """获取客户列表（分页），用于工作台「查看全部」弹窗，与管理中心客户列表字段一致"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    if page < 1:
+        page = 1
+    if per_page < 1 or per_page > 50:
+        per_page = 10
+
+    if current_user.role == 'super_admin':
+        q = Client.query
+    elif current_user.role == 'channel':
+        channel = Channel.query.filter_by(user_id=current_user.id).first()
+        if not channel:
+            return jsonify({'code': 404, 'message': '渠道不存在', 'data': {'items': [], 'total': 0, 'page': 1, 'per_page': per_page, 'pages': 0}})
+        q = Client.query.filter_by(channel_id=channel.id)
+    else:
+        q = Client.query.filter_by(user_id=current_user.id)
+
+    q = q.order_by(Client.created_at.desc())
+    pagination = q.paginate(page=page, per_page=per_page, error_out=False)
+    items = []
+    for c in pagination.items:
+        if c.creator:
+            if c.creator.role == 'super_admin':
+                creator_name = '管理员'
+            elif c.channel:
+                creator_name = c.channel.name
+            else:
+                creator_name = c.creator.username
+        else:
+            creator_name = '管理员'
+        items.append({
+            'id': c.id,
+            'name': c.name,
+            'channel_name': creator_name,
+            'industry_name': c.industry.name if c.industry else '',
+            'business_type': c.business_type or '-',
+            'created_at': c.created_at.strftime('%Y-%m-%d') if c.created_at else '-',
+            'is_active': getattr(c, 'is_active', True)
+        })
+    return jsonify({
+        'code': 200,
+        'message': 'success',
+        'data': {
+            'items': items,
+            'total': pagination.total,
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'pages': pagination.pages
+        }
+    })
 
 
 @api.route('/clients/<int:client_id>', methods=['GET'])
@@ -513,7 +571,7 @@ def get_chat_sessions():
         'updated_at': s.updated_at.isoformat() if s.updated_at else None
     } for s in sessions]
     
-    return jsonify({'code': 200, 'message': 'success', 'data': data})
+    return jsonify({'code': 200, 'message': 'success', 'data': {'sessions': data}})
 
 
 @api.route('/chat/sessions/<int:session_id>/messages', methods=['GET'])
@@ -548,19 +606,20 @@ def get_current_chat():
     """获取当前客户的当前会话（用于页面加载时）"""
     client_id = session.get('current_client_id')
     expert_slug = request.args.get('expert', 'master')
-    
+    session_id = request.args.get('session_id')  # 可选，指定加载某个会话
+
     if not client_id:
         return jsonify({'code': 200, 'message': '无当前客户', 'data': {'messages': [], 'session_id': None}})
-    
+
     # 先尝试从数据库 Expert 表查找
     expert = Expert.query.filter_by(slug=expert_slug).first()
-    
+
     # 如果数据库中没有，从 SkillLoader 获取专家信息
     if not expert:
         from services.skill_loader import get_skill_loader
         skill_loader = get_skill_loader()
         skill_info = skill_loader.get_skill_info(expert_slug)
-        
+
         if skill_info:
             # 使用 SkillLoader 中的信息构建虚拟专家数据
             expert_data = {
@@ -573,7 +632,7 @@ def get_current_chat():
                 'icon': '<i class="bi bi-robot"></i>',
                 'from_skill': True  # 标记来自 SkillLoader
             }
-            
+
             # 查找最近一个会话
             # 注意：SkillLoader 的专家可能没有对应的 ChatSession，暂时返回空消息
             return jsonify({
@@ -587,28 +646,24 @@ def get_current_chat():
             })
         else:
             return jsonify({'code': 404, 'message': '专家不存在'})
-    
-    # 查找最近一个会话
-    # 如果是来自 SkillLoader 的专家（id=0），跳过会话查询
-    if hasattr(expert, 'id') and expert.id == 0:
-        # 来自 SkillLoader 的虚拟专家，返回空消息
-        return jsonify({
-            'code': 200,
-            'message': 'success',
-            'data': {
-                'session_id': None,
-                'expert': expert,
-                'messages': []
-            }
-        })
-    
-    chat_session = ChatSession.query.filter_by(
-        user_id=current_user.id,
-        client_id=client_id,
-        expert_id=expert.id,
-        is_active=True
-    ).order_by(ChatSession.updated_at.desc()).first()
-    
+
+    # 查找指定会话或最近一个会话
+    chat_session = None
+    if session_id:
+        chat_session = ChatSession.query.filter_by(
+            id=session_id,
+            user_id=current_user.id,
+            client_id=client_id
+        ).first()
+
+    if not chat_session:
+        chat_session = ChatSession.query.filter_by(
+            user_id=current_user.id,
+            client_id=client_id,
+            expert_id=expert.id,
+            is_active=True
+        ).order_by(ChatSession.updated_at.desc()).first()
+
     if not chat_session:
         # 返回专家欢迎语（返回空消息数组，让前端显示欢迎语）
         return jsonify({
@@ -628,10 +683,10 @@ def get_current_chat():
                 'messages': []
             }
         })
-    
+
     # 获取消息历史
     messages = chat_session.messages.order_by(ChatMessage.created_at.asc()).all()
-    
+
     data = {
         'session_id': chat_session.id,
         'expert': {
@@ -652,8 +707,70 @@ def get_current_chat():
             'created_at': m.created_at.isoformat() if m.created_at else None
         } for m in messages]
     }
-    
+
     return jsonify({'code': 200, 'message': 'success', 'data': data})
+
+
+@api.route('/chat/sessions/client', methods=['GET'])
+@login_required
+def get_client_chat_sessions():
+    client_id = session.get('current_client_id')
+
+    if not client_id:
+        return jsonify({'code': 200, 'message': '无当前客户', 'data': {'sessions': []}})
+
+    # 获取当前客户的所有会话，按更新时间倒序
+    sessions = ChatSession.query.filter_by(
+        user_id=current_user.id,
+        client_id=client_id,
+        is_active=True
+    ).order_by(ChatSession.updated_at.desc()).limit(50).all()
+
+    # 构建会话列表数据
+    session_list = []
+    for s in sessions:
+        # 获取该会话的专家信息
+        expert_info = None
+        if s.expert:
+            expert_info = {
+                'id': s.expert.id,
+                'name': s.expert.name,
+                'nickname': s.expert.nickname,
+                'title': s.expert.title,
+                'icon': s.expert.icon,
+                'slug': s.expert.slug
+            }
+        else:
+            # 尝试从 SkillLoader 获取
+            from services.skill_loader import get_skill_loader
+            skill_loader = get_skill_loader()
+            # 通过 expert_id 尝试映射到 skill
+            skill_info = skill_loader.get_skill_info(str(s.expert_id))
+            if skill_info:
+                expert_info = {
+                    'id': s.expert_id,
+                    'name': skill_info.get('name', '未知专家'),
+                    'nickname': skill_info.get('nickname', skill_info.get('name', '未知')),
+                    'title': skill_info.get('title', ''),
+                    'icon': '<i class="bi bi-robot"></i>',
+                    'slug': str(s.expert_id)
+                }
+
+        # 获取消息数量和最后一条消息
+        message_count = s.messages.count()
+        last_message = s.messages.order_by(ChatMessage.created_at.desc()).first()
+
+        session_list.append({
+            'id': s.id,
+            'title': s.title,
+            'expert': expert_info,
+            'message_count': message_count,
+            'last_message': last_message.content[:100] if last_message else None,
+            'updated_at': s.updated_at.isoformat() if s.updated_at else None,
+            'created_at': s.created_at.isoformat() if s.created_at else None
+        })
+
+    return jsonify({'code': 200, 'message': 'success', 'data': {'sessions': session_list}})
 
 
 @api.route('/chat/switch-expert', methods=['POST'])

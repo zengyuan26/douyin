@@ -7,12 +7,12 @@
     <!-- 页面标题 -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
                 <div>
                     <h4 class="mb-1">知识库管理</h4>
                     <p class="text-muted mb-0">管理知识库分类和文章</p>
                 </div>
-                <div>
+                <div class="btn-animate">
                     <a href="{{ url_for('admin.knowledge_articles') }}" class="btn btn-outline-primary me-2">
                         <i class="bi bi-file-text me-1"></i>文章管理
                     </a>
@@ -27,7 +27,7 @@
     <!-- 统计卡片 -->
     <div class="row g-3 mb-4">
         <div class="col-md-4">
-            <div class="card border-0 shadow-sm">
+            <div class="stat-card stat-card-primary stat-card-animate">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
@@ -44,7 +44,7 @@
     </div>
 
     <!-- 分类列表 -->
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm section-card-animate">
         <div class="card-header bg-white border-0 py-3">
             <h5 class="mb-0">分类列表</h5>
         </div>
