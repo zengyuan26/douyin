@@ -1984,6 +1984,7 @@
             <div class="chat-messages" id="chatMessages">
                 <!-- 聊天消息将通过JavaScript动态生成 -->
             </div>
+
             
             <!-- 日期导航条 -->
             <div class="chat-date-nav" id="chatDateNav">
@@ -2205,13 +2206,13 @@
         fetch('/api/chat/sessions?client_id=' + currentClientId)
             .then(res => res.json())
             .then(data => {
-                console.log('[loadClientChatTabs] 返回数据:', data);
+                console.log('[loadClientChatTabs] 返回数据:', JSON.stringify(data));
                 if (data.code === 200 && data.data && data.data.sessions) {
                     // 按专家分组，获取每个专家的最新会话
                     const expertSessions = {};
                     data.data.sessions.forEach(session => {
                         const slug = session.expert_slug;
-                        console.log('[loadClientChatTabs] session:', session.id, 'expert_slug:', slug);
+                        console.log('[loadClientChatTabs] session:', session.id, 'expert_slug:', slug, 'expert_name:', session.expert_name);
                         if (slug && !expertSessions[slug]) {
                             expertSessions[slug] = session;
                         }
@@ -2272,6 +2273,9 @@
         
         // 从 API 加载专家列表（基于 Skills）
         loadExpertsFromAPI();
+
+        // 聊天框滚动辅助（滚动时出现：到顶/到底）
+        initChatScrollAssist();
         
         // 优先根据服务端 session 获取当前客户（所有角色共用）
         fetch('/api/current_client')
@@ -2320,6 +2324,76 @@
                 console.error('获取当前客户失败:', err);
             });
     });
+
+    function initChatScrollAssist() {
+        const chat = document.getElementById('workspaceChat');
+        const container = document.getElementById('chatMessages');
+        const assist = document.getElementById('chatScrollAssist');
+        const topBtn = document.getElementById('chatScrollTopBtn');
+        const bottomBtn = document.getElementById('chatScrollBottomBtn');
+
+        if (!chat || !container || !assist || !topBtn || !bottomBtn) {
+            console.log('[ScrollAssist] 元素未找到');
+            return;
+        }
+
+        let hideTimer = null;
+
+        function nearTop() {
+            return container.scrollTop <= 8;
+        }
+
+        function nearBottom() {
+            const remaining = container.scrollHeight - (container.scrollTop + container.clientHeight);
+            return remaining <= 8;
+        }
+
+        function updateDisabledState() {
+            // 检查是否可滚动
+            const canScroll = container.scrollHeight > (container.clientHeight + 10);
+
+            if (!canScroll) {
+                assist.classList.remove('is-scrollable');
+                topBtn.classList.add('is-hidden');
+                bottomBtn.classList.add('is-hidden');
+                return;
+            }
+
+            assist.classList.add('is-scrollable');
+
+            const atTop = nearTop();
+            const atBottom = nearBottom();
+            topBtn.classList.toggle('is-hidden', atTop);
+            bottomBtn.classList.toggle('is-hidden', atBottom);
+        }
+
+        function showAssistTemporarily() {
+            assist.classList.add('is-visible');
+            if (hideTimer) window.clearTimeout(hideTimer);
+            hideTimer = window.setTimeout(() => {
+                assist.classList.remove('is-visible');
+            }, 1500);
+        }
+
+        // 立即显示按钮
+        assist.classList.add('is-visible');
+        assist.classList.add('is-scrollable');
+
+        // 绑定滚动事件
+        container.addEventListener('scroll', () => {
+            updateDisabledState();
+            showAssistTemporarily();
+        }, { passive: true });
+
+        // 初始状态
+        setTimeout(() => {
+            updateDisabledState();
+        }, 300);
+
+        window.addEventListener('resize', () => {
+            updateDisabledState();
+        });
+    }
 
     // 从 API 加载专家列表（基于 Skills 按需加载）
     function loadExpertsFromAPI() {
@@ -2593,12 +2667,16 @@
 
                 if (data.data.messages && data.data.messages.length > 0) {
                     console.log('[loadChatHistory] 消息数量:', data.data.messages.length);
-                    let html = '';
+
+                    // 始终显示欢迎语 + 历史消息
+                    const welcomeHtml = showWelcomeWithSkills(currentExpertSlug, currentExpertName, currentExpertTitle, currentExpertIcon);
+
+                    let messagesHtml = '';
                     data.data.messages.forEach(msg => {
                         const isUser = msg.role === 'user';
                         const isSystem = msg.role === 'system';
                         const icon = isUser ? '<i class="bi bi-person"></i>' : (isSystem ? '<i class="bi bi-info-circle"></i>' : (msg.expert_icon || currentExpertIcon));
-                        html += `
+                        messagesHtml += `
                             <div class="wechat-message ${msg.role}">
                                 <div class="message-avatar ${msg.role}">${icon}</div>
                                 <div class="message-content">
@@ -2607,12 +2685,19 @@
                             </div>
                         `;
                     });
-                    container.innerHTML = html;
+
+                    // 欢迎语在上，历史消息在下
+                    container.innerHTML = welcomeHtml + messagesHtml;
                     container.scrollTop = container.scrollHeight;
                 } else {
                     // 无历史消息时，显示欢迎语 + 技能链接
                     console.log('[loadChatHistory] 无历史消息，显示欢迎语');
-                    container.innerHTML = showWelcomeWithSkills(currentExpertSlug, currentExpertName, currentExpertTitle, currentExpertIcon);
+                    console.log('[loadChatHistory] currentExpertSlug:', currentExpertSlug);
+                    console.log('[loadChatHistory] currentExpertName:', currentExpertName);
+                    const welcomeHtml = showWelcomeWithSkills(currentExpertSlug, currentExpertName, currentExpertTitle, currentExpertIcon);
+                    console.log('[loadChatHistory] welcomeHtml:', welcomeHtml ? '有内容' : '为空');
+                    console.log('[loadChatHistory] welcomeHtml 内容:', welcomeHtml);
+                    container.innerHTML = welcomeHtml;
                 }
             }
         })
@@ -3137,6 +3222,8 @@
                                     if (data.session_id) {
                                         currentSessionId = data.session_id;
                                         console.log('[sendMessage] 更新 currentSessionId:', currentSessionId);
+                                        // 更新标签中的 sessionId
+                                        updateCurrentTabSession(data.session_id);
                                         // 刷新会话列表
                                         loadSessionsList();
                                     }
@@ -3260,6 +3347,30 @@
             if (loadingEl) loadingEl.remove();
             addMessage('expert', '抱歉，发送消息失败，请重试');
         });
+    }
+
+    // 快速滚动到顶部
+    function scrollToTop() {
+        const container = document.getElementById('chatMessages');
+        if (container) {
+            const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            container.scrollTo({
+                top: 0,
+                behavior: prefersReducedMotion ? 'auto' : 'smooth'
+            });
+        }
+    }
+
+    // 快速滚动到底部
+    function scrollToBottom() {
+        const container = document.getElementById('chatMessages');
+        if (container) {
+            const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: prefersReducedMotion ? 'auto' : 'smooth'
+            });
+        }
     }
 
     function addMessage(role, content) {

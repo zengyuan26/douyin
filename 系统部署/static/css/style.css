@@ -1049,6 +1049,7 @@ body {
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
     overflow: hidden;
+    position: relative;
 }
 
 .sidebar-header {
@@ -1326,6 +1327,88 @@ body {
     position: relative;
     min-height: 150px;
     max-height: calc(100vh - 320px);
+}
+
+/* 聊天框：滚动时出现的“到顶/到底”灵动按钮 */
+.chat-scroll-assist {
+    position: absolute;
+    right: 6px;
+    top: 8px;
+    bottom: 8px;
+    width: 34px;
+    z-index: 120;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 8px 0;
+}
+
+.chat-scroll-assist.is-visible {
+    pointer-events: auto;
+}
+
+.chat-scroll-assist:not(.is-scrollable) {
+    display: none;
+}
+
+.chat-scroll-assist-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.14);
+    color: #666;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateX(4px) scale(0.98);
+    transition: opacity 220ms ease, transform 220ms ease, background 220ms ease, border-color 220ms ease;
+    flex-shrink: 0;
+}
+
+.chat-scroll-assist.is-visible .chat-scroll-assist-btn {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+}
+
+.chat-scroll-assist-btn:hover {
+    background: rgba(255, 255, 255, 0.88);
+    border-color: rgba(236, 72, 153, 0.28);
+}
+
+.chat-scroll-assist-btn:active {
+    transform: scale(0.97);
+}
+
+.chat-scroll-assist-btn i {
+    font-size: 16px;
+}
+
+/* 按钮使用flex布局 */
+.chat-scroll-assist-top,
+.chat-scroll-assist-bottom {
+    position: static;
+}
+
+.chat-scroll-assist-btn.is-hidden {
+    opacity: 0 !important;
+    transform: scale(0.98) !important;
+    pointer-events: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-scroll-assist-btn,
+    .chat-scroll-assist.is-visible .chat-scroll-assist-btn {
+        transition: none;
+        transform: none;
+    }
 }
 
 /* 专家介绍置顶区域 */
@@ -2315,4 +2398,3 @@ body {
     border-radius: 20px;
     font-size: 12px;
 }
-

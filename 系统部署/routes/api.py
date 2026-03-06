@@ -9,6 +9,7 @@ import shutil
 from urllib.parse import quote, urlencode
 from werkzeug.utils import secure_filename
 from flask import Blueprint, jsonify, request, session, Response, stream_with_context, send_from_directory
+from flask_login import login_required, current_user
 from models.models import db, Client, Channel, Keyword, Topic, Monitor, Expert, ChatSession, ChatMessage, Industry, ExpertOutput
 from datetime import datetime, timedelta
 
@@ -562,6 +563,8 @@ def get_chat_sessions():
         'seo': 'geo-seo',
         'content': 'content-creator',
         'monitor': 'market-insights-commander',
+        'social-media-monitor-commander': 'market-insights-commander',
+        'operations-expert': 'ai-operations-commander',
     }
 
     query = ChatSession.query.filter_by(user_id=current_user.id, is_active=True)
@@ -617,9 +620,14 @@ def get_session_messages(session_id):
 @login_required
 def get_current_chat():
     """获取当前客户的当前会话（用于页面加载时）"""
+    import logging
+    logger = logging.getLogger('werkzeug')
+    
     client_id = session.get('current_client_id')
     expert_slug = request.args.get('expert', 'master')
     session_id = request.args.get('session_id')  # 可选，指定加载某个会话
+
+    logger.info(f'[get_current_chat] client_id: {client_id}, expert_slug: {expert_slug}, session_id: {session_id}')
 
     if not client_id:
         return jsonify({'code': 200, 'message': '无当前客户', 'data': {'messages': [], 'session_id': None}})
@@ -632,13 +640,18 @@ def get_current_chat():
         'market-insights-commander': 'monitor',
         'social-media-monitor-commander': 'monitor',
         'operations-expert': 'ai-operations-commander',
+        'ai-operations-commander': 'ai-operations-commander',
+        'content': 'content',
     }
 
     # 转换为数据库中的 slug
     db_slug = slug_mapping.get(expert_slug, expert_slug)
 
+    logger.info(f'[get_current_chat] expert_slug: {expert_slug}, db_slug: {db_slug}')
+
     # 先尝试从数据库 Expert 表查找
     expert = Expert.query.filter_by(slug=db_slug).first()
+    logger.info(f'[get_current_chat] expert: {expert}')
 
     # 如果数据库中没有，从 SkillLoader 获取专家信息
     if not expert:
@@ -682,15 +695,18 @@ def get_current_chat():
             user_id=current_user.id,
             client_id=client_id
         ).first()
+        logger.info(f'[get_current_chat] session_id: {session_id}, chat_session: {chat_session}')
 
     if not chat_session:
         # 查找当前客户+当前专家的最新会话
+        logger.info(f'[get_current_chat] 查找新会话, expert.id: {expert.id if expert else None}, client_id: {client_id}')
         chat_session = ChatSession.query.filter_by(
             user_id=current_user.id,
             client_id=client_id,
             expert_id=expert.id,
             is_active=True
         ).order_by(ChatSession.updated_at.desc()).first()
+        logger.info(f'[get_current_chat] 找到的会话: {chat_session}')
 
     if not chat_session:
         # 返回专家欢迎语（返回空消息数组，让前端显示欢迎语）
