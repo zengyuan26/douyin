@@ -3,9 +3,12 @@ API路由 - 数据接口
 """
 import json
 import re
-from urllib.parse import quote
-from flask import Blueprint, jsonify, request, session, Response, stream_with_context
-from flask_login import login_required, current_user
+import time
+import os
+import shutil
+from urllib.parse import quote, urlencode
+from werkzeug.utils import secure_filename
+from flask import Blueprint, jsonify, request, session, Response, stream_with_context, send_from_directory
 from models.models import db, Client, Channel, Keyword, Topic, Monitor, Expert, ChatSession, ChatMessage, Industry, ExpertOutput
 from datetime import datetime, timedelta
 
@@ -551,27 +554,36 @@ def get_chat_sessions():
     """获取对话会话列表"""
     client_id = request.args.get('client_id', type=int)
     expert_id = request.args.get('expert_id', type=int)
-    
+
+    # 数据库 slug 到前端 slug 的映射（反向映射）
+    reverse_slug_mapping = {
+        'master': 'chief-operating-officer',
+        'ai-operations-commander': 'ai-operations-commander',
+        'seo': 'geo-seo',
+        'content': 'content-creator',
+        'monitor': 'market-insights-commander',
+    }
+
     query = ChatSession.query.filter_by(user_id=current_user.id, is_active=True)
-    
+
     if client_id:
         query = query.filter_by(client_id=client_id)
     if expert_id:
         query = query.filter_by(expert_id=expert_id)
-    
+
     sessions = query.order_by(ChatSession.updated_at.desc()).limit(20).all()
-    
+
     data = [{
         'id': s.id,
         'title': s.title or '新对话',
         'expert_name': s.expert.name if s.expert else '专家',
         'expert_icon': s.expert.icon if s.expert else '🤖',
-        'expert_slug': s.expert.slug if s.expert else None,
+        'expert_slug': reverse_slug_mapping.get(s.expert.slug, s.expert.slug) if s.expert else None,
         'client_name': s.client.name if s.client else None,
         'message_count': s.messages.count(),
         'updated_at': s.updated_at.isoformat() if s.updated_at else None
     } for s in sessions]
-    
+
     return jsonify({'code': 200, 'message': 'success', 'data': {'sessions': data}})
 
 
@@ -612,8 +624,21 @@ def get_current_chat():
     if not client_id:
         return jsonify({'code': 200, 'message': '无当前客户', 'data': {'messages': [], 'session_id': None}})
 
+    # 前端 slug 到数据库 slug 的映射
+    slug_mapping = {
+        'chief-operating-officer': 'master',
+        'geo-seo': 'seo',
+        'content-creator': 'content',
+        'market-insights-commander': 'monitor',
+        'social-media-monitor-commander': 'monitor',
+        'operations-expert': 'ai-operations-commander',
+    }
+
+    # 转换为数据库中的 slug
+    db_slug = slug_mapping.get(expert_slug, expert_slug)
+
     # 先尝试从数据库 Expert 表查找
-    expert = Expert.query.filter_by(slug=expert_slug).first()
+    expert = Expert.query.filter_by(slug=db_slug).first()
 
     # 如果数据库中没有，从 SkillLoader 获取专家信息
     if not expert:
@@ -651,13 +676,15 @@ def get_current_chat():
     # 查找指定会话或最近一个会话
     chat_session = None
     if session_id:
+        # 验证会话属于当前用户和客户
         chat_session = ChatSession.query.filter_by(
-            id=session_id,
+            id=int(session_id),
             user_id=current_user.id,
             client_id=client_id
         ).first()
 
     if not chat_session:
+        # 查找当前客户+当前专家的最新会话
         chat_session = ChatSession.query.filter_by(
             user_id=current_user.id,
             client_id=client_id,
@@ -1827,9 +1854,10 @@ D. 客户教育 - 科普行业知识，建立信任
 def get_outputs():
     """获取产出历史记录"""
     client_id = request.args.get('client_id', type=int)
-    
+    expert_slug = request.args.get('expert_slug', '')  # 新增：按专家slug过滤
+
     query = ExpertOutput.query
-    
+
     # 超级管理员可以看到所有，其他用户只能看到自己客户的
     if not current_user.is_super_admin():
         # 获取用户关联的客户
@@ -1840,7 +1868,31 @@ def get_outputs():
         else:
             # 普通用户只能看到自己创建的
             query = query.filter_by(user_id=current_user.id)
-    
+
+    # 按专家过滤（支持 slug 或名称匹配）
+    if expert_slug:
+        # 根据 expert_slug 映射到对应的输出类型或专家ID
+        expert = Expert.query.filter_by(slug=expert_slug).first()
+        if expert:
+            query = query.filter_by(expert_id=expert.id)
+        else:
+            # 如果专家在 Expert 表中不存在（如 ai-operations-commander 是动态加载的），则根据 slug 映射到 output_type 进行过滤
+            output_type_map = {
+                'ai-operations-commander': ['keywords', 'topics', 'operations'],  # 塔斯：关键词库、选题库、运营规划
+                'market-insights-commander': ['analysis'],  # 艾米莉亚：市场分析报告
+                'monitor': ['analysis'],  # 舆情专家
+                'content': ['content', 'script'],  # 墨菲：图文、脚本
+                'seo': ['content', 'script'],  # 墨菲（SEO）
+                'master': ['analysis'],  # 首席运营官：市场分析报告
+                'chief-operating-officer': ['analysis']
+            }
+            if expert_slug in output_type_map:
+                output_types = output_type_map[expert_slug]
+                query = query.filter(ExpertOutput.output_type.in_(output_types))
+            else:
+                # 其他未知专家，返回空结果
+                return jsonify({'code': 200, 'data': []})
+
     if client_id:
         query = query.filter_by(client_id=client_id)
     
@@ -1854,7 +1906,11 @@ def get_outputs():
         title = o.title or '报告'
         report_type = title.split(' - ')[0].strip() if ' - ' in title else title
         report_type = _sanitize_filename(report_type)
-        download_filename = _sanitize_filename(client_name) + '_' + report_type + '.md'
+        # 若 title 已含客户名（如 刘德华_运营规划方案），直接用作文件名，避免重复
+        if title and '_' in title and title.split(' - ')[0].strip().startswith((client_name or '') + '_'):
+            download_filename = _sanitize_filename(title.split(' - ')[0].strip()) + ('' if title.rstrip().endswith('.md') else '.md')
+        else:
+            download_filename = _sanitize_filename(client_name) + '_' + report_type + '.md'
         data.append({
             'id': o.id,
             'expert_name': expert.name if expert else '专家',
@@ -1931,7 +1987,11 @@ def download_output(output_id):
     title = output.title or '报告'
     report_type = title.split(' - ')[0].strip() if ' - ' in title else title
     report_type = _sanitize_filename(report_type)
-    filename = _sanitize_filename(client_name) + '_' + report_type + '.md'
+    # 若 title 已含客户名（如 刘德华_运营规划方案），直接用作文件名，避免重复
+    if title and '_' in report_type and report_type.startswith((client_name or '') + '_'):
+        filename = _sanitize_filename(report_type) + ('' if report_type.endswith('.md') else '.md')
+    else:
+        filename = _sanitize_filename(client_name) + '_' + report_type + '.md'
     content = output.content or ''
     resp = Response(content, mimetype='text/markdown; charset=utf-8')
     resp.headers['Content-Disposition'] = "attachment; filename*=UTF-8''" + quote(filename)
@@ -1975,3 +2035,259 @@ def save_output():
     db.session.commit()
     
     return jsonify({'code': 200, 'message': '保存成功', 'data': {'id': output.id}})
+
+
+# ==================== 品牌物料信息维护API ====================
+import os
+import shutil
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+
+# 文件夹类型映射
+ASSETS_FOLDER_MAP = {
+    'brand': '品牌资料',
+    'product': '产品资料',
+    'package': '包装设计',
+    'persona': '人物形象',
+    'scene': '场景素材',
+    'marketing': '宣传物料',
+    'reference': '参考案例'
+}
+
+# 获取客户资料文件夹根目录
+def get_client_assets_base_path():
+    """获取客户资料文件夹根目录"""
+    base_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '客户管理')
+    return base_path
+
+
+def get_client_folder_path(client_id):
+    """根据客户ID获取客户文件夹路径"""
+    # 从数据库获取客户信息
+    client = Client.query.get(client_id)
+    if not client:
+        return None
+
+    # 获取行业名称
+    if client.industry_id and client.industry:
+        industry = client.industry.name
+    else:
+        # 尝试从 profile_data 或 business_type 获取
+        industry = '食品行业'  # 默认值
+
+    # 业务范围使用 business_type
+    business_scope = client.business_type or '通用'
+
+    # 使用客户名称作为文件夹名
+    client_name = client.name
+
+    base_path = get_client_assets_base_path()
+    client_path = os.path.join(base_path, industry, business_scope, client_name)
+
+    return client_path
+
+
+@api.route('/client/assets/<int:client_id>/<folder_type>', methods=['GET'])
+@login_required
+def get_client_assets(client_id, folder_type):
+    """获取指定客户指定文件夹的文件列表"""
+    if folder_type not in ASSETS_FOLDER_MAP:
+        return jsonify({'code': 400, 'message': '无效的文件夹类型'})
+
+    client_path = get_client_folder_path(client_id)
+    if not client_path:
+        return jsonify({'code': 404, 'message': '客户不存在'})
+
+    # 构建文件夹路径
+    folder_name = ASSETS_FOLDER_MAP[folder_type]
+    folder_path = os.path.join(client_path, folder_name)
+
+    # 如果文件夹不存在，创建它
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path, exist_ok=True)
+        return jsonify({'code': 200, 'files': []})
+
+    # 遍历文件夹获取文件列表
+    files = []
+    try:
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+            if os.path.isfile(file_path):
+                stat = os.stat(file_path)
+                # 构建相对路径用于下载
+                rel_path = os.path.join(folder_name, filename)
+                files.append({
+                    'filename': filename,
+                    'filepath': rel_path,
+                    'size': stat.st_size,
+                    'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
+                    'url': f'/api/client/assets/download?client_id={client_id}&filepath={urllib.parse.quote(rel_path)}'
+                })
+    except Exception as e:
+        return jsonify({'code': 500, 'message': f'读取文件夹失败: {str(e)}'})
+
+    # 按修改时间排序
+    files.sort(key=lambda x: x['modified'], reverse=True)
+
+    return jsonify({'code': 200, 'files': files})
+
+
+@api.route('/client/assets/upload', methods=['POST'])
+@login_required
+def upload_client_assets():
+    """上传品牌物料文件"""
+    client_id = request.form.get('client_id')
+    folder_type = request.form.get('folder_type')
+
+    if not client_id or not folder_type:
+        return jsonify({'code': 400, 'message': '缺少必要参数'})
+
+    try:
+        client_id = int(client_id)
+    except ValueError:
+        return jsonify({'code': 400, 'message': '无效的客户ID'})
+
+    if folder_type not in ASSETS_FOLDER_MAP:
+        return jsonify({'code': 400, 'message': '无效的文件夹类型'})
+
+    # 获取文件夹路径
+    client_path = get_client_folder_path(client_id)
+    if not client_path:
+        return jsonify({'code': 404, 'message': '客户不存在'})
+
+    folder_name = ASSETS_FOLDER_MAP[folder_type]
+    folder_path = os.path.join(client_path, folder_name)
+
+    # 确保文件夹存在
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path, exist_ok=True)
+
+    # 处理上传的文件
+    files = request.files.getlist('files')
+    if not files or len(files) == 0:
+        return jsonify({'code': 400, 'message': '没有选择文件'})
+
+    uploaded_files = []
+    errors = []
+
+    for file in files:
+        if file.filename:
+            # 安全处理文件名
+            filename = secure_filename(file.filename)
+            if not filename:
+                errors.append(f'{file.filename}: 文件名不安全')
+                continue
+
+            # 检查文件是否已存在
+            file_path = os.path.join(folder_path, filename)
+            if os.path.exists(file_path):
+                # 重命名文件
+                name, ext = os.path.splitext(filename)
+                filename = f'{name}_{int(time.time())}{ext}'
+                file_path = os.path.join(folder_path, filename)
+
+            try:
+                file.save(file_path)
+                uploaded_files.append(filename)
+            except Exception as e:
+                errors.append(f'{file.filename}: {str(e)}')
+
+    if errors and len(uploaded_files) == 0:
+        return jsonify({'code': 500, 'message': '上传失败', 'errors': errors})
+
+    message = f'成功上传 {len(uploaded_files)} 个文件'
+    if errors:
+        message += f'，{len(errors)} 个文件上传失败'
+
+    return jsonify({
+        'code': 200,
+        'message': message,
+        'uploaded': uploaded_files,
+        'errors': errors
+    })
+
+
+@api.route('/client/assets/delete', methods=['POST'])
+@login_required
+def delete_client_assets():
+    """删除品牌物料文件"""
+    data = request.get_json()
+    client_id = data.get('client_id')
+    folder_type = data.get('folder_type')
+    filename = data.get('filename')
+    filepath = data.get('filepath')
+
+    if not client_id or not folder_type or not filename:
+        return jsonify({'code': 400, 'message': '缺少必要参数'})
+
+    try:
+        client_id = int(client_id)
+    except ValueError:
+        return jsonify({'code': 400, 'message': '无效的客户ID'})
+
+    if folder_type not in ASSETS_FOLDER_MAP:
+        return jsonify({'code': 400, 'message': '无效的文件夹类型'})
+
+    # 获取文件夹路径
+    client_path = get_client_folder_path(client_id)
+    if not client_path:
+        return jsonify({'code': 404, 'message': '客户不存在'})
+
+    # 使用传入的filepath或构建文件路径
+    if filepath:
+        file_path = os.path.join(client_path, filepath)
+    else:
+        folder_name = ASSETS_FOLDER_MAP[folder_type]
+        file_path = os.path.join(client_path, folder_name, filename)
+
+    # 检查文件是否存在
+    if not os.path.exists(file_path):
+        return jsonify({'code': 404, 'message': '文件不存在'})
+
+    try:
+        os.remove(file_path)
+        return jsonify({'code': 200, 'message': '删除成功'})
+    except Exception as e:
+        return jsonify({'code': 500, 'message': f'删除失败: {str(e)}'})
+
+
+@api.route('/client/assets/download', methods=['GET'])
+@login_required
+def download_client_assets():
+    """下载品牌物料文件"""
+    client_id = request.args.get('client_id')
+    filepath = request.args.get('filepath')
+
+    if not client_id or not filepath:
+        return jsonify({'code': 400, 'message': '缺少必要参数'})
+
+    try:
+        client_id = int(client_id)
+    except ValueError:
+        return jsonify({'code': 400, 'message': '无效的客户ID'})
+
+    # 获取客户文件夹路径
+    client_path = get_client_folder_path(client_id)
+    if not client_path:
+        return jsonify({'code': 404, 'message': '客户不存在'})
+
+    # 解码文件路径
+    filepath = urllib.parse.unquote(filepath)
+    file_path = os.path.join(client_path, filepath)
+
+    # 安全检查：确保文件路径在客户文件夹内
+    if not os.path.commonpath([client_path, file_path]).startswith(client_path):
+        return jsonify({'code': 403, 'message': '无效的文件路径'})
+
+    # 检查文件是否存在
+    if not os.path.exists(file_path):
+        return jsonify({'code': 404, 'message': '文件不存在'})
+
+    if os.path.isdir(file_path):
+        return jsonify({'code': 400, 'message': '不能下载文件夹'})
+
+    # 返回文件
+    directory = os.path.dirname(file_path)
+    filename = os.path.basename(file_path)
+
+    return send_from_directory(directory, filename, as_attachment=True)

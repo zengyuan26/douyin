@@ -496,6 +496,93 @@
             color: white;
         }
 
+        /* 会话标签栏（微信风格） */
+        .chat-tabs {
+            display: flex;
+            gap: 4px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            padding-bottom: 2px;
+        }
+
+        .chat-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .chat-tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-light);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all var(--transition-fast);
+            flex-shrink: 0;
+        }
+
+        .chat-tab:hover {
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-primary);
+        }
+
+        .chat-tab.active {
+            background: var(--color-primary);
+            border-color: var(--color-primary);
+            color: white;
+        }
+
+        .chat-tab-icon {
+            font-size: 14px;
+        }
+
+        .chat-tab-name {
+            max-width: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-tab-close {
+            margin-left: 2px;
+            font-size: 12px;
+            opacity: 0.7;
+            padding: 2px;
+            border-radius: 50%;
+        }
+
+        .chat-tab-close:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 新建会话标签按钮 */
+        .chat-tab-new {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-bg-secondary);
+            border: 1px dashed var(--color-border-medium);
+            border-radius: 50%;
+            color: var(--color-text-tertiary);
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all var(--transition-fast);
+        }
+
+        .chat-tab-new:hover {
+            background: var(--color-primary);
+            border-color: var(--color-primary);
+            color: white;
+            border-style: solid;
+        }
+
         /* 聊天记录弹窗样式 */
         .chat-records-client-card {
             background: #fff;
@@ -1486,6 +1573,224 @@
                 </div>
             </div>
 
+            <!-- 品牌物料信息维护弹窗 -->
+            <div class="modal fade" id="brandAssetsModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+                <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 1100px;">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h5 class="modal-title fs-6">
+                                <i class="bi bi-box-seam me-2"></i>
+                                <span id="brandAssetsModalTitle">品牌/物料/包装信息维护</span>
+                            </h5>
+                            <button type="button" class="btn-close btn-sm" onclick="closeModal('brandAssetsModal')"></button>
+                        </div>
+                        <div class="modal-body p-3" style="max-height: 70vh; overflow-y: auto;">
+                            <!-- 文件夹标签页 -->
+                            <ul class="nav nav-tabs mb-3" id="brandAssetsTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="brand-tab" data-bs-toggle="tab" data-bs-target="#brand-content" type="button" role="tab">
+                                        <i class="bi bi-bookmark me-1"></i>品牌资料
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="product-tab" data-bs-toggle="tab" data-bs-target="#product-content" type="button" role="tab">
+                                        <i class="bi bi-cup-straw me-1"></i>产品资料
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="package-tab" data-bs-toggle="tab" data-bs-target="#package-content" type="button" role="tab">
+                                        <i class="bi bi-box me-1"></i>包装设计
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="persona-tab" data-bs-toggle="tab" data-bs-target="#persona-content" type="button" role="tab">
+                                        <i class="bi bi-person-badge me-1"></i>人物形象
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="scene-tab" data-bs-toggle="tab" data-bs-target="#scene-content" type="button" role="tab">
+                                        <i class="bi bi-shop me-1"></i>场景素材
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="marketing-tab" data-bs-toggle="tab" data-bs-target="#marketing-content" type="button" role="tab">
+                                        <i class="bi bi-megaphone me-1"></i>宣传物料
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="reference-tab" data-bs-toggle="tab" data-bs-target="#reference-content" type="button" role="tab">
+                                        <i class="bi bi-collection me-1"></i>参考案例
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <!-- 文件夹内容区域 -->
+                            <div class="tab-content" id="brandAssetsTabContent">
+                                <!-- 品牌资料 -->
+                                <div class="tab-pane fade show active" id="brand-content" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="mb-0">品牌资料</h6>
+                                            <small class="text-muted">logo、slogan、品牌故事等</small>
+                                        </div>
+                                        <div>
+                                            <input type="file" id="brand-upload-input" class="d-none" accept="image/*,video/*,.pdf,.doc,.docx" multiple onchange="uploadBrandFile('brand')">
+                                            <button class="btn btn-primary btn-sm" onclick="document.getElementById('brand-upload-input').click()">
+                                                <i class="bi bi-cloud-upload me-1"></i>上传文件
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="brand-files-grid" id="brand-files-list">
+                                        <div class="text-center text-muted py-4" id="brand-empty-tip">
+                                            <i class="bi bi-folder2-open fs-1"></i>
+                                            <p class="mb-0">暂无文件，请上传</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 产品资料 -->
+                                <div class="tab-pane fade" id="product-content" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="mb-0">产品资料</h6>
+                                            <small class="text-muted">产品图片、参数、价格表等</small>
+                                        </div>
+                                        <div>
+                                            <input type="file" id="product-upload-input" class="d-none" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" multiple onchange="uploadBrandFile('product')">
+                                            <button class="btn btn-primary btn-sm" onclick="document.getElementById('product-upload-input').click()">
+                                                <i class="bi bi-cloud-upload me-1"></i>上传文件
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="product-files-grid" id="product-files-list">
+                                        <div class="text-center text-muted py-4" id="product-empty-tip">
+                                            <i class="bi bi-folder2-open fs-1"></i>
+                                            <p class="mb-0">暂无文件，请上传</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 包装设计 -->
+                                <div class="tab-pane fade" id="package-content" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="mb-0">包装设计</h6>
+                                            <small class="text-muted">包装图片、材质说明等</small>
+                                        </div>
+                                        <div>
+                                            <input type="file" id="package-upload-input" class="d-none" accept="image/*,video/*,.pdf,.doc,.docx" multiple onchange="uploadBrandFile('package')">
+                                            <button class="btn btn-primary btn-sm" onclick="document.getElementById('package-upload-input').click()">
+                                                <i class="bi bi-cloud-upload me-1"></i>上传文件
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="package-files-grid" id="package-files-list">
+                                        <div class="text-center text-muted py-4" id="package-empty-tip">
+                                            <i class="bi bi-folder2-open fs-1"></i>
+                                            <p class="mb-0">暂无文件，请上传</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 人物形象 -->
+                                <div class="tab-pane fade" id="persona-content" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="mb-0">人物形象</h6>
+                                            <small class="text-muted">代言人照片、视频、形象描述等</small>
+                                        </div>
+                                        <div>
+                                            <input type="file" id="persona-upload-input" class="d-none" accept="image/*,video/*,.pdf,.doc,.docx" multiple onchange="uploadBrandFile('persona')">
+                                            <button class="btn btn-primary btn-sm" onclick="document.getElementById('persona-upload-input').click()">
+                                                <i class="bi bi-cloud-upload me-1"></i>上传文件
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="persona-files-grid" id="persona-files-list">
+                                        <div class="text-center text-muted py-4" id="persona-empty-tip">
+                                            <i class="bi bi-folder2-open fs-1"></i>
+                                            <p class="mb-0">暂无文件，请上传</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 场景素材 -->
+                                <div class="tab-pane fade" id="scene-content" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="mb-0">场景素材</h6>
+                                            <small class="text-muted">店铺、车间、集市、家庭场景等</small>
+                                        </div>
+                                        <div>
+                                            <input type="file" id="scene-upload-input" class="d-none" accept="image/*,video/*,.pdf,.doc,.docx" multiple onchange="uploadBrandFile('scene')">
+                                            <button class="btn btn-primary btn-sm" onclick="document.getElementById('scene-upload-input').click()">
+                                                <i class="bi bi-cloud-upload me-1"></i>上传文件
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="scene-files-grid" id="scene-files-list">
+                                        <div class="text-center text-muted py-4" id="scene-empty-tip">
+                                            <i class="bi bi-folder2-open fs-1"></i>
+                                            <p class="mb-0">暂无文件，请上传</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 宣传物料 -->
+                                <div class="tab-pane fade" id="marketing-content" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="mb-0">宣传物料</h6>
+                                            <small class="text-muted">宣传册、单页、视频素材等</small>
+                                        </div>
+                                        <div>
+                                            <input type="file" id="marketing-upload-input" class="d-none" accept="image/*,video/*,.pdf,.doc,.docx,.mp4,.mov,.avi" multiple onchange="uploadBrandFile('marketing')">
+                                            <button class="btn btn-primary btn-sm" onclick="document.getElementById('marketing-upload-input').click()">
+                                                <i class="bi bi-cloud-upload me-1"></i>上传文件
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="marketing-files-grid" id="marketing-files-list">
+                                        <div class="text-center text-muted py-4" id="marketing-empty-tip">
+                                            <i class="bi bi-folder2-open fs-1"></i>
+                                            <p class="mb-0">暂无文件，请上传</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 参考案例 -->
+                                <div class="tab-pane fade" id="reference-content" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="mb-0">参考案例</h6>
+                                            <small class="text-muted">客户案例、好评截图等</small>
+                                        </div>
+                                        <div>
+                                            <input type="file" id="reference-upload-input" class="d-none" accept="image/*,video/*,.pdf,.doc,.docx" multiple onchange="uploadBrandFile('reference')">
+                                            <button class="btn btn-primary btn-sm" onclick="document.getElementById('reference-upload-input').click()">
+                                                <i class="bi bi-cloud-upload me-1"></i>上传文件
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reference-files-grid" id="reference-files-list">
+                                        <div class="text-center text-muted py-4" id="reference-empty-tip">
+                                            <i class="bi bi-folder2-open fs-1"></i>
+                                            <p class="mb-0">暂无文件，请上传</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <small class="text-muted me-auto">
+                                <i class="bi bi-info-circle me-1"></i>文件将保存到客户资料文件夹中
+                            </small>
+                            <button type="button" class="btn btn-secondary btn-sm py-1" onclick="closeModal('brandAssetsModal')">关闭</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 客户信息与聊天记录弹窗（微信风格） -->
             <div class="modal fade" id="chatRecordsModal" tabindex="-1">
                 <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable" style="max-width: 720px;">
@@ -1667,6 +1972,7 @@
                         </button>
                     </div>
                 </div>
+
             </div>
 
             <!-- 专家介绍区域 -->
@@ -1789,6 +2095,161 @@
     let chatRecordsTimeFilter = 'all';
     let chatRecordsKeyword = '';
 
+    // 会话标签管理（微信风格）
+    let chatTabs = []; // 存储所有打开的会话标签 {slug, name, icon, sessionId}
+
+    // 渲染会话标签栏
+    function renderChatTabs() {
+        const tabsContainer = document.getElementById('chatTabs');
+        if (!tabsContainer) return;
+
+        if (chatTabs.length === 0) {
+            tabsContainer.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        chatTabs.forEach((tab, index) => {
+            const isActive = tab.slug === currentExpertSlug ? 'active' : '';
+            html += `
+                <div class="chat-tab ${isActive}" data-slug="${tab.slug}" onclick="switchToChatTab('${tab.slug}')">
+                    <span class="chat-tab-icon">${tab.icon || '<i class="bi bi-robot"></i>'}</span>
+                    <span class="chat-tab-name">${tab.name}</span>
+                    <span class="chat-tab-close" onclick="event.stopPropagation(); closeChatTab('${tab.slug}')">&times;</span>
+                </div>
+            `;
+        });
+
+        // 添加新会话按钮
+        html += `<div class="chat-tab-new" onclick="showExpertSelector()" title="新建会话"><i class="bi bi-plus"></i></div>`;
+
+        tabsContainer.innerHTML = html;
+    }
+
+    // 切换到指定会话标签
+    function switchToChatTab(slug) {
+        const tab = chatTabs.find(t => t.slug === slug);
+        if (!tab) return;
+
+        // 找到对应的专家元素并触发点击
+        const expertItems = document.querySelectorAll('.expert-list-item');
+        expertItems.forEach(item => {
+            if (item.getAttribute('data-slug') === slug) {
+                selectExpertByElement(item);
+            }
+        });
+    }
+
+    // 关闭会话标签
+    function closeChatTab(slug) {
+        const index = chatTabs.findIndex(t => t.slug === slug);
+        if (index === -1) return;
+
+        chatTabs.splice(index, 1);
+        renderChatTabs();
+
+        // 如果关闭的是当前标签，切换到最后一个标签
+        if (slug === currentExpertSlug && chatTabs.length > 0) {
+            const lastTab = chatTabs[chatTabs.length - 1];
+            switchToChatTab(lastTab.slug);
+        } else if (chatTabs.length === 0) {
+            // 如果没有标签了，清空聊天区
+            const container = document.getElementById('chatMessages');
+            if (container) container.innerHTML = '<div class="text-center text-muted py-5">请选择一个专家开始对话</div>';
+        }
+    }
+
+    // 添加会话标签
+    function addChatTab(slug, name, icon, sessionId) {
+        const existing = chatTabs.find(t => t.slug === slug);
+        if (existing) {
+            // 如果已存在，更新信息（特别是 sessionId）
+            existing.name = name;
+            existing.icon = icon;
+            if (sessionId) {
+                existing.sessionId = sessionId;
+            }
+        } else {
+            chatTabs.push({slug, name, icon, sessionId});
+        }
+        renderChatTabs();
+    }
+
+    // 显示专家选择器（点击新会话按钮时）
+    function showExpertSelector() {
+        // 打开专家列表下拉或显示选择提示
+        const expertList = document.querySelector('.expert-list');
+        if (expertList) {
+            expertList.classList.add('show');
+        }
+    }
+
+    // 更新当前会话标签的 sessionId
+    function updateCurrentTabSession(sessionId) {
+        const tab = chatTabs.find(t => t.slug === currentExpertSlug);
+        if (tab) {
+            tab.sessionId = sessionId;
+        }
+    }
+
+    // 加载当前客户的所有会话，为每个专家创建标签
+    function loadClientChatTabs() {
+        if (!currentClientId) {
+            chatTabs = [];
+            renderChatTabs();
+            return;
+        }
+
+        console.log('[loadClientChatTabs] 开始加载会话标签, client_id:', currentClientId);
+
+        fetch('/api/chat/sessions?client_id=' + currentClientId)
+            .then(res => res.json())
+            .then(data => {
+                console.log('[loadClientChatTabs] 返回数据:', data);
+                if (data.code === 200 && data.data && data.data.sessions) {
+                    // 按专家分组，获取每个专家的最新会话
+                    const expertSessions = {};
+                    data.data.sessions.forEach(session => {
+                        const slug = session.expert_slug;
+                        console.log('[loadClientChatTabs] session:', session.id, 'expert_slug:', slug);
+                        if (slug && !expertSessions[slug]) {
+                            expertSessions[slug] = session;
+                        }
+                    });
+
+                    console.log('[loadClientChatTabs] expertSessions:', expertSessions);
+
+                    // 转换为标签数据
+                    chatTabs = [];
+                    Object.values(expertSessions).forEach(session => {
+                        chatTabs.push({
+                            slug: session.expert_slug,
+                            name: session.expert_name,
+                            icon: session.expert_icon,
+                            sessionId: session.id
+                        });
+                    });
+
+                    // 按专家列表顺序排序标签
+                    const expertOrder = ['chief-operating-officer', 'market-insights-commander', 'social-media-monitor-commander', 'geo-seo', 'ai-operations-commander', 'content-creator'];
+                    chatTabs.sort((a, b) => {
+                        const idxA = expertOrder.indexOf(a.slug);
+                        const idxB = expertOrder.indexOf(b.slug);
+                        if (idxA === -1 && idxB === -1) return 0;
+                        if (idxA === -1) return 1;
+                        if (idxB === -1) return -1;
+                        return idxA - idxB;
+                    });
+
+                    console.log('[loadClientChatTabs] chatTabs:', chatTabs);
+                    renderChatTabs();
+                }
+            })
+            .catch(err => {
+                console.error('加载会话标签失败:', err);
+            });
+    }
+
     function getCSRFToken() {
         return '';
     }
@@ -1823,7 +2284,7 @@
                     if (nameDisplay) nameDisplay.textContent = currentClientName;
 
                     // 默认加载当前客户的报告历史
-                    loadReportHistory(currentClientId);
+                    loadReportHistory(currentClientId, currentExpertSlug);
 
                     // 加载会话历史列表
                     loadSessionsList();
@@ -1849,7 +2310,7 @@
                                     method: 'POST',
                                     headers: {'Content-Type': 'application/json'}
                                 }).then(() => {
-                                    loadReportHistory(currentClientId);
+                                    loadReportHistory(currentClientId, currentExpertSlug);
                                 });
                             }
                         });
@@ -2025,20 +2486,36 @@
     }
 
     function selectExpert(slug, name, title, desc, icon, capabilities) {
+        console.log('[selectExpert] 切换专家:', slug, name);
+
         currentExpertSlug = slug;
         currentExpertName = name;
         currentExpertTitle = title || '';
         currentExpertDesc = desc;
         currentExpertIcon = icon;
         currentExpertCapabilities = capabilities || [];
-        
+
+        // 添加到会话标签
+        addChatTab(slug, name, icon, null);
+
+        // 从会话标签中获取当前专家的 sessionId（如果有）
+        const currentTab = chatTabs.find(t => t.slug === slug);
+        console.log('[selectExpert] 当前标签:', currentTab);
+        if (currentTab && currentTab.sessionId) {
+            currentSessionId = currentTab.sessionId;
+            console.log('[selectExpert] 设置 currentSessionId:', currentSessionId);
+        } else {
+            currentSessionId = null;
+            console.log('[selectExpert] 无 sessionId，currentSessionId 设为 null');
+        }
+
         // 更新UI
         document.querySelectorAll('.expert-list-item').forEach(item => item.classList.remove('active'));
         const items = document.querySelectorAll('.expert-list-item');
         items.forEach(item => {
             if (item.getAttribute('data-slug') === slug) item.classList.add('active');
         });
-        
+
         // 更新聊天标题
         document.getElementById('chatExpertName').textContent = name;
         document.getElementById('chatExpertIcon').innerHTML = icon || '<i class="bi bi-robot"></i>';
@@ -2055,6 +2532,11 @@
 
         // 再异步加载历史对话（如果有历史会覆盖欢迎语）
         loadChatHistory(slug);
+
+        // 切换专家后，重新加载该专家的产出报告（按客户+专家过滤）
+        if (currentClientId) {
+            loadReportHistory(currentClientId, currentExpertSlug);
+        }
     }
 
     // 页面加载时默认加载报告历史
@@ -2069,12 +2551,48 @@
     }
 
     function loadChatHistory(expertSlug) {
-        fetch('/api/chat/current?expert=' + expertSlug)
-        .then(res => res.json())
+        console.log('[loadChatHistory] 开始加载历史, expertSlug:', expertSlug);
+
+        // 优先使用当前会话标签中保存的 sessionId
+        let sessionId = null;
+        const currentTab = chatTabs.find(t => t.slug === expertSlug);
+        if (currentTab && currentTab.sessionId) {
+            sessionId = currentTab.sessionId;
+            console.log('[loadChatHistory] 从标签获取 sessionId:', sessionId);
+        }
+
+        const url = sessionId
+            ? '/api/chat/current?expert=' + expertSlug + '&session_id=' + sessionId
+            : '/api/chat/current?expert=' + expertSlug;
+
+        console.log('[loadChatHistory] 请求 URL:', url);
+
+        fetch(url)
+        .then(res => {
+            if (!res.ok) {
+                throw new Error('Load failed');
+            }
+            return res.json();
+        })
         .then(data => {
+            console.log('[loadChatHistory] 返回数据:', data);
             if (data.code === 200 && data.data) {
                 const container = document.getElementById('chatMessages');
+
+                // 更新全局 currentSessionId
+                if (data.data.session_id) {
+                    currentSessionId = data.data.session_id;
+                    console.log('[loadChatHistory] 更新 currentSessionId:', currentSessionId);
+                    // 更新当前标签的 sessionId
+                    updateCurrentTabSession(data.data.session_id);
+                } else {
+                    // 如果没有 sessionId，重置全局变量
+                    currentSessionId = null;
+                    console.log('[loadChatHistory] 无 sessionId，重置 currentSessionId');
+                }
+
                 if (data.data.messages && data.data.messages.length > 0) {
+                    console.log('[loadChatHistory] 消息数量:', data.data.messages.length);
                     let html = '';
                     data.data.messages.forEach(msg => {
                         const isUser = msg.role === 'user';
@@ -2093,9 +2611,13 @@
                     container.scrollTop = container.scrollHeight;
                 } else {
                     // 无历史消息时，显示欢迎语 + 技能链接
+                    console.log('[loadChatHistory] 无历史消息，显示欢迎语');
                     container.innerHTML = showWelcomeWithSkills(currentExpertSlug, currentExpertName, currentExpertTitle, currentExpertIcon);
                 }
             }
+        })
+        .catch(err => {
+            console.error('加载聊天历史失败:', err);
         });
     }
 
@@ -2119,6 +2641,10 @@
                     <a href="javascript:void(0)" class="skill-link-item" onclick="showClientIntakeModalForEdit()">
                         <span class="skill-link-icon"><i class="bi bi-pencil-square"></i></span>
                         <span class="skill-link-text">客户信息维护</span>
+                    </a>
+                    <a href="javascript:void(0)" class="skill-link-item" onclick="showBrandAssetsModal()">
+                        <span class="skill-link-icon"><i class="bi bi-box-seam"></i></span>
+                        <span class="skill-link-text">品牌/物料/包装信息维护</span>
                     </a>
                 `;
             }
@@ -2185,11 +2711,11 @@
                             <p style="margin-bottom: 12px; font-size: 12px; color: var(--color-text-tertiary);">AI智能运营专家</p>
                             <p style="margin-bottom: 16px; color: var(--color-text-secondary); line-height: 1.6;">你好，我是AI智能运营专家，帮你完成关键词挖掘、选题规划、SEO优化等运营任务。请选择一个任务：</p>
                             <div class="skill-links-list">
-                                <a href="javascript:void(0)" class="skill-link-item" onclick="sendPresetMessage('请帮我挖掘关键词，输出关键词矩阵（核心词/产品词/长尾词/地域词）。')">
+                                <a href="javascript:void(0)" class="skill-link-item" onclick="tasGenerateKeywordLibrary()">
                                     <span class="skill-link-icon"><i class="bi bi-key"></i></span>
                                     <span class="skill-link-text">关键词挖掘</span>
                                 </a>
-                                <a href="javascript:void(0)" class="skill-link-item" onclick="sendPresetMessage('请帮我规划选题，输出选题矩阵和变体。')">
+                                <a href="javascript:void(0)" class="skill-link-item" onclick="tasGenerateTopicLibrary()">
                                     <span class="skill-link-icon"><i class="bi bi-lightbulb"></i></span>
                                     <span class="skill-link-text">选题规划</span>
                                 </a>
@@ -2197,7 +2723,7 @@
                                     <span class="skill-link-icon"><i class="bi bi-search"></i></span>
                                     <span class="skill-link-text">SEO标题优化</span>
                                 </a>
-                                <a href="javascript:void(0)" class="skill-link-item" onclick="sendPresetMessage('请帮我做运营规划，输出账号定位和内容矩阵。')">
+                                <a href="javascript:void(0)" class="skill-link-item" onclick="tasGenerateOperations()">
                                     <span class="skill-link-icon"><i class="bi bi-journal-text"></i></span>
                                     <span class="skill-link-text">运营规划方案</span>
                                 </a>
@@ -2333,7 +2859,7 @@
             reportPollCount = 0;
             console.log('[switchClient] 已停止报告轮询');
         }
-        
+
         currentClientName = clientName;
         currentClientId = clientId;
         fetch('/api/switch_client/' + clientId, {
@@ -2347,10 +2873,12 @@
                 document.querySelector('.client-switcher-btn .client-name').innerHTML =
                     '<i class="bi bi-building"></i> ' + clientName;
                 updateClientStats(clientId);
-                // 切换客户后加载该客户的报告历史
-                loadReportHistory(clientId);
+                // 切换客户后加载该客户的报告历史（按当前专家过滤）
+                loadReportHistory(clientId, currentExpertSlug);
                 // 切换客户后加载会话列表
                 loadSessionsList();
+                // 切换客户后加载会话标签
+                loadClientChatTabs();
                 // 切换客户后重新加载当前专家的聊天记录
                 if (currentExpertSlug && currentExpertSlug !== '') {
                     loadChatHistory(currentExpertSlug);
@@ -2532,6 +3060,14 @@
         if (!message) return;
         if (!currentExpertName) { alert('请先选择一位专家'); return; }
 
+        console.log('[sendMessage] 发送消息:', {
+            message: message,
+            skill_name: getCurrentSkillName(),
+            client_id: currentClientId,
+            session_id: currentSessionId,
+            expertSlug: currentExpertSlug
+        });
+
         addMessage('user', message);
         input.value = '';
 
@@ -2597,8 +3133,10 @@
                                     chatContainer.scrollTop = chatContainer.scrollHeight;
                                 }
                                 if (data.done) {
+                                    console.log('[sendMessage] 响应完成, data:', data);
                                     if (data.session_id) {
                                         currentSessionId = data.session_id;
+                                        console.log('[sendMessage] 更新 currentSessionId:', currentSessionId);
                                         // 刷新会话列表
                                         loadSessionsList();
                                     }
@@ -2840,6 +3378,148 @@
         input.focus();
     }
 
+    // 塔斯专家生成关键词库
+    function tasGenerateKeywordLibrary() {
+        if (!currentClientId) {
+            alert('请先选择客户');
+            return;
+        }
+
+        // 使用已加载的当前客户名称
+        const clientName = currentClientName || '客户';
+
+        console.log('[tasGenerateKeywordLibrary] 开始生成关键词库, clientId:', currentClientId, 'clientName:', clientName);
+
+        // 发送预设消息到聊天区
+        const userMessage = `当前客户是【${clientName}】，请根据平台规则结合行业分析报告生成关键词库`;
+        addMessage('user', userMessage);
+
+        // 调用后台生成API
+        fetch('/api/expert/tas/generate/background', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                task_type: 'keywords',
+                client_id: currentClientId
+            })
+        }).then(res => res.json()).then(data => {
+            console.log('[tasGenerateKeywordLibrary] 响应:', data);
+
+            if (data.code === 200) {
+                addMessage('expert', `好的，已收到您的请求，正在为您生成【${clientName}】的关键词库，请稍候...`);
+
+                // 确保右侧面板可见
+                const outputPanel = document.getElementById('workspaceOutput');
+                if (outputPanel) {
+                    outputPanel.classList.remove('hidden');
+                    outputPanel.style.display = 'flex';
+                }
+
+                loadReportHistory(currentClientId, currentExpertSlug);
+                startReportPolling(currentClientId);
+            } else {
+                addMessage('expert', '关键词库生成失败: ' + (data.message || '未知错误'));
+            }
+        }).catch(err => {
+            console.error('[tasGenerateKeywordLibrary] 错误:', err);
+            addMessage('expert', '关键词库生成请求失败，请稍后重试');
+        });
+    }
+    function tasGenerateTopicLibrary() {
+        if (!currentClientId) {
+            alert('请先选择客户');
+            return;
+        }
+
+        // 使用已加载的当前客户名称
+        const clientName = currentClientName || '客户';
+
+        console.log('[tasGenerateTopicLibrary] 开始生成选题库, clientId:', currentClientId, 'clientName:', clientName);
+
+        // 发送预设消息到聊天区
+        const userMessage = `当前客户是【${clientName}】，请根据平台规则结合行业分析报告生成选题库`;
+        addMessage('user', userMessage);
+
+        // 调用后台生成API
+        fetch('/api/expert/tas/generate/background', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                task_type: 'topics',
+                client_id: currentClientId
+            })
+        }).then(res => res.json()).then(data => {
+            console.log('[tasGenerateTopicLibrary] 响应:', data);
+
+            if (data.code === 200) {
+                addMessage('expert', `好的，已收到您的请求，正在为您生成【${clientName}】的选题库，请稍候...`);
+
+                // 确保右侧面板可见
+                const outputPanel = document.getElementById('workspaceOutput');
+                if (outputPanel) {
+                    outputPanel.classList.remove('hidden');
+                    outputPanel.style.display = 'flex';
+                }
+
+                loadReportHistory(currentClientId, currentExpertSlug);
+                startReportPolling(currentClientId);
+            } else {
+                addMessage('expert', '选题库生成失败: ' + (data.message || '未知错误'));
+            }
+        }).catch(err => {
+            console.error('[tasGenerateTopicLibrary] 错误:', err);
+            addMessage('expert', '选题库生成请求失败，请稍后重试');
+        });
+    }
+
+    // 塔斯专家生成运营规划方案
+    function tasGenerateOperations() {
+        if (!currentClientId) {
+            alert('请先选择客户');
+            return;
+        }
+
+        // 使用已加载的当前客户名称
+        const clientName = currentClientName || '客户';
+
+        console.log('[tasGenerateOperations] 开始生成运营规划方案, clientId:', currentClientId, 'clientName:', clientName);
+
+        // 发送预设消息到聊天区
+        const userMessage = `当前客户是【${clientName}】，请根据平台规则结合行业分析报告生成运营规划方案`;
+        addMessage('user', userMessage);
+
+        // 调用后台生成API
+        fetch('/api/expert/tas/generate/background', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                task_type: 'operations',
+                client_id: currentClientId
+            })
+        }).then(res => res.json()).then(data => {
+            console.log('[tasGenerateOperations] 响应:', data);
+
+            if (data.code === 200) {
+                addMessage('expert', `好的，已收到您的请求，正在为您生成【${clientName}】的运营规划方案，请稍候...`);
+
+                // 确保右侧面板可见
+                const outputPanel = document.getElementById('workspaceOutput');
+                if (outputPanel) {
+                    outputPanel.classList.remove('hidden');
+                    outputPanel.style.display = 'flex';
+                }
+
+                loadReportHistory(currentClientId, currentExpertSlug);
+                startReportPolling(currentClientId);
+            } else {
+                addMessage('expert', '运营规划方案生成失败: ' + (data.message || '未知错误'));
+            }
+        }).catch(err => {
+            console.error('[tasGenerateOperations] 错误:', err);
+            addMessage('expert', '运营规划方案生成请求失败，请稍后重试');
+        });
+    }
+
     // 切换到指定专家
     function switchToExpert(slug, name, title, icon) {
         // 找到对应的 DOM 元素并触发点击
@@ -2933,6 +3613,8 @@
         loadReportHistory(currentClientId);
         // 有当前客户时，加载会话列表
         loadSessionsList();
+        // 有当前客户时，加载会话标签
+        loadClientChatTabs();
     }
 
     // 日期筛选
@@ -2998,6 +3680,304 @@
             if (modal) {
                 modal.hide();
             }
+        });
+    }
+
+    // ==================== 品牌物料信息维护弹窗 ====================
+    // 文件夹类型映射
+    const folderTypeMap = {
+        'brand': '品牌资料',
+        'product': '产品资料',
+        'package': '包装设计',
+        'persona': '人物形象',
+        'scene': '场景素材',
+        'marketing': '宣传物料',
+        'reference': '参考案例'
+    };
+
+    // 显示品牌物料信息维护弹窗
+    function showBrandAssetsModal() {
+        if (!currentClientId) {
+            alert('请先选择客户');
+            return;
+        }
+
+        closeAllModals();
+
+        // 设置标题
+        document.getElementById('brandAssetsModalTitle').textContent =
+            `品牌/物料/包装信息维护 - ${currentClientName || '客户'}`;
+
+        setTimeout(() => {
+            const modalEl = document.getElementById('brandAssetsModal');
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+
+            // 加载所有文件夹的文件列表
+            loadAllBrandAssets();
+        }, 150);
+    }
+
+    // 加载所有品牌物料文件夹的文件
+    function loadAllBrandAssets() {
+        const folderTypes = ['brand', 'product', 'package', 'persona', 'scene', 'marketing', 'reference'];
+        folderTypes.forEach(type => {
+            loadBrandAssetsFiles(type);
+        });
+    }
+
+    // 加载指定文件夹的文件列表
+    function loadBrandAssetsFiles(folderType) {
+        const listId = `${folderType}-files-list`;
+        const emptyTipId = `${folderType}-empty-tip`;
+        const listEl = document.getElementById(listId);
+        const emptyTipEl = document.getElementById(emptyTipId);
+
+        if (!listEl) return;
+
+        // 显示加载状态
+        listEl.innerHTML = `<div class="text-center text-muted py-4"><i class="bi bi-arrow-repeat spin"></i><p class="mb-0">加载中...</p></div>`;
+
+        // 调用API获取文件列表
+        fetch(`/api/client/assets/${currentClientId}/${folderType}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.code === 200 && data.files && data.files.length > 0) {
+                    renderFileList(folderType, data.files);
+                } else {
+                    // 显示空状态
+                    listEl.innerHTML = `
+                        <div class="text-center text-muted py-4" id="${emptyTipId}">
+                            <i class="bi bi-folder2-open fs-1"></i>
+                            <p class="mb-0">暂无文件，请上传</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(err => {
+                console.error('加载文件列表失败:', err);
+                listEl.innerHTML = `
+                    <div class="text-center text-danger py-4">
+                        <i class="bi bi-exclamation-triangle fs-1"></i>
+                        <p class="mb-0">加载失败</p>
+                    </div>
+                `;
+            });
+    }
+
+    // 渲染文件列表
+    function renderFileList(folderType, files) {
+        const listId = `${folderType}-files-list`;
+        const listEl = document.getElementById(listId);
+
+        if (!listEl) return;
+
+        const html = files.map(file => {
+            const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(file.filename);
+            const isVideo = /\.(mp4|mov|avi|wmv|webm)$/i.test(file.filename);
+
+            let previewHtml = '';
+            if (isImage) {
+                previewHtml = `<img src="${file.url}" alt="${file.filename}" loading="lazy">`;
+            } else if (isVideo) {
+                previewHtml = `<i class="bi bi-camera-video"></i>`;
+            } else {
+                previewHtml = `<i class="bi bi-file-earmark-${getFileIconType(file.filename)}"></i>`;
+            }
+
+            return `
+                <div class="file-card" data-filename="${file.filename}" data-filepath="${file.filepath}">
+                    <button class="file-preview-btn" onclick="event.stopPropagation(); previewBrandFile('${folderType}', '${file.filename}', '${file.filepath}')" title="预览">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button class="file-delete-btn" onclick="event.stopPropagation(); deleteBrandFile('${folderType}', '${file.filename}', '${file.filepath}')" title="删除">
+                        <i class="bi bi-x"></i>
+                    </button>
+                    <div class="file-preview" onclick="previewBrandFile('${folderType}', '${file.filename}', '${file.filepath}')">
+                        ${previewHtml}
+                    </div>
+                    <div class="file-name" title="${file.filename}">${file.filename}</div>
+                    <div class="file-size">${formatFileSize(file.size || 0)}</div>
+                </div>
+            `;
+        }).join('');
+
+        listEl.innerHTML = html;
+    }
+
+    // 获取文件图标类型
+    function getFileIconType(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const iconMap = {
+            'pdf': 'pdf',
+            'doc': 'word',
+            'docx': 'word',
+            'xls': 'excel',
+            'xlsx': 'excel',
+            'ppt': 'ppt',
+            'pptx': 'ppt',
+            'txt': 'text',
+            'md': 'text',
+            'zip': 'zip',
+            'rar': 'zip',
+            'mp3': 'music',
+            'wav': 'music',
+            'mp4': 'video',
+            'mov': 'video',
+            'avi': 'video'
+        };
+        return iconMap[ext] || 'generic';
+    }
+
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    // 上传品牌文件
+    function uploadBrandFile(folderType) {
+        const inputId = `${folderType}-upload-input`;
+        const inputEl = document.getElementById(inputId);
+
+        if (!inputEl || !inputEl.files || inputEl.files.length === 0) return;
+
+        const files = inputEl.files;
+        const listId = `${folderType}-files-list`;
+        const listEl = document.getElementById(listId);
+
+        // 显示上传进度
+        listEl.innerHTML = `<div class="text-center text-muted py-4"><i class="bi bi-arrow-repeat spin"></i><p class="mb-0">上传中...</p></div>`;
+
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+        }
+        formData.append('client_id', currentClientId);
+        formData.append('folder_type', folderType);
+
+        fetch('/api/client/assets/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 200) {
+                // 上传成功，刷新文件列表
+                loadBrandAssetsFiles(folderType);
+            } else {
+                alert('上传失败: ' + (data.message || '未知错误'));
+                loadBrandAssetsFiles(folderType);
+            }
+        })
+        .catch(err => {
+            console.error('上传失败:', err);
+            alert('上传失败，请重试');
+            loadBrandAssetsFiles(folderType);
+        });
+
+        // 清空input以便重复选择同一文件
+        inputEl.value = '';
+    }
+
+    // 预览品牌文件
+    function previewBrandFile(folderType, filename, filepath) {
+        const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(filename);
+        const isVideo = /\.(mp4|mov|avi|wmv|webm)$/i.test(filename);
+
+        // 先检查是否已有预览弹窗
+        let previewModal = document.getElementById('filePreviewModal');
+        if (!previewModal) {
+            // 创建预览弹窗
+            const previewModalHtml = `
+                <div class="modal fade" id="filePreviewModal" tabindex="-1" data-bs-backdrop="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header py-2">
+                                <h5 class="modal-title fs-6" id="filePreviewModalTitle">文件预览</h5>
+                                <button type="button" class="btn-close btn-sm" onclick="closeModal('filePreviewModal')"></button>
+                            </div>
+                            <div class="modal-body p-0" style="min-height: 300px; max-height: 70vh; overflow: auto;">
+                                <div id="filePreviewContent" style="display: flex; align-items: center; justify-content: center; min-height: 300px; background: #f8f9fa;">
+                                </div>
+                            </div>
+                            <div class="modal-footer py-2">
+                                <a id="fileDownloadLink" href="#" class="btn btn-primary btn-sm" download>
+                                    <i class="bi bi-download me-1"></i>下载
+                                </a>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('filePreviewModal')">关闭</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', previewModalHtml);
+            previewModal = document.getElementById('filePreviewModal');
+        }
+
+        const previewContent = document.getElementById('filePreviewContent');
+        const previewTitle = document.getElementById('filePreviewModalTitle');
+        const downloadLink = document.getElementById('fileDownloadLink');
+
+        previewTitle.textContent = filename;
+        downloadLink.href = `/api/client/assets/download?filepath=${encodeURIComponent(filepath)}`;
+
+        if (isImage) {
+            previewContent.innerHTML = `<img src="/api/client/assets/download?filepath=${encodeURIComponent(filepath)}" style="max-width: 100%; max-height: 65vh; object-fit: contain;">`;
+        } else if (isVideo) {
+            previewContent.innerHTML = `
+                <video controls style="max-width: 100%; max-height: 65vh;">
+                    <source src="/api/client/assets/download?filepath=${encodeURIComponent(filepath)}" type="video/mp4">
+                    您的浏览器不支持视频播放
+                </video>
+            `;
+        } else {
+            previewContent.innerHTML = `
+                <div class="text-center">
+                    <i class="bi bi-file-earmark-${getFileIconType(filename)}" style="font-size: 64px; color: var(--primary-color);"></i>
+                    <p class="mt-3 mb-0 text-muted">该文件类型暂不支持预览</p>
+                    <p class="text-muted small">请点击"下载"按钮查看文件</p>
+                </div>
+            `;
+        }
+
+        const modal = new bootstrap.Modal(previewModal);
+        modal.show();
+    }
+
+    // 删除品牌文件
+    function deleteBrandFile(folderType, filename, filepath) {
+        if (!confirm(`确定要删除文件 "${filename}" 吗？`)) {
+            return;
+        }
+
+        fetch('/api/client/assets/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                client_id: currentClientId,
+                folder_type: folderType,
+                filename: filename,
+                filepath: filepath
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 200) {
+                // 删除成功，刷新文件列表
+                loadBrandAssetsFiles(folderType);
+            } else {
+                alert('删除失败: ' + (data.message || '未知错误'));
+            }
+        })
+        .catch(err => {
+            console.error('删除失败:', err);
+            alert('删除失败，请重试');
         });
     }
 
@@ -4049,10 +5029,15 @@
     // 加载会话历史列表
     function loadSessionsList() {
         const sessionsSection = document.getElementById('sessionsSection');
-        const sessionsList = document.getElementById('sessionsList');
+        const sessionsList = document.getElementById('chatRecordsSessionsList');
+
+        if (!sessionsList) {
+            console.warn('[loadSessionsList] chatRecordsSessionsList 元素不存在，跳过加载');
+            return;
+        }
 
         if (!currentClientId) {
-            sessionsList.innerHTML = '<div class="empty-sessions">请先选择客户</div>';
+            sessionsList.innerHTML = '<div class="text-muted small py-3">请先选择客户</div>';
             return;
         }
 
@@ -4068,7 +5053,7 @@
                     const updatedAt = session.updated_at ? formatTime(session.updated_at) : '';
 
                     html += `
-                    <div class="session-item ${isActive}" onclick="loadSession(${session.id}, '${session.expert_slug || ''}', '${expertName.replace(/'/g, "\\'")}', '${expertIcon.replace(/'/g, "\\'")}')">
+                    <div class="chat-records-session-card ${isActive}" onclick="loadSession(${session.id}, '${session.expert_slug || ''}', '${expertName.replace(/'/g, "\\'")}', '${expertIcon.replace(/'/g, "\\'")}')">
                         <div class="session-title">${session.title || '新会话'}</div>
                         <div class="session-meta">
                             <span class="session-expert">
@@ -4082,12 +5067,12 @@
                 });
                 sessionsList.innerHTML = html;
             } else {
-                sessionsList.innerHTML = '<div class="empty-sessions">暂无会话记录</div>';
+                sessionsList.innerHTML = '<div class="text-muted small py-3">暂无会话记录</div>';
             }
         })
         .catch(err => {
             console.error('加载会话列表失败:', err);
-            sessionsList.innerHTML = '<div class="empty-sessions">加载失败</div>';
+            sessionsList.innerHTML = '<div class="text-danger small py-3">加载失败</div>';
         });
     }
 
@@ -4175,14 +5160,18 @@
     }
 
     // 加载报告历史
-    function loadReportHistory(clientId) {
-        console.log('[loadReportHistory] 开始加载, clientId:', clientId);
-        fetch('/api/outputs?client_id=' + clientId)
+    function loadReportHistory(clientId, expertSlug = '') {
+        console.log('[loadReportHistory] 开始加载, clientId:', clientId, 'expertSlug:', expertSlug);
+        let url = '/api/outputs?client_id=' + clientId;
+        if (expertSlug) {
+            url += '&expert_slug=' + expertSlug;
+        }
+        fetch(url)
         .then(res => res.json())
         .then(data => {
             console.log('[loadReportHistory] 返回数据:', data.code, '记录数:', data.data?.length);
             if (data.code === 200 && data.data) {
-                // 检测新生成的报告
+                // 检测新生成的报告（仅在专家切换后首次加载时检测）
                 checkAndNotifyNewReports(data.data);
                 renderReportHistory(data.data);
             }
@@ -4209,8 +5198,9 @@
             if (!notifiedReportIds.has(outputId)) {
                 notifiedReportIds.add(outputId);
                 const expertName = expertNames[output.expert_name] || output.expert_name || '专家';
-                // 报告名称格式：客户姓名_市场分析报告
-                const filename = output.client_name ? (output.client_name + '_市场分析报告.md') : '市场分析报告.md';
+                // 使用接口返回的 title 作为报告名称（关键词库/选题库/运营规划方案/市场分析报告等）
+                const rawTitle = output.title || (output.client_name ? output.client_name + '_报告' : '报告');
+                const filename = rawTitle.endsWith('.md') ? rawTitle : rawTitle + '.md';
                 const downloadUrl = '/api/outputs/' + output.id + '/download';
 
                 // 在聊天区发送完成通知，带报告链接
@@ -4259,8 +5249,9 @@
         outputs.forEach(output => {
             // 时间格式：月-日 时:分（如 03-05 14:30），后端已返回北京时间格式
             const time = output.created_at ? output.created_at.slice(5) : '未知时间';
-            // 报告名称格式：客户姓名_市场分析报告
-            const filename = output.client_name ? (output.client_name + '_市场分析报告.md') : '市场分析报告.md';
+            // 使用接口返回的 title 作为报告名称（关键词库/选题库/运营规划方案/市场分析报告等）
+            const rawTitle = output.title || (output.client_name ? output.client_name + '_报告' : '报告');
+            const filename = rawTitle.endsWith('.md') ? rawTitle : rawTitle + '.md';
             const downloadUrl = '/api/outputs/' + output.id + '/download';
 
             html += `

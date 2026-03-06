@@ -76,6 +76,19 @@ def init_database():
                 'is_visible': True
             },
             {
+                'name': 'AI智能运营专家',
+                'slug': 'ai-operations-commander',
+                'nickname': '塔斯',
+                'title': 'AI智能运营专家',
+                'description': 'AI搜索优化、关键词策略、内容发现、市场机会发现、差异化定位、账号设计、运营规划',
+                'capabilities': ['关键词库生成', '选题库生成', '运营规划方案', '差异化定位', '账号设计'],
+                'command': '/塔斯',
+                'icon': '🤖',
+                'avatar_url': '/static/images/avatars/expert_tars_avatar.png',
+                'sort_order': 3,
+                'is_visible': True
+            },
+            {
                 'name': '社交监控和市场洞察分析师',
                 'slug': 'monitor',
                 'nickname': '艾米莉亚·布兰德',
