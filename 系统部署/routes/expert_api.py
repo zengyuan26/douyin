@@ -10,7 +10,7 @@
 import json
 import logging
 import os
-from flask import Blueprint, jsonify, request, session, Response, current_app
+from flask import Blueprint, jsonify, request, session, Response, current_app, stream_with_context
 from flask_login import login_required, current_user
 from models.models import db, Client, Expert, ChatSession, ChatMessage, ExpertOutput
 from datetime import datetime
@@ -354,7 +354,7 @@ def chat_with_skill_stream():
             error_data = {'error': str(e), 'session_id': chat_session.id, 'partial': True}
             yield f"data: {json.dumps(error_data)}\n\n"
 
-    return Response(generate(), mimetype='text/event-stream')
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 
 @expert_api.route('/skill/load/<skill_name>', methods=['GET'])

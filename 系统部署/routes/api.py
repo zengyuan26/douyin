@@ -4,7 +4,7 @@ API路由 - 数据接口
 import json
 import re
 from urllib.parse import quote
-from flask import Blueprint, jsonify, request, session, Response
+from flask import Blueprint, jsonify, request, session, Response, stream_with_context
 from flask_login import login_required, current_user
 from models.models import db, Client, Channel, Keyword, Topic, Monitor, Expert, ChatSession, ChatMessage, Industry, ExpertOutput
 from datetime import datetime, timedelta
@@ -566,6 +566,7 @@ def get_chat_sessions():
         'title': s.title or '新对话',
         'expert_name': s.expert.name if s.expert else '专家',
         'expert_icon': s.expert.icon if s.expert else '🤖',
+        'expert_slug': s.expert.slug if s.expert else None,
         'client_name': s.client.name if s.client else None,
         'message_count': s.messages.count(),
         'updated_at': s.updated_at.isoformat() if s.updated_at else None
@@ -1184,7 +1185,7 @@ def chat_with_expert_stream():
             error_data = {'error': str(e)}
             yield f"data: {json.dumps(error_data)}\n\n"
     
-    return Response(generate(), mimetype='text/event-stream')
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 
 @api.route('/dispatch-experts', methods=['POST'])

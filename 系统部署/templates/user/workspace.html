@@ -337,52 +337,66 @@
         }
 
         .session-item {
-            padding: 12px;
-            border-radius: 10px;
+            padding: 14px;
+            border-radius: 12px;
             cursor: pointer;
             transition: all var(--transition-fast);
-            border: 1px solid transparent;
-            margin-bottom: 8px;
-            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid var(--color-border);
+            margin-bottom: 10px;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
         }
 
         .session-item:hover {
-            background: rgba(255, 255, 255, 0.9);
-            transform: translateX(4px);
-            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.1);
-        }
-
-        .session-item.active {
-            background: linear-gradient(135deg, rgba(0, 122, 255, 0.1) 0%, rgba(0, 122, 255, 0.05) 100%);
+            background: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);
             border-color: var(--color-primary);
         }
 
+        .session-item.active {
+            background: linear-gradient(135deg, rgba(0, 122, 255, 0.08) 0%, rgba(0, 122, 255, 0.03) 100%);
+            border-color: var(--color-primary);
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
+        }
+
         .session-item .session-title {
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
             color: var(--color-text-primary);
-            margin-bottom: 4px;
+            margin-bottom: 8px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
         .session-item .session-meta {
-            font-size: 11px;
+            font-size: 12px;
             color: var(--color-text-tertiary);
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 8px;
         }
 
         .session-item .session-expert {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
+            padding: 4px 8px;
+            background: rgba(0, 122, 255, 0.08);
+            border-radius: 6px;
+            font-size: 11px;
+            color: var(--color-primary);
         }
 
         .session-item .session-expert-icon {
             font-size: 12px;
+        }
+
+        .session-item .session-time {
+            font-size: 11px;
+            color: var(--color-text-tertiary);
         }
 
         .empty-sessions {
@@ -460,6 +474,69 @@
             margin-top: 2px;
         }
         
+        /* 聊天记录按钮（微信风格） */
+        .btn-chat-records {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-medium);
+            border-radius: 10px;
+            color: var(--color-text-secondary);
+            font-size: 18px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .btn-chat-records:hover {
+            background: var(--color-primary);
+            border-color: var(--color-primary);
+            color: white;
+        }
+
+        /* 聊天记录弹窗样式 */
+        .chat-records-client-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid var(--color-border);
+        }
+        .chat-records-sessions-list {
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .chat-records-session-card {
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid var(--color-border);
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            background: #fff;
+        }
+        .chat-records-session-card .session-expert-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background: rgba(0, 122, 255, 0.08);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--color-primary);
+        }
+        .chat-records-session-card:hover {
+            border-color: var(--color-primary);
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.15);
+        }
+        .chat-records-msg-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            font-size: 13px;
+        }
+        .chat-records-msg-item:last-child { border-bottom: none; }
+
         /* 产出报告按钮 */
         .btn-report {
             width: 40px;
@@ -1408,6 +1485,57 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 客户信息与聊天记录弹窗（微信风格） -->
+            <div class="modal fade" id="chatRecordsModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable" style="max-width: 720px;">
+                    <div class="modal-content">
+                        <div class="modal-header py-2 border-bottom">
+                            <h5 class="modal-title fs-6" id="chatRecordsModalTitle">
+                                <i class="bi bi-chat-dots me-2"></i><span id="chatRecordsClientName">客户信息与聊天记录</span>
+                            </h5>
+                            <button type="button" class="btn-close btn-sm" onclick="closeModal('chatRecordsModal')"></button>
+                        </div>
+                        <div class="modal-body p-0" style="max-height: 70vh;">
+                            <!-- 客户信息卡片 -->
+                            <div class="chat-records-client-section p-3 border-bottom bg-light">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="bi bi-building text-primary me-2"></i>
+                                    <span class="fw-bold">当前客户</span>
+                                </div>
+                                <div id="chatRecordsClientInfo" class="chat-records-client-card small">
+                                    <div class="text-muted">请先选择客户</div>
+                                </div>
+                            </div>
+                            <!-- 聊天记录区域 -->
+                            <div class="chat-records-sessions-section p-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="bi bi-clock-history text-primary me-2"></i>
+                                    <span class="fw-bold">对话记录</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <select id="chatRecordsTimeFilter" class="form-select form-select-sm" style="max-width: 140px;">
+                                        <option value="all">全部时间</option>
+                                        <option value="today">今天</option>
+                                        <option value="3d">近3天</option>
+                                        <option value="7d">近7天</option>
+                                        <option value="30d">近30天</option>
+                                    </select>
+                                    <div class="flex-grow-1">
+                                        <input type="text"
+                                               id="chatRecordsKeywordInput"
+                                               class="form-control form-control-sm"
+                                               placeholder="按关键词搜索对话内容">
+                                    </div>
+                                </div>
+                                <div id="chatRecordsSessionsList" class="chat-records-sessions-list">
+                                    <div class="text-muted small">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
             <!-- 个人资料弹窗 -->
             <div class="modal fade" id="profileModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -1511,23 +1639,6 @@
                 </div>
                 {% endif %}
             </div>
-
-            <!-- 会话历史列表 -->
-            <div class="sessions-section" id="sessionsSection">
-                <div class="sessions-section-title">
-                    <span>会话历史</span>
-                    <button class="btn-new-chat" onclick="showExpertList()">新会话</button>
-                </div>
-                <div id="sessionsList"></div>
-            </div>
-
-            <!-- 底部快捷操作 -->
-            <div class="sidebar-footer">
-                <button class="btn-toggle-sessions" onclick="showSessionsList()">
-                    <i class="bi bi-clock-history"></i>
-                    <span>会话历史</span>
-                </button>
-            </div>
         </div>
         
         <!-- 中间聊天区 -->
@@ -1548,6 +1659,9 @@
                         </div>
                     </div>
                     <div class="chat-header-actions">
+                        <button class="btn-chat-records" onclick="showChatRecordsModal()" title="客户信息与聊天记录">
+                            <i class="bi bi-chat-dots"></i>
+                        </button>
                         <button class="btn-report" onclick="toggleRightPanel()" title="产出报告">
                             <i class="bi bi-book-half"></i>
                         </button>
@@ -1671,6 +1785,9 @@
     let userRole = '{{ user_role }}';
     let currentSessionId = null;
     let showClientInfoFormFlag = false;
+    let chatRecordsSessionsCache = [];
+    let chatRecordsTimeFilter = 'all';
+    let chatRecordsKeyword = '';
 
     function getCSRFToken() {
         return '';
@@ -2884,6 +3001,200 @@
         });
     }
 
+    // 显示客户信息与聊天记录弹窗（微信风格）
+    function showChatRecordsModal() {
+        if (!currentClientId) {
+            alert('请先选择客户');
+            return;
+        }
+
+        const modalEl = document.getElementById('chatRecordsModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        const clientNameEl = document.getElementById('chatRecordsClientName');
+        const clientInfoEl = document.getElementById('chatRecordsClientInfo');
+        const sessionsListEl = document.getElementById('chatRecordsSessionsList');
+        const timeFilterEl = document.getElementById('chatRecordsTimeFilter');
+        const keywordInputEl = document.getElementById('chatRecordsKeywordInput');
+
+        clientNameEl.textContent = (currentClientName || '客户') + ' - 客户信息与聊天记录';
+        clientInfoEl.innerHTML = '<div class="text-muted">加载中...</div>';
+        sessionsListEl.innerHTML = '<div class="text-muted small">加载中...</div>';
+
+        // 重置筛选条件
+        chatRecordsTimeFilter = 'all';
+        chatRecordsKeyword = '';
+        if (timeFilterEl) {
+            timeFilterEl.value = 'all';
+        }
+        if (keywordInputEl) {
+            keywordInputEl.value = '';
+        }
+
+        // 并行加载客户信息和会话列表（使用当前客户的专用接口）
+        Promise.all([
+            fetch('/api/clients/' + currentClientId).then(r => r.json()),
+            fetch('/api/chat/sessions/client').then(r => r.json())
+        ]).then(([clientRes, sessionsRes]) => {
+            if (clientRes.code === 200 && clientRes.data) {
+                const c = clientRes.data;
+                clientInfoEl.innerHTML = `
+                    <div class="row g-2 small">
+                        <div class="col-6"><strong>客户名称：</strong>${c.name || '-'}</div>
+                        <div class="col-6"><strong>客户类型：</strong>${c.business_type || '-'}</div>
+                        <div class="col-6"><strong>产品/服务：</strong>${(c.product_type || c.service_type || '-').toString().slice(0,12)}</div>
+                        <div class="col-6"><strong>地域范围：</strong>${c.service_range || '-'}</div>
+                        <div class="col-12"><strong>主营业务：</strong>${c.main_product || c.description || '-'}</div>
+                    </div>
+                `;
+            } else {
+                clientInfoEl.innerHTML = '<div class="text-danger small">加载客户信息失败</div>';
+            }
+
+            if (sessionsRes.code === 200 && sessionsRes.data && sessionsRes.data.sessions) {
+                // 规范化会话列表数据，便于前端筛选
+                chatRecordsSessionsCache = (sessionsRes.data.sessions || []).map(s => {
+                    const expertInfo = s.expert || {};
+                    return {
+                        id: s.id,
+                        expert_slug: expertInfo.slug || s.expert_slug || '',
+                        expert_name: expertInfo.name || s.expert_name || '专家',
+                        expert_icon: expertInfo.icon || s.expert_icon || '<i class="bi bi-robot"></i>',
+                        title: s.title || '新对话',
+                        last_message: s.last_message || '',
+                        updated_at: s.updated_at
+                    };
+                });
+
+                if (chatRecordsSessionsCache.length === 0) {
+                    sessionsListEl.innerHTML = '<div class="text-muted small py-3">暂无对话记录</div>';
+                } else {
+                    renderChatRecordsSessionsList();
+                }
+            } else {
+                sessionsListEl.innerHTML = '<div class="text-muted small py-3">加载对话记录失败</div>';
+            }
+
+            // 绑定筛选事件
+            if (timeFilterEl) {
+                timeFilterEl.onchange = function () {
+                    chatRecordsTimeFilter = this.value || 'all';
+                    renderChatRecordsSessionsList();
+                };
+            }
+            if (keywordInputEl) {
+                keywordInputEl.oninput = function () {
+                    chatRecordsKeyword = this.value || '';
+                    renderChatRecordsSessionsList();
+                };
+            }
+        }).catch(err => {
+            console.error('加载客户信息与聊天记录失败:', err);
+            clientInfoEl.innerHTML = '<div class="text-danger small">加载失败</div>';
+            sessionsListEl.innerHTML = '<div class="text-danger small">加载失败</div>';
+        });
+    }
+
+    // 渲染客户聊天记录列表，支持时间和关键词筛选
+    function renderChatRecordsSessionsList() {
+        const sessionsListEl = document.getElementById('chatRecordsSessionsList');
+        if (!sessionsListEl) return;
+
+        if (!chatRecordsSessionsCache || chatRecordsSessionsCache.length === 0) {
+            sessionsListEl.innerHTML = '<div class="text-muted small py-3">暂无对话记录</div>';
+            return;
+        }
+
+        const now = new Date();
+        const keyword = (chatRecordsKeyword || '').trim().toLowerCase();
+
+        let filtered = chatRecordsSessionsCache.filter(s => {
+            // 时间筛选
+            if (chatRecordsTimeFilter && chatRecordsTimeFilter !== 'all' && s.updated_at) {
+                const updated = new Date(s.updated_at);
+                const diffMs = now - updated;
+                const oneDay = 24 * 60 * 60 * 1000;
+                switch (chatRecordsTimeFilter) {
+                    case 'today':
+                        if (updated.toDateString() !== now.toDateString()) return false;
+                        break;
+                    case '3d':
+                        if (diffMs > 3 * oneDay) return false;
+                        break;
+                    case '7d':
+                        if (diffMs > 7 * oneDay) return false;
+                        break;
+                    case '30d':
+                        if (diffMs > 30 * oneDay) return false;
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            // 关键词筛选（标题 / 最后一条消息 / 专家名）
+            if (keyword) {
+                const title = (s.title || '').toLowerCase();
+                const lastMsg = (s.last_message || '').toLowerCase();
+                const expertName = (s.expert_name || '').toLowerCase();
+                if (!title.includes(keyword) && !lastMsg.includes(keyword) && !expertName.includes(keyword)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            sessionsListEl.innerHTML = '<div class="text-muted small py-3">没有匹配的对话记录</div>';
+            return;
+        }
+
+        let html = '';
+        filtered.forEach(s => {
+            const expertName = (s.expert_name || '专家').replace(/"/g, '&quot;');
+            const expertIcon = (s.expert_icon || '<i class="bi bi-robot"></i>').replace(/"/g, '&quot;');
+            const updatedAt = s.updated_at ? formatTime(s.updated_at) : '';
+            const safeTitle = (s.title || '新对话')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+
+            html += `
+                <div class="chat-records-session-card"
+                     data-session-id="${s.id}"
+                     data-expert-slug="${(s.expert_slug || '').replace(/"/g, '&quot;')}"
+                     data-expert-name="${expertName}"
+                     data-expert-icon="${expertIcon}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="session-expert-badge">
+                            <span class="session-expert-icon">${s.expert_icon || '<i class="bi bi-robot"></i>'}</span>
+                            ${s.expert_name || '专家'}
+                        </span>
+                        <span class="text-muted" style="font-size:11px">${updatedAt}</span>
+                    </div>
+                    <div class="text-muted mt-1" style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">
+                        ${safeTitle}
+                    </div>
+                </div>
+            `;
+        });
+
+        sessionsListEl.innerHTML = html;
+        sessionsListEl.querySelectorAll('.chat-records-session-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const id = this.getAttribute('data-session-id');
+                const slug = this.getAttribute('data-expert-slug') || '';
+                const name = (this.getAttribute('data-expert-name') || '专家').replace(/&quot;/g, '"');
+                const icon = (this.getAttribute('data-expert-icon') || '<i class="bi bi-robot"></i>').replace(/&quot;/g, '"');
+                closeModal('chatRecordsModal');
+                loadSession(parseInt(id), slug, name, icon);
+            });
+        });
+    }
+
     // 显示客户信息录入弹窗
     function showClientIntakeModal() {
         closeAllModals();
@@ -3745,25 +4056,26 @@
             return;
         }
 
-        fetch('/api/chat/sessions')
+        fetch('/api/chat/sessions?client_id=' + currentClientId)
         .then(res => res.json())
         .then(data => {
             if (data.code === 200 && data.data && data.data.sessions.length > 0) {
                 let html = '';
                 data.data.sessions.forEach(session => {
                     const isActive = session.id === currentSessionId ? 'active' : '';
-                    const expertName = session.expert ? session.expert.nickname || session.expert.name : '未知专家';
-                    const expertIcon = session.expert ? session.expert.icon : '<i class="bi bi-robot"></i>';
+                    const expertName = session.expert_name || '专家';
+                    const expertIcon = session.expert_icon || '<i class="bi bi-robot"></i>';
                     const updatedAt = session.updated_at ? formatTime(session.updated_at) : '';
 
                     html += `
-                    <div class="session-item ${isActive}" onclick="loadSession(${session.id}, '${session.expert ? session.expert.slug : ''}', '${expertName.replace(/'/g, "\\'")}', '${expertIcon.replace(/'/g, "\\'")}')">
+                    <div class="session-item ${isActive}" onclick="loadSession(${session.id}, '${session.expert_slug || ''}', '${expertName.replace(/'/g, "\\'")}', '${expertIcon.replace(/'/g, "\\'")}')">
                         <div class="session-title">${session.title || '新会话'}</div>
                         <div class="session-meta">
                             <span class="session-expert">
                                 <span class="session-expert-icon">${expertIcon}</span>
                                 ${expertName}
                             </span>
+                            <span class="session-time">${updatedAt}</span>
                         </div>
                     </div>
                     `;
