@@ -7,149 +7,119 @@
     <!-- 页面标题 -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center page-header-animate">
-                <div>
-                    <h4 class="mb-1">知识库管理</h4>
-                    <p class="text-muted mb-0">管理和查看已入库的规则</p>
-                </div>
-                <div class="btn-animate">
-                    <a href="{{ url_for('admin.knowledge_analyze') }}" class="btn btn-outline-primary me-2">
-                        <i class="bi bi-camera-video me-1"></i>内容分析
-                    </a>
-                    <a href="{{ url_for('admin.knowledge_account_analysis') }}" class="btn btn-outline-success me-2">
-                        <i class="bi bi-person-badge me-1"></i>账号分析
-                    </a>
-                    <a href="{{ url_for('admin.knowledge_ebook') }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-book me-1"></i>电子书分析
-                    </a>
-                </div>
+            <div class="page-header-animate">
+                <h4 class="mb-1">知识库管理</h4>
+                <p class="text-muted mb-0">管理和查看已入库的知识内容</p>
             </div>
         </div>
     </div>
 
-    <!-- 规则库内容 -->
-    <div class="row">
-        <!-- 左侧分类侧边栏 -->
-        <div class="col-md-3 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3">
-                    <h6 class="mb-0">规则分类</h6>
+    <!-- 四个大快捷入口 -->
+    <div class="row g-4 mb-4">
+        <!-- 规则库 -->
+        <div class="col-md-3">
+            <a href="{{ url_for('admin.knowledge_rules') }}" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 knowledge-card" style="cursor: pointer; transition: all 0.3s ease;">
+                    <div class="card-body text-center py-5">
+                        <div class="knowledge-icon mb-3">
+                            <i class="bi bi-bookmark-star" style="font-size: 3rem; color: #007AFF;"></i>
+                        </div>
+                        <h5 class="card-title mb-2">规则库</h5>
+                        <p class="card-text text-muted small mb-0">关键词库、选题库、内容模板、运营规划等规则模板</p>
+                    </div>
                 </div>
-                <div class="list-group list-group-flush" id="ruleCategories">
-                    <a href="#" class="list-group-item list-group-item-action active" data-category="all">
-                        <i class="bi bi-collection me-2"></i>全部规则
-                        <span class="float-end text-muted small">{{ rules_data.total }}</span>
-                    </a>
-                    {% for cat in rules_data.categories %}
-                    <a href="#" class="list-group-item list-group-item-action" data-category="{{ cat.id }}">
-                        <i class="bi {{ cat.icon }} me-2"></i>{{ cat.name }}
-                        <span class="float-end text-muted small">{{ cat.count }}</span>
-                    </a>
-                    {% endfor %}
-                </div>
-            </div>
+            </a>
         </div>
 
-        <!-- 右侧规则列表 -->
-        <div class="col-md-9 mb-4">
-            <div class="row g-3" id="rulesList">
-                {% for rule in rules_data.rules %}
-                <div class="col-12 rule-item" data-category="{{ rule.id.split('_')[0] }}">
-                    <div class="card border-0 shadow-sm rule-card" style="cursor: pointer;" data-rule-id="{{ rule.id }}">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-2 rule-title">{{ rule.title }}</h6>
-                                    <p class="text-muted mb-0 small rule-summary">{{ rule.summary }}</p>
-                                </div>
-                                <span class="badge bg-light text-dark">
-                                    {% if rule.id.split('_')[0] == 'keywords' %}关键词库
-                                    {% elif rule.id.split('_')[0] == 'topic' %}选题库
-                                    {% elif rule.id.split('_')[0] == 'template' %}内容模板
-                                    {% elif rule.id.split('_')[0] == 'operation' %}运营规划
-                                    {% elif rule.id.split('_')[0] == 'market' %}市场分析
-                                    {% endif %}
-                                </span>
-                            </div>
+        <!-- 账号分析 -->
+        <div class="col-md-3">
+            <a href="{{ url_for('admin.knowledge_account_analysis') }}" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 knowledge-card" style="cursor: pointer; transition: all 0.3s ease;">
+                    <div class="card-body text-center py-5">
+                        <div class="knowledge-icon mb-3">
+                            <i class="bi bi-person-badge" style="font-size: 3rem; color: #34C759;"></i>
+                        </div>
+                        <h5 class="card-title mb-2">账号分析</h5>
+                        <p class="card-text text-muted small mb-0">账号定位、内容策略、竞品分析、运营数据等</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- 电子书分析 -->
+        <div class="col-md-3">
+            <a href="{{ url_for('admin.knowledge_ebook') }}" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 knowledge-card" style="cursor: pointer; transition: all 0.3s ease;">
+                    <div class="card-body text-center py-5">
+                        <div class="knowledge-icon mb-3">
+                            <i class="bi bi-book" style="font-size: 3rem; color: #FF9500;"></i>
+                        </div>
+                        <h5 class="card-title mb-2">电子书分析</h5>
+                        <p class="card-text text-muted small mb-0">电子书内容提取、分析、知识点整理</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- 内容分析 -->
+        <div class="col-md-3">
+            <a href="{{ url_for('admin.knowledge_analyze') }}" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 knowledge-card" style="cursor: pointer; transition: all 0.3s ease;">
+                    <div class="card-body text-center py-5">
+                        <div class="knowledge-icon mb-3">
+                            <i class="bi bi-camera-video" style="font-size: 3rem; color: #AF52DE;"></i>
+                        </div>
+                        <h5 class="card-title mb-2">内容分析</h5>
+                        <p class="card-text text-muted small mb-0">短视频、图文内容分析、脚本创作、封面设计</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- 快捷操作 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="mb-0">快捷操作</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin.knowledge_category_add') }}" class="btn btn-outline-primary w-100">
+                                <i class="bi bi-folder-plus me-2"></i>新增分类
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin.knowledge_article_add') }}" class="btn btn-outline-success w-100">
+                                <i class="bi bi-file-earmark-plus me-2"></i>新增文章
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin.knowledge_articles') }}" class="btn btn-outline-info w-100">
+                                <i class="bi bi-list-ul me-2"></i>文章管理
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary w-100">
+                                <i class="bi bi-arrow-left me-2"></i>返回知识库
+                            </a>
                         </div>
                     </div>
                 </div>
-                {% endfor %}
             </div>
         </div>
     </div>
 </div>
 
-<!-- 规则详情弹窗 -->
-<div class="modal fade" id="ruleDetailModal" tabindex="-1" aria-labelledby="ruleDetailModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="ruleDetailModalLabel">规则详情</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <h6 id="ruleDetailTitle" class="mb-3 fw-bold"></h6>
-                <div id="ruleDetailContent" style="white-space: pre-wrap; font-size: 14px; line-height: 1.8; color: #333;"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-{% endblock %}
-
-{% block scripts %}
-<script>
-// 存储规则数据的对象
-const rulesData = {
-{% for rule in rules_data.rules %}
-    "{{ rule.id }}": { title: {{ rule.title|tojson }}, content: {{ rule.content|tojson }} },
-{% endfor %}
-};
-
-// 规则分类筛选
-document.getElementById('ruleCategories').addEventListener('click', function(e) {
-    e.preventDefault();
-    const link = e.target.closest('a');
-    if (!link) return;
-
-    // 更新激活状态
-    document.querySelectorAll('#ruleCategories .list-group-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    link.classList.add('active');
-
-    const category = link.dataset.category;
-    const ruleItems = document.querySelectorAll('.rule-item');
-
-    ruleItems.forEach(item => {
-        if (category === 'all' || item.dataset.category === category) {
-            item.style.display = 'block';
-        } else {
-            item.style.display = 'none';
-        }
-    });
-});
-
-// 显示规则详情 - 使用事件委托
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('rulesList').addEventListener('click', function(e) {
-        const card = e.target.closest('.rule-card');
-        if (!card) return;
-
-        const ruleId = card.dataset.ruleId;
-        const rule = rulesData[ruleId];
-
-        if (rule) {
-            document.getElementById('ruleDetailTitle').textContent = rule.title;
-            document.getElementById('ruleDetailContent').textContent = rule.content;
-            const modal = new bootstrap.Modal(document.getElementById('ruleDetailModal'));
-            modal.show();
-        }
-    });
-});
-</script>
+<style>
+.knowledge-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+}
+.knowledge-icon {
+    line-height: 1;
+}
+</style>
 {% endblock %}

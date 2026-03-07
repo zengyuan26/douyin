@@ -180,10 +180,16 @@ def expert_delete(id):
 @super_admin_required
 def knowledge():
     """知识库列表"""
+    return render_template('admin/knowledge.html')
+
+
+@super_admin_required
+def knowledge_rules():
+    """规则库详情"""
     # 读取已入库的规则
     rules_data = load_knowledge_rules()
 
-    return render_template('admin/knowledge.html', rules_data=rules_data)
+    return render_template('admin/knowledge_rules.html', rules_data=rules_data)
 
 
 def load_knowledge_rules():

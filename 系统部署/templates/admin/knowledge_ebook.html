@@ -109,7 +109,7 @@
 
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
 // 状态管理
 let uploadedFiles = [];
@@ -309,9 +309,15 @@ analyzeBtn.addEventListener('click', async () => {
 });
 
 function displayAnalysisResult(data) {
+    console.log('displayAnalysisResult called with data:', data);
     analysisResult = data;
     analysisResultDiv.style.display = 'block';
     ruleCount.textContent = data.rules.length;
+
+    if (!data.rules || data.rules.length === 0) {
+        alert('未从电子书中提取到规则');
+        return;
+    }
 
     // 渲染规则列表
     rulesContainer.innerHTML = '';
