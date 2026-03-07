@@ -181,11 +181,64 @@ def chat_with_skill():
             content=response
         )
         db.session.add(assistant_msg)
-        
+
         # 更新会话时间
         chat_session.updated_at = datetime.utcnow()
         db.session.commit()
-        
+
+        # 检查是否是首席营销官收集客户资料后的确认
+        should_create_client = False
+        new_client_id = None
+        client_profile_completed = False
+        dispatch_experts = False
+
+        # 检查是否需要创建客户（首席运营官创建客户后返回 "✅ 档案已建立"）
+        if '✅ 档案已建立' in response or '档案已建立' in response:
+            # 尝试从回复中提取客户名称并创建客户
+            import re
+            name_match = re.search(r'客户名称[：:]\s*(.+)', response)
+            if name_match:
+                client_name = name_match.group(1).strip()
+                # 创建客户
+                try:
+                    from models.models import Channel
+                    # 获取用户的渠道
+                    if current_user.role == 'channel':
+                        channel = current_user.channels.first()
+                    else:
+                        # 超级管理员 - 获取第一个渠道或创建
+                        channel = Channel.query.first()
+                        if not channel:
+                            from models.models import Channel
+                            channel = Channel(name='默认渠道')
+                            db.session.add(channel)
+                            db.session.commit()
+
+                    # 创建客户
+                    new_client = Client(
+                        name=client_name,
+                        channel_id=channel.id,
+                        status='completed',
+                        created_by=current_user.id
+                    )
+                    db.session.add(new_client)
+                    db.session.commit()
+                    new_client_id = new_client.id
+                    should_create_client = True
+                    client_profile_completed = True
+                    dispatch_experts = True
+                    print(f"✅ 自动创建客户成功: {client_name} (ID: {new_client_id})")
+                except Exception as e:
+                    print(f"❌ 自动创建客户失败: {e}")
+            else:
+                # 可能是已有客户，标记资料收集完成
+                if client_id:
+                    client = Client.query.get(client_id)
+                    if client and client.status == 'collecting':
+                        client.status = 'completed'
+                        db.session.commit()
+                        client_profile_completed = True
+
         return jsonify({
             'code': 200,
             'message': 'success',
@@ -193,7 +246,11 @@ def chat_with_skill():
                 'reply': response,
                 'session_id': chat_session.id,
                 'skill_name': skill_name,
-                'skill_info': skill_info
+                'skill_info': skill_info,
+                'client_created': should_create_client,
+                'new_client_id': new_client_id,
+                'dispatch_experts': dispatch_experts,
+                'client_profile_completed': client_profile_completed
             }
         })
     else:
@@ -353,6 +410,52 @@ def chat_with_skill_stream():
 
                 # 更新会话时间
                 chat_session.updated_at = datetime.utcnow()
+
+                # 检查是否需要创建客户
+                should_create_client = False
+                new_client_id = None
+                dispatch_experts = False
+
+                # 检查是否需要创建客户（首席运营官创建客户后返回 "✅ 档案已建立"）
+                if '✅ 档案已建立' in full_response or '档案已建立' in full_response:
+                    import re
+                    name_match = re.search(r'客户名称[：:]\s*(.+)', full_response)
+                    if name_match:
+                        client_name = name_match.group(1).strip()
+                        try:
+                            from models.models import Channel
+                            # 获取用户的渠道
+                            if current_user.role == 'channel':
+                                channel = current_user.channels.first()
+                            else:
+                                # 超级管理员 - 获取第一个渠道或创建
+                                channel = Channel.query.first()
+                                if not channel:
+                                    channel = Channel(name='默认渠道')
+                                    db.session.add(channel)
+                                    db.session.commit()
+
+                            # 创建客户
+                            new_client = Client(
+                                name=client_name,
+                                channel_id=channel.id,
+                                status='completed',
+                                created_by=current_user.id
+                            )
+                            db.session.add(new_client)
+                            db.session.commit()
+                            new_client_id = new_client.id
+                            should_create_client = True
+                            dispatch_experts = True
+                            print(f"✅ 自动创建客户成功: {client_name} (ID: {new_client_id})")
+                        except Exception as e:
+                            print(f"❌ 自动创建客户失败: {e}")
+                    elif client_id:
+                        client = Client.query.get(client_id)
+                        if client and client.status == 'collecting':
+                            client.status = 'completed'
+                            db.session.commit()
+
                 db.session.commit()
 
                 # 发送会话结束信息
@@ -360,7 +463,10 @@ def chat_with_skill_stream():
                     'done': True,
                     'session_id': chat_session.id,
                     'skill_name': skill_name,
-                    'skill_info': skill_info
+                    'skill_info': skill_info,
+                    'client_created': should_create_client,
+                    'new_client_id': new_client_id,
+                    'dispatch_experts': dispatch_experts
                 }
                 yield f"data: {json.dumps(end_data)}\n\n"
 
