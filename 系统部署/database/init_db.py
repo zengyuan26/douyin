@@ -130,8 +130,8 @@ def init_database():
             {
                 'name': '知识库专家',
                 'slug': 'knowledge',
-                'nickname': '伊森·亨特',
-                'title': '知识库管理专家',
+                'nickname': '伊森亨特',
+                'title': '知识库',
                 'description': '负责知识库的分类管理、内容存储和检索，支持纯文字/图文/短视频分类管理。',
                 'capabilities': ['知识分类管理', '内容存储', '知识检索', '分类维护'],
                 'command': '/知识库',

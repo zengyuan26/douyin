@@ -25,22 +25,61 @@ expert_api = Blueprint('expert_api', __name__)
 @expert_api.route('/experts', methods=['GET'])
 @login_required
 def get_experts():
-    """获取所有可用专家列表"""
+    """获取工作台专家列表，合并 DB Expert 的昵称/职位/欢迎语/排序"""
     skill_loader = get_skill_loader()
-    skills = skill_loader.get_all_skills()
-    
-    # 普通用户/渠道用户不展示「知识库」专家，只允许超级管理员在工作台看到并使用
+    skills = skill_loader.get_workbench_skills()
+
+    # 普通用户/渠道用户不展示知识库专家，仅超级管理员在工作台可见
     try:
         if not current_user.is_super_admin():
-            skills = [s for s in skills if s.get('name') != 'Knowledge Base']
+            skills = [s for s in skills if s.get('slug') != 'knowledge-base']
     except Exception:
-        # 防御性处理：如果当前用户对象没有 is_super_admin 方法，则默认按普通用户处理
-        skills = [s for s in skills if s.get('name') != 'Knowledge Base']
-    
+        skills = [s for s in skills if s.get('slug') != 'knowledge-base']
+
+    # 工作台 skill slug -> DB Expert slug（init_db 使用旧 slug）
+    skill_slug_to_db_slug = {
+        'chief-operating-officer': 'master',
+        'market-insights-commander': 'monitor',
+        'ai-operations-commander': 'ai-operations-commander',
+        'content-creator': 'content',
+        'knowledge-base': 'knowledge',
+    }
+    db_slugs = list(set(skill_slug_to_db_slug.values()))
+    experts_by_db_slug = {ex.slug: ex for ex in Expert.query.filter(Expert.slug.in_(db_slugs)).all()}
+    db_experts = {}
+    for slug, db_slug in skill_slug_to_db_slug.items():
+        ex = experts_by_db_slug.get(db_slug)
+        if ex:
+            db_experts[slug] = ex
+
+    merged = []
+    for s in skills:
+        slug = s.get('slug')
+        ex = db_experts.get(slug) if slug else None
+        item = {
+            'slug': slug,
+            'name': s.get('name'),
+            'nickname': (ex.nickname or s.get('nickname')) if ex else s.get('nickname'),
+            'title': (ex.title or s.get('title')) if ex else s.get('title'),
+            'description': (ex.description or s.get('description')) if ex else s.get('description'),
+            'type': s.get('type'),
+            'command': s.get('command'),
+            'commands': s.get('commands', []),
+            'welcome_message': (ex.description or s.get('welcome_message')) if ex else s.get('welcome_message'),
+            'sort_order': (ex.sort_order if ex is not None and ex.sort_order is not None else 999),
+        }
+        if ex:
+            item['expert_id'] = ex.id
+        merged.append(item)
+
+    # 与 admin 一致：先按 sort_order，同序时按工作台固定顺序
+    order_idx = {s.get('slug'): i for i, s in enumerate(skills)}
+    merged.sort(key=lambda x: (x['sort_order'], order_idx.get(x['slug'], 999)))
+
     return jsonify({
         'code': 200,
         'message': 'success',
-        'data': skills
+        'data': merged
     })
 
 

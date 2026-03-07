@@ -6,8 +6,19 @@ from flask_login import login_required, current_user
 from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, Industry, Channel, Client
 from functools import wraps
 from datetime import datetime
+from services.skill_loader import get_skill_loader
 
 admin = Blueprint('admin', __name__)
+
+# 工作台专家：skill_slug -> DB Expert slug（init_db 使用旧 slug）
+SKILL_SLUG_TO_DB_SLUG = {
+    'chief-operating-officer': 'master',
+    'market-insights-commander': 'monitor',
+    'ai-operations-commander': 'ai-operations-commander',
+    'content-creator': 'content',
+    'knowledge-base': 'knowledge',
+}
+WORKBENCH_DB_SLUGS = list(set(SKILL_SLUG_TO_DB_SLUG.values()))
 
 
 def super_admin_required(f):
@@ -57,15 +68,41 @@ def dashboard():
                          recent_clients=recent_clients)
 
 
-# ==================== 专家管理 ====================
+# ==================== 专家管理（工作台专家列表） ====================
 
 @admin.route('/experts')
 @login_required
 @super_admin_required
 def experts():
-    """专家列表"""
-    experts_list = Expert.query.all()
-    return render_template('admin/experts.html', experts=experts_list)
+    """工作台专家列表：与工作台左侧专家列表一致（同一数据源、同一顺序）"""
+    skill_loader = get_skill_loader()
+    # 与 API get_experts 一致：使用 get_workbench_skills() 得到与工作台相同的专家集合与顺序
+    skills = skill_loader.get_workbench_skills()
+    db_experts = {ex.slug: ex for ex in Expert.query.filter(Expert.slug.in_(WORKBENCH_DB_SLUGS)).all()}
+
+    workbench_experts = []
+    for s in skills:
+        skill_slug = s.get('slug')
+        db_slug = SKILL_SLUG_TO_DB_SLUG.get(skill_slug)
+        ex = db_experts.get(db_slug) if db_slug else None
+        commands = s.get('commands', []) or skill_loader.get_commands_for_skill(skill_slug)
+
+        item = {
+            'expert': ex,
+            'skill_slug': skill_slug,
+            'name': (ex.nickname or ex.name) if ex else s.get('nickname', skill_slug),
+            'title': ex.title if ex else s.get('title', ''),
+            'description': ex.description if ex else s.get('description', ''),
+            'sort_order': ex.sort_order if ex and ex.sort_order is not None else 999,
+            'is_active': ex.is_active if ex else True,
+            'commands': commands,
+        }
+        workbench_experts.append(item)
+
+    # 与 API 一致：按 sort_order 排序（同序时保持 get_workbench_skills 顺序）
+    order_idx = {s['slug']: i for i, s in enumerate(skills)}
+    workbench_experts.sort(key=lambda x: (x['sort_order'], order_idx.get(x['skill_slug'], 999)))
+    return render_template('admin/experts.html', workbench_experts=workbench_experts)
 
 
 @admin.route('/experts/add', methods=['GET', 'POST'])
@@ -105,25 +142,21 @@ def expert_add():
 @login_required
 @super_admin_required
 def expert_edit(id):
-    """编辑专家"""
+    """编辑工作台专家：昵称、职位、欢迎语、排序"""
     expert = Expert.query.get_or_404(id)
-    
+
     if request.method == 'POST':
-        # 保留原 name，更新其他字段
         expert.nickname = request.form.get('nickname', '').strip()
         expert.title = request.form.get('title', '').strip()
         expert.description = request.form.get('description', '').strip()
-        expert.command = request.form.get('command', '').strip()
-        # icon、avatar_url 由 init_db 等脚本维护，编辑页不再提供修改入口
         expert.sort_order = int(request.form.get('sort_order', 0) or 0)
         expert.is_active = 'is_active' in request.form
         db.session.commit()
         flash('专家更新成功', 'success')
         return redirect(url_for('admin.experts'))
-    
-    # GET 请求时返回专家列表页面
-    experts = Expert.query.all()
-    return render_template('admin/experts.html', experts=experts)
+
+    # GET 时返回工作台专家列表页（复用 experts() 逻辑）
+    return experts()
 
 
 @admin.route('/experts/<int:id>/delete', methods=['POST'])

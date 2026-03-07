@@ -146,104 +146,105 @@
             <div class="col-12">
                 <div class="page-header page-header-animate">
                     <h4 class="page-title">专家管理</h4>
-                    <p class="page-subtitle">管理系统中的AI专家角色</p>
+                    <p class="page-subtitle">本页专家与工作台左侧列表一致。可编辑：昵称、职位、欢迎语、排序。下方「呼出命令」即该专家对应的全部 Skill 命令。</p>
                 </div>
             </div>
         </div>
 
-        <!-- 专家卡片列表 -->
+        <!-- 工作台专家卡片列表 -->
         <div class="row g-4">
-            {% for expert in experts %}
+            {% for item in workbench_experts %}
+            {% set expert = item.expert %}
+            {% set skill_slug = item.skill_slug %}
+            {% set has_db_record = expert is not none %}
             <div class="col-md-6 col-lg-4">
                 <div class="expert-card list-item-animate" style="animation-delay: {{ loop.index0 * 0.05 }}s;">
                     <div class="expert-header">
-                        {% if expert.avatar_url %}
-                        <img src="{{ expert.avatar_url }}" alt="{{ expert.nickname or expert.name }}"
+                        {% if has_db_record and expert.avatar_url %}
+                        <img src="{{ expert.avatar_url }}" alt="{{ item.name }}"
                              class="expert-avatar" style="object-fit: cover;">
                         {% else %}
                         <div class="expert-avatar">
-                            {{ expert.icon|safe }}
+                            👤
                         </div>
                         {% endif %}
                         <div class="expert-info">
-                            <h5 class="expert-name">{{ expert.nickname or expert.name }}</h5>
-                            <p class="expert-title">{{ expert.title or '' }}</p>
+                            <h5 class="expert-name">{{ item.name }}</h5>
+                            <p class="expert-title">{{ item.title or '' }}</p>
                         </div>
+                        {% if has_db_record %}
                         <button class="btn btn-sm btn-outline-primary expert-edit-btn"
                                 data-bs-toggle="modal"
                                 data-bs-target="#editExpertModal{{ expert.id }}">
                             <i class="bi bi-pencil"></i>
                         </button>
+                        {% else %}
+                        <span class="badge bg-secondary" style="font-size: 10px;">待配置</span>
+                        {% endif %}
                     </div>
                     <div class="expert-body">
-                        <p class="expert-desc">{{ expert.description or '暂无描述' }}</p>
-                        <div class="expert-meta">
-                            {% if expert.command %}
-                            <span class="expert-badge command">/{{ expert.command }}</span>
-                            {% endif %}
-                            <span class="expert-badge status {% if not expert.is_active %}disabled{% endif %}">
-                                {% if expert.is_active %}已启用{% else %}已禁用{% endif %}
+                        <p class="expert-desc">{{ item.description or '暂无欢迎语' }}</p>
+                        <div class="expert-meta mt-1">
+                            <span class="text-muted small me-1">排序:</span>
+                            <span class="expert-badge" title="数字越小越靠前">#{{ item.sort_order }}</span>
+                            <span class="text-muted small ms-2 me-1">状态:</span>
+                            <span class="expert-badge status {% if not item.is_active %}disabled{% endif %}">
+                                {% if item.is_active %}已启用{% else %}已禁用{% endif %}
                             </span>
                         </div>
+                        {% if skill_slug %}
+                        <div class="expert-meta mt-1">
+                            <span class="text-muted small me-1">Skill:</span>
+                            <code class="small">{{ skill_slug }}</code>
+                        </div>
+                        {% endif %}
                     </div>
                     <div class="expert-actions"></div>
                 </div>
             </div>
-            
-            <!-- 每个专家的编辑 Modal -->
+
+            <!-- 编辑 Modal：昵称 / 职位 / 欢迎语 / 排序 -->
+            {% if has_db_record %}
             <div class="modal fade" id="editExpertModal{{ expert.id }}" tabindex="-1">
                 <div class="modal-dialog modal-md modal-dialog-centered" style="max-width: 540px;">
                     <div class="modal-content">
                         <div class="modal-header py-2">
-                            <h5 class="modal-title fs-6">编辑专家 - {{ expert.nickname or expert.name }}</h5>
+                            <h5 class="modal-title fs-6">编辑工作台专家 - {{ item.name }}</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <form method="POST" action="{{ url_for('admin.expert_edit', id=expert.id) }}">
                             <div class="modal-body py-3">
-                                <!-- 基本信息 -->
                                 <div class="row g-2 mb-2">
                                     <div class="col-6">
-                                        <div class="mb-1">
-                                            <label class="form-label mb-1">昵称</label>
-                                            <input type="text" class="form-control form-control-sm" name="nickname" 
-                                                   value="{{ expert.nickname or '' }}" placeholder="如：约瑟夫·库珀">
-                                        </div>
+                                        <label class="form-label mb-1">昵称</label>
+                                        <input type="text" class="form-control form-control-sm" name="nickname"
+                                               value="{{ expert.nickname or '' }}" placeholder="如：约瑟夫·库珀">
                                     </div>
                                     <div class="col-6">
-                                        <div class="mb-1">
-                                            <label class="form-label mb-1">职位名称</label>
-                                            <input type="text" class="form-control form-control-sm" name="title" 
-                                                   value="{{ expert.title or '' }}" placeholder="如：首席营销官">
-                                        </div>
+                                        <label class="form-label mb-1">职位</label>
+                                        <input type="text" class="form-control form-control-sm" name="title"
+                                               value="{{ expert.title or '' }}" placeholder="如：首席运营官">
                                     </div>
                                 </div>
-                                
-                                <!-- 欢迎语 -->
                                 <div class="mb-2">
                                     <label class="form-label mb-1">欢迎语</label>
-                                    <textarea class="form-control form-control-sm" name="description" rows="3"
-                                              placeholder="专家的自我介绍欢迎语...">{{ expert.description or '' }}</textarea>
+                                    <textarea class="form-control form-control-sm" name="description" rows="4"
+                                              placeholder="工作台选中该专家时展示的欢迎语...">{{ expert.description or '' }}</textarea>
                                 </div>
-                                
-                                <!-- 其他信息 -->
-                                <div class="row g-2 mb-2">
-                                    <div class="col-6">
-                                        <div class="mb-1">
-                                            <label class="form-label mb-1">命令</label>
-                                            <input type="text" class="form-control form-control-sm" name="command" 
-                                                   value="{{ expert.command or '' }}" placeholder="/xxx">
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="mb-1">
-                                            <label class="form-label mb-1">排序</label>
-                                            <input type="number" class="form-control form-control-sm" name="sort_order" 
-                                                   value="{{ expert.sort_order or 0 }}">
-                                        </div>
+                                <div class="mb-2">
+                                    <label class="form-label mb-1">排序</label>
+                                    <input type="number" class="form-control form-control-sm" name="sort_order" 
+                                           value="{{ expert.sort_order if expert.sort_order is not none else 0 }}" min="0">
+                                    <small class="text-muted">数字越小越靠前</small>
+                                </div>
+                                {% if skill_slug %}
+                                <div class="mb-2 p-2 rounded" style="background: var(--color-bg-secondary);">
+                                    <label class="form-label mb-1 small text-muted">Skill（只读）</label>
+                                    <div class="small">
+                                        <code>{{ skill_slug }}</code>
                                     </div>
                                 </div>
-                                
-                                <!-- 状态 -->
+                                {% endif %}
                                 <div class="mb-0">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" name="is_active" 
@@ -254,12 +255,13 @@
                             </div>
                             <div class="modal-footer py-2">
                                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
-                                <button type="submit" class="btn btn-sm btn-primary">保存修改</button>
+                                <button type="submit" class="btn btn-sm btn-primary">保存</button>
                             </div>
                         </form>
                     </div>
                 </div>
             </div>
+            {% endif %}
             {% endfor %}
         </div>
     </div>

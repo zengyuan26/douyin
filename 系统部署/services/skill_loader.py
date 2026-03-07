@@ -13,42 +13,49 @@ class SkillLoader:
     """Skill Loader Class"""
 
     COMMAND_MAPPING = {
-        # 总控
-        '/coo': 'chief-operating-officer',
+        # ====== 工作台专家（与 README 第203-219行一致）======
+        # 首席运营官 / 总控（客户资料收集已整合到总控）
         '/总控': 'chief-operating-officer',
+        '/master': 'chief-operating-officer',
+        '/coo': 'chief-operating-officer',
         '/约瑟夫': 'chief-operating-officer',
+        '/切换客户': 'chief-operating-officer',
+        '/新增客户': 'chief-operating-officer',
 
-        # 运营与SEO（包括互联网营销）
+        # AI智能运营专家（整合SEO、运营、互联网营销）
         '/seo': 'ai-operations-commander',
         '/运营': 'ai-operations-commander',
         '/塔斯': 'ai-operations-commander',
         '/起名': 'ai-operations-commander',
         '/营销': 'ai-operations-commander',
 
-        # 知识库
-        '/kb': 'knowledge-base',
-        '/知识库': 'knowledge-base',
+        # 市场洞察专家
+        '/市场': 'market-insights-commander',
+        '/insights': 'market-insights-commander',
+        '/分析': 'market-insights-commander',
 
-        # Geo Master
-        '/geo': 'geo-master',
-        '/地理': 'geo-master',
-
-        # Geo SEO
-        '/关键词': 'geo-seo',
-        '/选题': 'geo-seo',
-
-        # Insights Analyst
-        '/insights': 'insights-analyst',
-        '/分析': 'insights-analyst',
-
-        # Operations Expert
-        '/operations': 'operations-expert',
-
-        # Social Media Monitor
+        # 舆情监控专家
+        '/舆情': 'social-media-monitor',
         '/social': 'social-media-monitor',
         '/监控': 'social-media-monitor',
 
-        # Client Intake
+        # 内容创作专家
+        '/内容': 'content-creator',
+        '/创作': 'content-creator',
+
+        # 消费心理学专家
+        '/心理': 'consumer-psychology-expert',
+
+        # 视觉设计专家
+        '/视觉': 'visual-design-expert',
+
+        # 知识库
+        '/知识库': 'knowledge-base',
+        '/kb': 'knowledge-base',
+
+        # ====== 其他系统技能（不在工作台展示）======
+        '/关键词': 'geo-seo',
+        '/选题': 'geo-seo',
         '/intake': 'client-intake',
         '/录入': 'client-intake',
     }
@@ -129,11 +136,27 @@ class SkillLoader:
         },
         'social-media-monitor': {
             'name': 'Social Media Monitor',
-            'title': '社交舆情监控专家',
-            'nickname': '监控师',
-            'description': '社交媒体舆情监控、竞品动态追踪、热点预警',
-            'welcome_message': '你好，我是社交舆情监控专家，帮你实时监控社交媒体舆情。',
+            'title': '抖音舆情监控专家',
+            'nickname': '舆情监控师',
+            'description': '实时监控、舆情分析、竞品追踪、风险预警（仅抖音平台）',
+            'welcome_message': '你好，我是抖音舆情监控专家，帮你实时监控抖音平台舆情，追踪竞品动态，预警潜在风险。',
             'type': 'analysis'
+        },
+        'consumer-psychology-expert': {
+            'name': 'Consumer Psychology Expert',
+            'title': '消费心理学专家',
+            'nickname': '心理学顾问',
+            'description': '消费心理分析、文案优化、转化提升、心理钩子、信任构建',
+            'welcome_message': '你好，我是消费心理学专家，擅长从心理学角度优化内容，提升转化率。我会帮你设计心理钩子、构建信任、优化说服路径。',
+            'type': 'psychology'
+        },
+        'visual-design-expert': {
+            'name': 'Visual Design Expert',
+            'title': '视觉设计专家',
+            'nickname': '设计师',
+            'description': '视觉设计评审、9:16比例检查、场景图适配、排版优化',
+            'welcome_message': '你好，我是视觉设计专家，帮你评审视频和图文内容的视觉设计，确保9:16比例适配、场景图合适、排版美观。',
+            'type': 'design'
         },
         'client-intake': {
             'name': 'Client Intake',
@@ -200,47 +223,50 @@ class SkillLoader:
     def get_skill_info(self, skill_name: str) -> Optional[Dict]:
         return self.SKILL_INFO.get(skill_name)
 
+    # 工作台展示的专家顺序（按 README 第203-219行）
+    WORKBENCH_SKILL_ORDER = [
+        'chief-operating-officer',       # 1. 首席运营官
+        'ai-operations-commander',       # 2. AI智能运营专家
+        'market-insights-commander',      # 3. 市场洞察专家
+        'content-creator',                # 4. 内容创作专家
+        'knowledge-base',                 # 5. 知识库（仅超级管理员在工作台可见，管理页可编辑）
+    ]
+
     def get_all_skills(self) -> List[Dict]:
-        # 过滤掉不需要的专家：单独的分析师、监控师、SEO专家、运营官、营销专家等
-        excluded_skills = [
-            'geo-master',           # 地理大师
-            'client-intake',        # 录入员
-            'insights-analyst',     # 市场洞察分析师（单独的分析师）
-            'geo-seo',              # SEO专家（单独的SEO）
-            'operations-expert',    # 运营专家（单独的运营官）
-            'social-media-monitor', # 社交舆情监控师（单独的监控师）
-            'internet-marketing-expert'  # 互联网营销专家（已整合到AI运营专家）
-        ]
-        
-        skills = [
-            {
+        """获取所有可用技能（工作台展示 + 仅管理员可见）"""
+        skills = []
+        for name, info in self.SKILL_INFO.items():
+            commands = self.get_commands_for_skill(name)
+            skills.append({
+                'slug': name,
                 'name': info['name'],
                 'nickname': info.get('nickname', info['name']),
                 'title': info['title'],
                 'description': info['description'],
                 'type': info['type'],
-                'command': self._get_command_for_skill(name),
+                'command': commands[0] if commands else None,
+                'commands': commands,
                 'welcome_message': info.get('welcome_message', info['description'])
-            }
-            for name, info in self.SKILL_INFO.items()
-            if name not in excluded_skills
-        ]
-        
-        # 按指定顺序排序：首席运营官 -> 市场洞察与社交舆情监控师 -> 其他
+            })
+
+        # 按 WORKBENCH_SKILL_ORDER 排序，未知技能放最后
         def sort_key(skill):
-            if skill['name'] == 'Chief Operating Officer':
-                return 0
-            if skill['name'] == 'Market Insights Commander':
-                return 1
-            return 2
-        
+            idx = self.WORKBENCH_SKILL_ORDER.index(skill['slug']) if skill['slug'] in self.WORKBENCH_SKILL_ORDER else 999
+            return idx
         return sorted(skills, key=sort_key)
 
+    def get_workbench_skills(self) -> List[Dict]:
+        """获取工作台专家列表（含 knowledge-base，API 层按权限过滤）"""
+        all_skills = self.get_all_skills()
+        return [s for s in all_skills if s['slug'] in self.WORKBENCH_SKILL_ORDER]
+
+    def get_commands_for_skill(self, skill_slug: str) -> List[str]:
+        """返回指向该 skill 的所有命令（如 /总控、/coo），用于展示「合并了哪些技能」"""
+        return [cmd for cmd, slug in self.COMMAND_MAPPING.items() if slug == skill_slug]
+
     def _get_command_for_skill(self, skill_name: str) -> Optional[str]:
-        for cmd, name in self.COMMAND_MAPPING.items():
-            if name == skill_name:
-                return cmd
-        return None
+        commands = self.get_commands_for_skill(skill_name)
+        return commands[0] if commands else None
 
     def build_system_prompt(self, skill_name: str, client_info: Dict = None, user_role: str = 'user') -> str:
         security_instruction = self._get_security_instruction(user_role)
