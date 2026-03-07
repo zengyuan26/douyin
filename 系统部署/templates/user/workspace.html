@@ -2125,7 +2125,8 @@
     let currentExpertCapabilities = [];
 
     // 会话锁定状态：防止用户连续发送消息导致响应混乱
-    let isWaitingForResponse = false;
+    // 每个专家独立的等待回复状态
+    let expertWaitingResponse = {};
     let currentClientId = null;
     let currentClientName = '';
     let userRole = '{{ user_role }}';
@@ -2608,8 +2609,8 @@
     function selectExpert(slug, name, title, desc, icon, capabilities) {
         console.log('[selectExpert] 切换专家:', slug, name);
 
-        // 重置锁定状态，允许新会话
-        setInputLocked(false);
+        // 先保存旧专家的 slug，用于刷新 UI
+        const oldExpertSlug = currentExpertSlug;
 
         currentExpertSlug = slug;
         currentExpertName = name;
@@ -2617,6 +2618,10 @@
         currentExpertDesc = desc;
         currentExpertIcon = icon;
         currentExpertCapabilities = capabilities || [];
+
+        // 刷新锁定状态的 UI（根据当前专家的锁定状态来决定输入框的锁定状态）
+        // 使用 'ui_refresh' 模式，只刷新 UI，不改变锁定状态
+        setInputLocked(false, 'ui_refresh');
 
         // 添加到会话标签
         addChatTab(slug, name, icon, null);
@@ -3027,8 +3032,23 @@
             console.log('[switchClient] 已停止报告轮询');
         }
 
-        // 重置锁定状态
-        setInputLocked(false);
+        // 清空所有专家的锁定状态
+        expertWaitingResponse = {};
+
+        // 刷新 UI
+        const input = document.getElementById('chatInput');
+        const sendBtn = document.querySelector('.chat-send-btn');
+        if (input) {
+            input.disabled = false;
+            input.placeholder = '输入消息...';
+        }
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.style.opacity = '1';
+            sendBtn.style.cursor = 'pointer';
+        }
+        const waitingTip = document.getElementById('waitingTip');
+        if (waitingTip) waitingTip.remove();
 
         currentClientName = clientName;
         currentClientId = clientId;
@@ -3223,15 +3243,32 @@
         sendMessageWithText(message);
     }
 
-    // 设置输入框锁定状态
-    function setInputLocked(locked) {
+    // 设置指定专家的输入框锁定状态
+    // expertSlug: 专家的 slug
+    // locked: 是否锁定
+    // - 刷新 UI 模式（expertSlug === 'ui_refresh'）: 只刷新 UI，不改变锁定状态
+    // - 锁定模式（locked === true）: 锁定指定专家
+    // - 解锁模式（locked === false, expertSlug !== 'ui_refresh'）: 解锁指定专家
+    function setInputLocked(locked, expertSlug = 'ui_refresh') {
         const input = document.getElementById('chatInput');
         const sendBtn = document.querySelector('.chat-send-btn');
         const chatInputArea = document.querySelector('.chat-input-area');
 
-        isWaitingForResponse = locked;
+        // 只有在不是刷新 UI 模式时才更新锁定状态
+        if (expertSlug !== 'ui_refresh') {
+            if (locked) {
+                // 锁定模式：设置指定专家的锁定状态
+                expertWaitingResponse[expertSlug] = true;
+            } else {
+                // 解锁模式：删除指定专家的锁定状态
+                delete expertWaitingResponse[expertSlug];
+            }
+        }
 
-        if (locked) {
+        // 检查当前专家是否被锁定
+        const currentExpertLocked = expertWaitingResponse[currentExpertSlug] === true;
+
+        if (currentExpertLocked) {
             input.disabled = true;
             input.placeholder = '请等待专家回复...';
             sendBtn.disabled = true;
@@ -3288,8 +3325,8 @@
         if (!message) return;
         if (!currentExpertName) { alert('请先选择一位专家'); return; }
 
-        // 检查是否正在等待回复
-        if (isWaitingForResponse) {
+        // 检查当前专家是否正在等待回复
+        if (expertWaitingResponse[currentExpertSlug]) {
             showWaitingMessage();
             return;
         }
@@ -3305,8 +3342,8 @@
             expertSlug: currentExpertSlug
         });
 
-        // 设置锁定状态
-        setInputLocked(true);
+        // 设置当前专家的锁定状态
+        setInputLocked(true, currentExpertSlug);
 
         addMessage('user', message);
         input.value = '';
@@ -3433,8 +3470,8 @@
                         if (finalData.dispatch_experts) dispatchExperts(finalData.new_client_id, currentClientName);
                     }
 
-                    // 解除锁定状态
-                    setInputLocked(false);
+                    // 解除发送消息时那个专家的锁定状态
+                    setInputLocked(false, sendingExpertSlug);
                 } else {
                     setTimeout(checkAndProcess, 100);
                 }
@@ -3446,8 +3483,8 @@
             const loadingEl = document.getElementById('loadingMessage');
             if (loadingEl) loadingEl.remove();
             addMessage('expert', '网络错误，请检查网络连接后重试');
-            // 解除锁定状态
-            setInputLocked(false);
+            // 解除发送消息时那个专家的锁定状态
+            setInputLocked(false, sendingExpertSlug);
         });
     }
 
@@ -3634,8 +3671,8 @@
 
     // 处理选项选择
     function handleOptionSelect(option) {
-        // 检查是否正在等待回复
-        if (isWaitingForResponse) {
+        // 检查当前专家是否正在等待回复
+        if (expertWaitingResponse[currentExpertSlug]) {
             showWaitingMessage();
             return;
         }
@@ -3643,8 +3680,8 @@
         // 记录发送时的专家 slug，用于后续验证
         const sendingExpertSlug = currentExpertSlug;
 
-        // 设置锁定状态
-        setInputLocked(true);
+        // 设置当前专家的锁定状态
+        setInputLocked(true, currentExpertSlug);
 
         // 显示用户选择了该选项
         addMessage('user', `我选择: ${option}`);
@@ -3694,15 +3731,15 @@
                 addMessage('expert', '抱歉，处理您的请求时出错: ' + data.error);
             }
 
-            // 解除锁定状态
-            setInputLocked(false);
+            // 解除发送选项时那个专家的锁定状态
+            setInputLocked(false, sendingExpertSlug);
         })
         .catch(err => {
             const loadingEl = document.getElementById('loadingMessage');
             if (loadingEl) loadingEl.remove();
             addMessage('expert', '抱歉，发送消息失败，请重试');
-            // 解除锁定状态
-            setInputLocked(false);
+            // 解除发送选项时那个专家的锁定状态
+            setInputLocked(false, sendingExpertSlug);
         });
     }
 
