@@ -2657,26 +2657,20 @@
         loadChatHistory(slug);
 
         // 切换专家后，重新加载该专家的产出报告（按客户+专家过滤）
+        // 如果该专家正在生成报告，则不渲染列表（保持"正在生成报告..."状态）
         if (currentClientId) {
-            loadReportHistory(currentClientId, currentExpertSlug);
+            const shouldShowGenerating = generatingExperts[slug] === true;
+            loadReportHistory(currentClientId, currentExpertSlug, shouldShowGenerating);
         }
 
-        // 只有首席运营官才显示「正在生成报告」；切换到其他专家时，只有在报告生成完成才清除该状态并显示该专家的报告列表
+        // 每个专家独立追踪报告生成状态：切换到某专家时，若该专家正在生成报告则显示状态
         const historyBody = document.getElementById('historyPanelBody');
-        const isCoo = (slug === 'chief-operating-officer');
-        // 如果切换到非COO专家，且报告未生成完成，则保留「正在生成报告」状态
-        if (!isCoo && historyBody && !isReportGenerating) {
-            if (reportStatusTimer) {
-                clearInterval(reportStatusTimer);
-                reportStatusTimer = null;
-            }
-            // 立即显示当前专家的报告列表（loadReportHistory 已在上面调用，这里避免继续显示「正在生成报告」）
-            historyBody.innerHTML = '<div class="text-center py-3 text-muted"><i class="bi bi-arrow-repeat spin"></i><p class="mt-2 mb-0">加载报告列表...</p></div>';
-        }
-        // 如果切换回COO专家，且报告正在生成，恢复动态显示
-        if (isCoo && isReportGenerating && historyBody) {
+        const isCurrentExpertGenerating = generatingExperts[slug] === true;
+        const hasAnyGenerating = Object.keys(generatingExperts).some(k => generatingExperts[k]);
+
+        // 切换到当前专家时：如果该专家正在生成报告，显示动态状态
+        if (isCurrentExpertGenerating && historyBody) {
             historyBody.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div><p class="mt-2" id="reportGenStatus">正在生成报告...</p></div>';
-            // 重新启动动态文字动画
             const statusEl = document.getElementById('reportGenStatus');
             if (statusEl) {
                 if (reportStatusTimer) {
@@ -2690,6 +2684,15 @@
                 }, 600);
             }
         }
+        // 切换到当前专家时：如果该专家没有在生成报告，且没有任何专家在生成，显示报告列表
+        else if (!isCurrentExpertGenerating && !hasAnyGenerating && historyBody) {
+            if (reportStatusTimer) {
+                clearInterval(reportStatusTimer);
+                reportStatusTimer = null;
+            }
+            historyBody.innerHTML = '<div class="text-center py-3 text-muted"><i class="bi bi-arrow-repeat spin"></i><p class="mt-2 mb-0">加载报告列表...</p></div>';
+        }
+        // 如果当前专家没有在生成，但还有其他专家在生成，保留右侧面板原样（不覆盖）
     }
 
     // 页面加载时默认加载报告历史
@@ -5247,15 +5250,19 @@
     let reportPollCount = 0;
     let notifiedReportIds = new Set(); // 已通知的报告ID集合
     let reportStatusTimer = null; // 报告状态文字的动态动画计时器
-    let isReportGenerating = false; // 是否正在生成报告
+    let generatingExperts = {}; // 追踪每个专家是否正在生成报告: { 'expert-slug': true/false }
     const MAX_POLL_COUNT = 120; // 最多轮询120次（约6分钟，适配后台生成）
     const POLL_INTERVAL = 5000; // 每5秒轮询一次
     
     function dispatchExpertsForIntake(clientId, clientInfo) {
         console.log('[dispatchExpertsForIntake] 开始调度专家, clientId:', clientId);
 
-        // 标记开始生成报告
-        isReportGenerating = true;
+        // 标记所有被调度的专家开始生成报告（先清空之前的状态）
+        generatingExperts = {};
+        const allExperts = ['market-insights-commander', 'geo-seo', 'ai-operations-commander'];
+        allExperts.forEach(exp => {
+            generatingExperts[exp] = true;
+        });
 
         // 在聊天区添加动态状态消息
         const expertNames = {
@@ -5263,7 +5270,6 @@
             'geo-seo': 'SEO专家',
             'ai-operations-commander': '运营专家'
         };
-        const allExperts = ['market-insights-commander', 'geo-seo', 'ai-operations-commander'];
         const expertDisplayNames = allExperts.map(e => expertNames[e] || e).join('、');
 
         addMessage('system', `正在调度 ${expertDisplayNames} 生成报告，请稍候...`);
@@ -5399,8 +5405,9 @@
         reportPollTimer = setInterval(() => {
             console.log('[startReportPolling] 轮询第', reportPollCount + 1, '次');
             reportPollCount++;
-            // 仅当当前专家是首席运营官时才刷新右侧报告区，避免覆盖其他专家的报告列表
-            loadReportHistory(clientId, '', true);
+            // 轮询检查当前专家的报告生成状态（如果当前专家正在生成报告才刷新右侧面板）
+            const currentExpertGenerating = generatingExperts[currentExpertSlug] === true;
+            loadReportHistory(clientId, '', currentExpertGenerating);
             
             // 最多轮询约6分钟
             if (reportPollCount >= MAX_POLL_COUNT) {
@@ -5412,8 +5419,8 @@
                 }
                 const statusEl = document.getElementById('reportGenStatus');
                 if (statusEl) statusEl.textContent = '报告生成完成（如有新报告请刷新页面）';
-                // 标记报告生成完成（可能是超时）
-                isReportGenerating = false;
+                // 标记所有专家报告生成完成（可能是超时）
+                generatingExperts = {};
             }
         }, POLL_INTERVAL);
     }
@@ -5553,19 +5560,25 @@
 
     // 加载报告历史
     // onlyRenderIfCoo: 为 true 时仅当当前专家是首席运营官才刷新右侧报告区（用于轮询时避免覆盖其他专家的报告列表）
-    function loadReportHistory(clientId, expertSlug = '', onlyRenderIfCoo = false) {
-        console.log('[loadReportHistory] 开始加载, clientId:', clientId, 'expertSlug:', expertSlug, 'onlyRenderIfCoo:', onlyRenderIfCoo);
+    function loadReportHistory(clientId, expertSlug = '', onlyRenderIfGenerating = false) {
+        console.log('[loadReportHistory] 开始加载, clientId:', clientId, 'expertSlug:', expertSlug, 'onlyRenderIfGenerating:', onlyRenderIfGenerating);
         let url = '/api/outputs?client_id=' + clientId;
         if (expertSlug) {
             url += '&expert_slug=' + expertSlug;
         }
+        // 保存调用时的生成状态（在调用 checkAndNotifyNewReports 之前保存，避免被清除）
+        const generatingAtCallTime = generatingExperts[expertSlug || currentExpertSlug];
+
         fetch(url)
         .then(res => res.json())
         .then(data => {
             console.log('[loadReportHistory] 返回数据:', data.code, '记录数:', data.data?.length);
             if (data.code === 200 && data.data) {
+                // 先检测新报告（这可能会清除 generatingExperts 状态）
                 checkAndNotifyNewReports(data.data);
-                if (onlyRenderIfCoo && currentExpertSlug !== 'chief-operating-officer') {
+                // 如果要求显示生成状态，且调用时该专家确实在生成中，则不渲染报告列表
+                if (onlyRenderIfGenerating && generatingAtCallTime) {
+                    console.log('[loadReportHistory] 该专家正在生成报告中，不渲染列表');
                     return;
                 }
                 renderReportHistory(data.data);
@@ -5593,6 +5606,11 @@
             if (!notifiedReportIds.has(outputId)) {
                 notifiedReportIds.add(outputId);
                 const expertName = expertNames[output.expert_name] || output.expert_name || '专家';
+                // 清除该专家的生成状态
+                if (output.expert_name && generatingExperts[output.expert_name]) {
+                    delete generatingExperts[output.expert_name];
+                    console.log('[checkAndNotifyNewReports] 已清除专家状态:', output.expert_name);
+                }
                 // 使用接口返回的 title 作为报告名称（关键词库/选题库/运营规划方案/市场分析报告等）
                 const rawTitle = output.title || (output.client_name ? output.client_name + '_报告' : '报告');
                 const filename = rawTitle.endsWith('.md') ? rawTitle : rawTitle + '.md';
@@ -5624,8 +5642,8 @@
             statusEl.textContent = '所有报告生成完成！';
             statusEl.parentElement.classList.remove('text-primary');
             statusEl.parentElement.classList.add('text-success');
-            // 标记报告生成完成
-            isReportGenerating = false;
+            // 标记所有报告生成完成
+            generatingExperts = {};
         }
     }
     
