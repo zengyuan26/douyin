@@ -652,7 +652,7 @@ def dispatch_experts():
                 client_id=client.id if client else None,
                 user_id=current_user.id,
                 output_type='analysis',
-                title=f"{skill_info.get('title', expert_name)} - {client_info.get('name', '客户')}",
+                title=f"{client_info.get('name', '客户')} - 行业分析报告",
                 content=report_content[:5000] if len(report_content) > 5000 else report_content
             )
             db.session.add(output)
@@ -759,7 +759,7 @@ def dispatch_experts_background():
                             expert_id=expert.id,
                             client_id=client.id if client else None,
                             user_id=user_id,  # 添加 user_id
-                            title=f"{skill_info.get('title', expert_name)} - {client_info.get('name', '客户')}",
+                            title=f"{client_info.get('name', '客户')} - 行业分析报告",
                             content=report_content[:5000] if len(report_content) > 5000 else report_content
                         )
                         db.session.add(output)

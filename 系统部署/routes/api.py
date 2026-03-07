@@ -1363,7 +1363,7 @@ def dispatch_experts():
                     expert_id=expert.id,
                     client_id=client_id,
                     output_type=expert_info['task'],
-                    title=f"{client.name} - {expert_info['task']}",
+                    title=f"{client.name}{expert_info['task']}",
                     content=response,
                     created_at=datetime.utcnow()
                 )
