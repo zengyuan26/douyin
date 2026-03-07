@@ -16,6 +16,7 @@ from models.models import db, Client, Expert, ChatSession, ChatMessage, ExpertOu
 from datetime import datetime
 from services.llm import get_llm_service
 from services.skill_loader import get_skill_loader
+from services.knowledge_base import get_knowledge_base_service
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,21 @@ def chat_with_skill():
     
     # 构建系统提示词（按需加载 Skill 内容），传入用户角色以决定权限
     system_prompt = skill_loader.build_system_prompt(skill_name, client_info, user_role)
+
+    # 自动查询知识库（排除 knowledge-base 专家本身）
+    knowledge_context = ""
+    if skill_name != 'knowledge-base':
+        try:
+            kb_service = get_knowledge_base_service()
+            knowledge_context = kb_service.auto_search(message)
+            logger.info(f"[chat_with_skill] 知识库搜索完成，找到相关内容")
+        except Exception as kb_error:
+            logger.warning(f"[chat_with_skill] 知识库搜索失败: {kb_error}")
+            knowledge_context = ""
+
+    # 如果有知识库内容，注入到 system prompt 中
+    if knowledge_context:
+        system_prompt = f"{system_prompt}\n\n{knowledge_context}"
     
     # 获取或创建会话
     chat_session = None
@@ -365,6 +381,21 @@ def chat_with_skill_stream():
     
     # 构建系统提示词，传入用户角色以决定权限
     system_prompt = skill_loader.build_system_prompt(skill_name, client_info, user_role)
+
+    # 自动查询知识库（排除 knowledge-base 专家本身）
+    knowledge_context = ""
+    if skill_name != 'knowledge-base':
+        try:
+            kb_service = get_knowledge_base_service()
+            knowledge_context = kb_service.auto_search(message)
+            logger.info(f"[chat_with_skill_stream] 知识库搜索完成，找到相关内容")
+        except Exception as kb_error:
+            logger.warning(f"[chat_with_skill_stream] 知识库搜索失败: {kb_error}")
+            knowledge_context = ""
+
+    # 如果有知识库内容，注入到 system prompt 中
+    if knowledge_context:
+        system_prompt = f"{system_prompt}\n\n{knowledge_context}"
 
     # 获取专家信息（用于关联会话）
     expert = Expert.query.filter_by(slug=skill_name).first()
@@ -1380,6 +1411,19 @@ def geo_seo_generate_keywords():
         expert = Expert.query.filter_by(slug='seo').first()
         if not expert:
             expert = Expert.query.filter_by(name='Geo SEO专家').first()
+        if not expert:
+            expert = Expert(
+                slug='seo',
+                name='Geo SEO专家',
+                nickname='Geo',
+                title='Geo SEO专家',
+                description='关键词挖掘、SEO优化、搜索排名提升',
+                is_visible=True,
+                is_active=True
+            )
+            db.session.add(expert)
+            db.session.commit()
+            logger.info('[geo_seo_generate_keywords] 自动创建 Geo SEO专家 记录')
 
         # 保存报告，标题格式：客户名+关键词报告
         title = f"{client.name}关键词报告"

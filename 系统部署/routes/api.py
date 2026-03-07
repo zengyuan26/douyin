@@ -1986,7 +1986,7 @@ def get_outputs():
                 'market-insights-commander': ['analysis'],  # 艾米莉亚：市场分析报告
                 'monitor': ['analysis'],  # 舆情专家
                 'content': ['content', 'script'],  # 墨菲：图文、脚本
-                'seo': ['content', 'script'],  # 墨菲（SEO）
+                'seo': ['content', 'script', 'keywords', 'operations'],  # Geo SEO：图文、脚本、关键词库、运营规划
                 'master': ['analysis'],  # 首席运营官：市场分析报告
                 'chief-operating-officer': ['analysis']
             }
