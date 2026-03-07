@@ -2126,7 +2126,17 @@
 
     // 会话锁定状态：防止用户连续发送消息导致响应混乱
     // 每个专家独立的等待回复状态
+    // 从 sessionStorage 恢复锁定状态（刷新页面时保持锁定）
     let expertWaitingResponse = {};
+    try {
+        const saved = sessionStorage.getItem('expertWaitingResponse');
+        if (saved) {
+            expertWaitingResponse = JSON.parse(saved);
+            console.log('[页面加载] 从 sessionStorage 恢复锁定状态:', expertWaitingResponse);
+        }
+    } catch (e) {
+        console.error('[页面加载] 恢复锁定状态失败:', e);
+    }
     let currentClientId = null;
     let currentClientName = '';
     let userRole = '{{ user_role }}';
@@ -2313,6 +2323,12 @@
 
         // 从 API 加载专家列表（基于 Skills）
         loadExpertsFromAPI();
+
+        // 恢复锁定状态 UI（如果有从 sessionStorage 恢复的锁定状态）
+        if (Object.keys(expertWaitingResponse).length > 0) {
+            console.log('[DOMContentLoaded] 恢复锁定状态 UI:', expertWaitingResponse);
+            setInputLocked(false, 'ui_refresh');
+        }
 
         // 刷新客户列表
         loadClients();
@@ -2914,7 +2930,7 @@
                     <div class="message-content">
                         <div class="message-bubble expert">
                             <p style="margin-bottom: 8px; font-weight: 600;">${name}</p>
-                            <p style="margin-bottom: 12px; font-size: 12px; color: var(--color-text-tertiary);">内容创作师·墨菲·库珀</p>
+                            <p style="margin-bottom: 12px; font-size: 12px; color: var(--color-text-tertiary);">内容创作师</p>
                             <p style="margin-bottom: 16px; color: var(--color-text-secondary); line-height: 1.6;">你好，我是墨菲·库珀，兼具消费心理学和视觉设计能力的内容创作专家，帮你完成短视频脚本、图文规划、封面设计等创作任务。请选择一个任务：</p>
                             <div class="skill-links-list">
                                 <a href="javascript:void(0)" class="skill-link-item" onclick="sendPresetMessage('请帮我写一个短视频脚本，需要有爆款结构。')">
@@ -3034,6 +3050,12 @@
 
         // 清空所有专家的锁定状态
         expertWaitingResponse = {};
+        // 清除 sessionStorage 中的锁定状态
+        try {
+            sessionStorage.removeItem('expertWaitingResponse');
+        } catch (e) {
+            console.error('[switchClient] 清除锁定状态失败:', e);
+        }
 
         // 刷新 UI
         const input = document.getElementById('chatInput');
@@ -3262,6 +3284,12 @@
             } else {
                 // 解锁模式：删除指定专家的锁定状态
                 delete expertWaitingResponse[expertSlug];
+            }
+            // 持久化锁定状态到 sessionStorage
+            try {
+                sessionStorage.setItem('expertWaitingResponse', JSON.stringify(expertWaitingResponse));
+            } catch (e) {
+                console.error('[setInputLocked] 保存锁定状态失败:', e);
             }
         }
 
@@ -5205,6 +5233,9 @@
 
     function dispatchExperts(clientId, clientName) {
         addMessage('system', '首席运营官正在调度专家团队，请稍候...');
+
+        // 锁定首席运营官输入框（调度过程中不允许其他操作）
+        setInputLocked(true, 'chief-operating-officer');
         
         // 确保右侧面板与报告区可见
         const outputPanel = document.getElementById('workspaceOutput');
@@ -5296,16 +5327,22 @@
 
         // 标记所有被调度的专家开始生成报告（先清空之前的状态）
         generatingExperts = {};
-        const allExperts = ['market-insights-commander', 'geo-seo', 'ai-operations-commander'];
+        // 录入新客户时需要锁定的专家列表
+        const allExperts = ['chief-operating-officer', 'market-insights-commander', 'geo-seo', 'ai-operations-commander', 'content-creator'];
         allExperts.forEach(exp => {
             generatingExperts[exp] = true;
         });
 
+        // 锁定所有被调度的专家输入框
+        lockMultipleExperts(allExperts);
+
         // 在聊天区添加动态状态消息
         const expertNames = {
+            'chief-operating-officer': '总控专家',
             'market-insights-commander': '市场洞察分析专家',
             'geo-seo': 'SEO专家',
-            'ai-operations-commander': '运营专家'
+            'ai-operations-commander': '运营专家',
+            'content-creator': '内容创作师'
         };
         const expertDisplayNames = allExperts.map(e => expertNames[e] || e).join('、');
 
@@ -5632,9 +5669,11 @@
         outputs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         const expertNames = {
+            'chief-operating-officer': '总控专家',
             'market-insights-commander': '市场洞察分析专家',
             'geo-seo': 'SEO专家',
-            'ai-operations-commander': '运营专家'
+            'ai-operations-commander': '运营专家',
+            'content-creator': '内容创作师'
         };
 
         outputs.forEach(output => {
@@ -5671,7 +5710,9 @@
     // 检查是否所有报告都已生成完成
     function checkAllReportsComplete() {
         const statusEl = document.getElementById('reportGenStatus');
-        if (notifiedReportIds.size >= 3 && statusEl) {
+        // 5个专家：首席运营官、市场洞察、SEO、运营、内容创作
+        const expectedReportCount = 5;
+        if (notifiedReportIds.size >= expectedReportCount && statusEl) {
             if (reportStatusTimer) {
                 clearInterval(reportStatusTimer);
                 reportStatusTimer = null;
@@ -5681,7 +5722,30 @@
             statusEl.parentElement.classList.add('text-success');
             // 标记所有报告生成完成
             generatingExperts = {};
+            // 解锁所有被锁定的专家
+            unlockAllExperts();
         }
+    }
+
+    // 解锁所有被锁定的专家输入框
+    function unlockAllExperts() {
+        const lockedExperts = Object.keys(expertWaitingResponse);
+        if (lockedExperts.length > 0) {
+            console.log('[unlockAllExperts] 解锁专家:', lockedExperts);
+            lockedExperts.forEach(slug => {
+                setInputLocked(false, slug);
+            });
+        }
+        // 刷新 UI
+        setInputLocked(false, 'ui_refresh');
+    }
+
+    // 锁定多个专家（用于录入新客户时）
+    function lockMultipleExperts(experts) {
+        console.log('[lockMultipleExperts] 锁定专家:', experts);
+        experts.forEach(slug => {
+            setInputLocked(true, slug);
+        });
     }
     
     // 渲染报告历史
