@@ -44,7 +44,7 @@
                 <p class="industry-desc">{{ industry.description or '暂无描述' }}</p>
                 <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
                     <small class="text-muted">排序: {{ industry.sort_order }}</small>
-                    <span class="badge bg-light text-dark">{{ industry.clients.count() }} 个客户</span>
+                    <span class="text-muted">{{ industry.clients.count() }} 个客户</span>
                 </div>
             </div>
         </div>

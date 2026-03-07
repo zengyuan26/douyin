@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+
+{% block title %}内容分析 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- 页面标题 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1">内容分析</h4>
+                    <p class="text-muted mb-0">提交抖音视频链接，AI 将分析内容并提取可入库的规则</p>
+                </div>
+                <div class="btn-animate">
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>返回规则库
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧：输入区 -->
+        <div class="col-lg-5 mb-4">
+            <!-- 链接输入 -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>提交内容链接</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">抖音链接</label>
+                        <input type="text" class="form-control" id="contentUrl"
+                               placeholder="请粘贴抖音视频链接或账号主页链接">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">内容类型</label>
+                        <select class="form-select" id="contentType">
+                            <option value="auto">自动识别</option>
+                            <option value="video">短视频</option>
+                            <option value="account">账号主页</option>
+                            <option value="image">图文内容</option>
+                            <option value="text">纯文字内容</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">补充说明（可选）</label>
+                        <textarea class="form-control" id="contentNote" rows="2"
+                                  placeholder="可以补充一些背景信息，如：这是竞品账号、想学习它的开头设计等"></textarea>
+                    </div>
+                    <button class="btn btn-primary w-100" id="analyzeBtn" onclick="startAnalysis()">
+                        <i class="bi bi-stars me-2"></i>开始分析
+                    </button>
+                </div>
+            </div>
+
+            <!-- 已入库规则按钮 -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0"><i class="bi bi-collection me-2"></i>快速操作</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-outline-primary w-100 mb-2" onclick="showRulesModal()">
+                        <i class="bi bi-collection me-1"></i>查看已入库规则
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：分析结果 -->
+        <div class="col-lg-7 mb-4">
+            <div class="card border-0 shadow-sm" style="min-height: 500px;">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>分析结果</h5>
+                </div>
+                <div class="card-body">
+                    <!-- 初始占位 -->
+                    <div id="resultPlaceholder" class="text-center py-5 text-muted">
+                        <i class="bi bi-camera-video fs-1"></i>
+                        <p class="mt-2">提交链接并点击分析后，查看结果</p>
+                    </div>
+
+                    <div id="resultContent" style="display: none;">
+                        <!-- 分析进度 -->
+                        <div id="analyzeProgress" class="mb-4" style="display: none;">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                <span>正在分析中...</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                            </div>
+                            <p class="text-muted small mt-1 mb-0" id="progressText">正在理解内容...</p>
+                        </div>
+
+                        <!-- 分析结果展示 -->
+                        <div id="analysisResultDiv" style="display: none;">
+                            <!-- 内容概览 -->
+                            <div class="mb-4">
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="badge bg-primary me-2" id="contentTypeBadge">短视频</span>
+                                    <span class="text-muted small" id="contentAuthor"></span>
+                                </div>
+                                <h6 class="mb-3" id="contentTitle"></h6>
+                            </div>
+
+                            <!-- 互动数据 -->
+                            <div class="row g-2 mb-4" id="interactionData">
+                            </div>
+
+                            <!-- 情绪曲线 -->
+                            <div class="mb-4" id="emotionCurveSection" style="display: none;">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="bi bi-heart-pulse me-1"></i>情绪曲线分析
+                                </h6>
+                                <div class="alert alert-info" id="emotionDesc"></div>
+                                <div class="d-flex flex-wrap gap-2 mb-3" id="emotionPhases"></div>
+                            </div>
+
+                            <!-- 内容节奏 -->
+                            <div class="mb-4" id="contentRhythmSection" style="display: none;">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="bi bi-speedometer2 me-1"></i>内容节奏分析
+                                </h6>
+                                <div class="alert alert-secondary" id="rhythmDesc"></div>
+                            </div>
+
+                            <!-- 维度分析 -->
+                            <div class="mb-4" id="dimensionsSection">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="bi bi-bar-chart-steps me-1"></i>深度分析
+                                </h6>
+                                <div id="dimensionsContainer"></div>
+                            </div>
+
+                            <!-- 可入库规则 -->
+                            <div class="mt-4 pt-3 border-top">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-box-arrow-in-down me-1"></i>可入库规则
+                                        <span class="badge bg-secondary ms-1" id="ruleCount">0</span>
+                                    </h6>
+                                </div>
+                                <div id="rulesContainer"></div>
+                                <div class="mt-3 d-flex justify-content-between align-items-center">
+                                    <span class="text-muted">已选择 <span id="selectedCount">0</span> 条规则</span>
+                                    <button class="btn btn-success" id="importBtn" onclick="importSelectedRules()" disabled>
+                                        <i class="bi bi-check-circle me-1"></i>确认入库
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 已入库规则弹窗 -->
+<div class="modal fade" id="rulesModal" tabindex="-1" aria-labelledby="rulesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rulesModalLabel">已入库规则</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="rulesModalBody">
+                <!-- 动态填充 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let analysisData = null;
+
+const typeIcon = {
+    'video': 'bi-camera-video',
+    'account': 'bi-person',
+    'image': 'bi-card-image',
+    'text': 'bi-file-text'
+};
+
+const typeName = {
+    'video': '短视频',
+    'account': '账号主页',
+    'image': '图文内容',
+    'text': '纯文字内容'
+};
+
+async function startAnalysis() {
+    const url = document.getElementById('contentUrl').value.trim();
+    const contentType = document.getElementById('contentType').value;
+    const note = document.getElementById('contentNote').value.trim();
+
+    if (!url) {
+        alert('请输入抖音链接');
+        return;
+    }
+
+    // 显示进度
+    document.getElementById('resultPlaceholder').style.display = 'none';
+    document.getElementById('resultContent').style.display = 'block';
+    document.getElementById('analyzeProgress').style.display = 'block';
+    document.getElementById('analysisResultDiv').style.display = 'none';
+    document.getElementById('analyzeBtn').disabled = true;
+
+    const statusMessages = [
+        '正在理解内容...',
+        '分析账号定位...',
+        '提取选题策略...',
+        '解析内容结构...',
+        '提取规则中...'
+    ];
+
+    let statusIndex = 0;
+    const statusInterval = setInterval(() => {
+        if (statusIndex < statusMessages.length - 1) {
+            statusIndex++;
+            document.getElementById('progressText').textContent = statusMessages[statusIndex];
+            document.getElementById('progressBar').style.width = (statusIndex * 20) + '%';
+        }
+    }, 2000);
+
+    try {
+        const response = await fetch('/api/knowledge/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                url: url,
+                content_type: contentType,
+                note: note
+            })
+        });
+
+        const data = await response.json();
+        clearInterval(statusInterval);
+        document.getElementById('progressBar').style.width = '100%';
+
+        if (data.code === 200) {
+            analysisData = data.data;
+            setTimeout(() => {
+                document.getElementById('analyzeProgress').style.display = 'none';
+                renderAnalysisResult(analysisData);
+            }, 500);
+        } else {
+            alert(data.message || '分析失败，请重试');
+            document.getElementById('resultPlaceholder').style.display = 'block';
+        }
+    } catch (error) {
+        console.error('分析失败:', error);
+        alert('网络错误，请重试');
+        document.getElementById('resultPlaceholder').style.display = 'block';
+    } finally {
+        clearInterval(statusInterval);
+        document.getElementById('analyzeBtn').disabled = false;
+    }
+}
+
+function renderAnalysisResult(data) {
+    const contentType = data.content_type || 'video';
+
+    // 内容概览
+    document.getElementById('contentTypeBadge').textContent = typeName[contentType] || '未知';
+    document.getElementById('contentAuthor').textContent = data.author || '';
+    document.getElementById('contentTitle').textContent = data.title || '未知';
+
+    // 互动数据
+    const interactionHtml = [];
+    if (data.likes) interactionHtml.push(`<div class="col-4"><div class="text-center p-2 bg-light rounded"><div class="fw-bold">${data.likes}</div><small class="text-muted">点赞</small></div></div>`);
+    if (data.comments) interactionHtml.push(`<div class="col-4"><div class="text-center p-2 bg-light rounded"><div class="fw-bold">${data.comments}</div><small class="text-muted">评论</small></div></div>`);
+    if (data.favorites) interactionHtml.push(`<div class="col-4"><div class="text-center p-2 bg-light rounded"><div class="fw-bold">${data.favorites}</div><small class="text-muted">收藏</small></div></div>`);
+    document.getElementById('interactionData').innerHTML = interactionHtml.join('');
+
+    // 情绪曲线
+    if (data.emotion_curve) {
+        document.getElementById('emotionCurveSection').style.display = 'block';
+        document.getElementById('emotionDesc').textContent = data.emotion_curve.description || '';
+        const phasesHtml = data.emotion_curve.phases?.map(p =>
+            `<span class="badge bg-light text-dark">${p.time_point}: ${p.emotion}</span>`
+        ).join('') || '';
+        document.getElementById('emotionPhases').innerHTML = phasesHtml;
+    }
+
+    // 内容节奏
+    if (data.content_rhythm) {
+        document.getElementById('contentRhythmSection').style.display = 'block';
+        document.getElementById('rhythmDesc').textContent = data.content_rhythm.description || '';
+    }
+
+    // 维度分析
+    if (data.dimensions && data.dimensions.length > 0) {
+        const dimHtml = data.dimensions.map(dim => {
+            const scoreClass = dim.score >= 8 ? 'bg-success' : (dim.score >= 5 ? 'bg-warning' : 'bg-danger');
+            return `
+                <div class="card mb-2 border">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-medium">${dim.name}</span>
+                            <span class="badge ${scoreClass}">${dim.score || '-'}</span>
+                        </div>
+                        <small class="text-muted d-block mt-1">${dim.analysis}</small>
+                        ${dim.why ? `<small class="text-primary d-block mt-1"><i class="bi bi-lightbulb me-1"></i>${dim.why}</small>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        document.getElementById('dimensionsContainer').innerHTML = dimHtml;
+    }
+
+    // 渲染规则
+    renderRules(data.rules || []);
+
+    document.getElementById('analysisResultDiv').style.display = 'block';
+}
+
+function renderRules(rules) {
+    document.getElementById('ruleCount').textContent = rules.length;
+
+    if (rules.length === 0) {
+        document.getElementById('rulesContainer').innerHTML = `
+            <div class="text-center py-3 text-muted">
+                <i class="bi bi-inbox fs-1"></i>
+                <p class="mb-0 mt-2">未提取到可入库的规则</p>
+            </div>
+        `;
+        return;
+    }
+
+    const categoryNames = {
+        'keywords': '关键词库',
+        'topic': '选题库',
+        'template': '内容模板',
+        'operation': '运营规划',
+        'market': '市场分析'
+    };
+
+    const categoryColors = {
+        'keywords': 'warning',
+        'topic': 'success',
+        'template': 'primary',
+        'operation': 'purple',
+        'market': 'danger'
+    };
+
+    let html = '';
+    rules.forEach((rule, index) => {
+        const color = categoryColors[rule.category] || 'secondary';
+        html += `
+            <div class="card mb-2 border">
+                <div class="card-body py-2">
+                    <div class="form-check">
+                        <input class="form-check-input rule-checkbox" type="checkbox" value="${index}" id="rule-${index}" checked onchange="updateSelectedCount()">
+                        <label class="form-check-label w-100" for="rule-${index}">
+                            <span class="badge bg-${color} me-1">${categoryNames[rule.category] || rule.category}</span>
+                            <span class="fw-medium">${rule.title}</span>
+                            <small class="text-muted d-block">${rule.description?.substring(0, 100) || ''}</small>
+                            <small class="text-muted">适用场景：${rule.scenes || '通用'}</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    document.getElementById('rulesContainer').innerHTML = html;
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.rule-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('importBtn').disabled = count === 0;
+}
+
+async function importSelectedRules() {
+    const checkboxes = document.querySelectorAll('.rule-checkbox:checked');
+    const selectedRules = [];
+
+    checkboxes.forEach(cb => {
+        const index = parseInt(cb.value);
+        selectedRules.push(analysisData.rules[index]);
+    });
+
+    if (selectedRules.length === 0) {
+        alert('请至少选择一条规则');
+        return;
+    }
+
+    const btn = document.getElementById('importBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>入库中...';
+
+    try {
+        const response = await fetch('/api/knowledge/rules/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rules: selectedRules })
+        });
+
+        const data = await response.json();
+
+        if (data.code === 200) {
+            alert(`成功入库 ${data.data.count} 条规则！`);
+            checkboxes.forEach(cb => cb.checked = false);
+            updateSelectedCount();
+        } else {
+            alert(data.message || '入库失败');
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>确认入库';
+    }
+}
+
+async function showRulesModal() {
+    const modal = new bootstrap.Modal(document.getElementById('rulesModal'));
+    const modalBody = document.getElementById('rulesModalBody');
+
+    modalBody.innerHTML = '<div class="text-center py-4"><div class="spinner-border"></div></div>';
+    modal.show();
+
+    try {
+        const response = await fetch('/api/knowledge/rules');
+        const data = await response.json();
+
+        if (data.code === 200 && data.data.rules.length > 0) {
+            const rules = data.data.rules;
+            let html = '<div class="list-group list-group-flush">';
+            rules.forEach(rule => {
+                html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="badge bg-primary me-1">${rule.category_name}</span>
+                                <span class="fw-medium">${rule.title}</span>
+                            </div>
+                        </div>
+                        <small class="text-muted">${rule.content?.substring(0, 150) || ''}...</small>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            modalBody.innerHTML = html;
+        } else {
+            modalBody.innerHTML = '<div class="text-center py-4 text-muted">暂无已入库的规则</div>';
+        }
+    } catch (error) {
+        modalBody.innerHTML = '<div class="text-center py-4 text-danger">加载失败</div>';
+    }
+}
+</script>
+{% endblock %}

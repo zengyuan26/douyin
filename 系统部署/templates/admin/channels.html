@@ -106,7 +106,7 @@
                                                 <h6 class="mb-0">
                                                     <i class="bi bi-people me-2"></i>{{ channel.name }} 的客户清单
                                                 </h6>
-                                                <span class="badge bg-secondary">{{ channel.clients.count() }} 个客户</span>
+                                                <span class="text-muted">{{ channel.clients.count() }} 个客户</span>
                                             </div>
                                             {% if channel.clients.count() > 0 %}
                                             <div class="table-responsive">
@@ -131,7 +131,7 @@
                                                                 </div>
                                                             </td>
                                                             <td>{{ client.industry.name if client.industry else '-' }}</td>
-                                                            <td><span class="badge bg-info">{{ client.keywords.count() }}</span></td>
+                                                            <td>{{ client.keywords.count() }}</td>
                                                             <td>{{ client.created_at.strftime('%Y-%m-%d') }}</td>
                                                         </tr>
                                                         {% endfor %}

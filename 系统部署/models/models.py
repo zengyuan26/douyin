@@ -172,6 +172,57 @@ class KnowledgeArticle(db.Model):
         return f'<KnowledgeArticle {self.title}>'
 
 
+class KnowledgeAnalysis(db.Model):
+    """知识分析表 - 存储用户输入的分析内容"""
+    __tablename__ = 'knowledge_analysis'
+
+    id = db.Column(db.Integer, primary_key=True)
+    source_content = db.Column(db.Text, nullable=False)  # 用户输入的原始内容
+    source_type = db.Column(db.String(50))  # 来源类型：账号主页/视频文案/图文内容/纯文本
+    content_summary = db.Column(db.Text)  # 内容摘要
+
+    # 分析结果（JSON格式存储）
+    analysis_dimensions = db.Column(db.JSON)  # 分析用了哪些维度
+    analysis_result = db.Column(db.Text)  # 完整分析结果
+    extracted_rules = db.Column(db.JSON)  # 提取的规则（按分类存储）
+
+    # 状态
+    status = db.Column(db.String(20), default='pending')  # pending/approved/rejected
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    rules = db.relationship('KnowledgeRule', backref='analysis', lazy='dynamic', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<KnowledgeAnalysis {self.id}>'
+
+
+class KnowledgeRule(db.Model):
+    """知识规则表 - 存储从分析中提取的规则"""
+    __tablename__ = 'knowledge_rules'
+
+    id = db.Column(db.Integer, primary_key=True)
+    analysis_id = db.Column(db.Integer, db.ForeignKey('knowledge_analysis.id'))  # 关联的分析ID
+
+    # 分类：关键词库/选题库/内容模板/运营规划/市场分析
+    category = db.Column(db.String(50), nullable=False)
+
+    # 规则内容
+    rule_title = db.Column(db.String(200))  # 规则标题
+    rule_content = db.Column(db.Text)  # 规则详情
+    rule_type = db.Column(db.String(50))  # 规则类型：dimension(维度)/logic(逻辑)/structure(结构)/methodology(方法论)
+    source_dimension = db.Column(db.String(100))  # 来源的分析维度
+
+    # 状态
+    status = db.Column(db.String(20), default='pending')  # pending/active/archived
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<KnowledgeRule {self.category} {self.rule_title}>'
+
+
 class Client(db.Model):
     """客户表"""
     __tablename__ = 'clients'

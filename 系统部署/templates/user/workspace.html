@@ -1950,7 +1950,35 @@
                     </div>
                 </div>
             </div>
-            
+
+            <!-- 知识库规则入库弹窗 -->
+            <div class="modal fade" id="knowledgeRuleModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+                <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 800px;">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h5 class="modal-title fs-6">
+                                <i class="bi bi-bookmark-plus me-1"></i>知识库规则入库
+                            </h5>
+                            <button type="button" class="btn-close btn-sm" onclick="closeModal('knowledgeRuleModal')"></button>
+                        </div>
+                        <div class="modal-body p-3" style="max-height: 65vh; overflow-y: auto;">
+                            <div id="knowledgeRuleContent">
+                                <div class="text-center text-muted py-3">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                    加载中...
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('knowledgeRuleModal')">取消</button>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="submitKnowledgeRules()">
+                                <i class="bi bi-check-lg me-1"></i>确认入库
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 专家列表 -->
             <div class="experts-section" id="expertsSection">
                 <div class="experts-section-title">专家团队</div>
@@ -4088,6 +4116,134 @@
             if (modal) {
                 modal.hide();
             }
+        });
+    }
+
+    // ==================== 知识库规则入库弹窗 ====================
+    let currentKnowledgeRulesData = null;
+
+    // 显示知识库规则入库弹框
+    function showKnowledgeRuleModal(rulesData) {
+        currentKnowledgeRulesData = rulesData;
+        const contentDiv = document.getElementById('knowledgeRuleContent');
+
+        if (!rulesData || !rulesData.rules || rulesData.rules.length === 0) {
+            contentDiv.innerHTML = `
+                <div class="text-center text-muted py-3">
+                    <i class="bi bi-info-circle d-block mb-2" style="font-size: 24px;"></i>
+                    暂无可入库的规则
+                </div>
+            `;
+            return;
+        }
+
+        // 按分类分组规则
+        const categoryMap = {
+            '关键词库': { icon: 'bi-key', color: '#0d6efd', rules: [] },
+            '选题库': { icon: 'bi-lightbulb', color: '#ffc107', rules: [] },
+            '内容模板': { icon: 'bi-layout-text-window-reverse', color: '#198754', rules: [] },
+            '运营规划': { icon: 'bi-graph-up', color: '#dc3545', rules: [] },
+            '市场分析': { icon: 'bi-pie-chart', color: '#6f42c1', rules: [] }
+        };
+
+        rulesData.rules.forEach((rule, index) => {
+            if (categoryMap[rule.category]) {
+                categoryMap[rule.category].rules.push({ ...rule, index });
+            }
+        });
+
+        // 生成分类显示的 HTML
+        let html = '';
+        for (const [category, data] of Object.entries(categoryMap)) {
+            if (data.rules.length === 0) continue;
+
+            html += `
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2" style="color: ${data.color};">
+                        <i class="bi ${data.icon} me-2"></i>
+                        <strong>${category}</strong>
+                        <span class="badge bg-secondary ms-2">${data.rules.length}</span>
+                    </div>
+                    <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+            `;
+
+            data.rules.forEach(rule => {
+                html += `
+                    <div class="form-check mb-2">
+                        <input class="form-check-input knowledge-rule-checkbox"
+                               type="checkbox"
+                               value="${rule.index}"
+                               id="rule_${rule.index}"
+                               checked>
+                        <label class="form-check-label" for="rule_${rule.index}">
+                            <div>
+                                <strong>${rule.rule_title}</strong>
+                                <div class="small text-muted">${rule.rule_content.substring(0, 80)}${rule.rule_content.length > 80 ? '...' : ''}</div>
+                                <div class="small text-muted">来源维度：${rule.source_dimension}</div>
+                            </div>
+                        </label>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        if (!html) {
+            html = `
+                <div class="text-center text-muted py-3">
+                    <i class="bi bi-info-circle d-block mb-2" style="font-size: 24px;"></i>
+                    暂无可入库的规则
+                </div>
+            `;
+        }
+
+        contentDiv.innerHTML = html;
+
+        // 显示弹框
+        const modalEl = document.getElementById('knowledgeRuleModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+
+    // 提交入库
+    function submitKnowledgeRules() {
+        const checkboxes = document.querySelectorAll('.knowledge-rule-checkbox:checked');
+        const selectedIndexes = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+        if (selectedIndexes.length === 0) {
+            alert('请至少选择一条规则入库');
+            return;
+        }
+
+        const selectedRules = selectedIndexes.map(index => currentKnowledgeRulesData.rules[index]);
+
+        // 调用后端 API
+        fetch('/api/knowledge/rules', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                analysis_id: currentKnowledgeRulesData.analysis_id,
+                rules: selectedRules
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('规则入库成功！');
+                closeModal('knowledgeRuleModal');
+            } else {
+                alert('入库失败：' + (data.message || '未知错误'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('入库失败，请重试');
         });
     }
 

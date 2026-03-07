@@ -356,10 +356,18 @@ You are a knowledge base assistant.
 
     def _load_knowledge_index(self) -> str:
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        knowledge_dir = os.path.join(base_dir, 'knowledge')
+        # 知识库目录使用中文名称
+        knowledge_dir = os.path.join(base_dir, '知识库')
         if not os.path.exists(knowledge_dir):
-            return "Knowledge directory not found"
-        return "Knowledge base index loaded"
+            return "知识库目录未找到"
+        
+        # 读取 README.md 作为索引
+        readme_path = os.path.join(knowledge_dir, 'README.md')
+        if os.path.exists(readme_path):
+            with open(readme_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        
+        return "知识库索引已加载"
 
     def _build_client_context(self, client_info: Dict) -> str:
         lines = ["[Current Client Info]"]

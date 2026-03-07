@@ -28,10 +28,10 @@
                     <h6>{{ client.name }}</h6>
                     <div class="client-meta">
                         {% if client.industry %}
-                        <span class="badge bg-light text-dark me-1">{{ client.industry.name }}</span>
+                        <span class="me-1">{{ client.industry.name }}</span>
                         {% endif %}
                         {% if client.business_type %}
-                        <span class="badge bg-outline-secondary">{{ client.business_type }}</span>
+                        <span>{{ client.business_type }}</span>
                         {% endif %}
                     </div>
                 </div>

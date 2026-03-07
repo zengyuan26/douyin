@@ -1,9 +1,11 @@
 """
 管理员路由 - 专家管理、知识库管理、渠道管理、行业管理
 """
+import os
+import re
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, Industry, Channel, Client
+from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, Industry, Channel, Client
 from functools import wraps
 from datetime import datetime
 from services.skill_loader import get_skill_loader
@@ -178,8 +180,84 @@ def expert_delete(id):
 @super_admin_required
 def knowledge():
     """知识库列表"""
-    categories = KnowledgeCategory.query.order_by(KnowledgeCategory.sort_order).all()
-    return render_template('admin/knowledge.html', categories=categories)
+    # 读取已入库的规则
+    rules_data = load_knowledge_rules()
+
+    return render_template('admin/knowledge.html', rules_data=rules_data)
+
+
+def load_knowledge_rules():
+    """加载知识库规则文件"""
+    rules_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'skills', 'knowledge-base', '规则'
+    )
+
+    rule_files = {
+        'keywords': '关键词库_规则模板.md',
+        'topic': '选题库_规则模板.md',
+        'template': '内容模板_规则模板.md',
+        'operation': '运营规划_规则模板.md',
+        'market': '市场分析_规则模板.md'
+    }
+
+    category_names = {
+        'keywords': '关键词库',
+        'topic': '选题库',
+        'template': '内容模板',
+        'operation': '运营规划',
+        'market': '市场分析'
+    }
+
+    category_icons = {
+        'keywords': 'bi-tags',
+        'topic': 'bi-lightbulb',
+        'template': 'bi-file-text',
+        'operation': 'bi-gear',
+        'market': 'bi-graph-up'
+    }
+
+    all_rules = []
+    categories = []
+
+    for category, filename in rule_files.items():
+        filepath = os.path.join(rules_dir, filename)
+        if os.path.exists(filepath):
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # 解析规则
+            rules = []
+            sections = re.split(r'^#{2,3}\s+', content, flags=re.MULTILINE)
+            for i, section in enumerate(sections[1:], 1):
+                lines = section.split('\n')
+                title = lines[0].strip() if lines else ''
+                body = '\n'.join(lines[1:]).strip()
+                if title:
+                    # 生成摘要
+                    summary = body[:200] + '...' if len(body) > 200 else body
+                    summary = summary.replace('|', '').replace('\n', ' ').strip()
+                    rules.append({
+                        'id': f"{category}_{i}",
+                        'title': title,
+                        'content': body,
+                        'summary': summary
+                    })
+
+            if rules:
+                categories.append({
+                    'id': category,
+                    'name': category_names.get(category, category),
+                    'icon': category_icons.get(category, 'bi-folder'),
+                    'count': len(rules)
+                })
+                all_rules.extend(rules)
+
+    return {
+        'rules': all_rules,
+        'categories': categories,
+        'total': len(all_rules)
+    }
 
 
 @admin.route('/knowledge/category/add', methods=['GET', 'POST'])
@@ -243,8 +321,195 @@ def knowledge_category_delete(id):
 @super_admin_required
 def knowledge_articles():
     """知识库文章列表"""
-    articles = KnowledgeArticle.query.order_by(KnowledgeArticle.created_at.desc()).all()
-    return render_template('admin/knowledge_articles.html', articles=articles)
+    # 获取筛选参数
+    category_id = request.args.get('category_id', type=int)
+    search = request.args.get('search', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+
+    # 构建查询
+    query = KnowledgeArticle.query
+
+    if category_id:
+        query = query.filter(KnowledgeArticle.category_id == category_id)
+
+    if search:
+        query = query.filter(KnowledgeArticle.title.ilike(f'%{search}%'))
+
+    # 分页
+    pagination = query.order_by(KnowledgeArticle.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    # 获取所有分类（用于下拉筛选）
+    categories = KnowledgeCategory.query.order_by(KnowledgeCategory.sort_order).all()
+
+    return render_template('admin/knowledge_articles.html',
+                           articles=pagination.items,
+                           pagination=pagination,
+                           categories=categories,
+                           selected_category=category_id,
+                           search_keyword=search)
+
+
+@admin.route('/knowledge/article/add', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def knowledge_article_add():
+    """添加知识库文章"""
+    if request.method == 'POST':
+        title = request.form.get('title')
+        slug = request.form.get('slug')
+        category_id = request.form.get('category_id', type=int)
+        content_type = request.form.get('content_type', 'pure_text')
+        content = request.form.get('content')
+        author = request.form.get('author')
+        source = request.form.get('source')
+        tags_str = request.form.get('tags', '')
+        is_published = request.form.get('is_published') == '1'
+
+        # 处理标签
+        tags = [t.strip() for t in tags_str.split(',') if t.strip()] if tags_str else []
+
+        # 自动生成 slug
+        if not slug:
+            # 简单 slug 生成：转小写、空格变横线、移除非字母数字
+            import re
+            slug = title.lower()
+            slug = re.sub(r'[^\w\s-]', '', slug)  # 移除非字母数字（保留空格、横线）
+            slug = re.sub(r'[-\s]+', '-', slug)  # 多空格/横线变单一横线
+            slug = slug.strip('-')  # 去除首尾横线
+
+        # 检查 slug 唯一性
+        existing = KnowledgeArticle.query.filter_by(slug=slug).first()
+        if existing:
+            slug = f"{slug}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+        article = KnowledgeArticle(
+            title=title,
+            slug=slug,
+            category_id=category_id,
+            content_type=content_type,
+            content=content,
+            author=author,
+            source=source,
+            tags=tags,
+            is_published=is_published
+        )
+
+        db.session.add(article)
+        db.session.commit()
+
+        flash('文章添加成功', 'success')
+        return redirect(url_for('admin.knowledge_articles'))
+
+    # 获取分类列表
+    categories = KnowledgeCategory.query.order_by(KnowledgeCategory.sort_order).all()
+    return render_template('admin/knowledge_article_form.html', article=None, categories=categories)
+
+
+@admin.route('/knowledge/article/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def knowledge_article_edit(id):
+    """编辑知识库文章"""
+    article = KnowledgeArticle.query.get_or_404(id)
+
+    if request.method == 'POST':
+        article.title = request.form.get('title')
+        slug = request.form.get('slug')
+        article.category_id = request.form.get('category_id', type=int)
+        article.content_type = request.form.get('content_type', 'pure_text')
+        article.content = request.form.get('content')
+        article.author = request.form.get('author')
+        article.source = request.form.get('source')
+        tags_str = request.form.get('tags', '')
+        article.tags = [t.strip() for t in tags_str.split(',') if t.strip()] if tags_str else []
+        article.is_published = request.form.get('is_published') == '1'
+
+        # 更新 slug（如果提供）
+        if slug and slug != article.slug:
+            # 检查唯一性
+            existing = KnowledgeArticle.query.filter_by(slug=slug).first()
+            if existing and existing.id != article.id:
+                flash('Slug 已存在，请更换', 'danger')
+                categories = KnowledgeCategory.query.order_by(KnowledgeCategory.sort_order).all()
+                return render_template('admin/knowledge_article_form.html', article=article, categories=categories)
+            article.slug = slug
+
+        db.session.commit()
+
+        flash('文章更新成功', 'success')
+        return redirect(url_for('admin.knowledge_articles'))
+
+    categories = KnowledgeCategory.query.order_by(KnowledgeCategory.sort_order).all()
+    return render_template('admin/knowledge_article_form.html', article=article, categories=categories)
+
+
+@admin.route('/knowledge/article/<int:id>/delete', methods=['POST'])
+@login_required
+@super_admin_required
+def knowledge_article_delete(id):
+    """删除知识库文章"""
+    article = KnowledgeArticle.query.get_or_404(id)
+
+    # 检查是否有查询参数决定返回位置
+    category_id = request.args.get('category_id')
+    search = request.args.get('search')
+    page = request.args.get('page')
+
+    db.session.delete(article)
+    db.session.commit()
+
+    flash('文章删除成功', 'success')
+
+    # 构建返回URL
+    args = []
+    if category_id:
+        args.append(f'category_id={category_id}')
+    if search:
+        args.append(f'search={search}')
+    if page:
+        args.append(f'page={page}')
+
+    if args:
+        return redirect(url_for('admin.knowledge_articles') + '?' + '&'.join(args))
+    return redirect(url_for('admin.knowledge_articles'))
+
+
+@admin.route('/knowledge/article/<int:id>/preview')
+@login_required
+@super_admin_required
+def knowledge_article_preview(id):
+    """预览知识库文章"""
+    article = KnowledgeArticle.query.get_or_404(id)
+    return render_template('admin/knowledge_article_preview.html', article=article)
+
+
+# ==================== 知识库内容分析 ====================
+
+@admin.route('/knowledge/analyze')
+@login_required
+@super_admin_required
+def knowledge_analyze():
+    """知识库内容分析页面"""
+    return render_template('admin/knowledge_analyze.html')
+
+
+@admin.route('/knowledge/ebook')
+@login_required
+@super_admin_required
+def knowledge_ebook():
+    """电子书分析页面"""
+    return render_template('admin/knowledge_ebook.html')
+
+
+@admin.route('/knowledge/account/analyze')
+@login_required
+@super_admin_required
+def knowledge_account_analysis():
+    """账号分析页面"""
+    return render_template('admin/knowledge_account_analysis.html')
 
 
 # ==================== 行业管理 ====================
@@ -682,3 +947,213 @@ def toggle_client(id):
     return redirect(url_for('admin.clients'))
 
 
+# ==================== 知识库规则管理 API ====================
+
+@admin.route('/api/knowledge/analysis', methods=['POST'])
+@login_required
+@super_admin_required
+def create_knowledge_analysis():
+    """创建知识分析记录"""
+    try:
+        data = request.get_json()
+
+        analysis = KnowledgeAnalysis(
+            source_content=data.get('source_content', ''),
+            source_type=data.get('source_type', 'text'),
+            content_summary=data.get('content_summary', ''),
+            analysis_dimensions=data.get('analysis_dimensions'),
+            analysis_result=data.get('analysis_result', ''),
+            extracted_rules=data.get('extracted_rules'),
+            status='pending'
+        )
+
+        db.session.add(analysis)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'analysis_id': analysis.id,
+            'message': '分析记录创建成功'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@admin.route('/api/knowledge/rules', methods=['POST'])
+@login_required
+@super_admin_required
+def save_knowledge_rules():
+    """保存用户选择的知识规则"""
+    try:
+        data = request.get_json()
+        analysis_id = data.get('analysis_id')
+        rules = data.get('rules', [])
+
+        if not analysis_id:
+            return jsonify({
+                'success': False,
+                'message': '缺少分析记录ID'
+            }), 400
+
+        # 查找分析记录
+        analysis = KnowledgeAnalysis.query.get(analysis_id)
+        if not analysis:
+            return jsonify({
+                'success': False,
+                'message': '分析记录不存在'
+            }), 404
+
+        # 保存选中的规则
+        saved_rules = []
+        for rule_data in rules:
+            rule = KnowledgeRule(
+                analysis_id=analysis_id,
+                category=rule_data.get('category', ''),
+                rule_title=rule_data.get('rule_title', ''),
+                rule_content=rule_data.get('rule_content', ''),
+                rule_type=rule_data.get('rule_type', 'dimension'),
+                source_dimension=rule_data.get('source_dimension', ''),
+                status='active'
+            )
+            db.session.add(rule)
+            saved_rules.append(rule)
+
+        # 更新分析记录状态
+        analysis.status = 'approved'
+
+        db.session.commit()
+
+        # 更新对应的模板文件
+        try:
+            update_knowledge_template_files(rules)
+        except Exception as e:
+            print(f"更新模板文件失败: {e}")
+
+        return jsonify({
+            'success': True,
+            'saved_count': len(saved_rules),
+            'message': f'成功保存 {len(saved_rules)} 条规则'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+def update_knowledge_template_files(rules):
+    """更新知识库模板文件"""
+    import os
+    import markdown
+
+    # 按分类分组规则
+    category_files = {
+        '关键词库': '关键词库_规则模板.md',
+        '选题库': '选题库_规则模板.md',
+        '内容模板': '内容模板_规则模板.md',
+        '运营规划': '运营规划_规则模板.md',
+        '市场分析': '市场分析_规则模板.md'
+    }
+
+    rules_dir = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        'skills', 'knowledge-base', '规则'
+    )
+
+    for category, filename in category_files.items():
+        category_rules = [r for r in rules if r.category == category]
+        if not category_rules:
+            continue
+
+        filepath = os.path.join(rules_dir, filename)
+        if not os.path.exists(filepath):
+            continue
+
+        # 读取现有内容
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # 添加新规则到文件末尾
+        new_rules_section = f"\n\n---\n\n## 新增规则（{datetime.now().strftime('%Y-%m-%d %H:%M')})\n\n"
+
+        for rule in category_rules:
+            new_rules_section += f"### {rule.rule_title}\n\n"
+            new_rules_section += f"**来源维度**: {rule.source_dimension}\n\n"
+            new_rules_section += f"**规则内容**: {rule.rule_content}\n\n"
+            new_rules_section += f"**规则类型**: {rule.rule_type}\n\n"
+
+        # 追加到文件
+        with open(filepath, 'a', encoding='utf-8') as f:
+            f.write(new_rules_section)
+
+
+@admin.route('/api/knowledge/analysis/<int:id>')
+@login_required
+@super_admin_required
+def get_knowledge_analysis(id):
+    """获取知识分析记录"""
+    analysis = KnowledgeAnalysis.query.get_or_404(id)
+
+    rules = KnowledgeRule.query.filter_by(analysis_id=id).all()
+
+    return jsonify({
+        'success': True,
+        'analysis': {
+            'id': analysis.id,
+            'source_content': analysis.source_content,
+            'source_type': analysis.source_type,
+            'content_summary': analysis.content_summary,
+            'analysis_dimensions': analysis.analysis_dimensions,
+            'analysis_result': analysis.analysis_result,
+            'extracted_rules': analysis.extracted_rules,
+            'status': analysis.status,
+            'created_at': analysis.created_at.isoformat() if analysis.created_at else None
+        },
+        'rules': [{
+            'id': r.id,
+            'category': r.category,
+            'rule_title': r.rule_title,
+            'rule_content': r.rule_content,
+            'rule_type': r.rule_type,
+            'source_dimension': r.source_dimension,
+            'status': r.status
+        } for r in rules]
+    })
+
+
+@admin.route('/api/knowledge/analysis/list')
+@login_required
+@super_admin_required
+def list_knowledge_analysis():
+    """获取知识分析记录列表"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    status = request.args.get('status', None)
+
+    query = KnowledgeAnalysis.query
+    if status:
+        query = query.filter_by(status=status)
+
+    pagination = query.order_by(KnowledgeAnalysis.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return jsonify({
+        'success': True,
+        'items': [{
+            'id': a.id,
+            'source_type': a.source_type,
+            'content_summary': a.content_summary[:100] if a.content_summary else '',
+            'status': a.status,
+            'created_at': a.created_at.isoformat() if a.created_at else None,
+            'rules_count': KnowledgeRule.query.filter_by(analysis_id=a.id).count()
+        } for a in pagination.items],
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'page': page
+    })

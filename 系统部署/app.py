@@ -52,6 +52,10 @@ def create_app(config_name='default'):
     from routes.expert_api import expert_api as expert_api_blueprint
     app.register_blueprint(expert_api_blueprint, url_prefix='/api/expert')
     
+    # 注册知识库分析 API
+    from routes.knowledge_api import knowledge_api as knowledge_api_blueprint
+    app.register_blueprint(knowledge_api_blueprint)
+    
     # 创建上传目录
     import os
     upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
