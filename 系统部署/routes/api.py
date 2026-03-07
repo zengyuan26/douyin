@@ -763,6 +763,82 @@ def get_current_chat():
     return jsonify({'code': 200, 'message': 'success', 'data': data})
 
 
+@api.route('/chat/append_messages', methods=['POST'])
+@login_required
+def append_chat_messages():
+    """录入流程等场景：将会话消息写入后端，保证切换专家后会话不丢失"""
+    data = request.get_json()
+    client_id = data.get('client_id')
+    expert_slug = data.get('expert_slug', 'chief-operating-officer')
+    messages = data.get('messages', [])
+
+    if not client_id or not messages:
+        return jsonify({'code': 400, 'message': '缺少 client_id 或 messages'})
+
+    # 权限：客户须属于当前用户
+    client = Client.query.get(client_id)
+    if not client:
+        return jsonify({'code': 404, 'message': '客户不存在'})
+    if current_user.role == 'channel':
+        channel = Channel.query.filter_by(user_id=current_user.id).first()
+        if not channel or client.channel_id != channel.id:
+            return jsonify({'code': 403, 'message': '无权限'})
+    elif current_user.role != 'super_admin' and client.user_id != current_user.id:
+        return jsonify({'code': 403, 'message': '无权限'})
+
+    slug_to_db = {
+        'chief-operating-officer': 'master',
+        'geo-seo': 'seo',
+        'content-creator': 'content',
+        'market-insights-commander': 'monitor',
+        'ai-operations-commander': 'ai-operations-commander',
+    }
+    db_slug = slug_to_db.get(expert_slug, expert_slug)
+    expert = Expert.query.filter_by(slug=db_slug).first()
+    if not expert:
+        return jsonify({'code': 404, 'message': '专家不存在'})
+
+    chat_session = ChatSession.query.filter_by(
+        user_id=current_user.id,
+        client_id=client_id,
+        expert_id=expert.id,
+        is_active=True
+    ).order_by(ChatSession.updated_at.desc()).first()
+
+    if not chat_session:
+        chat_session = ChatSession(
+            user_id=current_user.id,
+            client_id=client_id,
+            expert_id=expert.id,
+            title=(messages[0].get('content', '')[:50] + '...') if messages else '会话',
+            is_active=True
+        )
+        db.session.add(chat_session)
+        db.session.commit()
+
+    for msg in messages:
+        role = msg.get('role', 'user')
+        content = msg.get('content', '')
+        if not content:
+            continue
+        cm = ChatMessage(
+            session_id=chat_session.id,
+            role=role,
+            content=content,
+            expert_id=expert.id
+        )
+        db.session.add(cm)
+
+    chat_session.updated_at = datetime.utcnow()
+    db.session.commit()
+
+    return jsonify({
+        'code': 200,
+        'message': 'success',
+        'data': {'session_id': chat_session.id}
+    })
+
+
 @api.route('/chat/sessions/client', methods=['GET'])
 @login_required
 def get_client_chat_sessions():
@@ -1885,10 +1961,14 @@ def get_outputs():
     # 超级管理员可以看到所有，其他用户只能看到自己客户的
     if not current_user.is_super_admin():
         # 获取用户关联的客户
-        if current_user.channel_id:
-            clients = Client.query.filter_by(channel_id=current_user.channel_id).all()
-            client_ids = [c.id for c in clients]
-            query = query.filter(ExpertOutput.client_id.in_(client_ids))
+        if current_user.role == 'channel':
+            channel = current_user.channels.first()
+            if channel:
+                clients = Client.query.filter_by(channel_id=channel.id).all()
+                client_ids = [c.id for c in clients]
+                query = query.filter(ExpertOutput.client_id.in_(client_ids))
+            else:
+                query = query.filter(ExpertOutput.id == 0)  # 无渠道则返回空
         else:
             # 普通用户只能看到自己创建的
             query = query.filter_by(user_id=current_user.id)

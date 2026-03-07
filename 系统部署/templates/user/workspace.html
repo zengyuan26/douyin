@@ -2660,6 +2660,36 @@
         if (currentClientId) {
             loadReportHistory(currentClientId, currentExpertSlug);
         }
+
+        // 只有首席运营官才显示「正在生成报告」；切换到其他专家时，只有在报告生成完成才清除该状态并显示该专家的报告列表
+        const historyBody = document.getElementById('historyPanelBody');
+        const isCoo = (slug === 'chief-operating-officer');
+        // 如果切换到非COO专家，且报告未生成完成，则保留「正在生成报告」状态
+        if (!isCoo && historyBody && !isReportGenerating) {
+            if (reportStatusTimer) {
+                clearInterval(reportStatusTimer);
+                reportStatusTimer = null;
+            }
+            // 立即显示当前专家的报告列表（loadReportHistory 已在上面调用，这里避免继续显示「正在生成报告」）
+            historyBody.innerHTML = '<div class="text-center py-3 text-muted"><i class="bi bi-arrow-repeat spin"></i><p class="mt-2 mb-0">加载报告列表...</p></div>';
+        }
+        // 如果切换回COO专家，且报告正在生成，恢复动态显示
+        if (isCoo && isReportGenerating && historyBody) {
+            historyBody.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div><p class="mt-2" id="reportGenStatus">正在生成报告...</p></div>';
+            // 重新启动动态文字动画
+            const statusEl = document.getElementById('reportGenStatus');
+            if (statusEl) {
+                if (reportStatusTimer) {
+                    clearInterval(reportStatusTimer);
+                }
+                let dots = 0;
+                reportStatusTimer = setInterval(() => {
+                    dots = (dots + 1) % 4;
+                    const suffix = '.'.repeat(dots);
+                    statusEl.textContent = '正在生成报告' + suffix;
+                }, 600);
+            }
+        }
     }
 
     // 页面加载时默认加载报告历史
@@ -4922,22 +4952,7 @@
                 
                 // 切到首席运营官，获取专家信息并直接添加消息（用于留痕 + 让用户看到“已生成档案并开始调度”）
                 const expertItem = document.querySelector(`.expert-list-item[data-slug="chief-operating-officer"]`);
-                if (expertItem) {
-                    // 获取专家信息
-                    const name = expertItem.getAttribute('data-name') || '首席运营官';
-                    const title = expertItem.getAttribute('data-title') || '';
-                    const icon = expertItem.getAttribute('data-icon') || '<i class="bi bi-people"></i>';
-                    
-                    // 先设置全局变量
-                    currentExpertSlug = 'chief-operating-officer';
-                    currentExpertName = name;
-                    currentExpertTitle = title;
-                    currentExpertIcon = icon;
-                    
-                    // 直接添加消息：由首席营销官说明已生成简化版客户档案并调度三位专家生成四份报告
-                    addMessage(
-                        'user',
-                        `【客户档案摘要】
+                const userMsgContent = `【客户档案摘要】
 - 客户名称：${clientName}
 - 行业类型：${clientType}
 - 产品类型：${clientInfo.product_type || '无'}
@@ -4953,21 +4968,51 @@
 1. 调度【市场洞察专家】生成市场分析报告
 2. 调度【SEO专家】生成关键词库和选题库
 3. 调度【运营专家】生成运营规划报告
-━━━`
-                    );
-                    addMessage(
-                        'expert',
-                        '收到！已收到客户档案摘要，正在调度市场洞察专家、SEO专家和运营专家为你生成市场分析报告、关键词库、选题库和运营规划报告，报告完成后将在右侧「产出报告区」展示。'
-                    );
+━━━`;
+                const expertMsgContent = '收到！已收到客户档案摘要，正在调度市场洞察专家、SEO专家和运营专家为你生成市场分析报告、关键词库、选题库和运营规划报告，报告完成后将在右侧「产出报告区」展示。';
+                const dispatchMsgContent = '正在调度 市场洞察分析专家、SEO专家、运营专家 生成报告，请稍候...';
+
+                if (expertItem) {
+                    const name = expertItem.getAttribute('data-name') || '首席运营官';
+                    const title = expertItem.getAttribute('data-title') || '';
+                    const icon = expertItem.getAttribute('data-icon') || '<i class="bi bi-people"></i>';
+
+                    currentExpertSlug = 'chief-operating-officer';
+                    currentExpertName = name;
+                    currentExpertTitle = title;
+                    currentExpertIcon = icon;
+
+                    addMessage('user', userMsgContent);
+                    addMessage('expert', expertMsgContent);
                 }
-                
-                // 调用专家API生成报告
+
+                // 将会话写入后端（含「正在调度...」），切换专家后再切回来时能加载到
+                fetch('/api/chat/append_messages', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        client_id: clientId,
+                        expert_slug: 'chief-operating-officer',
+                        messages: [
+                            { role: 'user', content: userMsgContent },
+                            { role: 'assistant', content: expertMsgContent },
+                            { role: 'system', content: dispatchMsgContent }
+                        ]
+                    })
+                }).then(res => res.json()).then(data => {
+                    if (data.code === 200 && data.data && data.data.session_id) {
+                        currentSessionId = data.data.session_id;
+                        const cooName = currentExpertName || '首席运营官';
+                        const cooIcon = currentExpertIcon || '<i class="bi bi-people"></i>';
+                        addChatTab('chief-operating-officer', cooName, cooIcon, data.data.session_id);
+                        updateCurrentTabSession(data.data.session_id);
+                        loadClientChatTabs();
+                    }
+                }).catch(err => console.error('保存录入会话失败:', err));
+
+                // 调用专家API生成报告（内部会设置右侧「正在生成报告...」，不要在此处再调 loadReportHistory 以免覆盖）
                 console.log('[submitClientIntake] 准备调用 dispatchExpertsForIntake, clientId:', clientId);
                 dispatchExpertsForIntake(clientId, clientInfo);
-
-                // 加载报告历史（立即加载一次）
-                console.log('[submitClientIntake] 立即加载报告历史');
-                loadReportHistory(clientId);
 
                 // 刷新客户列表并展开下拉列表
                 loadClients();
@@ -5202,11 +5247,15 @@
     let reportPollCount = 0;
     let notifiedReportIds = new Set(); // 已通知的报告ID集合
     let reportStatusTimer = null; // 报告状态文字的动态动画计时器
+    let isReportGenerating = false; // 是否正在生成报告
     const MAX_POLL_COUNT = 120; // 最多轮询120次（约6分钟，适配后台生成）
     const POLL_INTERVAL = 5000; // 每5秒轮询一次
     
     function dispatchExpertsForIntake(clientId, clientInfo) {
         console.log('[dispatchExpertsForIntake] 开始调度专家, clientId:', clientId);
+
+        // 标记开始生成报告
+        isReportGenerating = true;
 
         // 在聊天区添加动态状态消息
         const expertNames = {
@@ -5350,7 +5399,8 @@
         reportPollTimer = setInterval(() => {
             console.log('[startReportPolling] 轮询第', reportPollCount + 1, '次');
             reportPollCount++;
-            loadReportHistory(clientId);
+            // 仅当当前专家是首席运营官时才刷新右侧报告区，避免覆盖其他专家的报告列表
+            loadReportHistory(clientId, '', true);
             
             // 最多轮询约6分钟
             if (reportPollCount >= MAX_POLL_COUNT) {
@@ -5362,6 +5412,8 @@
                 }
                 const statusEl = document.getElementById('reportGenStatus');
                 if (statusEl) statusEl.textContent = '报告生成完成（如有新报告请刷新页面）';
+                // 标记报告生成完成（可能是超时）
+                isReportGenerating = false;
             }
         }, POLL_INTERVAL);
     }
@@ -5500,8 +5552,9 @@
     }
 
     // 加载报告历史
-    function loadReportHistory(clientId, expertSlug = '') {
-        console.log('[loadReportHistory] 开始加载, clientId:', clientId, 'expertSlug:', expertSlug);
+    // onlyRenderIfCoo: 为 true 时仅当当前专家是首席运营官才刷新右侧报告区（用于轮询时避免覆盖其他专家的报告列表）
+    function loadReportHistory(clientId, expertSlug = '', onlyRenderIfCoo = false) {
+        console.log('[loadReportHistory] 开始加载, clientId:', clientId, 'expertSlug:', expertSlug, 'onlyRenderIfCoo:', onlyRenderIfCoo);
         let url = '/api/outputs?client_id=' + clientId;
         if (expertSlug) {
             url += '&expert_slug=' + expertSlug;
@@ -5511,8 +5564,10 @@
         .then(data => {
             console.log('[loadReportHistory] 返回数据:', data.code, '记录数:', data.data?.length);
             if (data.code === 200 && data.data) {
-                // 检测新生成的报告（仅在专家切换后首次加载时检测）
                 checkAndNotifyNewReports(data.data);
+                if (onlyRenderIfCoo && currentExpertSlug !== 'chief-operating-officer') {
+                    return;
+                }
                 renderReportHistory(data.data);
             }
         })
@@ -5569,6 +5624,8 @@
             statusEl.textContent = '所有报告生成完成！';
             statusEl.parentElement.classList.remove('text-primary');
             statusEl.parentElement.classList.add('text-success');
+            // 标记报告生成完成
+            isReportGenerating = false;
         }
     }
     
