@@ -516,7 +516,8 @@
                     {% endif %}
                 </ul>
                 
-                <!-- 用户信息 -->
+                {% if not (request.endpoint and 'admin' in request.endpoint) %}
+                <!-- 用户信息（管理中心及子页面不显示） -->
                 <div class="d-flex align-items-center">
                     <div class="user-menu" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">
                         <div class="user-avatar">
@@ -541,6 +542,7 @@
                         <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right me-2"></i>退出登录</a></li>
                     </ul>
                 </div>
+                {% endif %}
             </div>
         </div>
     </nav>

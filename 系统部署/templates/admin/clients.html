@@ -123,7 +123,6 @@
                                 <th>行业</th>
                                 <th>业务类型</th>
                                 <th>创建时间</th>
-                                <th>状态</th>
                                 <th style="width: 100px;">操作</th>
                             </tr>
                         </thead>
@@ -150,13 +149,6 @@
                                 <td>{{ client.business_type or '-' }}</td>
                                 <td>{{ client.created_at.strftime('%Y-%m-%d') }}</td>
                                 <td>
-                                    {% if client.is_active %}
-                                    <span class="status-badge active"><i class="bi bi-check-circle"></i>启用</span>
-                                    {% else %}
-                                    <span class="status-badge inactive"><i class="bi bi-x-circle"></i>停用</span>
-                                    {% endif %}
-                                </td>
-                                <td>
                                     <div class="table-actions">
                                         <a href="{{ url_for('main.client_detail', id=client.id) }}" class="btn btn-sm btn-outline-primary" title="查看"><i class="bi bi-eye"></i></a>
                                         <button type="button" class="btn btn-sm btn-outline-danger btn-delete-client" title="删除" data-client-id="{{ client.id }}" data-client-name="{{ client.name|e }}"><i class="bi bi-trash"></i></button>
@@ -165,7 +157,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="8">
+                                <td colspan="7">
                                     <div class="empty-state">
                                         <div class="empty-state-icon"><i class="bi bi-inbox"></i></div>
                                         <div class="empty-state-title">暂无客户数据</div>
