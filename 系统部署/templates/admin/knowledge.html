@@ -77,34 +77,20 @@
         </div>
     </div>
 
-    <!-- 快捷操作 -->
+    <!-- 每日提醒 -->
     <div class="row">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3">
-                    <h6 class="mb-0">快捷操作</h6>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <a href="{{ url_for('admin.knowledge_category_add') }}" class="btn btn-outline-primary w-100">
-                                <i class="bi bi-folder-plus me-2"></i>新增分类
-                            </a>
+            <div class="card border-0 shadow-sm" id="dailyQuoteCard" style="background-size: cover; background-position: center; position: relative;">
+                <div class="position-absolute top-0 start-0 w-100 h-100" id="quoteOverlay" style="background: rgba(0,0,0,0.65);"></div>
+                <div class="card-body py-4 position-relative" style="z-index: 1;">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="bi bi-lightbulb text-white" style="font-size: 2rem;"></i>
                         </div>
-                        <div class="col-md-3">
-                            <a href="{{ url_for('admin.knowledge_article_add') }}" class="btn btn-outline-success w-100">
-                                <i class="bi bi-file-earmark-plus me-2"></i>新增文章
-                            </a>
-                        </div>
-                        <div class="col-md-3">
-                            <a href="{{ url_for('admin.knowledge_articles') }}" class="btn btn-outline-info w-100">
-                                <i class="bi bi-list-ul me-2"></i>文章管理
-                            </a>
-                        </div>
-                        <div class="col-md-3">
-                            <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary w-100">
-                                <i class="bi bi-arrow-left me-2"></i>返回知识库
-                            </a>
+                        <div class="text-white">
+                            <h6 class="mb-1 fw-bold">每日提醒</h6>
+                            <p class="mb-0 fs-5" style="font-style: italic;" id="dailyQuote">加载中...</p>
+                            <small class="opacity-75" id="quoteSource">—— 正在获取今日台词</small>
                         </div>
                     </div>
                 </div>
@@ -112,6 +98,45 @@
         </div>
     </div>
 </div>
+
+<script>
+async function loadDailyQuote() {
+    try {
+        const response = await fetch('/api/knowledge/daily-quote');
+        const data = await response.json();
+        
+        if (data.code === 200 && data.data) {
+            const quote = data.data;
+            
+            // 设置背景海报
+            if (quote.poster_url) {
+                document.getElementById('dailyQuoteCard').style.backgroundImage = `url(${quote.poster_url})`;
+            }
+            
+            // 设置台词
+            const quoteText = quote.quote_cn || quote.quote;
+            document.getElementById('dailyQuote').textContent = `"${quoteText}"`;
+            
+            // 设置来源
+            let sourceText = `—— ${quote.author || ''}`;
+            if (quote.source) {
+                sourceText += quote.source;
+            }
+            if (quote.movie) {
+                sourceText += ` | 电影《${quote.movie}》`;
+            }
+            document.getElementById('quoteSource').textContent = sourceText;
+        }
+    } catch (error) {
+        console.error('加载每日台词失败:', error);
+        document.getElementById('dailyQuote').textContent = '"Do not go gentle into that good night."';
+        document.getElementById('quoteSource').textContent = '—— 迪伦·托马斯 | 电影《星际穿越》';
+    }
+}
+
+// 页面加载时获取每日台词
+loadDailyQuote();
+</script>
 
 <style>
 .knowledge-card:hover {

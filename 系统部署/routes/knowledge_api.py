@@ -8,12 +8,85 @@ import os
 import re
 import json
 import logging
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, render_template
 from flask_login import login_required, current_user
 
 logger = logging.getLogger(__name__)
 
 knowledge_api = Blueprint('knowledge_api', __name__, url_prefix='/api/knowledge')
+
+# 导入电影台词数据
+try:
+    from data.movie_quotes import get_daily_quote, get_all_quotes
+except ImportError:
+    # 如果导入失败，定义空函数
+    def get_daily_quote():
+        return {
+            "quote": "Do not go gentle into that good night.",
+            "quote_cn": "不要温顺地走进那个良夜。",
+            "movie": "星际穿越",
+            "poster_url": ""
+        }
+    def get_all_quotes():
+        return []
+
+
+@knowledge_api.route('/daily-quote', methods=['GET'])
+def api_daily_quote():
+    """获取每日电影台词"""
+    quote = get_daily_quote()
+    return jsonify({
+        "code": 200,
+        "data": quote
+    })
+
+
+@knowledge_api.route('/all-quotes', methods=['GET'])
+def api_all_quotes():
+    """获取所有电影台词"""
+    quotes = get_all_quotes()
+    return jsonify({
+        "code": 200,
+        "data": {"quotes": quotes, "total": len(quotes)}
+    })
+
+
+def parse_llm_json(result_text):
+    """解析 LLM 返回的 JSON，支持多种格式并自动修复常见问题"""
+    # 1. 尝试从 markdown 代码块中提取
+    json_match = re.search(r'```json\s*([\s\S]*?)\s*```', result_text)
+    if json_match:
+        json_str = json_match.group(1)
+    else:
+        json_str = result_text
+
+    # 2. 尝试直接解析
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        pass
+
+    # 3. 修复常见 JSON 错误后重试
+    fixed = json_str
+
+    # 移除行尾的逗号（如 "...", } 或 "...", ]）
+    fixed = re.sub(r',(\s*[}\]])', r'\1', fixed)
+
+    # 移除单引号改为双引号（处理不规范的 JSON）
+    fixed = re.sub(r"'([^']*)'", r'"\1"', fixed)
+
+    # 移除多余的反引号
+    fixed = fixed.strip()
+    if fixed.startswith('`'):
+        fixed = re.sub(r'^`+', '', fixed)
+    if fixed.endswith('`'):
+        fixed = re.sub(r'`+$', '', fixed)
+
+    try:
+        return json.loads(fixed)
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON 解析失败，已尝试修复仍失败: {e}, 内容: {result_text[:300]}")
+        raise
 
 
 def get_llm_service():
@@ -231,12 +304,7 @@ def analyze_content():
         
         # 提取 JSON
         try:
-            # 尝试从 markdown 代码块中提取
-            json_match = re.search(r'```json\s*([\s\S]*?)\s*```', result_text)
-            if json_match:
-                result_json = json.loads(json_match.group(1))
-            else:
-                result_json = json.loads(result_text)
+            result_json = parse_llm_json(result_text)
             
             logger.info(f"[knowledge_analyze] 分析完成，找到 {len(result_json.get('rules', []))} 条规则")
             
@@ -671,11 +739,7 @@ def analyze_account():
 
         # 提取 JSON
         try:
-            json_match = re.search(r'```json\s*([\s\S]*?)\s*```', result_text)
-            if json_match:
-                result_json = json.loads(json_match.group(1))
-            else:
-                result_json = json.loads(result_text)
+            result_json = parse_llm_json(result_text)
 
             logger.info(f"[account_analyze] 分析完成，找到 {len(result_json.get('rules', []))} 条规则")
 
@@ -994,11 +1058,7 @@ def analyze_ebook():
 
             # 提取 JSON
             try:
-                json_match = re.search(r'```json\s*([\s\S]*?)\s*```', result_text)
-                if json_match:
-                    result_json = json.loads(json_match.group(1))
-                else:
-                    result_json = json.loads(result_text)
+                result_json = parse_llm_json(result_text)
 
                 rules = result_json.get('rules', [])
                 for rule in rules:

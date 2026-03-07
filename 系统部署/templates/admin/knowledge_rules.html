@@ -46,7 +46,7 @@
 
         <!-- 右侧规则列表 -->
         <div class="col-md-9 mb-4">
-            <div class="row g-3" id="rulesList">
+            <div class="row g-3" id="rulesList" style="max-height: calc(100vh - 200px); overflow-y: auto;">
                 {% for rule in rules_data.rules %}
                 <div class="col-12 rule-item" data-category="{{ rule.id.split('_')[0] }}">
                     <div class="card border-0 shadow-sm rule-card" style="cursor: pointer;" data-rule-id="{{ rule.id }}">
@@ -95,7 +95,7 @@
 
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
 // 存储规则数据的对象
 const rulesData = {
