@@ -62,6 +62,16 @@ def workspace():
     elif current_user.role == 'channel':
         channel = current_user.channels.first()
         clients = Client.query.filter_by(channel_id=channel.id).order_by(Client.name).all() if channel else []
+
+        # 渠道用户：检查 session 中的当前客户是否属于该渠道
+        current_client_id = session.get('current_client_id')
+        if current_client_id:
+            client = Client.query.get(current_client_id)
+            if not client or (channel and client.channel_id != channel.id):
+                # session 中的客户不属于该渠道，清空 session
+                session.pop('current_client_id', None)
+                session.pop('current_client_name', None)
+                current_client_id = None
     else:
         clients = Client.query.filter_by(user_id=current_user.id).order_by(Client.name).all()
     

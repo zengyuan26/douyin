@@ -2351,7 +2351,7 @@
                                 currentClientName = listData.data[0].name;
                                 const nameDisplay = document.getElementById('currentClientNameDisplay');
                                 if (nameDisplay) nameDisplay.textContent = currentClientName;
-                                
+
                                 fetch('/api/switch_client/' + currentClientId, {
                                     method: 'POST',
                                     headers: {'Content-Type': 'application/json'}
@@ -2360,6 +2360,10 @@
                                 });
                             }
                         });
+                } else {
+                    // 非超级管理员（如渠道用户）且没有当前客户时，显示"新增客户"提示
+                    const nameDisplay = document.getElementById('currentClientNameDisplay');
+                    if (nameDisplay) nameDisplay.textContent = '请新增客户';
                 }
             })
             .catch(err => {

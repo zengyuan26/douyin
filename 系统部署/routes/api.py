@@ -320,10 +320,18 @@ def create_client():
             industry_id = industry.id
     
     # 创建客户
+    # 渠道用户需要将客户关联到其渠道
+    channel_id = None
+    if current_user.role == 'channel':
+        channel = Channel.query.filter_by(user_id=current_user.id).first()
+        if channel:
+            channel_id = channel.id
+
     client = Client(
         name=client_name,
         industry_id=industry_id,
         user_id=current_user.id,
+        channel_id=channel_id,
         business_type=data.get('business_type', ''),
         product_type=data.get('product_type', ''),
         service_type=data.get('service_type', ''),
