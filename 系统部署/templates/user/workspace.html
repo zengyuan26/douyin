@@ -3796,16 +3796,19 @@
 
         console.log('[tasGenerateKeywordLibrary] 开始生成关键词库, clientId:', currentClientId, 'clientName:', clientName);
 
+        // 标记生成状态 - 使用 seo slug（Geo SEO专家）
+        generatingExperts['seo'] = true;
+        generatingExperts['ai-operations-commander'] = true;
+
         // 发送预设消息到聊天区
-        const userMessage = `当前客户是【${clientName}】，请根据平台规则结合行业分析报告生成关键词库`;
+        const userMessage = `当前客户是【${clientName}】，请帮我生成关键词库`;
         addMessage('user', userMessage);
 
-        // 调用后台生成API
-        fetch('/api/expert/tas/generate/background', {
+        // 调用 Geo SEO 后台生成API
+        fetch('/api/expert/geo-seo/generate/keywords/background', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                task_type: 'keywords',
                 client_id: currentClientId
             })
         }).then(res => res.json()).then(data => {
@@ -3822,7 +3825,7 @@
                 }
 
                 loadReportHistory(currentClientId, currentExpertSlug);
-                startReportPolling(currentClientId);
+                startReportPolling(currentClientId, 'seo');
             } else {
                 addMessage('expert', '关键词库生成失败: ' + (data.message || '未知错误'));
             }
@@ -3868,7 +3871,7 @@
                 }
 
                 loadReportHistory(currentClientId, currentExpertSlug);
-                startReportPolling(currentClientId);
+                startReportPolling(currentClientId, 'seo');
             } else {
                 addMessage('expert', '选题库生成失败: ' + (data.message || '未知错误'));
             }
@@ -3878,7 +3881,7 @@
         });
     }
 
-    // 塔斯专家生成运营规划方案
+    // 塔斯专家生成运营规划方案（调用 Geo SEO 专家）
     function tasGenerateOperations() {
         if (!currentClientId) {
             alert('请先选择客户');
@@ -3891,15 +3894,14 @@
         console.log('[tasGenerateOperations] 开始生成运营规划方案, clientId:', currentClientId, 'clientName:', clientName);
 
         // 发送预设消息到聊天区
-        const userMessage = `当前客户是【${clientName}】，请根据平台规则结合行业分析报告生成运营规划方案`;
+        const userMessage = `当前客户是【${clientName}】，请帮我生成运营规划方案`;
         addMessage('user', userMessage);
 
-        // 调用后台生成API
-        fetch('/api/expert/tas/generate/background', {
+        // 调用 Geo SEO 后台生成API
+        fetch('/api/expert/geo-seo/generate/operations/background', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                task_type: 'operations',
                 client_id: currentClientId
             })
         }).then(res => res.json()).then(data => {
@@ -3916,7 +3918,7 @@
                 }
 
                 loadReportHistory(currentClientId, currentExpertSlug);
-                startReportPolling(currentClientId);
+                startReportPolling(currentClientId, 'seo');
             } else {
                 addMessage('expert', '运营规划方案生成失败: ' + (data.message || '未知错误'));
             }
@@ -5470,10 +5472,12 @@
     
     // 轮询加载报告（生成一个就立即显示）
     let currentPollingClientId = null; // 当前轮询的客户ID
+    let currentPollingExpertSlug = ''; // 当前轮询的专家slug
 
-    function startReportPolling(clientId) {
-        console.log('[startReportPolling] 开始轮询, clientId:', clientId);
+    function startReportPolling(clientId, expertSlug = '') {
+        console.log('[startReportPolling] 开始轮询, clientId:', clientId, 'expertSlug:', expertSlug);
         currentPollingClientId = clientId;
+        currentPollingExpertSlug = expertSlug;
         notifiedReportIds.clear(); // 每次开始新轮询时清空已通知集合
 
         reportPollTimer = setInterval(() => {
@@ -5481,7 +5485,7 @@
             reportPollCount++;
             // 轮询检查当前专家的报告生成状态（如果当前专家正在生成报告才刷新右侧面板）
             const currentExpertGenerating = generatingExperts[currentExpertSlug] === true;
-            loadReportHistory(clientId, '', currentExpertGenerating);
+            loadReportHistory(clientId, expertSlug || currentExpertSlug, currentExpertGenerating);
             
             // 最多轮询约6分钟
             if (reportPollCount >= MAX_POLL_COUNT) {

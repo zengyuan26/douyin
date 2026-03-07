@@ -987,6 +987,47 @@ def _build_expert_prompt(expert_name: str, client_info: dict) -> str:
 {topic_template}
 
 请生成完整的关键词库和选题库。
+""",
+        # Geo SEO 专家 - 单独生成关键词库
+        'geo-seo-keywords': f"""
+{base_info}
+
+【关键词库生成要求 - 必须严格按模板执行】
+
+## 重要提示
+1. **必须使用模板**：请严格按照下方提供的模板结构生成关键词库
+2. **关键词库结构比例**：
+   - 付费人关键词：25%
+   - 使用人关键词：20%
+   - 蓝海长尾词：25%（⭐重点）
+   - 行业关联词：15%
+   - 知识技能词：15%
+3. **数量要求**：至少100个关键词
+4. **关键词=用户问题**：从用户真实问题出发挖掘关键词，不是产品词
+
+## 关键词库模板
+{keyword_template}
+
+请生成完整的关键词库（≥100个关键词），必须严格按照模板格式输出。
+""",
+        # Geo SEO 专家 - 单独生成运营规划方案
+        'geo-seo-operations': f"""
+{base_info}
+
+【运营规划方案生成要求 - 必须严格按模板6大章节执行】
+
+## 重要提示
+1. **必须使用模板**：请严格按照下方提供的模板结构生成运营规划方案
+2. **核心思维流程**：必须按以下7步顺序进行
+   - 1️⃣ 行业分析 → 2️⃣ 找蓝海 → 3️⃣ 人群细分 → 4️⃣ 长尾需求 → 5️⃣ 知识技能解决 → 6️⃣ 搜前搜后 → 7️⃣ 行业关联
+3. **内容配比规则**：信任佐证+竞争优势内容占比 **15%**，其他内容占比 **85%**
+4. **必须包含信任佐证4大方向**：专业知识技能、环境、过程、案例
+5. **必须包含竞争优势4大维度**：vs同行、vs自己动手
+
+## 运营规划方案模板（必须按此格式输出6大章节）
+{operations_template}
+
+请严格按照以上6大章节结构生成完整的运营规划方案，每一章都必须包含，不能遗漏任何章节。
 """
     }
 
@@ -1090,7 +1131,7 @@ def tas_generate():
             }
             title_map = {
                 'keywords': f'{client.name}_关键词库',
-                'topics': f'{client.name}_选题库',
+                'topics': f'{client.name}_选题规划报告',
                 'operations': f'{client.name}_运营规划方案'
             }
 
@@ -1246,7 +1287,7 @@ def tas_generate_background():
                         }
                         title_map = {
                             'keywords': f'{client.name}_关键词库',
-                            'topics': f'{client.name}_选题库',
+                            'topics': f'{client.name}_选题规划报告',
                             'operations': f'{client.name}_运营规划方案'
                         }
 
@@ -1282,4 +1323,400 @@ def tas_generate_background():
         'code': 200,
         'message': f'已启动后台生成 {task_names.get(task_type, task_type)}',
         'data': {'task_type': task_type, 'client_id': client_id}
+    })
+
+
+# ==================== Geo SEO 关键词库生成 ====================
+
+@expert_api.route('/geo-seo/generate/keywords', methods=['POST'])
+@login_required
+def geo_seo_generate_keywords():
+    """Geo SEO 专家生成关键词库"""
+    data = request.get_json()
+    client_id = data.get('client_id')
+
+    if not client_id:
+        return jsonify({'code': 400, 'message': '请指定客户ID'})
+
+    client = Client.query.get(client_id)
+    if not client:
+        return jsonify({'code': 404, 'message': '客户不存在'})
+
+    # 获取客户信息
+    client_info = {
+        'client_name': client.name,
+        'business_type': client.business_type or '',
+        'product_type': client.product_type or '',
+        'service_type': client.service_type or '',
+        'geographic_scope': client.service_range or '',
+        'target_area': client.target_area or '',
+        'brand_type': client.brand_type or '',
+        'brand_description': client.brand_description or '',
+        'language_style': client.language_style or '',
+        'main_product': client.description or '',
+    }
+
+    skill_loader = get_skill_loader()
+    llm_service = get_llm_service()
+
+    # 使用 geo-seo skill 生成关键词库
+    expert_name = 'geo-seo-keywords'
+    prompt = _build_expert_prompt(expert_name, client_info)
+    user_role = current_user.role if current_user.is_authenticated else 'user'
+    system_prompt = skill_loader.build_system_prompt('geo-seo', client_info, user_role)
+
+    try:
+        response = llm_service.chat(
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': prompt}
+            ],
+            temperature=0.7
+        )
+
+        report_content = response.get('content', '') if isinstance(response, dict) else str(response)
+
+        # 获取 Geo SEO 专家
+        expert = Expert.query.filter_by(slug='seo').first()
+        if not expert:
+            expert = Expert.query.filter_by(name='Geo SEO专家').first()
+
+        # 保存报告，标题格式：客户名+关键词报告
+        title = f"{client.name}关键词报告"
+        output = ExpertOutput(
+            expert_id=expert.id if expert else None,
+            client_id=client.id,
+            user_id=current_user.id,
+            output_type='keywords',
+            title=title,
+            content=report_content[:10000] if len(report_content) > 10000 else report_content
+        )
+        db.session.add(output)
+        db.session.commit()
+
+        return jsonify({
+            'code': 200,
+            'message': '关键词库生成成功',
+            'data': {
+                'output_id': output.id,
+                'title': output.title
+            }
+        })
+
+    except Exception as e:
+        logger.error(f'[geo_seo_generate_keywords] 异常: {str(e)}')
+        return jsonify({'code': 500, 'message': f'生成失败: {str(e)}'})
+
+
+@expert_api.route('/geo-seo/generate/keywords/background', methods=['POST'])
+@login_required
+def geo_seo_generate_keywords_background():
+    """Geo SEO 专家后台生成关键词库"""
+    import threading
+
+    data = request.get_json()
+    client_id = data.get('client_id')
+    user_id = current_user.id if current_user.is_authenticated else None
+
+    if not client_id:
+        return jsonify({'code': 400, 'message': '请指定客户ID'})
+
+    def run_background_task():
+        try:
+            from flask import current_app
+            from flask_login import login_user
+            from models.models import User
+
+            with current_app.app_context():
+                if user_id:
+                    user = User.query.get(user_id)
+                    if user:
+                        login_user(user, remember=True)
+
+                client = Client.query.get(client_id)
+                if not client:
+                    logger.error(f'[geo_seo_background] 客户不存在: {client_id}')
+                    return
+
+                client_info = {
+                    'client_name': client.name,
+                    'business_type': client.business_type or '',
+                    'product_type': client.product_type or '',
+                    'service_type': client.service_type or '',
+                    'geographic_scope': client.service_range or '',
+                    'target_area': client.target_area or '',
+                    'brand_type': client.brand_type or '',
+                    'brand_description': client.brand_description or '',
+                    'language_style': client.language_style or '',
+                    'main_product': client.description or '',
+                }
+
+                skill_loader = get_skill_loader()
+                llm_service = get_llm_service()
+
+                expert_name = 'geo-seo-keywords'
+                prompt = _build_expert_prompt(expert_name, client_info)
+                user_role = 'admin'
+                system_prompt = skill_loader.build_system_prompt('geo-seo', client_info, user_role)
+
+                # 获取 Geo SEO 专家
+                expert = Expert.query.filter_by(slug='seo').first()
+                if not expert:
+                    expert = Expert.query.filter_by(name='Geo SEO专家').first()
+                if not expert:
+                    expert = Expert(
+                        slug='seo',
+                        name='Geo SEO专家',
+                        nickname='Geo',
+                        title='Geo SEO专家',
+                        description='关键词挖掘、SEO优化、搜索排名提升',
+                        is_visible=True,
+                        is_active=True
+                    )
+                    db.session.add(expert)
+                    db.session.commit()
+                    logger.info('[geo_seo_background] 自动创建 Geo SEO专家 记录')
+
+                try:
+                    response = llm_service.chat(
+                        messages=[
+                            {'role': 'system', 'content': system_prompt},
+                            {'role': 'user', 'content': prompt}
+                        ],
+                        temperature=0.7
+                    )
+
+                    report_content = response.get('content', '') if isinstance(response, dict) else str(response)
+
+                    # 保存报告，标题格式：客户名+关键词报告
+                    title = f"{client.name}关键词报告"
+                    output = ExpertOutput(
+                        expert_id=expert.id if expert else None,
+                        client_id=client.id,
+                        user_id=user_id,
+                        output_type='keywords',
+                        title=title,
+                        content=report_content[:10000] if len(report_content) > 10000 else report_content
+                    )
+                    db.session.add(output)
+                    db.session.commit()
+
+                    logger.info(f'[geo_seo_background] 关键词库生成完成, output_id: {output.id}, client_id: {client.id}')
+
+                except Exception as e:
+                    logger.error(f'[geo_seo_background] 关键词库生成异常: {str(e)}')
+                    import traceback
+                    logger.error(traceback.format_exc())
+
+        except Exception as e:
+            logger.error(f'[geo_seo_background] 后台线程异常: {str(e)}')
+            import traceback
+            logger.error(traceback.format_exc())
+
+    thread = threading.Thread(target=run_background_task)
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({
+        'code': 200,
+        'message': '已启动后台生成关键词库',
+        'data': {'client_id': client_id}
+    })
+
+
+# ==================== Geo SEO 运营规划方案生成 ====================
+
+@expert_api.route('/geo-seo/generate/operations', methods=['POST'])
+@login_required
+def geo_seo_generate_operations():
+    """Geo SEO 专家生成运营规划方案"""
+    data = request.get_json()
+    client_id = data.get('client_id')
+
+    if not client_id:
+        return jsonify({'code': 400, 'message': '请指定客户ID'})
+
+    client = Client.query.get(client_id)
+    if not client:
+        return jsonify({'code': 404, 'message': '客户不存在'})
+
+    # 获取客户信息
+    client_info = {
+        'client_name': client.name,
+        'business_type': client.business_type or '',
+        'product_type': client.product_type or '',
+        'service_type': client.service_type or '',
+        'geographic_scope': client.service_range or '',
+        'target_area': client.target_area or '',
+        'brand_type': client.brand_type or '',
+        'brand_description': client.brand_description or '',
+        'language_style': client.language_style or '',
+        'main_product': client.description or '',
+    }
+
+    skill_loader = get_skill_loader()
+    llm_service = get_llm_service()
+
+    # 使用 geo-seo skill 生成运营规划方案
+    expert_name = 'geo-seo-operations'
+    prompt = _build_expert_prompt(expert_name, client_info)
+    user_role = current_user.role if current_user.is_authenticated else 'user'
+    system_prompt = skill_loader.build_system_prompt('geo-seo', client_info, user_role)
+
+    try:
+        response = llm_service.chat(
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': prompt}
+            ],
+            temperature=0.7
+        )
+
+        report_content = response.get('content', '') if isinstance(response, dict) else str(response)
+
+        # 获取 Geo SEO 专家
+        expert = Expert.query.filter_by(slug='seo').first()
+        if not expert:
+            expert = Expert.query.filter_by(name='Geo SEO专家').first()
+
+        # 保存报告，标题格式：客户名+运营规划报告
+        title = f"{client.name}运营规划报告"
+        output = ExpertOutput(
+            expert_id=expert.id if expert else None,
+            client_id=client.id,
+            user_id=current_user.id,
+            output_type='operations',
+            title=title,
+            content=report_content[:15000] if len(report_content) > 15000 else report_content
+        )
+        db.session.add(output)
+        db.session.commit()
+
+        return jsonify({
+            'code': 200,
+            'message': '运营规划方案生成成功',
+            'data': {
+                'output_id': output.id,
+                'title': output.title
+            }
+        })
+
+    except Exception as e:
+        logger.error(f'[geo_seo_generate_operations] 异常: {str(e)}')
+        return jsonify({'code': 500, 'message': f'生成失败: {str(e)}'})
+
+
+@expert_api.route('/geo-seo/generate/operations/background', methods=['POST'])
+@login_required
+def geo_seo_generate_operations_background():
+    """Geo SEO 专家后台生成运营规划方案"""
+    import threading
+
+    data = request.get_json()
+    client_id = data.get('client_id')
+    user_id = current_user.id if current_user.is_authenticated else None
+
+    if not client_id:
+        return jsonify({'code': 400, 'message': '请指定客户ID'})
+
+    def run_background_task():
+        try:
+            from flask import current_app
+            from flask_login import login_user
+            from models.models import User
+
+            with current_app.app_context():
+                if user_id:
+                    user = User.query.get(user_id)
+                    if user:
+                        login_user(user, remember=True)
+
+                client = Client.query.get(client_id)
+                if not client:
+                    logger.error(f'[geo_seo_operations_background] 客户不存在: {client_id}')
+                    return
+
+                client_info = {
+                    'client_name': client.name,
+                    'business_type': client.business_type or '',
+                    'product_type': client.product_type or '',
+                    'service_type': client.service_type or '',
+                    'geographic_scope': client.service_range or '',
+                    'target_area': client.target_area or '',
+                    'brand_type': client.brand_type or '',
+                    'brand_description': client.brand_description or '',
+                    'language_style': client.language_style or '',
+                    'main_product': client.description or '',
+                }
+
+                skill_loader = get_skill_loader()
+                llm_service = get_llm_service()
+
+                expert_name = 'geo-seo-operations'
+                prompt = _build_expert_prompt(expert_name, client_info)
+                user_role = 'admin'
+                system_prompt = skill_loader.build_system_prompt('geo-seo', client_info, user_role)
+
+                # 获取 Geo SEO 专家
+                expert = Expert.query.filter_by(slug='seo').first()
+                if not expert:
+                    expert = Expert.query.filter_by(name='Geo SEO专家').first()
+                if not expert:
+                    expert = Expert(
+                        slug='seo',
+                        name='Geo SEO专家',
+                        nickname='Geo',
+                        title='Geo SEO专家',
+                        description='关键词挖掘、SEO优化、搜索排名提升',
+                        is_visible=True,
+                        is_active=True
+                    )
+                    db.session.add(expert)
+                    db.session.commit()
+                    logger.info('[geo_seo_operations_background] 自动创建 Geo SEO专家 记录')
+
+                try:
+                    response = llm_service.chat(
+                        messages=[
+                            {'role': 'system', 'content': system_prompt},
+                            {'role': 'user', 'content': prompt}
+                        ],
+                        temperature=0.7
+                    )
+
+                    report_content = response.get('content', '') if isinstance(response, dict) else str(response)
+
+                    # 保存报告，标题格式：客户名+运营规划报告
+                    title = f"{client.name}运营规划报告"
+                    output = ExpertOutput(
+                        expert_id=expert.id if expert else None,
+                        client_id=client.id,
+                        user_id=user_id,
+                        output_type='operations',
+                        title=title,
+                        content=report_content[:15000] if len(report_content) > 15000 else report_content
+                    )
+                    db.session.add(output)
+                    db.session.commit()
+
+                    logger.info(f'[geo_seo_operations_background] 运营规划方案生成完成, output_id: {output.id}, client_id: {client.id}')
+
+                except Exception as e:
+                    logger.error(f'[geo_seo_operations_background] 运营规划方案生成异常: {str(e)}')
+                    import traceback
+                    logger.error(traceback.format_exc())
+
+        except Exception as e:
+            logger.error(f'[geo_seo_operations_background] 后台线程异常: {str(e)}')
+            import traceback
+            logger.error(traceback.format_exc())
+
+    thread = threading.Thread(target=run_background_task)
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({
+        'code': 200,
+        'message': '已启动后台生成运营规划方案',
+        'data': {'client_id': client_id}
     })
