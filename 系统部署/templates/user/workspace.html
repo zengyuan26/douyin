@@ -1050,6 +1050,17 @@
             border-color: var(--color-primary);
             box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
         }
+
+        #chatInput:disabled {
+            background: var(--color-bg-secondary);
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .chat-send-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         
         .chat-send-btn {
             width: 44px;
@@ -2096,6 +2107,9 @@
     let chatRecordsTimeFilter = 'all';
     let chatRecordsKeyword = '';
 
+    // 锁定状态：防止用户在专家回复前重复发送消息
+    let isWaitingForExpert = false;
+
     // 会话标签管理（微信风格）
     let chatTabs = []; // 存储所有打开的会话标签 {slug, name, icon, sessionId}
 
@@ -2191,6 +2205,69 @@
         if (tab) {
             tab.sessionId = sessionId;
         }
+    }
+
+    // 加载当前客户的所有会话（Promise 版本，用于切换专家时等待加载完成）
+    function loadClientChatTabsPromise() {
+        return new Promise((resolve, reject) => {
+            if (!currentClientId) {
+                chatTabs = [];
+                renderChatTabs();
+                resolve();
+                return;
+            }
+
+            console.log('[loadClientChatTabsPromise] 开始加载会话标签, client_id:', currentClientId);
+
+            fetch('/api/chat/sessions?client_id=' + currentClientId)
+                .then(res => res.json())
+                .then(data => {
+                    console.log('[loadClientChatTabsPromise] 返回数据:', JSON.stringify(data));
+                    if (data.code === 200 && data.data && data.data.sessions) {
+                        // 按专家分组，获取每个专家的最新会话
+                        const expertSessions = {};
+                        data.data.sessions.forEach(session => {
+                            const slug = session.expert_slug;
+                            console.log('[loadClientChatTabsPromise] session:', session.id, 'expert_slug:', slug, 'expert_name:', session.expert_name);
+                            if (slug && !expertSessions[slug]) {
+                                expertSessions[slug] = session;
+                            }
+                        });
+
+                        console.log('[loadClientChatTabsPromise] expertSessions:', expertSessions);
+
+                        // 转换为标签数据
+                        chatTabs = [];
+                        Object.values(expertSessions).forEach(session => {
+                            chatTabs.push({
+                                slug: session.expert_slug,
+                                name: session.expert_name,
+                                icon: session.expert_icon,
+                                sessionId: session.id
+                            });
+                        });
+                        const expertOrder = ['chief-operating-officer', 'market-insights-commander', 'social-media-monitor-commander', 'geo-seo', 'ai-operations-commander', 'content-creator'];
+                        chatTabs.sort((a, b) => {
+                            const idxA = expertOrder.indexOf(a.slug);
+                            const idxB = expertOrder.indexOf(b.slug);
+                            if (idxA === -1 && idxB === -1) return 0;
+                            if (idxA === -1) return 1;
+                            if (idxB === -1) return -1;
+                            return idxA - idxB;
+                        });
+
+                        console.log('[loadClientChatTabsPromise] chatTabs:', chatTabs);
+                        renderChatTabs();
+                        resolve();
+                    } else {
+                        resolve();
+                    }
+                })
+                .catch(err => {
+                    console.error('加载会话标签失败:', err);
+                    reject(err);
+                });
+        });
     }
 
     // 加载当前客户的所有会话，为每个专家创建标签
@@ -2559,8 +2636,12 @@
         selectExpert(slug, name, title, desc, icon, capabilities);
     }
 
-    function selectExpert(slug, name, title, desc, icon, capabilities) {
+    async function selectExpert(slug, name, title, desc, icon, capabilities) {
         console.log('[selectExpert] 切换专家:', slug, name);
+
+        // 切换专家时重置锁定状态
+        setInputDisabled(false);
+        isWaitingForExpert = false;
 
         currentExpertSlug = slug;
         currentExpertName = name;
@@ -2569,19 +2650,29 @@
         currentExpertIcon = icon;
         currentExpertCapabilities = capabilities || [];
 
-        // 添加到会话标签
-        addChatTab(slug, name, icon, null);
-
+        // 切换专家时，先确保会话标签已加载
         // 从会话标签中获取当前专家的 sessionId（如果有）
         const currentTab = chatTabs.find(t => t.slug === slug);
         console.log('[selectExpert] 当前标签:', currentTab);
         if (currentTab && currentTab.sessionId) {
             currentSessionId = currentTab.sessionId;
-            console.log('[selectExpert] 设置 currentSessionId:', currentSessionId);
+            console.log('[selectExpert] 从标签获取 sessionId:', currentSessionId);
         } else {
+            // 标签中没有 sessionId，需要先加载所有会话标签
+            console.log('[selectExpert] 标签中没有 sessionId，尝试加载会话标签');
             currentSessionId = null;
-            console.log('[selectExpert] 无 sessionId，currentSessionId 设为 null');
+            // 重新加载会话标签以获取正确的 sessionId
+            await loadClientChatTabsPromise();
+            // 再次尝试获取 sessionId
+            const refreshedTab = chatTabs.find(t => t.slug === slug);
+            if (refreshedTab && refreshedTab.sessionId) {
+                currentSessionId = refreshedTab.sessionId;
+                console.log('[selectExpert] 加载后获取 sessionId:', currentSessionId);
+            }
         }
+
+        // 添加到会话标签（更新信息）
+        addChatTab(slug, name, icon, currentSessionId);
 
         // 更新UI
         document.querySelectorAll('.expert-list-item').forEach(item => item.classList.remove('active'));
@@ -3144,6 +3235,14 @@
         const message = input.value.trim();
         if (!message) return;
         if (!currentExpertName) { alert('请先选择一位专家'); return; }
+        if (isWaitingForExpert) {
+            alert('请等待专家回复后再发送消息');
+            return;
+        }
+
+        // 锁定输入框
+        setInputDisabled(true);
+        isWaitingForExpert = true;
 
         console.log('[sendMessage] 发送消息:', {
             message: message,
@@ -3219,6 +3318,9 @@
                                 }
                                 if (data.done) {
                                     console.log('[sendMessage] 响应完成, data:', data);
+                                    // 解锁输入框
+                                    setInputDisabled(false);
+                                    isWaitingForExpert = false;
                                     if (data.session_id) {
                                         currentSessionId = data.session_id;
                                         console.log('[sendMessage] 更新 currentSessionId:', currentSessionId);
@@ -3261,38 +3363,45 @@
             const loadingEl = document.getElementById('loadingMessage');
             if (loadingEl) loadingEl.remove();
             addMessage('expert', '网络错误，请检查网络连接后重试');
+            // 解锁输入框
+            setInputDisabled(false);
+            isWaitingForExpert = false;
         });
     }
 
     // 获取当前专家对应的 Skill 名称
     function getCurrentSkillName() {
-        // 尝试从 DOM 元素获取 slug，如果没有则使用默认值
-        const activeExpert = document.querySelector('.expert-list-item.active');
-        if (activeExpert) {
-            const slug = activeExpert.getAttribute('data-slug');
-            // 映射旧 slug 到新的 skill name
-            const slugMapping = {
-                'master': 'chief-operating-officer',
-                'geo-master': 'chief-operating-officer',
-                'client-intake': 'chief-operating-officer',
-                'chief-operating-officer': 'chief-operating-officer',
-                'content': 'content-creator',
-                'content-creator': 'content-creator',
-                'seo': 'ai-operations-commander',
-                'geo-seo': 'ai-operations-commander',
-                'operation': 'ai-operations-commander',
-                'operations-expert': 'ai-operations-commander',
-                'ai-operations-commander': 'ai-operations-commander',
-                'monitor': 'market-insights-commander',
-                'social-media-monitor': 'market-insights-commander',
-                'market-insights-commander': 'market-insights-commander',
-                'insights': 'market-insights-commander',
-                'insights-analyst': 'market-insights-commander',
-                'knowledge-base': 'knowledge-base'
-            };
-            return slugMapping[slug] || slug || 'chief-operating-officer';
+        // 直接使用全局变量 currentExpertSlug，避免 DOM 元素更新延迟导致的问题
+        let slug = currentExpertSlug;
+        if (!slug) {
+            // 尝试从 DOM 元素获取 slug 作为后备
+            const activeExpert = document.querySelector('.expert-list-item.active');
+            if (activeExpert) {
+                slug = activeExpert.getAttribute('data-slug');
+            }
         }
-        return 'chief-operating-officer';
+
+        // 映射旧 slug 到新的 skill name
+        const slugMapping = {
+            'master': 'chief-operating-officer',
+            'geo-master': 'chief-operating-officer',
+            'client-intake': 'chief-operating-officer',
+            'chief-operating-officer': 'chief-operating-officer',
+            'content': 'content-creator',
+            'content-creator': 'content-creator',
+            'seo': 'ai-operations-commander',
+            'geo-seo': 'ai-operations-commander',
+            'operation': 'ai-operations-commander',
+            'operations-expert': 'ai-operations-commander',
+            'ai-operations-commander': 'ai-operations-commander',
+            'monitor': 'market-insights-commander',
+            'social-media-monitor': 'market-insights-commander',
+            'market-insights-commander': 'market-insights-commander',
+            'insights': 'market-insights-commander',
+            'insights-analyst': 'market-insights-commander',
+            'knowledge-base': 'knowledge-base'
+        };
+        return slugMapping[slug] || slug || 'chief-operating-officer';
     }
 
     // 发送消息（文本模式，用于表单提交）
@@ -3429,10 +3538,20 @@
 
     // 处理选项选择
     function handleOptionSelect(option) {
+        // 如果正在等待专家回复，不允许点击选项
+        if (isWaitingForExpert) {
+            alert('请等待专家回复后再操作');
+            return;
+        }
+
+        // 锁定输入框
+        setInputDisabled(true);
+        isWaitingForExpert = true;
+
         // 显示用户选择了该选项
         addMessage('user', `我选择: ${option}`);
 
-        // 发送选项给后端
+        // 发送选项给后端 - 使用流式 API
         const chatContainer = document.getElementById('chatMessages');
         const loadingHtml = `
             <div class="wechat-message expert" id="loadingMessage">
@@ -3457,23 +3576,100 @@
                 session_id: currentSessionId
             })
         })
-        .then(res => res.json())
-        .then(data => {
+        .then(response => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
             const loadingEl = document.getElementById('loadingMessage');
             if (loadingEl) loadingEl.remove();
 
-            if (data.code === 200 && data.data && data.data.reply) {
-                addMessage('expert', data.data.reply);
-                if (data.data.session_id) currentSessionId = data.data.session_id;
-            } else if (data.error) {
-                addMessage('expert', '抱歉，处理您的请求时出错: ' + data.error);
+            const expertMessageDiv = document.createElement('div');
+            expertMessageDiv.className = 'wechat-message expert';
+            expertMessageDiv.innerHTML = `
+                <div class="message-avatar expert">${currentExpertIcon}</div>
+                <div class="message-content">
+                    <div class="message-bubble expert" id="streamingContent"></div>
+                </div>
+            `;
+            chatContainer.appendChild(expertMessageDiv);
+
+            const contentDiv = document.getElementById('streamingContent');
+
+            function readStream() {
+                reader.read().then(({ done, value }) => {
+                    if (done) return;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.content) {
+                                    contentDiv.innerHTML += data.content.replace(/\n/g, '<br>');
+                                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                                }
+                                if (data.done) {
+                                    console.log('[handleOptionSelect] 响应完成, data:', data);
+                                    // 解锁输入框
+                                    setInputDisabled(false);
+                                    isWaitingForExpert = false;
+                                    if (data.session_id) {
+                                        currentSessionId = data.session_id;
+                                        updateCurrentTabSession(data.session_id);
+                                        loadSessionsList();
+                                    }
+                                }
+                            } catch (e) {
+                                const rawData = line.slice(6);
+                                if (rawData && rawData !== '[DONE]') {
+                                    contentDiv.innerHTML += rawData.replace(/\n/g, '<br>');
+                                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                                }
+                            }
+                        }
+                    }
+
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                    if (!done) readStream();
+                });
             }
+            readStream();
         })
         .catch(err => {
+            console.error('Error:', err);
             const loadingEl = document.getElementById('loadingMessage');
             if (loadingEl) loadingEl.remove();
             addMessage('expert', '抱歉，发送消息失败，请重试');
+            // 解锁输入框
+            setInputDisabled(false);
+            isWaitingForExpert = false;
         });
+    }
+
+    // 设置输入框禁用状态
+    function setInputDisabled(disabled) {
+        const input = document.getElementById('chatInput');
+        const sendBtn = document.querySelector('.chat-send-btn');
+        if (input) {
+            input.disabled = disabled;
+            if (disabled) {
+                input.placeholder = '请等待专家回复...';
+            } else {
+                input.placeholder = '输入消息...';
+            }
+        }
+        if (sendBtn) {
+            sendBtn.disabled = disabled;
+            if (disabled) {
+                sendBtn.classList.add('disabled');
+            } else {
+                sendBtn.classList.remove('disabled');
+            }
+        }
     }
 
     function useSkill(skill) {

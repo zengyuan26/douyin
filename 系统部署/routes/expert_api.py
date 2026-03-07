@@ -288,7 +288,12 @@ def chat_with_skill_stream():
     # 获取或创建会话
     chat_session = None
     if session_id:
-        chat_session = ChatSession.query.get(session_id)
+        # 验证会话属于当前用户和客户
+        chat_session = ChatSession.query.filter_by(
+            id=session_id,
+            user_id=current_user.id,
+            client_id=client_id
+        ).first()
 
     if not chat_session:
         chat_session = ChatSession(

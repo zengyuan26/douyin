@@ -763,10 +763,32 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4
 ---
 
 *创建日期：2026-03-02*
-*更新日期：2026-03-06*
-*版本：v3.2.7*
+*更新日期：2026-03-07**
+*版本：v3.2.9**
 
 ---
+## v3.2.9 更新内容 (2026-03-07)
+
+### 工作台 - 消息发送锁定机制 + 切换专家消息错乱修复
+
+**问题描述**：
+- 问题1：用户发送消息后，专家回复时消息显示有问题
+- 问题2：给专家A发送信息后切换到专家B，再给专家B发信息，结果专家B回复的是专家A的内容
+
+**修复说明**：
+1. **消息发送锁定机制**：用户发送消息后，输入框被禁用，必须等待专家回复完成才能再次发送
+2. **切换专家消息错乱修复**：
+   - 前端：`getCurrentSkillName()` 函数之前通过查询 DOM 元素获取当前专家 slug，可能因为 DOM 更新延迟导致获取到错误的专家信息。现在直接使用全局变量 `currentExpertSlug`
+   - 前端：添加 `loadClientChatTabsPromise` 函数，确保切换专家时先等待会话标签加载完成，再使用正确的 sessionId
+   - 后端：修复 `/api/expert/chat/skill/stream` API，添加验证逻辑确保传入的 session_id 属于当前用户和客户，否则创建新会话
+
+| 修改文件 | 修改内容 |
+|----------|----------|
+| `templates/user/workspace.html` | 修改 `getCurrentSkillName()` 函数；添加 `loadClientChatTabsPromise` 函数；修改 `selectExpert` 为 async 函数 |
+| `routes/expert_api.py` | 添加 session_id 验证逻辑 |
+
+---
+
 ## v3.2.8 更新内容 (2026-03-06)
 
 ### 工作台 - 品牌/物料/包装信息维护功能
