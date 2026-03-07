@@ -60,11 +60,11 @@
 
         <!-- 右侧：分析结果 -->
         <div class="col-lg-7 mb-4">
-            <div class="card border-0 shadow-sm" style="min-height: 500px;">
-                <div class="card-header bg-white border-0 py-3">
+            <div class="card border-0 shadow-sm" style="min-height: 600px; max-height: calc(100vh - 180px); display: flex; flex-direction: column;">
+                <div class="card-header bg-white border-0 py-3 flex-shrink-0">
                     <h5 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>分析结果</h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body" style="flex: 1 1 auto; overflow-y: auto; padding-bottom: 80px;">
                     <div id="resultPlaceholder" class="text-center py-5 text-muted">
                         <i class="bi bi-file-earmark-text fs-1"></i>
                         <p class="mt-2">上传电子书并点击分析后，查看结果</p>
@@ -90,10 +90,10 @@
                             </div>
 
                             <!-- 规则列表 -->
-                            <div id="rulesContainer"></div>
+                            <div id="rulesContainer" style="max-height: 350px; overflow-y: auto;"></div>
 
                             <!-- 入库按钮 -->
-                            <div class="mt-4 pt-3 border-top">
+                            <div class="mt-4 pt-3 border-top fixed-bottom-bar">
                                 <button id="importRulesBtn" class="btn btn-primary" disabled>
                                     <i class="bi bi-check-circle me-1"></i>导入选中的规则
                                 </button>
@@ -352,37 +352,37 @@ function displayAnalysisResult(data) {
             const ruleCard = document.createElement('div');
             ruleCard.className = 'card mb-2 border';
 
-            // 根据规则标题判断具体类型
+            // 根据规则标题判断具体类型（使用无底色的小标签）
             let ruleType = '';
             const title = rule.title || '';
             const desc = rule.description || '';
 
             if (title.includes('起名') || title.includes('名字') || title.includes('昵称')) {
-                ruleType = '<span class="badge bg-info ms-2">账号起名</span>';
+                ruleType = '<span class="text-muted small ms-2">[账号起名]</span>';
             } else if (title.includes('简介') || title.includes('bio') || title.includes('Bio')) {
-                ruleType = '<span class="badge bg-info ms-2">账号简介</span>';
+                ruleType = '<span class="text-muted small ms-2">[账号简介]</span>';
             } else if (title.includes('头像') || title.includes('头像')) {
-                ruleType = '<span class="badge bg-info ms-2">头像设计</span>';
+                ruleType = '<span class="text-muted small ms-2">[头像设计]</span>';
             } else if (title.includes('主页') || title.includes('装修') || title.includes('背景图')) {
-                ruleType = '<span class="badge bg-info ms-2">主页装修</span>';
+                ruleType = '<span class="text-muted small ms-2">[主页装修]</span>';
             } else if (title.includes('发布') || title.includes('时机') || title.includes('时间')) {
-                ruleType = '<span class="badge bg-warning ms-2">发布时机</span>';
+                ruleType = '<span class="text-muted small ms-2">[发布时机]</span>';
             } else if (title.includes('互动') || title.includes('回复') || title.includes('评论')) {
-                ruleType = '<span class="badge bg-warning ms-2">互动策略</span>';
+                ruleType = '<span class="text-muted small ms-2">[互动策略]</span>';
             } else if (title.includes('粉丝') || title.includes('粘性')) {
-                ruleType = '<span class="badge bg-warning ms-2">粉丝运营</span>';
+                ruleType = '<span class="text-muted small ms-2">[粉丝运营]</span>';
             } else if (title.includes('复盘') || title.includes('数据') || title.includes('分析')) {
-                ruleType = '<span class="badge bg-warning ms-2">数据复盘</span>';
+                ruleType = '<span class="text-muted small ms-2">[数据复盘]</span>';
             } else if (title.includes('用户') || title.includes('画像') || title.includes('受众')) {
-                ruleType = '<span class="badge bg-success ms-2">用户画像</span>';
+                ruleType = '<span class="text-muted small ms-2">[用户画像]</span>';
             } else if (title.includes('竞品') || title.includes('竞争') || title.includes('对手')) {
-                ruleType = '<span class="badge bg-success ms-2">竞品分析</span>';
+                ruleType = '<span class="text-muted small ms-2">[竞品分析]</span>';
             } else if (title.includes('趋势') || title.includes('市场') || title.includes('行业')) {
-                ruleType = '<span class="badge bg-success ms-2">市场分析</span>';
+                ruleType = '<span class="text-muted small ms-2">[市场分析]</span>';
             } else if (title.includes('痛点') || title.includes('需求')) {
-                ruleType = '<span class="badge bg-success ms-2">用户痛点</span>';
+                ruleType = '<span class="text-muted small ms-2">[用户痛点]</span>';
             } else if (title.includes('变现') || title.includes('商业模式') || title.includes('盈利')) {
-                ruleType = '<span class="badge bg-success ms-2">变现模式</span>';
+                ruleType = '<span class="text-muted small ms-2">[变现模式]</span>';
             }
 
             ruleCard.innerHTML = `
@@ -452,4 +452,16 @@ importRulesBtn.addEventListener('click', async () => {
     }
 });
 </script>
+
+<style>
+.fixed-bottom-bar {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 12px 0;
+    border-top: 1px solid #eee;
+    margin-top: 12px;
+    z-index: 10;
+}
+</style>
 {% endblock %}

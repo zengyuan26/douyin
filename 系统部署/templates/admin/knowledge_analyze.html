@@ -50,7 +50,7 @@
                         <textarea class="form-control" id="contentNote" rows="2"
                                   placeholder="可以补充一些背景信息，如：这是竞品账号、想学习它的开头设计等"></textarea>
                     </div>
-                    <button class="btn btn-primary w-100" id="analyzeBtn" onclick="startAnalysis()">
+                    <button class="btn btn-primary w-100" id="analyzeBtn">
                         <i class="bi bi-stars me-2"></i>开始分析
                     </button>
                 </div>
@@ -62,7 +62,7 @@
                     <h5 class="mb-0"><i class="bi bi-collection me-2"></i>快速操作</h5>
                 </div>
                 <div class="card-body">
-                    <button class="btn btn-outline-primary w-100 mb-2" onclick="showRulesModal()">
+                    <button class="btn btn-outline-primary w-100 mb-2" id="viewRulesBtn">
                         <i class="bi bi-collection me-1"></i>查看已入库规则
                     </button>
                 </div>
@@ -71,11 +71,11 @@
 
         <!-- 右侧：分析结果 -->
         <div class="col-lg-7 mb-4">
-            <div class="card border-0 shadow-sm" style="min-height: 500px;">
-                <div class="card-header bg-white border-0 py-3">
+            <div class="card border-0 shadow-sm" style="min-height: 600px; max-height: calc(100vh - 180px); display: flex; flex-direction: column;">
+                <div class="card-header bg-white border-0 py-3 flex-shrink-0">
                     <h5 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>分析结果</h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body" style="flex: 1 1 auto; overflow-y: auto; padding-bottom: 80px;">
                     <!-- 初始占位 -->
                     <div id="resultPlaceholder" class="text-center py-5 text-muted">
                         <i class="bi bi-camera-video fs-1"></i>
@@ -100,7 +100,7 @@
                             <!-- 内容概览 -->
                             <div class="mb-4">
                                 <div class="d-flex align-items-center mb-3">
-                                    <span class="badge bg-primary me-2" id="contentTypeBadge">短视频</span>
+                                    <span class="text-muted small border rounded px-2 py-1 me-2" id="contentTypeBadge">短视频</span>
                                     <span class="text-muted small" id="contentAuthor"></span>
                                 </div>
                                 <h6 class="mb-3" id="contentTitle"></h6>
@@ -140,13 +140,13 @@
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h6 class="mb-0">
                                         <i class="bi bi-box-arrow-in-down me-1"></i>可入库规则
-                                        <span class="badge bg-secondary ms-1" id="ruleCount">0</span>
+                                        <span class="text-muted small ms-2" id="ruleCount">0 条规则</span>
                                     </h6>
                                 </div>
-                                <div id="rulesContainer"></div>
-                                <div class="mt-3 d-flex justify-content-between align-items-center">
+                                <div id="rulesContainer" style="max-height: 300px; overflow-y: auto;"></div>
+                                <div class="mt-3 d-flex justify-content-between align-items-center fixed-bottom-bar">
                                     <span class="text-muted">已选择 <span id="selectedCount">0</span> 条规则</span>
-                                    <button class="btn btn-success" id="importBtn" onclick="importSelectedRules()" disabled>
+                                    <button class="btn btn-success" id="importBtn" disabled>
                                         <i class="bi bi-check-circle me-1"></i>确认入库
                                     </button>
                                 </div>
@@ -176,7 +176,7 @@
 
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
 let analysisData = null;
 
@@ -193,6 +193,23 @@ const typeName = {
     'image': '图文内容',
     'text': '纯文字内容'
 };
+
+// 绑定按钮事件，避免内联 onclick 导致找不到函数
+document.addEventListener('DOMContentLoaded', () => {
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const viewRulesBtn = document.getElementById('viewRulesBtn');
+    const importBtn = document.getElementById('importBtn');
+    
+    if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', () => startAnalysis());
+    }
+    if (viewRulesBtn) {
+        viewRulesBtn.addEventListener('click', () => showRulesModal());
+    }
+    if (importBtn) {
+        importBtn.addEventListener('click', () => importSelectedRules());
+    }
+});
 
 async function startAnalysis() {
     const url = document.getElementById('contentUrl').value.trim();
@@ -283,7 +300,7 @@ function renderAnalysisResult(data) {
         document.getElementById('emotionCurveSection').style.display = 'block';
         document.getElementById('emotionDesc').textContent = data.emotion_curve.description || '';
         const phasesHtml = data.emotion_curve.phases?.map(p =>
-            `<span class="badge bg-light text-dark">${p.time_point}: ${p.emotion}</span>`
+            `<span class="text-muted small border rounded px-2 py-1 me-1">${p.time_point}: ${p.emotion}</span>`
         ).join('') || '';
         document.getElementById('emotionPhases').innerHTML = phasesHtml;
     }
@@ -321,7 +338,7 @@ function renderAnalysisResult(data) {
 }
 
 function renderRules(rules) {
-    document.getElementById('ruleCount').textContent = rules.length;
+    document.getElementById('ruleCount').textContent = `${rules.length} 条规则`;
 
     if (rules.length === 0) {
         document.getElementById('rulesContainer').innerHTML = `
@@ -341,24 +358,15 @@ function renderRules(rules) {
         'market': '市场分析'
     };
 
-    const categoryColors = {
-        'keywords': 'warning',
-        'topic': 'success',
-        'template': 'primary',
-        'operation': 'purple',
-        'market': 'danger'
-    };
-
     let html = '';
     rules.forEach((rule, index) => {
-        const color = categoryColors[rule.category] || 'secondary';
         html += `
             <div class="card mb-2 border">
                 <div class="card-body py-2">
                     <div class="form-check">
                         <input class="form-check-input rule-checkbox" type="checkbox" value="${index}" id="rule-${index}" checked onchange="updateSelectedCount()">
                         <label class="form-check-label w-100" for="rule-${index}">
-                            <span class="badge bg-${color} me-1">${categoryNames[rule.category] || rule.category}</span>
+                            <span class="text-muted small me-2">[${categoryNames[rule.category] || rule.category}]</span>
                             <span class="fw-medium">${rule.title}</span>
                             <small class="text-muted d-block">${rule.description?.substring(0, 100) || ''}</small>
                             <small class="text-muted">适用场景：${rule.scenes || '通用'}</small>
@@ -458,4 +466,16 @@ async function showRulesModal() {
     }
 }
 </script>
+
+<style>
+.fixed-bottom-bar {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 12px 0;
+    border-top: 1px solid #eee;
+    margin-top: 12px;
+    z-index: 10;
+}
+</style>
 {% endblock %}

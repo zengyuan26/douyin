@@ -40,7 +40,7 @@
                         <textarea class="form-control" id="accountNote" rows="2"
                                   placeholder="可以补充一些背景信息，如：想了解竞品的定位、目标是学习其运营策略等"></textarea>
                     </div>
-                    <button class="btn btn-primary w-100" id="analyzeBtn" onclick="startAnalysis()">
+                    <button class="btn btn-primary w-100" id="analyzeBtn">
                         <i class="bi bi-stars me-2"></i>开始分析
                     </button>
                 </div>
@@ -84,11 +84,11 @@
 
         <!-- 右侧：分析结果 -->
         <div class="col-lg-7 mb-4">
-            <div class="card border-0 shadow-sm" style="min-height: 500px;">
-                <div class="card-header bg-white border-0 py-3">
+            <div class="card border-0 shadow-sm" style="min-height: 600px; max-height: calc(100vh - 180px); display: flex; flex-direction: column;">
+                <div class="card-header bg-white border-0 py-3 flex-shrink-0">
                     <h5 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>分析结果</h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body" style="flex: 1 1 auto; overflow-y: auto; padding-bottom: 80px;">
                     <!-- 初始占位 -->
                     <div id="resultPlaceholder" class="text-center py-5 text-muted">
                         <i class="bi bi-person-badge fs-1"></i>
@@ -146,13 +146,13 @@
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h6 class="mb-0">
                                         <i class="bi bi-box-arrow-in-down me-1"></i>可入库规则
-                                        <span class="badge bg-secondary ms-1" id="ruleCount">0</span>
+                                        <span class="text-muted small ms-2" id="ruleCount">0 条规则</span>
                                     </h6>
                                 </div>
-                                <div id="rulesContainer"></div>
-                                <div class="mt-3 d-flex justify-content-between align-items-center">
+                                <div id="rulesContainer" style="max-height: 300px; overflow-y: auto;"></div>
+                                <div class="mt-3 d-flex justify-content-between align-items-center fixed-bottom-bar">
                                     <span class="text-muted">已选择 <span id="selectedCount">0</span> 条规则</span>
-                                    <button class="btn btn-success" id="importBtn" onclick="importSelectedRules()" disabled>
+                                    <button class="btn btn-success" id="importBtn" disabled>
                                         <i class="bi bi-check-circle me-1"></i>确认入库
                                     </button>
                                 </div>
@@ -167,9 +167,22 @@
 
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
 let analysisData = null;
+
+// 绑定按钮事件
+document.addEventListener('DOMContentLoaded', () => {
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const importBtn = document.getElementById('importBtn');
+    
+    if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', () => startAnalysis());
+    }
+    if (importBtn) {
+        importBtn.addEventListener('click', () => importSelectedRules());
+    }
+});
 
 async function startAnalysis() {
     const url = document.getElementById('accountUrl').value.trim();
@@ -272,7 +285,7 @@ function renderAnalysisResult(data) {
     // 视频类型
     const videoTypes = data.video_types || [];
     const videoTypesHtml = videoTypes.length > 0
-        ? videoTypes.map(t => `<span class="badge bg-primary">${t}</span>`).join('')
+        ? videoTypes.map(t => `<span class="text-muted small border rounded px-2 py-1 me-1">${t}</span>`).join('')
         : '<span class="text-muted">暂无数据</span>';
     document.getElementById('videoTypesContainer').innerHTML = videoTypesHtml;
 
@@ -321,7 +334,7 @@ function renderAnalysisResult(data) {
     }
 
     const audienceHtml = audienceTags.length > 0
-        ? audienceTags.map(t => `<span class="badge bg-info">${t}</span>`).join('')
+        ? audienceTags.map(t => `<span class="text-muted small border rounded px-2 py-1 me-1">${t}</span>`).join('')
         : '<span class="text-muted">暂无画像数据</span>';
     document.getElementById('audienceContainer').innerHTML = audienceHtml;
 
@@ -332,7 +345,7 @@ function renderAnalysisResult(data) {
 }
 
 function renderRules(rules) {
-    document.getElementById('ruleCount').textContent = rules.length;
+    document.getElementById('ruleCount').textContent = `${rules.length} 条规则`;
 
     if (rules.length === 0) {
         document.getElementById('rulesContainer').innerHTML = `
@@ -349,21 +362,15 @@ function renderRules(rules) {
         'market': '市场分析'
     };
 
-    const categoryColors = {
-        'operation': 'purple',
-        'market': 'danger'
-    };
-
     let html = '';
     rules.forEach((rule, index) => {
-        const color = categoryColors[rule.category] || 'secondary';
         html += `
             <div class="card mb-2 border">
                 <div class="card-body py-2">
                     <div class="form-check">
                         <input class="form-check-input rule-checkbox" type="checkbox" value="${index}" id="rule-${index}" checked onchange="updateSelectedCount()">
                         <label class="form-check-label w-100" for="rule-${index}">
-                            <span class="badge bg-${color} me-1">${categoryNames[rule.category] || rule.category}</span>
+                            <span class="text-muted small me-2">[${categoryNames[rule.category] || rule.category}]</span>
                             <span class="fw-medium">${rule.title}</span>
                             <small class="text-muted d-block">${rule.description?.substring(0, 100) || ''}</small>
                             <small class="text-muted">适用场景：${rule.scenes || '通用'}</small>
@@ -427,4 +434,16 @@ async function importSelectedRules() {
     }
 }
 </script>
+
+<style>
+.fixed-bottom-bar {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 12px 0;
+    border-top: 1px solid #eee;
+    margin-top: 12px;
+    z-index: 10;
+}
+</style>
 {% endblock %}
