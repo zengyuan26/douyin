@@ -183,6 +183,8 @@ def knowledge():
     return render_template('admin/knowledge.html')
 
 
+@admin.route('/knowledge/rules')
+@login_required
 @super_admin_required
 def knowledge_rules():
     """规则库详情"""
