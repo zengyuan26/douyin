@@ -115,7 +115,7 @@
                                 <!-- 1. 标题分析 -->
                                 <div class="mb-4" id="titleAnalysisSection" style="display: none;">
                                     <h6 class="border-bottom pb-2 mb-3">
-                                        <span class="badge bg-primary me-2">1</span>标题分析
+                                        <span class="badge text-bg-primary me-2">1</span>标题分析
                                     </h6>
                                     <div class="card mb-2 border">
                                         <div class="card-body py-2">
@@ -129,7 +129,7 @@
                                 <!-- 2. 封面分析 -->
                                 <div class="mb-4" id="coverAnalysisSection" style="display: none;">
                                     <h6 class="border-bottom pb-2 mb-3">
-                                        <span class="badge bg-primary me-2">2</span>封面分析
+                                        <span class="badge text-bg-primary me-2">2</span>封面分析
                                     </h6>
                                     <div class="card mb-2 border">
                                         <div class="card-body py-2">
@@ -142,7 +142,7 @@
                                 <!-- 3. 内容结构分析 -->
                                 <div class="mb-4" id="contentStructureSection" style="display: none;">
                                     <h6 class="border-bottom pb-2 mb-3">
-                                        <span class="badge bg-primary me-2">3</span>内容结构分析
+                                        <span class="badge text-bg-primary me-2">3</span>内容结构分析
                                     </h6>
                                     <!-- 开头钩子 -->
                                     <div class="card mb-2 border">
@@ -199,7 +199,7 @@
                                 <!-- 4. 结尾分析 -->
                                 <div class="mb-4" id="endingAnalysisSection" style="display: none;">
                                     <h6 class="border-bottom pb-2 mb-3">
-                                        <span class="badge bg-primary me-2">4</span>结尾分析
+                                        <span class="badge text-bg-primary me-2">4</span>结尾分析
                                     </h6>
                                     <div class="card mb-2 border">
                                         <div class="card-body py-2">
@@ -212,7 +212,7 @@
                                 <!-- 5. 标签分析 -->
                                 <div class="mb-4" id="tagAnalysisSection" style="display: none;">
                                     <h6 class="border-bottom pb-2 mb-3">
-                                        <span class="badge bg-primary me-2">5</span>标签与关键词分析
+                                        <span class="badge text-bg-primary me-2">5</span>标签与关键词分析
                                     </h6>
                                     <div class="card mb-2 border">
                                         <div class="card-body py-2">
@@ -399,7 +399,7 @@ function renderAnalysisResult(data) {
         document.getElementById('titleAnalysisSection').style.display = 'block';
         document.getElementById('titleContent').innerHTML = `<span class="fw-medium">标题：</span>${process.title.content || ''}`;
         if (process.title.keywords && process.title.keywords.length > 0) {
-            document.getElementById('titleKeywords').innerHTML = `<span class="text-muted">关键词：</span>${process.title.keywords.map(k => `<span class="badge bg-light text-dark me-1">${k}</span>`).join('')}`;
+            document.getElementById('titleKeywords').innerHTML = `<span class="text-muted">关键词：</span>${process.title.keywords.map(k => `<span class="badge text-bg-light text-dark me-1">${k}</span>`).join('')}`;
         }
         document.getElementById('titleAnalysis').textContent = process.title.analysis || '';
     }
@@ -434,7 +434,7 @@ function renderAnalysisResult(data) {
     if (process.tags) {
         document.getElementById('tagAnalysisSection').style.display = 'block';
         if (process.tags.content && process.tags.content.length > 0) {
-            document.getElementById('tagContent').innerHTML = `<span class="text-muted">标签：</span>${process.tags.content.map(t => `<span class="badge bg-light text-dark me-1">${t}</span>`).join('')}`;
+            document.getElementById('tagContent').innerHTML = `<span class="text-muted">标签：</span>${process.tags.content.map(t => `<span class="badge text-bg-light text-dark me-1">${t}</span>`).join('')}`;
         }
         document.getElementById('tagAnalysis').textContent = process.tags.analysis || '';
     }
@@ -593,7 +593,7 @@ async function showRulesModal() {
                     <div class="list-group-item">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
-                                <span class="badge bg-primary me-1">${rule.category_name}</span>
+                                <span class="badge text-bg-primary me-1">${rule.category_name}</span>
                                 <span class="fw-medium">${rule.title}</span>
                             </div>
                         </div>
