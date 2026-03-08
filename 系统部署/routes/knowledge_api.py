@@ -60,6 +60,20 @@ def parse_llm_json(result_text):
     else:
         json_str = result_text
 
+    # 1.5 移除 JSON 中的注释（LLM 可能会输出中文注释）
+    lines = json_str.split('\n')
+    filtered_lines = []
+    for line in lines:
+        # 移除 // 注释和 /* */ 注释
+        stripped = line.strip()
+        if stripped.startswith('//'):
+            continue
+        # 移除行内注释（如 "key": "value", // 注释）
+        if '//' in line:
+            line = line.split('//')[0]
+        filtered_lines.append(line)
+    json_str = '\n'.join(filtered_lines)
+
     # 2. 尝试直接解析
     try:
         return json.loads(json_str)
