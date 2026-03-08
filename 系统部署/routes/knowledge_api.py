@@ -600,7 +600,6 @@ def analyze_content():
             if 'title' in result_json and result_json['title']:
                 title = result_json['title']
                 # 匹配类似 "9.94 BTL:/ o@d.Nw 06/13 " 这样的前缀并移除
-                import re
                 cleaned_title = re.sub(r'^[\d.]+\s*BTL:?\s*[\w@.\/]+\s*\d{2}\/\d{2}\s*', '', title)
                 result_json['title'] = cleaned_title
 
