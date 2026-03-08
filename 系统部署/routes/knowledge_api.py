@@ -603,6 +603,19 @@ def analyze_content():
                 cleaned_title = re.sub(r'^[\d.]+\s*BTL:?\s*[\w@.\/]+\s*\d{2}\/\d{2}\s*', '', title)
                 result_json['title'] = cleaned_title
 
+            # 对标题进行关键词分类
+            try:
+                from utils.title_classifier import TitleKeywordClassifier
+                title_classification = TitleKeywordClassifier.get_keywords_summary(cleaned_title)
+                # 将分类结果添加到 analysis_process.title 中
+                if 'analysis_process' not in result_json:
+                    result_json['analysis_process'] = {}
+                if 'title' not in result_json['analysis_process']:
+                    result_json['analysis_process']['title'] = {}
+                result_json['analysis_process']['title']['keyword_classification'] = title_classification
+            except Exception as e:
+                logger.warning(f"标题关键词分类失败: {e}")
+
             logger.info(f"[knowledge_analyze] 分析完成，找到 {len(result_json.get('rules', []))} 条规则")
             
             return jsonify({

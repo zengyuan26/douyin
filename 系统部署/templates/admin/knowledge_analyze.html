@@ -99,9 +99,10 @@
                         <div id="analysisResultDiv" style="display: none;">
                             <!-- 内容概览 -->
                             <div class="mb-4">
-                                <div class="d-flex align-items-center mb-3">
-                                    <span class="text-muted small border rounded px-2 py-1 me-2" id="contentTypeBadge">短视频</span>
+                                <div class="d-flex align-items-center mb-3 flex-wrap gap-2">
+                                    <span class="text-muted small border rounded px-2 py-1" id="contentTypeBadge">短视频</span>
                                     <span class="text-muted small" id="contentAuthor"></span>
+                                    <span class="badge text-bg-info small" id="characterPresence"></span>
                                 </div>
                                 <h6 class="mb-3" id="contentTitle"></h6>
                             </div>
@@ -383,6 +384,19 @@ function renderAnalysisResult(data) {
     document.getElementById('contentTypeBadge').textContent = typeName[contentType] || '未知';
     document.getElementById('contentAuthor').textContent = data.author || '';
 
+    // 人物出镜标签
+    const characterPresenceEl = document.getElementById('characterPresence');
+    if (data.has_character) {
+        characterPresenceEl.textContent = '👤 人物出镜';
+        characterPresenceEl.className = 'badge text-bg-success small';
+    } else if (data.has_character === false) {
+        characterPresenceEl.textContent = '🎬 无人出镜';
+        characterPresenceEl.className = 'badge text-bg-secondary small';
+    } else {
+        characterPresenceEl.textContent = '';
+        characterPresenceEl.className = 'badge text-bg-info small';
+    }
+
     // 清理标题（移除抖音链接的元数据，如 "9.94 BTL:/ o@d.Nw 06/13" 等）
     let cleanTitle = data.title || '未知';
     // 匹配类似 "9.94 BTL:/ o@d.Nw 06/13 " 这样的前缀
@@ -403,9 +417,62 @@ function renderAnalysisResult(data) {
     if (process.title) {
         document.getElementById('titleAnalysisSection').style.display = 'block';
         document.getElementById('titleContent').innerHTML = `<span class="fw-medium">标题：</span>${process.title.content || ''}`;
-        if (process.title.keywords && process.title.keywords.length > 0) {
-            document.getElementById('titleKeywords').innerHTML = `<span class="text-muted">关键词：</span>${process.title.keywords.map(k => `<span class="badge text-bg-light text-dark me-1">${k}</span>`).join('')}`;
+
+        // 构建关键词显示（优先使用后端分类结果，否则使用AI返回的关键词）
+        let keywordsHtml = '';
+        if (process.title.keyword_classification) {
+            // 使用后端关键词分类结果
+            const kc = process.title.keyword_classification;
+            // 显示标题类型和结构
+            const titleType = kc.title_type || '';
+            const titleStructure = kc.title_structure || '';
+            const primaryCategory = kc.primary_category || '';
+
+            keywordsHtml += `<div class="mb-2">`;
+            if (titleType) keywordsHtml += `<span class="badge bg-info me-1">${titleType}</span>`;
+            if (titleStructure && titleStructure !== '普通标题') keywordsHtml += `<span class="badge bg-dark me-1">${titleStructure}</span>`;
+            if (primaryCategory) keywordsHtml += `<span class="badge bg-primary me-1">主:${primaryCategory}</span>`;
+            keywordsHtml += `</div>`;
+
+            // 按类别显示关键词
+            if (kc.category_details) {
+                const categoryColors = {
+                    '核心关键词': 'bg-danger',
+                    '长尾关键词': 'bg-warning text-dark',
+                    '流量关键词': 'bg-success',
+                    '业务关键词': 'bg-primary',
+                    '科普关键词': 'bg-info text-dark',
+                    '问题关键词': 'bg-secondary',
+                    '时间关键词': 'bg-light text-dark',
+                    '数字关键词': 'bg-dark',
+                    '情感/情绪关键词': 'bg-pink',
+                    '场景关键词': 'bg-teal',
+                    '评价/对比关键词': 'bg-orange',
+                    '修饰/程度关键词': 'bg-purple',
+                    '悬念/好奇心关键词': 'bg-warning text-dark',
+                    '人物/身份关键词': 'bg-info text-dark',
+                    '导航/教程关键词': 'bg-primary'
+                };
+
+                for (const [category, matches] of Object.entries(kc.category_details)) {
+                    const uniqueKeywords = [...new Set(matches.map(m => m.keyword))].slice(0, 5);
+                    if (uniqueKeywords.length > 0) {
+                        const colorClass = categoryColors[category] || 'bg-light text-dark';
+                        keywordsHtml += `<div class="mb-1"><small class="text-muted">${category}：</small>`;
+                        keywordsHtml += uniqueKeywords.map(k => `<span class="badge ${colorClass} me-1" style="font-size: 0.75rem;">${k}</span>`).join('');
+                        keywordsHtml += `</div>`;
+                    }
+                }
+            }
+        } else if (process.title.keywords && process.title.keywords.length > 0) {
+            // 使用AI返回的关键词
+            keywordsHtml = `<span class="text-muted">关键词：</span>${process.title.keywords.map(k => `<span class="badge text-bg-light text-dark me-1">${k}</span>`).join('')}`;
         }
+
+        if (keywordsHtml) {
+            document.getElementById('titleKeywords').innerHTML = keywordsHtml;
+        }
+
         document.getElementById('titleAnalysis').textContent = process.title.analysis || '';
     }
 
@@ -642,5 +709,10 @@ async function showRulesModal() {
     margin-top: 12px;
     z-index: 10;
 }
+/* 自定义关键词类别颜色 */
+.bg-pink { background-color: #e83e8c !important; }
+.bg-teal { background-color: #20c997 !important; }
+.bg-orange { background-color: #fd7e14 !important; }
+.bg-purple { background-color: #6f42c1 !important; }
 </style>
 {% endblock %}
