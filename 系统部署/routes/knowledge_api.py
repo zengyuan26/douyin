@@ -229,7 +229,11 @@ def build_analysis_prompt(url, content_type, note):
             "title": "规则标题",
             "source": "来源维度",
             "description": "规则描述",
-            "scenes": "适用场景"
+            "scenes": "适用场景",
+            "is_good": true/false,
+            "recommendation": "强烈推荐/推荐/不推荐/待观察",
+            "reasoning": "评价理由和依据，说明为什么推荐或不推荐",
+            "score": 评分(1-10)
         }}
     ]
 }}
@@ -695,7 +699,11 @@ def build_account_analysis_prompt(url, note):
             "category": "operation/market 之一",
             "title": "规则标题",
             "description": "规则详细内容",
-            "scenes": "适用场景"
+            "scenes": "适用场景",
+            "is_good": true/false,
+            "recommendation": "强烈推荐/推荐/不推荐/待观察",
+            "reasoning": "评价理由和依据",
+            "score": 评分(1-10)
         }}
     ]
 }}
@@ -992,7 +1000,7 @@ def build_ebook_analysis_prompt(ebook_text, filename):
 - **变现模式** - 商业模式和变现路径
 
 ## 输出格式
-请严格按照以下JSON格式输出，rules数组中每条规则都要有category字段：
+请严格按照以下JSON格式输出，rules数组中每条规则都要有category字段，并且每条规则都要给出评价：
 
 ```json
 {{
@@ -1004,7 +1012,11 @@ def build_ebook_analysis_prompt(ebook_text, filename):
             "title": "规则标题",
             "summary": "规则摘要（50字以内）",
             "description": "规则详细内容",
-            "scenes": "适用场景"
+            "scenes": "适用场景",
+            "is_good": true/false,
+            "recommendation": "强烈推荐/推荐/不推荐/待观察",
+            "reasoning": "评价理由和依据",
+            "score": 评分(1-10)
         }}
     ]
 }}

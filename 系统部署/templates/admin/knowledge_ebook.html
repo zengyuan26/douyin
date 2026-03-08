@@ -352,16 +352,21 @@ function displayAnalysisResult(data) {
             const ruleCard = document.createElement('div');
             ruleCard.className = 'card mb-2 border';
 
-            // 根据规则标题判断具体类型（使用无底色的小标签）
+            // 评分和推荐
+            const score = rule.score || 5;
+            const scoreClass = score >= 8 ? 'bg-success' : (score >= 5 ? 'bg-warning' : 'bg-danger');
+            const rec = rule.recommendation || '待观察';
+            const recClass = rec === '强烈推荐' ? 'text-success' : (rec === '推荐' ? 'text-primary' : (rec === '不推荐' ? 'text-danger' : 'text-muted'));
+
+            // 根据规则标题判断具体类型
             let ruleType = '';
             const title = rule.title || '';
-            const desc = rule.description || '';
 
             if (title.includes('起名') || title.includes('名字') || title.includes('昵称')) {
                 ruleType = '<span class="text-muted small ms-2">[账号起名]</span>';
             } else if (title.includes('简介') || title.includes('bio') || title.includes('Bio')) {
                 ruleType = '<span class="text-muted small ms-2">[账号简介]</span>';
-            } else if (title.includes('头像') || title.includes('头像')) {
+            } else if (title.includes('头像')) {
                 ruleType = '<span class="text-muted small ms-2">[头像设计]</span>';
             } else if (title.includes('主页') || title.includes('装修') || title.includes('背景图')) {
                 ruleType = '<span class="text-muted small ms-2">[主页装修]</span>';
@@ -390,8 +395,15 @@ function displayAnalysisResult(data) {
                     <div class="form-check">
                         <input class="form-check-input rule-checkbox" type="checkbox" value="${rule.index}" id="rule-${rule.index}" checked>
                         <label class="form-check-label w-100" for="rule-${rule.index}">
-                            <div class="fw-medium">${rule.title}${ruleType}</div>
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="fw-medium">${rule.title}${ruleType}</div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge ${scoreClass}">${score}分</span>
+                                    <span class="${recClass} small fw-medium">${rec}</span>
+                                </div>
+                            </div>
                             <small class="text-muted">${rule.summary || rule.description?.substring(0, 100) || ''}</small>
+                            ${rule.reasoning ? `<small class="text-info d-block mt-1"><i class="bi bi-lightbulb me-1"></i>${rule.reasoning}</small>` : ''}
                         </label>
                     </div>
                 </div>

@@ -80,8 +80,17 @@
     <!-- 每日提醒 -->
     <div class="row">
         <div class="col-12">
-            <div class="card border-0 shadow-sm" id="dailyQuoteCard" style="background-size: cover; background-position: center; position: relative;">
-                <div class="position-absolute top-0 start-0 w-100 h-100" id="quoteOverlay" style="background: rgba(0,0,0,0.65);"></div>
+            <div class="card border-0 shadow-sm" id="dailyQuoteCard" style="overflow: hidden; position: relative;">
+                <!-- 背景层：右侧海报 + 左侧渐变 -->
+                <div class="position-absolute top-0 start-0 w-100 h-100" style="display: flex; overflow: hidden;">
+                    <!-- 左侧渐变层 -->
+                    <div class="h-100" id="quoteGradient" style="width: 60%; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);"></div>
+                    <!-- 右侧海报层 -->
+                    <div class="h-100" id="quotePoster" style="width: 40%; background-size: cover; background-position: center; transition: background-image 0.3s ease;"></div>
+                </div>
+                <!-- 遮罩层 -->
+                <div class="position-absolute top-0 start-0 w-100 h-100" style="background: rgba(0,0,0,0.5);"></div>
+                <!-- 内容层 -->
                 <div class="card-body py-4 position-relative" style="z-index: 1;">
                     <div class="d-flex align-items-center">
                         <div class="me-3">
@@ -108,10 +117,10 @@ async function loadDailyQuote() {
         if (data.code === 200 && data.data) {
             const quote = data.data;
             
-            // 设置背景海报
-            if (quote.poster_url) {
-                document.getElementById('dailyQuoteCard').style.backgroundImage = `url(${quote.poster_url})`;
-            }
+            // 设置右侧海报背景
+            const posterEl = document.getElementById('quotePoster');
+            // 无论有没有poster_url，都使用优雅的渐变背景
+            posterEl.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #2d3561 50%, #0f3460 100%)';
             
             // 设置台词
             const quoteText = quote.quote_cn || quote.quote;

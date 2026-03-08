@@ -364,15 +364,32 @@ function renderRules(rules) {
 
     let html = '';
     rules.forEach((rule, index) => {
+        // 评分颜色
+        const score = rule.score || 5;
+        const scoreClass = score >= 8 ? 'bg-success' : (score >= 5 ? 'bg-warning' : 'bg-danger');
+
+        // 推荐标签
+        const rec = rule.recommendation || '待观察';
+        const recClass = rec === '强烈推荐' ? 'text-success' : (rec === '推荐' ? 'text-primary' : (rec === '不推荐' ? 'text-danger' : 'text-muted'));
+
         html += `
             <div class="card mb-2 border">
                 <div class="card-body py-2">
                     <div class="form-check">
                         <input class="form-check-input rule-checkbox" type="checkbox" value="${index}" id="rule-${index}" checked onchange="updateSelectedCount()">
                         <label class="form-check-label w-100" for="rule-${index}">
-                            <span class="text-muted small me-2">[${categoryNames[rule.category] || rule.category}]</span>
-                            <span class="fw-medium">${rule.title}</span>
-                            <small class="text-muted d-block">${rule.description?.substring(0, 100) || ''}</small>
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="text-muted small me-2">[${categoryNames[rule.category] || rule.category}]</span>
+                                    <span class="fw-medium">${rule.title}</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge ${scoreClass}">${score}分</span>
+                                    <span class="${recClass} small fw-medium">${rec}</span>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1">${rule.description?.substring(0, 100) || ''}</small>
+                            ${rule.reasoning ? `<small class="text-info d-block mt-1"><i class="bi bi-lightbulb me-1"></i>${rule.reasoning}</small>` : ''}
                             <small class="text-muted">适用场景：${rule.scenes || '通用'}</small>
                         </label>
                     </div>
