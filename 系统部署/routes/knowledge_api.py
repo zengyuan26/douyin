@@ -625,35 +625,35 @@ def analyze_content():
                 try:
                     from utils.title_classifier import TitleKeywordClassifier
                     title_classification = TitleKeywordClassifier.get_keywords_summary(cleaned_title)
-                title_structure_display = TitleKeywordClassifier.get_title_structure_display(cleaned_title)
-                title_scores = TitleKeywordClassifier.calculate_scores(cleaned_title)
+                    title_structure_display = TitleKeywordClassifier.get_title_structure_display(cleaned_title)
+                    title_scores = TitleKeywordClassifier.calculate_scores(cleaned_title)
 
-                # 检查标题结构是否在规则库中
-                structure_match = None
-                title_structure = title_classification.get('title_structure', '')
-                if title_structure and title_structure != '普通标题':
-                    # 规则库匹配逻辑
-                    known_structures = TitleKeywordClassifier.KNOWN_TITLE_STRUCTURES
-                    if title_structure in known_structures:
-                        structure_match = {'matched': True, 'structure': title_structure, 'message': '标题结构符合优质标题模式'}
-                    else:
-                        structure_match = {
-                            'matched': False,
-                            'structure': title_structure_display,
-                            'message': '标题结构为新型组合，建议加入规则库观察效果'
-                        }
+                    # 检查标题结构是否在规则库中
+                    structure_match = None
+                    title_structure = title_classification.get('title_structure', '')
+                    if title_structure and title_structure != '普通标题':
+                        # 规则库匹配逻辑
+                        known_structures = TitleKeywordClassifier.KNOWN_TITLE_STRUCTURES
+                        if title_structure in known_structures:
+                            structure_match = {'matched': True, 'structure': title_structure, 'message': '标题结构符合优质标题模式'}
+                        else:
+                            structure_match = {
+                                'matched': False,
+                                'structure': title_structure_display,
+                                'message': '标题结构为新型组合，建议加入规则库观察效果'
+                            }
 
-                # 将分类结果和评分添加到 analysis_process.title 中
-                if 'analysis_process' not in result_json:
-                    result_json['analysis_process'] = {}
-                if 'title' not in result_json['analysis_process']:
-                    result_json['analysis_process']['title'] = {}
-                result_json['analysis_process']['title']['keyword_classification'] = title_classification
-                result_json['analysis_process']['title']['title_structure_display'] = title_structure_display
-                result_json['analysis_process']['title']['title_scores'] = title_scores
-                result_json['analysis_process']['title']['structure_match'] = structure_match
-            except Exception as e:
-                logger.warning(f"标题关键词分类或评分失败: {e}")
+                    # 将分类结果和评分添加到 analysis_process.title 中
+                    if 'analysis_process' not in result_json:
+                        result_json['analysis_process'] = {}
+                    if 'title' not in result_json['analysis_process']:
+                        result_json['analysis_process']['title'] = {}
+                    result_json['analysis_process']['title']['keyword_classification'] = title_classification
+                    result_json['analysis_process']['title']['title_structure_display'] = title_structure_display
+                    result_json['analysis_process']['title']['title_scores'] = title_scores
+                    result_json['analysis_process']['title']['structure_match'] = structure_match
+                except Exception as e:
+                    logger.warning(f"标题关键词分类或评分失败: {e}")
 
             logger.info(f"[knowledge_analyze] 分析完成，找到 {len(result_json.get('rules', []))} 条规则")
             
