@@ -323,6 +323,41 @@ class TitleKeywordClassifier:
         return '+'.join(structure_parts) if structure_parts else '普通标题'
 
     @classmethod
+    def get_title_structure_display(cls, title: str) -> str:
+        """
+        获取用于显示的标题结构描述（更直观的格式）
+
+        Returns:
+            如：时间关键字+服务关键字+目标人群关键字+地点关键字
+        """
+        summary = cls.get_keywords_summary(title)
+        structure_parts = []
+
+        # 根据识别的类别生成直观的结构描述
+        if '时间关键词' in summary.get('categories', []):
+            structure_parts.append('时间关键字')
+        if '核心关键词' in summary.get('categories', []):
+            structure_parts.append('核心业务关键字')
+        if '流量关键词' in summary.get('categories', []):
+            structure_parts.append('流量关键字')
+        if '长尾关键词' in summary.get('categories', []):
+            structure_parts.append('长尾需求关键字')
+        if '数字关键词' in summary.get('categories', []):
+            structure_parts.append('数字')
+        if '情感/情绪关键词' in summary.get('categories', []):
+            structure_parts.append('情绪关键字')
+        if '场景关键词' in summary.get('categories', []):
+            structure_parts.append('场景关键字')
+        if '人物/身份关键词' in summary.get('categories', []):
+            structure_parts.append('人群关键字')
+        if '问题关键词' in summary.get('categories', []):
+            structure_parts.append('问题关键字')
+        if '修饰/程度关键词' in summary.get('categories', []):
+            structure_parts.append('程度关键字')
+
+        return '+'.join(structure_parts) if structure_parts else '普通标题'
+
+    @classmethod
     def _detect_title_type(cls, title: str) -> str:
         """检测标题类型"""
         # 疑问句
@@ -391,6 +426,129 @@ class TitleKeywordClassifier:
             '''
 
         return html
+
+    @classmethod
+    def calculate_scores(cls, title: str) -> Dict:
+        """
+        计算标题各维度评分（满分10分）
+
+        Returns:
+            {
+                'total_score': 总分,
+                'scores': {
+                    'keyword_diversity': 关键词多样性,
+                    'structure_complexity': 结构复杂度,
+                    'emotion_impact': 情绪感染力,
+                    'specificity': 具体性,
+                    'click_appeal': 吸引力
+                },
+                'strengths': 优点列表,
+                'weaknesses': 缺点列表,
+                'suggestions': 改进建议
+            }
+        """
+        summary = cls.get_keywords_summary(title)
+        scores = {}
+        strengths = []
+        weaknesses = []
+        suggestions = []
+
+        # 1. 关键词多样性 (满分10)
+        # 有核心词+流量词+长尾词+数字+情绪词 = 10分，每少一种扣2分
+        categories = summary.get('categories', [])
+        keyword_score = min(10, len(categories) * 2)
+        if '核心关键词' not in categories:
+            weaknesses.append('缺少核心业务关键词')
+            suggestions.append('建议添加产品/服务核心词')
+        else:
+            strengths.append('包含核心业务关键词')
+        if '流量关键词' not in categories:
+            weaknesses.append('缺少流量吸引词')
+            suggestions.append('建议添加"婆婆泪目"、"没想到"等流量词')
+        else:
+            strengths.append('包含流量关键词')
+        if '数字关键词' not in categories:
+            weaknesses.append('缺少数字元素')
+            suggestions.append('建议添加"48小时"、"3步"等数字增强可信度')
+        else:
+            strengths.append('包含数字关键词')
+        scores['keyword_diversity'] = keyword_score
+
+        # 2. 结构复杂度 (满分10)
+        # 根据识别出的类别数量和结构复杂程度评分
+        structure = summary.get('title_structure', '')
+        structure_parts = structure.split('+') if structure else []
+        structure_score = min(10, len(structure_parts) * 2 + 2)
+        if len(structure_parts) >= 4:
+            strengths.append('标题结构丰富，多元素组合')
+        elif len(structure_parts) >= 2:
+            strengths.append('标题结构合理')
+        else:
+            weaknesses.append('标题结构较简单')
+            suggestions.append('建议增加更多关键词元素')
+        scores['structure_complexity'] = structure_score
+
+        # 3. 情绪感染力 (满分10)
+        emotion_score = 5  # 基础分
+        if '情感/情绪关键词' in categories:
+            emotion_score += 3
+            strengths.append('包含情绪感染词')
+        if '悬念/好奇心关键词' in categories:
+            emotion_score += 2
+            strengths.append('包含悬念词引发好奇')
+        if '感叹句' in summary.get('title_type', ''):
+            emotion_score += 2
+        scores['emotion_impact'] = min(10, emotion_score)
+
+        # 4. 具体性 (满分10)
+        specificity_score = 5  # 基础分
+        if '长尾关键词' in categories:
+            specificity_score += 3
+            strengths.append('包含长尾关键词精准触达用户')
+        if '时间关键词' in categories:
+            specificity_score += 2
+            strengths.append('包含时间元素增强紧迫感')
+        if '场景关键词' in categories:
+            specificity_score += 2
+            strengths.append('包含场景词增强代入感')
+        scores['specificity'] = min(10, specificity_score)
+
+        # 5. 吸引力 (满分10)
+        appeal_score = 5  # 基础分
+        if '流量关键词' in categories:
+            appeal_score += 2
+        if '修饰/程度关键词' in categories:
+            appeal_score += 2
+            strengths.append('使用程度词增强感染力')
+        if '否定关键词' in categories:
+            appeal_score += 1
+        if summary.get('title_type') == '感叹句':
+            appeal_score += 2
+        elif summary.get('title_type') == '疑问句':
+            appeal_score += 3
+            strengths.append('疑问句式引发用户思考')
+        scores['click_appeal'] = min(10, appeal_score)
+
+        # 计算总分
+        total_score = sum(scores.values()) / len(scores) if scores else 0
+
+        return {
+            'total_score': round(total_score, 1),
+            'scores': {k: round(v, 1) for k, v in scores.items()},
+            'strengths': strengths[:5],
+            'weaknesses': weaknesses[:5],
+            'suggestions': suggestions[:5]
+        }
+
+    # 已知的优质标题结构模式（用于匹配规则库）
+    KNOWN_TITLE_STRUCTURES = [
+        '核心词+流量词+数字',  # 如：香肠灌好48小时竟然
+        '核心词+时间+流量词',  # 如：在南漳48小时翻新旧厨柜
+        '流量词+核心词+数字+情绪词',  # 如：婆婆泪目定制水竟
+        '核心词+长尾词+数字',  # 如：灌香肠最佳时间3个技巧
+        '问题+核心词+解决方案',  # 如：香肠破了怎么办
+        '时间+地点+服务+目标人群',  # 如：在南漳48小时翻新
+    ]
 
 
 def classify_title_keywords(title: str) -> Dict:

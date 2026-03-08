@@ -122,7 +122,10 @@
                                         <div class="card-body py-2">
                                             <div class="mb-2" id="titleContent"></div>
                                             <div class="mb-2" id="titleKeywords"></div>
-                                            <div class="text-muted small" id="titleAnalysis"></div>
+                                            <!-- 标题评分显示 -->
+                                            <div class="mb-2" id="titleScores"></div>
+                                            <!-- 规则库匹配提醒 -->
+                                            <div class="mb-2" id="structureMatchWarning"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -288,6 +291,9 @@ const typeName = {
     'video': '短视频',
     'account': '账号主页',
     'image': '图文内容',
+    'image_text': '图文内容',
+    '图文作品': '图文内容',
+    '图文': '图文内容',
     'text': '纯文字内容'
 };
 
@@ -397,10 +403,14 @@ function renderAnalysisResult(data) {
         characterPresenceEl.className = 'badge text-bg-info small';
     }
 
-    // 清理标题（移除抖音链接的元数据，如 "9.94 BTL:/ o@d.Nw 06/13" 等）
+    // 清理标题（移除抖音链接的元数据）
     let cleanTitle = data.title || '未知';
-    // 匹配类似 "9.94 BTL:/ o@d.Nw 06/13 " 这样的前缀
+    // 1. 匹配类似 "9.94 BTL:/ o@d.Nw 06/13 " 这样的前缀
     cleanTitle = cleanTitle.replace(/^[\d.]+\s*BTL:?\s*[\w@.\/]+\s*\d{2}\/\d{2}\s*/, '');
+    // 2. 匹配 "9.94 复制打开抖音，看看【标题】" 这种格式
+    cleanTitle = cleanTitle.replace(/^[\d.]+\s*复制打开抖音，看看【[^】]+】/, '');
+    // 3. 移除末尾的抖音链接
+    cleanTitle = cleanTitle.replace(/\s*https?:\/\/v\.douyin\.com\/[^\s]+.*$/, '');
     document.getElementById('contentTitle').textContent = cleanTitle;
 
     // 互动数据
@@ -431,7 +441,11 @@ function renderAnalysisResult(data) {
 
             keywordsHtml += `<div class="mb-2">`;
             if (titleType) keywordsHtml += `<span class="badge bg-info me-1">${titleType}</span>`;
-            if (titleStructure && titleStructure !== '普通标题') keywordsHtml += `<span class="badge bg-dark me-1">${titleStructure}</span>`;
+            if (process.title.title_structure_display && process.title.title_structure_display !== '普通标题') {
+                keywordsHtml += `<span class="badge bg-dark me-1">${process.title.title_structure_display}</span>`;
+            } else if (titleStructure && titleStructure !== '普通标题') {
+                keywordsHtml += `<span class="badge bg-dark me-1">${titleStructure}</span>`;
+            }
             if (primaryCategory) keywordsHtml += `<span class="badge bg-primary me-1">主:${primaryCategory}</span>`;
             keywordsHtml += `</div>`;
 
@@ -474,7 +488,58 @@ function renderAnalysisResult(data) {
             document.getElementById('titleKeywords').innerHTML = keywordsHtml;
         }
 
-        document.getElementById('titleAnalysis').textContent = process.title.analysis || '';
+        // 显示标题评分
+        if (process.title.title_scores) {
+            const scores = process.title.title_scores;
+            let scoresHtml = `<div class="border-top pt-2 mt-2">`;
+            scoresHtml += `<div class="d-flex align-items-center mb-2">`;
+            scoresHtml += `<span class="fw-medium me-2">标题评分：</span>`;
+            scoresHtml += `<span class="${scores.total_score >= 7 ? 'text-success' : scores.total_score >= 5 ? 'text-warning' : 'text-danger'} fw-bold">${scores.total_score}/10</span>`;
+            scoresHtml += `</div>`;
+
+            // 显示各项评分
+            const scoreItems = [
+                { key: 'keyword_diversity', label: '关键词多样性' },
+                { key: 'structure_complexity', label: '结构复杂度' },
+                { key: 'emotion_impact', label: '情绪感染力' },
+                { key: 'specificity', label: '具体性' },
+                { key: 'click_appeal', label: '吸引力' }
+            ];
+
+            for (const item of scoreItems) {
+                const score = scores.scores[item.key] || 0;
+                const colorClass = score >= 7 ? 'text-success' : score >= 5 ? 'text-warning' : 'text-danger';
+                scoresHtml += `<div class="d-flex justify-content-between align-items-center mb-1 small"><span>${item.label}</span><span class="${colorClass} fw-medium">${score}</span></div>`;
+            }
+
+            // 显示优点
+            if (scores.strengths && scores.strengths.length > 0) {
+                scoresHtml += `<div class="mt-2"><small class="text-success fw-medium">✓ ${scores.strengths[0]}</small></div>`;
+            }
+
+            // 显示缺点和改进建议
+            if (scores.suggestions && scores.suggestions.length > 0) {
+                scoresHtml += `<div class="mt-1"><small class="text-muted">💡 ${scores.suggestions[0]}</small></div>`;
+            }
+
+            scoresHtml += `</div>`;
+            document.getElementById('titleScores').innerHTML = scoresHtml;
+        }
+
+        // 显示规则库匹配提醒
+        if (process.title.structure_match) {
+            const match = process.title.structure_match;
+            let matchHtml = '';
+            if (match.matched) {
+                matchHtml = `<div class="text-success small"><strong>✓</strong> ${match.message}</div>`;
+            } else {
+                matchHtml = `<div class="text-warning small"><strong>⚠</strong> ${match.message}</div>`;
+            }
+            document.getElementById('structureMatchWarning').innerHTML = matchHtml;
+        }
+
+        // 不再显示 process.title.analysis（删除无用的陈述句）
+        // document.getElementById('titleAnalysis').textContent = process.title.analysis || '';
     }
 
     // 2. 封面分析

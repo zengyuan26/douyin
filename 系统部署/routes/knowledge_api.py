@@ -96,15 +96,28 @@ def parse_llm_json(result_text):
     lines = json_str.split('\n')
     filtered_lines = []
     for line in lines:
-        # 移除 // 注释和 /* */ 注释
         stripped = line.strip()
-        if stripped.startswith('//'):
+        # 跳过纯注释行（包括各种形式的注释）
+        if stripped.startswith('//') or stripped.startswith('/*') or stripped.startswith('*') or stripped.startswith('#'):
             continue
         # 移除行内注释（如 "key": "value", // 注释）
         if '//' in line:
             line = line.split('//')[0]
+        # 移除块注释 /* */ 内容
+        if '/*' in line:
+            line = re.sub(r'/\*.*?\*/', '', line)
         filtered_lines.append(line)
     json_str = '\n'.join(filtered_lines)
+
+    # 1.6 移除注释后移除空行，然后补充缺失的逗号
+    # 先移除空行
+    json_str = re.sub(r'\n\s*\n', '\n', json_str)
+    # 然后添加逗号：匹配 "key": value 后面跟另一个 key 的情况
+    json_str = re.sub(
+        r'("(?:\w+)":\s*("(?:[^"\\]|\\.)*"|\d+|true|false|null))\s*\n\s*("(?:\w+)":)',
+        r'\1,\n\3',
+        json_str
+    )
 
     # 2. 尝试直接解析
     try:
@@ -595,25 +608,52 @@ def analyze_content():
         try:
             result_json = parse_llm_json(result_text)
 
-            # 清理标题中的抖音元数据（如 "9.94 BTL:/ o@d.Nw 06/13 " 等前缀）
+            # 清理标题中的抖音元数据
+            cleaned_title = ''
             if 'title' in result_json and result_json['title']:
                 title = result_json['title']
-                # 匹配类似 "9.94 BTL:/ o@d.Nw 06/13 " 这样的前缀并移除
+                # 1. 匹配类似 "9.94 BTL:/ o@d.Nw 06/13 " 这样的前缀并移除
                 cleaned_title = re.sub(r'^[\d.]+\s*BTL:?\s*[\w@.\/]+\s*\d{2}\/\d{2}\s*', '', title)
+                # 2. 匹配 "9.94 复制打开抖音，看看【标题】" 这种格式
+                cleaned_title = re.sub(r'^[\d.]+\s*复制打开抖音，看看【[^】]+】', '', cleaned_title)
+                # 3. 移除末尾的抖音链接
+                cleaned_title = re.sub(r'\s*https?:\/\/v\.douyin\.com\/[^\s]+.*$', '', cleaned_title)
                 result_json['title'] = cleaned_title
 
-            # 对标题进行关键词分类
-            try:
-                from utils.title_classifier import TitleKeywordClassifier
-                title_classification = TitleKeywordClassifier.get_keywords_summary(cleaned_title)
-                # 将分类结果添加到 analysis_process.title 中
+            # 对标题进行关键词分类和评分
+            if cleaned_title:
+                try:
+                    from utils.title_classifier import TitleKeywordClassifier
+                    title_classification = TitleKeywordClassifier.get_keywords_summary(cleaned_title)
+                title_structure_display = TitleKeywordClassifier.get_title_structure_display(cleaned_title)
+                title_scores = TitleKeywordClassifier.calculate_scores(cleaned_title)
+
+                # 检查标题结构是否在规则库中
+                structure_match = None
+                title_structure = title_classification.get('title_structure', '')
+                if title_structure and title_structure != '普通标题':
+                    # 规则库匹配逻辑
+                    known_structures = TitleKeywordClassifier.KNOWN_TITLE_STRUCTURES
+                    if title_structure in known_structures:
+                        structure_match = {'matched': True, 'structure': title_structure, 'message': '标题结构符合优质标题模式'}
+                    else:
+                        structure_match = {
+                            'matched': False,
+                            'structure': title_structure_display,
+                            'message': '标题结构为新型组合，建议加入规则库观察效果'
+                        }
+
+                # 将分类结果和评分添加到 analysis_process.title 中
                 if 'analysis_process' not in result_json:
                     result_json['analysis_process'] = {}
                 if 'title' not in result_json['analysis_process']:
                     result_json['analysis_process']['title'] = {}
                 result_json['analysis_process']['title']['keyword_classification'] = title_classification
+                result_json['analysis_process']['title']['title_structure_display'] = title_structure_display
+                result_json['analysis_process']['title']['title_scores'] = title_scores
+                result_json['analysis_process']['title']['structure_match'] = structure_match
             except Exception as e:
-                logger.warning(f"标题关键词分类失败: {e}")
+                logger.warning(f"标题关键词分类或评分失败: {e}")
 
             logger.info(f"[knowledge_analyze] 分析完成，找到 {len(result_json.get('rules', []))} 条规则")
             
