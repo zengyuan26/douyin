@@ -110,21 +110,117 @@
                             <div class="row g-2 mb-4" id="interactionData">
                             </div>
 
-                            <!-- 情绪曲线 -->
-                            <div class="mb-4" id="emotionCurveSection" style="display: none;">
-                                <h6 class="border-bottom pb-2 mb-3">
-                                    <i class="bi bi-heart-pulse me-1"></i>情绪曲线分析
-                                </h6>
-                                <div class="alert alert-info" id="emotionDesc"></div>
-                                <div class="d-flex flex-wrap gap-2 mb-3" id="emotionPhases"></div>
-                            </div>
+                            <!-- ========== 分析过程展示（按用户拆解思路顺序）========== -->
+                            <div id="analysisProcessSection">
+                                <!-- 1. 标题分析 -->
+                                <div class="mb-4" id="titleAnalysisSection" style="display: none;">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <span class="badge bg-primary me-2">1</span>标题分析
+                                    </h6>
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="mb-2" id="titleContent"></div>
+                                            <div class="mb-2" id="titleKeywords"></div>
+                                            <div class="text-muted small" id="titleAnalysis"></div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                            <!-- 内容节奏 -->
-                            <div class="mb-4" id="contentRhythmSection" style="display: none;">
-                                <h6 class="border-bottom pb-2 mb-3">
-                                    <i class="bi bi-speedometer2 me-1"></i>内容节奏分析
-                                </h6>
-                                <div class="alert alert-secondary" id="rhythmDesc"></div>
+                                <!-- 2. 封面分析 -->
+                                <div class="mb-4" id="coverAnalysisSection" style="display: none;">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <span class="badge bg-primary me-2">2</span>封面分析
+                                    </h6>
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="mb-2" id="coverContent"></div>
+                                            <div class="text-muted small" id="coverAnalysis"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 3. 内容结构分析 -->
+                                <div class="mb-4" id="contentStructureSection" style="display: none;">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <span class="badge bg-primary me-2">3</span>内容结构分析
+                                    </h6>
+                                    <!-- 开头钩子 -->
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="fw-medium mb-1"><i class="bi bi lightning me-1"></i>开头钩子（前3秒）</div>
+                                            <div class="text-muted small" id="hookContent"></div>
+                                        </div>
+                                    </div>
+                                    <!-- 开头画面 -->
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="fw-medium mb-1">开头画面</div>
+                                            <div class="text-muted small" id="openingShot"></div>
+                                        </div>
+                                    </div>
+                                    <!-- 主体内容 -->
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="fw-medium mb-1">主体内容</div>
+                                            <div class="text-muted small" id="bodyContent"></div>
+                                        </div>
+                                    </div>
+                                    <!-- 内容节奏 -->
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="fw-medium mb-1">内容节奏</div>
+                                            <div class="text-muted small" id="rhythmContent"></div>
+                                        </div>
+                                    </div>
+                                    <!-- 情绪曲线 -->
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="fw-medium mb-1">情绪变化曲线（是否能拽着观众走）</div>
+                                            <div class="text-muted small" id="emotionCurveContent"></div>
+                                            <div class="mt-2" id="emotionPhasesContent"></div>
+                                        </div>
+                                    </div>
+                                    <!-- 内容核心价值 -->
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="fw-medium mb-1">内容核心价值</div>
+                                            <div class="text-muted small" id="coreValue"></div>
+                                        </div>
+                                    </div>
+                                    <!-- 脚本模型 -->
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="fw-medium mb-1">脚本模型</div>
+                                            <div class="text-muted small" id="scriptModel"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 4. 结尾分析 -->
+                                <div class="mb-4" id="endingAnalysisSection" style="display: none;">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <span class="badge bg-primary me-2">4</span>结尾分析
+                                    </h6>
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="mb-2" id="endingContent"></div>
+                                            <div class="text-muted small" id="endingAnalysis"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 5. 标签分析 -->
+                                <div class="mb-4" id="tagAnalysisSection" style="display: none;">
+                                    <h6 class="border-bottom pb-2 mb-3">
+                                        <span class="badge bg-primary me-2">5</span>标签与关键词分析
+                                    </h6>
+                                    <div class="card mb-2 border">
+                                        <div class="card-body py-2">
+                                            <div class="mb-2" id="tagContent"></div>
+                                            <div class="text-muted small" id="tagAnalysis"></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- 维度分析 -->
@@ -295,20 +391,52 @@ function renderAnalysisResult(data) {
     if (data.favorites) interactionHtml.push(`<div class="col-4"><div class="text-center p-2 bg-light rounded"><div class="fw-bold">${data.favorites}</div><small class="text-muted">收藏</small></div></div>`);
     document.getElementById('interactionData').innerHTML = interactionHtml.join('');
 
-    // 情绪曲线
-    if (data.emotion_curve) {
-        document.getElementById('emotionCurveSection').style.display = 'block';
-        document.getElementById('emotionDesc').textContent = data.emotion_curve.description || '';
-        const phasesHtml = data.emotion_curve.phases?.map(p =>
-            `<span class="text-muted small border rounded px-2 py-1 me-1">${p.time_point}: ${p.emotion}</span>`
-        ).join('') || '';
-        document.getElementById('emotionPhases').innerHTML = phasesHtml;
+    // ========== 按分析过程顺序展示 ==========
+    const process = data.analysis_process || {};
+
+    // 1. 标题分析
+    if (process.title) {
+        document.getElementById('titleAnalysisSection').style.display = 'block';
+        document.getElementById('titleContent').innerHTML = `<span class="fw-medium">标题：</span>${process.title.content || ''}`;
+        if (process.title.keywords && process.title.keywords.length > 0) {
+            document.getElementById('titleKeywords').innerHTML = `<span class="text-muted">关键词：</span>${process.title.keywords.map(k => `<span class="badge bg-light text-dark me-1">${k}</span>`).join('')}`;
+        }
+        document.getElementById('titleAnalysis').textContent = process.title.analysis || '';
     }
 
-    // 内容节奏
-    if (data.content_rhythm) {
-        document.getElementById('contentRhythmSection').style.display = 'block';
-        document.getElementById('rhythmDesc').textContent = data.content_rhythm.description || '';
+    // 2. 封面分析
+    if (process.cover) {
+        document.getElementById('coverAnalysisSection').style.display = 'block';
+        document.getElementById('coverContent').innerHTML = `<span class="fw-medium">封面：</span>${process.cover.content || ''}`;
+        document.getElementById('coverAnalysis').textContent = process.cover.analysis || '';
+    }
+
+    // 3. 内容结构分析
+    if (process.content) {
+        document.getElementById('contentStructureSection').style.display = 'block';
+        document.getElementById('hookContent').textContent = process.content.hook || '';
+        document.getElementById('openingShot').textContent = process.content.opening_shot || '';
+        document.getElementById('bodyContent').textContent = process.content.body || '';
+        document.getElementById('rhythmContent').textContent = process.content.rhythm || '';
+        document.getElementById('emotionCurveContent').textContent = process.content.emotion_curve || '';
+        document.getElementById('coreValue').textContent = process.content.core_value || '';
+        document.getElementById('scriptModel').textContent = process.content.script_model || '';
+    }
+
+    // 4. 结尾分析
+    if (process.ending) {
+        document.getElementById('endingAnalysisSection').style.display = 'block';
+        document.getElementById('endingContent').innerHTML = `<span class="fw-medium">结尾：</span>${process.ending.content || ''}`;
+        document.getElementById('endingAnalysis').textContent = process.ending.analysis || '';
+    }
+
+    // 5. 标签分析
+    if (process.tags) {
+        document.getElementById('tagAnalysisSection').style.display = 'block';
+        if (process.tags.content && process.tags.content.length > 0) {
+            document.getElementById('tagContent').innerHTML = `<span class="text-muted">标签：</span>${process.tags.content.map(t => `<span class="badge bg-light text-dark me-1">${t}</span>`).join('')}`;
+        }
+        document.getElementById('tagAnalysis').textContent = process.tags.analysis || '';
     }
 
     // 维度分析

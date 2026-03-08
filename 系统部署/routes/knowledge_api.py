@@ -337,6 +337,42 @@ def build_analysis_prompt(url, content_type, note):
     "content_type": "内容类型(video/image/text)",
     "duration": "时长",
 
+    // 按顺序展示分析过程
+    "analysis_process": {{
+        // 1. 标题分析
+        "title": {{
+            "content": "标题原文",
+            "keywords": ["关键词1", "关键词2"],
+            "analysis": "标题分析过程：为什么这么写，好在哪"
+        }},
+
+        // 2. 封面分析
+        "cover": {{
+            "content": "封面描述",
+            "analysis": "封面分析：为什么这样设计，好在哪"
+        }},
+
+        // 3. 内容结构分析
+        "content": {{
+            "hook": "开头钩子分析：前3秒用了什么钩子",
+            "body": "主体内容分析：内容怎么展开",
+            "structure": "爆款内容结构分析：整体框架是什么"
+        }},
+
+        // 4. 结尾分析
+        "ending": {{
+            "content": "结尾内容描述",
+            "analysis": "结尾分析：如何收尾，好在哪"
+        }},
+
+        // 5. 标签分析
+        "tags": {{
+            "content": ["标签1", "标签2"],
+            "analysis": "标签分析：用了哪些标签策略"
+        }}
+    }},
+
+    // 核心分析结果
     "title_analysis": {{
         "structure": "标题结构分析（关键词组合）",
         "keyword_types": {{
