@@ -364,9 +364,9 @@ function renderRules(rules) {
 
     let html = '';
     rules.forEach((rule, index) => {
-        // 评分颜色
+        // 评分颜色 - 使用 text-bg-* 确保在暗黑模式下也清晰可见
         const score = rule.score || 5;
-        const scoreClass = score >= 8 ? 'bg-success' : (score >= 5 ? 'bg-warning' : 'bg-danger');
+        const scoreClass = score >= 8 ? 'text-bg-success' : (score >= 5 ? 'text-bg-warning' : 'text-bg-danger');
 
         // 推荐标签
         const rec = rule.recommendation || '待观察';

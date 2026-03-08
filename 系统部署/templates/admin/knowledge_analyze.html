@@ -314,7 +314,7 @@ function renderAnalysisResult(data) {
     // 维度分析
     if (data.dimensions && data.dimensions.length > 0) {
         const dimHtml = data.dimensions.map(dim => {
-            const scoreClass = dim.score >= 8 ? 'bg-success' : (dim.score >= 5 ? 'bg-warning' : 'bg-danger');
+            const scoreClass = dim.score >= 8 ? 'text-bg-success' : (dim.score >= 5 ? 'text-bg-warning' : 'text-bg-danger');
             return `
                 <div class="card mb-2 border">
                     <div class="card-body py-2">
@@ -360,9 +360,9 @@ function renderRules(rules) {
 
     let html = '';
     rules.forEach((rule, index) => {
-        // 评分颜色
+        // 评分颜色 - 使用 text-bg-* 确保在暗黑模式下清晰
         const score = rule.score || 5;
-        const scoreClass = score >= 8 ? 'bg-success' : (score >= 5 ? 'bg-warning' : 'bg-danger');
+        const scoreClass = score >= 8 ? 'text-bg-success' : (score >= 5 ? 'text-bg-warning' : 'text-bg-danger');
 
         // 推荐标签
         const rec = rule.recommendation || '待观察';
