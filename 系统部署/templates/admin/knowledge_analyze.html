@@ -382,7 +382,12 @@ function renderAnalysisResult(data) {
     // 内容概览
     document.getElementById('contentTypeBadge').textContent = typeName[contentType] || '未知';
     document.getElementById('contentAuthor').textContent = data.author || '';
-    document.getElementById('contentTitle').textContent = data.title || '未知';
+
+    // 清理标题（移除抖音链接的元数据，如 "9.94 BTL:/ o@d.Nw 06/13" 等）
+    let cleanTitle = data.title || '未知';
+    // 匹配类似 "9.94 BTL:/ o@d.Nw 06/13 " 这样的前缀
+    cleanTitle = cleanTitle.replace(/^[\d.]+\s*BTL:?\s*[\w@.\/]+\s*\d{2}\/\d{2}\s*/, '');
+    document.getElementById('contentTitle').textContent = cleanTitle;
 
     // 互动数据
     const interactionHtml = [];

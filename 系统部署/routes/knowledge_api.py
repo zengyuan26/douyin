@@ -30,6 +30,16 @@ except ImportError:
     def get_all_quotes():
         return []
 
+# 导入标题关键词分类器
+try:
+    from utils.title_classifier import TitleKeywordClassifier, classify_title_keywords
+except ImportError:
+    # 如果导入失败，定义空函数
+    def classify_title_keywords(title):
+        return {"categories": [], "all_keywords": [], "title_type": "未知"}
+    TitleKeywordClassifier = None
+        return []
+
 
 @knowledge_api.route('/daily-quote', methods=['GET'])
 def api_daily_quote():
@@ -49,6 +59,29 @@ def api_all_quotes():
         "code": 200,
         "data": {"quotes": quotes, "total": len(quotes)}
     })
+
+
+@knowledge_api.route('/title-classify', methods=['POST'])
+@login_required
+def api_classify_title():
+    """标题关键词分类接口"""
+    try:
+        data = request.get_json()
+        title = data.get('title', '').strip()
+        
+        if not title:
+            return jsonify({'code': 400, 'message': '请输入标题'})
+        
+        # 使用分类器进行分类
+        result = classify_title_keywords(title)
+        
+        return jsonify({
+            "code": 200,
+            "data": result
+        })
+    except Exception as e:
+        logger.error(f"标题分类失败: {e}")
+        return jsonify({'code': 500, 'message': f'分类失败: {str(e)}'})
 
 
 def parse_llm_json(result_text):
@@ -562,7 +595,15 @@ def analyze_content():
         # 提取 JSON
         try:
             result_json = parse_llm_json(result_text)
-            
+
+            # 清理标题中的抖音元数据（如 "9.94 BTL:/ o@d.Nw 06/13 " 等前缀）
+            if 'title' in result_json and result_json['title']:
+                title = result_json['title']
+                # 匹配类似 "9.94 BTL:/ o@d.Nw 06/13 " 这样的前缀并移除
+                import re
+                cleaned_title = re.sub(r'^[\d.]+\s*BTL:?\s*[\w@.\/]+\s*\d{2}\/\d{2}\s*', '', title)
+                result_json['title'] = cleaned_title
+
             logger.info(f"[knowledge_analyze] 分析完成，找到 {len(result_json.get('rules', []))} 条规则")
             
             return jsonify({
