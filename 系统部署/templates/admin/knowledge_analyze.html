@@ -418,7 +418,22 @@ function renderAnalysisResult(data) {
         document.getElementById('openingShot').textContent = process.content.opening_shot || '';
         document.getElementById('bodyContent').textContent = process.content.body || '';
         document.getElementById('rhythmContent').textContent = process.content.rhythm || '';
-        document.getElementById('emotionCurveContent').textContent = process.content.emotion_curve || '';
+        // 情绪曲线是对象，需要正确提取字段
+        const emotionCurve = process.content.emotion_curve;
+        if (emotionCurve) {
+            let emotionHtml = '';
+            if (emotionCurve.type) emotionHtml += `<div><span class="text-muted">曲线类型：</span>${emotionCurve.type}</div>`;
+            if (emotionCurve.can_drag_audience) emotionHtml += `<div><span class="text-muted">是否能拽着观众走：</span>${emotionCurve.can_drag_audience}</div>`;
+            if (emotionCurve.phases && emotionCurve.phases.length > 0) {
+                emotionHtml += `<div class="mt-2"><span class="text-muted">情绪阶段：</span></div>`;
+                emotionHtml += `<div class="d-flex flex-wrap gap-1 mt-1">`;
+                emotionHtml += emotionCurve.phases.map(p =>
+                    `<span class="badge text-bg-light text-dark">${p.position || p.time_point || ''}: ${p.emotion || ''}</span>`
+                ).join('');
+                emotionHtml += `</div>`;
+            }
+            document.getElementById('emotionCurveContent').innerHTML = emotionHtml || '';
+        }
         document.getElementById('coreValue').textContent = process.content.core_value || '';
         document.getElementById('scriptModel').textContent = process.content.script_model || '';
     }
