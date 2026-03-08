@@ -97,7 +97,7 @@
 
                         <!-- 分析结果展示 -->
                         <div id="analysisResultDiv" style="display: none;">
-                            <!-- 内容概览 -->
+                            <!-- 内容概览 + 互动数据 -->
                             <div class="mb-4">
                                 <div class="d-flex align-items-center mb-3 flex-wrap gap-2">
                                     <span class="text-muted small border rounded px-2 py-1" id="contentTypeBadge">短视频</span>
@@ -105,10 +105,10 @@
                                     <span class="badge text-bg-info small" id="characterPresence"></span>
                                 </div>
                                 <h6 class="mb-3" id="contentTitle"></h6>
-                            </div>
 
-                            <!-- 互动数据 -->
-                            <div class="row g-2 mb-4" id="interactionData">
+                                <!-- 互动数据 -->
+                                <div class="d-flex gap-3" id="interactionData">
+                                </div>
                             </div>
 
                             <!-- ========== 分析过程展示（按用户拆解思路顺序）========== -->
@@ -405,9 +405,10 @@ function renderAnalysisResult(data) {
 
     // 互动数据
     const interactionHtml = [];
-    if (data.likes) interactionHtml.push(`<div class="col-4"><div class="text-center p-2 bg-light rounded"><div class="fw-bold">${data.likes}</div><small class="text-muted">点赞</small></div></div>`);
-    if (data.comments) interactionHtml.push(`<div class="col-4"><div class="text-center p-2 bg-light rounded"><div class="fw-bold">${data.comments}</div><small class="text-muted">评论</small></div></div>`);
-    if (data.favorites) interactionHtml.push(`<div class="col-4"><div class="text-center p-2 bg-light rounded"><div class="fw-bold">${data.favorites}</div><small class="text-muted">收藏</small></div></div>`);
+    if (data.likes) interactionHtml.push(`<div class="text-center"><div class="fs-5 fw-bold">${data.likes}</div><small class="text-muted">👍 点赞</small></div>`);
+    if (data.comments) interactionHtml.push(`<div class="text-center"><div class="fs-5 fw-bold">${data.comments}</div><small class="text-muted">💬 评论</small></div>`);
+    if (data.favorites) interactionHtml.push(`<div class="text-center"><div class="fs-5 fw-bold">${data.favorites}</div><small class="text-muted">⭐ 收藏</small></div>`);
+    if (data.shares) interactionHtml.push(`<div class="text-center"><div class="fs-5 fw-bold">${data.shares}</div><small class="text-muted">↗️ 分享</small></div>`);
     document.getElementById('interactionData').innerHTML = interactionHtml.join('');
 
     // ========== 按分析过程顺序展示 ==========

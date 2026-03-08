@@ -38,7 +38,6 @@ except ImportError:
     def classify_title_keywords(title):
         return {"categories": [], "all_keywords": [], "title_type": "未知"}
     TitleKeywordClassifier = None
-        return []
 
 
 @knowledge_api.route('/daily-quote', methods=['GET'])
