@@ -6,7 +6,7 @@ import os
 from flask import Flask
 from flask_login import LoginManager
 from config import config
-from models.models import db, User
+from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, KnowledgeAccount, KnowledgeAccountHistory
 
 # 配置日志
 logging.basicConfig(level=logging.DEBUG)
@@ -78,6 +78,11 @@ def create_app(config_name='default'):
 
 # 创建应用实例
 app = create_app('development')
+
+# 自动创建缺失的数据库表
+with app.app_context():
+    db.create_all()
+    print("✓ 数据库表检查完成")
 
 
 if __name__ == '__main__':

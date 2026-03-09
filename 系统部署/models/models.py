@@ -441,3 +441,70 @@ class ChatMessage(db.Model):
     
     def __repr__(self):
         return f'<ChatMessage {self.id}:{self.role}>'
+
+
+class KnowledgeAccount(db.Model):
+    """账号主表 - 手动录入的账号信息"""
+    __tablename__ = 'knowledge_accounts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)  # 账号名称
+    platform = db.Column(db.String(50))  # 平台（douyin, xhs, bilibili等）
+    url = db.Column(db.String(500))  # 主页链接
+    current_data = db.Column(db.JSON)  # 最新账号数据（粉丝数、简介、视频数等）
+    status = db.Column(db.String(20), default='active')  # 状态（active/inactive）
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # 详细信息（与客户表对应）
+    business_type = db.Column(db.String(50))  # 业务类型：卖货类/服务类/两者都有
+    product_type = db.Column(db.String(50))  # 产品类型：实物商品/批发供应链/其他
+    service_type = db.Column(db.String(50))  # 服务类型：本地生活/线上专业/知识付费/其他
+    service_range = db.Column(db.String(50))  # 地域范围：本地/跨区域/全球
+    target_area = db.Column(db.String(100))  # 具体城市/区域
+    brand_type = db.Column(db.String(50))  # 品牌定位：个人IP/企业品牌/两者兼顾
+    brand_description = db.Column(db.Text)  # 品牌/核心人物描述
+    language_style = db.Column(db.String(50))  # 语言风格：普通话/方言
+    dialect = db.Column(db.String(50))  # 具体方言
+    core_advantage = db.Column(db.Text)  # 核心优势/卖点
+    main_product = db.Column(db.String(200))  # 主营业务（含占比）
+
+    # Relationships
+    history = db.relationship('KnowledgeAccountHistory', backref='account', lazy='dynamic', cascade='all, delete-orphan')
+    contents = db.relationship('KnowledgeContent', backref='account', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<KnowledgeAccount {self.name}>'
+
+
+class KnowledgeAccountHistory(db.Model):
+    """账号历史表 - 记录账号信息变更历史"""
+    __tablename__ = 'knowledge_account_history'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('knowledge_accounts.id'), nullable=False)
+    data = db.Column(db.JSON)  # 历史数据（粉丝数、简介等）
+    change_note = db.Column(db.String(200))  # 变更说明
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<KnowledgeAccountHistory {self.id}:{self.account_id}>'
+
+
+class KnowledgeContent(db.Model):
+    """内容表 - 手动录入或图片识别的内容"""
+    __tablename__ = 'knowledge_contents'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('knowledge_accounts.id'), nullable=True)  # 关联账号ID
+    title = db.Column(db.String(200))  # 内容标题
+    content_url = db.Column(db.String(500))  # 内容链接
+    content_type = db.Column(db.String(50))  # 内容类型（video, image_text, plain_text）
+    source_type = db.Column(db.String(50))  # 来源类型（link手动录入/image图片识别/manual手动录入）
+    content_data = db.Column(db.JSON)  # 内容详细数据（JSON）
+    analysis_result = db.Column(db.JSON)  # 分析结果（JSON）
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<KnowledgeContent {self.title}>'

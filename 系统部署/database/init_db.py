@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app
-from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, Industry, Channel, Client, Keyword, Topic, Content, Monitor, MonitorReport, ExpertOutput, ChatSession, ChatMessage
+from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, KnowledgeAccount, KnowledgeAccountHistory, Industry, Channel, Client, Keyword, Topic, Content, Monitor, MonitorReport, ExpertOutput, ChatSession, ChatMessage
 from flask_bcrypt import Bcrypt
 
 bcrypt = Bcrypt()

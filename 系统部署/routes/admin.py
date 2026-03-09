@@ -520,6 +520,14 @@ def knowledge_account_analysis():
     return render_template('admin/knowledge_account_analysis.html')
 
 
+@admin.route('/knowledge/dismantle')
+@login_required
+@super_admin_required
+def knowledge_dismantle():
+    """爆款拆解页面"""
+    return render_template('admin/knowledge_dismantle.html')
+
+
 # ==================== 行业管理 ====================
 
 @admin.route('/industries')

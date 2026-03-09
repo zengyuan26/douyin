@@ -8,12 +8,85 @@ import os
 import re
 import json
 import logging
+import base64
+import requests
 from flask import Blueprint, request, jsonify, current_app, render_template
 from flask_login import login_required, current_user
+
+# 导入新添加的模型
+try:
+    from models.models import KnowledgeAccount, KnowledgeAccountHistory, KnowledgeContent, db
+except ImportError:
+    db = None
 
 logger = logging.getLogger(__name__)
 
 knowledge_api = Blueprint('knowledge_api', __name__, url_prefix='/api/knowledge')
+
+
+def resolve_douyin_short_url(url):
+    """解析抖音短链接，返回真实的主页链接
+
+    Args:
+        url: 抖音链接（可能是短链接或主页链接，也可能是包含链接的文本）
+
+    Returns:
+        str: 解析后的真实链接，如果是短链接则返回原始链接
+    """
+    # 第一步：从文本中提取抖音链接
+    # 匹配 v.douyin.com 开头的链接
+    url_match = re.search(r'https?://v\.douyin\.com/[a-zA-Z0-9]+', url)
+    if url_match:
+        extracted_url = url_match.group(0)
+        logger.info(f"[resolve_douyin_short_url] 从文本中提取到链接: {extracted_url}")
+        url = extracted_url
+
+    # 处理 iesdouyin.com 分享链接 - 需要解析重定向
+    if 'iesdouyin.com' in url:
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+            response = requests.get(url, headers=headers, allow_redirects=True, timeout=10, stream=True)
+            real_url = response.url
+            response.close()
+
+            # 转换为 douyin.com 格式
+            if 'iesdouyin.com' in real_url:
+                real_url = real_url.replace('iesdouyin.com', 'douyin.com')
+
+            logger.info(f"[resolve_douyin_short_url] iesdouyin.com 解析: {url} -> {real_url}")
+            return real_url
+        except Exception as e:
+            logger.warning(f"[resolve_douyin_short_url] 解析 iesdouyin.com 失败: {e}")
+            # 尝试直接转换
+            return url.replace('iesdouyin.com', 'douyin.com')
+
+    # 检查是否是短链接
+    if 'v.douyin.com' not in url:
+        return url
+
+    try:
+        # 使用 GET 请求获取重定向后的真实链接
+        # 使用 allow_redirects=True 自动跟随重定向
+        # 设置较短的超时和 User-Agent
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+        # 使用 GET 请求而不是 HEAD，因为有些服务器对 HEAD 请求处理不同
+        response = requests.get(url, headers=headers, allow_redirects=True, timeout=10, stream=True)
+        # 关闭连接
+        response.close()
+
+        # 获取最终的真实链接
+        real_url = response.url
+
+        logger.info(f"[resolve_douyin_short_url] 短链接 {url} 解析为 {real_url}")
+
+        return real_url
+    except Exception as e:
+        logger.warning(f"[resolve_douyin_short_url] 解析短链接失败: {e}, 使用原始链接")
+        return url
 
 # 导入电影台词数据
 try:
@@ -155,6 +228,42 @@ def get_llm_service():
         return _get_llm()
     except Exception as e:
         logger.error(f"获取 LLM 服务失败: {e}")
+        return None
+
+
+def get_douyin_real_account_info(url, use_browser=False):
+    """使用爬虫获取抖音账号真实信息
+
+    Args:
+        url: 抖音链接
+        use_browser: 是否使用浏览器模式（需要手动验证验证码）
+
+    Returns:
+        dict: 账号信息，如果失败返回 None
+    """
+    try:
+        from services.douyin_scraper import get_douyin_account_info as _scrape
+        return _scrape(url, use_browser=use_browser)
+    except Exception as e:
+        logger.warning(f"[get_douyin_real_account_info] 爬虫获取失败: {e}")
+        return None
+
+
+def get_douyin_video_content_info(url, use_browser=False):
+    """使用爬虫获取抖音视频/图文内容信息
+
+    Args:
+        url: 抖音视频/图文链接
+        use_browser: 是否使用浏览器模式（需要手动验证验证码）
+
+    Returns:
+        dict: 视频/图文信息，如果失败返回 None
+    """
+    try:
+        from services.douyin_scraper import get_douyin_video_info as _scrape
+        return _scrape(url, use_browser=use_browser)
+    except Exception as e:
+        logger.warning(f"[get_douyin_video_content_info] 爬虫获取失败: {e}")
         return None
 
 
@@ -579,20 +688,24 @@ def analyze_content():
         url = data.get('url', '').strip()
         content_type = data.get('content_type', 'auto')
         note = data.get('note', '').strip()
-        
+
         if not url:
             return jsonify({'code': 400, 'message': '请输入内容链接'})
-        
+
+        # 解析短链接，获取真实的内容链接
+        real_url = resolve_douyin_short_url(url)
+        logger.info(f"[knowledge_analyze] 原始链接: {url}, 解析后: {real_url}")
+
         # 获取 LLM 服务（支持 Ollama 本地大模型）
         llm_service = get_llm_service()
         if not llm_service:
             return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
-        
+
         # 构建提示词
-        prompt = build_analysis_prompt(url, content_type, note)
-        
+        prompt = build_analysis_prompt(real_url, content_type, note)
+
         # 调用 LLM
-        logger.info(f"[knowledge_analyze] 开始分析: {url}")
+        logger.info(f"[knowledge_analyze] 开始分析: {real_url}")
         
         messages = [
             {"role": "system", "content": "你是一个专业的内容分析专家，擅长分析抖音等短视频平台的爆款内容。请严格按照JSON格式输出分析结果。"},
@@ -672,6 +785,922 @@ def analyze_content():
     
     except Exception as e:
         logger.error(f"分析失败: {e}", exc_info=True)
+        return jsonify({
+            'code': 500,
+            'message': f'分析失败: {str(e)}'
+        })
+
+
+# ==================== 模块化分析相关函数 ====================
+
+# 模块定义
+ANALYSIS_MODULES = {
+    'title': {
+        'name': '标题分析',
+        'order': 1,
+        'prompt_builder': None  # 动态生成
+    },
+    'cover': {
+        'name': '封面分析',
+        'order': 2,
+        'prompt_builder': None
+    },
+    'topic': {
+        'name': '选题分析',
+        'order': 3,
+        'prompt_builder': None
+    },
+    'content': {
+        'name': '内容结构',
+        'order': 4,
+        'prompt_builder': None
+    },
+    'ending': {
+        'name': '结尾分析',
+        'order': 5,
+        'prompt_builder': None
+    },
+    'tags': {
+        'name': '标签分析',
+        'order': 6,
+        'prompt_builder': None
+    },
+    'psychology': {
+        'name': '心理分析',
+        'order': 7,
+        'prompt_builder': None
+    },
+    'commercial': {
+        'name': '商业目的',
+        'order': 8,
+        'prompt_builder': None
+    },
+    'character': {
+        'name': '人物设计',
+        'order': 9,
+        'prompt_builder': None
+    },
+    'content_form': {
+        'name': '内容形式',
+        'order': 10,
+        'prompt_builder': None
+    },
+    'why_popular': {
+        'name': '爆款原因',
+        'order': 11,
+        'prompt_builder': None
+    },
+    'interaction': {
+        'name': '互动数据',
+        'order': 12,
+        'prompt_builder': None
+    }
+}
+
+
+def build_title_prompt(url, note):
+    """构建标题分析提示词"""
+    prompt = f"""你是一个资深的短视频标题分析专家。请分析以下抖音内容的标题。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 标题分析要点
+
+### 1. 标题关键词组合
+分析标题用了哪些关键词组合：
+- 流量关键词（吸引眼球的词）
+- 核心业务关键词（产品/服务词）
+- 科普/行业关键词（专业词）
+- 数字（增强可信度）
+- 情绪词（引发共鸣）
+
+### 2. 标题为什么有效
+- 击中用户什么需求？
+- 和竞品比有什么独特性？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "title": "内容标题",
+    "author": "作者/账号名",
+    "title_analysis": {{
+        "structure": "标题结构分析（关键词组合）",
+        "keyword_types": {{
+            "flow_keywords": "流量关键词",
+            "business_keywords": "核心业务关键词",
+            "knowledge_keywords": "科普/行业关键词",
+            "numbers": "数字",
+            "emotion_words": "情绪词"
+        }},
+        "why_effective": "标题为什么有效"
+    }},
+    "analysis_process": {{
+        "title": {{
+            "content": "标题原文",
+            "keywords": ["关键词1", "关键词2"],
+            "analysis": "标题分析过程"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_cover_prompt(url, note):
+    """构建封面分析提示词"""
+    prompt = f"""你是一个资深的短视频封面分析专家。请分析以下抖音内容的封面。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 封面分析要点
+
+### 1. 封面内容描述
+- 封面画面包含哪些元素？
+- 人物/产品/文字的分布？
+
+### 2. 封面设计分析
+- 为什么这样设计封面？
+- 好在哪里？
+- 能吸引用户点击吗？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "cover_analysis": {{
+        "content": "封面描述",
+        "elements": ["元素1", "元素2"],
+        "design_analysis": "设计分析",
+        "why_effective": "为什么有效"
+    }},
+    "analysis_process": {{
+        "cover": {{
+            "content": "封面描述",
+            "analysis": "封面分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_topic_prompt(url, note):
+    """构建选题分析提示词"""
+    prompt = f"""你是一个资深的短视频选题分析专家。请分析以下抖音内容的选题。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 选题分析要点
+
+### 1. 选题方向
+- 这个选题属于什么方向？
+- 是热点话题还是长期选题？
+
+### 2. 目标人群（非常重要）
+分析内容针对的目标人群：
+- 细分场景人群：[具体人群描述]
+- 长尾需求人群：[具体需求]
+
+### 3. 选题切中客户什么
+- 痛点（什么痛苦/困扰）
+- 情绪（什么情感需求）
+- 功能价值（什么实用价值）
+- 独特性（和市面上其他方案比有什么不同）
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "topic_analysis": {{
+        "direction": "选题方向",
+        "topic_type": "热点/长期/节日/其他",
+        "target_audience": {{
+            "scene_crowd": "细分场景人群",
+            "demand_crowd": "长尾需求人群"
+        }},
+        "hit_what": {{
+            "pain_point": "痛点",
+            "emotion": "情绪",
+            "functional_value": "功能价值",
+            "uniqueness": "独特性"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_content_structure_prompt(url, note):
+    """构建内容结构分析提示词"""
+    prompt = f"""你是一个资深的短视频内容结构分析专家。请分析以下抖音内容的结构。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 内容结构分析要点
+
+### 1. 开头钩子（前3秒）
+- 用了什么钩子类型？
+- 开头画面有什么特点？
+- 为什么这样设计钩子？
+
+### 2. 视频内容节奏
+- 整体节奏：快/中/慢/张弛有度
+- 内容是否一直拽着观众走？
+
+### 3. 情绪变化曲线
+分析情绪如何起伏：
+- 开头什么情绪？
+- 中间情绪如何变化？
+- 结尾什么情绪收尾？
+
+### 4. 内容核心价值
+- 内容提供了什么价值？
+- 对用户有什么帮助？
+
+### 5. 脚本模型
+分析用的什么脚本模型：
+- 晒过程（展示过程）
+- 讲故事（叙述故事）
+- 说观点（表达观点）
+- 教知识（知识分享）
+- 说产品（产品介绍）
+- 演段子（娱乐表演）
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "content_structure": {{
+        "hook": "开头钩子类型",
+        "hook_description": "钩子具体表现",
+        "opening_shot": "开头画面特点",
+        "rhythm": "内容节奏",
+        "rhythm_description": "节奏详细描述",
+        "emotion_curve": {{
+            "type": "情绪曲线类型",
+            "can_drag_audience": "是否能拽着观众走",
+            "phases": [
+                {{"position": "位置", "emotion": "情绪", "description": "描述"}}
+            ]
+        }},
+        "core_value": "内容核心价值",
+        "script_model": "脚本模型类型"
+    }},
+    "analysis_process": {{
+        "content": {{
+            "hook": "开头钩子分析",
+            "body": "主体内容分析",
+            "structure": "内容结构分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_ending_prompt(url, note):
+    """构建结尾分析提示词"""
+    prompt = f"""你是一个资深的短视频结尾分析专家。请分析以下抖音内容的结尾。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 结尾分析要点
+
+### 1. 结尾内容描述
+- 结尾画面/文字是什么？
+- 做了什么动作/说了什么话？
+
+### 2. 结尾设计分析
+- 为什么这样收尾？
+- 好在哪里？
+- 是否引导了互动（评论/点赞/转发）？
+
+### 3. 结尾与整体内容的呼应
+- 结尾是否呼应了开头？
+- 是否强化了核心信息？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "ending_analysis": {{
+        "content": "结尾内容描述",
+        "ending_type": "结尾类型（引导互动/总结升华/悬念留扣/自然收尾等）",
+        "design_analysis": "设计分析",
+        "why_effective": "为什么有效",
+        "interaction_guidance": "是否有互动引导"
+    }},
+    "analysis_process": {{
+        "ending": {{
+            "content": "结尾内容描述",
+            "analysis": "结尾分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_tags_prompt(url, note):
+    """构建标签分析提示词"""
+    prompt = f"""你是一个资深的短视频标签分析专家。请分析以下抖音内容的标签策略。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 标签分析要点
+
+### 1. 抖音5个标签组合策略
+分析内容用了哪些标签组合：
+- 区域+业务关键词：[示例]
+- 蓝海长尾词：[示例]
+- 区域+品牌词：[示例]
+- 核心业务关键词：[示例]
+- 产品关键词：[示例]
+- 场景词（客户需要解决方案的场景）：[示例]
+
+### 2. 关键词埋入策略
+分析关键词如何埋入（便于AI/SEO搜索收录）：
+- 标题关键词
+- 开头关键词
+- 内容关键词
+- 标签关键词
+
+### 3. 标签效果分析
+- 这些标签能带来哪些流量？
+- 是否符合账号定位？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "tag_strategy": {{
+        "region_business": "区域+业务关键词",
+        "blue_ocean": "蓝海长尾词",
+        "region_brand": "区域+品牌词",
+        "core_business": "核心业务关键词",
+        "product_keywords": "产品关键词",
+        "scene_words": "场景词",
+        "keyword_placement": "关键词埋入位置"
+    }},
+    "analysis_process": {{
+        "tags": {{
+            "content": ["标签1", "标签2"],
+            "analysis": "标签分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_psychology_prompt(url, note):
+    """构建心理分析提示词"""
+    prompt = f"""你是一个资深的短视频用户心理分析专家。请分析以下内容利用了哪些用户心理。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 心理分析要点
+
+### 1. 利用了什么心理
+分析内容利用了观众什么心理：
+- 恐惧（害怕失去/担忧）
+- 追求（想要获得）
+- 规避（想避免问题）
+- 损失厌恶（不想亏）
+- 从众心理（大家都在看）
+- 其他：[具体心理]
+
+### 2. 为什么招人喜欢
+- 是因为有用？
+- 是因为有趣？
+- 是因为能引起共鸣？
+- 还是都有？
+
+### 3. 心理诱导效果
+- 这些心理手段达到预期效果了吗？
+- 用户会产生什么行为？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "psychology_analysis": {{
+        "psychology_used": ["利用的心理1", "利用的心理2"],
+        "psychology_details": {{
+            "fear": "恐惧心理的具体表现",
+            "pursuit": "追求心理的具体表现",
+            "avoidance": "规避心理的具体表现",
+            "loss_aversion": "损失厌恶的具体表现",
+            "bandwagon": "从众心理的具体表现"
+        }},
+        "why_appealing": {{
+            "useful": "有用（是/否/部分）",
+            "interesting": "有趣（是/否/部分）",
+            "resonance": "共鸣（是/否/部分）"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_commercial_prompt(url, note):
+    """构建商业目的分析提示词"""
+    prompt = f"""你是一个资深的短视频商业目的分析专家。请分析以下内容的商业目的。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 商业目的分析要点
+
+### 1. 商业目的
+- 这个内容目的是什么？
+- 品牌宣传/引流获客/产品销售/IP打造？
+
+### 2. 细分市场
+- 内容主题切的是什么细分市场？
+- 什么细分场景？
+
+### 3. 爆款元素
+- 选题结合了什么爆款元素？
+- 为什么能火？
+
+### 4. 变现路径
+- 内容如何引导到变现？
+- 是否有明确的CTA？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "commercial_purpose": {{
+        "purpose": "商业目的",
+        "purpose_type": "品牌宣传/引流获客/产品销售/IP打造",
+        "target_market": "目标细分市场",
+        "target_scene": "目标细分场景",
+        "viral_elements": "结合的爆款元素",
+        "monetization_path": "变现路径描述",
+        "has_cta": true/false
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_character_prompt(url, note):
+    """构建人物设计分析提示词"""
+    prompt = f"""你是一个资深的短视频人物设计分析专家。请分析以下内容的人物设计。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 人物设计分析要点
+
+### 1. 出镜情况
+- 是否有人物出镜？
+- 出镜人物角色？
+- 人物出现的时长占比？
+
+### 2. 人物关系
+- 人物之间什么关系？
+- 婆媳/父子/夫妻/朋友/其他？
+
+### 3. 冲突设计（如果是故事类）
+- 有什么冲突/矛盾？
+- 冲突如何推进？
+- 冲突解决了吗？
+
+### 4. 人物塑造
+- 人物性格特点？
+- 是否有记忆点？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "character_design": {{
+        "has_character": "是否有人物出镜",
+        "characters": ["出镜人物角色1", "出镜人物角色2"],
+        "character_appearance_ratio": "人物出镜时长占比",
+        "relationships": "人物关系描述",
+        "conflict": "冲突设计描述",
+        "character_traits": "人物性格特点"
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_content_form_prompt(url, note):
+    """构建内容形式分析提示词"""
+    prompt = f"""你是一个资深的内容形式分析专家。请分析以下抖音内容的形式特点。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 内容形式分析要点
+
+### 1. 内容形式类型
+- 图文类内容
+- 短视频类内容
+
+### 2. 图文类内容分析（如适用）
+- 文字使用原则：
+  - 何时尽量少文字？
+  - 何时多用数字佐证？
+  - 何时讲具体案例？
+  - 何时说方言？
+- 构图分析：[图文排版特点]
+
+### 3. 短视频类内容分析（如适用）
+- 拍摄角度：[拍摄手法]
+- 背景音乐选择：[BGM特点]
+- 画面与内容关联度
+- 剪辑节奏
+
+### 4. 整体风格
+- 调性：专业/亲和/幽默/严肃
+- 是否有统一的视觉风格？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "content_form": {{
+        "form_type": "内容形式（图文字/短视频）",
+        "text_principles": {{
+            "less_text_when": "何时尽量少文字",
+            "more_numbers_when": "何时多用数字",
+            "case_when": "何时讲具体案例",
+            "dialect_when": "何时说方言"
+        }},
+        "visual_analysis": {{
+            "composition": "构图分析",
+            "shooting_angle": "拍摄角度",
+            "bgm": "背景音乐选择",
+            "content_visual_relationship": "画面与内容关联度",
+            "editing_rhythm": "剪辑节奏"
+        }},
+        "overall_style": "整体风格描述"
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_why_popular_prompt(url, note):
+    """构建爆款原因分析提示词"""
+    prompt = f"""你是一个资深的爆款内容分析专家。请分析以下抖音内容为什么能成为爆款。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 爆款原因分析要点
+
+### 1. 为什么这么多人喜欢
+- 内容本身好在哪里？
+- 击中什么需求？
+- 有什么独特价值？
+
+### 2. 为什么互动会好
+- 引发评论的点是什么？
+- 让人想留言的原因？
+- 是否有争议性话题？
+
+### 3. 为什么愿意分享
+- 什么让人想转发？
+- 社交货币是什么？
+- 是否具有传播属性？
+
+### 4. 爆款元素总结
+- 成功的关键因素是什么？
+- 可以复用的点是什么？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "why_popular": {{
+        "why_liked": "为什么多人喜欢",
+        "like_key_factors": ["因素1", "因素2"],
+        "why_good_interaction": "为什么互动好",
+        "interaction_triggers": ["触发点1", "触发点2"],
+        "why_share": "为什么愿意分享",
+        "share_factors": ["分享因素1", "分享因素2"],
+        "key_success_factors": "成功关键因素总结",
+        "replicable_points": "可复用的点"
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_interaction_prompt(url, note):
+    """构建互动数据分析提示词"""
+    prompt = f"""你是一个资深的数据分析师。请分析以下抖音内容的互动数据。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+
+---
+
+## 互动数据分析要点
+
+### 1. 互动数据概况
+- 点赞数量及质量
+- 评论数量及内容分析
+- 收藏数量及动机
+- 转发数量及场景
+
+### 2. 数据分析
+- 点赞多评论少：说明什么？
+- 收藏多点赞少：说明什么？
+- 转发多说明什么？
+- 评论内容反映了什么？
+
+### 3. 互动优化建议
+- 如何提升互动率？
+- 哪些方面可以改进？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "interaction_analysis": {{
+        "likes": "点赞数",
+        "likes_analysis": "点赞分析",
+        "comments": "评论数",
+        "comments_analysis": "评论分析",
+        "favorites": "收藏数",
+        "favorites_analysis": "收藏分析",
+        "shares": "转发数",
+        "shares_analysis": "转发分析",
+        "overall_analysis": "整体互动分析结论",
+        "improvement_suggestions": "互动优化建议"
+    }}
+}}
+```"""
+    return prompt
+
+
+# 模块提示词构建器映射
+MODULE_PROMPT_BUILDERS = {
+    'title': build_title_prompt,
+    'cover': build_cover_prompt,
+    'topic': build_topic_prompt,
+    'content': build_content_structure_prompt,
+    'ending': build_ending_prompt,
+    'tags': build_tags_prompt,
+    'psychology': build_psychology_prompt,
+    'commercial': build_commercial_prompt,
+    'character': build_character_prompt,
+    'content_form': build_content_form_prompt,
+    'why_popular': build_why_popular_prompt,
+    'interaction': build_interaction_prompt
+}
+
+
+@knowledge_api.route('/analyze-modules', methods=['POST'])
+@login_required
+def analyze_modules():
+    """模块化分析内容接口"""
+    try:
+        data = request.get_json()
+        url = data.get('url', '').strip()
+        note = data.get('note', '').strip()
+        modules = data.get('modules', [])
+
+        if not url:
+            return jsonify({'code': 400, 'message': '请输入内容链接'})
+
+        if not modules:
+            return jsonify({'code': 400, 'message': '请选择至少一个分析模块'})
+
+        # 解析短链接，获取真实的内容链接
+        real_url = resolve_douyin_short_url(url)
+        logger.info(f"[analyze_modules] 原始链接: {url}, 解析后: {real_url}")
+
+        # 验证模块有效性
+        valid_modules = set(ANALYSIS_MODULES.keys())
+        selected_modules = set(modules)
+        invalid_modules = selected_modules - valid_modules
+        if invalid_modules:
+            return jsonify({'code': 400, 'message': f'无效的模块: {", ".join(invalid_modules)}'})
+
+        # 获取 LLM 服务
+        llm_service = get_llm_service()
+        if not llm_service:
+            return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
+
+        logger.info(f"[analyze_modules] 开始分析: {real_url}, 模块: {modules}")
+
+        # 按顺序分析选中的模块
+        results = {}
+        analysis_process = {}
+
+        for module in modules:
+            prompt_builder = MODULE_PROMPT_BUILDERS.get(module)
+            if not prompt_builder:
+                continue
+
+            prompt = prompt_builder(real_url, note)
+
+            messages = [
+                {"role": "system", "content": "你是一个专业的内容分析专家，擅长分析抖音等短视频平台的内容。请严格按照JSON格式输出分析结果。"},
+                {"role": "user", "content": prompt}
+            ]
+
+            result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
+
+            if result_text:
+                try:
+                    result_json = parse_llm_json(result_text)
+
+                    # 如果是标题模块，清理标题中的抖音元数据
+                    if module == 'title' and 'title' in result_json:
+                        cleaned_title = result_json['title']
+                        cleaned_title = re.sub(r'^[\d.]+\s*BTL:?\s*[\w@.\/]+\s*\d{2}\/\d{2}\s*', '', cleaned_title)
+                        cleaned_title = re.sub(r'^[\d.]+\s*复制打开抖音，看看【[^】]+】', '', cleaned_title)
+                        cleaned_title = re.sub(r'\s*https?:\/\/v\.douyin\.com\/[^\s]+.*$', '', cleaned_title)
+                        result_json['title'] = cleaned_title
+
+                        # 对标题进行关键词分类和评分
+                        try:
+                            from utils.title_classifier import TitleKeywordClassifier
+                            title_classification = TitleKeywordClassifier.get_keywords_summary(cleaned_title)
+                            title_structure_display = TitleKeywordClassifier.get_title_structure_display(cleaned_title)
+                            title_scores = TitleKeywordClassifier.calculate_scores(cleaned_title)
+
+                            if 'analysis_process' not in result_json:
+                                result_json['analysis_process'] = {}
+                            if 'title' not in result_json['analysis_process']:
+                                result_json['analysis_process']['title'] = {}
+                            result_json['analysis_process']['title']['keyword_classification'] = title_classification
+                            result_json['analysis_process']['title']['title_structure_display'] = title_structure_display
+                            result_json['analysis_process']['title']['title_scores'] = title_scores
+                        except Exception as e:
+                            logger.warning(f"标题关键词分类或评分失败: {e}")
+
+                    results[module] = result_json
+
+                    # 收集 analysis_process
+                    if 'analysis_process' in result_json:
+                        analysis_process.update(result_json['analysis_process'])
+
+                except json.JSONDecodeError as e:
+                    logger.warning(f"模块 {module} JSON解析失败: {e}")
+                    results[module] = {'error': '解析失败', 'raw': result_text[:200]}
+            else:
+                results[module] = {'error': 'LLM 调用失败'}
+
+        # 合并结果
+        merged_result = {
+            'title': results.get('title', {}).get('title', ''),
+            'author': results.get('title', {}).get('author', ''),
+            'content_type': 'video',
+            'analysis_process': analysis_process,
+            'modules_results': results
+        }
+
+        # 添加各个模块的结果
+        for module, result in results.items():
+            if module == 'title':
+                if 'title_analysis' in result:
+                    merged_result['title_analysis'] = result['title_analysis']
+            elif module == 'topic':
+                if 'topic_analysis' in result:
+                    merged_result['topic_analysis'] = result['topic_analysis']
+            elif module == 'content':
+                if 'content_structure' in result:
+                    merged_result['content_structure'] = result['content_structure']
+            elif module == 'psychology':
+                if 'psychology_analysis' in result:
+                    merged_result['psychology_analysis'] = result['psychology_analysis']
+            elif module == 'commercial':
+                if 'commercial_purpose' in result:
+                    merged_result['commercial_purpose'] = result['commercial_purpose']
+            elif module == 'character':
+                if 'character_design' in result:
+                    merged_result['character_design'] = result['character_design']
+            elif module == 'content_form':
+                if 'content_form' in result:
+                    merged_result['content_form'] = result['content_form']
+            elif module == 'tags':
+                if 'tag_strategy' in result:
+                    merged_result['tag_strategy'] = result['tag_strategy']
+            elif module == 'why_popular':
+                if 'why_popular' in result:
+                    merged_result['why_popular'] = result['why_popular']
+            elif module == 'interaction':
+                if 'interaction_analysis' in result:
+                    merged_result['interaction_analysis'] = result['interaction_analysis']
+            elif module == 'ending':
+                if 'ending_analysis' in result:
+                    merged_result['ending_analysis'] = result['ending_analysis']
+            elif module == 'cover':
+                if 'cover_analysis' in result:
+                    merged_result['cover_analysis'] = result['cover_analysis']
+
+        logger.info(f"[analyze_modules] 模块分析完成: {url}, 完成模块: {list(results.keys())}")
+
+        return jsonify({
+            'code': 200,
+            'message': '分析成功',
+            'data': merged_result
+        })
+
+    except Exception as e:
+        logger.error(f"模块分析失败: {e}", exc_info=True)
         return jsonify({
             'code': 500,
             'message': f'分析失败: {str(e)}'
@@ -946,13 +1975,62 @@ def register_routes(app):
 
 # ========== 账号分析相关接口 ==========
 
-def build_account_analysis_prompt(url, note):
-    """构建账号分析提示词"""
+# 账号分析模块定义
+ACCOUNT_MODULES = {
+    'commercial': {
+        'name': '商业定位',
+        'order': 1,
+        'description': '变现方式、卖货策略、变现链路'
+    },
+    'basic_info': {
+        'name': '账号基础信息',
+        'order': 2,
+        'description': '昵称设计、简介设计、头像设计'
+    },
+    'content_structure': {
+        'name': '内容结构',
+        'order': 3,
+        'description': '人物出镜、主题占比、内容与变现关联'
+    },
+    'target_customer': {
+        'name': '目标客户',
+        'order': 4,
+        'description': '客户特征、客户需求'
+    },
+    'keywords': {
+        'name': '关键词布局',
+        'order': 5,
+        'description': '关键词、关键词分布位置'
+    },
+    'video_types': {
+        'name': '视频类型',
+        'order': 6,
+        'description': '视频类型分布、内容风格'
+    },
+    'account_position': {
+        'name': '账号定位',
+        'order': 7,
+        'description': '账号类型、人设打造'
+    }
+}
+
+
+def build_account_analysis_prompt(url, account_info_text=""):
+    """构建账号分析提示词
+    
+    Args:
+        url: 账号主页链接
+        account_info_text: 爬虫获取的真实账号信息（可选）
+    """
+    # 如果有真实账号信息，加入到提示词中
+    account_section = ""
+    if account_info_text:
+        account_section = f"\n{account_info_text}\n"
+    
     prompt = f"""你是一个资深的账号运营分析专家。请从专业运营角度完整分析以下抖音账号，提取可复用的账号运营策略和规则。
 
 ## 待分析账号
-- 账号主页链接：{url}
-- 补充说明：{note}
+- 账号主页链接：{url}{account_section}
 
 ---
 
@@ -1203,6 +2281,416 @@ def build_account_analysis_prompt(url, note):
     return prompt
 
 
+# ========== 账号分析各模块独立提示词构建函数 ==========
+
+def build_account_commercial_prompt(url):
+    """构建商业定位分析提示词"""
+    prompt = f"""你是一个资深的账号运营分析专家。请分析以下抖音账号的商业定位。
+
+## 待分析账号
+- 账号主页链接：{url}
+- 补充说明：{note}
+
+---
+
+## 商业定位分析要点
+
+### 1.1 变现方式
+分析账号的变现方式是什么：
+- 电商卖货（短视频带货/直播带货/橱窗）
+- 本地服务引流（引流到店/引流到微信）
+- 培训（线上卖课/线下培训/咨询）
+- 其他变现方式
+
+### 1.2 卖货策略（如果是电商）
+- 单品策略：只卖一个产品
+- 赛道策略：聚焦某个细分领域
+- 全品策略：什么都卖（分析为什么做或不做全品）
+
+### 1.3 变现链路
+- 变现链路是否清晰？
+- 内容到成交的路径是什么？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "commercial_positioning": {{
+        "monetization_method": "变现方式",
+        "sales_strategy": "卖货策略",
+        "monetization_chain": "变现链路描述",
+        "chain_clarity": "变现链路是否清晰"
+    }},
+    "analysis_process": {{
+        "commercial": {{
+            "content": "分析内容",
+            "analysis": "详细分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_account_basic_info_prompt(url):
+    """构建账号基础信息分析提示词"""
+    prompt = f"""你是一个资深的账号运营分析专家。请分析以下抖音账号的基础信息设计。
+
+## 待分析账号
+- 账号主页链接：{url}
+- 补充说明：{note}
+
+---
+
+## 账号基础信息设计分析要点
+
+### 2.1 昵称设计
+分析账号昵称是怎么设计的：
+- 怎么好记？
+- 怎么和核心业务关联？
+- 体现了什么巧思？
+- 是否占领了用户心智？
+
+### 2.2 简介设计
+分析账号简介是怎么写的：
+- 吸引目标用户的点是什么？
+- 传递了什么价值？
+- 引导关注的话术？
+
+### 2.3 头像设计
+分析头像为什么这样设计：
+- 是否符合账号定位？
+- 是否便于识别？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "nickname_design": {{
+        "design": "昵称设计分析",
+        "memory_point": "好记的点",
+        "business_association": "与核心业务的关联",
+        "user_mind_capture": "如何占领用户心智"
+    }},
+    "bio_design": {{
+        "design": "简介设计分析",
+        "attraction_point": "吸引目标用户的点",
+        "value_message": "传递的价值信息",
+        "guidance": "引导关注的话术"
+    }},
+    "avatar_design": {{
+        "design": "头像设计分析",
+        "position_match": "是否符合账号定位",
+        "recognition": "是否便于识别"
+    }},
+    "analysis_process": {{
+        "basic_info": {{
+            "nickname": "昵称分析",
+            "bio": "简介分析",
+            "avatar": "头像分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_account_content_structure_prompt(url):
+    """构建内容结构分析提示词"""
+    prompt = f"""你是一个资深的账号运营分析专家。请分析以下抖音账号的内容结构。
+
+## 待分析账号
+- 账号主页链接：{url}
+- 补充说明：{note}
+
+---
+
+## 内容结构分析要点
+
+### 3.1 人物出镜分析
+- 人物出镜的视频占比多少？
+- 不出镜的视频占比多少？
+- **为什么需要人物出镜**（如果出镜多）？
+- **为什么没有人物出镜**（如果不出镜多）？
+
+### 3.2 主题占比分析
+分析各种主题的内容占比：
+- 与商业变现直接关联的内容占比
+- 日常运营内容占比
+- 各类主题的分布比例
+
+### 3.3 内容与变现关联
+- 内容是否围绕变现目的设计？
+- 引流内容 vs 转化内容的比例？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "content_analysis": {{
+        "character_appearance": {{
+            "percentage": "人物出镜视频占比",
+            "no_character_percentage": "不出镜视频占比",
+            "why_has_character": "为什么需要人物出镜",
+            "why_no_character": "为什么没有人物出镜"
+        }},
+        "topic_distribution": {{
+            "commercial_related": "与商业变现直接关联的内容占比",
+            "daily_operation": "日常运营内容占比",
+            "topic_details": "各类主题分布详情"
+        }},
+        "content_monetization_relation": "内容与变现的关联度"
+    }},
+    "analysis_process": {{
+        "content_structure": {{
+            "character": "人物出镜分析",
+            "topics": "主题占比分析",
+            "monetization": "变现关联分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_account_target_customer_prompt(url):
+    """构建目标客户分析提示词"""
+    prompt = f"""你是一个资深的账号运营分析专家。请分析以下抖音账号的目标客户画像。
+
+## 待分析账号
+- 账号主页链接：{url}
+- 补充说明：{note}
+
+---
+
+## 目标客户画像分析要点
+
+### 4.1 客户特征
+详细描述目标客户：
+- 年龄阶段
+- 性别比例
+- 职业/身份
+- 消费能力
+- 地域分布
+
+### 4.2 客户需求
+- 客户有什么痛点？
+- 客户需要什么解决方案？
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "target_customer": {{
+        "age_range": "年龄阶段",
+        "gender_ratio": "性别比例",
+        "occupation": "职业/身份",
+        "consumption_level": "消费能力",
+        "region": "地域分布",
+        "pain_points": "客户痛点",
+        "needs": "客户需要的解决方案"
+    }},
+    "analysis_process": {{
+        "target_customer": {{
+            "features": "客户特征分析",
+            "needs": "客户需求分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_account_keywords_prompt(url):
+    """构建关键词布局分析提示词"""
+    prompt = f"""你是一个资深的账号运营分析专家。请分析以下抖音账号的关键词布局。
+
+## 待分析账号
+- 账号主页链接：{url}
+- 补充说明：{note}
+
+---
+
+## 关键词布局分析要点
+
+### 5.1 前50关键词
+分析账号的关键词布局：
+- 核心业务关键词
+- 产品关键词
+- 场景关键词
+- 人群关键词
+- 地域关键词
+- 其他重要关键词
+
+### 5.2 关键词分布位置
+- 昵称中的关键词
+- 简介中的关键词
+- 话题标签中的关键词
+- 视频标题中的关键词
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "keyword_layout": {{
+        "top_50_keywords": ["关键词1", "关键词2", "关键词3"],
+        "keyword_distribution": {{
+            "in_nickname": "昵称中的关键词",
+            "in_bio": "简介中的关键词",
+            "in_tags": "话题标签中的关键词",
+            "in_titles": "视频标题中的关键词"
+        }}
+    }},
+    "analysis_process": {{
+        "keywords": {{
+            "content": "关键词列表",
+            "analysis": "关键词布局分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_account_video_types_prompt(url):
+    """构建视频类型分析提示词"""
+    prompt = f"""你是一个资深的账号运营分析专家。请分析以下抖音账号的视频类型和内容风格。
+
+## 待分析账号
+- 账号主页链接：{url}
+- 补充说明：{note}
+
+---
+
+## 视频内容分析要点
+
+### 6.1 视频类型分布
+分析账号发布了哪些类型的视频：
+- 知识分享类
+- 干货教程类
+- 产品展示类
+- 客户见证类
+- 剧情类
+- 情感治愈类
+- 种草安利类
+- 其他
+
+### 6.2 内容风格
+- 整体内容调性（专业/亲和/幽默/严肃）
+- 拍摄风格
+- 剪辑风格
+- 配音/配乐风格
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "video_types": {{
+        "types": ["视频类型1", "视频类型2"],
+        "distribution": "视频类型分布"
+    }},
+    "content_style": {{
+        "tone": "整体内容调性",
+        "shooting_style": "拍摄风格",
+        "editing_style": "剪辑风格",
+        "audio_style": "配音/配乐风格"
+    }},
+    "analysis_process": {{
+        "video_types": {{
+            "content": "视频类型分析",
+            "analysis": "详细分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+def build_account_position_prompt(url, note):
+    """构建账号定位分析提示词"""
+    prompt = f"""你是一个资深的账号运营分析专家。请分析以下抖音账号的定位和人设打造。
+
+## 待分析账号
+- 账号主页链接：{url}
+- 补充说明：{note}
+
+---
+
+## 账号定位分析要点
+
+### 7.1 账号类型
+- 单业务账号还是多业务账号
+- 主要业务和次要业务
+
+### 7.2 人设打造
+- 是否有IP人设
+- 人设与业务的关联
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "account_type": {{
+        "type": "单业务/多业务",
+        "main_business": "主要业务",
+        "secondary_business": "次要业务"
+    }},
+    "persona": {{
+        "has_ip": "是否有IP人设",
+        "ip_description": "人设描述",
+        "ip_business_relation": "人设与业务的关联"
+    }},
+    "analysis_process": {{
+        "account_position": {{
+            "type": "账号类型分析",
+            "persona": "人设打造分析"
+        }}
+    }}
+}}
+```"""
+    return prompt
+
+
+# 模块提示词构建器映射
+ACCOUNT_MODULE_PROMPT_BUILDERS = {
+    'commercial': build_account_commercial_prompt,
+    'basic_info': build_account_basic_info_prompt,
+    'content_structure': build_account_content_structure_prompt,
+    'target_customer': build_account_target_customer_prompt,
+    'keywords': build_account_keywords_prompt,
+    'video_types': build_account_video_types_prompt,
+    'account_position': build_account_position_prompt
+}
+
+
 @knowledge_api.route('/account/analyze', methods=['POST'])
 @login_required
 def analyze_account():
@@ -1211,19 +2699,43 @@ def analyze_account():
         data = request.get_json()
         url = data.get('url', '').strip()
         note = data.get('note', '').strip()
+        use_browser = data.get('use_browser', False)  # 是否使用浏览器模式
 
         if not url:
             return jsonify({'code': 400, 'message': '请输入账号主页链接'})
+
+        # 解析短链接，获取真实的主页链接
+        real_url = resolve_douyin_short_url(url)
+        logger.info(f"[account_analyze] 原始链接: {url}, 解析后: {real_url}")
+
+        # ========== 优先使用爬虫获取真实账号信息 ==========
+        scraped_info = get_douyin_real_account_info(real_url, use_browser=use_browser)
+        
+        account_info_text = ""
+        if scraped_info and scraped_info.get('nickname'):
+            logger.info(f"[account_analyze] 爬虫获取到账号信息: {scraped_info.get('nickname')}")
+            account_info_text = f"""
+## 账号真实信息（从抖音页面抓取）
+- 账号昵称：{scraped_info.get('nickname', '未知')}
+- 账号简介：{scraped_info.get('bio', '无')}
+- 粉丝数：{scraped_info.get('fans_count', '未知')}
+- 关注数：{scraped_info.get('following_count', '未知')}
+- 获赞数：{scraped_info.get('likes_count', '未知')}
+- IP属地：{scraped_info.get('ip_location', '未知')}
+- 头像URL：{scraped_info.get('avatar_url', '无')}
+"""
+        else:
+            logger.warning(f"[account_analyze] 爬虫获取失败，将使用 LLM 推测")
 
         # 获取 LLM 服务
         llm_service = get_llm_service()
         if not llm_service:
             return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
 
-        # 构建提示词
-        prompt = build_account_analysis_prompt(url, note)
+        # 构建提示词（加入真实账号信息）
+        prompt = build_account_analysis_prompt(real_url, account_info_text)
 
-        logger.info(f"[account_analyze] 开始分析: {url}")
+        logger.info(f"[account_analyze] 开始分析: {real_url}")
 
         messages = [
             {"role": "system", "content": "你是一个专业的账号分析专家，擅长分析抖音账号的整体定位和运营策略。请严格按照JSON格式输出分析结果。"},
@@ -1238,6 +2750,10 @@ def analyze_account():
         # 提取 JSON
         try:
             result_json = parse_llm_json(result_text)
+            
+            # 如果爬虫获取到了信息，也返回给前端
+            if scraped_info:
+                result_json['_scraped_info'] = scraped_info
 
             logger.info(f"[account_analyze] 分析完成，找到 {len(result_json.get('rules', []))} 条规则")
 
@@ -1262,10 +2778,168 @@ def analyze_account():
         })
 
 
+@knowledge_api.route('/account/analyze-modules', methods=['POST'])
+@login_required
+def analyze_account_modules():
+    """账号模块化分析接口"""
+    try:
+        data = request.get_json()
+        url = data.get('url', '').strip()
+        modules = data.get('modules', [])
+
+        if not url:
+            return jsonify({'code': 400, 'message': '请输入账号主页链接'})
+
+        if not modules:
+            return jsonify({'code': 400, 'message': '请选择至少一个分析模块'})
+
+        # 解析短链接，获取真实的主页链接
+        real_url = resolve_douyin_short_url(url)
+        logger.info(f"[account_analyze_modules] 原始链接: {url}, 解析后: {real_url}")
+
+        # 验证模块有效性
+        valid_modules = set(ACCOUNT_MODULES.keys())
+        selected_modules = set(modules)
+        invalid_modules = selected_modules - valid_modules
+        if invalid_modules:
+            return jsonify({'code': 400, 'message': f'无效的模块: {", ".join(invalid_modules)}'})
+
+        # 获取 LLM 服务
+        llm_service = get_llm_service()
+        if not llm_service:
+            return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
+
+        logger.info(f"[account_analyze_modules] 开始分析: {real_url}, 模块: {modules}")
+
+        # 按顺序分析选中的模块
+        results = {}
+        analysis_process = {}
+
+        for module in modules:
+            prompt_builder = ACCOUNT_MODULE_PROMPT_BUILDERS.get(module)
+            if not prompt_builder:
+                continue
+
+            prompt = prompt_builder(real_url, note)
+
+            messages = [
+                {"role": "system", "content": "你是一个专业的账号分析专家，擅长分析抖音账号的整体定位和运营策略。请严格按照JSON格式输出分析结果。"},
+                {"role": "user", "content": prompt}
+            ]
+
+            result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
+
+            if result_text:
+                try:
+                    result_json = parse_llm_json(result_text)
+                    results[module] = result_json
+
+                    # 收集 analysis_process
+                    if 'analysis_process' in result_json:
+                        analysis_process.update(result_json['analysis_process'])
+
+                except json.JSONDecodeError as e:
+                    logger.warning(f"模块 {module} JSON解析失败: {e}")
+                    results[module] = {'error': '解析失败', 'raw': result_text[:200]}
+            else:
+                results[module] = {'error': 'LLM 调用失败'}
+
+        # 合并结果
+        merged_result = {
+            'account_name': results.get('commercial', {}).get('account_name', '') or results.get('basic_info', {}).get('account_name', ''),
+            'analysis_process': analysis_process,
+            'modules_results': results
+        }
+
+        # 添加各个模块的结果
+        for module, result in results.items():
+            if module == 'commercial':
+                if 'commercial_positioning' in result:
+                    merged_result['commercial_positioning'] = result['commercial_positioning']
+            elif module == 'basic_info':
+                if 'nickname_design' in result:
+                    merged_result['nickname_design'] = result['nickname_design']
+                if 'bio_design' in result:
+                    merged_result['bio_design'] = result['bio_design']
+                if 'avatar_design' in result:
+                    merged_result['avatar_design'] = result['avatar_design']
+            elif module == 'content_structure':
+                if 'content_analysis' in result:
+                    merged_result['content_analysis'] = result['content_analysis']
+            elif module == 'target_customer':
+                if 'target_customer' in result:
+                    merged_result['target_customer'] = result['target_customer']
+            elif module == 'keywords':
+                if 'keyword_layout' in result:
+                    merged_result['keyword_layout'] = result['keyword_layout']
+            elif module == 'video_types':
+                if 'video_types' in result:
+                    merged_result['video_types'] = result['video_types']
+                if 'content_style' in result:
+                    merged_result['content_style'] = result['content_style']
+            elif module == 'account_position':
+                if 'account_type' in result:
+                    merged_result['account_type'] = result['account_type']
+                if 'persona' in result:
+                    merged_result['persona'] = result['persona']
+
+        # 从商业定位模块提取账号名称
+        if 'commercial_positioning' in merged_result:
+            # 尝试从其他模块获取账号名称
+            for module, result in results.items():
+                if 'account_name' in result and result['account_name']:
+                    merged_result['account_name'] = result['account_name']
+                    break
+
+        logger.info(f"[account_analyze_modules] 模块分析完成: {url}, 完成模块: {list(results.keys())}")
+
+        return jsonify({
+            'code': 200,
+            'message': '分析成功',
+            'data': merged_result
+        })
+
+    except Exception as e:
+        logger.error(f"账号模块分析失败: {e}", exc_info=True)
+        return jsonify({
+            'code': 500,
+            'message': f'分析失败: {str(e)}'
+        })
+
+
 # ========== 电子书分析相关接口 ==========
 
 import uuid
 from datetime import datetime
+
+# 电子书分析模块定义
+EBOOK_MODULES = {
+    'keywords': {
+        'name': '关键词库',
+        'order': 1,
+        'description': '标题关键词、简介关键词、标签关键词'
+    },
+    'topic': {
+        'name': '选题库',
+        'order': 2,
+        'description': '爆款选题、选题角度、时效性'
+    },
+    'template': {
+        'name': '内容模板',
+        'order': 3,
+        'description': '开头钩子、内容结构、结尾引导'
+    },
+    'operation': {
+        'name': '运营规划',
+        'order': 4,
+        'description': '账号起名、简介、头像、发布时机、互动策略'
+    },
+    'market': {
+        'name': '市场分析',
+        'order': 5,
+        'description': '用户画像、竞品分析、痛点需求、变现模式'
+    }
+}
 
 # 存储上传的电子书信息（生产环境应存入数据库）
 ebook_storage = {}
@@ -1516,6 +3190,274 @@ def build_ebook_analysis_prompt(ebook_text, filename):
     return prompt
 
 
+# ========== 电子书分析各模块独立提示词构建函数 ==========
+
+def build_ebook_keywords_prompt(ebook_text, filename):
+    """构建电子书关键词库分析提示词"""
+    prompt = f"""你是一个知识管理专家。请从以下电子书中提取关键词库相关的规则和知识。
+
+## 待分析电子书
+- 文件名：{filename}
+- 内容长度：约 {len(ebook_text)} 字符
+
+## 电子书内容
+```
+{ebook_text[:15000]}
+```
+{"...（内容过长，已截断）" if len(ebook_text) > 15000 else ""}
+
+## 分析要求
+请从以下分类中提取规则：
+
+### 关键词库
+- 标题关键词选择逻辑
+- 简介关键词布局
+- 评论区关键词引导
+- 标签关键词优化
+
+## 输出格式
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "book_title": "书名",
+    "core_knowledge": "本书核心知识要点",
+    "rules": [
+        {{
+            "category": "keywords",
+            "title": "规则标题",
+            "summary": "规则摘要（50字以内）",
+            "description": "规则详细内容",
+            "scenes": "适用场景",
+            "is_good": true/false,
+            "recommendation": "强烈推荐/推荐/不推荐/待观察",
+            "reasoning": "评价理由和依据",
+            "score": 评分(1-10)
+        }}
+    ]
+}}
+```
+
+请只输出JSON，不要有其他内容。"""
+    return prompt
+
+
+def build_ebook_topic_prompt(ebook_text, filename):
+    """构建电子书选题库分析提示词"""
+    prompt = f"""你是一个知识管理专家。请从以下电子书中提取选题库相关的规则和知识。
+
+## 待分析电子书
+- 文件名：{filename}
+- 内容长度：约 {len(ebook_text)} 字符
+
+## 电子书内容
+```
+{ebook_text[:15000]}
+```
+{"...（内容过长，已截断）" if len(ebook_text) > 15000 else ""}
+
+## 分析要求
+请从以下分类中提取规则：
+
+### 选题库
+- 爆款选题方向
+- 选题角度和切入点
+- 选题时效性把握
+- 选题与热点结合
+
+## 输出格式
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "book_title": "书名",
+    "core_knowledge": "本书核心知识要点",
+    "rules": [
+        {{
+            "category": "topic",
+            "title": "规则标题",
+            "summary": "规则摘要（50字以内）",
+            "description": "规则详细内容",
+            "scenes": "适用场景",
+            "is_good": true/false,
+            "recommendation": "强烈推荐/推荐/不推荐/待观察",
+            "reasoning": "评价理由和依据",
+            "score": 评分(1-10)
+        }}
+    ]
+}}
+```
+
+请只输出JSON，不要有其他内容。"""
+    return prompt
+
+
+def build_ebook_template_prompt(ebook_text, filename):
+    """构建电子书内容模板分析提示词"""
+    prompt = f"""你是一个知识管理专家。请从以下电子书中提取内容模板相关的规则和知识。
+
+## 待分析电子书
+- 文件名：{filename}
+- 内容长度：约 {len(ebook_text)} 字符
+
+## 电子书内容
+```
+{ebook_text[:15000]}
+```
+{"...（内容过长，已截断）" if len(ebook_text) > 15000 else ""}
+
+## 分析要求
+请从以下分类中提取规则：
+
+### 内容模板
+- 开头钩子设计
+- 内容结构模式
+- 结尾引导设计
+- 情绪调动技巧
+
+## 输出格式
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "book_title": "书名",
+    "core_knowledge": "本书核心知识要点",
+    "rules": [
+        {{
+            "category": "template",
+            "title": "规则标题",
+            "summary": "规则摘要（50字以内）",
+            "description": "规则详细内容",
+            "scenes": "适用场景",
+            "is_good": true/false,
+            "recommendation": "强烈推荐/推荐/不推荐/待观察",
+            "reasoning": "评价理由和依据",
+            "score": 评分(1-10)
+        }}
+    ]
+}}
+```
+
+请只输出JSON，不要有其他内容。"""
+    return prompt
+
+
+def build_ebook_operation_prompt(ebook_text, filename):
+    """构建电子书运营规划分析提示词"""
+    prompt = f"""你是一个知识管理专家。请从以下电子书中提取运营规划相关的规则和知识。
+
+## 待分析电子书
+- 文件名：{filename}
+- 内容长度：约 {len(ebook_text)} 字符
+
+## 电子书内容
+```
+{ebook_text[:15000]}
+```
+{"...（内容过长，已截断）" if len(ebook_text) > 15000 else ""}
+
+## 分析要求
+请从以下分类中提取规则（重点提取）：
+
+### 运营规划
+- **账号起名** - 如何起一个好记、有辨识度的名字
+- **账号简介** - 简介怎么写吸引人
+- **头像设计** - 头像选择建议
+- **主页装修** - 背景图、置顶视频等
+- **发布时机** - 什么时候发布效果最好
+- **互动策略** - 评论区互动、回复技巧
+- **粉丝运营** - 粉丝群运营、粉丝粘性提升
+- **数据复盘** - 如何分析数据优化内容
+
+## 输出格式
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "book_title": "书名",
+    "core_knowledge": "本书核心知识要点",
+    "rules": [
+        {{
+            "category": "operation",
+            "title": "规则标题",
+            "summary": "规则摘要（50字以内）",
+            "description": "规则详细内容",
+            "scenes": "适用场景",
+            "is_good": true/false,
+            "recommendation": "强烈推荐/推荐/不推荐/待观察",
+            "reasoning": "评价理由和依据",
+            "score": 评分(1-10)
+        }}
+    ]
+}}
+```
+
+请只输出JSON，不要有其他内容。"""
+    return prompt
+
+
+def build_ebook_market_prompt(ebook_text, filename):
+    """构建电子书市场分析提示词"""
+    prompt = f"""你是一个知识管理专家。请从以下电子书中提取市场分析相关的规则和知识。
+
+## 待分析电子书
+- 文件名：{filename}
+- 内容长度：约 {len(ebook_text)} 字符
+
+## 电子书内容
+```
+{ebook_text[:15000]}
+```
+{"...（内容过长，已截断）" if len(ebook_text) > 15000 else ""}
+
+## 分析要求
+请从以下分类中提取规则（重点提取）：
+
+### 市场分析
+- **市场分析报告** - 行业现状和趋势
+- **目标用户画像** - 目标受众特征分析
+- **竞品分析** - 竞争对手研究
+- **市场趋势** - 未来发展方向预测
+- **用户痛点** - 目标用户的核心需求
+- **变现模式** - 商业模式和变现路径
+
+## 输出格式
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "book_title": "书名",
+    "core_knowledge": "本书核心知识要点",
+    "rules": [
+        {{
+            "category": "market",
+            "title": "规则标题",
+            "summary": "规则摘要（50字以内）",
+            "description": "规则详细内容",
+            "scenes": "适用场景",
+            "is_good": true/false,
+            "recommendation": "强烈推荐/推荐/不推荐/待观察",
+            "reasoning": "评价理由和依据",
+            "score": 评分(1-10)
+        }}
+    ]
+}}
+```
+
+请只输出JSON，不要有其他内容。"""
+    return prompt
+
+
+# 电子书模块提示词构建器映射
+EBOOK_MODULE_PROMPT_BUILDERS = {
+    'keywords': build_ebook_keywords_prompt,
+    'topic': build_ebook_topic_prompt,
+    'template': build_ebook_template_prompt,
+    'operation': build_ebook_operation_prompt,
+    'market': build_ebook_market_prompt
+}
+
+
 @knowledge_api.route('/ebook/analyze', methods=['POST'])
 @login_required
 def analyze_ebook():
@@ -1523,6 +3465,7 @@ def analyze_ebook():
     try:
         data = request.get_json()
         file_ids = data.get('file_ids', [])
+        modules = data.get('modules', [])  # 支持模块化分析
 
         if not file_ids:
             return jsonify({'code': 400, 'message': '请选择要分析的文件'})
@@ -1533,6 +3476,18 @@ def analyze_ebook():
             return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
 
         all_rules = []
+        modules_results = {}
+
+        # 判断是完整分析还是模块分析
+        use_module_analysis = len(modules) > 0
+
+        # 如果使用模块分析，验证模块有效性
+        if use_module_analysis:
+            valid_modules = set(EBOOK_MODULES.keys())
+            selected_modules = set(modules)
+            invalid_modules = selected_modules - valid_modules
+            if invalid_modules:
+                return jsonify({'code': 400, 'message': f'无效的模块: {", ".join(invalid_modules)}'})
 
         for file_id in file_ids:
             ebook = ebook_storage.get(file_id)
@@ -1543,33 +3498,68 @@ def analyze_ebook():
             if not text:
                 continue
 
-            # 构建提示词
-            prompt = build_ebook_analysis_prompt(text, ebook['filename'])
+            if use_module_analysis:
+                # 模块化分析
+                for module in modules:
+                    prompt_builder = EBOOK_MODULE_PROMPT_BUILDERS.get(module)
+                    if not prompt_builder:
+                        continue
 
-            logger.info(f"[ebook_analyze] 开始分析: {ebook['filename']}")
+                    prompt = prompt_builder(text, ebook['filename'])
 
-            messages = [
-                {"role": "system", "content": "你是一个专业的知识管理专家，擅长从书籍中提取可落地的规则。请严格按照JSON格式输出。"},
-                {"role": "user", "content": prompt}
-            ]
+                    logger.info(f"[ebook_analyze] 开始分析: {ebook['filename']}, 模块: {module}")
 
-            result_text = llm_service.chat(messages, temperature=0.7, max_tokens=4000)
+                    messages = [
+                        {"role": "system", "content": "你是一个专业的知识管理专家，擅长从书籍中提取可落地的规则。请严格按照JSON格式输出。"},
+                        {"role": "user", "content": prompt}
+                    ]
 
-            if not result_text:
-                continue
+                    result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
 
-            # 提取 JSON
-            try:
-                result_json = parse_llm_json(result_text)
+                    if result_text:
+                        try:
+                            result_json = parse_llm_json(result_text)
+                            rules = result_json.get('rules', [])
+                            for rule in rules:
+                                rule['source_file'] = ebook['filename']
+                            all_rules.extend(rules)
 
-                rules = result_json.get('rules', [])
-                for rule in rules:
-                    rule['source_file'] = ebook['filename']
-                all_rules.extend(rules)
+                            # 保存模块结果
+                            if module not in modules_results:
+                                modules_results[module] = []
+                            modules_results[module].extend(rules)
 
-            except (json.JSONDecodeError, Exception) as e:
-                logger.error(f"解析失败: {e}")
-                continue
+                        except (json.JSONDecodeError, Exception) as e:
+                            logger.error(f"解析失败: {e}")
+                            continue
+            else:
+                # 完整分析
+                prompt = build_ebook_analysis_prompt(text, ebook['filename'])
+
+                logger.info(f"[ebook_analyze] 开始分析: {ebook['filename']}")
+
+                messages = [
+                    {"role": "system", "content": "你是一个专业的知识管理专家，擅长从书籍中提取可落地的规则。请严格按照JSON格式输出。"},
+                    {"role": "user", "content": prompt}
+                ]
+
+                result_text = llm_service.chat(messages, temperature=0.7, max_tokens=4000)
+
+                if not result_text:
+                    continue
+
+                # 提取 JSON
+                try:
+                    result_json = parse_llm_json(result_text)
+
+                    rules = result_json.get('rules', [])
+                    for rule in rules:
+                        rule['source_file'] = ebook['filename']
+                    all_rules.extend(rules)
+
+                except (json.JSONDecodeError, Exception) as e:
+                    logger.error(f"解析失败: {e}")
+                    continue
 
         if not all_rules:
             return jsonify({'code': 400, 'message': '未能从电子书中提取到有效规则'})
@@ -1578,7 +3568,9 @@ def analyze_ebook():
             'code': 200,
             'message': f'成功提取 {len(all_rules)} 条规则',
             'data': {
-                'rules': all_rules
+                'rules': all_rules,
+                'modules': modules if use_module_analysis else list(EBOOK_MODULES.keys()),
+                'modules_results': modules_results
             }
         })
 
@@ -1674,3 +3666,1303 @@ def import_ebook_rules():
     except Exception as e:
         logger.error(f"规则入库失败: {e}", exc_info=True)
         return jsonify({'code': 500, 'message': f'入库失败: {str(e)}'})
+
+
+# ========== 爆款拆解相关接口 ==========
+
+@knowledge_api.route('/account/basic-info', methods=['POST'])
+@login_required
+def get_account_basic_info():
+    """获取账号基础信息（仅昵称等基本信息）"""
+    try:
+        data = request.get_json()
+        url = data.get('url', '').strip()
+        use_browser = data.get('use_browser', False)
+
+        if not url:
+            return jsonify({'code': 400, 'message': '请输入账号主页链接'})
+
+        # 解析短链接，获取真实的主页链接
+        real_url = resolve_douyin_short_url(url)
+        logger.info(f"[get_account_basic_info] 原始链接: {url}, 解析后: {real_url}")
+
+        # ========== 优先使用爬虫获取真实账号信息 ==========
+        scraped_info = get_douyin_real_account_info(real_url, use_browser=use_browser)
+        
+        if scraped_info and scraped_info.get('nickname'):
+            logger.info(f"[get_account_basic_info] 爬虫获取到账号: {scraped_info.get('nickname')}")
+            return jsonify({
+                'code': 200,
+                'message': '获取成功',
+                'data': {
+                    'account_name': scraped_info.get('nickname', ''),
+                    'bio': scraped_info.get('bio', ''),
+                    'avatar_url': scraped_info.get('avatar_url', ''),
+                    'fans_count': scraped_info.get('fans_count', ''),
+                    'following_count': scraped_info.get('following_count', ''),
+                    'likes_count': scraped_info.get('likes_count', ''),
+                    'ip_location': scraped_info.get('ip_location', ''),
+                    'source': 'scraper'  # 标记数据来源
+                }
+            })
+        
+        # 如果爬虫失败，回退到 LLM 推测
+        logger.warning(f"[get_account_basic_info] 爬虫获取失败，使用 LLM 推测")
+
+        # 获取 LLM 服务
+        llm_service = get_llm_service()
+        if not llm_service:
+            return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
+
+        logger.info(f"[get_account_basic_info] LLM推测: {real_url}")
+
+        # 构建简单的账号信息获取提示词
+        prompt = f"""你是一个账号信息提取助手。请从以下抖音账号主页链接中提取基础信息。
+
+## 待分析账号
+- 账号主页链接：{real_url}
+
+## 任务
+请返回以下JSON格式的信息（只需要最基础的信息）：
+1. 账号昵称（account_name）
+2. 简介（bio）
+3. 头像描述（avatar_description）
+
+如果无法直接获取，请根据链接特点推断或返回空值。
+
+## 输出格式
+请严格按照以下JSON格式输出：
+```json
+{{
+    "account_name": "账号昵称",
+    "bio": "账号简介",
+    "avatar_description": "头像描述"
+}}
+```
+
+请只输出JSON，不要有其他内容。"""
+
+        messages = [
+            {"role": "system", "content": "你是一个账号信息提取助手，擅长从链接中提取账号信息。请严格按照JSON格式输出。"},
+            {"role": "user", "content": prompt}
+        ]
+
+        result_text = llm_service.chat(messages, temperature=0.3, max_tokens=500)
+
+        if not result_text:
+            return jsonify({'code': 500, 'message': '获取账号信息失败'})
+
+        # 调试日志：查看 LLM 返回的原始结果
+        logger.info(f"[get_account_basic_info] LLM原始返回: {result_text[:500]}")
+
+        # 提取 JSON
+        try:
+            result_json = parse_llm_json(result_text)
+
+            account_name = result_json.get('account_name', '')
+            # 如果账号名称为空，尝试从 URL 中提取账号 ID 作为名称
+            if not account_name:
+                # 从解析后的真实链接中提取账号 ID
+                match = re.search(r'/user/([A-Za-z0-9_-]+)', real_url)
+                if match:
+                    account_name = f"账号_{match.group(1)[:8]}"
+                else:
+                    account_name = "未知账号"
+
+            logger.info(f"[get_account_basic_info] 获取成功: {account_name}")
+
+            return jsonify({
+                'code': 200,
+                'message': '获取成功',
+                'data': {
+                    'account_name': account_name,
+                    'bio': result_json.get('bio', ''),
+                    'avatar_description': result_json.get('avatar_description', ''),
+                    'url': real_url
+                }
+            })
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON解析失败: {e}, 内容: {result_text[:500]}")
+            return jsonify({
+                'code': 500,
+                'message': '解析失败，请重试'
+            })
+
+    except Exception as e:
+        logger.error(f"获取账号信息失败: {e}", exc_info=True)
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}'
+        })
+
+
+@knowledge_api.route('/content/basic-info', methods=['POST'])
+@login_required
+def get_content_basic_info():
+    """获取内容（视频/图文）基础信息"""
+    try:
+        data = request.get_json()
+        url = data.get('url', '').strip()
+        use_browser = data.get('use_browser', True)  # 默认使用浏览器模式
+
+        if not url:
+            return jsonify({'code': 400, 'message': '请输入内容链接'})
+
+        # 解析短链接，获取真实的内容链接
+        real_url = resolve_douyin_short_url(url)
+        logger.info(f"[get_content_basic_info] 原始链接: {url}, 解析后: {real_url}")
+
+        # ========== 使用爬虫获取内容信息 ==========
+        scraped_info = get_douyin_video_content_info(real_url, use_browser=use_browser)
+
+        if scraped_info and scraped_info.get('title'):
+            logger.info(f"[get_content_basic_info] 爬虫获取到内容: {scraped_info.get('title')}")
+            return jsonify({
+                'code': 200,
+                'message': '获取成功',
+                'data': {
+                    'title': scraped_info.get('title', ''),
+                    'description': scraped_info.get('description', ''),
+                    'author': scraped_info.get('author', ''),
+                    'hashtags': scraped_info.get('hashtags', []),
+                    'url': scraped_info.get('url', real_url),
+                    'source': 'scraper'
+                }
+            })
+
+        # 如果爬虫失败，返回提示
+        logger.warning(f"[get_content_basic_info] 爬虫获取失败，将使用 LLM 分析")
+        return jsonify({
+            'code': 200,
+            'message': '获取成功（使用LLM分析）',
+            'data': {
+                'title': '',
+                'description': '',
+                'author': '',
+                'hashtags': [],
+                'url': real_url,
+                'source': 'llm'
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"获取内容信息失败: {e}", exc_info=True)
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}'
+        })
+@login_required
+@knowledge_api.route('/analyze-with-account', methods=['POST'])
+def analyze_content_with_account():
+    """带账号上下文的内容分析接口"""
+    try:
+        data = request.get_json()
+        url = data.get('url', '').strip()
+        content_type = data.get('content_type', 'auto')
+        note = data.get('note', '').strip()
+        modules = data.get('modules', [])
+        account_info = data.get('account_info')
+        content_info = data.get('content_info')  # 爬虫获取的内容信息
+
+        if not url:
+            return jsonify({'code': 400, 'message': '请输入内容链接'})
+
+        # 解析短链接，获取真实的内容链接
+        real_url = resolve_douyin_short_url(url)
+        logger.info(f"[analyze_with_account] 原始链接: {url}, 解析后: {real_url}")
+
+        # 获取 LLM 服务
+        llm_service = get_llm_service()
+        if not llm_service:
+            return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
+
+        logger.info(f"[analyze_with_account] 开始分析: {real_url}")
+
+        # 如果选择了模块，使用模块化分析
+        if modules and len(modules) > 0:
+            return analyze_modules_with_account(real_url, content_type, note, modules, account_info, content_info)
+
+        # 完整分析
+        prompt = build_analysis_prompt_with_account(real_url, content_type, note, account_info)
+
+        messages = [
+            {"role": "system", "content": "你是一个专业的内容分析专家，擅长分析抖音等短视频平台的爆款内容。请严格按照JSON格式输出分析结果。"},
+            {"role": "user", "content": prompt}
+        ]
+
+        result_text = llm_service.chat(messages, temperature=0.7, max_tokens=4000)
+
+        if not result_text:
+            return jsonify({'code': 500, 'message': 'LLM 调用失败，请检查模型是否正常运行'})
+
+        # 提取 JSON
+        try:
+            result_json = parse_llm_json(result_text)
+
+            # 清理标题中的抖音元数据
+            cleaned_title = ''
+            if 'title' in result_json and result_json['title']:
+                title = result_json['title']
+                cleaned_title = re.sub(r'^[\d.]+\s*BTL:?\s*[\w@.\/]+\s*\d{2}\/\d{2}\s*', '', title)
+                cleaned_title = re.sub(r'^[\d.]+\s*复制打开抖音，看看【[^】]+】', '', cleaned_title)
+                cleaned_title = re.sub(r'\s*https?:\/\/v\.douyin\.com\/[^\s]+.*$', '', cleaned_title)
+                result_json['title'] = cleaned_title
+
+            # 对标题进行关键词分类和评分
+            if cleaned_title:
+                try:
+                    from utils.title_classifier import TitleKeywordClassifier
+                    title_classification = TitleKeywordClassifier.get_keywords_summary(cleaned_title)
+                    title_structure_display = TitleKeywordClassifier.get_title_structure_display(cleaned_title)
+                    title_scores = TitleKeywordClassifier.calculate_scores(cleaned_title)
+
+                    if 'analysis_process' not in result_json:
+                        result_json['analysis_process'] = {}
+                    if 'title' not in result_json['analysis_process']:
+                        result_json['analysis_process']['title'] = {}
+                    result_json['analysis_process']['title']['keyword_classification'] = title_classification
+                    result_json['analysis_process']['title']['title_structure_display'] = title_structure_display
+                    result_json['analysis_process']['title']['title_scores'] = title_scores
+                except Exception as e:
+                    logger.warning(f"标题关键词分类或评分失败: {e}")
+
+            logger.info(f"[analyze_with_account] 分析完成，找到 {len(result_json.get('rules', []))} 条规则")
+
+            return jsonify({
+                'code': 200,
+                'message': '分析成功',
+                'data': result_json
+            })
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON解析失败: {e}, 内容: {result_text[:500]}")
+            return jsonify({
+                'code': 500,
+                'message': '分析结果解析失败，请重试'
+            })
+
+    except Exception as e:
+        logger.error(f"分析失败: {e}", exc_info=True)
+        return jsonify({
+            'code': 500,
+            'message': f'分析失败: {str(e)}'
+        })
+
+
+def build_analysis_prompt_with_account(url, content_type, note, account_info):
+    """构建带账号上下文的分析提示词"""
+
+    # 构建账号上下文信息
+    account_context = ""
+    if account_info:
+        account_context = f"""
+## 账号上下文信息
+- 账号名称：{account_info.get('name', '未知')}
+- 账号主页：{account_info.get('url', '')}
+"""
+        if account_info.get('basic_info'):
+            basic = account_info['basic_info']
+            if basic.get('bio'):
+                account_context += f"- 账号简介：{basic.get('bio')}\n"
+            if basic.get('commercial_positioning'):
+                cp = basic['commercial_positioning']
+                account_context += f"- 变现方式：{cp.get('monetization_method', '')}\n"
+            if basic.get('target_customer'):
+                tc = basic['target_customer']
+                account_context += f"- 目标客户：{tc.get('occupation', '')}，{tc.get('age_range', '')}\n"
+            if basic.get('keyword_layout'):
+                kw = basic['keyword_layout']
+                if kw.get('top_50_keywords'):
+                    account_context += f"- 核心关键词：{', '.join(kw.get('top_50_keywords', [])[:10])}\n"
+
+    prompt = f"""你是一个资深的短视频内容拆解专家。请从专业运营角度完整拆解以下抖音内容，提取可复用的爆款逻辑和规则。
+
+## 待分析内容
+- 链接：{url}
+- 内容类型：{content_type}
+- 补充说明：{note}
+{account_context}
+
+---
+
+## 一、标题结构分析
+
+### 1.1 标题关键词组合
+- 流量关键词/核心业务关键词/科普关键词/数字/情绪词
+
+### 1.2 标题为什么有效
+- 击中用户什么需求？
+- 和竞品比有什么独特性？
+
+---
+
+## 二、选题分析
+
+### 2.1 选题方向
+
+### 2.2 目标人群（结合账号信息分析）
+- 细分场景人群
+- 长尾需求人群
+- 痛点/情绪/功能价值/独特性
+
+---
+
+## 三、内容结构拆解
+- 开头钩子（前3秒）
+- 视频内容节奏
+- 脚本模型
+
+---
+
+## 四、用户心理分析
+- 利用的心理：恐惧/追求/规避/损失厌恶/从众
+- 为什么招人喜欢
+
+---
+
+## 五、商业目的分析
+- 商业目的：品牌宣传/引流获客/产品销售/IP打造
+- 细分市场
+
+---
+
+## 输出格式
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "title": "内容标题",
+    "author": "作者/账号名",
+    "title_analysis": {{
+        "structure": "标题结构分析",
+        "keyword_types": {{
+            "flow_keywords": "流量关键词",
+            "business_keywords": "核心业务关键词",
+            "knowledge_keywords": "科普关键词",
+            "numbers": "数字",
+            "emotion_words": "情绪词"
+        }},
+        "why_effective": "标题为什么有效"
+    }},
+    "topic_analysis": {{
+        "direction": "选题方向",
+        "target_audience": {{
+            "scene_crowd": "细分场景人群",
+            "demand_crowd": "长尾需求人群"
+        }},
+        "hit_what": {{
+            "pain_point": "痛点",
+            "emotion": "情绪",
+            "functional_value": "功能价值",
+            "uniqueness": "独特性"
+        }}
+    }},
+    "content_structure": {{
+        "hook": "开头钩子类型",
+        "rhythm": "内容节奏",
+        "script_model": "脚本模型类型"
+    }},
+    "psychology_analysis": {{
+        "psychology_used": ["利用的心理"],
+        "why_appealing": {{
+            "useful": "有用",
+            "interesting": "有趣",
+            "resonance": "共鸣"
+        }}
+    }},
+    "commercial_purpose": {{
+        "purpose": "商业目的",
+        "target_market": "目标细分市场"
+    }},
+    "rules": [
+        {{
+            "category": "规则分类",
+            "title": "规则标题",
+            "description": "规则描述",
+            "is_good": true,
+            "recommendation": "推荐",
+            "score": 8
+        }}
+    ]
+}}
+```
+
+请先理解这个内容，然后进行全面深度分析。"""
+
+    return prompt
+
+
+def analyze_modules_with_account(url, content_type, note, modules, account_info, content_info=None):
+    """带账号上下文的模块化分析"""
+    try:
+        llm_service = get_llm_service()
+        if not llm_service:
+            return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
+
+        # 需要账号信息的模块
+        account_dependent_modules = {'psychology', 'commercial', 'character', 'content_form', 'why_popular'}
+
+        # 按顺序分析选中的模块
+        results = {}
+        analysis_process = {}
+
+        # 如果有爬虫获取的内容信息，将其融入note中
+        enhanced_note = note
+        if content_info:
+            # 将爬虫获取的信息添加到备注中
+            scraped_parts = []
+            if content_info.get('title'):
+                scraped_parts.append(f"视频标题: {content_info.get('title')}")
+            if content_info.get('description'):
+                scraped_parts.append(f"视频描述: {content_info.get('description')}")
+            if content_info.get('hashtags'):
+                hashtags_str = ' '.join(content_info.get('hashtags', []))
+                scraped_parts.append(f"话题标签: {hashtags_str}")
+            if content_info.get('author'):
+                scraped_parts.append(f"作者: {content_info.get('author')}")
+
+            if scraped_parts:
+                enhanced_note = f"{note}\n\n【爬取信息】\n" + "\n".join(scraped_parts) if note else "【爬取信息】\n" + "\n".join(scraped_parts)
+                logger.info(f"[analyze_modules_with_account] 使用爬取信息: {scraped_parts[:2]}")
+
+        for module in modules:
+            prompt_builder = MODULE_PROMPT_BUILDERS.get(module)
+            if not prompt_builder:
+                continue
+
+            # 检查需要账号上下文
+            if module in account_dependent_modules and account_info:
+                prompt = build_module_prompt_with_account(module, url, enhanced_note, account_info)
+            else:
+                prompt = prompt_builder(url, enhanced_note)
+
+            messages = [
+                {"role": "system", "content": "你是一个专业的内容分析专家。请严格按照JSON格式输出分析结果。"},
+                {"role": "user", "content": prompt}
+            ]
+
+            result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
+
+            if result_text:
+                try:
+                    result_json = parse_llm_json(result_text)
+
+                    # 如果是标题模块，清理标题中的抖音元数据
+                    if module == 'title' and 'title' in result_json:
+                        cleaned_title = result_json['title']
+                        cleaned_title = re.sub(r'^[\d.]+\s*BTL:?\s*[\w@.\/]+\s*\d{2}\/\d{2}\s*', '', cleaned_title)
+                        cleaned_title = re.sub(r'^[\d.]+\s*复制打开抖音，看看【[^】]+】', '', cleaned_title)
+                        cleaned_title = re.sub(r'\s*https?:\/\/v\.douyin\.com\/[^\s]+.*$', '', cleaned_title)
+                        result_json['title'] = cleaned_title
+
+                        try:
+                            from utils.title_classifier import TitleKeywordClassifier
+                            title_classification = TitleKeywordClassifier.get_keywords_summary(cleaned_title)
+                            title_structure_display = TitleKeywordClassifier.get_title_structure_display(cleaned_title)
+                            title_scores = TitleKeywordClassifier.calculate_scores(cleaned_title)
+
+                            if 'analysis_process' not in result_json:
+                                result_json['analysis_process'] = {}
+                            if 'title' not in result_json['analysis_process']:
+                                result_json['analysis_process']['title'] = {}
+                            result_json['analysis_process']['title']['keyword_classification'] = title_classification
+                            result_json['analysis_process']['title']['title_structure_display'] = title_structure_display
+                            result_json['analysis_process']['title']['title_scores'] = title_scores
+                        except Exception as e:
+                            logger.warning(f"标题关键词分类或评分失败: {e}")
+
+                    results[module] = result_json
+
+                    if 'analysis_process' in result_json:
+                        analysis_process.update(result_json['analysis_process'])
+
+                except json.JSONDecodeError as e:
+                    logger.warning(f"模块 {module} JSON解析失败: {e}")
+                    results[module] = {'error': '解析失败', 'raw': result_text[:200]}
+            else:
+                results[module] = {'error': 'LLM 调用失败'}
+
+        # 合并结果
+        merged_result = {
+            'title': results.get('title', {}).get('title', ''),
+            'author': account_info.get('name', '') if account_info else '',
+            'content_type': 'video',
+            'analysis_process': analysis_process,
+            'modules_results': results
+        }
+
+        # 添加各个模块的结果
+        for module, result in results.items():
+            if module == 'title':
+                if 'title_analysis' in result:
+                    merged_result['title_analysis'] = result['title_analysis']
+            elif module == 'topic':
+                if 'topic_analysis' in result:
+                    merged_result['topic_analysis'] = result['topic_analysis']
+            elif module == 'content':
+                if 'content_structure' in result:
+                    merged_result['content_structure'] = result['content_structure']
+            elif module == 'psychology':
+                if 'psychology_analysis' in result:
+                    merged_result['psychology_analysis'] = result['psychology_analysis']
+            elif module == 'commercial':
+                if 'commercial_purpose' in result:
+                    merged_result['commercial_purpose'] = result['commercial_purpose']
+            elif module == 'character':
+                if 'character_design' in result:
+                    merged_result['character_design'] = result['character_design']
+            elif module == 'content_form':
+                if 'content_form' in result:
+                    merged_result['content_form'] = result['content_form']
+            elif module == 'tags':
+                if 'tag_strategy' in result:
+                    merged_result['tag_strategy'] = result['tag_strategy']
+            elif module == 'why_popular':
+                if 'why_popular' in result:
+                    merged_result['why_popular'] = result['why_popular']
+            elif module == 'interaction':
+                if 'interaction_analysis' in result:
+                    merged_result['interaction_analysis'] = result['interaction_analysis']
+            elif module == 'ending':
+                if 'ending_analysis' in result:
+                    merged_result['ending_analysis'] = result['ending_analysis']
+            elif module == 'cover':
+                if 'cover_analysis' in result:
+                    merged_result['cover_analysis'] = result['cover_analysis']
+
+        logger.info(f"[analyze_modules_with_account] 模块分析完成: {url}, 完成模块: {list(results.keys())}")
+
+        # 如果有爬虫获取的内容信息，将其添加到结果中
+        if content_info:
+            if content_info.get('title') and not merged_result.get('title'):
+                merged_result['title'] = content_info.get('title')
+            if content_info.get('author') and not merged_result.get('author'):
+                merged_result['author'] = content_info.get('author')
+            merged_result['scraped_info'] = content_info
+
+        return jsonify({
+            'code': 200,
+            'message': '分析成功',
+            'data': merged_result
+        })
+
+    except Exception as e:
+        logger.error(f"模块分析失败: {e}", exc_info=True)
+        return jsonify({
+            'code': 500,
+            'message': f'分析失败: {str(e)}'
+        })
+
+
+def build_module_prompt_with_account(module, url, note, account_info):
+    """为需要账号信息的模块构建带上下文的提示词"""
+    # 基础账号信息
+    account_context = f"""
+## 账号上下文信息
+- 账号名称：{account_info.get('name', '未知')}
+- 账号主页：{account_info.get('url', '')}
+"""
+    if account_info.get('basic_info'):
+        basic = account_info['basic_info']
+        if basic.get('bio'):
+            account_context += f"- 账号简介：{basic.get('bio')}\n"
+        if basic.get('commercial_positioning'):
+            cp = basic['commercial_positioning']
+            account_context += f"- 变现方式：{cp.get('monetization_method', '')}\n"
+            account_context += f"- 卖货策略：{cp.get('sales_strategy', '')}\n"
+        if basic.get('target_customer'):
+            tc = basic['target_customer']
+            account_context += f"- 目标客户年龄：{tc.get('age_range', '')}\n"
+            account_context += f"- 目标客户职业：{tc.get('occupation', '')}\n"
+            account_context += f"- 客户痛点：{tc.get('pain_points', '')}\n"
+        if basic.get('keyword_layout'):
+            kw = basic['keyword_layout']
+            if kw.get('top_50_keywords'):
+                account_context += f"- 核心关键词：{', '.join(kw.get('top_50_keywords', [])[:10])}\n"
+
+    # 心理分析模块
+    if module == 'psychology':
+        prompt = f"""你是一个资深的短视频用户心理分析专家。请结合账号信息分析以下内容利用了哪些用户心理。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+{account_context}
+
+---
+
+## 心理分析要点
+
+### 1. 利用了什么心理
+- 恐惧/追求/规避/损失厌恶/从众心理
+
+### 2. 为什么招人喜欢
+- 有用/有趣/共鸣
+
+---
+
+## 输出格式
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "psychology_analysis": {{
+        "psychology_used": ["利用的心理1", "利用的心理2"],
+        "why_appealing": {{
+            "useful": "有用",
+            "interesting": "有趣",
+            "resonance": "共鸣"
+        }}
+    }}
+}}
+```"""
+        return prompt
+
+    # 商业目的模块
+    if module == 'commercial':
+        prompt = f"""你是一个资深的短视频商业目的分析专家。请结合账号信息分析以下内容的商业目的。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+{account_context}
+
+---
+
+## 商业目的分析要点
+
+### 1. 商业目的
+- 品牌宣传/引流获客/产品销售/IP打造
+
+### 2. 细分市场
+- 内容主题切的是什么细分市场？
+
+### 3. 爆款元素
+- 选题结合了什么爆款元素？
+
+---
+
+## 输出格式
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "commercial_purpose": {{
+        "purpose": "商业目的",
+        "target_market": "目标细分市场",
+        "viral_elements": "爆款元素"
+    }}
+}}
+```"""
+        return prompt
+
+    # 爆款原因模块
+    if module == 'why_popular':
+        prompt = f"""你是一个资深的爆款内容分析专家。请结合账号信息分析以下抖音内容为什么能成为爆款。
+
+## 待分析内容
+- 链接：{url}
+- 补充说明：{note}
+{account_context}
+
+---
+
+## 爆款原因分析要点
+
+### 1. 为什么这么多人喜欢
+- 内容本身好在哪里？
+- 击中什么需求？
+
+### 2. 为什么互动会好
+- 引发评论的点是什么？
+
+### 3. 为什么愿意分享
+- 什么让人想转发？
+
+---
+
+## 输出格式
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "why_popular": {{
+        "why_liked": "为什么多人喜欢",
+        "why_good_interaction": "为什么互动好",
+        "why_share": "为什么愿意分享"
+    }}
+}}
+```"""
+        return prompt
+
+    # 其他模块使用默认提示词
+    prompt_builder = MODULE_PROMPT_BUILDERS.get(module)
+    if prompt_builder:
+        return prompt_builder(url, note)
+
+    return ""
+
+
+# ========== 手动录入相关接口 ==========
+
+@knowledge_api.route('/accounts', methods=['GET'])
+@login_required
+def get_accounts():
+    """获取账号列表"""
+    try:
+        # 获取查询参数
+        platform = request.args.get('platform')
+        status = request.args.get('status')
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 10, type=int)
+
+        # 构建查询
+        query = KnowledgeAccount.query
+        if platform:
+            query = query.filter(KnowledgeAccount.platform == platform)
+        if status:
+            query = query.filter(KnowledgeAccount.status == status)
+
+        # 获取总数
+        total = query.count()
+
+        # 分页
+        accounts = query.order_by(KnowledgeAccount.updated_at.desc()).paginate(
+            page=page, per_page=page_size, error_out=False
+        )
+
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': {
+                'items': [{
+                    'id': acc.id,
+                    'name': acc.name,
+                    'platform': acc.platform,
+                    'url': acc.url,
+                    'current_data': acc.current_data,
+                    'status': acc.status,
+                    'created_at': acc.created_at.isoformat() if acc.created_at else None,
+                    'updated_at': acc.updated_at.isoformat() if acc.updated_at else None,
+                    # 详细信息
+                    'business_type': acc.business_type,
+                    'product_type': acc.product_type,
+                    'service_type': acc.service_type,
+                    'service_range': acc.service_range,
+                    'target_area': acc.target_area,
+                    'brand_type': acc.brand_type,
+                    'brand_description': acc.brand_description,
+                    'language_style': acc.language_style,
+                    'dialect': acc.dialect,
+                    'core_advantage': acc.core_advantage,
+                    'main_product': acc.main_product
+                } for acc in accounts.items],
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': accounts.pages
+            }
+        })
+    except Exception as e:
+        logger.error(f"获取账号列表失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+
+@knowledge_api.route('/accounts/<int:account_id>', methods=['GET'])
+@login_required
+def get_account(account_id):
+    """获取单个账号详情"""
+    try:
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': {
+                'id': account.id,
+                'name': account.name,
+                'platform': account.platform,
+                'url': account.url,
+                'current_data': account.current_data,
+                'status': account.status,
+                'created_at': account.created_at.isoformat() if account.created_at else None,
+                'updated_at': account.updated_at.isoformat() if account.updated_at else None,
+                # 详细信息
+                'business_type': account.business_type,
+                'product_type': account.product_type,
+                'service_type': account.service_type,
+                'service_range': account.service_range,
+                'target_area': account.target_area,
+                'brand_type': account.brand_type,
+                'brand_description': account.brand_description,
+                'language_style': account.language_style,
+                'dialect': account.dialect,
+                'core_advantage': account.core_advantage,
+                'main_product': account.main_product
+            }
+        })
+    except Exception as e:
+        logger.error(f"获取账号详情失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+
+@knowledge_api.route('/accounts', methods=['POST'])
+@login_required
+def create_account():
+    """创建账号"""
+    try:
+        data = request.get_json()
+        
+        name = data.get('name', '').strip()
+        platform = data.get('platform', '').strip()
+        url = data.get('url', '').strip()
+        current_data = data.get('current_data', {})
+        
+        if not name:
+            return jsonify({'code': 400, 'message': '请输入账号名称'})
+        
+        # 创建账号
+        account = KnowledgeAccount(
+            name=name,
+            platform=platform,
+            url=url,
+            current_data=current_data,
+            status='active',
+            # 详细信息
+            business_type=data.get('business_type'),
+            product_type=data.get('product_type'),
+            service_type=data.get('service_type'),
+            service_range=data.get('service_range'),
+            target_area=data.get('target_area'),
+            brand_type=data.get('brand_type'),
+            brand_description=data.get('brand_description'),
+            language_style=data.get('language_style'),
+            dialect=data.get('dialect'),
+            core_advantage=data.get('core_advantage'),
+            main_product=data.get('main_product')
+        )
+        db.session.add(account)
+        
+        # 同时创建历史记录
+        history = KnowledgeAccountHistory(
+            account_id=None,  # 先设为 None，之后更新
+            data=current_data,
+            change_note='初始创建'
+        )
+        
+        db.session.flush()  # 获取 account.id
+        
+        history.account_id = account.id
+        db.session.add(history)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '创建成功',
+            'data': {
+                'id': account.id,
+                'name': account.name,
+                'platform': account.platform,
+                'url': account.url,
+                'current_data': account.current_data,
+                'status': account.status
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"创建账号失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'创建失败: {str(e)}'})
+
+
+@knowledge_api.route('/accounts/<int:account_id>', methods=['PUT'])
+@login_required
+def update_account(account_id):
+    """更新账号信息"""
+    try:
+        data = request.get_json()
+        
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+        
+        # 记录变更前的数据用于历史
+        old_data = account.current_data or {}
+        
+        # 更新字段
+        if 'name' in data:
+            account.name = data['name'].strip()
+        if 'platform' in data:
+            account.platform = data['platform'].strip()
+        if 'url' in data:
+            account.url = data['url'].strip()
+        if 'current_data' in data:
+            account.current_data = data['current_data']
+        if 'status' in data:
+            account.status = data['status']
+
+        # 详细信息字段
+        if 'business_type' in data:
+            account.business_type = data['business_type']
+        if 'product_type' in data:
+            account.product_type = data['product_type']
+        if 'service_type' in data:
+            account.service_type = data['service_type']
+        if 'service_range' in data:
+            account.service_range = data['service_range']
+        if 'target_area' in data:
+            account.target_area = data['target_area']
+        if 'brand_type' in data:
+            account.brand_type = data['brand_type']
+        if 'brand_description' in data:
+            account.brand_description = data['brand_description']
+        if 'language_style' in data:
+            account.language_style = data['language_style']
+        if 'dialect' in data:
+            account.dialect = data['dialect']
+        if 'core_advantage' in data:
+            account.core_advantage = data['core_advantage']
+        if 'main_product' in data:
+            account.main_product = data['main_product']
+        
+        # 如果更新了 current_data，记录历史
+        if 'current_data' in data and data['current_data'] != old_data:
+            history = KnowledgeAccountHistory(
+                account_id=account.id,
+                data=data['current_data'],
+                change_note=data.get('change_note', '手动更新')
+            )
+            db.session.add(history)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '更新成功',
+            'data': {
+                'id': account.id,
+                'name': account.name,
+                'platform': account.platform,
+                'url': account.url,
+                'current_data': account.current_data,
+                'status': account.status
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"更新账号失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'})
+
+
+@knowledge_api.route('/accounts/<int:account_id>', methods=['DELETE'])
+@login_required
+def delete_account(account_id):
+    """删除账号"""
+    try:
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+        
+        db.session.delete(account)
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '删除成功'
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"删除账号失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'删除失败: {str(e)}'})
+
+
+@knowledge_api.route('/accounts/<int:account_id>/history', methods=['GET'])
+@login_required
+def get_account_history(account_id):
+    """获取账号历史记录"""
+    try:
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+        
+        history = KnowledgeAccountHistory.query.filter_by(
+            account_id=account_id
+        ).order_by(KnowledgeAccountHistory.created_at.desc()).all()
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': [{
+                'id': h.id,
+                'account_id': h.account_id,
+                'data': h.data,
+                'change_note': h.change_note,
+                'created_at': h.created_at.isoformat() if h.created_at else None
+            } for h in history]
+        })
+    except Exception as e:
+        logger.error(f"获取账号历史失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+
+# ========== 内容相关接口 ==========
+
+@knowledge_api.route('/contents', methods=['GET'])
+@login_required
+def get_contents():
+    """获取内容列表"""
+    try:
+        # 获取查询参数
+        account_id = request.args.get('account_id', type=int)
+        content_type = request.args.get('content_type')
+        source_type = request.args.get('source_type')
+        
+        # 构建查询
+        query = KnowledgeContent.query
+        if account_id:
+            query = query.filter(KnowledgeContent.account_id == account_id)
+        if content_type:
+            query = query.filter(KnowledgeContent.content_type == content_type)
+        if source_type:
+            query = query.filter(KnowledgeContent.source_type == source_type)
+        
+        contents = query.order_by(KnowledgeContent.updated_at.desc()).all()
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': [{
+                'id': c.id,
+                'account_id': c.account_id,
+                'title': c.title,
+                'content_url': c.content_url,
+                'content_type': c.content_type,
+                'source_type': c.source_type,
+                'content_data': c.content_data,
+                'analysis_result': c.analysis_result,
+                'created_at': c.created_at.isoformat() if c.created_at else None,
+                'updated_at': c.updated_at.isoformat() if c.updated_at else None
+            } for c in contents]
+        })
+    except Exception as e:
+        logger.error(f"获取内容列表失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+
+@knowledge_api.route('/contents/<int:content_id>', methods=['GET'])
+@login_required
+def get_content(content_id):
+    """获取单个内容详情"""
+    try:
+        content = KnowledgeContent.query.get(content_id)
+        if not content:
+            return jsonify({'code': 404, 'message': '内容不存在'})
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': {
+                'id': content.id,
+                'account_id': content.account_id,
+                'title': content.title,
+                'content_url': content.content_url,
+                'content_type': content.content_type,
+                'source_type': content.source_type,
+                'content_data': content.content_data,
+                'analysis_result': content.analysis_result,
+                'created_at': content.created_at.isoformat() if content.created_at else None,
+                'updated_at': content.updated_at.isoformat() if content.updated_at else None
+            }
+        })
+    except Exception as e:
+        logger.error(f"获取内容详情失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+
+@knowledge_api.route('/contents', methods=['POST'])
+@login_required
+def create_content():
+    """创建内容"""
+    try:
+        data = request.get_json()
+        
+        account_id = data.get('account_id')
+        title = data.get('title', '').strip()
+        content_url = data.get('content_url', '').strip()
+        content_type = data.get('content_type', 'manual')
+        source_type = data.get('source_type', 'manual')
+        content_data = data.get('content_data', {})
+        
+        if not title:
+            return jsonify({'code': 400, 'message': '请输入内容标题'})
+        
+        # 创建内容
+        content = KnowledgeContent(
+            account_id=account_id,
+            title=title,
+            content_url=content_url,
+            content_type=content_type,
+            source_type=source_type,
+            content_data=content_data
+        )
+        db.session.add(content)
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '创建成功',
+            'data': {
+                'id': content.id,
+                'account_id': content.account_id,
+                'title': content.title,
+                'content_url': content.content_url,
+                'content_type': content.content_type,
+                'source_type': content.source_type
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"创建内容失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'创建失败: {str(e)}'})
+
+
+@knowledge_api.route('/contents/<int:content_id>', methods=['PUT'])
+@login_required
+def update_content(content_id):
+    """更新内容"""
+    try:
+        data = request.get_json()
+        
+        content = KnowledgeContent.query.get(content_id)
+        if not content:
+            return jsonify({'code': 404, 'message': '内容不存在'})
+        
+        # 更新字段
+        if 'account_id' in data:
+            content.account_id = data['account_id']
+        if 'title' in data:
+            content.title = data['title'].strip()
+        if 'content_url' in data:
+            content.content_url = data['content_url'].strip()
+        if 'content_type' in data:
+            content.content_type = data['content_type']
+        if 'source_type' in data:
+            content.source_type = data['source_type']
+        if 'content_data' in data:
+            content.content_data = data['content_data']
+        if 'analysis_result' in data:
+            content.analysis_result = data['analysis_result']
+        
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '更新成功',
+            'data': {
+                'id': content.id,
+                'account_id': content.account_id,
+                'title': content.title,
+                'content_url': content.content_url,
+                'content_type': content.content_type,
+                'source_type': content.source_type
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"更新内容失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'})
+
+
+@knowledge_api.route('/contents/<int:content_id>', methods=['DELETE'])
+@login_required
+def delete_content(content_id):
+    """删除内容"""
+    try:
+        content = KnowledgeContent.query.get(content_id)
+        if not content:
+            return jsonify({'code': 404, 'message': '内容不存在'})
+        
+        db.session.delete(content)
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '删除成功'
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"删除内容失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'删除失败: {str(e)}'})
+
+
+# ========== 图片识别相关接口 ==========
+
+@knowledge_api.route('/analyze/account-image', methods=['POST'])
+@login_required
+def analyze_account_image():
+    """分析账号主页截图"""
+    try:
+        data = request.get_json()
+        image_data = data.get('image_data', '')  # base64 编码的图片或 URL
+        
+        if not image_data:
+            return jsonify({'code': 400, 'message': '请上传图片'})
+        
+        # 导入图片分析服务
+        try:
+            from services.image_analyzer import analyze_account_image as do_analyze
+            result = do_analyze(image_data)
+            
+            if 'error' in result:
+                return jsonify({'code': 500, 'message': result['error']})
+            
+            return jsonify({
+                'code': 200,
+                'message': '分析成功',
+                'data': result
+            })
+        except ImportError:
+            return jsonify({'code': 500, 'message': '图片分析服务未配置'})
+            
+    except Exception as e:
+        logger.error(f"分析账号图片失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'分析失败: {str(e)}'})
+
+
+@knowledge_api.route('/analyze/content-image', methods=['POST'])
+@login_required
+def analyze_content_image():
+    """分析内容截图"""
+    try:
+        data = request.get_json()
+        image_data = data.get('image_data', '')  # base64 编码的图片或 URL
+        
+        if not image_data:
+            return jsonify({'code': 400, 'message': '请上传图片'})
+        
+        # 导入图片分析服务
+        try:
+            from services.image_analyzer import analyze_content_image as do_analyze
+            result = do_analyze(image_data)
+            
+            if 'error' in result:
+                return jsonify({'code': 500, 'message': result['error']})
+            
+            return jsonify({
+                'code': 200,
+                'message': '分析成功',
+                'data': result
+            })
+        except ImportError:
+            return jsonify({'code': 500, 'message': '图片分析服务未配置'})
+            
+    except Exception as e:
+        logger.error(f"分析内容图片失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'分析失败: {str(e)}'})
