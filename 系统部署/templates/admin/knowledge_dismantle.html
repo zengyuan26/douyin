@@ -43,13 +43,25 @@
                 <!-- 账号分析 Tab -->
                 <div class="tab-pane fade show active" id="account-panel" role="tabpanel">
                     <div class="card border-0 shadow-sm">
-                        <div class="card-header bg-white border-0 py-2 d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0">
-                                <i class="bi bi-collection me-2 text-primary"></i>账号库
-                            </h6>
-                            <button class="btn btn-sm btn-primary" id="add-account-btn">
-                                <i class="bi bi-plus-lg me-1"></i>新增
-                            </button>
+                        <div class="card-header bg-white border-0 py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-collection me-2 text-primary"></i>账号库
+                                </h6>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="search-box">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" id="account-search-input" placeholder="搜索账号名称...">
+                                            <button class="btn btn-outline-secondary" type="button" id="account-search-btn">
+                                                <i class="bi bi-search"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-primary" id="add-account-btn">
+                                        <i class="bi bi-plus-lg me-1"></i>新增
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div class="card-body py-2">
                             <!-- 账号列表（卡片式） -->
@@ -346,28 +358,28 @@
 
 <!-- 新增/编辑账号模态框 -->
 <div class="modal fade" id="accountModal" tabindex="-1" aria-labelledby="accountModalLabel" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 800px;">
-        <div class="modal-content" style="max-height: 85vh;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 1000px; margin: 1.75rem auto;">
+        <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="accountModalLabel">新增账号</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-4" style="overflow-y: auto;">
+            <div class="modal-body p-3">
                 <form id="account-form">
                     <input type="hidden" id="account-id">
 
                     <!-- 基础信息 -->
-                    <h6 class="border-bottom pb-2 mb-3 text-primary">
+                    <h6 class="border-bottom pb-1 mb-2 text-primary">
                         <i class="bi bi-info-circle me-1"></i>基础信息
                     </h6>
-                    <div class="row g-3 mb-4">
+                    <div class="row g-2 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">账号名称 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="account-name" placeholder="请输入账号名称" required>
+                            <label class="form-label small">账号名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="account-name" placeholder="请输入账号名称" required>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">平台</label>
-                            <select class="form-select" id="account-platform">
+                        <div class="col-md-3">
+                            <label class="form-label small">平台</label>
+                            <select class="form-select form-select-sm" id="account-platform">
                                 <option value="douyin">抖音</option>
                                 <option value="xhs">小红书</option>
                                 <option value="bilibili">B站</option>
@@ -376,42 +388,42 @@
                                 <option value="other">其他</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">粉丝数</label>
-                            <input type="text" class="form-control" id="account-followers" placeholder="如：10万">
+                        <div class="col-md-3">
+                            <label class="form-label small">粉丝数</label>
+                            <input type="text" class="form-control form-control-sm" id="account-followers" placeholder="如：10万">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">账号简介</label>
-                            <input type="text" class="form-control" id="account-bio" placeholder="账号简介">
+                        <div class="col-md-12">
+                            <label class="form-label small">账号简介</label>
+                            <input type="text" class="form-control form-control-sm" id="account-bio" placeholder="账号简介">
                         </div>
                     </div>
 
                     <!-- 详细信息 -->
-                    <h6 class="border-bottom pb-2 mb-3 text-success">
+                    <h6 class="border-bottom pb-1 mb-2 text-success">
                         <i class="bi bi-card-list me-1"></i>详细信息
                     </h6>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">业务类型</label>
-                            <select class="form-select" id="account-business-type">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small">业务类型</label>
+                            <select class="form-select form-select-sm" id="account-business-type">
                                 <option value="">请选择</option>
                                 <option value="卖货类">卖货类</option>
                                 <option value="服务类">服务类</option>
                                 <option value="两者都有">两者都有</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">产品类型</label>
-                            <select class="form-select" id="account-product-type">
+                        <div class="col-md-4">
+                            <label class="form-label small">产品类型</label>
+                            <select class="form-select form-select-sm" id="account-product-type">
                                 <option value="">请选择</option>
                                 <option value="实物商品">实物商品</option>
                                 <option value="批发供应链">批发供应链</option>
                                 <option value="其他">其他</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">服务类型</label>
-                            <select class="form-select" id="account-service-type">
+                        <div class="col-md-4">
+                            <label class="form-label small">服务类型</label>
+                            <select class="form-select form-select-sm" id="account-service-type">
                                 <option value="">请选择</option>
                                 <option value="本地生活">本地生活</option>
                                 <option value="线上专业">线上专业</option>
@@ -419,51 +431,55 @@
                                 <option value="其他">其他</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">地域范围</label>
-                            <select class="form-select" id="account-service-range">
+                        <div class="col-md-4">
+                            <label class="form-label small">主营业务1</label>
+                            <input type="text" class="form-control form-control-sm" id="account-main-product" placeholder="如：服装销售(60%)">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small">主营业务2</label>
+                            <input type="text" class="form-control form-control-sm" id="account-main-product-2" placeholder="如：配饰(40%)">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small">主营业务3</label>
+                            <input type="text" class="form-control form-control-sm" id="account-main-product-3" placeholder="其他业务">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small">地域范围</label>
+                            <select class="form-select form-select-sm" id="account-service-range">
                                 <option value="">请选择</option>
                                 <option value="本地">本地</option>
                                 <option value="跨区域">跨区域</option>
                                 <option value="全球">全球</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">目标地区</label>
-                            <input type="text" class="form-control" id="account-target-area" placeholder="如：北京、上海">
+                        <div class="col-md-4">
+                            <label class="form-label small">目标地区</label>
+                            <input type="text" class="form-control form-control-sm" id="account-target-area" placeholder="如：北京、上海">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">品牌定位</label>
-                            <select class="form-select" id="account-brand-type">
+                        <div class="col-md-4">
+                            <label class="form-label small">品牌定位</label>
+                            <select class="form-select form-select-sm" id="account-brand-type">
                                 <option value="">请选择</option>
                                 <option value="个人IP">个人IP</option>
                                 <option value="企业品牌">企业品牌</option>
                                 <option value="两者兼顾">两者兼顾</option>
                             </select>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label">品牌/核心人物描述</label>
-                            <textarea class="form-control" id="account-brand-description" rows="2" placeholder="描述品牌或核心人物的特色"></textarea>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">语言风格</label>
-                            <select class="form-select" id="account-language-style">
+                        <div class="col-md-4">
+                            <label class="form-label small">语言风格</label>
+                            <select class="form-select form-select-sm" id="account-language-style">
                                 <option value="">请选择</option>
                                 <option value="普通话">普通话</option>
                                 <option value="方言">方言</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">具体方言</label>
-                            <input type="text" class="form-control" id="account-dialect" placeholder="如：东北话、四川话">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">核心优势/卖点</label>
-                            <textarea class="form-control" id="account-core-advantage" rows="2" placeholder="描述账号的核心优势和卖点"></textarea>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">主营业务（含占比）</label>
-                            <input type="text" class="form-control" id="account-main-product" placeholder="如：服装销售(60%)、配饰(40%)">
+                        <div class="col-md-4">
+                            <label class="form-label small">目标用户</label>
+                            <select class="form-select form-select-sm" id="account-target-user">
+                                <option value="">请选择</option>
+                                <option value="付费者">付费者</option>
+                                <option value="使用者">使用者（付费和使用人不是同一人）</option>
+                            </select>
                         </div>
                     </div>
                 </form>
@@ -478,7 +494,7 @@
 
 <!-- 查看账号详情模态框 -->
 <div class="modal fade" id="accountDetailModal" tabindex="-1" aria-labelledby="accountDetailModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 1000px; margin: 1.75rem auto;">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="accountDetailModalLabel">账号详情</h5>
@@ -858,6 +874,26 @@ function initEventListeners() {
     document.getElementById('accounts-prev-btn').addEventListener('click', accountsPrevPage);
     document.getElementById('accounts-next-btn').addEventListener('click', accountsNextPage);
 
+    // 账号搜索
+    const searchInput = document.getElementById('account-search-input');
+    const searchBtn = document.getElementById('account-search-btn');
+    if (searchBtn) {
+        searchBtn.addEventListener('click', function() {
+            accountsSearchKeyword = searchInput.value.trim();
+            accountsPage = 1;
+            loadAccountsList();
+        });
+    }
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                accountsSearchKeyword = searchInput.value.trim();
+                accountsPage = 1;
+                loadAccountsList();
+            }
+        });
+    }
+
     // 手动录入内容表单
     document.getElementById('content-manual-form').addEventListener('submit', saveContentManually);
 
@@ -887,7 +923,8 @@ function initEventListeners() {
 // 账号库分页状态
 let accountsPage = 1;
 let accountsTotalPages = 1;
-const ACCOUNTS_PAGE_SIZE = 10;
+let accountsSearchKeyword = '';
+const ACCOUNTS_PAGE_SIZE = 5;
 
 // 加载账号库列表
 async function loadAccountsList() {
@@ -895,7 +932,11 @@ async function loadAccountsList() {
     listEl.innerHTML = '<div class="col-12 text-center text-muted py-4">加载中...</div>';
 
     try {
-        const response = await fetch(`/api/knowledge/accounts?page=${accountsPage}&page_size=${ACCOUNTS_PAGE_SIZE}`);
+        let url = `/api/knowledge/accounts?page=${accountsPage}&page_size=${ACCOUNTS_PAGE_SIZE}`;
+        if (accountsSearchKeyword) {
+            url += `&search=${encodeURIComponent(accountsSearchKeyword)}`;
+        }
+        const response = await fetch(url);
         const data = await response.json();
 
         if (data.code === 200) {
@@ -918,19 +959,19 @@ async function loadAccountsList() {
 
                     return `
                         <div class="col-12">
-                            <div class="card account-card h-100" onclick="selectAccount(${acc.id})" style="cursor: pointer;">
+                            <div class="card account-card h-100" onclick="selectAccountPreview(${acc.id})" style="cursor: pointer;">
                                 <div class="card-body py-2 px-3">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1">
-                                            <span class="text-decoration-none fw-medium text-primary">${escapeHtml(acc.name)}</span>
+                                            <a href="javascript:void(0)" class="text-decoration-none fw-medium text-primary" onclick="event.stopPropagation(); viewAccountDetail(${acc.id})">${escapeHtml(acc.name)}</a>
                                             <div class="text-muted small">
                                                 <span>${platform}</span>
                                                 <span class="ms-1">粉丝: ${escapeHtml(String(followers))}</span>
                                             </div>
                                         </div>
                                         <div onclick="event.stopPropagation()">
-                                            <button class="btn btn-sm btn-outline-secondary me-1" onclick="viewAccountDetail(${acc.id})" title="详情">
-                                                <i class="bi bi-info-circle"></i>
+                                            <button class="btn btn-sm btn-outline-primary me-1" onclick="switchToAccount(${acc.id})" title="切换账号">
+                                                <i class="bi bi-arrow-repeat"></i> 切换账号
                                             </button>
                                             <button class="btn btn-sm btn-outline-primary me-1" onclick="editAccount(${acc.id})" title="编辑">
                                                 <i class="bi bi-pencil"></i>
@@ -963,6 +1004,80 @@ async function loadAccountsList() {
 }
 
 // 查看账号详情（含变更历史）
+// 预览账号 - 点击卡片时只更新分析结果，不跳转页面
+async function selectAccountPreview(accountId) {
+    console.log('selectAccountPreview called with id:', accountId);
+    try {
+        const response = await fetch(`/api/knowledge/accounts/${accountId}`);
+        const data = await response.json();
+        console.log('API response:', data);
+
+        if (data.code === 200 && data.data) {
+            const acc = data.data;
+            currentAccount = {
+                id: acc.id,
+                name: acc.name,
+                url: acc.url || '',
+                bio: acc.current_data?.bio || '',
+                fans_count: acc.current_data?.followers || acc.current_data?.fans_count || '',
+                platform: acc.platform
+            };
+            sessionStorage.setItem('dismantle_account', JSON.stringify(currentAccount));
+
+            // 显示账号已关联状态
+            showAccountLinkedState(currentAccount);
+
+            // 启用内容分析 Tab
+            enableContentTab();
+            
+            // 显示账号分析结果
+            displayAccountAnalysisResult(currentAccount);
+        } else {
+            alert('获取账号信息失败: ' + (data.message || '未知错误'));
+        }
+    } catch (e) {
+        console.error('预览账号失败:', e);
+        alert('预览账号失败，请重试');
+    }
+}
+
+// 切换账号并跳转到内容分析 tab
+async function switchToAccount(accountId) {
+    console.log('switchToAccount called with id:', accountId);
+    try {
+        const response = await fetch(`/api/knowledge/accounts/${accountId}`);
+        const data = await response.json();
+        console.log('API response:', data);
+
+        if (data.code === 200 && data.data) {
+            const acc = data.data;
+            currentAccount = {
+                id: acc.id,
+                name: acc.name,
+                url: acc.url || '',
+                bio: acc.current_data?.bio || '',
+                fans_count: acc.current_data?.followers || acc.current_data?.fans_count || '',
+                platform: acc.platform
+            };
+            sessionStorage.setItem('dismantle_account', JSON.stringify(currentAccount));
+
+            // 显示账号已关联状态
+            showAccountLinkedState(currentAccount);
+
+            // 启用内容分析 Tab
+            enableContentTab();
+
+            // 切换到内容分析 Tab
+            switchToContentTab();
+        } else {
+            alert('获取账号信息失败: ' + (data.message || '未知错误'));
+        }
+    } catch (e) {
+        console.error('切换账号失败:', e);
+        alert('切换账号失败，请重试');
+    }
+}
+
 async function viewAccountDetail(accountId) {
     const modal = new bootstrap.Modal(document.getElementById('accountDetailModal'));
     const contentEl = document.getElementById('account-detail-content');
@@ -975,6 +1090,27 @@ async function viewAccountDetail(accountId) {
 
         if (data.code === 200 && data.data) {
             const acc = data.data;
+            
+            // 更新当前账号
+            currentAccount = {
+                id: acc.id,
+                name: acc.name,
+                url: acc.url || '',
+                bio: acc.current_data?.bio || '',
+                fans_count: acc.current_data?.followers || acc.current_data?.fans_count || '',
+                platform: acc.platform
+            };
+            sessionStorage.setItem('dismantle_account', JSON.stringify(currentAccount));
+            
+            // 显示账号已关联状态
+            showAccountLinkedState(currentAccount);
+            
+            // 启用内容分析 Tab
+            enableContentTab();
+            
+            // 显示账号分析结果
+            displayAccountAnalysisResult(currentAccount);
+            
             const platformNames = {
                 'douyin': '抖音',
                 'xhs': '小红书',
@@ -990,66 +1126,72 @@ async function viewAccountDetail(accountId) {
             // 检查是否有详细信息
             const hasDetail = acc.business_type || acc.product_type || acc.service_type ||
                 acc.service_range || acc.target_area || acc.brand_type ||
-                acc.brand_description || acc.language_style || acc.dialect ||
-                acc.core_advantage || acc.main_product;
+                acc.language_style || acc.target_user || acc.main_product;
 
             let detailHtml = '';
             if (hasDetail) {
+                // 解析主营业务
+                const mainProducts = acc.main_product ? acc.main_product.split(', ').filter(p => p.trim()) : [];
                 detailHtml = `
-                    <div class="col-12 mt-3">
-                        <h6 class="border-bottom pb-2 mb-3 text-success">
+                    <div class="col-12 mt-2">
+                        <h6 class="border-bottom pb-1 mb-2 text-success">
                             <i class="bi bi-card-list me-1"></i>详细信息
                         </h6>
                         <div class="row">
                             ${acc.business_type ? `
-                            <div class="col-md-3 col-6 mb-2">
+                            <div class="col-md-3 col-6 mb-1">
                                 <label class="text-muted small d-block">业务类型</label>
                                 <div>${escapeHtml(acc.business_type)}</div>
                             </div>` : ''}
                             ${acc.product_type ? `
-                            <div class="col-md-3 col-6 mb-2">
+                            <div class="col-md-3 col-6 mb-1">
                                 <label class="text-muted small d-block">产品类型</label>
                                 <div>${escapeHtml(acc.product_type)}</div>
                             </div>` : ''}
                             ${acc.service_type ? `
-                            <div class="col-md-3 col-6 mb-2">
+                            <div class="col-md-3 col-6 mb-1">
                                 <label class="text-muted small d-block">服务类型</label>
                                 <div>${escapeHtml(acc.service_type)}</div>
                             </div>` : ''}
+                            ${mainProducts[0] ? `
+                            <div class="col-md-3 col-6 mb-1">
+                                <label class="text-muted small d-block">主营业务1</label>
+                                <div>${escapeHtml(mainProducts[0])}</div>
+                            </div>` : ''}
+                            ${mainProducts[1] ? `
+                            <div class="col-md-3 col-6 mb-1">
+                                <label class="text-muted small d-block">主营业务2</label>
+                                <div>${escapeHtml(mainProducts[1])}</div>
+                            </div>` : ''}
+                            ${mainProducts[2] ? `
+                            <div class="col-md-3 col-6 mb-1">
+                                <label class="text-muted small d-block">主营业务3</label>
+                                <div>${escapeHtml(mainProducts[2])}</div>
+                            </div>` : ''}
                             ${acc.service_range ? `
-                            <div class="col-md-3 col-6 mb-2">
+                            <div class="col-md-3 col-6 mb-1">
                                 <label class="text-muted small d-block">地域范围</label>
                                 <div>${escapeHtml(acc.service_range)}</div>
                             </div>` : ''}
                             ${acc.target_area ? `
-                            <div class="col-md-3 col-6 mb-2">
+                            <div class="col-md-3 col-6 mb-1">
                                 <label class="text-muted small d-block">目标地区</label>
                                 <div>${escapeHtml(acc.target_area)}</div>
                             </div>` : ''}
                             ${acc.brand_type ? `
-                            <div class="col-md-3 col-6 mb-2">
+                            <div class="col-md-3 col-6 mb-1">
                                 <label class="text-muted small d-block">品牌定位</label>
                                 <div>${escapeHtml(acc.brand_type)}</div>
                             </div>` : ''}
                             ${acc.language_style ? `
-                            <div class="col-md-3 col-6 mb-2">
+                            <div class="col-md-3 col-6 mb-1">
                                 <label class="text-muted small d-block">语言风格</label>
-                                <div>${escapeHtml(acc.language_style)}${acc.dialect ? ` (${escapeHtml(acc.dialect)})` : ''}</div>
+                                <div>${escapeHtml(acc.language_style)}</div>
                             </div>` : ''}
-                            ${acc.main_product ? `
-                            <div class="col-md-6 col-12 mb-2">
-                                <label class="text-muted small d-block">主营业务</label>
-                                <div>${escapeHtml(acc.main_product)}</div>
-                            </div>` : ''}
-                            ${acc.brand_description ? `
-                            <div class="col-12 mb-2">
-                                <label class="text-muted small d-block">品牌/核心人物描述</label>
-                                <div>${escapeHtml(acc.brand_description)}</div>
-                            </div>` : ''}
-                            ${acc.core_advantage ? `
-                            <div class="col-12 mb-2">
-                                <label class="text-muted small d-block">核心优势/卖点</label>
-                                <div>${escapeHtml(acc.core_advantage)}</div>
+                            ${acc.target_user ? `
+                            <div class="col-md-3 col-6 mb-1">
+                                <label class="text-muted small d-block">目标用户</label>
+                                <div>${escapeHtml(acc.target_user)}</div>
                             </div>` : ''}
                         </div>
                     </div>
@@ -1192,11 +1334,13 @@ function openAccountModal(account = null) {
         document.getElementById('account-service-range').value = account.service_range || '';
         document.getElementById('account-target-area').value = account.target_area || '';
         document.getElementById('account-brand-type').value = account.brand_type || '';
-        document.getElementById('account-brand-description').value = account.brand_description || '';
         document.getElementById('account-language-style').value = account.language_style || '';
-        document.getElementById('account-dialect').value = account.dialect || '';
-        document.getElementById('account-core-advantage').value = account.core_advantage || '';
-        document.getElementById('account-main-product').value = account.main_product || '';
+        document.getElementById('account-target-user').value = account.target_user || '';
+        // 解析主营业务（支持多个，用换行或逗号分隔）
+        const mainProducts = account.main_product ? account.main_product.split(/[,，\n]/).filter(p => p.trim()) : [];
+        document.getElementById('account-main-product').value = mainProducts[0] || '';
+        document.getElementById('account-main-product-2').value = mainProducts[1] || '';
+        document.getElementById('account-main-product-3').value = mainProducts[2] || '';
     } else {
         titleEl.textContent = '新增账号';
         document.getElementById('account-form').reset();
@@ -1274,11 +1418,14 @@ async function saveAccount() {
         service_range: document.getElementById('account-service-range').value,
         target_area: document.getElementById('account-target-area').value.trim(),
         brand_type: document.getElementById('account-brand-type').value,
-        brand_description: document.getElementById('account-brand-description').value.trim(),
         language_style: document.getElementById('account-language-style').value,
-        dialect: document.getElementById('account-dialect').value.trim(),
-        core_advantage: document.getElementById('account-core-advantage').value.trim(),
-        main_product: document.getElementById('account-main-product').value.trim()
+        target_user: document.getElementById('account-target-user').value,
+        // 合并三个主营业务输入框
+        main_product: [
+            document.getElementById('account-main-product').value.trim(),
+            document.getElementById('account-main-product-2').value.trim(),
+            document.getElementById('account-main-product-3').value.trim()
+        ].filter(p => p).join(', ')
     };
 
     try {

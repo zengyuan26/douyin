@@ -1158,7 +1158,6 @@ def list_knowledge_analysis():
     pagination = query.order_by(KnowledgeAnalysis.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
-
     return jsonify({
         'success': True,
         'items': [{

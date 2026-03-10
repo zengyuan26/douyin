@@ -463,11 +463,9 @@ class KnowledgeAccount(db.Model):
     service_range = db.Column(db.String(50))  # 地域范围：本地/跨区域/全球
     target_area = db.Column(db.String(100))  # 具体城市/区域
     brand_type = db.Column(db.String(50))  # 品牌定位：个人IP/企业品牌/两者兼顾
-    brand_description = db.Column(db.Text)  # 品牌/核心人物描述
     language_style = db.Column(db.String(50))  # 语言风格：普通话/方言
-    dialect = db.Column(db.String(50))  # 具体方言
-    core_advantage = db.Column(db.Text)  # 核心优势/卖点
     main_product = db.Column(db.String(200))  # 主营业务（含占比）
+    target_user = db.Column(db.String(50))  # 目标用户：付费者/使用者
 
     # Relationships
     history = db.relationship('KnowledgeAccountHistory', backref='account', lazy='dynamic', cascade='all, delete-orphan')

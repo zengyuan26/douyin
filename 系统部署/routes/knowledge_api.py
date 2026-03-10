@@ -4418,6 +4418,7 @@ def get_accounts():
         # 获取查询参数
         platform = request.args.get('platform')
         status = request.args.get('status')
+        search = request.args.get('search')
         page = request.args.get('page', 1, type=int)
         page_size = request.args.get('page_size', 10, type=int)
 
@@ -4427,6 +4428,8 @@ def get_accounts():
             query = query.filter(KnowledgeAccount.platform == platform)
         if status:
             query = query.filter(KnowledgeAccount.status == status)
+        if search:
+            query = query.filter(KnowledgeAccount.name.ilike(f'%{search}%'))
 
         # 获取总数
         total = query.count()
@@ -4456,10 +4459,8 @@ def get_accounts():
                     'service_range': acc.service_range,
                     'target_area': acc.target_area,
                     'brand_type': acc.brand_type,
-                    'brand_description': acc.brand_description,
                     'language_style': acc.language_style,
-                    'dialect': acc.dialect,
-                    'core_advantage': acc.core_advantage,
+                    'target_user': acc.target_user,
                     'main_product': acc.main_product
                 } for acc in accounts.items],
                 'total': total,
@@ -4501,10 +4502,8 @@ def get_account(account_id):
                 'service_range': account.service_range,
                 'target_area': account.target_area,
                 'brand_type': account.brand_type,
-                'brand_description': account.brand_description,
                 'language_style': account.language_style,
-                'dialect': account.dialect,
-                'core_advantage': account.core_advantage,
+                'target_user': account.target_user,
                 'main_product': account.main_product
             }
         })
@@ -4542,10 +4541,8 @@ def create_account():
             service_range=data.get('service_range'),
             target_area=data.get('target_area'),
             brand_type=data.get('brand_type'),
-            brand_description=data.get('brand_description'),
             language_style=data.get('language_style'),
-            dialect=data.get('dialect'),
-            core_advantage=data.get('core_advantage'),
+            target_user=data.get('target_user'),
             main_product=data.get('main_product')
         )
         db.session.add(account)
@@ -4621,14 +4618,10 @@ def update_account(account_id):
             account.target_area = data['target_area']
         if 'brand_type' in data:
             account.brand_type = data['brand_type']
-        if 'brand_description' in data:
-            account.brand_description = data['brand_description']
         if 'language_style' in data:
             account.language_style = data['language_style']
-        if 'dialect' in data:
-            account.dialect = data['dialect']
-        if 'core_advantage' in data:
-            account.core_advantage = data['core_advantage']
+        if 'target_user' in data:
+            account.target_user = data['target_user']
         if 'main_product' in data:
             account.main_product = data['main_product']
         
