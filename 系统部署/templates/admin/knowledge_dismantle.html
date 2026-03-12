@@ -209,10 +209,12 @@
                                         <div class="fw-medium" id="result-title">-</div>
                                     </div>
                                 </div>
-                                <div class="col-4">
+                            </div>
+                            <div class="row g-2 mt-1">
+                                <div class="col-12">
                                     <div class="p-2 bg-light rounded">
                                         <div class="small text-muted">简介</div>
-                                        <div class="fw-medium text-truncate" id="result-bio">-</div>
+                                        <div class="fw-medium" id="result-bio">-</div>
                                     </div>
                                 </div>
                             </div>
@@ -2065,13 +2067,10 @@ function displayAccountAnalysisResult(accountInfo) {
     `;
 
     const positioningSections = [
-        { label: '商业定位', value: personaDetail },
+        { label: '商业定位', value: accountInfo.business_type || '-' },
         { label: '核心业务', value: accountInfo.core_business || accountInfo.main_product },
-        { label: '业务类型', value: accountInfo.business_type || accountInfo.product_type || accountInfo.service_type },
-        { label: '地域范围', value: accountInfo.service_range || accountInfo.target_area },
-        { label: '变现方式', value: commercialPositioning.monetization_method || commercialPositioning.monetization_mode },
-        { label: '卖货策略', value: commercialPositioning.sales_strategy },
-        { label: '变现链路', value: commercialPositioning.monetization_chain || commercialPositioning.chain_clarity }
+        { label: '业务类型', value: accountInfo.product_type || accountInfo.service_type || '-' },
+        { label: '地域范围', value: accountInfo.service_range || accountInfo.target_area }
     ];
     const tabPositioning = `
         <div class="row g-2">
