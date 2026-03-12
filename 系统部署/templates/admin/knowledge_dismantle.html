@@ -171,19 +171,8 @@
         <!-- 右侧：结果展示 -->
         <div class="col-lg-7">
             <div class="card border-0 shadow-sm" style="min-height: 500px;">
-                <div class="card-header bg-white border-0 py-2 d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white border-0 py-2">
                     <h6 class="mb-0">分析结果</h6>
-                    <div class="btn-group d-none" id="result-actions">
-                        <button class="btn btn-sm btn-outline-success" id="extract-scenes-btn">
-                            <i class="bi bi-plus-circle me-1"></i>一键入库
-                        </button>
-                        <button class="btn btn-sm btn-outline-primary" id="import-rules-btn">
-                            <i class="bi bi-download me-1"></i>导入规则
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary" id="export-result-btn">
-                            <i class="bi bi-share me-1"></i>导出
-                        </button>
-                    </div>
                 </div>
                 <div class="card-body" id="result-container">
                     <!-- 初始状态 -->
@@ -194,27 +183,6 @@
 
                     <!-- 分析结果 -->
                     <div id="result-content" class="d-none">
-                        <!-- 基本信息 -->
-                        <div class="mb-2">
-                            <h6 class="text-muted mb-2">
-                                <i class="bi bi-info-circle me-1"></i>基本信息
-                            </h6>
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <div class="p-2 bg-light rounded">
-                                        <div class="small text-muted">标题</div>
-                                        <div class="fw-medium text-truncate" id="result-title">-</div>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="p-2 bg-light rounded">
-                                        <div class="small text-muted">账号</div>
-                                        <div class="fw-medium" id="result-author">-</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                         <!-- 分析维度结果 -->
                         <div id="analysis-results">
                             <!-- 动态加载分析结果 -->
@@ -321,6 +289,17 @@
     cursor: not-allowed;
 }
 
+.nav-pills .nav-link {
+    background: transparent;
+    border: none;
+    color: #495057;
+}
+
+.nav-pills .nav-link.active {
+    color: #0d6efd;
+    background: transparent;
+}
+
 #account-history-list .border-bottom:last-child {
     border-bottom: none !important;
 }
@@ -343,128 +322,197 @@
 
 <!-- 新增/编辑账号模态框 -->
 <div class="modal fade" id="accountModal" tabindex="-1" aria-labelledby="accountModalLabel" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 1000px; margin: 1.75rem auto;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 900px; margin: 1.75rem auto;">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="accountModalLabel">新增账号</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-3">
+                <!-- Tab 导航 -->
+                <ul class="nav nav-pills mb-3" id="accountFormTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="form-tab-basic-tab" data-bs-toggle="tab" data-bs-target="#form-tab-basic" type="button" role="tab">
+                            <i class="bi bi-person me-1"></i>基础信息
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="form-tab-detail-tab" data-bs-toggle="tab" data-bs-target="#form-tab-detail" type="button" role="tab">
+                            <i class="bi bi-card-list me-1"></i>详细信息
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="form-tab-content-tab" data-bs-toggle="tab" data-bs-target="#form-tab-content" type="button" role="tab">
+                            <i class="bi bi-layout-text-window me-1"></i>内容布局
+                        </button>
+                    </li>
+                </ul>
+
                 <form id="account-form">
                     <input type="hidden" id="account-id">
 
-                    <!-- 基础信息 -->
-                    <h6 class="border-bottom pb-1 mb-2 text-primary">
-                        <i class="bi bi-info-circle me-1"></i>基础信息
-                    </h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label small">账号名称 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control form-control-sm" id="account-name" placeholder="请输入账号名称" required>
+                    <div class="tab-content" id="accountFormTabContent">
+                        <!-- Tab1: 基础信息 -->
+                        <div class="tab-pane fade show active" id="form-tab-basic" role="tabpanel">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small">账号名称 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="account-name" placeholder="请输入账号名称" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">平台</label>
+                                    <select class="form-select form-select-sm" id="account-platform">
+                                        <option value="douyin">抖音</option>
+                                        <option value="xhs">小红书</option>
+                                        <option value="bilibili">B站</option>
+                                        <option value="kuaishou">快手</option>
+                                        <option value="weibo">微博</option>
+                                        <option value="other">其他</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">粉丝数</label>
+                                    <input type="text" class="form-control form-control-sm" id="account-followers" placeholder="如：10万">
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label small">账号简介</label>
+                                    <textarea class="form-control form-control-sm" id="account-bio" rows="2" placeholder="账号简介"></textarea>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label small">平台</label>
-                            <select class="form-select form-select-sm" id="account-platform">
-                                <option value="douyin">抖音</option>
-                                <option value="xhs">小红书</option>
-                                <option value="bilibili">B站</option>
-                                <option value="kuaishou">快手</option>
-                                <option value="weibo">微博</option>
-                                <option value="other">其他</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small">粉丝数</label>
-                            <input type="text" class="form-control form-control-sm" id="account-followers" placeholder="如：10万">
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label small">账号简介</label>
-                            <input type="text" class="form-control form-control-sm" id="account-bio" placeholder="账号简介">
-                        </div>
-                    </div>
 
-                    <!-- 详细信息 -->
-                    <h6 class="border-bottom pb-1 mb-2 text-success">
-                        <i class="bi bi-card-list me-1"></i>详细信息
-                    </h6>
-                    <div class="row g-2">
-                        <div class="col-md-4">
-                            <label class="form-label small">业务类型</label>
-                            <select class="form-select form-select-sm" id="account-business-type">
-                                <option value="">请选择</option>
-                                <option value="卖货类">卖货类</option>
-                                <option value="服务类">服务类</option>
-                                <option value="两者都有">两者都有</option>
-                            </select>
+                        <!-- Tab2: 详细信息 -->
+                        <div class="tab-pane fade" id="form-tab-detail" role="tabpanel">
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label small">业务类型</label>
+                                    <select class="form-select form-select-sm" id="account-business-type">
+                                        <option value="">请选择</option>
+                                        <option value="卖货类">卖货类</option>
+                                        <option value="服务类">服务类</option>
+                                        <option value="两者都有">两者都有</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">产品类型</label>
+                                    <select class="form-select form-select-sm" id="account-product-type">
+                                        <option value="">请选择</option>
+                                        <option value="实物商品">实物商品</option>
+                                        <option value="批发供应链">批发供应链</option>
+                                        <option value="其他">其他</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">服务类型</label>
+                                    <select class="form-select form-select-sm" id="account-service-type">
+                                        <option value="">请选择</option>
+                                        <option value="本地生活">本地生活</option>
+                                        <option value="线上专业">线上专业</option>
+                                        <option value="知识付费">知识付费</option>
+                                        <option value="其他">其他</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">主营业务 1 <span class="text-danger">*</span></label>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input type="text" class="form-control form-control-sm flex-grow-1" id="account-main-product" placeholder="如：豆芽批发">
+                                        <div class="input-group input-group-sm" style="width: 80px;">
+                                            <input type="number" class="form-control form-control-sm" id="account-main-product-pct" min="0" max="100" value="100">
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">主营业务 2</label>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input type="text" class="form-control form-control-sm flex-grow-1" id="account-main-product-2" placeholder="如：配饰">
+                                        <div class="input-group input-group-sm" style="width: 80px;">
+                                            <input type="number" class="form-control form-control-sm" id="account-main-product-2-pct" min="0" max="100" value="0">
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">主营业务 3</label>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input type="text" class="form-control form-control-sm flex-grow-1" id="account-main-product-3" placeholder="其他业务">
+                                        <div class="input-group input-group-sm" style="width: 80px;">
+                                            <input type="number" class="form-control form-control-sm" id="account-main-product-3-pct" min="0" max="100" value="0">
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">地域范围</label>
+                                    <select class="form-select form-select-sm" id="account-service-range">
+                                        <option value="">请选择</option>
+                                        <option value="本地">本地</option>
+                                        <option value="跨区域">跨区域</option>
+                                        <option value="全球">全球</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">目标地区</label>
+                                    <input type="text" class="form-control form-control-sm" id="account-target-area" placeholder="如：北京、上海">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">品牌定位</label>
+                                    <select class="form-select form-select-sm" id="account-brand-type">
+                                        <option value="">请选择</option>
+                                        <option value="个人IP">个人IP</option>
+                                        <option value="企业品牌">企业品牌</option>
+                                        <option value="两者兼顾">两者兼顾</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">语言风格</label>
+                                    <select class="form-select form-select-sm" id="account-language-style">
+                                        <option value="">请选择</option>
+                                        <option value="普通话">普通话</option>
+                                        <option value="方言">方言</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">目标用户</label>
+                                    <select class="form-select form-select-sm" id="account-target-user">
+                                        <option value="">请选择</option>
+                                        <option value="付费者">付费者</option>
+                                        <option value="使用者">使用者（付费和使用人不是同一人）</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">产品类型</label>
-                            <select class="form-select form-select-sm" id="account-product-type">
-                                <option value="">请选择</option>
-                                <option value="实物商品">实物商品</option>
-                                <option value="批发供应链">批发供应链</option>
-                                <option value="其他">其他</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">服务类型</label>
-                            <select class="form-select form-select-sm" id="account-service-type">
-                                <option value="">请选择</option>
-                                <option value="本地生活">本地生活</option>
-                                <option value="线上专业">线上专业</option>
-                                <option value="知识付费">知识付费</option>
-                                <option value="其他">其他</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">主营业务1</label>
-                            <input type="text" class="form-control form-control-sm" id="account-main-product" placeholder="如：服装销售(60%)">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">主营业务2</label>
-                            <input type="text" class="form-control form-control-sm" id="account-main-product-2" placeholder="如：配饰(40%)">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">主营业务3</label>
-                            <input type="text" class="form-control form-control-sm" id="account-main-product-3" placeholder="其他业务">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">地域范围</label>
-                            <select class="form-select form-select-sm" id="account-service-range">
-                                <option value="">请选择</option>
-                                <option value="本地">本地</option>
-                                <option value="跨区域">跨区域</option>
-                                <option value="全球">全球</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">目标地区</label>
-                            <input type="text" class="form-control form-control-sm" id="account-target-area" placeholder="如：北京、上海">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">品牌定位</label>
-                            <select class="form-select form-select-sm" id="account-brand-type">
-                                <option value="">请选择</option>
-                                <option value="个人IP">个人IP</option>
-                                <option value="企业品牌">企业品牌</option>
-                                <option value="两者兼顾">两者兼顾</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">语言风格</label>
-                            <select class="form-select form-select-sm" id="account-language-style">
-                                <option value="">请选择</option>
-                                <option value="普通话">普通话</option>
-                                <option value="方言">方言</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">目标用户</label>
-                            <select class="form-select form-select-sm" id="account-target-user">
-                                <option value="">请选择</option>
-                                <option value="付费者">付费者</option>
-                                <option value="使用者">使用者（付费和使用人不是同一人）</option>
-                            </select>
+
+                        <!-- Tab3: 内容布局 -->
+                        <div class="tab-pane fade" id="form-tab-content" role="tabpanel">
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label small">人设IP类</label>
+                            <input type="number" min="0" step="1" class="form-control form-control-sm content-layout-input" id="account-persona-type" placeholder="人设IP类占比">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">主题内容</label>
+                            <input type="number" min="0" step="1" class="form-control form-control-sm content-layout-input" id="account-topic-content" placeholder="主题内容占比">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">日常运营</label>
+                            <input type="number" min="0" step="1" class="form-control form-control-sm content-layout-input" id="account-daily-operation" placeholder="日常运营占比">
+                                </div>
+                            </div>
+                            <!-- 比例预览 -->
+                            <div class="mt-3 p-2 bg-light rounded">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small text-muted">内容比例预览</span>
+                                    <button type="button" class="btn btn-sm btn-link text-primary p-0" id="normalize-ratio-btn" title="自动调整比例">
+                                        <i class="bi bi-arrow-repeat me-1"></i>自动调整
+                                    </button>
+                                </div>
+                                <div class="progress" style="height: 24px;">
+                                    <div id="preview-persona" class="progress-bar bg-primary" role="progressbar" style="width: 33%">人设IP 33%</div>
+                                    <div id="preview-topic" class="progress-bar bg-success" role="progressbar" style="width: 33%">主题内容 33%</div>
+                                    <div id="preview-daily" class="progress-bar bg-info" role="progressbar" style="width: 34%">日常运营 34%</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -503,6 +551,7 @@ let currentAccount = null;
 let analysisResult = null;
 let accountAnalysisResult = null;
 let selectedRules = new Set();
+let accountAnalysisPollTimer = null;
 const ACCOUNT_HISTORY_KEY = 'dismantle_account_history';
 const ACCOUNT_HISTORY_MAX = 10;
 const HISTORY_PAGE_SIZE = 10;
@@ -849,7 +898,6 @@ function switchToContentTab() {
         // 显示空状态
         document.getElementById('result-empty').classList.remove('d-none');
         document.getElementById('result-content').classList.add('d-none');
-        document.getElementById('result-actions').classList.add('d-none');
     }
 }
 
@@ -865,7 +913,6 @@ function switchToAccountTab() {
         // 显示空状态
         document.getElementById('result-empty').classList.remove('d-none');
         document.getElementById('result-content').classList.add('d-none');
-        document.getElementById('result-actions').classList.add('d-none');
     }
 }
 
@@ -914,15 +961,7 @@ function initEventListeners() {
     // 开始分析
     document.getElementById('analyze-content-btn').addEventListener('click', analyzeContent);
 
-    // 一键入库（提取场景/人群/热点）
-    document.getElementById('extract-scenes-btn').addEventListener('click', showExtractScenesModal);
-
-    // 导入规则
-    document.getElementById('import-rules-btn').addEventListener('click', showImportModal);
     document.getElementById('confirm-import-btn').addEventListener('click', importRules);
-
-    // 导出结果
-    document.getElementById('export-result-btn').addEventListener('click', exportResult);
 
     // 操作历史分页
     const prevBtn = document.getElementById('history-prev-btn');
@@ -1075,6 +1114,9 @@ async function loadAccountsList() {
                                         <div onclick="event.stopPropagation()">
                                             <button class="btn btn-sm btn-outline-primary me-1" onclick="switchToAccount(${acc.id})" title="切换账号">
                                                 <i class="bi bi-arrow-repeat"></i> 切换账号
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-success me-1" onclick="analyzeAccountProfile(${acc.id})" title="分析目标人群和关键词">
+                                                <i class="bi bi-graph-up"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-primary me-1" onclick="editAccount(${acc.id})" title="编辑">
                                                 <i class="bi bi-pencil"></i>
@@ -1458,18 +1500,91 @@ function openAccountModal(account = null) {
         document.getElementById('account-brand-type').value = account.brand_type || '';
         document.getElementById('account-language-style').value = account.language_style || '';
         document.getElementById('account-target-user').value = account.target_user || '';
-        // 解析主营业务（支持多个，用换行或逗号分隔）
-        const mainProducts = account.main_product ? account.main_product.split(/[,，\n]/).filter(p => p.trim()) : [];
-        document.getElementById('account-main-product').value = mainProducts[0] || '';
-        document.getElementById('account-main-product-2').value = mainProducts[1] || '';
-        document.getElementById('account-main-product-3').value = mainProducts[2] || '';
+        // 解析主营业务（支持 "名称(百分比%)" 或纯名称，用逗号分隔）
+        function parseMainProductItem(str) {
+            if (!str || !str.trim()) return { name: '', pct: 0 };
+            const m = str.trim().match(/^(.+?)\((\d+)%\)$/);
+            if (m) return { name: m[1].trim(), pct: parseInt(m[2], 10) || 0 };
+            return { name: str.trim(), pct: 100 };
+        }
+        const mainProductStrs = account.main_product ? account.main_product.split(/[,，\n]/).filter(p => p.trim()) : [];
+        const mp1 = parseMainProductItem(mainProductStrs[0]);
+        const mp2 = parseMainProductItem(mainProductStrs[1]);
+        const mp3 = parseMainProductItem(mainProductStrs[2]);
+        document.getElementById('account-main-product').value = mp1.name;
+        document.getElementById('account-main-product-pct').value = mp1.pct || (mp1.name ? 100 : 100);
+        document.getElementById('account-main-product-2').value = mp2.name;
+        document.getElementById('account-main-product-2-pct').value = mp2.pct || 0;
+        document.getElementById('account-main-product-3').value = mp3.name;
+        document.getElementById('account-main-product-3-pct').value = mp3.pct || 0;
+
+        // 内容布局
+        document.getElementById('account-persona-type').value = account.persona_type || '';
+        document.getElementById('account-topic-content').value = account.topic_content || '';
+        document.getElementById('account-daily-operation').value = account.daily_operation || '';
     } else {
         titleEl.textContent = '新增账号';
         document.getElementById('account-form').reset();
         document.getElementById('account-id').value = '';
+        // 内容布局初始化为空
+        document.getElementById('account-persona-type').value = '';
+        document.getElementById('account-topic-content').value = '';
+        document.getElementById('account-daily-operation').value = '';
     }
 
+    // 初始化内容布局比例预览
+    initContentLayoutPreview();
+
     modal.show();
+}
+
+// 内容布局比例预览
+function initContentLayoutPreview() {
+    const personaInput = document.getElementById('account-persona-type');
+    const topicInput = document.getElementById('account-topic-content');
+    const dailyInput = document.getElementById('account-daily-operation');
+    const normalizeBtn = document.getElementById('normalize-ratio-btn');
+
+    function toInt(value) {
+        const num = parseInt(value, 10);
+        return Number.isNaN(num) ? 0 : Math.max(0, num);
+    }
+
+    function updatePreview() {
+        const personaValue = toInt(personaInput.value);
+        const topicValue = toInt(topicInput.value);
+        const dailyValue = toInt(dailyInput.value);
+        const total = personaValue + topicValue + dailyValue;
+
+        let personaPercent = 33, topicPercent = 33, dailyPercent = 34;
+        if (total > 0) {
+            personaPercent = Math.round(personaValue / total * 100);
+            topicPercent = Math.round(topicValue / total * 100);
+            dailyPercent = 100 - personaPercent - topicPercent;
+        }
+
+        document.getElementById('preview-persona').style.width = personaPercent + '%';
+        document.getElementById('preview-persona').textContent = `${personaPercent}%`;
+        document.getElementById('preview-topic').style.width = topicPercent + '%';
+        document.getElementById('preview-topic').textContent = `${topicPercent}%`;
+        document.getElementById('preview-daily').style.width = dailyPercent + '%';
+        document.getElementById('preview-daily').textContent = `${dailyPercent}%`;
+    }
+
+    personaInput.addEventListener('input', updatePreview);
+    topicInput.addEventListener('input', updatePreview);
+    dailyInput.addEventListener('input', updatePreview);
+
+    if (normalizeBtn) {
+        normalizeBtn.onclick = function() {
+            personaInput.value = 33;
+            topicInput.value = 33;
+            dailyInput.value = 34;
+            updatePreview();
+        };
+    }
+
+    updatePreview();
 }
 
 // 编辑账号
@@ -1503,7 +1618,7 @@ async function deleteAccount(accountId) {
             loadAccountsList();
             loadAccountsForSelect();
             // 清空详情
-            document.getElementById('account-detail-section').innerHTML = `
+            document.getElementById('account-detail-content').innerHTML = `
                 <div class="text-center text-muted py-5">
                     <i class="bi bi-arrow-left-circle fs-1 mb-2"></i>
                     <p>请从左侧选择账号查看详情</p>
@@ -1514,6 +1629,30 @@ async function deleteAccount(accountId) {
         }
     } catch (e) {
         alert('删除失败: ' + e.message);
+    }
+}
+
+// 分析账号画像和关键词
+async function analyzeAccountProfile(accountId) {
+    if (!confirm('确定要分析该账号的目标人群和关键词吗？需要先填写业务信息（业务类型、主营业务等）。')) return;
+
+    try {
+        const response = await fetch(`/api/knowledge/accounts/${accountId}/analyze-profile`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+
+        if (data.code === 200) {
+            alert('分析成功！');
+            // 刷新账号列表和详情
+            loadAccountsList();
+            // 重新加载账号详情
+            selectAccountPreview(accountId);
+        } else {
+            alert(data.message || '分析失败');
+        }
+    } catch (e) {
+        alert('分析失败: ' + e.message);
     }
 }
 
@@ -1530,9 +1669,82 @@ async function saveAccount() {
         return;
     }
 
-    const currentData = { followers, bio };
+    // 校验基础信息
+    if (!platform) {
+        alert('请选择平台');
+        return;
+    }
 
-    // 获取详细信息
+    // 校验详细信息（Tab2）
+    const businessType = document.getElementById('account-business-type').value;
+    const mainProduct = document.getElementById('account-main-product').value.trim();
+    const serviceRange = document.getElementById('account-service-range').value;
+    const targetArea = document.getElementById('account-target-area').value.trim();
+    const brandType = document.getElementById('account-brand-type').value;
+    const languageStyle = document.getElementById('account-language-style').value;
+    const targetUser = document.getElementById('account-target-user').value;
+
+    if (!businessType) {
+        alert('请选择业务类型');
+        return;
+    }
+    if (!mainProduct) {
+        alert('请填写主营业务1');
+        return;
+    }
+    if (!serviceRange) {
+        alert('请选择地域范围');
+        return;
+    }
+    if (!targetArea) {
+        alert('请填写目标地区');
+        return;
+    }
+    if (!brandType) {
+        alert('请选择品牌定位');
+        return;
+    }
+    if (!languageStyle) {
+        alert('请选择语言风格');
+        return;
+    }
+    if (!targetUser) {
+        alert('请选择目标用户');
+        return;
+    }
+
+    // 校验内容布局（Tab3）
+    const personaText = document.getElementById('account-persona-type').value.trim();
+    const topicText = document.getElementById('account-topic-content').value.trim();
+    const dailyText = document.getElementById('account-daily-operation').value.trim();
+
+    if (!personaText) {
+        alert('请填写人设IP类占比');
+        return;
+    }
+    if (!topicText) {
+        alert('请填写主题内容占比');
+        return;
+    }
+    if (!dailyText) {
+        alert('请填写日常运营占比');
+        return;
+    }
+
+    const personaValue = parseInt(personaText, 10) || 0;
+    const topicValue = parseInt(topicText, 10) || 0;
+    const dailyValue = parseInt(dailyText, 10) || 0;
+
+    const currentData = { followers, bio };
+    const totalVal = personaValue + topicValue + dailyValue;
+
+    let personaPercent = 33, topicPercent = 33, dailyPercent = 34;
+    if (totalVal > 0) {
+        personaPercent = Math.round(personaValue / totalVal * 100);
+        topicPercent = Math.round(topicValue / totalVal * 100);
+        dailyPercent = 100 - personaPercent - topicPercent;
+    }
+
     const detailData = {
         business_type: document.getElementById('account-business-type').value,
         product_type: document.getElementById('account-product-type').value,
@@ -1542,12 +1754,27 @@ async function saveAccount() {
         brand_type: document.getElementById('account-brand-type').value,
         language_style: document.getElementById('account-language-style').value,
         target_user: document.getElementById('account-target-user').value,
-        // 合并三个主营业务输入框
-        main_product: [
-            document.getElementById('account-main-product').value.trim(),
-            document.getElementById('account-main-product-2').value.trim(),
-            document.getElementById('account-main-product-3').value.trim()
-        ].filter(p => p).join(', ')
+        // 合并三个主营业务输入框（名称 + 百分比）
+        main_product: (function() {
+            const parts = [];
+            const n1 = document.getElementById('account-main-product').value.trim();
+            const p1 = parseInt(document.getElementById('account-main-product-pct').value, 10) || 0;
+            if (n1) parts.push(p1 > 0 ? `${n1}(${p1}%)` : n1);
+            const n2 = document.getElementById('account-main-product-2').value.trim();
+            const p2 = parseInt(document.getElementById('account-main-product-2-pct').value, 10) || 0;
+            if (n2) parts.push(p2 > 0 ? `${n2}(${p2}%)` : n2);
+            const n3 = document.getElementById('account-main-product-3').value.trim();
+            const p3 = parseInt(document.getElementById('account-main-product-3-pct').value, 10) || 0;
+            if (n3) parts.push(p3 > 0 ? `${n3}(${p3}%)` : n3);
+            return parts.join(', ');
+        })(),
+        // 内容布局
+        persona_type: personaValue,
+        topic_content: topicValue,
+        daily_operation: dailyValue,
+        content_persona: personaPercent,
+        content_topic: topicPercent,
+        content_daily: dailyPercent
     };
 
     try {
@@ -1580,10 +1807,12 @@ async function saveAccount() {
             const savedAccountId = accountId ? parseInt(accountId) : (data.data?.id);
 
             if (savedAccountId) {
-                // 延迟一点执行，确保数据加载完成
+                // 先跳到内容分析页，后台会异步做 LLM 分析
                 setTimeout(() => {
                     selectAccount(savedAccountId);
                 }, 300);
+                // 轮询拉取账号分析结果，后台分析完成后更新前台
+                startAccountAnalysisPolling(savedAccountId);
             }
         } else {
             alert(data.message || '保存失败');
@@ -1591,6 +1820,36 @@ async function saveAccount() {
     } catch (e) {
         alert('保存失败: ' + e.message);
     }
+}
+
+// 轮询账号分析结果（后台 LLM 分析完成后更新前台数据）
+function startAccountAnalysisPolling(accountId) {
+    if (accountAnalysisPollTimer) clearInterval(accountAnalysisPollTimer);
+    let attempts = 0;
+    const maxAttempts = 40; // 约 2 分钟
+    accountAnalysisPollTimer = setInterval(async () => {
+        attempts++;
+        if (attempts > maxAttempts) {
+            clearInterval(accountAnalysisPollTimer);
+            accountAnalysisPollTimer = null;
+            return;
+        }
+        try {
+            const res = await fetch(`/api/knowledge/accounts/${accountId}`);
+            const result = await res.json();
+            if (result.code === 200 && result.data && (result.data.target_audience || result.data.core_keywords)) {
+                clearInterval(accountAnalysisPollTimer);
+                accountAnalysisPollTimer = null;
+                accountAnalysisResult = result.data;
+                if (currentAccount && currentAccount.id === accountId) {
+                    currentAccount = { ...currentAccount, ...result.data };
+                }
+                if (document.querySelector('#account-tab')?.classList.contains('active')) {
+                    displayAccountAnalysisResult(accountAnalysisResult);
+                }
+            }
+        } catch (e) {}
+    }, 3000);
 }
 
 // 加载账号列表到下拉框（内容分析用）
@@ -1797,11 +2056,6 @@ function displayAccountAnalysisResult(accountInfo) {
 
     document.getElementById('result-empty').classList.add('d-none');
     document.getElementById('result-content').classList.remove('d-none');
-    document.getElementById('result-actions').classList.remove('d-none');
-
-    // 基本信息 - 显示账号信息
-    document.getElementById('result-title').textContent = '账号分析';
-    document.getElementById('result-author').textContent = accountInfo.account_name || accountInfo.nickname || accountInfo.name || '-';
 
     // 清空之前的分析结果，显示账号信息
     const resultsContainer = document.getElementById('analysis-results');
@@ -1826,7 +2080,7 @@ function displayAccountAnalysisResult(accountInfo) {
 
     // 构建 Tab 内容
     const tabPanes = {
-        // Tab1: 详细信息
+        // Tab1: 基础信息
         'tab-basic': `
             <div class="row g-1">
                 <div class="col-4">
@@ -1848,113 +2102,153 @@ function displayAccountAnalysisResult(accountInfo) {
                     </div>
                 </div>
                 <div class="col-12">
-                    <div class="p-1 bg-light rounded">
+                    <div class="p-2 bg-light rounded">
                         <div class="small text-muted">简介</div>
-                        <div class="fw-medium small">${accountInfo.bio || accountInfo.current_data?.bio || '-'}</div>
+                        <div class="fw-medium small" style="min-height: 40px;">${accountInfo.bio || accountInfo.current_data?.bio || '-'}</div>
                     </div>
                 </div>
-                ${accountInfo.avatar_description ? `
-                <div class="col-12">
-                    <div class="p-1 bg-light rounded">
-                        <div class="small text-muted">头像描述</div>
-                        <div class="fw-medium small">${accountInfo.avatar_description}</div>
-                    </div>
-                </div>
-                ` : ''}
             </div>
         `,
 
-        // Tab2: 账号定位
-        'tab-positioning': `
+        // Tab2: 详细信息
+        'tab-detail': `
             <div class="row g-1">
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">商业定位</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.commercial_positioning || accountInfo.monetization_method || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">核心业务</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.core_business || accountInfo.account_positioning?.core_business || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
+                <div class="col-6">
                     <div class="p-1 border rounded">
                         <div class="small text-muted">业务类型</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.business_type || accountInfo.account_positioning?.business_type || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">地域范围</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.region_scope || accountInfo.account_positioning?.region_scope || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">变现方式</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.monetization_method || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">卖货策略</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.selling_strategy || '-')}</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.business_type || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="p-1 border rounded">
-                        <div class="small text-muted">变现链路</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.monetization_chain || '-')}</div>
+                        <div class="small text-muted">产品类型</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.product_type || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">服务类型</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.service_type || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">地域范围</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.service_range || accountInfo.region_scope || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">目标地区</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_area || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">品牌定位</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.brand_type || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">语言风格</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.language_style || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">目标用户</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_user || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">主营业务</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.main_product || '-')}</div>
                     </div>
                 </div>
             </div>
         `,
 
-        // Tab3: 目标人群画像
+        // Tab3: 内容布局
+        'tab-content': `
+            <div class="row g-1">
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">商业定位</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.business_type || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">核心业务</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.main_product || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">业务类型</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.product_type || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">地域范围</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.service_range || '-')}</div>
+                    </div>
+                </div>
+            </div>
+        `,
+
+        // Tab4: 目标人群画像
         'tab-audience': `
             <div class="row g-1">
-                <div class="col-4">
+                <div class="col-6">
                     <div class="p-1 border rounded">
-                        <div class="small text-muted">目标人群</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.crowd || accountInfo || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">细分场景人群</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.scene_crowd || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">长尾需求人群</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.demand_crowd || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">人群年龄段</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.audience_age || '-')}</div>
+                        <div class="small text-muted">年龄阶段</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.age_range || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="p-1 border rounded">
-                        <div class="small text-muted">用户画像详情</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.user_profile || '-')}</div>
+                        <div class="small text-muted">性别比例</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.gender_ratio || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="p-1 border rounded">
-                        <div class="small text-muted">用户痛点</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.pain_point || accountInfo.hit_what?.pain_point || '-')}</div>
+                        <div class="small text-muted">职业/身份</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.occupation || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="p-1 border rounded">
-                        <div class="small text-muted">用户需求</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.user_needs || '-')}</div>
+                        <div class="small text-muted">消费能力</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.consumption_level || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">地域分布</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.region || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">客户痛点</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.pain_points || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">客户需求</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.needs || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">使用场景</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.usage_scenes || '-')}</div>
                     </div>
                 </div>
             </div>
@@ -1966,73 +2260,67 @@ function displayAccountAnalysisResult(accountInfo) {
                 <div class="col-4">
                     <div class="p-1 border rounded">
                         <div class="small text-muted">核心关键词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.core_keywords || accountInfo.keyword_strategy?.core_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">产品关键词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.product_keywords || accountInfo.keyword_strategy?.product_keywords || '-')}</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.core_keywords || accountInfo.analysis_result?.keyword_layout?.core_keywords || '-')}</div>
                     </div>
                 </div>
                 <div class="col-4">
                     <div class="p-1 border rounded">
                         <div class="small text-muted">行业关键词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.industry_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">地域词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.region_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">职业词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.occupation_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">用途词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.usage_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">属性词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.attribute_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">品牌词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.brand_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">关联词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.related_keywords || '-')}</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.product_keywords?.industry_keywords || '-')}</div>
                     </div>
                 </div>
                 <div class="col-4">
                     <div class="p-1 border rounded">
                         <div class="small text-muted">品名词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.product_name_keywords || '-')}</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.product_keywords?.product_name_keywords || '-')}</div>
                     </div>
                 </div>
                 <div class="col-4">
                     <div class="p-1 border rounded">
-                        <div class="small text-muted">搜索关键词意图</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.search_intent || '-')}</div>
+                        <div class="small text-muted">品牌词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.product_keywords?.brand_keywords || '-')}</div>
                     </div>
                 </div>
-                <div class="col-8">
+                <div class="col-4">
                     <div class="p-1 border rounded">
-                        <div class="small text-muted">关键词埋入位置</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.keyword_placement || '-')}</div>
+                        <div class="small text-muted">地域词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.region_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">用途词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.usage_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">属性词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.attribute_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">场景词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.scene_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">价格词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.conversion_keywords?.price_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">促销词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.conversion_keywords?.promotion_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-1 border rounded">
+                        <div class="small text-muted">口碑词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.conversion_keywords?.reputation_keywords || '-')}</div>
                     </div>
                 </div>
             </div>
@@ -2040,41 +2328,44 @@ function displayAccountAnalysisResult(accountInfo) {
 
         // Tab5: 内容布局
         'tab-content': `
-            <div class="row g-1">
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">人设IP类型</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.persona_type || accountInfo.content_strategy?.persona_type || '-')}</div>
+            <div class="row g-2">
+                <div class="col-12">
+                    <div class="p-2 border rounded">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="small text-muted" style="width: 70px;">人设IP</span>
+                            <div class="flex-grow-1">
+                                <div class="progress" style="height: 18px;">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: ${accountInfo.content_persona || 0}%">${accountInfo.content_persona || 0}%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="small text-muted">${accountInfo.persona_type || '-'}</div>
                     </div>
                 </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">主题内容</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.topic_content || accountInfo.content_strategy?.topic_content || '-')}</div>
+                <div class="col-12">
+                    <div class="p-2 border rounded">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="small text-muted" style="width: 70px;">主题内容</span>
+                            <div class="flex-grow-1">
+                                <div class="progress" style="height: 18px;">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: ${accountInfo.content_topic || 0}%">${accountInfo.content_topic || 0}%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="small text-muted">${accountInfo.topic_content || '-'}</div>
                     </div>
                 </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">日常运营</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.daily_operation || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">内容形式</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.content_form || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">视频风格</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.video_style || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">更新频率</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.update_frequency || '-')}</div>
+                <div class="col-12">
+                    <div class="p-2 border rounded">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="small text-muted" style="width: 70px;">日常运营</span>
+                            <div class="flex-grow-1">
+                                <div class="progress" style="height: 18px;">
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: ${accountInfo.content_daily || 0}%">${accountInfo.content_daily || 0}%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="small text-muted">${accountInfo.daily_operation || '-'}</div>
                     </div>
                 </div>
             </div>
@@ -2091,8 +2382,8 @@ function displayAccountAnalysisResult(accountInfo) {
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-positioning-tab" data-bs-toggle="tab" data-bs-target="#tab-positioning" type="button" role="tab">
-                    <i class="bi bi-geo-alt me-1"></i>账号定位
+                <button class="nav-link" id="tab-detail-tab" data-bs-toggle="tab" data-bs-target="#tab-detail" type="button" role="tab">
+                    <i class="bi bi-card-list me-1"></i>详细信息
                 </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -2117,8 +2408,8 @@ function displayAccountAnalysisResult(accountInfo) {
             <div class="tab-pane fade show active" id="tab-basic" role="tabpanel">
                 ${tabPanes['tab-basic']}
             </div>
-            <div class="tab-pane fade" id="tab-positioning" role="tabpanel">
-                ${tabPanes['tab-positioning']}
+            <div class="tab-pane fade" id="tab-detail" role="tabpanel">
+                ${tabPanes['tab-detail']}
             </div>
             <div class="tab-pane fade" id="tab-audience" role="tabpanel">
                 ${tabPanes['tab-audience']}
@@ -2138,11 +2429,6 @@ function displayAccountAnalysisResult(accountInfo) {
 function displayAnalysisResult(result) {
     document.getElementById('result-empty').classList.add('d-none');
     document.getElementById('result-content').classList.remove('d-none');
-    document.getElementById('result-actions').classList.remove('d-none');
-
-    // 基本信息
-    document.getElementById('result-title').textContent = result.title || '-';
-    document.getElementById('result-author').textContent = result.author || currentAccount?.name || '-';
 
     // 清空之前的分析结果
     const resultsContainer = document.getElementById('analysis-results');

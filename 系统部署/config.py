@@ -10,8 +10,16 @@ class Config:
     TEMPLATES_AUTO_RELOAD = True  # 自动重新加载模板
     
     # Database - 使用绝对路径
+    db_path = os.path.join(BASE_DIR, "instance", "douyin_system.db")
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 
-        f'sqlite:///{os.path.join(BASE_DIR, "instance", "douyin_system.db")}')
+        f'sqlite:///{db_path}?check_same_thread=False&timeout=30')
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'connect_args': {
+            'check_same_thread': False,
+            'timeout': 30
+        },
+        'pool_pre_ping': True
+    }
     
     # Upload settings
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size

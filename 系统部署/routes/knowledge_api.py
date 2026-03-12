@@ -9,6 +9,7 @@ import re
 import json
 import logging
 import base64
+import threading
 import requests
 from flask import Blueprint, request, jsonify, current_app, render_template
 from flask_login import login_required, current_user
@@ -4617,7 +4618,11 @@ def get_accounts():
                     # 内容布局字段
                     'content_persona': acc.content_persona,
                     'content_topic': acc.content_topic,
-                    'content_daily': acc.content_daily
+                    'content_daily': acc.content_daily,
+                    # 内容布局（文本描述）
+                    'persona_type': acc.persona_type,
+                    'topic_content': acc.topic_content,
+                    'daily_operation': acc.daily_operation
                 } for acc in accounts.items],
                 'total': total,
                 'page': page,
@@ -4672,7 +4677,11 @@ def get_account(account_id):
                 # 内容布局字段
                 'content_persona': account.content_persona,
                 'content_topic': account.content_topic,
-                'content_daily': account.content_daily
+                'content_daily': account.content_daily,
+                # 内容布局（文本描述）
+                'persona_type': account.persona_type,
+                'topic_content': account.topic_content,
+                'daily_operation': account.daily_operation
             }
         })
     except Exception as e:
@@ -4712,10 +4721,14 @@ def create_account():
             language_style=data.get('language_style'),
             target_user=data.get('target_user'),
             main_product=data.get('main_product'),
-            # 内容布局
+            # 内容布局（数量）
             content_persona=data.get('content_persona', 0),
             content_topic=data.get('content_topic', 0),
-            content_daily=data.get('content_daily', 0)
+            content_daily=data.get('content_daily', 0),
+            # 内容布局（文本描述）
+            persona_type=data.get('persona_type'),
+            topic_content=data.get('topic_content'),
+            daily_operation=data.get('daily_operation')
         )
         db.session.add(account)
 
@@ -4731,72 +4744,24 @@ def create_account():
         history.account_id = account.id
         db.session.add(history)
 
-        # 检查是否有足够的业务信息用于 LLM 分析
+        db.session.commit()
+
+        # 有业务信息时在后台异步执行 LLM 分析，不阻塞响应
         has_business_info = any([
             data.get('business_type'),
             data.get('product_type'),
             data.get('service_type'),
             data.get('main_product')
         ])
-
-        # 如果有业务信息，调用 LLM 分析目标客户画像和关键词布局
-        llm_analysis_result = None
         if has_business_info:
-            try:
-                # 构建提示词
-                account_data_for_analysis = {
-                    'name': name,
-                    'platform': platform,
-                    'url': url,
-                    'business_type': data.get('business_type'),
-                    'product_type': data.get('product_type'),
-                    'service_type': data.get('service_type'),
-                    'service_range': data.get('service_range'),
-                    'target_area': data.get('target_area'),
-                    'brand_type': data.get('brand_type'),
-                    'language_style': data.get('language_style'),
-                    'main_product': data.get('main_product'),
-                    'target_user': data.get('target_user')
-                }
-                prompt = build_account_profile_from_manual_prompt(account_data_for_analysis)
+            app = current_app._get_current_object()
+            threading.Thread(
+                target=_run_account_profile_analysis,
+                args=(app, account.id),
+                daemon=True
+            ).start()
 
-                # 调用 LLM
-                llm_service = get_llm_service()
-                if llm_service:
-                    messages = [
-                        {"role": "system", "content": "你是一个专业的账号运营专家，擅长分析目标客户画像和关键词布局。请严格按照JSON格式输出分析结果。"},
-                        {"role": "user", "content": prompt}
-                    ]
-                    result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
-
-                    if result_text:
-                        try:
-                            llm_analysis_result = parse_llm_json(result_text)
-                            logger.info(f"[create_account] LLM分析成功，账号: {name}")
-
-                            # 将分析结果保存到账号记录
-                            if 'target_audience' in llm_analysis_result:
-                                account.target_audience = llm_analysis_result['target_audience']
-
-                            if 'keyword_layout' in llm_analysis_result:
-                                # 保存核心关键词
-                                core_keywords = llm_analysis_result['keyword_layout'].get('core_keywords', [])
-                                if core_keywords:
-                                    account.core_keywords = core_keywords
-
-                                # 保存完整关键词布局到 analysis_result
-                                current_analysis = account.analysis_result or {}
-                                current_analysis['keyword_layout'] = llm_analysis_result['keyword_layout']
-                                account.analysis_result = current_analysis
-
-                        except Exception as e:
-                            logger.error(f"[create_account] 解析LLM结果失败: {e}")
-            except Exception as e:
-                logger.error(f"[create_account] LLM调用失败: {e}")
-
-        db.session.commit()
-
-        return_json = {
+        return jsonify({
             'code': 200,
             'message': '创建成功',
             'data': {
@@ -4809,13 +4774,7 @@ def create_account():
                 'target_audience': account.target_audience,
                 'core_keywords': account.core_keywords
             }
-        }
-
-        # 如果有 LLM 分析结果，也在返回中体现
-        if llm_analysis_result:
-            return_json['data']['llm_analysis'] = llm_analysis_result
-
-        return jsonify(return_json)
+        })
     except Exception as e:
         db.session.rollback()
         logger.error(f"创建账号失败: {e}", exc_info=True)
@@ -4875,6 +4834,13 @@ def update_account(account_id):
             account.content_topic = data['content_topic']
         if 'content_daily' in data:
             account.content_daily = data['content_daily']
+        # 内容布局（文本描述）
+        if 'persona_type' in data:
+            account.persona_type = data['persona_type']
+        if 'topic_content' in data:
+            account.topic_content = data['topic_content']
+        if 'daily_operation' in data:
+            account.daily_operation = data['daily_operation']
 
         # 如果更新了 current_data，记录历史
         if 'current_data' in data and data['current_data'] != old_data:
@@ -4886,6 +4852,21 @@ def update_account(account_id):
             db.session.add(history)
         
         db.session.commit()
+
+        # 有业务信息时在后台异步执行 LLM 分析
+        has_business_info = any([
+            account.business_type,
+            account.product_type,
+            account.service_type,
+            account.main_product
+        ])
+        if has_business_info:
+            app = current_app._get_current_object()
+            threading.Thread(
+                target=_run_account_profile_analysis,
+                args=(app, account.id),
+                daemon=True
+            ).start()
         
         return jsonify({
             'code': 200,
@@ -4903,6 +4884,158 @@ def update_account(account_id):
         db.session.rollback()
         logger.error(f"更新账号失败: {e}", exc_info=True)
         return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'})
+
+
+def _run_account_profile_analysis(app, account_id):
+    """后台执行账号画像与关键词分析（不占请求，供线程调用）"""
+    with app.app_context():
+        try:
+            account = KnowledgeAccount.query.get(account_id)
+            if not account:
+                return
+            has_business_info = any([
+                account.business_type,
+                account.product_type,
+                account.service_type,
+                account.main_product
+            ])
+            if not has_business_info:
+                return
+            account_data = {
+                'name': account.name,
+                'platform': account.platform,
+                'url': account.url,
+                'business_type': account.business_type,
+                'product_type': account.product_type,
+                'service_type': account.service_type,
+                'service_range': account.service_range,
+                'target_area': account.target_area,
+                'brand_type': account.brand_type,
+                'language_style': account.language_style,
+                'main_product': account.main_product,
+                'target_user': account.target_user
+            }
+            prompt = build_account_profile_from_manual_prompt(account_data)
+            llm_service = get_llm_service()
+            if not llm_service:
+                return
+            messages = [
+                {"role": "system", "content": "你是一个专业的账号运营专家，擅长分析目标客户画像和关键词布局。请严格按照JSON格式输出分析结果。"},
+                {"role": "user", "content": prompt}
+            ]
+            result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
+            if not result_text:
+                return
+            llm_result = parse_llm_json(result_text)
+            if 'target_audience' in llm_result:
+                account.target_audience = llm_result['target_audience']
+            if 'keyword_layout' in llm_result:
+                core_keywords = llm_result['keyword_layout'].get('core_keywords', [])
+                if core_keywords:
+                    account.core_keywords = core_keywords
+                current_analysis = account.analysis_result or {}
+                current_analysis['keyword_layout'] = llm_result['keyword_layout']
+                account.analysis_result = current_analysis
+            db.session.commit()
+            logger.info(f"[_run_account_profile_analysis] 分析成功，账号: {account.name}")
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"后台账号分析失败: {e}", exc_info=True)
+
+
+@knowledge_api.route('/accounts/<int:account_id>/analyze-profile', methods=['POST'])
+@login_required
+def analyze_account_profile(account_id):
+    """手动触发账号画像和关键词分析"""
+    try:
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+
+        # 检查是否有足够的业务信息
+        has_business_info = any([
+            account.business_type,
+            account.product_type,
+            account.service_type,
+            account.main_product
+        ])
+
+        if not has_business_info:
+            return jsonify({
+                'code': 400,
+                'message': '请先填写业务信息（业务类型、产品类型、服务类型或主营业务）后再进行分析'
+            })
+
+        # 构建账号数据
+        account_data = {
+            'name': account.name,
+            'platform': account.platform,
+            'url': account.url,
+            'business_type': account.business_type,
+            'product_type': account.product_type,
+            'service_type': account.service_type,
+            'service_range': account.service_range,
+            'target_area': account.target_area,
+            'brand_type': account.brand_type,
+            'language_style': account.language_style,
+            'main_product': account.main_product,
+            'target_user': account.target_user
+        }
+
+        # 构建提示词
+        prompt = build_account_profile_from_manual_prompt(account_data)
+
+        # 调用 LLM
+        llm_service = get_llm_service()
+        if not llm_service:
+            return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
+
+        messages = [
+            {"role": "system", "content": "你是一个专业的账号运营专家，擅长分析目标客户画像和关键词布局。请严格按照JSON格式输出分析结果。"},
+            {"role": "user", "content": prompt}
+        ]
+
+        result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
+
+        if not result_text:
+            return jsonify({'code': 500, 'message': 'LLM 调用失败'})
+
+        # 解析结果
+        try:
+            llm_result = parse_llm_json(result_text)
+        except Exception as e:
+            logger.error(f"解析LLM结果失败: {e}")
+            return jsonify({'code': 500, 'message': '分析结果解析失败'})
+
+        # 保存结果到数据库
+        if 'target_audience' in llm_result:
+            account.target_audience = llm_result['target_audience']
+
+        if 'keyword_layout' in llm_result:
+            # 保存核心关键词
+            core_keywords = llm_result['keyword_layout'].get('core_keywords', [])
+            if core_keywords:
+                account.core_keywords = core_keywords
+
+            # 保存完整关键词布局
+            current_analysis = account.analysis_result or {}
+            current_analysis['keyword_layout'] = llm_result['keyword_layout']
+            account.analysis_result = current_analysis
+
+        db.session.commit()
+
+        logger.info(f"[analyze_account_profile] 分析成功，账号: {account.name}")
+
+        return jsonify({
+            'code': 200,
+            'message': '分析成功',
+            'data': llm_result
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"账号分析失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'分析失败: {str(e)}'})
 
 
 @knowledge_api.route('/accounts/<int:account_id>', methods=['DELETE'])

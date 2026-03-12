@@ -507,6 +507,10 @@ class KnowledgeAccount(db.Model):
     content_persona = db.Column(db.Integer, default=0)  # 人设IP类内容数量
     content_topic = db.Column(db.Integer, default=0)  # 主题内容数量
     content_daily = db.Column(db.Integer, default=0)  # 日常运营数量
+    # 内容布局（文本描述）
+    persona_type = db.Column(db.Text)  # 人设IP类描述
+    topic_content = db.Column(db.Text)  # 主题内容描述
+    daily_operation = db.Column(db.Text)  # 日常运营描述
 
     # Relationships
     history = db.relationship('KnowledgeAccountHistory', backref='account', lazy='dynamic', cascade='all, delete-orphan')
