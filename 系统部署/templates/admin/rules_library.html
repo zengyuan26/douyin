@@ -1,0 +1,594 @@
+{% extends "base.html" %}
+
+{% block title %}规则库 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- 页面标题 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">规则库</h4>
+                    <p class="text-muted mb-0" style="font-size: 16px;">统一管理内容素材、知识规则、场景库、热点库等所有可复用资源</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
+                    <button class="btn btn-primary" id="add-rule-btn">
+                        <i class="bi bi-plus-lg me-1"></i>新建
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 搜索和筛选 -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="input-group">
+                <input type="text" class="form-control" id="search-input" placeholder="搜索...">
+                <button class="btn btn-outline-secondary" type="button" id="search-btn">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 标签页导航 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <ul class="nav nav-tabs flex-wrap" id="rule-tabs">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#" data-category="all" data-type="all">
+                        <i class="bi bi-collection me-1"></i>全部
+                        <span class="badge bg-secondary ms-1" id="count-all">0</span>
+                    </a>
+                </li>
+
+                <!-- 内容素材 -->
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-category="material" data-type="group">
+                        <i class="bi bi-card-heading me-1"></i>内容素材
+                    </a>
+                </li>
+
+                <!-- 知识规则 -->
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-category="rule" data-type="group">
+                        <i class="bi bi-file-text me-1"></i>知识规则
+                    </a>
+                </li>
+
+                <!-- 场景库 -->
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-category="usage_scenario" data-type="scene">
+                        <i class="bi bi-geo-alt me-1"></i>使用场景
+                        <span class="badge bg-secondary ms-1" id="count-usage_scenario">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-category="demand_scenario" data-type="scene">
+                        <i class="bi bi-lightbulb me-1"></i>需求场景
+                        <span class="badge bg-secondary ms-1" id="count-demand_scenario">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-category="pain_point" data-type="scene">
+                        <i class="bi bi-exclamation-triangle me-1"></i>用户痛点
+                        <span class="badge bg-secondary ms-1" id="count-pain_point">0</span>
+                    </a>
+                </li>
+
+                <!-- 热点库 -->
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-category="hot_topic" data-type="hot">
+                        <i class="bi bi-fire me-1"></i>热点话题
+                        <span class="badge bg-secondary ms-1" id="count-hot_topic">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-category="seasonal_topic" data-type="hot">
+                        <i class="bi bi-calendar-event me-1"></i>季节话题
+                        <span class="badge bg-secondary ms-1" id="count-seasonal_topic">0</span>
+                    </a>
+                </li>
+
+                <!-- 知识规则详细分类 -->
+                {% for cat_id, cat_name in knowledge_rule_categories.items() %}
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-category="{{ cat_id }}" data-type="rule">
+                        <i class="bi bi-book me-1"></i>{{ cat_name }}
+                        <span class="badge bg-secondary ms-1" id="count-{{ cat_id }}">0</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-card">
+                <div class="section-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 35%;">内容</th>
+                                    <th style="width: 15%;">分类</th>
+                                    <th style="width: 20%;">类型/标签</th>
+                                    <th style="width: 10%;">使用次数</th>
+                                    <th style="width: 20%;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rules-tbody">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新建/编辑弹窗 -->
+<div class="modal fade" id="ruleModal" tabindex="-1" aria-labelledby="ruleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ruleModalLabel">新建</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="rule-form">
+                    <input type="hidden" id="rule-id">
+                    <input type="hidden" id="rule-type">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">分类 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="rule-category" required>
+                                <option value="">请选择</option>
+                                <optgroup label="内容素材">
+                                    {% for type_key, type_config in all_material_types.items() %}
+                                    <option value="{{ type_key }}">{{ type_config.name }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                <optgroup label="知识规则">
+                                    {% for cat_id, cat_name in knowledge_rule_categories.items() %}
+                                    <option value="{{ cat_id }}">{{ cat_name }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                <optgroup label="场景库">
+                                    <option value="usage_scenario">使用场景</option>
+                                    <option value="demand_scenario">需求场景</option>
+                                    <option value="pain_point">用户痛点</option>
+                                </optgroup>
+                                <optgroup label="热点库">
+                                    <option value="hot_topic">热点话题</option>
+                                    <option value="seasonal_topic">季节话题</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">标题</label>
+                            <input type="text" class="form-control" id="rule-title" placeholder="标题（可选）">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">内容 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="rule-content" rows="6" placeholder="请输入内容..." required></textarea>
+                    </div>
+
+                    <!-- 场景库额外字段 -->
+                    <div id="scene-fields" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">所属行业</label>
+                                <input type="text" class="form-control" id="rule-industry" placeholder="如：食品行业">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">类型</label>
+                                <input type="text" class="form-control" id="rule-scene-type" placeholder="如：功能需求">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">关键词</label>
+                            <input type="text" class="form-control" id="rule-keywords" placeholder="多个关键词用逗号分隔">
+                        </div>
+                    </div>
+
+                    <!-- 热点库额外字段 -->
+                    <div id="hot-fields" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">热度等级</label>
+                                <select class="form-select" id="rule-hot-level">
+                                    <option value="">请选择</option>
+                                    <option value="高">高</option>
+                                    <option value="中">中</option>
+                                    <option value="低">低</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">话题分类</label>
+                                <input type="text" class="form-control" id="rule-topic-category" placeholder="如：节日">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">相关行业</label>
+                            <input type="text" class="form-control" id="rule-related-industry" placeholder="多个行业用逗号分隔">
+                        </div>
+                    </div>
+
+                    <!-- 通用字段 -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">适用场景</label>
+                            <input type="text" class="form-control" id="rule-scenarios" placeholder="多个用逗号分隔">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">适用人群</label>
+                            <input type="text" class="form-control" id="rule-audiences" placeholder="多个用逗号分隔">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="save-rule-btn">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 详情弹窗 -->
+<div class="modal fade" id="ruleViewModal" tabindex="-1" aria-labelledby="ruleViewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ruleViewModalLabel">详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6 id="view-rule-title" class="mb-3"></h6>
+                <div class="mb-3">
+                    <span class="badge bg-primary" id="view-rule-category"></span>
+                </div>
+                <div id="view-rule-content" style="white-space: pre-wrap; line-height: 1.8;"></div>
+                <hr>
+                <div class="row">
+                    <div class="col-md-4">
+                        <small class="text-muted">适用场景：</small>
+                        <div id="view-rule-scenarios"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">适用人群：</small>
+                        <div id="view-rule-audiences"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">关键词：</small>
+                        <div id="view-rule-keywords"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="edit-rule-btn">编辑</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const MATERIAL_TYPES = {{ all_material_types | tojson | safe }};
+const KNOWLEDGE_RULE_CATEGORIES = {{ knowledge_rule_categories | tojson | safe }};
+
+// 分类名称映射
+const CATEGORY_NAMES = {
+    // 素材库
+    'title': '标题库', 'hook': '钩子库', 'cover': '封面库',
+    'topic': '选题库', 'structure': '结构库', 'ending': '结尾库',
+    'psychology': '心理库', 'commercial': '商业库', 'why_popular': '爆款库',
+    'tags': '标签库', 'character': '人物库', 'content_form': '形式库',
+    'interaction': '互动库',
+    // 知识规则
+    'keywords': '关键词库', 'topic': '选题库', 'template': '内容模板',
+    'operation': '运营规划', 'market': '市场分析',
+    // 场景库
+    'usage_scenario': '使用场景', 'demand_scenario': '需求场景', 'pain_point': '用户痛点',
+    // 热点库
+    'hot_topic': '热点话题', 'seasonal_topic': '季节话题'
+};
+
+let currentCategory = 'all';
+let currentType = 'all';
+let currentSearch = '';
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadRules();
+    initEventListeners();
+});
+
+function initEventListeners() {
+    document.querySelectorAll('#rule-tabs .nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelectorAll('#rule-tabs .nav-link').forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+            currentCategory = this.dataset.category;
+            currentType = this.dataset.type || 'all';
+            loadRules();
+        });
+    });
+
+    document.getElementById('search-btn').addEventListener('click', function() {
+        currentSearch = document.getElementById('search-input').value.trim();
+        loadRules();
+    });
+
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            currentSearch = this.value.trim();
+            loadRules();
+        }
+    });
+
+    document.getElementById('add-rule-btn').addEventListener('click', () => openRuleModal());
+    document.getElementById('save-rule-btn').addEventListener('click', saveRule);
+    document.getElementById('edit-rule-btn').addEventListener('click', function() {
+        bootstrap.Modal.getInstance(document.getElementById('ruleViewModal')).hide();
+        setTimeout(() => openRuleModal(window.currentViewRule), 300);
+    });
+
+    // 根据分类显示/隐藏额外字段
+    document.getElementById('rule-category').addEventListener('change', function() {
+        const cat = this.value;
+        const sceneFields = document.getElementById('scene-fields');
+        const hotFields = document.getElementById('hot-fields');
+        const sceneCats = ['usage_scenario', 'demand_scenario', 'pain_point'];
+        const hotCats = ['hot_topic', 'seasonal_topic'];
+
+        sceneFields.style.display = sceneCats.includes(cat) ? 'block' : 'none';
+        hotFields.style.display = hotCats.includes(cat) ? 'block' : 'none';
+    });
+}
+
+async function loadRules() {
+    const tbody = document.getElementById('rules-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">加载中...</td></tr>';
+
+    try {
+        const url = `/admin/api/rules/unified?category=${currentCategory}&search=${encodeURIComponent(currentSearch)}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.success) {
+            renderRules(result.data.items);
+            updateCounts(result.data.counts);
+        } else {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">加载失败</td></tr>`;
+        }
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">加载失败: ${error.message}</td></tr>`;
+    }
+}
+
+function renderRules(items) {
+    const tbody = document.getElementById('rules-tbody');
+    if (!items || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">暂无数据</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = items.map(item => {
+        const catName = CATEGORY_NAMES[item.category] || item.category;
+        const typeLabels = item.type_labels ? item.type_labels.join(', ') : '-';
+        let content = item.content || item.title || '';
+        if (content.length > 60) content = content.substring(0, 60) + '...';
+
+        return `
+            <tr>
+                <td>
+                    <div class="text-truncate" style="max-width: 350px;" title="${item.title || item.content || ''}">
+                        <strong>${item.title ? item.title + '<br>' : ''}</strong>
+                        <span class="text-muted">${content}</span>
+                    </div>
+                </td>
+                <td><span class="badge bg-info">${catName}</span></td>
+                <td><small class="text-muted">${typeLabels}</small></td>
+                <td>${item.usage_count || 0}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="viewRule(${item.id}, '${item.category}', '${item.source_type}')">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="editRule(${item.id}, '${item.category}', '${item.source_type}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteRule(${item.id}, '${item.category}', '${item.source_type}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function updateCounts(counts) {
+    let total = 0;
+    for (const key in counts) {
+        total += counts[key];
+        const el = document.getElementById(`count-${key}`);
+        if (el) el.textContent = counts[key];
+    }
+    document.getElementById('count-all').textContent = total;
+}
+
+async function viewRule(id, category, sourceType) {
+    try {
+        const response = await fetch(`/admin/api/rules/unified/${id}?category=${category}&source_type=${sourceType}`);
+        const result = await response.json();
+        if (result.success) {
+            const rule = { ...result.data, source_type: sourceType };
+            window.currentViewRule = rule;
+            document.getElementById('view-rule-title').textContent = rule.title || '(无标题)';
+            document.getElementById('view-rule-category').textContent = CATEGORY_NAMES[rule.category] || rule.category;
+            document.getElementById('view-rule-content').textContent = rule.content || '';
+
+            const toBadges = arr => arr && arr.length > 0 ? arr.map(s => `<span class="badge bg-light text-dark me-1">${s}</span>`).join('') : '-';
+            document.getElementById('view-rule-scenarios').innerHTML = toBadges(rule.applicable_scenarios);
+            document.getElementById('view-rule-audiences').innerHTML = toBadges(rule.applicable_audiences);
+            document.getElementById('view-rule-keywords').innerHTML = toBadges(rule.keywords);
+
+            new bootstrap.Modal(document.getElementById('ruleViewModal')).show();
+        }
+    } catch (error) {
+        alert('加载失败');
+    }
+}
+
+async function editRule(id, category, sourceType) {
+    try {
+        const response = await fetch(`/admin/api/rules/unified/${id}?category=${category}&source_type=${sourceType}`);
+        const result = await response.json();
+        if (result.success) {
+            openRuleModal({ ...result.data, source_type: sourceType });
+        }
+    } catch (error) {
+        alert('加载失败');
+    }
+}
+
+function openRuleModal(rule = null) {
+    const form = document.getElementById('rule-form');
+    form.reset();
+    document.getElementById('scene-fields').style.display = 'none';
+    document.getElementById('hot-fields').style.display = 'none';
+
+    if (rule) {
+        document.getElementById('ruleModalLabel').textContent = '编辑';
+        document.getElementById('rule-id').value = rule.id;
+        document.getElementById('rule-type').value = rule.source_type || 'material';
+        document.getElementById('rule-category').value = rule.category;
+        document.getElementById('rule-title').value = rule.title || '';
+        document.getElementById('rule-content').value = rule.content || '';
+        document.getElementById('rule-scenarios').value = (rule.applicable_scenarios || []).join(', ');
+        document.getElementById('rule-audiences').value = (rule.applicable_audiences || []).join(', ');
+
+        // 场景库字段
+        if (rule.industry) document.getElementById('rule-industry').value = rule.industry;
+        if (rule.scene_type) document.getElementById('rule-scene-type').value = rule.scene_type;
+        if (rule.keywords) document.getElementById('rule-keywords').value = rule.keywords.join(', ');
+
+        // 热点库字段
+        if (rule.hot_level) document.getElementById('rule-hot-level').value = rule.hot_level;
+        if (rule.topic_category) document.getElementById('rule-topic-category').value = rule.topic_category;
+        if (rule.related_industry) document.getElementById('rule-related-industry').value = rule.related_industry.join(', ');
+
+        // 触发显示额外字段
+        const cat = rule.category;
+        const sceneCats = ['usage_scenario', 'demand_scenario', 'pain_point'];
+        const hotCats = ['hot_topic', 'seasonal_topic'];
+        if (sceneCats.includes(cat)) document.getElementById('scene-fields').style.display = 'block';
+        if (hotCats.includes(cat)) document.getElementById('hot-fields').style.display = 'block';
+    } else {
+        document.getElementById('ruleModalLabel').textContent = '新建';
+        document.getElementById('rule-id').value = '';
+        document.getElementById('rule-type').value = 'material';
+    }
+
+    new bootstrap.Modal(document.getElementById('ruleModal')).show();
+}
+
+async function saveRule() {
+    const id = document.getElementById('rule-id').value;
+    const category = document.getElementById('rule-category').value;
+    const title = document.getElementById('rule-title').value;
+    const content = document.getElementById('rule-content').value;
+
+    if (!category || !content) {
+        alert('请填写必填项');
+        return;
+    }
+
+    const parseList = id => id.split(',').map(s => s.trim()).filter(s => s);
+
+    const data = {
+        category,
+        title,
+        content,
+        applicable_scenarios: parseList(document.getElementById('rule-scenarios').value),
+        applicable_audiences: parseList(document.getElementById('rule-audiences').value),
+        source_type: document.getElementById('rule-type').value
+    };
+
+    // 场景库字段
+    if (['usage_scenario', 'demand_scenario', 'pain_point'].includes(category)) {
+        data.industry = document.getElementById('rule-industry').value;
+        data.scene_type = document.getElementById('rule-scene-type').value;
+        data.keywords = parseList(document.getElementById('rule-keywords').value);
+    }
+
+    // 热点库字段
+    if (['hot_topic', 'seasonal_topic'].includes(category)) {
+        data.hot_level = document.getElementById('rule-hot-level').value;
+        data.topic_category = document.getElementById('rule-topic-category').value;
+        data.related_industry = parseList(document.getElementById('rule-related-industry').value);
+    }
+
+    try {
+        const url = id ? `/admin/api/rules/unified/${id}` : '/admin/api/rules/unified';
+        const method = id ? 'PUT' : 'POST';
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('ruleModal')).hide();
+            loadRules();
+            showToast('保存成功');
+        } else {
+            alert('保存失败: ' + result.message);
+        }
+    } catch (error) {
+        alert('保存失败');
+    }
+}
+
+async function deleteRule(id, category, sourceType) {
+    if (!confirm('确定删除？')) return;
+    try {
+        const response = await fetch(`/admin/api/rules/unified/${id}?category=${category}&source_type=${sourceType}`, { method: 'DELETE' });
+        const result = await response.json();
+        if (result.success) {
+            loadRules();
+            showToast('删除成功');
+        } else {
+            alert('删除失败');
+        }
+    } catch (error) {
+        alert('删除失败');
+    }
+}
+
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 m-3';
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `<div class="toast-body">${message}</div>`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
+</script>
+{% endblock %}

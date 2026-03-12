@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}{% if method %}编辑{% else %}新建{% endif %}方法论 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- 页面标题 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">
+                        {% if method %}编辑{% else %}新建{% endif %}方法论
+                    </h4>
+                    <p class="text-muted mb-0" style="font-size: 14px;">知识库方法论（消费心理学、关键词筛选、人设、视觉设计等）</p>
+                </div>
+                <a href="{{ url_for('admin.persona_methods') }}" class="btn btn-outline-secondary">返回列表</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 表单 -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="section-card">
+                <div class="section-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <h6 class="mb-2" style="color: var(--color-text-primary); font-weight: 600;">
+                                <i class="bi bi-info-circle me-2"></i>基本信息
+                            </h6>
+
+                            <div class="mb-2">
+                                <label class="form-label">归类</label>
+                                <select name="methodology_category" class="form-select">
+                                    <option value="consumer_psychology" {{ 'selected' if method and method.methodology_category == 'consumer_psychology' else '' }}>消费心理学</option>
+                                    <option value="keyword_screening" {{ 'selected' if method and method.methodology_category == 'keyword_screening' else '' }}>关键词筛选</option>
+                                    <option value="persona" {{ 'selected' if method and method.methodology_category == 'persona' else '' }}>人设/账号定位</option>
+                                    <option value="visual_design" {{ 'selected' if method and method.methodology_category == 'visual_design' else '' }}>视觉设计</option>
+                                    <option value="operation" {{ 'selected' if method and method.methodology_category == 'operation' else '' }}>运营策略</option>
+                                    <option value="general" {{ 'selected' if not method or method.methodology_category == 'general' or not method.methodology_category else '' }}>通用</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label">方法论名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="name"
+                                       value="{{ method.name if method else '' }}"
+                                       required placeholder="请输入方法论名称">
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label">来源书籍/资料</label>
+                                    <input type="text" class="form-control" name="source_book"
+                                           value="{{ method.source_book if method else '' }}"
+                                           placeholder="书籍或资料名称">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label">作者</label>
+                                    <input type="text" class="form-control" name="author"
+                                           value="{{ method.author if method else '' }}"
+                                           placeholder="请输入作者">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6 class="mb-2" style="color: var(--color-text-primary); font-weight: 600;">
+                                <i class="bi bi-file-text me-2"></i>方法论内容
+                            </h6>
+
+                            <div class="mb-2">
+                                <label class="form-label">方法论摘要</label>
+                                <textarea class="form-control" name="method_summary" rows="4"
+                                          placeholder="请输入方法论的核心内容摘要">{{ method.method_summary if method else '' }}</textarea>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label">使用指南</label>
+                                <textarea class="form-control" name="usage_guide" rows="3"
+                                          placeholder="请输入方法论的使用方法和注意事项">{{ method.usage_guide if method else '' }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6 class="mb-2" style="color: var(--color-text-primary); font-weight: 600;">
+                                <i class="bi bi-tag me-2"></i>标签配置
+                            </h6>
+
+                            <div class="mb-2">
+                                <label class="form-label">适用场景（多个用回车分隔）</label>
+                                <textarea class="form-control" name="applicable_scenario" rows="2"
+                                          placeholder="请输入适用场景，每行一个">{{ method.applicable_scenario|join('\n') if method and method.applicable_scenario else '' }}</textarea>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label">适用人群（多个用回车分隔）</label>
+                                <textarea class="form-control" name="applicable_audience" rows="2"
+                                          placeholder="请输入适用人群，每行一个">{{ method.applicable_audience|join('\n') if method and method.applicable_audience else '' }}</textarea>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label">关键词（多个用回车分隔）</label>
+                                <textarea class="form-control" name="keywords" rows="2"
+                                          placeholder="请输入关键词，每行一个">{{ method.keywords|join('\n') if method and method.keywords else '' }}</textarea>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="form-label">分类标签（多个用回车分隔）</label>
+                                <textarea class="form-control" name="tags" rows="2"
+                                          placeholder="请输入分类标签，每行一个">{{ method.tags|join('\n') if method and method.tags else '' }}</textarea>
+                            </div>
+                        </div>
+
+                        <!-- 提交按钮 -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.persona_methods') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>返回
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>保存
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧说明 -->
+        <div class="col-lg-4">
+            <div class="section-card">
+                <div class="section-header">
+                    <h6 class="section-title"><i class="bi bi-lightbulb me-2"></i>使用说明</h6>
+                </div>
+                <div class="section-body">
+                    <p class="small text-muted mb-3">
+                        方法论归属知识库模块，可来自读书笔记、电子书整理（如消费心理学、关键词筛选、人设、视觉设计等），解析入库后供报告与内容生成使用。
+                    </p>
+                    <h6 class="mb-2">推荐流程：</h6>
+                    <ul class="small text-muted mb-0">
+                        <li>在「解析入库」页粘贴自然语言内容，由系统解析归类</li>
+                        <li>确认或修改解析结果后入库</li>
+                        <li>也可在此页手动新建一条方法论</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

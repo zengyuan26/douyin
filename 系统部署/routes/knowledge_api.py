@@ -4461,7 +4461,11 @@ def get_accounts():
                     'brand_type': acc.brand_type,
                     'language_style': acc.language_style,
                     'target_user': acc.target_user,
-                    'main_product': acc.main_product
+                    'main_product': acc.main_product,
+                    # 内容布局字段
+                    'content_persona': acc.content_persona,
+                    'content_topic': acc.content_topic,
+                    'content_daily': acc.content_daily
                 } for acc in accounts.items],
                 'total': total,
                 'page': page,
@@ -4504,7 +4508,19 @@ def get_account(account_id):
                 'brand_type': account.brand_type,
                 'language_style': account.language_style,
                 'target_user': account.target_user,
-                'main_product': account.main_product
+                'main_product': account.main_product,
+                # 账号分析增强字段
+                'core_business': account.core_business,
+                'core_keywords': account.core_keywords,
+                'keyword_types': account.keyword_types,
+                'account_positioning': account.account_positioning,
+                'content_strategy': account.content_strategy,
+                'target_audience': account.target_audience,
+                'analysis_result': account.analysis_result,
+                # 内容布局字段
+                'content_persona': account.content_persona,
+                'content_topic': account.content_topic,
+                'content_daily': account.content_daily
             }
         })
     except Exception as e:
@@ -4543,7 +4559,11 @@ def create_account():
             brand_type=data.get('brand_type'),
             language_style=data.get('language_style'),
             target_user=data.get('target_user'),
-            main_product=data.get('main_product')
+            main_product=data.get('main_product'),
+            # 内容布局
+            content_persona=data.get('content_persona', 0),
+            content_topic=data.get('content_topic', 0),
+            content_daily=data.get('content_daily', 0)
         )
         db.session.add(account)
         
@@ -4624,7 +4644,15 @@ def update_account(account_id):
             account.target_user = data['target_user']
         if 'main_product' in data:
             account.main_product = data['main_product']
-        
+
+        # 内容布局字段
+        if 'content_persona' in data:
+            account.content_persona = data['content_persona']
+        if 'content_topic' in data:
+            account.content_topic = data['content_topic']
+        if 'content_daily' in data:
+            account.content_daily = data['content_daily']
+
         # 如果更新了 current_data，记录历史
         if 'current_data' in data and data['current_data'] != old_data:
             history = KnowledgeAccountHistory(
@@ -4959,3 +4987,131 @@ def analyze_content_image():
     except Exception as e:
         logger.error(f"分析内容图片失败: {e}", exc_info=True)
         return jsonify({'code': 500, 'message': f'分析失败: {str(e)}'})
+
+
+# ========== 场景库/热点库入库（从爆款拆解提取） ==========
+
+@knowledge_api.route('/scenes/extract', methods=['POST'])
+@login_required
+def extract_scenes_from_analysis():
+    """从爆款拆解分析结果中提取场景/人群/热点，一键入库"""
+    try:
+        from models.models import UsageScenario, DemandScenario, PainPoint, HotTopic, SeasonalTopic, KnowledgeAccount, KnowledgeContent
+
+        data = request.get_json()
+        source_type = data.get('source_type')  # 'account' 或 'content'
+        source_id = data.get('source_id')
+        analysis_result = data.get('analysis_result', {})
+        items = data.get('items', [])  # 要入库的项
+
+        if not items:
+            return jsonify({'code': 400, 'message': '请选择要入库的内容'})
+
+        saved_count = 0
+        for item in items:
+            item_type = item.get('type')  # 'usage_scene' / 'demand_scene' / 'pain_point' / 'hot_topic'
+            name = item.get('name', '').strip()
+            if not name:
+                continue
+
+            # 提取适用场景、适用人群、标签等
+            scenes = item.get('scenes', [])
+            audience = item.get('audience', [])
+            keywords = item.get('keywords', [])
+            industry = item.get('industry', '')
+            description = item.get('description', '')
+            reason = item.get('reason', '')  # 入库理由/为什么有效
+
+            if item_type == 'usage_scene':
+                # 使用场景
+                existing = UsageScenario.query.filter_by(scenario_name=name).first()
+                if not existing:
+                    scene = UsageScenario(
+                        scenario_name=name,
+                        industry=industry,
+                        scenario_description=description or reason,
+                        target_users=audience,
+                        pain_points=[],
+                        needs=[],
+                        keywords=keywords + scenes,
+                        related_products=[]
+                    )
+                    db.session.add(scene)
+                    saved_count += 1
+            elif item_type == 'demand_scene':
+                # 需求场景
+                existing = DemandScenario.query.filter_by(scenario_name=name).first()
+                if not existing:
+                    scene = DemandScenario(
+                        scenario_name=name,
+                        demand_type=industry or 'general',
+                        scenario_description=description or reason,
+                        trigger_condition='',
+                        user_goals=audience,
+                        emotional_needs=[],
+                        keywords=keywords + scenes,
+                    )
+                    db.session.add(scene)
+                    saved_count += 1
+            elif item_type == 'pain_point':
+                # 痛点
+                existing = PainPoint.query.filter_by(pain_point_name=name).first()
+                if not existing:
+                    pain = PainPoint(
+                        pain_point_name=name,
+                        industry=industry,
+                        pain_type=item.get('pain_type', 'general'),
+                        description=description or reason,
+                        severity=item.get('severity', 'medium'),
+                        affected_users=audience,
+                        current_solutions=[],
+                        opportunities='',
+                        keywords=keywords + scenes
+                    )
+                    db.session.add(pain)
+                    saved_count += 1
+            elif item_type == 'hot_topic':
+                # 热点话题
+                existing = HotTopic.query.filter_by(topic_name=name).first()
+                if not existing:
+                    hot = HotTopic(
+                        topic_name=name,
+                        topic_source='爆款拆解提取',
+                        topic_url='',
+                        hot_level=item.get('hot_level', '中'),
+                        category=item.get('category', 'content'),
+                        description=description or reason,
+                        related_keywords=keywords,
+                        related_industry=industry,
+                        applicable_content_types=item.get('content_types', []),
+                        start_date=None,
+                        end_date=None,
+                        status='active'
+                    )
+                    db.session.add(hot)
+                    saved_count += 1
+            elif item_type == 'seasonal_topic':
+                # 季节性话题
+                existing = SeasonalTopic.query.filter_by(topic_name=name).first()
+                if not existing:
+                    seasonal = SeasonalTopic(
+                        topic_name=name,
+                        topic_type=item.get('topic_type', 'festival'),
+                        topic_date=item.get('topic_date'),
+                        recurrence='yearly',
+                        description=description or reason,
+                        marketing_angles=audience,
+                        content_suggestions=scenes,
+                        related_industry=industry,
+                        keywords=keywords
+                    )
+                    db.session.add(seasonal)
+                    saved_count += 1
+
+        db.session.commit()
+        return jsonify({'code': 200, 'message': f'成功入库 {saved_count} 项', 'saved_count': saved_count})
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"场景入库失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'入库失败: {str(e)}'})

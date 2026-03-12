@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}{% if item %}编辑{% endif %}场景 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- 页面标题 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">
+                        {% if item %}编辑{% else %}新建{% endif %}
+                        {% if scenario_type == 'usage' %}使用场景
+                        {% elif scenario_type == 'demand' %}需求场景
+                        {% else %}用户痛点{% endif %}
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 表单 -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="section-card">
+                <div class="section-body">
+                    <form method="POST">
+                        <div class="mb-2">
+                            <label class="form-label">
+                                {% if scenario_type == 'usage' %}场景名称
+                                {% elif scenario_type == 'demand' %}场景名称
+                                {% else %}痛点名称{% endif %}
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control"
+                                   name="{% if scenario_type == 'usage' %}scenario_name{% elif scenario_type == 'demand' %}scenario_name{% else %}pain_point_name{% endif %}"
+                                   value="{{ item.scenario_name if item else '' }}" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">
+                                    {% if scenario_type == 'usage' %}适用行业
+                                    {% elif scenario_type == 'demand' %}需求类型
+                                    {% else %}痛点类型{% endif %}
+                                </label>
+                                {% if scenario_type == 'usage' %}
+                                <input type="text" class="form-control" name="industry" value="{{ item.industry if item else '' }}">
+                                {% elif scenario_type == 'demand' %}
+                                <select class="form-select" name="demand_type">
+                                    <option value="">请选择</option>
+                                    <option value="功能需求" {% if item and item.demand_type == '功能需求' %}selected{% endif %}>功能需求</option>
+                                    <option value="情感需求" {% if item and item.demand_type == '情感需求' %}selected{% endif %}>情感需求</option>
+                                    <option value="社交需求" {% if item and item.demand_type == '社交需求' %}selected{% endif %}>社交需求</option>
+                                </select>
+                                {% else %}
+                                <select class="form-select" name="pain_type">
+                                    <option value="">请选择</option>
+                                    <option value="功能" {% if item and item.pain_type == '功能' %}selected{% endif %}>功能</option>
+                                    <option value="体验" {% if item and item.pain_type == '体验' %}selected{% endif %}>体验</option>
+                                    <option value="情感" {% if item and item.pain_type == '情感' %}selected{% endif %}>情感</option>
+                                    <option value="成本" {% if item and item.pain_type == '成本' %}selected{% endif %}>成本</option>
+                                </select>
+                                {% endif %}
+                            </div>
+
+                            {% if scenario_type == 'pain' %}
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">严重程度</label>
+                                <select class="form-select" name="severity">
+                                    <option value="">请选择</option>
+                                    <option value="高" {% if item and item.severity == '高' %}selected{% endif %}>高</option>
+                                    <option value="中" {% if item and item.severity == '中' %}selected{% endif %}>中</option>
+                                    <option value="低" {% if item and item.severity == '低' %}selected{% endif %}>低</option>
+                                </select>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">描述</label>
+                            <textarea class="form-control"
+                                      name="{% if scenario_type in ['usage', 'demand'] %}scenario_description{% else %}description{% endif %}"
+                                      rows="3">{{ item.scenario_description if item and scenario_type in ['usage', 'demand'] else item.description if item else '' }}</textarea>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">关键词（每行一个）</label>
+                            <textarea class="form-control" name="keywords" rows="2"
+                                      placeholder="请输入关键词，每行一个">{{ item.keywords|join('\n') if item and item.keywords else '' }}</textarea>
+                        </div>
+
+                        <!-- 提交按钮 -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.scenarios', type=scenario_type) }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>返回
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>保存
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

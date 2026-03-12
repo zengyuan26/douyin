@@ -1195,9 +1195,16 @@ textarea.form-control {
     cursor: pointer;
 }
 
-.quick-action-btn i {
+.quick-action-btn i,
+.quick-action-btn .quick-action-icon-svg {
     font-size: var(--icon-size-base);
     color: var(--color-primary);
+}
+
+.quick-action-btn .quick-action-icon-svg {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
 }
 
 .quick-action-btn:hover {

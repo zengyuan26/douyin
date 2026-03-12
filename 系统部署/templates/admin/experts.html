@@ -144,9 +144,14 @@
         <!-- 页面标题 -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="page-header page-header-animate">
-                    <h4 class="page-title">专家管理</h4>
-                    <p class="page-subtitle">本页专家与工作台左侧列表一致。可编辑：昵称、职位、欢迎语、排序。下方「呼出命令」即该专家对应的全部 Skill 命令。</p>
+                <div class="page-header page-header-animate d-flex justify-content-between align-items-start">
+                    <div>
+                        <h4 class="page-title">专家管理</h4>
+                        <p class="page-subtitle">本页专家与工作台左侧列表一致。可编辑：昵称、职位、欢迎语、排序。下方「呼出命令」即该专家对应的全部 Skill 命令。</p>
+                    </div>
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
                 </div>
             </div>
         </div>

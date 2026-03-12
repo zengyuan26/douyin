@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}{% if item %}编辑{% endif %}话题 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- 页面标题 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">
+                        {% if item %}编辑{% else %}新建{% endif %}
+                        {% if topic_type == 'hot' %}实时热点{% else %}季节性话题{% endif %}
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 表单 -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="section-card">
+                <div class="section-body">
+                    <form method="POST">
+                        <div class="mb-2">
+                            <label class="form-label">话题名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="topic_name"
+                                   value="{{ item.topic_name if item else '' }}" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">
+                                    {% if topic_type == 'hot' %}话题来源{% else %}话题类型{% endif %}
+                                </label>
+                                {% if topic_type == 'hot' %}
+                                <select class="form-select" name="topic_source">
+                                    <option value="">请选择</option>
+                                    <option value="抖音" {% if item and item.topic_source == '抖音' %}selected{% endif %}>抖音</option>
+                                    <option value="小红书" {% if item and item.topic_source == '小红书' %}selected{% endif %}>小红书</option>
+                                    <option value="微博" {% if item and item.topic_source == '微博' %}selected{% endif %}>微博</option>
+                                    <option value="知乎" {% if item and item.topic_source == '知乎' %}selected{% endif %}>知乎</option>
+                                </select>
+                                {% else %}
+                                <select class="form-select" name="topic_type">
+                                    <option value="">请选择</option>
+                                    <option value="节日" {% if item and item.topic_type == '节日' %}selected{% endif %}>节日</option>
+                                    <option value="节气" {% if item and item.topic_type == '节气' %}selected{% endif %}>节气</option>
+                                    <option value="电商节" {% if item and item.topic_type == '电商节' %}selected{% endif %}>电商节</option>
+                                    <option value="行业日" {% if item and item.topic_type == '行业日' %}selected{% endif %}>行业日</option>
+                                </select>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">
+                                    {% if topic_type == 'hot' %}热度等级{% else %}循环类型{% endif %}
+                                </label>
+                                {% if topic_type == 'hot' %}
+                                <select class="form-select" name="hot_level">
+                                    <option value="">请选择</option>
+                                    <option value="高" {% if item and item.hot_level == '高' %}selected{% endif %}>高</option>
+                                    <option value="中" {% if item and item.hot_level == '中' %}selected{% endif %}>中</option>
+                                    <option value="低" {% if item and item.hot_level == '低' %}selected{% endif %}>低</option>
+                                </select>
+                                {% else %}
+                                <select class="form-select" name="recurrence">
+                                    <option value="">请选择</option>
+                                    <option value="yearly" {% if item and item.recurrence == 'yearly' %}selected{% endif %}>每年</option>
+                                    <option value="monthly" {% if item and item.recurrence == 'monthly' %}selected{% endif %}>每月</option>
+                                    <option value="one-time" {% if item and item.recurrence == 'one-time' %}selected{% endif %}>一次性</option>
+                                </select>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if topic_type == 'seasonal' %}
+                        <div class="mb-2">
+                            <label class="form-label">日期</label>
+                            <input type="date" class="form-control" name="topic_date"
+                                   value="{{ item.topic_date.strftime('%Y-%m-%d') if item and item.topic_date else '' }}">
+                        </div>
+                        {% else %}
+                        <div class="mb-2">
+                            <label class="form-label">话题链接</label>
+                            <input type="url" class="form-control" name="topic_url"
+                                   value="{{ item.topic_url if item else '' }}">
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-2">
+                            <label class="form-label">描述</label>
+                            <textarea class="form-control" name="description" rows="2">{{ item.description if item else '' }}</textarea>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">相关行业（每行一个）</label>
+                            <textarea class="form-control" name="related_industry" rows="2"
+                                      placeholder="请输入行业，每行一个">{{ item.related_industry|join('\n') if item and item.related_industry else '' }}</textarea>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">关键词（每行一个）</label>
+                            <textarea class="form-control" name="keywords" rows="2"
+                                      placeholder="请输入关键词，每行一个">{{ item.keywords|join('\n') if item and item.keywords else '' }}</textarea>
+                        </div>
+
+                        <!-- 提交按钮 -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.hot_topics', type=topic_type) }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>返回
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>保存
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

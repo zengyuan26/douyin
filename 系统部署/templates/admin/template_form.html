@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block title %}{% if template %}编辑{% else %}新建{% endif %}模板 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 template-form-page">
+
+    <!-- 页面标题 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">
+                        {% if template %}编辑模板{% else %}新建模板{% endif %}
+                    </h4>
+                    <p class="text-muted mb-0" style="font-size: 16px;">
+                        {% if template_type == 'report' %}报告模板{% else %}内容模板{% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin.templates', type=template_type) }}" class="btn btn-outline-secondary btn-sm me-2">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
+                    {% if template %}
+                    <button type="submit" form="templateForm" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>保存设置
+                    </button>
+                    {% else %}
+                    <button type="submit" form="templateForm" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>保存模板
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if template %}
+    {# ========== 编辑模式：仅模板名称（只读）+ 分类，双 Tab ========== #}
+    <form method="POST" id="templateForm" action="{{ url_for('admin.template_edit', id=template.id, type=template_type) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="section-card">
+                    <div class="section-body py-2">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label small mb-0">模板名称</label>
+                                <input type="text" class="form-control form-control-sm bg-light" readonly
+                                       value="{{ template.template_name }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small mb-0">模板分类</label>
+                                <select class="form-select form-select-sm" name="template_category">
+                                    <option value="universal" {% if template.template_category == 'universal' %}selected{% endif %}>通用模板</option>
+                                    <option value="industry" {% if template.template_category == 'industry' %}selected{% endif %}>行业模板</option>
+                                    <option value="custom" {% if template.template_category == 'custom' %}selected{% endif %}>自定义模板</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs mb-3" id="templateEditTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-items-btn" data-bs-toggle="tab" data-bs-target="#tab-items" type="button">内容条目</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-detail-btn" data-bs-toggle="tab" data-bs-target="#tab-detail" type="button">详情与历史</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="templateEditTabContent">
+            {# Tab 1: 内容条目列表 + 拖拽排序 + 编辑/新增弹框 #}
+            <div class="tab-pane fade show active" id="tab-items" role="tabpanel">
+                <div class="section-card">
+                    <div class="section-header d-flex justify-content-between align-items-center">
+                        <h6 class="section-title mb-0">模板内容条目（可上移/下移调整顺序）</h6>
+                        <button type="button" class="btn btn-primary btn-sm" id="btnAddItem">
+                            <i class="bi bi-plus-lg me-1"></i>新增一条
+                        </button>
+                    </div>
+                    <div class="section-body">
+                        <div id="itemsListContainer">
+                            <div class="text-muted text-center py-4" id="itemsLoading">加载中…</div>
+                            <ul class="list-group list-group-flush" id="itemsList"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Tab 2: 完整内容预览 + 变量配置 + 编辑历史 #}
+            <div class="tab-pane fade" id="tab-detail" role="tabpanel">
+                <div class="section-card mb-3">
+                    <div class="section-header">
+                        <h6 class="section-title mb-0">完整模板内容</h6>
+                    </div>
+                    <div class="section-body">
+                        <pre class="template-full-preview font-monospace small mb-0" id="detailFullContent"></pre>
+                    </div>
+                </div>
+                {% if template_type == 'report' %}
+                <div class="section-card mb-3">
+                    <div class="section-header">
+                        <h6 class="section-title mb-0">变量配置（JSON）</h6>
+                    </div>
+                    <div class="section-body">
+                        <textarea class="form-control font-monospace" name="variables_config" rows="3" id="detailVariablesConfig"
+                                  placeholder='{"customer_name": "客户名称", "industry": "行业"}'>{{ template.variables_config or '' }}</textarea>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="section-card">
+                    <div class="section-header">
+                        <h6 class="section-title mb-0">编辑历史</h6>
+                    </div>
+                    <div class="section-body">
+                        <ul class="list-group list-group-flush" id="historyList"></ul>
+                        <div class="text-muted small mt-2" id="historyEmpty">暂无历史记录</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    {# 编辑条目弹框 #}
+    <div class="modal fade" id="editItemModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">编辑本条内容</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">当前内容</label>
+                        <textarea class="form-control font-monospace small" id="editCurrentContent" rows="4" readonly></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">用自然语言描述你希望改成什么样</label>
+                        <textarea class="form-control" id="editNlInput" rows="2" placeholder="例如：增加一段关于竞品分析的说明，使用变量 {{ '{{ industry }}' }}"></textarea>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="editParseBtn">解析为系统语言</button>
+                    </div>
+                    <div class="mb-2" id="editParsedWrap" style="display:none;">
+                        <label class="form-label">解析结果（可微调后确认）</label>
+                        <textarea class="form-control font-monospace small" id="editParsedContent" rows="6"></textarea>
+                        <button type="button" class="btn btn-primary btn-sm mt-2" id="editConfirmBtn">确认更新本条</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# 新增条目弹框 #}
+    <div class="modal fade" id="addItemModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">新增一条模板内容</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">用自然语言描述要添加的内容</label>
+                        <textarea class="form-control" id="addNlInput" rows="3" placeholder="例如：在报告末尾增加“风险与建议”一节，包含行业风险、{{ '{{ customer_name }}' }} 的应对建议"></textarea>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addParseBtn">解析为系统语言</button>
+                    </div>
+                    <div class="mb-2" id="addParsedWrap" style="display:none;">
+                        <label class="form-label">解析结果（可微调后确认）</label>
+                        <textarea class="form-control font-monospace small" id="addParsedContent" rows="6"></textarea>
+                        <button type="button" class="btn btn-primary btn-sm mt-2" id="addConfirmBtn">确认添加</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    {# ========== 新建模式：名称、类型、分类、初始内容 ========== #}
+    <form method="POST" id="templateForm" action="{{ url_for('admin.template_add', type=template_type) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="section-card">
+                    <div class="section-body py-2">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label small mb-0">模板名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm" name="template_name" required placeholder="请输入模板名称">
+                            </div>
+                            {% if template_type == 'report' %}
+                            <div class="col-md-2">
+                                <label class="form-label small mb-0">模板类型 <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" name="template_type" required>
+                                    <option value="">请选择</option>
+                                    <option value="market_analysis" {% if report_subtype == 'market_analysis' %}selected{% endif %}>市场分析报告</option>
+                                    <option value="keyword" {% if report_subtype == 'keyword' %}selected{% endif %}>关键词库</option>
+                                    <option value="topic" {% if report_subtype == 'topic' %}selected{% endif %}>选题库</option>
+                                    <option value="operation" {% if report_subtype == 'operation' %}selected{% endif %}>运营规划方案</option>
+                                </select>
+                            </div>
+                            {% else %}
+                            <div class="col-md-2">
+                                <label class="form-label small mb-0">内容类型 <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" name="content_type" required>
+                                    <option value="">请选择</option>
+                                    <option value="graphic">图文内容</option>
+                                    <option value="video">短视频脚本</option>
+                                    <option value="long_text">长文字</option>
+                                </select>
+                            </div>
+                            {% endif %}
+                            <div class="col-md-2">
+                                <label class="form-label small mb-0">模板分类</label>
+                                <select class="form-select form-select-sm" name="template_category">
+                                    <option value="universal">通用模板</option>
+                                    <option value="industry">行业模板</option>
+                                    <option value="custom">自定义模板</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-9">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h6 class="section-title mb-0">初始模板内容（保存后可进入编辑页按条目管理）</h6>
+                    </div>
+                    <div class="section-body">
+                        <textarea class="form-control font-monospace" name="template_content" rows="16" placeholder="Markdown + 变量，如 {{ '{{ customer_name }}' }}">{{ default_content or '' }}</textarea>
+                        {% if template_type == 'report' %}
+                        <textarea class="form-control font-monospace mt-2" name="variables_config" rows="2" placeholder='{"customer_name": "客户名称", "industry": "行业"}'></textarea>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+    {% endif %}
+</div>
+
+<style>
+.template-full-preview { max-height: 400px; overflow: auto; white-space: pre-wrap; word-break: break-all; font-size: 13px; padding: 12px; background: var(--color-bg-secondary, #f8f9fa); border-radius: 8px; }
+.template-form-page .item-row { cursor: move; }
+.template-form-page .item-preview { max-height: 80px; overflow: hidden; text-overflow: ellipsis; white-space: pre-wrap; font-size: 13px; color: #555; }
+</style>
+
+{% if template %}
+<script>
+(function() {
+    var templateId = {{ template.id }};
+    var templateType = '{{ template_type }}';
+    var items = [];
+    var itemsListEl = document.getElementById('itemsList');
+    var itemsLoadingEl = document.getElementById('itemsLoading');
+    var detailFullContentEl = document.getElementById('detailFullContent');
+    var historyListEl = document.getElementById('historyList');
+    var historyEmptyEl = document.getElementById('historyEmpty');
+
+    function apiUrl(path, q) {
+        var u = path.replace(/\/api\/templates\/\d+/, '/admin/api/templates/' + templateId);
+        return u + (q ? '?type=' + templateType : '');
+    }
+
+    function fetchItems() {
+        itemsLoadingEl.textContent = '加载中…';
+        fetch(apiUrl('/admin/api/templates/' + templateId + '/items') + '?type=' + templateType, { headers: { 'Accept': 'application/json' } })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                items = Array.isArray(data) ? data : [];
+                renderItems();
+                itemsLoadingEl.style.display = 'none';
+                updateDetailContent();
+            })
+            .catch(function() {
+                itemsLoadingEl.textContent = '加载失败';
+                items = [];
+            });
+    }
+
+    function renderItems() {
+        itemsListEl.innerHTML = '';
+        items.forEach(function(it, idx) {
+            var li = document.createElement('li');
+            li.className = 'list-group-item d-flex align-items-start item-row';
+            li.dataset.id = it.id;
+            var preview = (it.content || '').substring(0, 200);
+            if ((it.content || '').length > 200) preview += '…';
+            li.innerHTML =
+                '<span class="me-2 text-muted" title="拖拽可调整顺序"><i class="bi bi-grip-vertical"></i></span>' +
+                '<div class="flex-grow-1 min-width-0"><span class="badge bg-secondary me-2">' + (idx + 1) + '</span>' +
+                '<div class="item-preview">' + escapeHtml(preview) + '</div></div>' +
+                '<span class="me-1"><button type="button" class="btn btn-sm btn-outline-secondary btn-move-up" data-id="' + it.id + '" title="上移"><i class="bi bi-arrow-up"></i></button>' +
+                '<button type="button" class="btn btn-sm btn-outline-secondary btn-move-down" data-id="' + it.id + '" title="下移"><i class="bi bi-arrow-down"></i></button></span>' +
+                '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-edit-item" data-id="' + it.id + '">编辑</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger btn-delete-item" data-id="' + it.id + '">删除</button>';
+            itemsListEl.appendChild(li);
+        });
+        bindItemButtons();
+        bindMoveButtons();
+    }
+
+    function submitOrder(orderIds) {
+        if (orderIds.length === 0) return;
+        fetch('/admin/api/templates/' + templateId + '/items/reorder?type=' + templateType, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('input[name=csrf_token]').value },
+            body: JSON.stringify({ order: orderIds })
+        }).then(function(r) { return r.json(); }).then(function(res) { if (res.ok) fetchItems(); });
+    }
+
+    function bindMoveButtons() {
+        itemsListEl.querySelectorAll('.btn-move-up').forEach(function(btn) {
+            btn.onclick = function() {
+                var id = parseInt(btn.dataset.id, 10);
+                var idx = items.findIndex(function(x) { return x.id === id; });
+                if (idx <= 0) return;
+                var order = items.map(function(x) { return x.id; });
+                order[idx] = order[idx - 1];
+                order[idx - 1] = id;
+                submitOrder(order);
+            };
+            if (items.findIndex(function(x) { return x.id === parseInt(btn.dataset.id, 10); }) === 0) {
+                btn.disabled = true;
+                btn.classList.add('invisible');
+            }
+        });
+        itemsListEl.querySelectorAll('.btn-move-down').forEach(function(btn) {
+            btn.onclick = function() {
+                var id = parseInt(btn.dataset.id, 10);
+                var idx = items.findIndex(function(x) { return x.id === id; });
+                if (idx < 0 || idx >= items.length - 1) return;
+                var order = items.map(function(x) { return x.id; });
+                order[idx] = order[idx + 1];
+                order[idx + 1] = id;
+                submitOrder(order);
+            };
+            if (items.findIndex(function(x) { return x.id === parseInt(btn.dataset.id, 10); }) === items.length - 1) {
+                btn.disabled = true;
+                btn.classList.add('invisible');
+            }
+        });
+    }
+
+    function escapeHtml(s) {
+        var div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    function bindItemButtons() {
+        itemsListEl.querySelectorAll('.btn-edit-item').forEach(function(btn) {
+            btn.onclick = function() {
+                var id = parseInt(btn.dataset.id, 10);
+                var it = items.find(function(x) { return x.id === id; });
+                if (!it) return;
+                document.getElementById('editCurrentContent').value = it.content || '';
+                document.getElementById('editNlInput').value = '';
+                document.getElementById('editParsedContent').value = '';
+                document.getElementById('editParsedWrap').style.display = 'none';
+                window._editItemId = id;
+                new bootstrap.Modal(document.getElementById('editItemModal')).show();
+            };
+        });
+        itemsListEl.querySelectorAll('.btn-delete-item').forEach(function(btn) {
+            btn.onclick = function() {
+                var id = parseInt(btn.dataset.id, 10);
+                if (!confirm('确定删除这条内容？')) return;
+                fetch(apiUrl('/admin/api/templates/' + templateId + '/items/' + id) + '?type=' + templateType, { method: 'DELETE', headers: { 'X-CSRFToken': document.querySelector('input[name=csrf_token]').value } })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res.ok) { fetchItems(); }
+                    });
+            };
+        });
+    }
+
+
+    function updateDetailContent() {
+        var full = items.map(function(x) { return (x.content || '').trim(); }).filter(Boolean).join('\n\n');
+        if (detailFullContentEl) detailFullContentEl.textContent = full || '（暂无内容）';
+    }
+
+    function fetchHistory() {
+        fetch(apiUrl('/admin/api/templates/' + templateId + '/history') + '?type=' + templateType, { headers: { 'Accept': 'application/json' } })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var list = Array.isArray(data) ? data : [];
+                historyListEl.innerHTML = '';
+                if (list.length === 0) {
+                    historyEmptyEl.style.display = 'block';
+                    return;
+                }
+                historyEmptyEl.style.display = 'none';
+                list.forEach(function(h) {
+                    var li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    var time = h.changed_at ? new Date(h.changed_at).toLocaleString() : '';
+                    li.innerHTML = '<small class="text-muted">' + time + '</small>';
+                    historyListEl.appendChild(li);
+                });
+            });
+    }
+
+    document.getElementById('tab-detail-btn').addEventListener('shown.bs.tab', function() {
+        updateDetailContent();
+        fetchHistory();
+    });
+
+    // 解析自然语言
+    function parseNl(nl, done) {
+        fetch('/admin/api/templates/parse-nl', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': document.querySelector('input[name=csrf_token]').value },
+            body: JSON.stringify({ natural_language: nl })
+        }).then(function(r) { return r.json(); }).then(done);
+    }
+
+    document.getElementById('editParseBtn').addEventListener('click', function() {
+        var nl = document.getElementById('editNlInput').value.trim();
+        if (!nl) return alert('请先输入自然语言描述');
+        document.getElementById('editParseBtn').disabled = true;
+        parseNl(nl, function(res) {
+            document.getElementById('editParseBtn').disabled = false;
+            if (res.ok) {
+                document.getElementById('editParsedContent').value = res.content || '';
+                document.getElementById('editParsedWrap').style.display = 'block';
+            } else {
+                alert(res.message || '解析失败');
+            }
+        });
+    });
+
+    document.getElementById('editConfirmBtn').addEventListener('click', function() {
+        var id = window._editItemId;
+        var content = document.getElementById('editParsedContent').value.trim();
+        if (!id || !content) return;
+        fetch(apiUrl('/admin/api/templates/' + templateId + '/items/' + id) + '?type=' + templateType, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('input[name=csrf_token]').value },
+            body: JSON.stringify({ content: content })
+        }).then(function(r) { return r.json(); }).then(function(res) {
+            if (res.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('editItemModal')).hide();
+                fetchItems();
+            }
+        });
+    });
+
+    document.getElementById('addParseBtn').addEventListener('click', function() {
+        var nl = document.getElementById('addNlInput').value.trim();
+        if (!nl) return alert('请先输入自然语言描述');
+        document.getElementById('addParseBtn').disabled = true;
+        parseNl(nl, function(res) {
+            document.getElementById('addParseBtn').disabled = false;
+            if (res.ok) {
+                document.getElementById('addParsedContent').value = res.content || '';
+                document.getElementById('addParsedWrap').style.display = 'block';
+            } else {
+                alert(res.message || '解析失败');
+            }
+        });
+    });
+
+    document.getElementById('addConfirmBtn').addEventListener('click', function() {
+        var content = document.getElementById('addParsedContent').value.trim();
+        if (!content) return;
+        fetch(apiUrl('/admin/api/templates/' + templateId + '/items') + '?type=' + templateType, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('input[name=csrf_token]').value },
+            body: JSON.stringify({ content: content })
+        }).then(function(r) { return r.json(); }).then(function(res) {
+            if (res.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('addItemModal')).hide();
+                document.getElementById('addNlInput').value = '';
+                document.getElementById('addParsedContent').value = '';
+                document.getElementById('addParsedWrap').style.display = 'none';
+                fetchItems();
+            }
+        });
+    });
+
+    document.getElementById('btnAddItem').addEventListener('click', function() {
+        document.getElementById('addNlInput').value = '';
+        document.getElementById('addParsedContent').value = '';
+        document.getElementById('addParsedWrap').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('addItemModal')).show();
+    });
+
+    fetchItems();
+})();
+</script>
+{% endif %}
+{% endblock %}

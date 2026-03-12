@@ -5,7 +5,8 @@ import os
 import re
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, Industry, Channel, Client
+from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, Industry, Channel, Client, KnowledgeAccount, KnowledgeContent, ReportTemplate, ContentTemplate, TemplateDependency, TemplateRefreshLog, TemplateContentItem, TemplateEditHistory, PersonaMethod, PersonaRole, UsageScenario, DemandScenario, PainPoint, HotTopic, SeasonalTopic, ContentTitle, ContentHook, ContentStructure, ContentEnding, ContentReplication, ContentCover, ContentTopic, ContentPsychology, ContentCommercial, ContentWhyPopular, ContentTag, ContentCharacter, ContentForm, ContentInteraction, AnalysisDimension, RuleExtractionLog
+from constants import ANALYSIS_DIMENSIONS, DIMENSION_TO_MATERIAL_TYPE, MATERIAL_TYPES, INDUSTRY_OPTIONS, ANALYSIS_DIMENSION_CATEGORIES
 from functools import wraps
 from datetime import datetime
 from services.skill_loader import get_skill_loader
@@ -502,14 +503,6 @@ def knowledge_article_preview(id):
 def knowledge_analyze():
     """知识库内容分析页面"""
     return render_template('admin/knowledge_analyze.html')
-
-
-@admin.route('/knowledge/ebook')
-@login_required
-@super_admin_required
-def knowledge_ebook():
-    """电子书分析页面"""
-    return render_template('admin/knowledge_ebook.html')
 
 
 @admin.route('/knowledge/account/analyze')
@@ -1172,3 +1165,2354 @@ def list_knowledge_analysis():
         'pages': pagination.pages,
         'page': page
     })
+
+
+# ==================== 模板管理 ====================
+
+@admin.route('/templates')
+@login_required
+@super_admin_required
+def templates():
+    """模板管理首页"""
+    template_type = request.args.get('type', 'report')
+    report_subtype = request.args.get('subtype', 'market_analysis')
+
+    if template_type == 'report':
+        # 根据子类型筛选
+        if report_subtype:
+            templates_list = ReportTemplate.query.filter_by(template_type=report_subtype).order_by(ReportTemplate.created_at.desc()).all()
+        else:
+            templates_list = ReportTemplate.query.order_by(ReportTemplate.created_at.desc()).all()
+        return render_template('admin/templates.html', templates=templates_list, template_type='report', report_subtype=report_subtype)
+    else:
+        templates_list = ContentTemplate.query.order_by(ContentTemplate.created_at.desc()).all()
+        return render_template('admin/templates.html', templates=templates_list, template_type='content', report_subtype=None)
+
+
+@admin.route('/templates/add', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def template_add():
+    """添加模板"""
+    template_type = request.args.get('type', 'report')
+    report_subtype = request.args.get('template_type', 'market_analysis')
+
+    if request.method == 'POST':
+        data = request.form
+
+        if template_type == 'report':
+            template = ReportTemplate(
+                template_name=data.get('template_name'),
+                template_type=data.get('template_type'),
+                template_category=data.get('template_category', 'universal'),
+                template_content=data.get('template_content'),
+                variables_config=data.get('variables_config'),
+                created_by=current_user.id
+            )
+        else:
+            template = ContentTemplate(
+                template_name=data.get('template_name'),
+                content_type=data.get('content_type'),
+                template_category=data.get('template_category', 'universal'),
+                template_structure=data.get('template_structure'),
+                template_content=data.get('template_content'),
+                created_by=current_user.id
+            )
+
+        db.session.add(template)
+        db.session.commit()
+        flash('模板创建成功', 'success')
+        # 保存后返回对应的列表页
+        if template_type == 'report':
+            return redirect(url_for('admin.templates', type='report', subtype=data.get('template_type')))
+        else:
+            return redirect(url_for('admin.templates', type='content'))
+
+    # 预加载默认模板内容
+    default_content = ''
+    if template_type == 'report':
+        # 加载现有模板文件作为默认值
+        template_files = {
+            'market_analysis': 'skills/insights-analyst/输出/行业分析/行业分析报告_模板.md',
+            'keyword': 'skills/geo-seo/输出/关键词库/关键词库_模板.md',
+            'topic': 'skills/geo-seo/输出/选题推荐/选题库_模板.md',
+            'operation': 'skills/operations-expert/输出/运营规划/运营规划方案_模板.md',
+        }
+        template_file = template_files.get(request.args.get('template_type', ''))
+        if template_file:
+            from flask import current_app
+            base_path = os.path.join(current_app.root_path, '..', template_file)
+            if os.path.exists(base_path):
+                with open(base_path, 'r', encoding='utf-8') as f:
+                    default_content = f.read()
+
+    return render_template('admin/template_form.html', template_type=template_type, default_content=default_content)
+
+
+@admin.route('/templates/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def template_edit(id):
+    """编辑模板"""
+    template_type = request.args.get('type', 'report')
+    report_subtype = request.args.get('subtype')
+
+    if template_type == 'report':
+        template = ReportTemplate.query.get_or_404(id)
+    else:
+        template = ContentTemplate.query.get_or_404(id)
+
+    if request.method == 'POST':
+        data = request.form
+        # 编辑页：模板名称不可修改、模板类型已去掉，仅更新分类与变量配置；内容由条目 API 管理
+        if template_type == 'report':
+            template.template_category = data.get('template_category', template.template_category or 'universal')
+            if data.get('variables_config') is not None:
+                template.variables_config = data.get('variables_config')
+        else:
+            template.template_category = data.get('template_category', template.template_category or 'universal')
+            if data.get('template_structure') is not None:
+                template.template_structure = data.get('template_structure')
+
+        db.session.commit()
+        flash('模板设置已保存', 'success')
+        if template_type == 'report':
+            subtype = report_subtype or (template.template_type if hasattr(template, 'template_type') else 'market_analysis')
+            return redirect(url_for('admin.templates', type='report', subtype=subtype))
+        return redirect(url_for('admin.templates', type='content'))
+
+    return render_template('admin/template_form.html', template=template, template_type=template_type, report_subtype=report_subtype)
+
+
+@admin.route('/templates/<int:id>/delete', methods=['POST'])
+@login_required
+@super_admin_required
+def template_delete(id):
+    """删除模板"""
+    template_type = request.args.get('type', 'report')
+    report_subtype = request.args.get('subtype')
+
+    if template_type == 'report':
+        template = ReportTemplate.query.get_or_404(id)
+        subtype = report_subtype or template.template_type
+    else:
+        template = ContentTemplate.query.get_or_404(id)
+        subtype = None
+
+    db.session.delete(template)
+    db.session.commit()
+    flash('模板已删除', 'success')
+
+    # 返回对应的列表页
+    if template_type == 'report':
+        return redirect(url_for('admin.templates', type='report', subtype=subtype))
+    else:
+        return redirect(url_for('admin.templates', type='content'))
+
+
+@admin.route('/templates/<int:id>/toggle', methods=['POST'])
+@login_required
+@super_admin_required
+def template_toggle(id):
+    """切换模板启用状态"""
+    template_type = request.args.get('type', 'report')
+    report_subtype = request.args.get('subtype')
+
+    if template_type == 'report':
+        template = ReportTemplate.query.get_or_404(id)
+    else:
+        template = ContentTemplate.query.get_or_404(id)
+
+    template.is_active = not template.is_active
+    db.session.commit()
+
+    status = '启用' if template.is_active else '禁用'
+    flash(f'模板已{status}', 'success')
+
+    # 返回对应的列表页
+    if template_type == 'report':
+        subtype = report_subtype or (template.template_type if hasattr(template, 'template_type') else 'market_analysis')
+        return redirect(url_for('admin.templates', type='report', subtype=subtype))
+    else:
+        return redirect(url_for('admin.templates', type='content'))
+
+
+def _parse_template_content_to_items(full_content):
+    """将完整模板内容按 Markdown 标题拆分为条目（## 或 # 为界）。"""
+    if not (full_content or '').strip():
+        return []
+    text = full_content.strip()
+    # 先在每个标题前插入换行（如果没有），再按标题拆分
+    text = re.sub(r'(#+\s)', r'\n\1', text)
+    parts = re.split(r'\n(?=#+\s)', text)
+    items = []
+    for i, block in enumerate(parts):
+        block = block.strip()
+        if block:
+            items.append({'sort_order': i, 'content': block})
+    return items
+
+
+def _merge_template_items_to_content(template_type, template_id):
+    """将当前模板的所有条目按 sort_order 合并为完整内容，并写回模板表。"""
+    items = TemplateContentItem.query.filter_by(
+        template_type=template_type, template_id=template_id
+    ).order_by(TemplateContentItem.sort_order).all()
+    full = '\n\n'.join(item.content.strip() for item in items if (item.content or '').strip())
+    if template_type == 'report':
+        t = ReportTemplate.query.get(template_id)
+        if t:
+            t.template_content = full or None
+    else:
+        t = ContentTemplate.query.get(template_id)
+        if t:
+            t.template_content = full or None
+    db.session.commit()
+    return full
+
+
+def _ensure_template_items_from_content(template_type, template_id):
+    """若该模板尚无条目但 template_content 有内容，则解析为条目并入库。"""
+    if template_type == 'report':
+        t = ReportTemplate.query.get(template_id)
+    else:
+        t = ContentTemplate.query.get(template_id)
+    if not t or not (t.template_content or '').strip():
+        return
+    existing = TemplateContentItem.query.filter_by(template_type=template_type, template_id=template_id).first()
+    if existing:
+        return
+    for item in _parse_template_content_to_items(t.template_content):
+        db.session.add(TemplateContentItem(
+            template_type=template_type,
+            template_id=template_id,
+            sort_order=item['sort_order'],
+            content=item['content']
+        ))
+    db.session.commit()
+
+
+# ==================== 模板内容条目 API ====================
+
+@admin.route('/api/templates/<int:tid>/items', methods=['GET'])
+@login_required
+@super_admin_required
+def api_template_items(tid):
+    """获取模板的内容条目列表（按 sort_order）。"""
+    template_type = request.args.get('type', 'report')
+    _ensure_template_items_from_content(template_type, tid)
+    items = TemplateContentItem.query.filter_by(template_type=template_type, template_id=tid).order_by(TemplateContentItem.sort_order).all()
+    return jsonify([{
+        'id': x.id,
+        'sort_order': x.sort_order,
+        'content': x.content or '',
+        'natural_language_hint': x.natural_language_hint or '',
+        'updated_at': x.updated_at.isoformat() if x.updated_at else None,
+    } for x in items])
+
+
+@admin.route('/api/templates/<int:tid>/items', methods=['POST'])
+@login_required
+@super_admin_required
+def api_template_item_add(tid):
+    """新增一条模板内容。body: content 或 natural_language（由前端先解析后传 content）。"""
+    template_type = request.args.get('type', 'report')
+    data = request.get_json() or request.form
+    content = (data.get('content') or '').strip()
+    if not content:
+        return jsonify({'ok': False, 'message': '缺少 content'}), 400
+    max_order = db.session.query(db.func.max(TemplateContentItem.sort_order)).filter_by(
+        template_type=template_type, template_id=tid
+    ).scalar() or 0
+    item = TemplateContentItem(
+        template_type=template_type,
+        template_id=tid,
+        sort_order=max_order + 1,
+        content=content,
+        natural_language_hint=data.get('natural_language_hint') or None
+    )
+    db.session.add(item)
+    db.session.commit()
+    full = _merge_template_items_to_content(template_type, tid)
+    db.session.add(TemplateEditHistory(
+        template_type=template_type, template_id=tid,
+        snapshot_content=full, changed_by=current_user.id
+    ))
+    db.session.commit()
+    return jsonify({'ok': True, 'id': item.id, 'full_content': full})
+
+
+@admin.route('/api/templates/<int:tid>/items/<int:item_id>', methods=['PUT'])
+@login_required
+@super_admin_required
+def api_template_item_update(tid, item_id):
+    """更新一条模板内容。"""
+    template_type = request.args.get('type', 'report')
+    item = TemplateContentItem.query.filter_by(id=item_id, template_type=template_type, template_id=tid).first_or_404()
+    data = request.get_json() or request.form
+    content = data.get('content')
+    if content is not None:
+        item.content = content.strip()
+    if data.get('natural_language_hint') is not None:
+        item.natural_language_hint = data.get('natural_language_hint') or None
+    db.session.commit()
+    full = _merge_template_items_to_content(template_type, tid)
+    db.session.add(TemplateEditHistory(
+        template_type=template_type, template_id=tid,
+        snapshot_content=full, changed_by=current_user.id
+    ))
+    db.session.commit()
+    return jsonify({'ok': True, 'full_content': full})
+
+
+@admin.route('/api/templates/<int:tid>/items/<int:item_id>', methods=['DELETE'])
+@login_required
+@super_admin_required
+def api_template_item_delete(tid, item_id):
+    """删除一条模板内容。"""
+    template_type = request.args.get('type', 'report')
+    item = TemplateContentItem.query.filter_by(id=item_id, template_type=template_type, template_id=tid).first_or_404()
+    db.session.delete(item)
+    db.session.commit()
+    full = _merge_template_items_to_content(template_type, tid)
+    db.session.add(TemplateEditHistory(
+        template_type=template_type, template_id=tid,
+        snapshot_content=full, changed_by=current_user.id
+    ))
+    db.session.commit()
+    return jsonify({'ok': True, 'full_content': full})
+
+
+@admin.route('/api/templates/<int:tid>/items/reorder', methods=['POST'])
+@login_required
+@super_admin_required
+def api_template_items_reorder(tid):
+    """调整条目顺序。body: { "order": [id1, id2, ...] }"""
+    template_type = request.args.get('type', 'report')
+    data = request.get_json() or {}
+    order = data.get('order') or []
+    if not order:
+        return jsonify({'ok': False, 'message': '缺少 order'}), 400
+    items = {x.id: x for x in TemplateContentItem.query.filter_by(template_type=template_type, template_id=tid).all()}
+    for i, id_ in enumerate(order):
+        if id_ in items:
+            items[id_].sort_order = i
+    db.session.commit()
+    full = _merge_template_items_to_content(template_type, tid)
+    db.session.add(TemplateEditHistory(
+        template_type=template_type, template_id=tid,
+        snapshot_content=full, changed_by=current_user.id
+    ))
+    db.session.commit()
+    return jsonify({'ok': True, 'full_content': full})
+
+
+@admin.route('/api/templates/parse-nl', methods=['POST'])
+@login_required
+@super_admin_required
+def api_template_parse_nl():
+    """将自然语言描述解析为模板内容（Markdown + 变量）。可选 body: template_id, template_type 做上下文。"""
+    data = request.get_json() or request.form
+    nl = (data.get('natural_language') or data.get('natural_language_description') or '').strip()
+    if not nl:
+        return jsonify({'ok': False, 'message': '请提供 natural_language'}), 400
+    try:
+        from services.llm import get_llm_service
+        service = get_llm_service()
+        if not service:
+            # 无 LLM 时返回规则化结果：用 Markdown 段落包裹用户输入，并提示可用变量
+            content = f"<!-- 自然语言描述：{nl} -->\n\n{nl}\n\n可使用变量：{{{{ customer_name }}}}、{{{{ industry }}}}、{{{{ core_keywords }}}}。"
+            return jsonify({'ok': True, 'content': content})
+        prompt = """你是一个报告模板撰写助手。用户会用自然语言描述希望出现在报告中的一段内容要求。
+请将用户的描述转化为一段可直接放入 Markdown 报告模板的“系统语言”内容：
+- 使用 Markdown 格式（标题、列表、加粗等）
+- 需要动态替换的地方用双花括号变量表示，如 {{ customer_name }}、{{ industry }}、{{ core_keywords }}、{{ 日期 }}、{{ 子行业 }}
+- 只输出这一段模板内容，不要解释或多余说明
+用户描述："""
+        messages = [{"role": "user", "content": prompt + nl}]
+        result = service.chat(messages, temperature=0.3, max_tokens=1500)
+        content = (result or '').strip() if result else nl
+        if not content:
+            content = f"<!-- {nl} -->\n\n{nl}"
+        return jsonify({'ok': True, 'content': content})
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+
+@admin.route('/api/templates/<int:tid>/history', methods=['GET'])
+@login_required
+@super_admin_required
+def api_template_history(tid):
+    """获取模板编辑历史。"""
+    template_type = request.args.get('type', 'report')
+    rows = TemplateEditHistory.query.filter_by(template_type=template_type, template_id=tid).order_by(TemplateEditHistory.changed_at.desc()).limit(50).all()
+    return jsonify([{
+        'id': r.id,
+        'changed_at': r.changed_at.isoformat() if r.changed_at else None,
+        'changed_by': r.changed_by,
+        'snapshot_content': r.snapshot_content or '',
+    } for r in rows])
+
+
+# ==================== 模板联动管理 ====================
+
+@admin.route('/template-dependencies')
+@login_required
+@super_admin_required
+def template_dependencies():
+    """模板依赖关系管理"""
+    dependencies = TemplateDependency.query.order_by(TemplateDependency.source_template_type).all()
+    return render_template('admin/template_dependencies.html', dependencies=dependencies)
+
+
+@admin.route('/template-dependencies/add', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def template_dependency_add():
+    """添加模板依赖关系"""
+    if request.method == 'POST':
+        data = request.form
+
+        dependency = TemplateDependency(
+            source_template_type=data.get('source_template_type'),
+            target_template_type=data.get('target_template_type'),
+            dependency_type=data.get('dependency_type', 'full_refresh'),
+            update_rules=data.get('update_rules')
+        )
+
+        db.session.add(dependency)
+        db.session.commit()
+        flash('依赖关系创建成功', 'success')
+        return redirect(url_for('admin.template_dependencies'))
+
+    return render_template('admin/template_dependency_form.html')
+
+
+@admin.route('/template-dependencies/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def template_dependency_edit(id):
+    """编辑模板依赖关系"""
+    dependency = TemplateDependency.query.get_or_404(id)
+
+    if request.method == 'POST':
+        data = request.form
+
+        dependency.source_template_type = data.get('source_template_type')
+        dependency.target_template_type = data.get('target_template_type')
+        dependency.dependency_type = data.get('dependency_type', 'full_refresh')
+        dependency.update_rules = data.get('update_rules')
+
+        db.session.commit()
+        flash('依赖关系更新成功', 'success')
+        return redirect(url_for('admin.template_dependencies'))
+
+    return render_template('admin/template_dependency_form.html', dependency=dependency)
+
+
+@admin.route('/template-dependencies/<int:id>/delete', methods=['POST'])
+@login_required
+@super_admin_required
+def template_dependency_delete(id):
+    """删除模板依赖关系"""
+    dependency = TemplateDependency.query.get_or_404(id)
+
+    db.session.delete(dependency)
+    db.session.commit()
+    flash('依赖关系已删除', 'success')
+    return redirect(url_for('admin.template_dependencies'))
+
+
+# ==================== 模板刷新日志 ====================
+
+@admin.route('/template-logs')
+@login_required
+@super_admin_required
+def template_logs():
+    """模板刷新日志"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+
+    pagination = TemplateRefreshLog.query.order_by(
+        TemplateRefreshLog.created_at.desc()
+    ).paginate(page=page, per_page=per_page, error_out=False)
+
+    return render_template('admin/template_logs.html',
+                          logs=pagination.items,
+                          pagination=pagination)
+
+
+@admin.route('/api/template/refresh', methods=['POST'])
+@login_required
+@super_admin_required
+def trigger_template_refresh():
+    """触发模板刷新"""
+    data = request.get_json()
+
+    template_type = data.get('template_type')  # market_analysis / keyword / topic / operation
+    source_type = data.get('source_type', 'manual')  # manual / auto
+    source_id = data.get('source_id')
+
+    # 创建刷新日志
+    log = TemplateRefreshLog(
+        template_type=template_type,
+        trigger_type=source_type,
+        source_type=source_type,
+        source_id=source_id,
+        status='pending'
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    # TODO: 实现实际的刷新逻辑
+    # 这里先返回成功，实际刷新逻辑在后续实现
+
+    return jsonify({
+        'success': True,
+        'message': f'{template_type} 刷新任务已创建',
+        'log_id': log.id
+    })
+
+
+# ==================== 知识库-方法论解析入库（读书笔记/电子书整理） ====================
+
+def _split_lines(field_value):
+    """表单单行/多行文本转为列表，按换行分割并去空"""
+    if not field_value:
+        return []
+    if isinstance(field_value, list):
+        return [x.strip() for x in field_value if x and str(x).strip()]
+    return [x.strip() for x in str(field_value).splitlines() if x.strip()]
+
+
+@admin.route('/persona-methods')
+@login_required
+@super_admin_required
+def persona_methods():
+    """方法论列表（知识库模块：含人设、消费心理学、关键词筛选等）"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    category_filter = request.args.get('category', '')
+
+    q = PersonaMethod.query.order_by(PersonaMethod.created_at.desc())
+    if category_filter:
+        q = q.filter(PersonaMethod.methodology_category == category_filter)
+    pagination = q.paginate(page=page, per_page=per_page, error_out=False)
+
+    return render_template('admin/persona_methods.html',
+                          methods=pagination.items,
+                          pagination=pagination,
+                          category_filter=category_filter)
+
+
+@admin.route('/persona-methods/parse', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def persona_method_parse():
+    """解析入库：输入读书笔记/电子书整理的自然语言，解析归类后入库"""
+    if request.method == 'POST':
+        data = request.get_json() or request.form
+        raw_text = (data.get('raw_text') or '').strip()
+        if not raw_text:
+            if request.is_json:
+                return jsonify({'code': 400, 'message': '请输入要解析的内容'})
+            flash('请输入要解析的内容', 'warning')
+            return render_template('admin/persona_method_parse.html', raw_text=request.form.get('raw_text', ''))
+
+        try:
+            from services.llm import get_llm_service
+            from routes.knowledge_api import parse_llm_json
+        except Exception as e:
+            if request.is_json:
+                return jsonify({'code': 500, 'message': f'LLM 依赖加载失败: {str(e)}'})
+            flash(f'LLM 服务不可用: {str(e)}', 'danger')
+            return render_template('admin/persona_method_parse.html', raw_text=raw_text)
+
+        llm = get_llm_service()
+        if not llm:
+            if request.is_json:
+                return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
+            flash('LLM 服务未配置，无法解析', 'danger')
+            return render_template('admin/persona_method_parse.html', raw_text=raw_text)
+
+        system_prompt = """你是一个知识库整理专家。用户会粘贴一段来自读书笔记或电子书整理的自然语言内容，你需要：
+1. 判断这段内容属于哪一类方法论，从以下类别中选一个（只输出英文标识）：
+   consumer_psychology - 消费心理学
+   keyword_screening   - 关键词筛选/关键词方法
+   persona             - 人设/角色/账号定位
+   visual_design       - 视觉设计/排版/呈现
+   operation           - 运营策略/投放/转化
+   general             - 通用/其他
+2. 提取并结构化为 JSON，字段如下（均为字符串或字符串数组）：
+   methodology_category: 上面选的英文标识
+   name: 方法论名称（简短标题）
+   source_book: 来源书籍或资料名称（若用户有提到）
+   author: 作者（若有）
+   method_summary: 方法论摘要/核心要点（多段用换行）
+   applicable_scenario: 适用场景，数组，如 ["短视频带货", "本地生活"]
+   applicable_audience: 适用人群，数组
+   usage_guide: 使用指南或注意事项
+   keywords: 关键词数组
+   tags: 分类标签数组
+只输出一个 JSON 对象，不要 markdown 代码块外的说明。"""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"请解析并归类以下内容：\n\n{raw_text}"}
+        ]
+        result_text = llm.chat(messages, temperature=0.3, max_tokens=2000)
+        if not result_text:
+            if request.is_json:
+                return jsonify({'code': 500, 'message': 'LLM 未返回结果'})
+            flash('解析未返回结果', 'danger')
+            return render_template('admin/persona_method_parse.html', raw_text=raw_text)
+
+        try:
+            parsed = parse_llm_json(result_text)
+            for key in ('applicable_scenario', 'applicable_audience', 'keywords', 'tags'):
+                if key in parsed and not isinstance(parsed.get(key), list):
+                    val = parsed.get(key)
+                    parsed[key] = [val] if val else []
+            if request.is_json:
+                return jsonify({'code': 0, 'data': parsed})
+            return render_template('admin/persona_method_parse_confirm.html', parsed=parsed, raw_text=raw_text)
+        except Exception as e:
+            if request.is_json:
+                return jsonify({'code': 500, 'message': f'解析结果不是有效 JSON: {str(e)}'})
+            flash(f'解析失败: {str(e)}', 'danger')
+            return render_template('admin/persona_method_parse.html', raw_text=raw_text)
+
+    return render_template('admin/persona_method_parse.html')
+
+
+@admin.route('/persona-methods/ingest', methods=['POST'])
+@login_required
+@super_admin_required
+def persona_method_ingest():
+    """确认解析结果并入库（写入方法论表，可选同步知识库文章）"""
+    data = request.form
+    name = (data.get('name') or '').strip()
+    if not name:
+        flash('方法论名称为必填', 'warning')
+        return redirect(url_for('admin.persona_method_parse'))
+
+    methodology_category = (data.get('methodology_category') or 'general').strip() or 'general'
+    method = PersonaMethod(
+        methodology_category=methodology_category,
+        name=name,
+        source_book=data.get('source_book') or None,
+        author=data.get('author') or None,
+        method_summary=data.get('method_summary') or None,
+        applicable_scenario=_split_lines(data.get('applicable_scenario')),
+        applicable_audience=_split_lines(data.get('applicable_audience')),
+        usage_guide=data.get('usage_guide') or None,
+        keywords=_split_lines(data.get('keywords')),
+        tags=_split_lines(data.get('tags')),
+        created_by=current_user.id
+    )
+    db.session.add(method)
+    db.session.commit()
+
+    category_slugs = {
+        'consumer_psychology': 'consumer-psychology',
+        'keyword_screening': 'keyword-method',
+        'persona': 'persona-method',
+        'visual_design': 'visual-design',
+        'operation': 'operation-method',
+        'general': 'methodology-general',
+    }
+    slug = category_slugs.get(methodology_category, 'methodology-general')
+    cat = KnowledgeCategory.query.filter_by(slug=slug).first()
+    if not cat:
+        cat = KnowledgeCategory.query.filter_by(slug='methodology').first()
+    if cat:
+        article = KnowledgeArticle(
+            category_id=cat.id,
+            title=name,
+            content=(method.method_summary or '') + '\n\n' + (method.usage_guide or ''),
+            source=method.source_book or '方法论入库',
+            tags=method.keywords or []
+        )
+        db.session.add(article)
+        db.session.commit()
+
+    flash('已入库成功，可在下方列表中查看', 'success')
+    return redirect(url_for('admin.persona_methods'))
+
+
+@admin.route('/persona-methods/add', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def persona_method_add():
+    """手动添加方法论（不经过解析）"""
+    if request.method == 'POST':
+        data = request.form
+        name = (data.get('name') or '').strip()
+        if not name:
+            flash('方法论名称为必填', 'warning')
+            return render_template('admin/persona_method_form.html')
+        method = PersonaMethod(
+            methodology_category=(data.get('methodology_category') or 'general').strip() or 'general',
+            name=name,
+            source_book=data.get('source_book') or None,
+            author=data.get('author') or None,
+            method_summary=data.get('method_summary') or None,
+            applicable_scenario=_split_lines(data.get('applicable_scenario')),
+            applicable_audience=_split_lines(data.get('applicable_audience')),
+            usage_guide=data.get('usage_guide') or None,
+            keywords=_split_lines(data.get('keywords')),
+            tags=_split_lines(data.get('tags')),
+            created_by=current_user.id
+        )
+        db.session.add(method)
+        db.session.commit()
+        flash('方法论已创建', 'success')
+        return redirect(url_for('admin.persona_methods'))
+
+    return render_template('admin/persona_method_form.html')
+
+
+@admin.route('/persona-methods/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def persona_method_edit(id):
+    """编辑方法论"""
+    method = PersonaMethod.query.get_or_404(id)
+
+    if request.method == 'POST':
+        data = request.form
+        method.methodology_category = (data.get('methodology_category') or 'general').strip() or 'general'
+        method.name = data.get('name')
+        method.source_book = data.get('source_book') or None
+        method.author = data.get('author') or None
+        method.method_summary = data.get('method_summary') or None
+        method.applicable_scenario = _split_lines(data.get('applicable_scenario'))
+        method.applicable_audience = _split_lines(data.get('applicable_audience'))
+        method.usage_guide = data.get('usage_guide') or None
+        method.keywords = _split_lines(data.get('keywords'))
+        method.tags = _split_lines(data.get('tags'))
+
+        db.session.commit()
+        flash('方法论已更新', 'success')
+        return redirect(url_for('admin.persona_methods'))
+
+    return render_template('admin/persona_method_form.html', method=method)
+
+
+@admin.route('/persona-methods/<int:id>/delete', methods=['POST'])
+@login_required
+@super_admin_required
+def persona_method_delete(id):
+    """删除方法论"""
+    method = PersonaMethod.query.get_or_404(id)
+
+    db.session.delete(method)
+    db.session.commit()
+    flash('方法论已删除', 'success')
+    return redirect(url_for('admin.persona_methods'))
+
+
+@admin.route('/persona-methods/<int:id>/toggle', methods=['POST'])
+@login_required
+@super_admin_required
+def persona_method_toggle(id):
+    """切换方法论启用状态"""
+    method = PersonaMethod.query.get_or_404(id)
+    method.is_active = not method.is_active
+    db.session.commit()
+    flash(f'方法论已{"启用" if method.is_active else "禁用"}', 'success')
+    return redirect(url_for('admin.persona_methods'))
+
+
+# ==================== 场景库管理 ====================
+
+@admin.route('/scenarios')
+@login_required
+@super_admin_required
+def scenarios():
+    """场景库列表"""
+    scenario_type = request.args.get('type', 'usage')
+
+    if scenario_type == 'usage':
+        items = UsageScenario.query.order_by(UsageScenario.created_at.desc()).all()
+    elif scenario_type == 'demand':
+        items = DemandScenario.query.order_by(DemandScenario.created_at.desc()).all()
+    else:
+        items = PainPoint.query.order_by(PainPoint.created_at.desc()).all()
+
+    return render_template('admin/scenarios.html', items=items, scenario_type=scenario_type)
+
+
+@admin.route('/scenarios/add', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def scenario_add():
+    """添加场景"""
+    scenario_type = request.args.get('type', 'usage')
+
+    if request.method == 'POST':
+        data = request.form
+
+        if scenario_type == 'usage':
+            item = UsageScenario(
+                scenario_name=data.get('scenario_name'),
+                industry=data.get('industry'),
+                scenario_description=data.get('scenario_description'),
+                target_users=request.form.getlist('target_users'),
+                pain_points=request.form.getlist('pain_points'),
+                needs=request.form.getlist('needs'),
+                keywords=request.form.getlist('keywords'),
+                related_products=request.form.getlist('related_products')
+            )
+        elif scenario_type == 'demand':
+            item = DemandScenario(
+                scenario_name=data.get('scenario_name'),
+                demand_type=data.get('demand_type'),
+                scenario_description=data.get('scenario_description'),
+                trigger_condition=request.form.getlist('trigger_condition'),
+                user_goals=request.form.getlist('user_goals'),
+                emotional_needs=request.form.getlist('emotional_needs'),
+                keywords=request.form.getlist('keywords')
+            )
+        else:
+            item = PainPoint(
+                pain_point_name=data.get('pain_point_name'),
+                industry=data.get('industry'),
+                pain_type=data.get('pain_type'),
+                description=data.get('description'),
+                severity=data.get('severity'),
+                affected_users=request.form.getlist('affected_users'),
+                current_solutions=request.form.getlist('current_solutions'),
+                opportunities=request.form.getlist('opportunities'),
+                keywords=request.form.getlist('keywords')
+            )
+
+        db.session.add(item)
+        db.session.commit()
+        flash('场景创建成功', 'success')
+        return redirect(url_for('admin.scenarios', type=scenario_type))
+
+    return render_template('admin/scenario_form.html', scenario_type=scenario_type)
+
+
+@admin.route('/scenarios/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def scenario_edit(id):
+    """编辑场景"""
+    scenario_type = request.args.get('type', 'usage')
+
+    if scenario_type == 'usage':
+        item = UsageScenario.query.get_or_404(id)
+    elif scenario_type == 'demand':
+        item = DemandScenario.query.get_or_404(id)
+    else:
+        item = PainPoint.query.get_or_404(id)
+
+    if request.method == 'POST':
+        data = request.form
+
+        if scenario_type == 'usage':
+            item.scenario_name = data.get('scenario_name')
+            item.industry = data.get('industry')
+            item.scenario_description = data.get('scenario_description')
+            item.target_users = request.form.getlist('target_users')
+            item.pain_points = request.form.getlist('pain_points')
+            item.needs = request.form.getlist('needs')
+            item.keywords = request.form.getlist('keywords')
+            item.related_products = request.form.getlist('related_products')
+        elif scenario_type == 'demand':
+            item.scenario_name = data.get('scenario_name')
+            item.demand_type = data.get('demand_type')
+            item.scenario_description = data.get('scenario_description')
+            item.trigger_condition = request.form.getlist('trigger_condition')
+            item.user_goals = request.form.getlist('user_goals')
+            item.emotional_needs = request.form.getlist('emotional_needs')
+            item.keywords = request.form.getlist('keywords')
+        else:
+            item.pain_point_name = data.get('pain_point_name')
+            item.industry = data.get('industry')
+            item.pain_type = data.get('pain_type')
+            item.description = data.get('description')
+            item.severity = data.get('severity')
+            item.affected_users = request.form.getlist('affected_users')
+            item.current_solutions = request.form.getlist('current_solutions')
+            item.opportunities = request.form.getlist('opportunities')
+            item.keywords = request.form.getlist('keywords')
+
+        db.session.commit()
+        flash('场景更新成功', 'success')
+        return redirect(url_for('admin.scenarios', type=scenario_type))
+
+    return render_template('admin/scenario_form.html', scenario_type=scenario_type, item=item)
+
+
+@admin.route('/scenarios/<int:id>/delete', methods=['POST'])
+@login_required
+@super_admin_required
+def scenario_delete(id):
+    """删除场景"""
+    scenario_type = request.args.get('type', 'usage')
+
+    if scenario_type == 'usage':
+        item = UsageScenario.query.get_or_404(id)
+    elif scenario_type == 'demand':
+        item = DemandScenario.query.get_or_404(id)
+    else:
+        item = PainPoint.query.get_or_404(id)
+
+    db.session.delete(item)
+    db.session.commit()
+    flash('场景已删除', 'success')
+    return redirect(url_for('admin.scenarios', type=scenario_type))
+
+
+# ==================== 热点话题管理 ====================
+
+@admin.route('/hot-topics')
+@login_required
+@super_admin_required
+def hot_topics():
+    """热点话题列表"""
+    topic_type = request.args.get('type', 'hot')
+
+    if topic_type == 'hot':
+        items = HotTopic.query.order_by(HotTopic.created_at.desc()).all()
+    else:
+        items = SeasonalTopic.query.order_by(SeasonalTopic.topic_date.desc()).all()
+
+    return render_template('admin/hot_topics.html', items=items, topic_type=topic_type)
+
+
+@admin.route('/hot-topics/add', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def hot_topic_add():
+    """添加热点话题"""
+    topic_type = request.args.get('type', 'hot')
+
+    if request.method == 'POST':
+        data = request.form
+
+        if topic_type == 'hot':
+            item = HotTopic(
+                topic_name=data.get('topic_name'),
+                topic_source=data.get('topic_source'),
+                topic_url=data.get('topic_url'),
+                hot_level=data.get('hot_level'),
+                category=data.get('category'),
+                description=data.get('description'),
+                related_keywords=request.form.getlist('related_keywords'),
+                related_industry=request.form.getlist('related_industry'),
+                applicable_content_types=request.form.getlist('applicable_content_types')
+            )
+        else:
+            from datetime import datetime as dt
+            topic_date_str = data.get('topic_date')
+            topic_date = dt.strptime(topic_date_str, '%Y-%m-%d').date() if topic_date_str else None
+
+            item = SeasonalTopic(
+                topic_name=data.get('topic_name'),
+                topic_type=data.get('topic_type'),
+                topic_date=topic_date,
+                recurrence=data.get('recurrence'),
+                description=data.get('description'),
+                marketing_angles=request.form.getlist('marketing_angles'),
+                content_suggestions=request.form.getlist('content_suggestions'),
+                related_industry=request.form.getlist('related_industry'),
+                keywords=request.form.getlist('keywords')
+            )
+
+        db.session.add(item)
+        db.session.commit()
+        flash('话题创建成功', 'success')
+        return redirect(url_for('admin.hot_topics', type=topic_type))
+
+    return render_template('admin/hot_topic_form.html', topic_type=topic_type)
+
+
+@admin.route('/hot-topics/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def hot_topic_edit(id):
+    """编辑热点话题"""
+    topic_type = request.args.get('type', 'hot')
+
+    if topic_type == 'hot':
+        item = HotTopic.query.get_or_404(id)
+    else:
+        item = SeasonalTopic.query.get_or_404(id)
+
+    if request.method == 'POST':
+        data = request.form
+
+        if topic_type == 'hot':
+            item.topic_name = data.get('topic_name')
+            item.topic_source = data.get('topic_source')
+            item.topic_url = data.get('topic_url')
+            item.hot_level = data.get('hot_level')
+            item.category = data.get('category')
+            item.description = data.get('description')
+            item.related_keywords = request.form.getlist('related_keywords')
+            item.related_industry = request.form.getlist('related_industry')
+            item.applicable_content_types = request.form.getlist('applicable_content_types')
+        else:
+            from datetime import datetime as dt
+            topic_date_str = data.get('topic_date')
+            item.topic_name = data.get('topic_name')
+            item.topic_type = data.get('topic_type')
+            item.topic_date = dt.strptime(topic_date_str, '%Y-%m-%d').date() if topic_date_str else None
+            item.recurrence = data.get('recurrence')
+            item.description = data.get('description')
+            item.marketing_angles = request.form.getlist('marketing_angles')
+            item.content_suggestions = request.form.getlist('content_suggestions')
+            item.related_industry = request.form.getlist('related_industry')
+            item.keywords = request.form.getlist('keywords')
+
+        db.session.commit()
+        flash('话题更新成功', 'success')
+        return redirect(url_for('admin.hot_topics', type=topic_type))
+
+    return render_template('admin/hot_topic_form.html', topic_type=topic_type, item=item)
+
+
+@admin.route('/hot-topics/<int:id>/delete', methods=['POST'])
+@login_required
+@super_admin_required
+def hot_topic_delete(id):
+    """删除热点话题"""
+    topic_type = request.args.get('type', 'hot')
+
+    if topic_type == 'hot':
+        item = HotTopic.query.get_or_404(id)
+    else:
+        item = SeasonalTopic.query.get_or_404(id)
+
+    db.session.delete(item)
+    db.session.commit()
+    flash('话题已删除', 'success')
+    return redirect(url_for('admin.hot_topics', type=topic_type))
+
+
+# ==================== 内容素材库管理 ====================
+
+# 素材库模型映射
+MATERIAL_MODEL_MAP = {
+    'title': ContentTitle,
+    'hook': ContentHook,
+    'structure': ContentStructure,
+    'ending': ContentEnding,
+    'cover': ContentCover,
+    'topic': ContentTopic,
+    'psychology': ContentPsychology,
+    'commercial': ContentCommercial,
+    'why_popular': ContentWhyPopular,
+    'tags': ContentTag,
+    'character': ContentCharacter,
+    'content_form': ContentForm,
+    'interaction': ContentInteraction,
+}
+
+@admin.route('/content-materials')
+@login_required
+@super_admin_required
+def content_materials():
+    """内容素材库"""
+    material_type = request.args.get('type', 'title')
+
+    # 获取对应的模型
+    model = MATERIAL_MODEL_MAP.get(material_type)
+    if not model:
+        material_type = 'title'
+        model = ContentTitle
+
+    items = model.query.order_by(model.usage_count.desc()).all()
+
+    # 传递配置信息给模板
+    return render_template('admin/content_materials.html',
+                          items=items,
+                          material_type=material_type,
+                          material_config=MATERIAL_TYPES.get(material_type, {}),
+                          all_material_types=MATERIAL_TYPES)
+
+
+@admin.route('/content-materials/add', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def content_material_add():
+    """添加内容素材"""
+    material_type = request.args.get('type', 'title')
+    config = MATERIAL_TYPES.get(material_type, {})
+
+    if request.method == 'POST':
+        data = request.form
+        model = MATERIAL_MODEL_MAP.get(material_type)
+
+        if not model:
+            flash('不支持的素材类型', 'danger')
+            return redirect(url_for('admin.content_materials', type=material_type))
+
+        # 根据素材类型构建数据
+        item = None
+        if material_type == 'title':
+            item = ContentTitle(
+                title=data.get('title'),
+                title_type=data.get('title_type'),
+                industry=data.get('industry'),
+                keywords=request.form.getlist('keywords') or None,
+                is_template=data.get('is_template') == 'on'
+            )
+        elif material_type == 'hook':
+            item = ContentHook(
+                hook_content=data.get('hook_content'),
+                hook_type=data.get('hook_type'),
+                industry=data.get('industry'),
+                applicable_content_types=request.form.getlist('applicable_content_types') or None,
+                is_template=data.get('is_template') == 'on'
+            )
+        elif material_type == 'structure':
+            item = ContentStructure(
+                structure_name=data.get('structure_name'),
+                content_type=data.get('content_type'),
+                industry=data.get('industry'),
+                structure_steps=request.form.getlist('structure_steps') or None,
+                description=data.get('description'),
+                applicable_scenarios=request.form.getlist('applicable_scenarios') or None
+            )
+        elif material_type == 'ending':
+            item = ContentEnding(
+                ending_content=data.get('ending_content'),
+                ending_type=data.get('ending_type'),
+                industry=data.get('industry'),
+                applicable_content_types=request.form.getlist('applicable_content_types') or None,
+                is_template=data.get('is_template') == 'on'
+            )
+        elif material_type == 'cover':
+            item = ContentCover(
+                cover_content=data.get('cover_content'),
+                cover_type=data.get('cover_type'),
+                industry=data.get('industry'),
+                applicable_content_types=request.form.getlist('applicable_content_types') or None,
+                is_template=data.get('is_template') == 'on'
+            )
+        elif material_type == 'topic':
+            item = ContentTopic(
+                topic_content=data.get('topic_content'),
+                topic_type=data.get('topic_type'),
+                industry=data.get('industry'),
+                keywords=request.form.getlist('keywords') or None,
+                applicable_scenarios=request.form.getlist('applicable_scenarios') or None
+            )
+        elif material_type == 'psychology':
+            item = ContentPsychology(
+                psychology_content=data.get('psychology_content'),
+                psychology_type=data.get('psychology_type'),
+                industry=data.get('industry'),
+                applicable_content_types=request.form.getlist('applicable_content_types') or None
+            )
+        elif material_type == 'commercial':
+            item = ContentCommercial(
+                commercial_content=data.get('commercial_content'),
+                commercial_type=data.get('commercial_type'),
+                industry=data.get('industry'),
+                applicable_content_types=request.form.getlist('applicable_content_types') or None
+            )
+        elif material_type == 'why_popular':
+            item = ContentWhyPopular(
+                reason_content=data.get('reason_content'),
+                reason_type=data.get('reason_type'),
+                industry=data.get('industry'),
+                applicable_content_types=request.form.getlist('applicable_content_types') or None
+            )
+        elif material_type == 'tags':
+            item = ContentTag(
+                tag_content=data.get('tag_content'),
+                tag_type=data.get('tag_type'),
+                industry=data.get('industry'),
+                applicable_content_types=request.form.getlist('applicable_content_types') or None
+            )
+        elif material_type == 'character':
+            item = ContentCharacter(
+                character_content=data.get('character_content'),
+                character_type=data.get('character_type'),
+                industry=data.get('industry'),
+                applicable_content_types=request.form.getlist('applicable_content_types') or None
+            )
+        elif material_type == 'content_form':
+            item = ContentForm(
+                form_content=data.get('form_content'),
+                form_type=data.get('form_type'),
+                industry=data.get('industry'),
+                applicable_scenarios=request.form.getlist('applicable_scenarios') or None
+            )
+        elif material_type == 'interaction':
+            item = ContentInteraction(
+                interaction_content=data.get('interaction_content'),
+                interaction_type=data.get('interaction_type'),
+                industry=data.get('industry'),
+                applicable_content_types=request.form.getlist('applicable_content_types') or None
+            )
+
+        if item:
+            db.session.add(item)
+            db.session.commit()
+            flash('素材创建成功', 'success')
+
+        return redirect(url_for('admin.content_materials', type=material_type))
+
+    return render_template('admin/content_material_form.html',
+                          material_type=material_type,
+                          config=config,
+                          all_material_types=MATERIAL_TYPES,
+                          industry_options=INDUSTRY_OPTIONS)
+
+
+@admin.route('/content-materials/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def content_material_edit(id):
+    """编辑内容素材"""
+    material_type = request.args.get('type', 'title')
+    config = MATERIAL_TYPES.get(material_type, {})
+    model = MATERIAL_MODEL_MAP.get(material_type)
+
+    if not model:
+        flash('不支持的素材类型', 'danger')
+        return redirect(url_for('admin.content_materials', type=material_type))
+
+    item = model.query.get_or_404(id)
+
+    if request.method == 'POST':
+        data = request.form
+
+        # 根据素材类型更新数据
+        if material_type == 'title':
+            item.title = data.get('title')
+            item.title_type = data.get('title_type')
+            item.industry = data.get('industry')
+            item.keywords = request.form.getlist('keywords') or None
+            item.is_template = data.get('is_template') == 'on'
+        elif material_type == 'hook':
+            item.hook_content = data.get('hook_content')
+            item.hook_type = data.get('hook_type')
+            item.industry = data.get('industry')
+            item.applicable_content_types = request.form.getlist('applicable_content_types') or None
+            item.is_template = data.get('is_template') == 'on'
+        elif material_type == 'structure':
+            item.structure_name = data.get('structure_name')
+            item.content_type = data.get('content_type')
+            item.industry = data.get('industry')
+            item.structure_steps = request.form.getlist('structure_steps') or None
+            item.description = data.get('description')
+            item.applicable_scenarios = request.form.getlist('applicable_scenarios') or None
+        elif material_type == 'ending':
+            item.ending_content = data.get('ending_content')
+            item.ending_type = data.get('ending_type')
+            item.industry = data.get('industry')
+            item.applicable_content_types = request.form.getlist('applicable_content_types') or None
+            item.is_template = data.get('is_template') == 'on'
+        elif material_type == 'cover':
+            item.cover_content = data.get('cover_content')
+            item.cover_type = data.get('cover_type')
+            item.industry = data.get('industry')
+            item.applicable_content_types = request.form.getlist('applicable_content_types') or None
+            item.is_template = data.get('is_template') == 'on'
+        elif material_type == 'topic':
+            item.topic_content = data.get('topic_content')
+            item.topic_type = data.get('topic_type')
+            item.industry = data.get('industry')
+            item.keywords = request.form.getlist('keywords') or None
+            item.applicable_scenarios = request.form.getlist('applicable_scenarios') or None
+        elif material_type == 'psychology':
+            item.psychology_content = data.get('psychology_content')
+            item.psychology_type = data.get('psychology_type')
+            item.industry = data.get('industry')
+            item.applicable_content_types = request.form.getlist('applicable_content_types') or None
+        elif material_type == 'commercial':
+            item.commercial_content = data.get('commercial_content')
+            item.commercial_type = data.get('commercial_type')
+            item.industry = data.get('industry')
+            item.applicable_content_types = request.form.getlist('applicable_content_types') or None
+        elif material_type == 'why_popular':
+            item.reason_content = data.get('reason_content')
+            item.reason_type = data.get('reason_type')
+            item.industry = data.get('industry')
+            item.applicable_content_types = request.form.getlist('applicable_content_types') or None
+        elif material_type == 'tags':
+            item.tag_content = data.get('tag_content')
+            item.tag_type = data.get('tag_type')
+            item.industry = data.get('industry')
+            item.applicable_content_types = request.form.getlist('applicable_content_types') or None
+        elif material_type == 'character':
+            item.character_content = data.get('character_content')
+            item.character_type = data.get('character_type')
+            item.industry = data.get('industry')
+            item.applicable_content_types = request.form.getlist('applicable_content_types') or None
+        elif material_type == 'content_form':
+            item.form_content = data.get('form_content')
+            item.form_type = data.get('form_type')
+            item.industry = data.get('industry')
+            item.applicable_scenarios = request.form.getlist('applicable_scenarios') or None
+        elif material_type == 'interaction':
+            item.interaction_content = data.get('interaction_content')
+            item.interaction_type = data.get('interaction_type')
+            item.industry = data.get('industry')
+            item.applicable_content_types = request.form.getlist('applicable_content_types') or None
+
+        db.session.commit()
+        flash('素材更新成功', 'success')
+        return redirect(url_for('admin.content_materials', type=material_type))
+
+    return render_template('admin/content_material_form.html',
+                          material_type=material_type,
+                          config=config,
+                          item=item,
+                          all_material_types=MATERIAL_TYPES,
+                          industry_options=INDUSTRY_OPTIONS)
+
+
+@admin.route('/content-materials/<int:id>/delete', methods=['POST'])
+@login_required
+@super_admin_required
+def content_material_delete(id):
+    """删除内容素材"""
+    material_type = request.args.get('type', 'title')
+    model = MATERIAL_MODEL_MAP.get(material_type)
+
+    if not model:
+        flash('不支持的素材类型', 'danger')
+        return redirect(url_for('admin.content_materials', type=material_type))
+
+    item = model.query.get_or_404(id)
+    db.session.delete(item)
+    db.session.commit()
+    flash('素材已删除', 'success')
+    return redirect(url_for('admin.content_materials', type=material_type))
+
+
+# ==================== 素材库配置 API ====================
+
+@admin.route('/api/content-materials/config')
+@login_required
+def content_materials_config():
+    """获取素材库配置"""
+    return jsonify({
+        'code': 200,
+        'data': {
+            'dimensions': ANALYSIS_DIMENSIONS,
+            'material_types': MATERIAL_TYPES,
+            'dimension_to_material': DIMENSION_TO_MATERIAL_TYPE,
+            'industry_options': INDUSTRY_OPTIONS
+        }
+    })
+
+
+@admin.route('/api/content-materials/save', methods=['POST'])
+@login_required
+@super_admin_required
+def save_content_material():
+    """保存内容素材（从爆款拆解入库）"""
+    try:
+        data = request.get_json()
+        material_type = data.get('material_type')
+        content = data.get('content')
+        industry = data.get('industry')
+        material_type_field = data.get('type')  # 类型（如疑问、数字等）
+        content_types = data.get('content_types', [])
+
+        if not material_type or not content:
+            return jsonify({'code': 400, 'message': '缺少必要参数'})
+
+        model = MATERIAL_MODEL_MAP.get(material_type)
+        if not model:
+            return jsonify({'code': 400, 'message': '不支持的素材类型'})
+
+        # 根据素材类型构建数据
+        item = None
+
+        if material_type == 'title':
+            item = ContentTitle(
+                title=content,
+                title_type=material_type_field,
+                industry=industry,
+                keywords=None,
+                is_template=False
+            )
+        elif material_type == 'hook':
+            item = ContentHook(
+                hook_content=content,
+                hook_type=material_type_field,
+                industry=industry,
+                applicable_content_types=content_types or None,
+                is_template=False
+            )
+        elif material_type == 'structure':
+            item = ContentStructure(
+                structure_name=content[:100] if content else '',
+                content_type=material_type_field,
+                industry=industry,
+                description=content,
+                applicable_scenarios=None
+            )
+        elif material_type == 'ending':
+            item = ContentEnding(
+                ending_content=content,
+                ending_type=material_type_field,
+                industry=industry,
+                applicable_content_types=content_types or None,
+                is_template=False
+            )
+        elif material_type == 'cover':
+            item = ContentCover(
+                cover_content=content,
+                cover_type=material_type_field,
+                industry=industry,
+                applicable_content_types=content_types or None,
+                is_template=False
+            )
+        elif material_type == 'topic':
+            item = ContentTopic(
+                topic_content=content,
+                topic_type=material_type_field,
+                industry=industry,
+                keywords=None,
+                applicable_scenarios=None
+            )
+        elif material_type == 'psychology':
+            item = ContentPsychology(
+                psychology_content=content,
+                psychology_type=material_type_field,
+                industry=industry,
+                applicable_content_types=content_types or None
+            )
+        elif material_type == 'commercial':
+            item = ContentCommercial(
+                commercial_content=content,
+                commercial_type=material_type_field,
+                industry=industry,
+                applicable_content_types=content_types or None
+            )
+        elif material_type == 'why_popular':
+            item = ContentWhyPopular(
+                reason_content=content,
+                reason_type=material_type_field,
+                industry=industry,
+                applicable_content_types=content_types or None
+            )
+        elif material_type == 'tags':
+            item = ContentTag(
+                tag_content=content,
+                tag_type=material_type_field,
+                industry=industry,
+                applicable_content_types=content_types or None
+            )
+        elif material_type == 'character':
+            item = ContentCharacter(
+                character_content=content,
+                character_type=material_type_field,
+                industry=industry,
+                applicable_content_types=content_types or None
+            )
+        elif material_type == 'content_form':
+            item = ContentForm(
+                form_content=content,
+                form_type=material_type_field,
+                industry=industry,
+                applicable_scenarios=None
+            )
+        elif material_type == 'interaction':
+            item = ContentInteraction(
+                interaction_content=content,
+                interaction_type=material_type_field,
+                industry=industry,
+                applicable_content_types=content_types or None
+            )
+
+        if item:
+            db.session.add(item)
+            db.session.commit()
+            return jsonify({'code': 200, 'message': '入库成功', 'data': {'id': item.id}})
+        else:
+            return jsonify({'code': 400, 'message': '创建素材失败'})
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"入库失败: {e}")
+        return jsonify({'code': 500, 'message': str(e)})
+
+
+# ==================== 爆款复制功能 ====================
+
+import logging
+logger = logging.getLogger(__name__)
+
+@admin.route('/api/content-replication', methods=['POST'])
+@login_required
+def create_replication():
+    """创建爆款复制任务"""
+    try:
+        data = request.get_json()
+
+        client_id = data.get('client_id')
+        source_content_id = data.get('source_content_id')
+        source_account_id = data.get('source_account_id')
+        replication_mode = data.get('replication_mode', 'partial_copy')
+        modification_notes = data.get('modification_notes', '')
+
+        if not client_id:
+            return jsonify({'success': False, 'message': '请选择客户'})
+
+        if not source_content_id and not source_account_id:
+            return jsonify({'success': False, 'message': '请选择源内容或源账号'})
+
+        # 创建复制记录
+        replication = ContentReplication(
+            user_id=current_user.id,
+            client_id=client_id,
+            source_content_id=source_content_id,
+            source_account_id=source_account_id,
+            replication_mode=replication_mode,
+            modification_notes=modification_notes,
+            status='draft'
+        )
+
+        db.session.add(replication)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': '复制任务创建成功',
+            'data': {'id': replication.id}
+        })
+
+    except Exception as e:
+        logger.error(f"创建复制任务失败: {e}")
+        return jsonify({'success': False, 'message': str(e)})
+
+
+@admin.route('/api/content-replication/<int:id>', methods=['GET'])
+@login_required
+def get_replication(id):
+    """获取复制详情"""
+    replication = ContentReplication.query.get_or_404(id)
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': replication.id,
+            'client_id': replication.client_id,
+            'source_content_id': replication.source_content_id,
+            'source_account_id': replication.source_account_id,
+            'replication_mode': replication.replication_mode,
+            'modification_notes': replication.modification_notes,
+            'generated_title': replication.generated_title,
+            'generated_content': replication.generated_content,
+            'generated_script': replication.generated_script,
+            'status': replication.status,
+            'is_favorite': replication.is_favorite,
+            'created_at': replication.created_at.isoformat() if replication.created_at else None
+        }
+    })
+
+
+@admin.route('/api/content-replication/<int:id>/favorite', methods=['POST'])
+@login_required
+def toggle_replication_favorite(id):
+    """切换收藏状态"""
+    replication = ContentReplication.query.get_or_404(id)
+    replication.is_favorite = not replication.is_favorite
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'is_favorite': replication.is_favorite
+    })
+
+
+# ==================== 分析维度管理 ====================
+
+@admin.route('/analysis-dimensions')
+@login_required
+@super_admin_required
+def analysis_dimensions_page():
+    """分析维度管理页面"""
+    return render_template('admin/analysis_dimensions.html')
+
+
+@admin.route('/api/analysis-dimensions', methods=['GET'])
+@login_required
+def get_analysis_dimensions():
+    """获取分析维度列表"""
+    # 获取查询参数
+    category = request.args.get('category')
+    page = request.args.get('page', 1, type=int)
+    page_size = request.args.get('page_size', 10, type=int)
+
+    # 构建查询
+    query = AnalysisDimension.query
+
+    if category:
+        query = query.filter(AnalysisDimension.category == category)
+
+    # 排序
+    query = query.order_by(AnalysisDimension.sort_order.asc(), AnalysisDimension.id.asc())
+
+    # 分页
+    pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+
+    return jsonify({
+        'success': True,
+        'data': [{
+            'id': d.id,
+            'name': d.name,
+            'code': d.code,
+            'icon': d.icon,
+            'description': d.description,
+            'category': d.category,
+            'sub_category': d.sub_category,
+            'category_group': d.category_group,
+            'related_material_type': d.related_material_type,
+            'is_active': d.is_active,
+            'is_default': d.is_default,
+            'sort_order': d.sort_order,
+            'usage_count': d.usage_count
+        } for d in pagination.items],
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'page': page
+    })
+
+
+@admin.route('/api/analysis-dimensions/<int:id>', methods=['GET'])
+@login_required
+def get_analysis_dimension(id):
+    """获取单个分析维度"""
+    dimension = AnalysisDimension.query.get_or_404(id)
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': dimension.id,
+            'name': dimension.name,
+            'code': dimension.code,
+            'icon': dimension.icon,
+            'description': dimension.description,
+            'category': dimension.category,
+            'sub_category': dimension.sub_category,
+            'category_group': dimension.category_group,
+            'related_material_type': dimension.related_material_type,
+            'is_active': dimension.is_active,
+            'is_default': dimension.is_default,
+            'sort_order': dimension.sort_order,
+            'usage_count': dimension.usage_count
+        }
+    })
+
+
+@admin.route('/api/analysis-dimensions', methods=['POST'])
+@login_required
+@super_admin_required
+def create_analysis_dimension():
+    """创建分析维度"""
+    data = request.get_json()
+
+    # 检查 code 是否已存在
+    if AnalysisDimension.query.filter_by(code=data.get('code')).first():
+        return jsonify({
+            'success': False,
+            'message': '维度编码已存在'
+        }), 400
+
+    dimension = AnalysisDimension(
+        name=data.get('name'),
+        code=data.get('code'),
+        icon=data.get('icon', 'bi-circle'),
+        description=data.get('description', ''),
+        category=data.get('category', 'content'),
+        sub_category=data.get('sub_category'),
+        category_group=data.get('category_group'),
+        related_material_type=data.get('related_material_type'),
+        is_active=data.get('is_active', True),
+        is_default=data.get('is_default', False),
+        sort_order=data.get('sort_order', 0)
+    )
+
+    db.session.add(dimension)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': dimension.id,
+            'name': dimension.name,
+            'code': dimension.code
+        }
+    })
+
+
+@admin.route('/api/analysis-dimensions/<int:id>', methods=['PUT'])
+@login_required
+@super_admin_required
+def update_analysis_dimension(id):
+    """更新分析维度"""
+    dimension = AnalysisDimension.query.get_or_404(id)
+    data = request.get_json()
+
+    # 检查 code 是否与其他记录冲突
+    if data.get('code'):
+        existing = AnalysisDimension.query.filter(
+            AnalysisDimension.code == data.get('code'),
+            AnalysisDimension.id != id
+        ).first()
+        if existing:
+            return jsonify({
+                'success': False,
+                'message': '维度编码已存在'
+            }), 400
+
+    # 更新字段
+    if 'name' in data:
+        dimension.name = data['name']
+    if 'code' in data:
+        dimension.code = data['code']
+    if 'icon' in data:
+        dimension.icon = data['icon']
+    if 'description' in data:
+        dimension.description = data['description']
+    if 'category' in data:
+        dimension.category = data['category']
+    if 'sub_category' in data:
+        dimension.sub_category = data['sub_category']
+    if 'category_group' in data:
+        dimension.category_group = data['category_group']
+    if 'related_material_type' in data:
+        dimension.related_material_type = data['related_material_type']
+    if 'is_active' in data:
+        dimension.is_active = data['is_active']
+    if 'is_default' in data:
+        dimension.is_default = data['is_default']
+    if 'sort_order' in data:
+        dimension.sort_order = data['sort_order']
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': dimension.id,
+            'name': dimension.name,
+            'code': dimension.code
+        }
+    })
+
+
+@admin.route('/api/analysis-dimensions/<int:id>', methods=['DELETE'])
+@login_required
+@super_admin_required
+def delete_analysis_dimension(id):
+    """删除分析维度"""
+    dimension = AnalysisDimension.query.get_or_404(id)
+
+    # 检查是否有关联的规则
+    if dimension.knowledge_rules:
+        return jsonify({
+            'success': False,
+            'message': '该维度有关联规则，无法删除'
+        }), 400
+
+    db.session.delete(dimension)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': '删除成功'
+    })
+
+
+@admin.route('/api/analysis-dimensions/categories', methods=['GET'])
+@login_required
+def get_dimension_categories():
+    """获取维度分类结构"""
+    return jsonify({
+        'success': True,
+        'data': ANALYSIS_DIMENSION_CATEGORIES
+    })
+
+
+# ==================== 规则自动提取管理 ====================
+
+@admin.route('/rule-extractions')
+@login_required
+@super_admin_required
+def rule_extractions_page():
+    """规则提取审核页面"""
+    return render_template('admin/rule_extractions.html')
+
+
+@admin.route('/api/rule-extractions', methods=['GET'])
+@login_required
+def get_rule_extractions():
+    """获取规则提取记录列表"""
+    page = request.args.get('page', 1, type=int)
+    page_size = request.args.get('page_size', 20, type=int)
+    status = request.args.get('status')
+
+    query = RuleExtractionLog.query
+
+    if status:
+        query = query.filter(RuleExtractionLog.status == status)
+
+    query = query.order_by(RuleExtractionLog.created_at.desc())
+
+    pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+
+    return jsonify({
+        'success': True,
+        'data': [{
+            'id': log.id,
+            'source_replication_id': log.source_replication_id,
+            'source_title': log.source_title,
+            'source_content': log.source_content[:100] + '...' if log.source_content and len(log.source_content) > 100 else log.source_content,
+            'generated_title': log.generated_title,
+            'generated_content': log.generated_content[:100] + '...' if log.generated_content and len(log.generated_content) > 100 else log.generated_content,
+            'suggested_rules': log.suggested_rules,
+            'status': log.status,
+            'approved_rules_count': log.approved_rules_count,
+            'reviewed_by': log.reviewed_by,
+            'reviewed_at': log.reviewed_at.isoformat() if log.reviewed_at else None,
+            'review_notes': log.review_notes,
+            'created_at': log.created_at.isoformat() if log.created_at else None
+        } for log in pagination.items],
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'page': page
+    })
+
+
+@admin.route('/api/rule-extractions/<int:id>/approve', methods=['POST'])
+@login_required
+@super_admin_required
+def approve_rule_extraction(id):
+    """审核通过规则提取记录"""
+    log = RuleExtractionLog.query.get_or_404(id)
+    data = request.get_json() or {}
+
+    if log.status != 'pending':
+        return jsonify({
+            'success': False,
+            'message': '该记录已审核'
+        }), 400
+
+    # 创建规则
+    approved_count = 0
+    for rule_data in (log.suggested_rules or []):
+        if not rule_data.get('rule_content'):
+            continue
+
+        rule = KnowledgeRule(
+            analysis_id=log.source_replication_id,
+            dimension_id=rule_data.get('dimension_id'),
+            category=rule_data.get('category', 'template'),
+            rule_title=rule_data.get('rule_title', '自动提取规则'),
+            rule_content=rule_data.get('rule_content'),
+            rule_type=rule_data.get('rule_type', 'dimension'),
+            source_dimension=rule_data.get('source_dimension'),
+            applicable_scenarios=rule_data.get('applicable_scenarios'),
+            applicable_audiences=rule_data.get('applicable_audiences'),
+            platforms=rule_data.get('platforms'),
+            is_auto_extracted=True,
+            extraction_log_id=log.id,
+            status='active'
+        )
+        db.session.add(rule)
+        approved_count += 1
+
+    # 更新提取记录状态
+    log.status = 'approved'
+    log.approved_rules_count = approved_count
+    log.reviewed_by = current_user.id
+    log.reviewed_at = datetime.utcnow()
+    log.review_notes = data.get('notes', '')
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'成功创建 {approved_count} 条规则',
+        'approved_count': approved_count
+    })
+
+
+@admin.route('/api/rule-extractions/<int:id>/reject', methods=['POST'])
+@login_required
+@super_admin_required
+def reject_rule_extraction(id):
+    """拒绝规则提取记录"""
+    log = RuleExtractionLog.query.get_or_404(id)
+    data = request.get_json() or {}
+
+    if log.status != 'pending':
+        return jsonify({
+            'success': False,
+            'message': '该记录已审核'
+        }), 400
+
+    log.status = 'rejected'
+    log.reviewed_by = current_user.id
+    log.reviewed_at = datetime.utcnow()
+    log.review_notes = data.get('notes', '')
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': '已拒绝'
+    })
+
+
+# ==================== 统一规则库管理 ====================
+
+@admin.route('/rules-library')
+@login_required
+def rules_library_page():
+    """规则库管理页面"""
+    return render_template('admin/rules_library.html',
+                          all_material_types=MATERIAL_TYPES,
+                          knowledge_rule_categories={
+                              'keywords': '关键词库',
+                              'topic': '选题库',
+                              'template': '内容模板',
+                              'operation': '运营规划',
+                              'market': '市场分析'
+                          })
+
+
+# 素材库模型映射（扩展版）
+UNIFIED_RULES_MODEL_MAP = {
+    # 素材库
+    'title': ContentTitle,
+    'hook': ContentHook,
+    'cover': ContentCover,
+    'topic': ContentTopic,
+    'structure': ContentStructure,
+    'ending': ContentEnding,
+    'psychology': ContentPsychology,
+    'commercial': ContentCommercial,
+    'why_popular': ContentWhyPopular,
+    'tags': ContentTag,
+    'character': ContentCharacter,
+    'content_form': ContentForm,
+    'interaction': ContentInteraction,
+    # 知识规则
+    'keywords': KnowledgeRule,
+    'topic': KnowledgeRule,
+    'template': KnowledgeRule,
+    'operation': KnowledgeRule,
+    'market': KnowledgeRule
+}
+
+
+@admin.route('/api/rules/unified')
+@login_required
+def get_unified_rules():
+    """获取统一规则列表（素材库 + 知识规则 + 场景库 + 热点库）"""
+    category = request.args.get('category', 'all')
+    search = request.args.get('search', '')
+    page = request.args.get('page', 1, type=int)
+    page_size = request.args.get('page_size', 50, type=int)
+
+    items = []
+    counts = {}
+
+    # 知识规则分类列表
+    knowledge_rule_categories = ['keywords', 'topic', 'template', 'operation', 'market']
+    # 场景库分类列表
+    scene_categories = ['usage_scenario', 'demand_scenario', 'pain_point']
+    # 热点库分类列表
+    hot_categories = ['hot_topic', 'seasonal_topic']
+
+    # 查询知识规则
+    if category == 'all' or category in knowledge_rule_categories:
+        rule_query = KnowledgeRule.query
+        if category != 'all':
+            rule_query = rule_query.filter(KnowledgeRule.category == category)
+        if search:
+            rule_query = rule_query.filter(
+                db.or_(
+                    KnowledgeRule.rule_title.ilike(f'%{search}%'),
+                    KnowledgeRule.rule_content.ilike(f'%{search}%')
+                )
+            )
+
+        # 统计各分类数量
+        for cat in knowledge_rule_categories:
+            cat_count = KnowledgeRule.query.filter_by(category=cat).count()
+            counts[cat] = cat_count
+
+        rules = rule_query.all()
+        for r in rules:
+            items.append({
+                'id': r.id,
+                'title': r.rule_title,
+                'content': r.rule_content,
+                'category': r.category,
+                'usage_count': r.usage_count or 0,
+                'source_type': 'knowledge_rule',
+                'applicable_scenarios': r.applicable_scenarios,
+                'applicable_audiences': r.applicable_audiences,
+                'platforms': r.platforms,
+                'type_labels': [r.category] if r.category else []
+            })
+
+    # 查询场景库
+    if category == 'all' or category in scene_categories:
+        if category == 'all' or category == 'usage_scenario':
+            query = UsageScenario.query
+            if search:
+                query = query.filter(UsageScenario.scenario_name.ilike(f'%{search}%'))
+            counts['usage_scenario'] = query.count()
+            for r in query.all():
+                items.append({
+                    'id': r.id,
+                    'title': r.scenario_name,
+                    'content': r.scenario_description or '',
+                    'category': 'usage_scenario',
+                    'usage_count': 0,
+                    'source_type': 'scene',
+                    'industry': r.industry,
+                    'scene_type': '使用场景',
+                    'keywords': r.keywords,
+                    'type_labels': [r.industry] if r.industry else []
+                })
+
+        if category == 'all' or category == 'demand_scenario':
+            query = DemandScenario.query
+            if search:
+                query = query.filter(DemandScenario.scenario_name.ilike(f'%{search}%'))
+            counts['demand_scenario'] = query.count()
+            for r in query.all():
+                items.append({
+                    'id': r.id,
+                    'title': r.scenario_name,
+                    'content': r.scenario_description or '',
+                    'category': 'demand_scenario',
+                    'usage_count': 0,
+                    'source_type': 'scene',
+                    'scene_type': r.demand_type,
+                    'keywords': r.keywords,
+                    'type_labels': [r.demand_type] if r.demand_type else []
+                })
+
+        if category == 'all' or category == 'pain_point':
+            query = PainPoint.query
+            if search:
+                query = query.filter(PainPoint.pain_point_name.ilike(f'%{search}%'))
+            counts['pain_point'] = query.count()
+            for r in query.all():
+                items.append({
+                    'id': r.id,
+                    'title': r.pain_point_name,
+                    'content': r.description or '',
+                    'category': 'pain_point',
+                    'usage_count': 0,
+                    'source_type': 'scene',
+                    'industry': r.industry,
+                    'scene_type': r.pain_type,
+                    'keywords': r.keywords,
+                    'type_labels': [r.industry, r.pain_type] if r.industry or r.pain_type else []
+                })
+
+    # 查询热点库
+    if category == 'all' or category in hot_categories:
+        if category == 'all' or category == 'hot_topic':
+            query = HotTopic.query
+            if search:
+                query = query.filter(HotTopic.topic_name.ilike(f'%{search}%'))
+            counts['hot_topic'] = query.count()
+            for r in query.all():
+                items.append({
+                    'id': r.id,
+                    'title': r.topic_name,
+                    'content': r.description or '',
+                    'category': 'hot_topic',
+                    'usage_count': 0,
+                    'source_type': 'hot',
+                    'hot_level': r.hot_level,
+                    'topic_category': r.category,
+                    'related_industry': r.related_industry,
+                    'type_labels': [r.hot_level, r.category] if r.hot_level or r.category else []
+                })
+
+        if category == 'all' or category == 'seasonal_topic':
+            query = SeasonalTopic.query
+            if search:
+                query = query.filter(SeasonalTopic.topic_name.ilike(f'%{search}%'))
+            counts['seasonal_topic'] = query.count()
+            for r in query.all():
+                items.append({
+                    'id': r.id,
+                    'title': r.topic_name,
+                    'content': r.description or '',
+                    'category': 'seasonal_topic',
+                    'usage_count': 0,
+                    'source_type': 'hot',
+                    'topic_type': r.topic_type,
+                    'keywords': r.keywords,
+                    'type_labels': [r.topic_type] if r.topic_type else []
+                })
+
+    # 查询素材库
+    material_types = ['title', 'hook', 'cover', 'topic', 'structure', 'ending',
+                     'psychology', 'commercial', 'why_popular', 'tags', 'character',
+                     'content_form', 'interaction']
+
+    if category == 'all' or category in material_types:
+        for mat_type in material_types:
+            if category != 'all' and mat_type != category:
+                continue
+
+            model = UNIFIED_RULES_MODEL_MAP.get(mat_type)
+            if not model:
+                continue
+
+            query = model.query
+            if search:
+                if mat_type == 'title':
+                    query = query.filter(model.title.ilike(f'%{search}%'))
+                elif mat_type == 'structure':
+                    query = query.filter(model.structure_name.ilike(f'%{search}%'))
+                else:
+                    content_field = getattr(model, f'{mat_type}_content', None)
+                    if content_field:
+                        query = query.filter(content_field.ilike(f'%{search}%'))
+
+            counts[mat_type] = query.count()
+            records = query.all()
+            for r in records:
+                if mat_type == 'title':
+                    content = r.title
+                elif mat_type == 'structure':
+                    content = r.structure_name
+                else:
+                    content_field = f'{mat_type}_content'
+                    content = getattr(r, content_field, '')
+
+                type_field = f'{mat_type}_type'
+                item_type = getattr(r, type_field, '')
+
+                items.append({
+                    'id': r.id,
+                    'title': content[:50] if content else '',
+                    'content': content,
+                    'category': mat_type,
+                    'usage_count': r.usage_count or 0,
+                    'source_type': 'material',
+                    'item_type': item_type,
+                    'type_labels': [item_type] if item_type else []
+                })
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'items': items,
+            'counts': counts,
+            'total': len(items)
+        }
+    })
+
+
+@admin.route('/api/rules/unified/<int:id>')
+@login_required
+def get_unified_rule(id):
+    """获取单个规则详情"""
+    category = request.args.get('category')
+    source_type = request.args.get('source_type', 'material')
+
+    if source_type == 'knowledge_rule':
+        rule = KnowledgeRule.query.get_or_404(id)
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': rule.id,
+                'title': rule.rule_title,
+                'content': rule.rule_content,
+                'category': rule.category,
+                'usage_count': rule.usage_count or 0,
+                'applicable_scenarios': rule.applicable_scenarios,
+                'applicable_audiences': rule.applicable_audiences,
+                'platforms': rule.platforms
+            }
+        })
+    else:
+        # 素材库
+        model = UNIFIED_RULES_MODEL_MAP.get(category)
+        if not model:
+            return jsonify({'success': False, 'message': '无效的分类'}), 400
+
+        item = model.query.get_or_404(id)
+
+        if category == 'title':
+            content = item.title
+        elif category == 'structure':
+            content = item.structure_name
+        else:
+            content_field = f'{category}_content'
+            content = getattr(item, content_field, '')
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': item.id,
+                'title': content[:50] if content else '',
+                'content': content,
+                'category': category,
+                'usage_count': item.usage_count or 0
+            }
+        })
+
+
+@admin.route('/api/rules/unified', methods=['POST'])
+@login_required
+@super_admin_required
+def create_unified_rule():
+    """创建统一规则"""
+    data = request.get_json()
+    category = data.get('category')
+    source_type = data.get('source_type', 'material')
+    title = data.get('title', '')
+    content = data.get('content', '')
+
+    # 解析场景和人群
+    scenarios = data.get('applicable_scenarios', [])
+    audiences = data.get('applicable_audiences', [])
+    if isinstance(scenarios, str):
+        scenarios = [s.strip() for s in scenarios.split(',') if s.strip()]
+    if isinstance(audiences, str):
+        audiences = [a.strip() for a in audiences.split(',') if a.strip()]
+
+    platforms = data.get('platforms', [])
+
+    # 知识规则分类
+    knowledge_rule_categories = ['keywords', 'topic', 'template', 'operation', 'market']
+
+    try:
+        if source_type == 'rule' or category in knowledge_rule_categories:
+            # 创建知识规则
+            rule = KnowledgeRule(
+                category=category,
+                rule_title=title,
+                rule_content=content,
+                rule_type='dimension',
+                applicable_scenarios=scenarios,
+                applicable_audiences=audiences,
+                platforms=platforms,
+                status='active'
+            )
+            db.session.add(rule)
+        else:
+            # 创建素材库记录
+            model = UNIFIED_RULES_MODEL_MAP.get(category)
+            if not model:
+                return jsonify({'success': False, 'message': '无效的分类'}), 400
+
+            # 根据类型构建数据
+            if category == 'title':
+                item = model(title=content)
+            elif category == 'structure':
+                item = model(structure_name=content)
+            else:
+                content_field = f'{category}_content'
+                item = model(**{content_field: content})
+
+            db.session.add(item)
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': '保存成功'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@admin.route('/api/rules/unified/<int:id>', methods=['PUT'])
+@login_required
+@super_admin_required
+def update_unified_rule(id):
+    """更新统一规则"""
+    data = request.get_json()
+    category = data.get('category')
+    source_type = data.get('source_type', 'material')
+    title = data.get('title', '')
+    content = data.get('content', '')
+
+    # 解析场景和人群
+    scenarios = data.get('applicable_scenarios', [])
+    audiences = data.get('applicable_audiences', [])
+    if isinstance(scenarios, str):
+        scenarios = [s.strip() for s in scenarios.split(',') if s.strip()]
+    if isinstance(audiences, str):
+        audiences = [a.strip() for a in audiences.split(',') if a.strip()]
+
+    platforms = data.get('platforms', [])
+
+    knowledge_rule_categories = ['keywords', 'topic', 'template', 'operation', 'market']
+
+    try:
+        if source_type == 'rule' or category in knowledge_rule_categories:
+            rule = KnowledgeRule.query.get_or_404(id)
+            rule.rule_title = title
+            rule.rule_content = content
+            rule.applicable_scenarios = scenarios
+            rule.applicable_audiences = audiences
+            rule.platforms = platforms
+        else:
+            model = UNIFIED_RULES_MODEL_MAP.get(category)
+            if not model:
+                return jsonify({'success': False, 'message': '无效的分类'}), 400
+
+            item = model.query.get_or_404(id)
+
+            if category == 'title':
+                item.title = content
+            elif category == 'structure':
+                item.structure_name = content
+            else:
+                content_field = f'{category}_content'
+                setattr(item, content_field, content)
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': '更新成功'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@admin.route('/api/rules/unified/<int:id>', methods=['DELETE'])
+@login_required
+@super_admin_required
+def delete_unified_rule(id):
+    """删除统一规则"""
+    category = request.args.get('category')
+    source_type = request.args.get('source_type', 'material')
+
+    knowledge_rule_categories = ['keywords', 'topic', 'template', 'operation', 'market']
+
+    try:
+        if source_type == 'rule' or category in knowledge_rule_categories:
+            rule = KnowledgeRule.query.get_or_404(id)
+            db.session.delete(rule)
+        else:
+            model = UNIFIED_RULES_MODEL_MAP.get(category)
+            if not model:
+                return jsonify({'success': False, 'message': '无效的分类'}), 400
+
+            item = model.query.get_or_404(id)
+            db.session.delete(item)
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': '删除成功'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500

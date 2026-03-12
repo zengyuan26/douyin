@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}解析入库 - 知识库方法论 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">解析入库</h4>
+                    <p class="text-muted mb-0" style="font-size: 14px;">粘贴读书笔记或电子书整理的自然语言，系统会解析归类（消费心理学、关键词筛选、人设、视觉设计等）并支持入库到知识库</p>
+                </div>
+                <a href="{{ url_for('admin.persona_methods') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-list me-1"></i>方法论列表
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="section-card">
+                <div class="section-body">
+                    <form method="POST" action="{{ url_for('admin.persona_method_parse') }}" id="parseForm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <label class="form-label">输入内容 <span class="text-muted">（读书笔记、电子书摘录、方法论整理等）</span></label>
+                        <textarea name="raw_text" class="form-control font-monospace" rows="14" placeholder="例如：&#10;&#10;《消费心理学》第三章要点：&#10;1. 锚定效应：先展示高价再展示目标价，能提升转化……&#10;2. 损失厌恶：强调「错过/限时」比强调「获得」更有效……">{{ raw_text or '' }}</textarea>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary" id="btnParse">
+                                <i class="bi bi-cpu me-1"></i>解析并归类
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="section-card">
+                <div class="section-header">
+                    <h6 class="section-title"><i class="bi bi-info-circle me-2"></i>说明</h6>
+                </div>
+                <div class="section-body">
+                    <p class="small text-muted mb-2">系统会根据内容自动判断属于哪一类方法论：</p>
+                    <ul class="small text-muted mb-2">
+                        <li><strong>消费心理学</strong>：价格锚定、损失厌恶、从众等</li>
+                        <li><strong>关键词筛选</strong>：选词、拓词、长尾词方法</li>
+                        <li><strong>人设/账号定位</strong>：角色、人设、IP 打造</li>
+                        <li><strong>视觉设计</strong>：封面、排版、呈现</li>
+                        <li><strong>运营策略</strong>：投放、转化、节奏</li>
+                        <li><strong>通用</strong>：其他方法论</li>
+                    </ul>
+                    <p class="small text-muted mb-0">解析后可编辑结果，确认后一键入库到知识库（方法论列表 + 可选同步到知识库文章）。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+document.getElementById('parseForm').addEventListener('submit', function() {
+    var btn = document.getElementById('btnParse');
+    if (btn) btn.disabled = true;
+});
+</script>
+{% endblock %}

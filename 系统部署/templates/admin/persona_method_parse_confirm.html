@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}确认入库 - 知识库方法论 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">确认解析结果并入库</h4>
+                    <p class="text-muted mb-0" style="font-size: 14px;">请核对归类与内容，可修改后点击「入库」写入知识库</p>
+                </div>
+                <a href="{{ url_for('admin.persona_method_parse') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>返回重新解析
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="section-card">
+                <div class="section-body">
+                    <form method="POST" action="{{ url_for('admin.persona_method_ingest') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                        <div class="mb-3">
+                            <label class="form-label">归类 <span class="text-danger">*</span></label>
+                            <select name="methodology_category" class="form-select" required>
+                                <option value="consumer_psychology" {{ 'selected' if parsed.methodology_category == 'consumer_psychology' else '' }}>消费心理学</option>
+                                <option value="keyword_screening" {{ 'selected' if parsed.methodology_category == 'keyword_screening' else '' }}>关键词筛选</option>
+                                <option value="persona" {{ 'selected' if parsed.methodology_category == 'persona' else '' }}>人设/账号定位</option>
+                                <option value="visual_design" {{ 'selected' if parsed.methodology_category == 'visual_design' else '' }}>视觉设计</option>
+                                <option value="operation" {{ 'selected' if parsed.methodology_category == 'operation' else '' }}>运营策略</option>
+                                <option value="general" {{ 'selected' if parsed.methodology_category == 'general' or not parsed.methodology_category else '' }}>通用</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">方法论名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="name" value="{{ parsed.name or '' }}" required placeholder="简短标题">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">来源书籍/资料</label>
+                                <input type="text" class="form-control" name="source_book" value="{{ parsed.source_book or '' }}" placeholder="书籍或资料名称">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">作者</label>
+                                <input type="text" class="form-control" name="author" value="{{ parsed.author or '' }}">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">方法论摘要</label>
+                            <textarea class="form-control" name="method_summary" rows="5" placeholder="核心要点">{{ parsed.method_summary or '' }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">适用场景（每行一个）</label>
+                            <textarea class="form-control" name="applicable_scenario" rows="2" placeholder="每行一个">{{ (parsed.applicable_scenario or [])|join('\n') }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">适用人群（每行一个）</label>
+                            <textarea class="form-control" name="applicable_audience" rows="2" placeholder="每行一个">{{ (parsed.applicable_audience or [])|join('\n') }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">使用指南</label>
+                            <textarea class="form-control" name="usage_guide" rows="3" placeholder="使用方法和注意事项">{{ parsed.usage_guide or '' }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">关键词（每行一个）</label>
+                            <textarea class="form-control" name="keywords" rows="2" placeholder="每行一个">{{ (parsed.keywords or [])|join('\n') }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">分类标签（每行一个）</label>
+                            <textarea class="form-control" name="tags" rows="2" placeholder="每行一个">{{ (parsed.tags or [])|join('\n') }}</textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between pt-2">
+                            <a href="{{ url_for('admin.persona_method_parse') }}" class="btn btn-outline-secondary">返回</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>确认入库
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="section-card">
+                <div class="section-header">
+                    <h6 class="section-title"><i class="bi bi-chat-quote me-2"></i>原始输入（仅供参考）</h6>
+                </div>
+                <div class="section-body">
+                    <pre class="small text-muted mb-0" style="white-space: pre-wrap; max-height: 320px; overflow-y: auto;">{{ raw_text[:2000] }}{% if raw_text|length > 2000 %}…{% endif %}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

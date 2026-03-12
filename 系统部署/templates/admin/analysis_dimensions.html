@@ -1,0 +1,608 @@
+{% extends "base.html" %}
+
+{% block title %}分析维度管理 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- 页面标题 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1">分析维度管理</h4>
+                    <p class="text-muted mb-0">配置爆款拆解的分析维度，支持账号分析、内容分析、方法论三大分类</p>
+                </div>
+                <div class="btn-animate d-flex gap-2">
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
+                    <button class="btn btn-primary" id="add-dimension-btn">
+                        <i class="bi bi-plus-lg me-1"></i>新增维度
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 三个分类独立展示 -->
+    <div class="row">
+        <!-- 账号分析 -->
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-badge text-primary me-2"></i>账号分析
+                        <span class="badge bg-primary ms-2" id="account-count">0</span>
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openDimensionModal(null, 'account')">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="width: 50px;">排序</th>
+                                    <th>名称</th>
+                                    <th style="width: 80px;">使用</th>
+                                    <th style="width: 70px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="account-tbody">
+                                <tr><td colspan="4" class="text-center text-muted py-3">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <nav aria-label="账号分析分页">
+                        <ul class="pagination pagination-sm mb-0 justify-content-center" id="account-pagination"></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- 内容分析 -->
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-text text-success me-2"></i>内容分析
+                        <span class="badge bg-success ms-2" id="content-count">0</span>
+                    </h5>
+                    <button class="btn btn-sm btn-outline-success" onclick="openDimensionModal(null, 'content')">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="width: 50px;">排序</th>
+                                    <th>名称</th>
+                                    <th style="width: 80px;">使用</th>
+                                    <th style="width: 70px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="content-tbody">
+                                <tr><td colspan="4" class="text-center text-muted py-3">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <nav aria-label="内容分析分页">
+                        <ul class="pagination pagination-sm mb-0 justify-content-center" id="content-pagination"></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- 方法论 -->
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-book text-purple me-2" style="color: #6f42c1;"></i>方法论
+                        <span class="badge bg-purple ms-2" id="methodology-count">0</span>
+                    </h5>
+                    <button class="btn btn-sm btn-outline-purple" onclick="openDimensionModal(null, 'methodology')">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="width: 50px;">排序</th>
+                                    <th>名称</th>
+                                    <th style="width: 80px;">使用</th>
+                                    <th style="width: 70px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="methodology-tbody">
+                                <tr><td colspan="4" class="text-center text-muted py-3">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <nav aria-label="方法论分页">
+                        <ul class="pagination pagination-sm mb-0 justify-content-center" id="methodology-pagination"></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--窗 -->
+<div class="modal fade" id="dimensionModal" tabindex="-1" aria-labelledby="dimensionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dimensionModalLabel">新增维度</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="dimension-form">
+                    <input type="hidden" id="dimension-id">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">维度名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="dimension-name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">维度编码 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="dimension-code" required placeholder="如: title, cover, hook">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">一级分类 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="dimension-category" required>
+                                <option value="">请选择</option>
+                                <option value="account">账号分析</option>
+                                <option value="content">内容分析</option>
+                                <option value="methodology">方法论</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">二级分类</label>
+                            <select class="form-select" id="dimension-sub-category">
+                                <option value="">请选择</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">图标</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i id="dimension-icon-preview" class="bi bi-circle"></i></span>
+                                <input type="text" class="form-control" id="dimension-icon" placeholder="bi-card-heading">
+                            </div>
+                            <div class="form-text">使用 Bootstrap Icons 类名，如: bi-card-heading, bi-image</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">关联素材库</label>
+                            <select class="form-select" id="dimension-material-type">
+                                <option value="">不关联</option>
+                                <option value="title">标题库</option>
+                                <option value="hook">钩子库</option>
+                                <option value="cover">封面库</option>
+                                <option value="topic">选题库</option>
+                                <option value="structure">结构库</option>
+                                <option value="psychology">心理库</option>
+                                <option value="commercial">商业库</option>
+                                <option value="why_popular">爆款库</option>
+                                <option value="ending">结尾库</option>
+                                <option value="tags">标签库</option>
+                                <option value="character">人物库</option>
+                                <option value="content_form">形式库</option>
+                                <option value="interaction">互动库</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea class="form-control" id="dimension-description" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">排序</label>
+                            <input type="number" class="form-control" id="dimension-sort-order" value="0">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" id="dimension-is-default">
+                                <label class="form-check-label" for="dimension-is-default">
+                                    默认维度
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="save-dimension-btn">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.bg-purple {
+    background-color: #6f42c1 !important;
+}
+.btn-outline-purple {
+    color: #6f42c1;
+    border-color: #6f42c1;
+}
+.btn-outline-purple:hover {
+    background-color: #6f42c1;
+    color: white;
+}
+</style>
+<script>
+// 维度分类配置
+const DIMENSION_CATEGORIES = {
+    'account': {
+        'name': '账号分析',
+        'sub_categories': {
+            'account_positioning': '账号定位',
+            'market_analysis': '市场分析',
+            'operation_planning': '运营规划',
+            'keyword_library': '关键词库'
+        }
+    },
+    'content': {
+        'name': '内容分析',
+        'sub_categories': {
+            'title': '标题',
+            'hook': '开头钩子',
+            'content_body': '内容',
+            'visual_design': '视觉设计',
+            'ending': '结尾'
+        }
+    },
+    'methodology': {
+        'name': '方法论',
+        'sub_categories': {
+            'applicable_scenario': '适用场景',
+            'applicable_audience': '适用人群'
+        }
+    }
+};
+
+// 分页状态
+const paginationState = {
+    'account': { page: 1, total: 0, pages: 0 },
+    'content': { page: 1, total: 0, pages: 0 },
+    'methodology': { page: 1, total: 0, pages: 0 }
+};
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllDimensions();
+
+    // 新增按钮
+    document.getElementById('add-dimension-btn').addEventListener('click', function() {
+        openDimensionModal();
+    });
+
+    // 分类切换更新二级分类选项
+    document.getElementById('dimension-category').addEventListener('change', function() {
+        updateSubCategoryOptions(this.value);
+    });
+
+    // 图标预览
+    document.getElementById('dimension-icon').addEventListener('input', function() {
+        document.getElementById('dimension-icon-preview').className = this.value || 'bi bi-circle';
+    });
+
+    // 保存
+    document.getElementById('save-dimension-btn').addEventListener('click', saveDimension);
+});
+
+// 加载所有分类
+async function loadAllDimensions() {
+    await Promise.all([
+        loadDimensionsByCategory('account'),
+        loadDimensionsByCategory('content'),
+        loadDimensionsByCategory('methodology')
+    ]);
+}
+
+// 按分类加载维度
+async function loadDimensionsByCategory(category) {
+    const tbody = document.getElementById(`${category}-tbody`);
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">加载中...</td></tr>`;
+
+    try {
+        const page = paginationState[category].page;
+        const response = await fetch(`/admin/api/analysis-dimensions?category=${category}&page=${page}&page_size=10`);
+        const result = await response.json();
+
+        if (result.success) {
+            paginationState[category].total = result.total;
+            paginationState[category].pages = result.pages;
+
+            // 更新计数
+            document.getElementById(`${category}-count`).textContent = result.total;
+
+            // 渲染列表
+            renderDimensionsByCategory(category, result.data);
+
+            // 渲染分页
+            renderPagination(category, result.page, result.pages);
+        } else {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">加载失败: ${result.message}</td></tr>`;
+        }
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">加载失败: ${error.message}</td></tr>`;
+    }
+}
+
+// 渲染维度列表
+function renderDimensionsByCategory(category, dimensions) {
+    const tbody = document.getElementById(`${category}-tbody`);
+
+    if (dimensions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">暂无数据</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = dimensions.map(d => {
+        const categoryInfo = DIMENSION_CATEGORIES[d.category] || { name: d.category, sub_categories: {} };
+        const subCategoryName = categoryInfo.sub_categories[d.sub_category] || d.sub_category || '-';
+
+        return `
+            <tr>
+                <td>${d.sort_order}</td>
+                <td>
+                    <i class="bi ${d.icon} me-1"></i>${d.name}
+                    ${d.sub_category ? `<span class="text-muted small">(${subCategoryName})</span>` : ''}
+                </td>
+                <td>${d.usage_count || 0}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editDimension(${d.id})" title="编辑">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteDimension(${d.id})" title="删除">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 渲染分页
+function renderPagination(category, currentPage, totalPages) {
+    const pagination = document.getElementById(`${category}-pagination`);
+
+    if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+
+    // 上一页
+    if (currentPage > 1) {
+        html += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="goToPage('${category}', ${currentPage - 1})">上一页</a></li>`;
+    } else {
+        html += `<li class="page-item disabled"><span class="page-link">上一页</span></li>`;
+    }
+
+    // 页码
+    const maxPages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPages / 2));
+    let endPage = Math.min(totalPages, startPage + maxPages - 1);
+
+    if (endPage - startPage < maxPages - 1) {
+        startPage = Math.max(1, endPage - maxPages + 1);
+    }
+
+    if (startPage > 1) {
+        html += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="goToPage('${category}', 1)">1</a></li>`;
+        if (startPage > 2) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        if (i === currentPage) {
+            html += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+        } else {
+            html += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="goToPage('${category}', ${i})">${i}</a></li>`;
+        }
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+        html += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="goToPage('${category}', ${totalPages})">${totalPages}</a></li>`;
+    }
+
+    // 下一页
+    if (currentPage < totalPages) {
+        html += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="goToPage('${category}', ${currentPage + 1})">下一页</a></li>`;
+    } else {
+        html += `<li class="page-item disabled"><span class="page-link">下一页</span></li>`;
+    }
+
+    pagination.innerHTML = html;
+}
+
+// 跳转页面
+function goToPage(category, page) {
+    paginationState[category].page = page;
+    loadDimensionsByCategory(category);
+}
+
+// 打开维度弹窗
+function openDimensionModal(dimension = null, prefillCategory = null) {
+    const modal = new bootstrap.Modal(document.getElementById('dimensionModal'));
+    const form = document.getElementById('dimension-form');
+    form.reset();
+
+    if (dimension) {
+        document.getElementById('dimensionModalLabel').textContent = '编辑维度';
+        document.getElementById('dimension-id').value = dimension.id;
+        document.getElementById('dimension-name').value = dimension.name;
+        document.getElementById('dimension-code').value = dimension.code;
+        document.getElementById('dimension-category').value = dimension.category;
+        updateSubCategoryOptions(dimension.category, dimension.sub_category);
+        document.getElementById('dimension-icon').value = dimension.icon || '';
+        document.getElementById('dimension-icon-preview').className = dimension.icon || 'bi bi-circle';
+        document.getElementById('dimension-description').value = dimension.description || '';
+        document.getElementById('dimension-material-type').value = dimension.related_material_type || '';
+        document.getElementById('dimension-sort-order').value = dimension.sort_order || 0;
+        document.getElementById('dimension-is-default').checked = dimension.is_default || false;
+    } else {
+        document.getElementById('dimensionModalLabel').textContent = '新增维度';
+        document.getElementById('dimension-id').value = '';
+        document.getElementById('dimension-icon-preview').className = 'bi bi-circle';
+
+        // 如果指定了分类，预填充
+        if (prefillCategory) {
+            document.getElementById('dimension-category').value = prefillCategory;
+            updateSubCategoryOptions(prefillCategory);
+        }
+    }
+
+    modal.show();
+}
+
+// 更新二级分类选项
+function updateSubCategoryOptions(category, selectedSubCategory = '') {
+    const select = document.getElementById('dimension-sub-category');
+    select.innerHTML = '<option value="">请选择</option>';
+
+    if (category && DIMENSION_CATEGORIES[category]) {
+        const subCategories = DIMENSION_CATEGORIES[category].sub_categories;
+        for (const [key, value] of Object.entries(subCategories)) {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = value;
+            if (key === selectedSubCategory) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        }
+    }
+}
+
+// 编辑维度
+async function editDimension(id) {
+    try {
+        const response = await fetch(`/admin/api/analysis-dimensions/${id}`);
+        const result = await response.json();
+
+        if (result.success) {
+            openDimensionModal(result.data);
+        } else {
+            alert('加载失败: ' + result.message);
+        }
+    } catch (error) {
+        alert('加载失败: ' + error.message);
+    }
+}
+
+// 保存维度
+async function saveDimension() {
+    const id = document.getElementById('dimension-id').value;
+    const data = {
+        name: document.getElementById('dimension-name').value,
+        code: document.getElementById('dimension-code').value,
+        category: document.getElementById('dimension-category').value,
+        sub_category: document.getElementById('dimension-sub-category').value,
+        icon: document.getElementById('dimension-icon').value,
+        description: document.getElementById('dimension-description').value,
+        related_material_type: document.getElementById('dimension-material-type').value,
+        sort_order: parseInt(document.getElementById('dimension-sort-order').value) || 0,
+        is_default: document.getElementById('dimension-is-default').checked
+    };
+
+    if (!data.name || !data.code || !data.category) {
+        alert('请填写必填项');
+        return;
+    }
+
+    try {
+        const url = id ? `/admin/api/analysis-dimensions/${id}` : '/admin/api/analysis-dimensions';
+        const method = id ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('dimensionModal')).hide();
+
+            // 刷新对应分类
+            loadDimensionsByCategory(data.category);
+
+            showToast('保存成功', 'success');
+        } else {
+            alert('保存失败: ' + result.message);
+        }
+    } catch (error) {
+        alert('保存失败: ' + error.message);
+    }
+}
+
+// 删除维度
+async function deleteDimension(id) {
+    if (!confirm('确定要删除该维度吗？')) return;
+
+    try {
+        const response = await fetch(`/admin/api/analysis-dimensions/${id}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            // 重新加载所有分类
+            loadAllDimensions();
+            showToast('删除成功', 'success');
+        } else {
+            alert('删除失败: ' + result.message);
+        }
+    } catch (error) {
+        alert('删除失败: ' + error.message);
+    }
+}
+
+// 显示提示
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}知识库-方法论 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- 页面标题 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate flex-wrap gap-2">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">知识库-方法论</h4>
+                    <p class="text-muted mb-0" style="font-size: 14px;">读书笔记/电子书整理解析入库（消费心理学、关键词筛选、人设、视觉设计等）</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
+                    <a href="{{ url_for('admin.persona_method_parse') }}" class="btn btn-primary">
+                        <i class="bi bi-cpu me-1"></i>解析入库
+                    </a>
+                    <a href="{{ url_for('admin.persona_method_add') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-lg me-1"></i>新建
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 按归类筛选 -->
+    <div class="row mb-2">
+        <div class="col-12">
+            <form method="get" class="d-flex gap-2 align-items-center">
+                <label class="form-label mb-0 small text-muted">归类：</label>
+                <select name="category" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit();">
+                    <option value="">全部</option>
+                    <option value="consumer_psychology" {{ 'selected' if category_filter == 'consumer_psychology' else '' }}>消费心理学</option>
+                    <option value="keyword_screening" {{ 'selected' if category_filter == 'keyword_screening' else '' }}>关键词筛选</option>
+                    <option value="persona" {{ 'selected' if category_filter == 'persona' else '' }}>人设/账号定位</option>
+                    <option value="visual_design" {{ 'selected' if category_filter == 'visual_design' else '' }}>视觉设计</option>
+                    <option value="operation" {{ 'selected' if category_filter == 'operation' else '' }}>运营策略</option>
+                    <option value="general" {{ 'selected' if category_filter == 'general' else '' }}>通用</option>
+                </select>
+            </form>
+        </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-card">
+                <div class="section-body">
+                    {% if methods %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>归类</th>
+                                    <th>方法论名称</th>
+                                    <th>来源书籍</th>
+                                    <th>适用场景</th>
+                                    <th>适用人群</th>
+                                    <th>关键词</th>
+                                    <th>状态</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for method in methods %}
+                                <tr>
+                                    <td>
+                                        {% if method.methodology_category == 'consumer_psychology' %}<span class="badge bg-info">消费心理学</span>
+                                        {% elif method.methodology_category == 'keyword_screening' %}<span class="badge bg-primary">关键词筛选</span>
+                                        {% elif method.methodology_category == 'persona' %}<span class="badge bg-secondary">人设</span>
+                                        {% elif method.methodology_category == 'visual_design' %}<span class="badge bg-warning text-dark">视觉设计</span>
+                                        {% elif method.methodology_category == 'operation' %}<span class="badge bg-success">运营策略</span>
+                                        {% else %}<span class="badge bg-light text-dark">通用</span>{% endif %}
+                                    </td>
+                                    <td><strong>{{ method.name }}</strong></td>
+                                    <td>{{ method.source_book or '-' }}</td>
+                                    <td>
+                                        {% if method.applicable_scenario %}
+                                        {% for s in method.applicable_scenario[:2] %}
+                                        <span class="badge bg-light text-dark">{{ s }}</span>
+                                        {% endfor %}
+                                        {% else %}-{% endif %}
+                                    </td>
+                                    <td>
+                                        {% if method.applicable_audience %}
+                                        {% for a in method.applicable_audience[:2] %}
+                                        <span class="badge bg-light text-dark">{{ a }}</span>
+                                        {% endfor %}
+                                        {% else %}-{% endif %}
+                                    </td>
+                                    <td>
+                                        {% if method.keywords %}
+                                        {% for k in method.keywords[:3] %}
+                                        <span class="badge bg-info">{{ k }}</span>
+                                        {% endfor %}
+                                        {% else %}-{% endif %}
+                                    </td>
+                                    <td>
+                                        {% if method.is_active %}
+                                        <span class="badge bg-success">启用</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">禁用</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ method.created_at.strftime('%Y-%m-%d') if method.created_at else '-' }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('admin.persona_method_edit', id=method.id) }}" class="btn btn-outline-primary">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <form method="POST" action="{{ url_for('admin.persona_method_toggle', id=method.id) }}" style="display: inline;">
+                                                <button type="submit" class="btn btn-outline-secondary"
+                                                        title="{{ '禁用' if method.is_active else '启用' }}">
+                                                    <i class="bi bi-toggle-{{ 'on' if method.is_active else 'off' }}"></i>
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ url_for('admin.persona_method_delete', id=method.id) }}" style="display: inline;" onsubmit="return confirm('确定要删除吗？');">
+                                                <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-journal-bookmark" style="font-size: 3rem; color: var(--color-text-muted);"></i>
+                        <p class="text-muted mt-3">暂无方法论，可点击「解析入库」粘贴读书笔记解析后入库，或「新建」手动添加</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

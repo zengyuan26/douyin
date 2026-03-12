@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}内容素材库 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- 页面标题 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">内容素材库</h4>
+                    <p class="text-muted mb-0" style="font-size: 16px;">管理标题、钩子、结构、结尾等素材，可从爆款拆解一键入库</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin.content_material_add', type=material_type) }}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i>新建素材
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 标签页导航 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <ul class="nav nav-tabs flex-wrap">
+                {% for type_key, type_config in all_material_types.items() %}
+                <li class="nav-item">
+                    <a class="nav-link {% if material_type == type_key %}active{% endif %}"
+                       href="{{ url_for('admin.content_materials', type=type_key) }}">
+                        <i class="bi {{ type_config.icon if type_config.icon else 'bi-collection' }} me-1"></i>{{ type_config.name }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-card">
+                <div class="section-body">
+                    {% if items %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>内容</th>
+                                    <th>类型</th>
+                                    <th>行业</th>
+                                    <th>使用次数</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
+                                    <td>
+                                        {% if material_type == 'title' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.title }}">{{ item.title[:50] }}</span>
+                                        {% elif material_type == 'hook' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.hook_content }}">{{ item.hook_content[:50] }}</span>
+                                        {% elif material_type == 'structure' %}
+                                            {{ item.structure_name }}
+                                        {% elif material_type == 'ending' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.ending_content }}">{{ item.ending_content[:50] }}</span>
+                                        {% elif material_type == 'cover' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.cover_content }}">{{ item.cover_content[:50] }}</span>
+                                        {% elif material_type == 'topic' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.topic_content }}">{{ item.topic_content[:50] }}</span>
+                                        {% elif material_type == 'psychology' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.psychology_content }}">{{ item.psychology_content[:50] }}</span>
+                                        {% elif material_type == 'commercial' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.commercial_content }}">{{ item.commercial_content[:50] }}</span>
+                                        {% elif material_type == 'why_popular' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.reason_content }}">{{ item.reason_content[:50] }}</span>
+                                        {% elif material_type == 'tags' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.tag_content }}">{{ item.tag_content[:50] }}</span>
+                                        {% elif material_type == 'character' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.character_content }}">{{ item.character_content[:50] }}</span>
+                                        {% elif material_type == 'content_form' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.form_content }}">{{ item.form_content[:50] }}</span>
+                                        {% elif material_type == 'interaction' %}
+                                            <span class="text-truncate d-inline-block" style="max-width: 300px;" title="{{ item.interaction_content }}">{{ item.interaction_content[:50] }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if material_type == 'title' %}
+                                            <span class="badge bg-info">{{ item.title_type or '-' }}</span>
+                                        {% elif material_type == 'hook' %}
+                                            <span class="badge bg-info">{{ item.hook_type or '-' }}</span>
+                                        {% elif material_type == 'structure' %}
+                                            <span class="badge bg-info">{{ item.content_type or '-' }}</span>
+                                        {% elif material_type == 'ending' %}
+                                            <span class="badge bg-info">{{ item.ending_type or '-' }}</span>
+                                        {% elif material_type == 'cover' %}
+                                            <span class="badge bg-info">{{ item.cover_type or '-' }}</span>
+                                        {% elif material_type == 'topic' %}
+                                            <span class="badge bg-info">{{ item.topic_type or '-' }}</span>
+                                        {% elif material_type == 'psychology' %}
+                                            <span class="badge bg-info">{{ item.psychology_type or '-' }}</span>
+                                        {% elif material_type == 'commercial' %}
+                                            <span class="badge bg-info">{{ item.commercial_type or '-' }}</span>
+                                        {% elif material_type == 'why_popular' %}
+                                            <span class="badge bg-info">{{ item.reason_type or '-' }}</span>
+                                        {% elif material_type == 'tags' %}
+                                            <span class="badge bg-info">{{ item.tag_type or '-' }}</span>
+                                        {% elif material_type == 'character' %}
+                                            <span class="badge bg-info">{{ item.character_type or '-' }}</span>
+                                        {% elif material_type == 'content_form' %}
+                                            <span class="badge bg-info">{{ item.form_type or '-' }}</span>
+                                        {% elif material_type == 'interaction' %}
+                                            <span class="badge bg-info">{{ item.interaction_type or '-' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ item.industry or '-' }}</td>
+                                    <td><span class="badge bg-secondary">{{ item.usage_count or 0 }}</span></td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('admin.content_material_edit', id=item.id, type=material_type) }}" class="btn btn-outline-primary" title="编辑">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <form method="POST" action="{{ url_for('admin.content_material_delete', id=item.id, type=material_type) }}" style="display: inline;" onsubmit="return confirm('确定要删除吗？');">
+                                                <button type="submit" class="btn btn-outline-danger" title="删除"><i class="bi bi-trash"></i></button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-collection" style="font-size: 3rem; color: var(--color-text-muted);"></i>
+                        <p class="text-muted mt-3">暂无{{ material_config.name or '素材' }}，请点击上方按钮创建</p>
+                        <p class="text-muted small">或从「爆款拆解」页面分析内容后一键入库</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

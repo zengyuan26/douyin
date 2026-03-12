@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}模板管理 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- 页面标题 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">模板管理</h4>
+                    <p class="text-muted mb-0" style="font-size: 14px;">管理报告模板和内容模板</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分类导航 - 大图标按钮式 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="template-nav">
+                <!-- 报告模板 -->
+                <a href="{{ url_for('admin.templates', type='report', subtype='market_analysis') }}"
+                   class="template-nav-item {% if template_type == 'report' and report_subtype == 'market_analysis' %}active{% endif %}">
+                    <div class="template-nav-icon">
+                        <i class="bi bi-bar-chart"></i>
+                    </div>
+                    <div class="template-nav-text">
+                        <span class="template-nav-title">市场分析</span>
+                        <span class="template-nav-desc">行业分析报告</span>
+                    </div>
+                </a>
+
+                <a href="{{ url_for('admin.templates', type='report', subtype='keyword') }}"
+                   class="template-nav-item {% if template_type == 'report' and report_subtype == 'keyword' %}active{% endif %}">
+                    <div class="template-nav-icon">
+                        <i class="bi bi-key"></i>
+                    </div>
+                    <div class="template-nav-text">
+                        <span class="template-nav-title">关键词库</span>
+                        <span class="template-nav-desc">核心词/痛点词</span>
+                    </div>
+                </a>
+
+                <a href="{{ url_for('admin.templates', type='report', subtype='topic') }}"
+                   class="template-nav-item {% if template_type == 'report' and report_subtype == 'topic' %}active{% endif %}">
+                    <div class="template-nav-icon">
+                        <i class="bi bi-lightbulb"></i>
+                    </div>
+                    <div class="template-nav-text">
+                        <span class="template-nav-title">选题库</span>
+                        <span class="template-nav-desc">爆款选题推荐</span>
+                    </div>
+                </a>
+
+                <a href="{{ url_for('admin.templates', type='report', subtype='operation') }}"
+                   class="template-nav-item {% if template_type == 'report' and report_subtype == 'operation' %}active{% endif %}">
+                    <div class="template-nav-icon">
+                        <i class="bi bi-gear"></i>
+                    </div>
+                    <div class="template-nav-text">
+                        <span class="template-nav-title">运营规划</span>
+                        <span class="template-nav-desc">账号变现方案</span>
+                    </div>
+                </a>
+
+                <div class="template-nav-divider"></div>
+
+                <!-- 内容模板 -->
+                <a href="{{ url_for('admin.templates', type='content') }}"
+                   class="template-nav-item {% if template_type == 'content' %}active{% endif %}">
+                    <div class="template-nav-icon">
+                        <i class="bi bi-image"></i>
+                    </div>
+                    <div class="template-nav-text">
+                        <span class="template-nav-title">内容模板</span>
+                        <span class="template-nav-desc">图文/短视频</span>
+                    </div>
+                </a>
+
+                <a href="{{ url_for('admin.template_dependencies') }}"
+                   class="template-nav-item {% if page == 'dependencies' %}active{% endif %}">
+                    <div class="template-nav-icon">
+                        <i class="bi bi-diagram-3"></i>
+                    </div>
+                    <div class="template-nav-text">
+                        <span class="template-nav-title">模板联动</span>
+                        <span class="template-nav-desc">关联关系</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模板列表标题栏 -->
+    <div class="row mb-2">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0" style="color: var(--color-text-primary);">
+                    {% if template_type == 'report' %}
+                        {% if report_subtype == 'market_analysis' %}📊 市场分析模板
+                        {% elif report_subtype == 'keyword' %}🔑 关键词库模板
+                        {% elif report_subtype == 'topic' %}💡 选题库模板
+                        {% elif report_subtype == 'operation' %}⚙️ 运营规划模板
+                        {% endif %}
+                    {% else %}
+                        📝 内容模板
+                    {% endif %}
+                </h6>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模板卡片列表 -->
+    <div class="row">
+        <div class="col-12">
+            {% if templates %}
+            <div class="template-grid">
+                {% for template in templates %}
+                <div class="template-card">
+                    <div class="template-card-header">
+                        <div class="template-card-title">{{ template.template_name }}</div>
+                        <div class="template-card-actions">
+                            <a href="{{ url_for('admin.template_edit', id=template.id, type=template_type, subtype=template.template_type if template_type == 'report' else '') }}"
+                               class="btn btn-sm btn-outline-primary" title="编辑">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="template-card-body">
+                        {% if template.template_content %}
+                        <div class="template-card-preview">{{ template.template_content[:150] }}...</div>
+                        {% else %}
+                        <div class="template-card-empty">暂无内容</div>
+                        {% endif %}
+                    </div>
+                    <div class="template-card-footer">
+                        <span class="badge {% if template.template_category == 'universal' %}bg-secondary{% elif template.template_category == 'industry' %}bg-info{% else %}bg-warning{% endif %}">
+                            {% if template.template_category == 'universal' %}通用{% elif template.template_category == 'industry' %}行业{% else %}自定义{% endif %}
+                        </span>
+                        <span class="template-card-version">v{{ template.version }}</span>
+                        <span class="template-card-date">{{ template.created_at.strftime('%Y-%m-%d') if template.created_at else '' }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem; color: var(--color-text-muted);"></i>
+                <p class="text-muted mt-3">暂无模板，请点击上方按钮创建</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<style>
+.template-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    background: var(--color-bg-secondary, #f8f9fa);
+    border-radius: 12px;
+}
+
+.template-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: white;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--color-text-secondary, #6c757d);
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    flex: 1;
+    min-width: 140px;
+}
+
+.template-nav-item:hover {
+    border-color: var(--color-primary, #0d6efd);
+    color: var(--color-primary, #0d6efd);
+}
+
+.template-nav-item.active {
+    background: var(--color-primary, #0d6efd);
+    color: white;
+    border-color: var(--color-primary, #0d6efd);
+}
+
+.template-nav-item.active .template-nav-desc {
+    color: rgba(255,255,255,0.8);
+}
+
+.template-nav-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-secondary, #f8f9fa);
+    border-radius: 8px;
+    font-size: 18px;
+}
+
+.template-nav-item.active .template-nav-icon {
+    background: rgba(255,255,255,0.2);
+}
+
+.template-nav-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.template-nav-title {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.template-nav-desc {
+    font-size: 12px;
+    color: var(--color-text-muted, #6c757d);
+}
+
+.template-nav-divider {
+    width: 1px;
+    background: var(--color-border, #dee2e6);
+    margin: 0 8px;
+}
+
+.template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.template-card {
+    background: white;
+    border: 1px solid var(--color-border, #dee2e6);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.template-card:hover {
+    border-color: var(--color-primary, #0d6efd);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.template-card-disabled {
+    opacity: 0.6;
+}
+
+.template-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border, #dee2e6);
+    background: var(--color-bg-secondary, #f8f9fa);
+}
+
+.template-card-title {
+    font-weight: 600;
+    color: var(--color-text-primary, #212529);
+    font-size: 15px;
+}
+
+.template-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.template-card-actions .btn {
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
+.template-card-body {
+    padding: 12px 16px;
+    min-height: 80px;
+}
+
+.template-card-preview {
+    font-size: 13px;
+    color: var(--color-text-secondary, #6c757d);
+    line-height: 1.5;
+    font-family: monospace;
+    background: var(--color-bg-secondary, #f8f9fa);
+    padding: 8px;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.template-card-empty {
+    font-size: 13px;
+    color: var(--color-text-muted, #adb5bd);
+    font-style: italic;
+}
+
+.template-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-top: 1px solid var(--color-border, #dee2e6);
+    background: var(--color-bg-secondary, #f8f9fa);
+    font-size: 12px;
+    color: var(--color-text-muted, #6c757d);
+}
+
+.template-card-version {
+    color: var(--color-text-secondary, #6c757d);
+}
+
+.template-card-date {
+    margin-left: auto;
+}
+</style>
+{% endblock %}

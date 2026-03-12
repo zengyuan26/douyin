@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}模板刷新日志 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- 页面标题 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">模板刷新日志</h4>
+                    <p class="text-muted mb-0" style="font-size: 16px;">查看模板刷新的执行记录</p>
+                </div>
+                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i>返回
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 日志列表 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="section-card">
+                <div class="section-body">
+                    {% if logs %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>模板类型</th>
+                                    <th>触发类型</th>
+                                    <th>触发来源</th>
+                                    <th>状态</th>
+                                    <th>执行时间</th>
+                                    <th>完成时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td>{{ log.id }}</td>
+                                    <td>
+                                        {% if log.template_type == 'market_analysis' %}
+                                            <span class="badge bg-info">市场分析</span>
+                                        {% elif log.template_type == 'keyword' %}
+                                            <span class="badge bg-success">关键词库</span>
+                                        {% elif log.template_type == 'topic' %}
+                                            <span class="badge bg-warning">选题库</span>
+                                        {% elif log.template_type == 'operation' %}
+                                            <span class="badge bg-primary">运营规划</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ log.template_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.trigger_type == 'manual' %}
+                                            <span class="badge bg-primary">手动触发</span>
+                                        {% elif log.trigger_type == 'auto' %}
+                                            <span class="badge bg-info">自动触发</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ log.trigger_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.source_id %}
+                                            ID: {{ log.source_id }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.status == 'pending' %}
+                                            <span class="badge bg-secondary">等待中</span>
+                                        {% elif log.status == 'running' %}
+                                            <span class="badge bg-warning">执行中</span>
+                                        {% elif log.status == 'success' %}
+                                            <span class="badge bg-success">成功</span>
+                                        {% elif log.status == 'failed' %}
+                                            <span class="badge bg-danger">失败</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ log.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '-' }}</td>
+                                    <td>{{ log.completed_at.strftime('%Y-%m-%d %H:%M:%S') if log.completed_at else '-' }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                                data-bs-target="#logModal{{ log.id }}">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- Modal -->
+                                <div class="modal fade" id="logModal{{ log.id }}" tabindex="-1">
+                                    <div class="modal-dialog modal-lg">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">日志详情 #{{ log.id }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="row mb-3">
+                                                    <div class="col-md-6">
+                                                        <p><strong>模板类型：</strong>{{ log.template_type }}</p>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <p><strong>触发类型：</strong>{{ log.trigger_type }}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="row mb-3">
+                                                    <div class="col-md-6">
+                                                        <p><strong>状态：</strong>{{ log.status }}</p>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <p><strong>创建时间：</strong>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '-' }}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <p><strong>执行结果：</strong></p>
+                                                    <pre class="bg-light p-3 rounded">{{ log.result or '无' }}</pre>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 分页 -->
+                    {% if pagination.pages > 1 %}
+                    <nav class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% for p in range(1, pagination.pages + 1) %}
+                            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('admin.template_logs', page=p) }}">{{ p }}</a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-clock-history" style="font-size: 3rem; color: var(--color-text-muted);"></i>
+                        <p class="text-muted mt-3">暂无日志记录</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
