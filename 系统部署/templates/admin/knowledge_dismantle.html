@@ -196,14 +196,11 @@
                     <div id="result-content" class="d-none">
                         <!-- 基本信息 -->
                         <div class="mb-2">
-                            <h6 class="text-muted mb-2">
-                                <i class="bi bi-info-circle me-1"></i>基本信息
-                            </h6>
                             <div class="row g-2">
                                 <div class="col-6">
                                     <div class="p-2 bg-light rounded">
-                                        <div class="small text-muted">标题</div>
-                                        <div class="fw-medium text-truncate" id="result-title">-</div>
+                                        <div class="small text-muted">粉丝数</div>
+                                        <div class="fw-medium" id="result-title">-</div>
                                     </div>
                                 </div>
                                 <div class="col-6">
@@ -305,18 +302,28 @@
     justify-content: center;
 }
 
-.nav-tabs .nav-link {
+.nav-tabs .nav-link,
+.nav-pills .nav-link {
     border: none;
     border-bottom: 2px solid transparent;
     color: #6c757d;
+    background: transparent;
+    border-radius: 0;
+    padding: 0.45rem 0.75rem;
+    transition: all 0.15s ease;
 }
 
-.nav-tabs .nav-link.active {
+.nav-tabs .nav-link.active,
+.nav-pills .nav-link.active {
     border-bottom-color: #0d6efd;
     color: #0d6efd;
+    background: transparent;
+    font-weight: 600;
+    box-shadow: none;
 }
 
-.nav-tabs .nav-link:disabled {
+.nav-tabs .nav-link:disabled,
+.nav-pills .nav-link:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
@@ -2002,7 +2009,7 @@ function displayAccountAnalysisResult(accountInfo) {
     document.getElementById('result-content').classList.remove('d-none');
     document.getElementById('result-actions').classList.remove('d-none');
 
-    document.getElementById('result-title').textContent = '账号分析';
+    document.getElementById('result-title').textContent = accountInfo.fans_count || accountInfo.current_data?.followers || accountInfo.current_data?.fans_count || '-';
     document.getElementById('result-author').textContent = accountInfo.account_name || accountInfo.nickname || accountInfo.name || '-';
 
     const resultsContainer = document.getElementById('analysis-results');
@@ -2035,19 +2042,18 @@ function displayAccountAnalysisResult(accountInfo) {
     }
 
     const homepageLink = accountInfo.url || accountInfo.account_url;
+    // 详细信息Tab - 显示新增账号时填写的详细信息字段
     const tabBasic = `
         <div class="row g-2">
-            ${renderFieldCard('昵称', accountInfo.account_name || accountInfo.nickname || accountInfo.name, 'col-6')}
-            ${renderFieldCard('粉丝数', accountInfo.fans_count || accountInfo.current_data?.followers || accountInfo.current_data?.fans_count, 'col-6')}
-            ${renderFieldCard('主页链接', homepageLink ? `<a href="${homepageLink}" target="_blank">${homepageLink}</a>` : '-', 'col-6')}
-            ${renderFieldCard('简介', accountInfo.bio || accountInfo.current_data?.bio, 'col-6')}
-            ${accountInfo.avatar_description ? `
-            <div class="col-12">
-                <div class="p-2 border rounded">
-                    <div class="small text-muted">头像描述</div>
-                    <div class="fw-medium">${formatFieldValue(accountInfo.avatar_description)}</div>
-                </div>
-            </div>` : ''}
+            ${renderFieldCard('业务类型', accountInfo.business_type, 'col-6')}
+            ${renderFieldCard('产品类型', accountInfo.product_type, 'col-6')}
+            ${renderFieldCard('服务类型', accountInfo.service_type, 'col-6')}
+            ${renderFieldCard('地域范围', accountInfo.service_range, 'col-6')}
+            ${renderFieldCard('目标地区', accountInfo.target_area, 'col-6')}
+            ${renderFieldCard('品牌定位', accountInfo.brand_type, 'col-6')}
+            ${renderFieldCard('语言风格', accountInfo.language_style, 'col-6')}
+            ${renderFieldCard('目标用户', accountInfo.target_user, 'col-6')}
+            ${renderFieldCard('主营业务', accountInfo.main_product, 'col-12')}
         </div>
     `;
 
@@ -2114,13 +2120,6 @@ function displayAccountAnalysisResult(accountInfo) {
         </div>
     `;
 
-    const contentForm = contentAnalysis.content_form || contentAnalysis.form_type || accountInfo.content_form;
-    const videoStyle = contentAnalysis.visual_style || contentAnalysis.content_style || accountInfo.video_style;
-    const topicContent = contentAnalysis.topic_distribution?.topic_details || contentAnalysis.topic_distribution || accountInfo.topic_content;
-    const dailyOperation = contentAnalysis.content_monetization_relation || accountInfo.daily_operation;
-    const updateFrequency = accountInfo.update_frequency || contentAnalysis.update_frequency;
-    const contentStrategyDetail = contentAnalysis.strategy_details || contentAnalysis.content_strategy_detail || accountInfo.content_strategy;
-
     // 内容布局比例
     const persona = accountInfo.content_persona || 0;
     const topic = accountInfo.content_topic || 0;
@@ -2162,18 +2161,9 @@ function displayAccountAnalysisResult(accountInfo) {
         `;
     }
 
-    const contentSections = [
-        { label: '人设IP类型', value: personaDetail },
-        { label: '主题内容', value: topicContent },
-        { label: '日常运营', value: dailyOperation },
-        { label: '内容形式', value: contentForm },
-        { label: '视频风格', value: videoStyle },
-        { label: '更新频率', value: updateFrequency },
-        { label: '内容策略详情', value: contentStrategyDetail }
-    ];
+    // 内容布局Tab - 只显示占比数量和比例条
     const tabContentLayout = `
         <div class="row g-2">
-            ${contentSections.map(section => renderFieldCard(section.label, section.value, 'col-12 col-md-6')).join('')}
             <div class="col-12">
                 ${contentLayoutChart}
             </div>
@@ -2185,7 +2175,7 @@ function displayAccountAnalysisResult(accountInfo) {
         <ul class="nav nav-tabs mb-3" id="accountAnalysisTabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="tab-basic-tab" data-bs-toggle="tab" data-bs-target="#tab-basic" type="button" role="tab">
-                    <i class="bi bi-person me-1"></i>基本信息
+                    <i class="bi bi-card-list me-1"></i>详细信息
                 </button>
             </li>
             <li class="nav-item" role="presentation">
