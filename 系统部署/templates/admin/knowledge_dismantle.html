@@ -197,16 +197,22 @@
                         <!-- 基本信息 -->
                         <div class="mb-2">
                             <div class="row g-2">
-                                <div class="col-6">
+                                <div class="col-4">
+                                    <div class="p-2 bg-light rounded">
+                                        <div class="small text-muted">昵称</div>
+                                        <div class="fw-medium" id="result-author">-</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
                                     <div class="p-2 bg-light rounded">
                                         <div class="small text-muted">粉丝数</div>
                                         <div class="fw-medium" id="result-title">-</div>
                                     </div>
                                 </div>
-                                <div class="col-6">
+                                <div class="col-4">
                                     <div class="p-2 bg-light rounded">
-                                        <div class="small text-muted">账号</div>
-                                        <div class="fw-medium" id="result-author">-</div>
+                                        <div class="small text-muted">简介</div>
+                                        <div class="fw-medium text-truncate" id="result-bio">-</div>
                                     </div>
                                 </div>
                             </div>
@@ -2011,6 +2017,7 @@ function displayAccountAnalysisResult(accountInfo) {
 
     document.getElementById('result-title').textContent = accountInfo.fans_count || accountInfo.current_data?.followers || accountInfo.current_data?.fans_count || '-';
     document.getElementById('result-author').textContent = accountInfo.account_name || accountInfo.nickname || accountInfo.name || '-';
+    document.getElementById('result-bio').textContent = accountInfo.bio || accountInfo.current_data?.bio || '-';
 
     const resultsContainer = document.getElementById('analysis-results');
 
@@ -2229,8 +2236,9 @@ function displayAnalysisResult(result) {
     document.getElementById('result-actions').classList.remove('d-none');
 
     // 基本信息
-    document.getElementById('result-title').textContent = result.title || '-';
+    document.getElementById('result-title').textContent = result.fans_count || result.fans || '-';
     document.getElementById('result-author').textContent = result.author || currentAccount?.name || '-';
+    document.getElementById('result-bio').textContent = result.bio || '-';
 
     // 清空之前的分析结果
     const resultsContainer = document.getElementById('analysis-results');
