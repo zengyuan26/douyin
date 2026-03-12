@@ -2283,6 +2283,158 @@ def build_account_analysis_prompt(url, account_info_text=""):
 
 # ========== 账号分析各模块独立提示词构建函数 ==========
 
+
+def build_account_profile_from_manual_prompt(account_data):
+    """根据手动录入的账号信息构建目标客户画像和关键词布局
+
+    Args:
+        account_data: 手动录入的账号信息字典
+            - name: 账号名称
+            - platform: 平台
+            - url: 主页链接
+            - business_type: 业务类型（卖货类/服务类/两者都有）
+            - product_type: 产品类型（实物商品/批发供应链/其他）
+            - service_type: 服务类型（本地生活/线上专业/知识付费/其他）
+            - service_range: 地域范围（本地/跨区域/全球）
+            - target_area: 具体城市/区域
+            - brand_type: 品牌定位（个人IP/企业品牌/两者兼顾）
+            - language_style: 语言风格（普通话/方言）
+            - main_product: 主营业务（含占比）
+            - target_user: 目标用户（付费者/使用者）
+    """
+    name = account_data.get('name', '')
+    platform = account_data.get('platform', '')
+    business_type = account_data.get('business_type', '')
+    product_type = account_data.get('product_type', '')
+    service_type = account_data.get('service_type', '')
+    service_range = account_data.get('service_range', '')
+    target_area = account_data.get('target_area', '')
+    brand_type = account_data.get('brand_type', '')
+    language_style = account_data.get('language_style', '')
+    main_product = account_data.get('main_product', '')
+    target_user = account_data.get('target_user', '')
+
+    # 构建业务描述
+    business_desc = []
+    if business_type:
+        business_desc.append(f"业务类型: {business_type}")
+    if product_type:
+        business_desc.append(f"产品类型: {product_type}")
+    if service_type:
+        business_desc.append(f"服务类型: {service_type}")
+    if service_range:
+        business_desc.append(f"地域范围: {service_range}")
+    if target_area:
+        business_desc.append(f"目标区域: {target_area}")
+    if main_product:
+        business_desc.append(f"主营业务: {main_product}")
+
+    business_info = '\n'.join([f"- {item}" for item in business_desc if item]) if business_desc else "未填写"
+
+    prompt = f"""你是一个资深的账号运营专家。请根据以下手动录入的账号信息，分析目标客户画像和关键词布局。
+
+## 账号基本信息
+- 账号名称: {name}
+- 平台: {platform}
+- 主页链接: {account_data.get('url', '未填写')}
+
+## 业务信息
+{business_info}
+
+## 目标用户类型: {target_user or '未填写'}
+## 品牌定位: {brand_type or '未填写'}
+## 语言风格: {language_style or '未填写'}
+
+---
+
+## 分析任务
+
+### 1. 目标客户画像分析
+基于上述业务信息，分析该账号的目标客户画像：
+- 年龄阶段：目标客户大概什么年龄段
+- 性别比例：主要客户性别
+- 职业/身份：客户主要是做什么的
+- 消费能力：客户的消费水平
+- 地域分布：客户主要分布在哪些地区
+- 客户痛点：目标客户有什么痛点或需求
+- 使用场景：客户在什么场景下会需要这个产品/服务
+
+### 2. 关键词布局分析
+基于业务信息，推测应该布局的关键词：
+
+#### 2.1 核心关键词（1-3个最主要的流量/转化关键词）
+根据核心业务确定，如：桶装水、定制水、矿泉水
+
+#### 2.2 产品关键词
+与销售产品直接相关的关键词：
+- 行业词：行业通用关键词
+- 品名词：具体产品名称
+- 品牌词：品牌相关关键词
+
+#### 2.3 流量关键词
+用于获取流量的关键词：
+- 地域词：地域相关关键词（如：{target_area or '根据地域范围'}）
+- 用途词：产品功能/用途相关关键词
+- 属性词：产品属性描述词（颜色、材质、规格等）
+- 场景词：使用场景相关关键词
+
+#### 2.4 转化关键词
+促进成交的关键词：
+- 价格词：价格相关
+- 促销词：优惠活动相关
+- 口碑词：口碑评价相关
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出：
+
+```json
+{{
+    "target_audience": {{
+        "age_range": "目标客户年龄阶段",
+        "gender_ratio": "性别比例",
+        "occupation": "职业/身份",
+        "consumption_level": "消费能力",
+        "region": "地域分布",
+        "pain_points": ["客户痛点1", "客户痛点2"],
+        "needs": ["客户需求1", "客户需求2"],
+        "usage_scenes": ["使用场景1", "使用场景2"]
+    }},
+
+    "keyword_layout": {{
+        "core_keywords": ["核心关键词1", "核心关键词2", "核心关键词3"],
+        "product_keywords": {{
+            "industry_keywords": ["行业词1", "行业词2"],
+            "product_name_keywords": ["品名词1", "品名词2"],
+            "brand_keywords": ["品牌词1", "品牌词2"]
+        }},
+        "traffic_keywords": {{
+            "region_keywords": ["地域词1", "地域词2"],
+            "usage_keywords": ["用途词1", "用途词2"],
+            "attribute_keywords": ["属性词1", "属性词2"],
+            "scene_keywords": ["场景词1", "场景词2"]
+        }},
+        "conversion_keywords": {{
+            "price_keywords": ["价格词1", "价格词2"],
+            "promotion_keywords": ["促销词1", "促销词2"],
+            "reputation_keywords": ["口碑词1", "口碑词2"]
+        }}
+    }},
+
+    "reasoning": "根据业务信息推导关键词的逻辑说明"
+}}
+```
+
+注意：
+1. 核心关键词应该直接与业务相关，如卖奶粉则核心关键词应包含"奶粉"相关
+2. 地域范围如果是"跨区域"，则地域词可以留空或填"全国"
+3. 关键词要具有实际搜索价值和转化价值
+4. 如果某些关键词类型不适用，可以为空数组但字段必须存在"""
+    return prompt
+
+
 def build_account_commercial_prompt(url):
     """构建商业定位分析提示词"""
     prompt = f"""你是一个资深的账号运营分析专家。请分析以下抖音账号的商业定位。
@@ -4534,15 +4686,15 @@ def create_account():
     """创建账号"""
     try:
         data = request.get_json()
-        
+
         name = data.get('name', '').strip()
         platform = data.get('platform', '').strip()
         url = data.get('url', '').strip()
         current_data = data.get('current_data', {})
-        
+
         if not name:
             return jsonify({'code': 400, 'message': '请输入账号名称'})
-        
+
         # 创建账号
         account = KnowledgeAccount(
             name=name,
@@ -4566,22 +4718,85 @@ def create_account():
             content_daily=data.get('content_daily', 0)
         )
         db.session.add(account)
-        
+
         # 同时创建历史记录
         history = KnowledgeAccountHistory(
             account_id=None,  # 先设为 None，之后更新
             data=current_data,
             change_note='初始创建'
         )
-        
+
         db.session.flush()  # 获取 account.id
-        
+
         history.account_id = account.id
         db.session.add(history)
-        
+
+        # 检查是否有足够的业务信息用于 LLM 分析
+        has_business_info = any([
+            data.get('business_type'),
+            data.get('product_type'),
+            data.get('service_type'),
+            data.get('main_product')
+        ])
+
+        # 如果有业务信息，调用 LLM 分析目标客户画像和关键词布局
+        llm_analysis_result = None
+        if has_business_info:
+            try:
+                # 构建提示词
+                account_data_for_analysis = {
+                    'name': name,
+                    'platform': platform,
+                    'url': url,
+                    'business_type': data.get('business_type'),
+                    'product_type': data.get('product_type'),
+                    'service_type': data.get('service_type'),
+                    'service_range': data.get('service_range'),
+                    'target_area': data.get('target_area'),
+                    'brand_type': data.get('brand_type'),
+                    'language_style': data.get('language_style'),
+                    'main_product': data.get('main_product'),
+                    'target_user': data.get('target_user')
+                }
+                prompt = build_account_profile_from_manual_prompt(account_data_for_analysis)
+
+                # 调用 LLM
+                llm_service = get_llm_service()
+                if llm_service:
+                    messages = [
+                        {"role": "system", "content": "你是一个专业的账号运营专家，擅长分析目标客户画像和关键词布局。请严格按照JSON格式输出分析结果。"},
+                        {"role": "user", "content": prompt}
+                    ]
+                    result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
+
+                    if result_text:
+                        try:
+                            llm_analysis_result = parse_llm_json(result_text)
+                            logger.info(f"[create_account] LLM分析成功，账号: {name}")
+
+                            # 将分析结果保存到账号记录
+                            if 'target_audience' in llm_analysis_result:
+                                account.target_audience = llm_analysis_result['target_audience']
+
+                            if 'keyword_layout' in llm_analysis_result:
+                                # 保存核心关键词
+                                core_keywords = llm_analysis_result['keyword_layout'].get('core_keywords', [])
+                                if core_keywords:
+                                    account.core_keywords = core_keywords
+
+                                # 保存完整关键词布局到 analysis_result
+                                current_analysis = account.analysis_result or {}
+                                current_analysis['keyword_layout'] = llm_analysis_result['keyword_layout']
+                                account.analysis_result = current_analysis
+
+                        except Exception as e:
+                            logger.error(f"[create_account] 解析LLM结果失败: {e}")
+            except Exception as e:
+                logger.error(f"[create_account] LLM调用失败: {e}")
+
         db.session.commit()
-        
-        return jsonify({
+
+        return_json = {
             'code': 200,
             'message': '创建成功',
             'data': {
@@ -4590,9 +4805,17 @@ def create_account():
                 'platform': account.platform,
                 'url': account.url,
                 'current_data': account.current_data,
-                'status': account.status
+                'status': account.status,
+                'target_audience': account.target_audience,
+                'core_keywords': account.core_keywords
             }
-        })
+        }
+
+        # 如果有 LLM 分析结果，也在返回中体现
+        if llm_analysis_result:
+            return_json['data']['llm_analysis'] = llm_analysis_result
+
+        return jsonify(return_json)
     except Exception as e:
         db.session.rollback()
         logger.error(f"创建账号失败: {e}", exc_info=True)
