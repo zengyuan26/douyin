@@ -520,19 +520,19 @@
 
 <!-- 查看账号详情模态框 -->
 <div class="modal fade" id="accountDetailModal" tabindex="-1" aria-labelledby="accountDetailModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 1000px; margin: 1.75rem auto;">
+    <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 800px;">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="accountDetailModalLabel">账号详情</h5>
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="accountDetailModalLabel">账号详情</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-2">
                 <div id="account-detail-content">
                     <div class="text-center py-4">加载中...</div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">关闭</button>
             </div>
         </div>
     </div>
@@ -549,6 +549,24 @@ const ACCOUNT_HISTORY_KEY = 'dismantle_account_history';
 const ACCOUNT_HISTORY_MAX = 10;
 const HISTORY_PAGE_SIZE = 10;
 let historyCurrentPage = 1;
+
+// 格式化工具函数 - 全局
+function formatFieldValue(fieldValue) {
+    if (!fieldValue) return '-';
+    if (typeof fieldValue === 'object') {
+        if (Array.isArray(fieldValue)) {
+            return fieldValue.map(item => {
+                if (typeof item === 'object') {
+                    return Object.entries(item).map(([k, v]) => `${k}: ${v}`).join('<br>');
+                }
+                return item;
+            }).join('<br>');
+        } else {
+            return Object.entries(fieldValue).map(([k, v]) => `<strong>${k}:</strong> ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('<br>');
+        }
+    }
+    return fieldValue;
+}
 
 // Tab 元素
 const accountTab = document.getElementById('account-tab');
@@ -574,7 +592,21 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // 加载默认分析维度（自动加载所有启用维度）
+let analysisDimensionGroups = []; // 存储二级分类分组数据
+
 function loadDefaultAnalysisDimensions() {
+    // 先尝试从API获取分组数据
+    fetch('/admin/api/analysis-dimensions/grouped')
+        .then(res => res.json())
+        .then(result => {
+            if (result.success && result.data && result.data.length > 0) {
+                analysisDimensionGroups = result.data;
+            }
+        })
+        .catch(err => {
+            console.warn('获取分析维度分组失败，使用默认:', err);
+        });
+
     const defaultDimensions = [
         { code: 'title', name: '标题', category: 'content', is_active: true },
         { code: 'cover', name: '封面', category: 'content', is_active: true },
@@ -1274,9 +1306,6 @@ async function loadAccountsList() {
                                         <div onclick="event.stopPropagation()">
                                             <button class="btn btn-sm btn-outline-primary me-1" onclick="switchToAccount(${acc.id})" title="切换账号">
                                                 <i class="bi bi-arrow-repeat"></i> 切换账号
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-success me-1" onclick="analyzeAccountProfile(${acc.id})" title="分析目标人群和关键词">
-                                                <i class="bi bi-graph-up"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-primary me-1" onclick="editAccount(${acc.id})" title="编辑">
                                                 <i class="bi bi-pencil"></i>
@@ -2033,6 +2062,36 @@ async function triggerAccountAnalysisAsync(accountId) {
     }
 }
 
+// 触发账号二级分类分析（评分+公式）
+async function triggerSubCategoryAnalysis(event, accountId) {
+    try {
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>分析中...';
+
+        const response = await fetch(`/api/knowledge/accounts/${accountId}/analyze-sub-categories`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+
+        if (data.code === 200) {
+            alert('分析已触发，请稍后刷新查看结果');
+            // 刷新当前账号数据
+            selectAccount(accountId);
+        } else {
+            alert(data.message || '分析失败');
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    } catch (e) {
+        alert('分析失败: ' + e.message);
+        event.target.disabled = false;
+    }
+}
+
 // 轮询账号分析结果（后台 LLM 分析完成后更新前台数据）
 function startAccountAnalysisPolling(accountId) {
     if (accountAnalysisPollTimer) clearInterval(accountAnalysisPollTimer);
@@ -2273,51 +2332,346 @@ function displayAccountAnalysisResult(accountInfo) {
     // 清空之前的分析结果，显示账号信息
     const resultsContainer = document.getElementById('analysis-results');
 
-    // 格式化工具函数
-    function formatFieldValue(fieldValue) {
-        if (!fieldValue) return '-';
-        if (typeof fieldValue === 'object') {
-            if (Array.isArray(fieldValue)) {
-                return fieldValue.map(item => {
-                    if (typeof item === 'object') {
-                        return Object.entries(item).map(([k, v]) => `${k}: ${v}`).join('<br>');
-                    }
-                    return item;
-                }).join('<br>');
-            } else {
-                return Object.entries(fieldValue).map(([k, v]) => `<strong>${k}:</strong> ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('<br>');
-            }
+    // 每次都从接口获取最新的二级分类数据，确保与分析维度管理同步
+    fetch('/admin/api/analysis-dimensions/grouped', { cache: 'no-store' })
+        .then(res => res.json())
+        .then(result => {
+            const allGroups = (result.success && result.data && result.data.length > 0) ? result.data : getDefaultSubCategories();
+            const allSubCategories = allGroups.filter(g => (g.category || 'account') === 'account');
+            renderAccountAnalysisTabs(accountInfo, allSubCategories);
+        })
+        .catch(err => {
+            console.warn('获取分析维度分组失败，使用默认:', err);
+            const allSubCategories = getDefaultSubCategories().filter(g => g.category === 'account');
+            renderAccountAnalysisTabs(accountInfo, allSubCategories);
+        });
+}
+
+// 渲染账号分析Tab（抽取出来以便复用）
+function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
+    const resultsContainer = document.getElementById('analysis-results');
+    const subCategoryAnalysis = accountInfo.analysis_result?.sub_category_analysis || {};
+
+    // 构建Tab导航
+    let tabsHtml = '';
+    let firstTabId = '';
+    allSubCategories.forEach((group, index) => {
+        const subCat = group.sub_category;
+        const subName = group.sub_category_name || subCat;
+        const tabId = `tab-${subCat}`;
+        if (index === 0) firstTabId = tabId;
+
+        // 检查该分类下是否有数据
+        const hasData = subCategoryAnalysis[subCat] && Object.keys(subCategoryAnalysis[subCat]).length > 0;
+        const activeClass = index === 0 ? 'active' : '';
+
+        tabsHtml += `
+            <li class="nav-item" role="presentation">
+                <button class="nav-link ${activeClass}" id="${tabId}-tab" data-bs-toggle="tab" data-bs-target="#${tabId}" type="button" role="tab">
+                    ${hasData ? '<i class="bi bi-check-circle text-success me-1"></i>' : ''}${subName}
+                </button>
+            </li>
+        `;
+    });
+
+    // 构建Tab内容
+    let tabContentHtml = '';
+    allSubCategories.forEach((group, index) => {
+        const subCat = group.sub_category;
+        const tabId = `tab-${subCat}`;
+        const activeClass = index === 0 ? 'show active' : '';
+
+        // 获取该分类下的维度列表
+        const dimensions = group.dimensions || [];
+
+        // 获取分析数据
+        const analysisData = subCategoryAnalysis[subCat] || {};
+
+        // 根据不同二级分类构建不同内容
+        let contentHtml = '';
+        if (subCat === 'nickname_analysis') {
+            contentHtml = renderNicknameAnalysis(analysisData, accountInfo);
+        } else if (subCat === 'bio_analysis') {
+            contentHtml = renderBioAnalysis(analysisData, accountInfo);
+        } else if (subCat === 'account_positioning') {
+            contentHtml = renderAccountPositioning(accountInfo);
+        } else if (subCat === 'market_analysis') {
+            contentHtml = renderMarketAnalysis(analysisData);
+        } else if (subCat === 'keyword_library') {
+            contentHtml = renderKeywordLibrary(accountInfo);
+        } else if (subCat === 'operation_planning') {
+            contentHtml = renderOperationPlanning(analysisData);
+        } else if (subCat === 'title') {
+            contentHtml = renderTitleAnalysis(analysisData);
+        } else if (subCat === 'hook') {
+            contentHtml = renderHookAnalysis(analysisData);
+        } else if (subCat === 'content_body') {
+            contentHtml = renderContentBodyAnalysis(analysisData);
+        } else if (subCat === 'visual_design') {
+            contentHtml = renderVisualDesignAnalysis(analysisData);
+        } else if (subCat === 'ending') {
+            contentHtml = renderEndingAnalysis(analysisData);
+        } else if (subCat === 'applicable_scenario') {
+            contentHtml = renderApplicableScenario(analysisData);
+        } else if (subCat === 'applicable_audience') {
+            contentHtml = renderApplicableAudience(analysisData);
+        } else {
+            // 默认渲染方式
+            contentHtml = renderGenericAnalysis(analysisData, dimensions);
         }
-        return fieldValue;
+
+        tabContentHtml += `
+            <div class="tab-pane fade ${activeClass}" id="${tabId}" role="tabpanel">
+                ${contentHtml}
+            </div>
+        `;
+    });
+
+    // 构建完整HTML
+    let html = `
+        <!-- 账号分析 Tab 导航 -->
+        <ul class="nav nav-tabs nav-sm mb-2" id="accountAnalysisTabs" role="tablist">
+            ${tabsHtml}
+        </ul>
+
+        <!-- Tab 内容 -->
+        <div class="tab-content" id="accountAnalysisTabContent">
+            ${tabContentHtml}
+        </div>
+    `;
+
+    resultsContainer.innerHTML = html;
+}
+
+// 默认二级分类（备用）
+function getDefaultSubCategories() {
+    return [
+        { sub_category: 'nickname_analysis', sub_category_name: '昵称分析', category: 'account', dimensions: [] },
+        { sub_category: 'bio_analysis', sub_category_name: '简介分析', category: 'account', dimensions: [] },
+        { sub_category: 'account_positioning', sub_category_name: '账号定位', category: 'account', dimensions: [] },
+        { sub_category: 'market_analysis', sub_category_name: '市场分析', category: 'account', dimensions: [] },
+        { sub_category: 'keyword_library', sub_category_name: '关键词库', category: 'account', dimensions: [] },
+        { sub_category: 'operation_planning', sub_category_name: '运营规划', category: 'account', dimensions: [] },
+        { sub_category: 'title', sub_category_name: '标题', category: 'content', dimensions: [] },
+        { sub_category: 'hook', sub_category_name: '开头钩子', category: 'content', dimensions: [] },
+        { sub_category: 'content_body', sub_category_name: '内容', category: 'content', dimensions: [] },
+        { sub_category: 'visual_design', sub_category_name: '视觉设计', category: 'content', dimensions: [] },
+        { sub_category: 'ending', sub_category_name: '结尾', category: 'content', dimensions: [] },
+        { sub_category: 'applicable_scenario', sub_category_name: '适用场景', category: 'methodology', dimensions: [] },
+        { sub_category: 'applicable_audience', sub_category_name: '适用人群', category: 'methodology', dimensions: [] },
+    ];
+}
+
+// 渲染昵称分析
+function renderNicknameAnalysis(data, accountInfo) {
+    const nickname = accountInfo.name || accountInfo.nickname || '-';
+    return `
+        <div class="p-2 bg-light rounded mb-2">
+            <div class="small text-muted">账号昵称</div>
+            <div class="fw-medium">${nickname}</div>
+        </div>
+        <div class="row g-2">
+            ${renderDimensionCards(data, 'nickname')}
+        </div>
+    `;
+}
+
+// 渲染简介分析
+function renderBioAnalysis(data, accountInfo) {
+    const bio = accountInfo.bio || accountInfo.current_data?.bio || '-';
+    return `
+        <div class="p-2 bg-light rounded mb-2">
+            <div class="small text-muted">账号简介</div>
+            <div class="fw-medium small">${bio}</div>
+        </div>
+        <div class="row g-2">
+            ${renderDimensionCards(data, 'bio')}
+        </div>
+    `;
+}
+
+// 渲染账号定位
+function renderAccountPositioning(accountInfo) {
+    return `
+        <div class="row g-2">
+            <div class="col-6">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">核心业务</div>
+                    <div class="fw-medium small">${formatFieldValue(accountInfo.core_business || '-')}</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">账号定位</div>
+                    <div class="fw-medium small">${formatFieldValue(accountInfo.account_positioning || '-')}</div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">核心关键词</div>
+                    <div class="fw-medium small">${(accountInfo.core_keywords || []).length ? (accountInfo.core_keywords || []).join('、') : '-'}</div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">内容策略</div>
+                    <div class="small">${renderContentStrategy(accountInfo.content_strategy)}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 渲染内容策略
+function renderContentStrategy(strategy) {
+    if (!strategy) return '-';
+    const items = [];
+    for (const [key, value] of Object.entries(strategy)) {
+        items.push(`<span class="badge bg-light text-dark">${key}: ${value}</span>`);
+    }
+    return items.join(' ');
+}
+
+// 渲染市场分析
+function renderMarketAnalysis(data) {
+    return `<div class="row g-2">${renderDimensionCards(data, 'market')}</div>`;
+}
+
+// 渲染关键词库（纯文本显示，无色块）
+function renderKeywordLibrary(accountInfo) {
+    const kwData = accountInfo.analysis_result?.keyword_layout || {};
+    const fmt = arr => (arr && arr.length ? arr.join('、') : '-');
+    return `
+        <div class="row g-2">
+            <div class="col-6">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">核心关键词</div>
+                    <div class="fw-medium small">${fmt(accountInfo.core_keywords || kwData.core_keywords)}</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">行业关键词</div>
+                    <div class="fw-medium small">${fmt(kwData.product_keywords?.industry_keywords)}</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">流量关键词</div>
+                    <div class="fw-medium small">${fmt(kwData.traffic_keywords?.scene_keywords)}</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">转化关键词</div>
+                    <div class="fw-medium small">${fmt(kwData.conversion_keywords?.price_keywords)}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 渲染运营规划
+function renderOperationPlanning(data) {
+    return `<div class="row g-2">${renderDimensionCards(data, 'operation')}</div>`;
+}
+
+// 渲染标题分析
+function renderTitleAnalysis(data) {
+    return `<div class="row g-2">${renderDimensionCards(data, 'title')}</div>`;
+}
+
+// 渲染开头钩子
+function renderHookAnalysis(data) {
+    return `<div class="row g-2">${renderDimensionCards(data, 'hook')}</div>`;
+}
+
+// 渲染内容分析
+function renderContentBodyAnalysis(data) {
+    return `<div class="row g-2">${renderDimensionCards(data, 'content')}</div>`;
+}
+
+// 渲染视觉设计
+function renderVisualDesignAnalysis(data) {
+    return `<div class="row g-2">${renderDimensionCards(data, 'visual')}</div>`;
+}
+
+// 渲染结尾分析
+function renderEndingAnalysis(data) {
+    return `<div class="row g-2">${renderDimensionCards(data, 'ending')}</div>`;
+}
+
+// 渲染适用场景
+function renderApplicableScenario(data) {
+    return `<div class="row g-2">${renderDimensionCards(data, 'scenario')}</div>`;
+}
+
+// 渲染适用人群
+function renderApplicableAudience(data) {
+    return `<div class="row g-2">${renderDimensionCards(data, 'audience')}</div>`;
+}
+
+// 通用渲染函数
+function renderGenericAnalysis(data, dimensions) {
+    if (!data || Object.keys(data).length === 0) {
+        return '<div class="text-muted p-3">暂无分析数据</div>';
+    }
+    return `<div class="row g-2">${renderDimensionCards(data, '')}</div>`;
+}
+
+// 渲染维度卡片
+function renderDimensionCards(data, prefix) {
+    if (!data || Object.keys(data).length === 0) {
+        return '<div class="col-12"><div class="text-muted small p-2">暂无分析数据</div></div>';
     }
 
-    // 构建 Tab 内容
+    let html = '';
+    for (const [key, value] of Object.entries(data)) {
+        if (value === null || value === undefined || value === '') continue;
+
+        let displayValue = value;
+        if (typeof value === 'object') {
+            displayValue = JSON.stringify(value);
+        }
+
+        html += `
+            <div class="col-6">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">${key}</div>
+                    <div class="fw-medium small">${displayValue}</div>
+                </div>
+            </div>
+        `;
+    }
+    return html || '<div class="col-12"><div class="text-muted small p-2">暂无分析数据</div></div>';
+}
+
     const tabPanes = {
         // Tab1: 基础信息
         'tab-basic': `
             <div class="row g-1">
                 <div class="col-4">
-                    <div class="p-1 bg-light rounded">
+                    <div class="p-2 bg-light rounded">
                         <div class="small text-muted">昵称</div>
                         <div class="fw-medium small">${accountInfo.account_name || accountInfo.nickname || accountInfo.name || '-'}</div>
                     </div>
                 </div>
                 <div class="col-4">
-                    <div class="p-1 bg-light rounded">
+                    <div class="p-2 bg-light rounded">
                         <div class="small text-muted">粉丝数</div>
                         <div class="fw-medium small">${accountInfo.fans_count || accountInfo.current_data?.followers || accountInfo.current_data?.fans_count || '-'}</div>
                     </div>
                 </div>
                 <div class="col-4">
-                    <div class="p-1 bg-light rounded">
-                        <div class="small text-muted">主页链接</div>
-                        <div class="fw-medium small text-truncate"><a href="${accountInfo.url || accountInfo.account_url || '#'}" target="_blank">${accountInfo.url || accountInfo.account_url || '-'}</a></div>
+                    <div class="p-2 bg-light rounded">
+                        <div class="small text-muted">平台</div>
+                        <div class="fw-medium small">${accountInfo.platform || '-'}</div>
                     </div>
                 </div>
                 <div class="col-12">
                     <div class="p-2 bg-light rounded">
                         <div class="small text-muted">简介</div>
-                        <div class="fw-medium small" style="min-height: 40px;">${accountInfo.bio || accountInfo.current_data?.bio || '-'}</div>
+                        <div class="fw-medium small" style="min-height: 36px;">${accountInfo.bio || accountInfo.current_data?.bio || '-'}</div>
                     </div>
                 </div>
             </div>
@@ -2327,55 +2681,55 @@ function displayAccountAnalysisResult(accountInfo) {
         'tab-detail': `
             <div class="row g-1">
                 <div class="col-6">
-                    <div class="p-1 border rounded">
+                    <div class="p-2 border rounded">
                         <div class="small text-muted">业务类型</div>
                         <div class="fw-medium small">${formatFieldValue(accountInfo.business_type || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="p-1 border rounded">
+                    <div class="p-2 border rounded">
                         <div class="small text-muted">产品类型</div>
                         <div class="fw-medium small">${formatFieldValue(accountInfo.product_type || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="p-1 border rounded">
+                    <div class="p-2 border rounded">
                         <div class="small text-muted">服务类型</div>
                         <div class="fw-medium small">${formatFieldValue(accountInfo.service_type || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="p-1 border rounded">
+                    <div class="p-2 border rounded">
                         <div class="small text-muted">地域范围</div>
                         <div class="fw-medium small">${formatFieldValue(accountInfo.service_range || accountInfo.region_scope || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="p-1 border rounded">
+                    <div class="p-2 border rounded">
                         <div class="small text-muted">目标地区</div>
                         <div class="fw-medium small">${formatFieldValue(accountInfo.target_area || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="p-1 border rounded">
+                    <div class="p-2 border rounded">
                         <div class="small text-muted">品牌定位</div>
                         <div class="fw-medium small">${formatFieldValue(accountInfo.brand_type || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="p-1 border rounded">
+                    <div class="p-2 border rounded">
                         <div class="small text-muted">语言风格</div>
                         <div class="fw-medium small">${formatFieldValue(accountInfo.language_style || '-')}</div>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="p-1 border rounded">
+                    <div class="p-2 border rounded">
                         <div class="small text-muted">目标用户</div>
                         <div class="fw-medium small">${formatFieldValue(accountInfo.target_user || '-')}</div>
                     </div>
                 </div>
                 <div class="col-12">
-                    <div class="p-1 border rounded">
+                    <div class="p-2 border rounded">
                         <div class="small text-muted">主营业务</div>
                         <div class="fw-medium small">${formatFieldValue(accountInfo.main_product || '-')}</div>
                     </div>
@@ -2385,169 +2739,13 @@ function displayAccountAnalysisResult(accountInfo) {
 
         // Tab3: 内容布局
         'tab-content': `
-            <div class="row g-1">
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">商业定位</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.business_type || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">核心业务</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.main_product || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">业务类型</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.product_type || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">地域范围</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.service_range || '-')}</div>
-                    </div>
-                </div>
-            </div>
-        `,
-
-        // Tab4: 目标人群画像
-        'tab-audience': `
-            <div class="row g-1">
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">年龄阶段</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.age_range || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">性别比例</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.gender_ratio || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">职业/身份</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.occupation || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">消费能力</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.consumption_level || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">地域分布</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.region || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">客户痛点</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.pain_points || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">客户需求</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.needs || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">使用场景</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.usage_scenes || '-')}</div>
-                    </div>
-                </div>
-            </div>
-        `,
-
-        // Tab4: 关键词布局
-        'tab-keywords': `
-            <div class="row g-1">
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">核心关键词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.core_keywords || accountInfo.analysis_result?.keyword_layout?.core_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">行业关键词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.product_keywords?.industry_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">品名词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.product_keywords?.product_name_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">品牌词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.product_keywords?.brand_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">地域词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.region_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">用途词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.usage_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">属性词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.attribute_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">场景词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.scene_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">价格词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.conversion_keywords?.price_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">促销词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.conversion_keywords?.promotion_keywords || '-')}</div>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="p-1 border rounded">
-                        <div class="small text-muted">口碑词</div>
-                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.conversion_keywords?.reputation_keywords || '-')}</div>
-                    </div>
-                </div>
-            </div>
-        `,
-
-        // Tab5: 内容布局
-        'tab-content': `
             <div class="row g-2">
                 <div class="col-12">
                     <div class="p-2 border rounded">
                         <div class="d-flex align-items-center gap-2 mb-1">
                             <span class="small text-muted" style="width: 70px;">人设IP</span>
                             <div class="flex-grow-1">
-                                <div class="progress" style="height: 18px;">
+                                <div class="progress" style="height: 16px;">
                                     <div class="progress-bar bg-primary" role="progressbar" style="width: ${accountInfo.content_persona || 0}%">${accountInfo.content_persona || 0}%</div>
                                 </div>
                             </div>
@@ -2560,7 +2758,7 @@ function displayAccountAnalysisResult(accountInfo) {
                         <div class="d-flex align-items-center gap-2 mb-1">
                             <span class="small text-muted" style="width: 70px;">主题内容</span>
                             <div class="flex-grow-1">
-                                <div class="progress" style="height: 18px;">
+                                <div class="progress" style="height: 16px;">
                                     <div class="progress-bar bg-success" role="progressbar" style="width: ${accountInfo.content_topic || 0}%">${accountInfo.content_topic || 0}%</div>
                                 </div>
                             </div>
@@ -2573,12 +2771,138 @@ function displayAccountAnalysisResult(accountInfo) {
                         <div class="d-flex align-items-center gap-2 mb-1">
                             <span class="small text-muted" style="width: 70px;">日常运营</span>
                             <div class="flex-grow-1">
-                                <div class="progress" style="height: 18px;">
+                                <div class="progress" style="height: 16px;">
                                     <div class="progress-bar bg-info" role="progressbar" style="width: ${accountInfo.content_daily || 0}%">${accountInfo.content_daily || 0}%</div>
                                 </div>
                             </div>
                         </div>
                         <div class="small text-muted">${accountInfo.daily_operation || '-'}</div>
+                    </div>
+                </div>
+            </div>
+        `,
+
+        // Tab4: 目标人群画像
+        'tab-audience': `
+            <div class="row g-1">
+                <div class="col-6">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">年龄阶段</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.age_range || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">性别比例</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.gender_ratio || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">职业/身份</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.occupation || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">消费能力</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.consumption_level || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">地域分布</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.region || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">客户痛点</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.pain_points || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">客户需求</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.needs || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">使用场景</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.target_audience?.usage_scenes || '-')}</div>
+                    </div>
+                </div>
+            </div>
+        `,
+
+        // Tab4: 关键词布局
+        'tab-keywords': `
+            <div class="row g-1">
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">核心关键词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.core_keywords || accountInfo.analysis_result?.keyword_layout?.core_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">行业关键词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.product_keywords?.industry_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">品名词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.product_keywords?.product_name_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">品牌词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.product_keywords?.brand_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">地域词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.region_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">用途词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.usage_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">属性词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.attribute_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">场景词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.traffic_keywords?.scene_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">价格词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.conversion_keywords?.price_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">促销词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.conversion_keywords?.promotion_keywords || '-')}</div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="p-2 border rounded">
+                        <div class="small text-muted">口碑词</div>
+                        <div class="fw-medium small">${formatFieldValue(accountInfo.analysis_result?.keyword_layout?.conversion_keywords?.reputation_keywords || '-')}</div>
                     </div>
                 </div>
             </div>
@@ -2756,87 +3080,124 @@ function displayAccountAnalysisResult(accountInfo) {
                 </div>
             ` : '';
 
-            if (nicknameCards.length === 0 && bioCards.length === 0) {
-                return `<div class="text-muted p-3">暂无账号设计分析</div>`;
+            // 评分公式 - 二级分类分析结果（始终显示，即使没有昵称/简介分析）
+            const subCatAnalysis = accountInfo.analysis_result?.sub_category_analysis || {};
+            const subCategories = [
+                { code: 'nickname_analysis', name: '昵称分析', icon: 'bi-person-badge' },
+                { code: 'bio_analysis', name: '简介分析', icon: 'bi-card-text' },
+                { code: 'account_positioning', name: '账号定位', icon: 'bi-geo-alt' },
+                { code: 'market_analysis', name: '市场分析', icon: 'bi-graph-up' },
+                { code: 'operation_planning', name: '运营规划', icon: 'bi-list-task' }
+            ];
+
+            const renderSubCategoryCard = (subCat) => {
+                const data = subCatAnalysis[subCat.code] || {};
+                const score = data.score || 0;
+                const formula = data.formula || '暂无公式';
+                const scoreReason = data.score_reason || '';
+
+                let scoreColor = 'text-danger';
+                if (score >= 80) scoreColor = 'text-success';
+                else if (score >= 60) scoreColor = 'text-warning';
+
+                return `
+                    <div class="col-12 col-md-6 mb-2">
+                        <div class="card h-100 border">
+                            <div class="card-body py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="small fw-medium"><i class="${subCat.icon} me-1"></i>${subCat.name}</span>
+                                        <div class="text-muted small">${scoreReason || '-'}</div>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="fs-4 fw-bold ${scoreColor}">${score}</span>
+                                    </div>
+                                </div>
+                                <div class="mt-1">
+                                    <span class="badge bg-primary-subtle text-primary">公式:</span>
+                                    <span class="small text-primary">${formula}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            const hasSubCatAnalysis = Object.keys(subCatAnalysis).length > 0;
+            const hasNicknameOrBio = nicknameCards.length > 0 || bioCards.length > 0;
+
+            // 如果有昵称/简介分析，显示这些内容
+            let contentHtml = '';
+            if (hasNicknameOrBio) {
+                contentHtml = `
+                    <div class="row g-2">
+                        ${nicknameCards.length > 0 ? `
+                            <div class="col-12">
+                                <h6 class="mb-2"><i class="bi bi-person-badge me-1"></i>昵称分析</h6>
+                            </div>
+                            ${nicknameCards.join('')}
+                        ` : ''}
+                        ${bioCards.length > 0 ? `
+                            <div class="col-12 mt-2">
+                                <h6 class="mb-2"><i class="bi bi-card-text me-1"></i>简介分析</h6>
+                            </div>
+                            ${bioCards.join('')}
+                        ` : ''}
+                        ${overallScoreHtml}
+                    </div>
+                `;
+            }
+
+            // 评分公式区域始终显示（即使没有昵称/简介分析也显示）
+            const scoreSectionHtml = hasSubCatAnalysis ? `
+                <div class="col-12 mt-3">
+                    ${hasNicknameOrBio ? '<hr/>' : ''}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0"><i class="bi bi-bar-chart me-1"></i>评分公式</h6>
+                        <button class="btn btn-outline-primary btn-sm py-0" onclick="triggerSubCategoryAnalysis(event, ${accountInfo.id})">
+                            <i class="bi bi-arrow-repeat"></i> 重新分析
+                        </button>
+                    </div>
+                </div>
+                <div class="row g-2">
+                    ${subCategories.map(renderSubCategoryCard).join('')}
+                </div>
+            ` : `
+                <div class="col-12 mt-3">
+                    ${hasNicknameOrBio ? '<hr/>' : ''}
+                    <div class="text-center py-2">
+                        <span class="text-muted small">暂无评分公式分析</span>
+                        <button class="btn btn-primary btn-sm ms-2" onclick="triggerSubCategoryAnalysis(event, ${accountInfo.id})">
+                            <i class="bi bi-lightning-charge me-1"></i>开始分析
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // 如果什么都没有，只显示评分公式区域（让用户可以点击开始分析）
+            if (!hasNicknameOrBio && !hasSubCatAnalysis) {
+                return `
+                    <div class="row g-2">
+                        <div class="col-12 mt-2">
+                            <div class="text-center py-2">
+                                <span class="text-muted small">暂无评分公式分析</span>
+                                <button class="btn btn-primary btn-sm ms-2" onclick="triggerSubCategoryAnalysis(event, ${accountInfo.id})">
+                                    <i class="bi bi-lightning-charge me-1"></i>开始分析
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
 
             return `
                 <div class="row g-2">
-                    <div class="col-12">
-                        <h6 class="mb-2"><i class="bi bi-person-badge me-1"></i>昵称分析</h6>
-                    </div>
-                    ${nicknameCards.join('')}
-                    <div class="col-12 mt-2">
-                        <h6 class="mb-2"><i class="bi bi-card-text me-1"></i>简介分析</h6>
-                    </div>
-                    ${bioCards.join('')}
-                    ${overallScoreHtml}
+                    ${contentHtml}
+                    ${scoreSectionHtml}
                 </div>
             `;
         })()
-    };
-
-    // 构建 HTML
-    let html = `
-        <!-- 账号分析 Tab 导航 -->
-        <ul class="nav nav-tabs mb-3" id="accountAnalysisTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="tab-basic-tab" data-bs-toggle="tab" data-bs-target="#tab-basic" type="button" role="tab">
-                    <i class="bi bi-person me-1"></i>基本信息
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-detail-tab" data-bs-toggle="tab" data-bs-target="#tab-detail" type="button" role="tab">
-                    <i class="bi bi-card-list me-1"></i>详细信息
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-audience-tab" data-bs-toggle="tab" data-bs-target="#tab-audience" type="button" role="tab">
-                    <i class="bi bi-people me-1"></i>目标人群
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-keywords-tab" data-bs-toggle="tab" data-bs-target="#tab-keywords" type="button" role="tab">
-                    <i class="bi bi-key me-1"></i>关键词布局
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-content-tab" data-bs-toggle="tab" data-bs-target="#tab-content" type="button" role="tab">
-                    <i class="bi bi-layout-text-window me-1"></i>内容布局
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-design-tab" data-bs-toggle="tab" data-bs-target="#tab-design" type="button" role="tab">
-                    <i class="bi bi-palette me-1"></i>账号设计
-                </button>
-            </li>
-        </ul>
-
-        <!-- Tab 内容 -->
-        <div class="tab-content" id="accountAnalysisTabContent">
-            <div class="tab-pane fade show active" id="tab-basic" role="tabpanel">
-                ${tabPanes['tab-basic']}
-            </div>
-            <div class="tab-pane fade" id="tab-detail" role="tabpanel">
-                ${tabPanes['tab-detail']}
-            </div>
-            <div class="tab-pane fade" id="tab-audience" role="tabpanel">
-                ${tabPanes['tab-audience']}
-            </div>
-            <div class="tab-pane fade" id="tab-keywords" role="tabpanel">
-                ${tabPanes['tab-keywords']}
-            </div>
-            <div class="tab-pane fade" id="tab-content" role="tabpanel">
-                ${tabPanes['tab-content']}
-            </div>
-            <div class="tab-pane fade" id="tab-design" role="tabpanel">
-                ${tabPanes['tab-design'] || '<div class="text-muted p-3">暂无账号设计分析</div>'}
-            </div>
-        </div>
-    `;
-
-    resultsContainer.innerHTML = html;
-}
+    }
 
 function displayAnalysisResult(result) {
     document.getElementById('result-empty').classList.add('d-none');

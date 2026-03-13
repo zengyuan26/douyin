@@ -2143,16 +2143,28 @@ def build_account_analysis_prompt(url, account_info_text=""):
 
 ## 五、关键词布局分析
 
-### 5.1 前50关键词
-分析账号的关键词布局：
-- 核心业务关键词
-- 产品关键词
-- 场景关键词
-- 人群关键词
-- 地域关键词
-- 其他重要关键词
+### 5.1 核心关键词（1-3个最主要的流量/转化关键词）
+核心关键词应该直接与业务相关，是用户搜索最多、流量最大的词
+- 如卖奶粉则核心关键词应包含"奶粉"相关
+- 如灌香肠则核心关键词应包含"灌香肠"、"香肠"相关
 
-### 5.2 关键词分布位置
+### 5.2 产品关键词
+- 行业关键词
+- 品名词
+- 品牌词
+
+### 5.3 流量关键词
+- 地域关键词
+- 用途关键词
+- 属性关键词
+- 场景关键词
+
+### 5.4 转化关键词
+- 价格关键词
+- 促销关键词
+- 口碑关键词
+
+### 5.5 关键词分布位置
 - 昵称中的关键词
 - 简介中的关键词
 - 话题标签中的关键词
@@ -2255,7 +2267,23 @@ def build_account_analysis_prompt(url, account_info_text=""):
     }},
 
     "keyword_layout": {{
-        "top_50_keywords": ["关键词1", "关键词2", "关键词3"...] ,
+        "core_keywords": ["核心关键词1", "核心关键词2", "核心关键词3"],
+        "product_keywords": {{
+            "industry_keywords": ["行业词1", "行业词2"],
+            "product_name_keywords": ["品名词1", "品名词2"],
+            "brand_keywords": ["品牌词1", "品牌词2"]
+        }},
+        "traffic_keywords": {{
+            "region_keywords": ["地域词1", "地域词2"],
+            "usage_keywords": ["用途词1", "用途词2"],
+            "attribute_keywords": ["属性词1", "属性词2"],
+            "scene_keywords": ["场景词1", "场景词2"]
+        }},
+        "conversion_keywords": {{
+            "price_keywords": ["价格词1", "价格词2"],
+            "promotion_keywords": ["促销词1", "促销词2"],
+            "reputation_keywords": ["口碑词1", "口碑词2"]
+        }},
         "keyword_distribution": {{
             "in_nickname": "昵称中的关键词",
             "in_bio": "简介中的关键词",
@@ -2337,7 +2365,7 @@ def build_account_profile_from_manual_prompt(account_data):
     product_type = account_data.get('product_type', '')
     service_type = account_data.get('service_type', '')
     service_range = account_data.get('service_range', '')
-    target_area = account_data.get('target_area', '')
+    target_area = account_data.get('target_area', '') or '全国'
     brand_type = account_data.get('brand_type', '')
     language_style = account_data.get('language_style', '')
     main_product = account_data.get('main_product', '')
@@ -2710,16 +2738,28 @@ def build_account_keywords_prompt(url):
 
 ## 关键词布局分析要点
 
-### 5.1 前50关键词
-分析账号的关键词布局：
-- 核心业务关键词
-- 产品关键词
-- 场景关键词
-- 人群关键词
-- 地域关键词
-- 其他重要关键词
+### 核心关键词（1-3个最主要的流量/转化关键词）
+核心关键词应该直接与业务相关，是用户搜索最多、流量最大的词
+- 如卖奶粉则核心关键词应包含"奶粉"相关
+- 如灌香肠则核心关键词应包含"灌香肠"、"香肠"相关
 
-### 5.2 关键词分布位置
+### 产品关键词
+- 行业关键词
+- 品名词
+- 品牌词
+
+### 流量关键词
+- 地域关键词
+- 用途关键词
+- 属性关键词
+- 场景关键词
+
+### 转化关键词
+- 价格关键词
+- 促销关键词
+- 口碑关键词
+
+### 关键词分布位置
 - 昵称中的关键词
 - 简介中的关键词
 - 话题标签中的关键词
@@ -2734,7 +2774,23 @@ def build_account_keywords_prompt(url):
 ```json
 {{
     "keyword_layout": {{
-        "top_50_keywords": ["关键词1", "关键词2", "关键词3"],
+        "core_keywords": ["核心关键词1", "核心关键词2", "核心关键词3"],
+        "product_keywords": {{
+            "industry_keywords": ["行业词1", "行业词2"],
+            "product_name_keywords": ["品名词1", "品名词2"],
+            "brand_keywords": ["品牌词1", "品牌词2"]
+        }},
+        "traffic_keywords": {{
+            "region_keywords": ["地域词1", "地域词2"],
+            "usage_keywords": ["用途词1", "用途词2"],
+            "attribute_keywords": ["属性词1", "属性词2"],
+            "scene_keywords": ["场景词1", "场景词2"]
+        }},
+        "conversion_keywords": {{
+            "price_keywords": ["价格词1", "价格词2"],
+            "promotion_keywords": ["促销词1", "促销词2"],
+            "reputation_keywords": ["口碑词1", "口碑词2"]
+        }},
         "keyword_distribution": {{
             "in_nickname": "昵称中的关键词",
             "in_bio": "简介中的关键词",
@@ -4160,8 +4216,10 @@ def build_analysis_prompt_with_account(url, content_type, note, account_info):
                 account_context += f"- 目标客户：{tc.get('occupation', '')}，{tc.get('age_range', '')}\n"
             if basic.get('keyword_layout'):
                 kw = basic['keyword_layout']
-                if kw.get('top_50_keywords'):
-                    account_context += f"- 核心关键词：{', '.join(kw.get('top_50_keywords', [])[:10])}\n"
+                # 优先使用 core_keywords，如果没有则使用 top_50_keywords 兼容旧数据
+                core_kw = kw.get('core_keywords') or kw.get('top_50_keywords', [])
+                if core_kw:
+                    account_context += f"- 核心关键词：{', '.join(core_kw[:10])}\n"
 
     prompt = f"""你是一个资深的短视频内容拆解专家。请从专业运营角度完整拆解以下抖音内容，提取可复用的爆款逻辑和规则。
 
@@ -4550,8 +4608,10 @@ def build_module_prompt_with_account(module, url, note, account_info):
             account_context += f"- 客户痛点：{tc.get('pain_points', '')}\n"
         if basic.get('keyword_layout'):
             kw = basic['keyword_layout']
-            if kw.get('top_50_keywords'):
-                account_context += f"- 核心关键词：{', '.join(kw.get('top_50_keywords', [])[:10])}\n"
+            # 优先使用 core_keywords，如果没有则使用 top_50_keywords 兼容旧数据
+            core_kw = kw.get('core_keywords') or kw.get('top_50_keywords', [])
+            if core_kw:
+                account_context += f"- 核心关键词：{', '.join(core_kw[:10])}\n"
 
     # 心理分析模块
     if module == 'psychology':
@@ -4834,7 +4894,7 @@ def create_account():
             product_type=data.get('product_type'),
             service_type=data.get('service_type'),
             service_range=data.get('service_range'),
-            target_area=data.get('target_area'),
+            target_area=data.get('target_area') or '全国',
             brand_type=data.get('brand_type'),
             language_style=data.get('language_style'),
             target_user=data.get('target_user'),
@@ -4916,7 +4976,7 @@ def update_account(account_id):
         if 'service_range' in data:
             account.service_range = data['service_range']
         if 'target_area' in data:
-            account.target_area = data['target_area']
+            account.target_area = data['target_area'] if data['target_area'] else '全国'
         if 'brand_type' in data:
             account.brand_type = data['brand_type']
         if 'language_style' in data:
@@ -4996,6 +5056,13 @@ def analyze_account_async(account_id):
 
         threading.Thread(
             target=_run_account_design_analysis,
+            args=(app, account.id),
+            daemon=True
+        ).start()
+
+        # 触发二级分类分析（评分+公式）
+        threading.Thread(
+            target=_run_account_sub_category_analysis,
             args=(app, account.id),
             daemon=True
         ).start()
@@ -5599,6 +5666,304 @@ def _run_account_design_analysis(app, account_id):
         except Exception as e:
             db.session.rollback()
             logger.error(f"后台账号设计分析失败: {e}", exc_info=True)
+
+
+# 账号分析二级分类列表（不含关键词库）
+ACCOUNT_SUB_CATEGORIES = [
+    'nickname_analysis',   # 昵称分析
+    'bio_analysis',        # 简介分析
+    'account_positioning', # 账号定位
+    'market_analysis',     # 市场分析
+    'operation_planning',  # 运营规划
+]
+
+ACCOUNT_SUB_CATEGORY_NAMES = {
+    'nickname_analysis': '昵称分析',
+    'bio_analysis': '简介分析',
+    'account_positioning': '账号定位',
+    'market_analysis': '市场分析',
+    'operation_planning': '运营规划',
+}
+
+
+def _run_account_sub_category_analysis(app, account_id):
+    """后台执行账号二级分类分析（评分+公式），不占请求"""
+    from services.analysis_dimension_runner import get_active_dimensions
+
+    with app.app_context():
+        try:
+            account = KnowledgeAccount.query.get(account_id)
+            if not account:
+                return
+
+            # 收集账号信息
+            account_info = {
+                'nickname': account.name or '',
+                'bio': account.current_data.get('bio', '') if account.current_data else '',
+                'platform': account.platform or '',
+                'url': account.url or '',
+                'business_type': account.business_type or '',
+                'product_type': account.product_type or '',
+                'service_type': account.service_type or '',
+                'main_product': account.main_product or '',
+                'service_range': account.service_range or '',
+                'target_area': account.target_area or '',
+                'brand_type': account.brand_type or '',
+                'language_style': account.language_style or '',
+                'target_user': account.target_user or '',
+                'core_business': account.core_business or '',
+            }
+
+            # 业务信息描述
+            business_parts = []
+            if account_info['business_type']:
+                business_parts.append(f"业务类型: {account_info['business_type']}")
+            if account_info['product_type']:
+                business_parts.append(f"产品类型: {account_info['product_type']}")
+            if account_info['main_product']:
+                business_parts.append(f"主营业务: {account_info['main_product']}")
+            if account_info['core_business']:
+                business_parts.append(f"核心业务: {account_info['core_business']}")
+            if account_info['target_user']:
+                business_parts.append(f"目标用户: {account_info['target_user']}")
+            business_desc = '\n'.join(business_parts) if business_parts else '未填写'
+
+            # 获取各二级分类的维度
+            sub_category_results = {}
+
+            llm_service = get_llm_service()
+            if not llm_service:
+                return
+
+            # 对每个二级分类进行分析
+            for sub_cat in ACCOUNT_SUB_CATEGORIES:
+                # 获取该二级分类下的所有维度
+                dims = get_active_dimensions(category='account', sub_category=sub_cat)
+                if not dims:
+                    # 如果没有配置维度，使用默认分析
+                    dims = []
+
+                # 构建该二级分类的分析提示词
+                prompt = _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_desc)
+
+                # 调用 LLM
+                messages = [
+                    {"role": "system", "content": f"你是一个资深的账号运营专家，擅长分析{ACCOUNT_SUB_CATEGORY_NAMES.get(sub_cat, '账号')}。请严格按照JSON格式输出分析结果和评分。"},
+                    {"role": "user", "content": prompt}
+                ]
+
+                result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
+                if not result_text:
+                    continue
+
+                llm_result = parse_llm_json(result_text)
+
+                # 提取评分和公式
+                sub_category_results[sub_cat] = {
+                    'sub_category_name': ACCOUNT_SUB_CATEGORY_NAMES.get(sub_cat, sub_cat),
+                    'dimensions': [],
+                    'score': llm_result.get('score', 0),
+                    'score_reason': llm_result.get('score_reason', ''),
+                    'formula': llm_result.get('formula', ''),
+                    'suggestions': llm_result.get('suggestions', []),
+                    'llm_data': llm_result
+                }
+
+                # 保存各维度的详细分析结果
+                for dim in dims:
+                    dim_code = dim.code
+                    if dim_code in llm_result:
+                        sub_category_results[sub_cat]['dimensions'].append({
+                            'code': dim_code,
+                            'name': dim.name,
+                            'data': llm_result[dim_code]
+                        })
+
+            # 保存分析结果
+            current_analysis = account.analysis_result or {}
+            current_analysis['sub_category_analysis'] = sub_category_results
+            account.analysis_result = current_analysis
+
+            db.session.commit()
+            logger.info(f"[_run_account_sub_category_analysis] 账号二级分类分析成功，账号: {account.name}")
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"后台账号二级分类分析失败: {e}", exc_info=True)
+
+
+def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_desc):
+    """构建二级分类分析的提示词"""
+    nickname = account_info['nickname']
+    bio = account_info['bio']
+
+    # 基础信息
+    base_info = f"""
+## 账号基础信息
+- 昵称: {nickname or '未填写'}
+- 简介: {bio or '未填写'}
+- 平台: {account_info['platform'] or '未填写'}
+- 主页链接: {account_info['url'] or '未填写'}
+
+## 业务信息
+{business_desc}
+"""
+
+    # 维度信息
+    dim_desc = ""
+    if dims:
+        dim_items = [f"- **{d.code}** ({d.name})" + (f"：{d.description}" if d.description else "") for d in dims]
+        dim_desc = "\n## 分析维度\n" + "\n".join(dim_items)
+
+    # 根据不同二级分类构建不同提示词
+    if sub_cat == 'nickname_analysis':
+        return f"""{base_info}
+{dim_desc}
+
+## 分析任务
+
+请分析账号昵称，按照以下要求输出JSON：
+
+1. **评分 (score)**: 0-100分，根据昵称的整体质量
+2. **评分理由 (score_reason)**: 一句话说明评分理由
+3. **可用公式 (formula)**: 总结出一个可复用的昵称设计公式/规律
+4. **优化建议 (suggestions)**: 列出2-3条优化建议
+
+## 输出格式
+
+```json
+{{
+    "score": 85,
+    "score_reason": "简洁易记且体现人设特征",
+    "formula": "人设标签+核心业务词/情感词，如【人设】+【业务】",
+    "suggestions": ["建议增加地域词", "可以加入数字增强记忆点"]
+}}
+```
+"""
+
+    elif sub_cat == 'bio_analysis':
+        return f"""{base_info}
+{dim_desc}
+
+## 分析任务
+
+请分析账号简介，按照以下要求输出JSON：
+
+1. **评分 (score)**: 0-100分，根据简介的整体质量
+2. **评分理由 (score_reason)**: 一句话说明评分理由
+3. **可用公式 (formula)**: 总结出一个可复用的简介设计公式/规律
+4. **优化建议 (suggestions)**: 列出2-3条优化建议
+
+## 输出格式
+
+```json
+{{
+    "score": 80,
+    "score_reason": "结构清晰但缺少行动号召",
+    "formula": "身份标签+价值主张+联系方式",
+    "suggestions": ["建议添加行动号召", "可以加入差异化卖点"]
+}}
+```
+"""
+
+    elif sub_cat == 'account_positioning':
+        return f"""{base_info}
+{dim_desc}
+
+## 分析任务
+
+请分析账号定位，按照以下要求输出JSON：
+
+1. **评分 (score)**: 0-100分，根据账号定位的清晰度
+2. **评分理由 (score_reason)**: 一句话说明评分理由
+3. **可用公式 (formula)**: 总结出一个可复用的账号定位公式/规律
+4. **优化建议 (suggestions)**: 列出2-3条优化建议
+
+## 输出格式
+
+```json
+{{
+    "score": 75,
+    "score_reason": "定位较清晰但目标人群不够明确",
+    "formula": "【人设】+【业务】+【目标人群】+【差异化】",
+    "suggestions": ["建议明确目标人群画像", "可以突出差异化竞争优势"]
+}}
+```
+"""
+
+    elif sub_cat == 'market_analysis':
+        return f"""{base_info}
+{dim_desc}
+
+## 分析任务
+
+请分析目标市场和竞争情况，按照以下要求输出JSON：
+
+1. **评分 (score)**: 0-100分，根据市场定位的准确度
+2. **评分理由 (score_reason)**: 一句话说明评分理由
+3. **可用公式 (formula)**: 总结出一个可复用的市场分析思路
+4. **优化建议 (suggestions)**: 列出2-3条优化建议
+
+## 输出格式
+
+```json
+{{
+    "score": 70,
+    "score_reason": "目标市场较清晰但竞争分析不足",
+    "formula": "目标人群画像+痛点需求+解决方案+竞争优势",
+    "suggestions": ["建议深入分析竞争对手", "可以增加差异化定位"]
+}}
+```
+"""
+
+    elif sub_cat == 'operation_planning':
+        return f"""{base_info}
+{dim_desc}
+
+## 分析任务
+
+请分析内容运营策略，按照以下要求输出JSON：
+
+1. **评分 (score)**: 0-100分，根据运营策略的完整性
+2. **评分理由 (score_reason)**: 一句话说明评分理由
+3. **可用公式 (formula)**: 总结出一个可复用的运营规划公式
+4. **优化建议 (suggestions)**: 列出2-3条优化建议
+
+## 输出格式
+
+```json
+{{
+    "score": 75,
+    "score_reason": "运营方向明确但内容规划不够具体",
+    "公式": "人设内容占比+主题内容占比+日常运营占比",
+    "suggestions": ["建议明确内容发布频率", "可以增加互动活动规划"]
+}}
+```
+"""
+
+    return base_info
+
+
+@knowledge_api.route('/accounts/<int:account_id>/analyze-sub-categories', methods=['POST'])
+@login_required
+def analyze_account_sub_categories(account_id):
+    """手动触发账号二级分类分析（评分+公式）"""
+    try:
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+
+        # 触发后台分析
+        from flask import current_app
+        threading.Thread(
+            target=_run_account_sub_category_analysis,
+            args=(current_app._get_current_object(), account.id),
+            daemon=True
+        ).start()
+
+        return jsonify({'code': 200, 'message': '已触发后台分析，请稍后刷新查看结果'})
+    except Exception as e:
+        logger.error(f"触发账号二级分类分析失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'触发失败: {str(e)}'})
 
 
 @knowledge_api.route('/accounts/<int:account_id>/analyze-profile', methods=['POST'])
