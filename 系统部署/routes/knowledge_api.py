@@ -5161,6 +5161,93 @@ def save_account_design_rule():
         return jsonify({'code': 500, 'message': f'保存规则失败: {str(e)}'})
 
 
+@knowledge_api.route('/rules/sub-category', methods=['POST'])
+@login_required
+def save_sub_category_rule():
+    """将二级分类分析（昵称分析/简介分析）的整体结果沉淀到规则库。
+
+    前端传入:
+    - account_id: 账号ID
+    - sub_category: 二级分类（如 nickname_analysis）
+    - data: 包含 formula, score 等字段的对象
+    """
+    try:
+        from models.models import KnowledgeRule
+
+        data = request.get_json() or {}
+        account_id = data.get('account_id')
+        sub_category = (data.get('sub_category') or '').strip()
+        rule_data = data.get('data', {})
+
+        if not account_id or not sub_category:
+            return jsonify({'code': 400, 'message': '缺少必要参数'})
+
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+
+        # 获取该二级分类的维度信息
+        dims = get_active_dimensions(category='account', sub_category=sub_category)
+        if not dims:
+            return jsonify({'code': 400, 'message': '该二级分类没有配置维度'})
+
+        # 获取分析结果
+        analysis = account.analysis_result or {}
+        sub_analysis = analysis.get('sub_category_analysis', {}).get(sub_category, {})
+        score = rule_data.get('score', sub_analysis.get('score', 0))
+        formula = rule_data.get('formula', sub_analysis.get('formula', ''))
+        score_reason = rule_data.get('score_reason', sub_analysis.get('score_reason', ''))
+
+        if not formula:
+            return jsonify({'code': 400, 'message': '没有可入库的公式'})
+
+        # 构建规则标题和内容
+        sub_cat_name = ACCOUNT_SUB_CATEGORY_NAMES.get(sub_category, sub_category)
+        rule_title = f'{sub_cat_name}：{formula[:30]}...' if len(formula) > 30 else f'{sub_cat_name}：{formula}'
+
+        # 规则内容
+        content = f"""## {sub_cat_name}公式
+
+### 评分
+{score}分
+
+### 评分理由
+{score_reason}
+
+### 设计公式
+{formula}
+
+### 账号信息
+- 昵称: {account.name or '未填写'}
+- 简介: {account.current_data.get('bio', '') if account.current_data else '未填写'}
+"""
+
+        # 获取第一个维度作为主维度
+        main_dimension = dims[0] if dims else None
+        rule_category = main_dimension.rule_category if main_dimension and main_dimension.rule_category else 'operation'
+        rule_type = main_dimension.rule_type if main_dimension and main_dimension.rule_type else f'{sub_category}_formula'
+
+        rule = KnowledgeRule(
+            category=rule_category,
+            rule_title=rule_title,
+            rule_content=content,
+            rule_type=rule_type,
+            source_dimension=sub_category,
+            source_sub_category=sub_category,
+            dimension_name=sub_cat_name,
+            dimension_id=main_dimension.id if main_dimension else None,
+            status='active'
+        )
+        db.session.add(rule)
+        _commit_with_retry()
+        return jsonify({'code': 200, 'message': '已入库', 'data': {'id': rule.id}})
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"保存二级分类规则失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'保存规则失败: {str(e)}'})
+
+
 @knowledge_api.route('/rules/account-design/content', methods=['GET'])
 @login_required
 def get_account_design_rule_content():
