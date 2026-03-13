@@ -12,8 +12,8 @@
                     <h4 class="mb-1">知识库文章</h4>
                     <p class="text-muted mb-0">管理知识库中的文章内容</p>
                 </div>
-                <div>
-                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary me-2">
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-lg">
                         <i class="bi bi-arrow-left me-1"></i>返回分类
                     </a>
                     <a href="{{ url_for('admin.knowledge_article_add') }}" class="btn btn-primary">

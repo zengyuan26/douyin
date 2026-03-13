@@ -12,9 +12,11 @@
                     <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">确认解析结果并入库</h4>
                     <p class="text-muted mb-0" style="font-size: 14px;">请核对归类与内容，可修改后点击「入库」写入知识库</p>
                 </div>
-                <a href="{{ url_for('admin.persona_method_parse') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left me-1"></i>返回重新解析
-                </a>
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin.persona_method_parse') }}" class="btn btn-outline-secondary btn-lg">
+                        <i class="bi bi-arrow-left me-1"></i>返回重新解析
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -84,8 +86,8 @@
                             <textarea class="form-control" name="tags" rows="2" placeholder="每行一个">{{ (parsed.tags or [])|join('\n') }}</textarea>
                         </div>
 
-                        <div class="d-flex justify-content-between pt-2">
-                            <a href="{{ url_for('admin.persona_method_parse') }}" class="btn btn-outline-secondary">返回</a>
+                        <div class="d-flex justify-content-end pt-2">
+                            <a href="{{ url_for('admin.persona_method_parse') }}" class="btn btn-outline-secondary btn-lg">返回</a>
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-check-lg me-1"></i>确认入库
                             </button>

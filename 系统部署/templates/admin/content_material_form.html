@@ -14,9 +14,11 @@
                         {% if item %}编辑{% else %}新建{% endif %}{{ config.name or '素材' }}
                     </h4>
                 </div>
-                <a href="{{ url_for('admin.content_materials', type=material_type) }}" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-arrow-left me-1"></i>返回
-                </a>
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin.content_materials', type=material_type) }}" class="btn btn-outline-secondary btn-lg">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -437,8 +439,8 @@
                         </div>
 
                         <!-- 提交按钮 -->
-                        <div class="d-flex justify-content-between">
-                            <a href="{{ url_for('admin.content_materials', type=material_type) }}" class="btn btn-outline-secondary">
+                        <div class="d-flex justify-content-end">
+                            <a href="{{ url_for('admin.content_materials', type=material_type) }}" class="btn btn-outline-secondary btn-lg">
                                 <i class="bi bi-arrow-left me-1"></i>返回
                             </a>
                             <button type="submit" class="btn btn-primary">

@@ -15,8 +15,9 @@
                     </h4>
                     <p class="text-muted mb-0" style="font-size: 14px;">知识库方法论（消费心理学、关键词筛选、人设、视觉设计等）</p>
                 </div>
-                <a href="{{ url_for('admin.persona_methods') }}" class="btn btn-outline-secondary">返回列表</a>
-            </div>
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin.persona_methods') }}" class="btn btn-outline-secondary btn-lg">返回列表</a>
+                </div>
         </div>
     </div>
 
@@ -115,8 +116,8 @@
                         </div>
 
                         <!-- 提交按钮 -->
-                        <div class="d-flex justify-content-between">
-                            <a href="{{ url_for('admin.persona_methods') }}" class="btn btn-outline-secondary">
+                        <div class="d-flex justify-content-end">
+                            <a href="{{ url_for('admin.persona_methods') }}" class="btn btn-outline-secondary btn-lg">
                                 <i class="bi bi-arrow-left me-1"></i>返回
                             </a>
                             <button type="submit" class="btn btn-primary">

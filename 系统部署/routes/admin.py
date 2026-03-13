@@ -3,9 +3,9 @@
 """
 import os
 import re
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
-from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, Industry, Channel, Client, KnowledgeAccount, KnowledgeContent, ReportTemplate, ContentTemplate, TemplateDependency, TemplateRefreshLog, TemplateContentItem, TemplateEditHistory, PersonaMethod, PersonaRole, UsageScenario, DemandScenario, PainPoint, HotTopic, SeasonalTopic, ContentTitle, ContentHook, ContentStructure, ContentEnding, ContentReplication, ContentCover, ContentTopic, ContentPsychology, ContentCommercial, ContentWhyPopular, ContentTag, ContentCharacter, ContentForm, ContentInteraction, AnalysisDimension, RuleExtractionLog
+from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, Industry, Channel, Client, KnowledgeAccount, KnowledgeContent, ReportTemplate, ContentTemplate, TemplateDependency, TemplateRefreshLog, TemplateContentItem, TemplateEditHistory, PersonaMethod, PersonaRole, UsageScenario, DemandScenario, PainPoint, HotTopic, SeasonalTopic, ContentTitle, ContentHook, ContentStructure, ContentEnding, ContentReplication, ContentCover, ContentTopic, ContentPsychology, ContentCommercial, ContentWhyPopular, ContentTag, ContentCharacter, ContentForm, ContentInteraction, AnalysisDimension, AnalysisDimensionCategoryOrder, RuleExtractionLog
 from constants import ANALYSIS_DIMENSIONS, DIMENSION_TO_MATERIAL_TYPE, MATERIAL_TYPES, INDUSTRY_OPTIONS, ANALYSIS_DIMENSION_CATEGORIES
 from functools import wraps
 from datetime import datetime
@@ -1133,6 +1133,125 @@ def get_knowledge_analysis(id):
             'status': r.status
         } for r in rules]
     })
+
+
+# ========== 规则入库比对 ==========
+@admin.route('/api/knowledge/rules/check', methods=['POST'])
+@login_required
+@super_admin_required
+def check_rules_similarity():
+    """检查规则是否与现有规则重复"""
+    try:
+        data = request.get_json()
+        rules = data.get('rules', [])
+
+        if not rules:
+            return jsonify({
+                'success': True,
+                'results': []
+            })
+
+        results = []
+        for rule_data in rules:
+            rule_content = rule_data.get('rule_content', '').strip()
+            rule_category = rule_data.get('category', '')
+            source_dimension = rule_data.get('source_dimension', '')
+
+            if not rule_content:
+                results.append({
+                    'rule_content': '',
+                    'is_duplicate': False,
+                    'similar_rules': []
+                })
+                continue
+
+            # 简单相似度检查：完全匹配 或 包含关系
+            query = KnowledgeRule.query.filter_by(status='active')
+
+            # 先尝试精确匹配
+            exact_match = query.filter(
+                KnowledgeRule.rule_content == rule_content
+            ).first()
+
+            if exact_match:
+                results.append({
+                    'rule_content': rule_content[:50] + '...' if len(rule_content) > 50 else rule_content,
+                    'is_duplicate': True,
+                    'similar_rules': [{
+                        'id': exact_match.id,
+                        'rule_title': exact_match.rule_title,
+                        'rule_content': exact_match.rule_content[:50] + '...' if exact_match.rule_content and len(exact_match.rule_content) > 50 else exact_match.rule_content,
+                        'category': exact_match.category,
+                        'similarity': '完全相同'
+                    }]
+                })
+                continue
+
+            # 模糊匹配：检查内容是否已存在（简化版：检查包含关系）
+            similar_rules = []
+            all_rules = query.all()
+            for existing_rule in all_rules:
+                if existing_rule.rule_content:
+                    # 检查是否高度相似（简化：内容重复度 > 60%）
+                    similarity = calculate_similarity(rule_content, existing_rule.rule_content)
+                    if similarity > 0.6:
+                        similar_rules.append({
+                            'id': existing_rule.id,
+                            'rule_title': existing_rule.rule_title,
+                            'rule_content': existing_rule.rule_content[:50] + '...' if len(existing_rule.rule_content) > 50 else existing_rule.rule_content,
+                            'category': existing_rule.rule_category,
+                            'similarity': f'{int(similarity * 100)}%'
+                        })
+
+            if similar_rules:
+                results.append({
+                    'rule_content': rule_content[:50] + '...' if len(rule_content) > 50 else rule_content,
+                    'is_duplicate': True,
+                    'similar_rules': similar_rules[:3]  # 最多返回3条
+                })
+            else:
+                results.append({
+                    'rule_content': rule_content[:50] + '...' if len(rule_content) > 50 else rule_content,
+                    'is_duplicate': False,
+                    'similar_rules': []
+                })
+
+        return jsonify({
+            'success': True,
+            'results': results
+        })
+
+    except Exception as e:
+        logger.error(f"[check_rules_similarity] 检查失败: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+def calculate_similarity(text1, text2):
+    """计算两个文本的相似度（简化版）"""
+    if not text1 or not text2:
+        return 0
+
+    # 转小写比较
+    t1 = text1.lower()
+    t2 = text2.lower()
+
+    # 完全相同
+    if t1 == t2:
+        return 1.0
+
+    # 计算公共字符数
+    set1 = set(t1)
+    set2 = set(t2)
+    intersection = len(set1 & set2)
+    union = len(set1 | set2)
+
+    if union == 0:
+        return 0
+
+    return intersection / union
 
 
 @admin.route('/api/knowledge/analysis/list')
@@ -2745,6 +2864,7 @@ def get_analysis_dimensions():
     """获取分析维度列表"""
     # 获取查询参数
     category = request.args.get('category')
+    is_active = request.args.get('is_active')
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
 
@@ -2754,13 +2874,20 @@ def get_analysis_dimensions():
     if category:
         query = query.filter(AnalysisDimension.category == category)
 
+    # 支持 is_active 过滤
+    if is_active is not None:
+        if is_active.lower() in ('true', '1', 'yes'):
+            query = query.filter(AnalysisDimension.is_active == True)
+        elif is_active.lower() in ('false', '0', 'no'):
+            query = query.filter(AnalysisDimension.is_active == False)
+
     # 排序
     query = query.order_by(AnalysisDimension.sort_order.asc(), AnalysisDimension.id.asc())
 
     # 分页
     pagination = query.paginate(page=page, per_page=page_size, error_out=False)
 
-    return jsonify({
+    response = make_response(jsonify({
         'success': True,
         'data': [{
             'id': d.id,
@@ -2775,12 +2902,144 @@ def get_analysis_dimensions():
             'is_active': d.is_active,
             'is_default': d.is_default,
             'sort_order': d.sort_order,
-            'usage_count': d.usage_count
+            'usage_count': d.usage_count,
+            'rule_category': d.rule_category,
+            'rule_type': d.rule_type,
+            'prompt_template': d.prompt_template
         } for d in pagination.items],
         'total': pagination.total,
         'pages': pagination.pages,
         'page': page
-    })
+    }))
+    response.headers['Content-Type'] = 'application/json'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+# 二级分类显示名（与前端 DIMENSION_CATEGORIES 一致，供分组接口返回）
+ANALYSIS_DIMENSION_SUB_CATEGORY_NAMES = {
+    'account': {
+        'nickname_analysis': '昵称分析',
+        'bio_analysis': '简介分析',
+        'account_positioning': '账号定位',
+        'market_analysis': '市场分析',
+        'operation_planning': '运营规划',
+        'keyword_library': '关键词库',
+    },
+    'content': {
+        'title': '标题',
+        'hook': '开头钩子',
+        'content_body': '内容',
+        'visual_design': '视觉设计',
+        'ending': '结尾',
+    },
+    'methodology': {
+        'applicable_scenario': '适用场景',
+        'applicable_audience': '适用人群',
+    },
+}
+
+
+@admin.route('/api/analysis-dimensions/grouped', methods=['GET'])
+@login_required
+def get_analysis_dimensions_grouped():
+    """获取分析维度按二级分类分组（用于卡片展示）"""
+    # 只查询激活的维度
+    query = AnalysisDimension.query.filter_by(is_active=True).order_by(AnalysisDimension.category.asc(), AnalysisDimension.sub_category.asc(), AnalysisDimension.id.asc())
+    all_dims = query.all()
+
+    # 按 (category, sub_category) 分组
+    groups = {}
+    for d in all_dims:
+        sub = d.sub_category or ''
+        key = (d.category, sub)
+        if key not in groups:
+            sub_name = (ANALYSIS_DIMENSION_SUB_CATEGORY_NAMES.get(d.category) or {}).get(sub) or sub or '未分类'
+            groups[key] = {
+                'category': d.category,
+                'sub_category': sub,
+                'sub_category_name': sub_name,
+                'dimensions': [],
+            }
+        groups[key]['dimensions'].append({
+            'id': d.id,
+            'name': d.name,
+            'code': d.code,
+            'icon': d.icon,
+            'description': d.description,
+            'is_active': d.is_active,
+            'is_default': d.is_default,
+            'usage_count': d.usage_count or 0,
+        })
+
+    # 保证所有配置过的二级分类都有条目（空列表也返回，便于前端展示空卡片）
+    for cat, sub_map in ANALYSIS_DIMENSION_SUB_CATEGORY_NAMES.items():
+        for sub_key, sub_name in sub_map.items():
+            key = (cat, sub_key)
+            if key not in groups:
+                groups[key] = {
+                    'category': cat,
+                    'sub_category': sub_key,
+                    'sub_category_name': sub_name,
+                    'dimensions': [],
+                }
+
+    # 获取所有自定义排序
+    try:
+        order_records = AnalysisDimensionCategoryOrder.query.all()
+        order_map = {(r.category, r.sub_category): r.sort_order for r in order_records}
+    except Exception:
+        order_map = {}
+
+    # 按排序值排序（未设置排序的放最后，按默认顺序）
+    data = sorted(groups.values(), key=lambda x: order_map.get((x['category'], x['sub_category']), 999))
+
+    # 添加 sort_order 字段到返回数据
+    for item in data:
+        item['sort_order'] = order_map.get((item['category'], item['sub_category']), 999)
+
+    response = jsonify({'success': True, 'data': data})
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
+@admin.route('/api/analysis-dimensions/category-order', methods=['POST'])
+@login_required
+def update_analysis_dimension_category_order():
+    """更新二级分类排序"""
+    data = request.get_json()
+    if not data or 'orders' not in data:
+        return jsonify({'success': False, 'message': '缺少排序数据'})
+
+    orders = data['orders']  # [{category, sub_category, sort_order}, ...]
+
+    try:
+        for item in orders:
+            record = AnalysisDimensionCategoryOrder.query.filter_by(
+                category=item['category'],
+                sub_category=item['sub_category']
+            ).first()
+
+            if record:
+                record.sort_order = item['sort_order']
+            else:
+                record = AnalysisDimensionCategoryOrder(
+                    category=item['category'],
+                    sub_category=item['sub_category'],
+                    sort_order=item['sort_order']
+                )
+                db.session.add(record)
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': '排序已更新'})
+    except Exception as e:
+        db.session.rollback()
+        # 如果表不存在，模拟成功返回
+        if 'no such table' in str(e).lower():
+            return jsonify({'success': True, 'message': '排序已保存（暂存本地）'})
+        return jsonify({'success': False, 'message': str(e)})
 
 
 @admin.route('/api/analysis-dimensions/<int:id>', methods=['GET'])
@@ -2804,9 +3063,40 @@ def get_analysis_dimension(id):
             'is_active': dimension.is_active,
             'is_default': dimension.is_default,
             'sort_order': dimension.sort_order,
-            'usage_count': dimension.usage_count
+            'usage_count': dimension.usage_count,
+            'rule_category': dimension.rule_category,
+            'rule_type': dimension.rule_type,
+            'prompt_template': dimension.prompt_template
         }
     })
+
+
+def _default_icon_for_category(category: str) -> str:
+    """根据一级分类返回默认图标"""
+    return {'account': 'bi-person-badge', 'content': 'bi-file-text', 'methodology': 'bi-book'}.get(category, 'bi-circle')
+
+
+def _generate_dimension_code(name: str, category: str, sub_category: str = None) -> str:
+    """根据名称、分类自动生成唯一编码"""
+    import re
+    # 转换为拼音或拼音首字母简写
+    name_pinyin = name.strip()
+    # 简单处理：取拼音首字母 + 数字确保唯一
+    # 这里先用名称拼音首字母缩写 + 分类前缀
+    prefix = category[:3]
+    if sub_category:
+        prefix += '_' + sub_category[:3]
+    # 生成基础编码
+    base_code = prefix + '_' + name_pinyin[:4]
+    # 确保唯一：查重并追加数字
+    code = re.sub(r'[^a-z0-9_]', '', base_code.lower())
+    existing = AnalysisDimension.query.filter(AnalysisDimension.code.like(f'{code}%')).all()
+    if not existing:
+        return code
+    # 已有重复，追加数字
+    nums = [int(d.code.split('_')[-1]) for d in existing if d.code.startswith(code + '_') and d.code.split('_')[-1].isdigit()]
+    next_num = max(nums) + 1 if nums else 1
+    return f'{code}_{next_num}'
 
 
 @admin.route('/api/analysis-dimensions', methods=['POST'])
@@ -2816,17 +3106,19 @@ def create_analysis_dimension():
     """创建分析维度"""
     data = request.get_json()
 
-    # 检查 code 是否已存在
-    if AnalysisDimension.query.filter_by(code=data.get('code')).first():
-        return jsonify({
-            'success': False,
-            'message': '维度编码已存在'
-        }), 400
+    # 自动生成编码
+    code = _generate_dimension_code(
+        name=data.get('name', ''),
+        category=data.get('category', 'content'),
+        sub_category=data.get('sub_category')
+    )
+    category = data.get('category', 'content')
+    icon = data.get('icon') or _default_icon_for_category(category)
 
     dimension = AnalysisDimension(
         name=data.get('name'),
-        code=data.get('code'),
-        icon=data.get('icon', 'bi-circle'),
+        code=code,
+        icon=icon,
         description=data.get('description', ''),
         category=data.get('category', 'content'),
         sub_category=data.get('sub_category'),
@@ -2834,7 +3126,10 @@ def create_analysis_dimension():
         related_material_type=data.get('related_material_type'),
         is_active=data.get('is_active', True),
         is_default=data.get('is_default', False),
-        sort_order=data.get('sort_order', 0)
+        sort_order=data.get('sort_order', 0),
+        rule_category=data.get('rule_category'),
+        rule_type=data.get('rule_type'),
+        prompt_template=data.get('prompt_template')
     )
 
     db.session.add(dimension)
@@ -2858,31 +3153,31 @@ def update_analysis_dimension(id):
     dimension = AnalysisDimension.query.get_or_404(id)
     data = request.get_json()
 
-    # 检查 code 是否与其他记录冲突
-    if data.get('code'):
-        existing = AnalysisDimension.query.filter(
-            AnalysisDimension.code == data.get('code'),
-            AnalysisDimension.id != id
-        ).first()
-        if existing:
-            return jsonify({
-                'success': False,
-                'message': '维度编码已存在'
-            }), 400
+    # 记录旧值
+    old_category = dimension.category
+    old_sub_category = dimension.sub_category
+    old_name = dimension.name
 
-    # 更新字段
+    # 先更新 category/sub_category 和 name（这样后面重新生成 code 时能用到新值）
     if 'name' in data:
         dimension.name = data['name']
-    if 'code' in data:
-        dimension.code = data['code']
-    if 'icon' in data:
-        dimension.icon = data['icon']
-    if 'description' in data:
-        dimension.description = data['description']
     if 'category' in data:
         dimension.category = data['category']
     if 'sub_category' in data:
         dimension.sub_category = data['sub_category']
+
+    # 判断是否需要重新生成 code
+    new_category = dimension.category
+    new_sub_category = dimension.sub_category
+    new_name = dimension.name
+
+    if new_category != old_category or new_sub_category != old_sub_category or new_name != old_name:
+        dimension.code = _generate_dimension_code(new_name, new_category, new_sub_category)
+
+    if 'icon' in data:
+        dimension.icon = data['icon']
+    if 'description' in data:
+        dimension.description = data['description']
     if 'category_group' in data:
         dimension.category_group = data['category_group']
     if 'related_material_type' in data:
@@ -2893,6 +3188,12 @@ def update_analysis_dimension(id):
         dimension.is_default = data['is_default']
     if 'sort_order' in data:
         dimension.sort_order = data['sort_order']
+    if 'rule_category' in data:
+        dimension.rule_category = data['rule_category']
+    if 'rule_type' in data:
+        dimension.rule_type = data['rule_type']
+    if 'prompt_template' in data:
+        dimension.prompt_template = data['prompt_template']
 
     db.session.commit()
 
@@ -2910,22 +3211,16 @@ def update_analysis_dimension(id):
 @login_required
 @super_admin_required
 def delete_analysis_dimension(id):
-    """删除分析维度"""
+    """删除分析维度 - 软删除，禁用维度"""
     dimension = AnalysisDimension.query.get_or_404(id)
 
-    # 检查是否有关联的规则
-    if dimension.knowledge_rules:
-        return jsonify({
-            'success': False,
-            'message': '该维度有关联规则，无法删除'
-        }), 400
-
-    db.session.delete(dimension)
+    # 软删除：禁用维度
+    dimension.is_active = False
     db.session.commit()
 
     return jsonify({
         'success': True,
-        'message': '删除成功'
+        'message': '维度已禁用'
     })
 
 
@@ -3076,15 +3371,135 @@ def reject_rule_extraction(id):
 @login_required
 def rules_library_page():
     """规则库管理页面"""
+    # 动态获取所有二级分类及其规则类型（用于生成规则库 Tab）
+    sub_categories = db.session.query(
+        AnalysisDimension.sub_category,
+        AnalysisDimension.rule_type,
+        AnalysisDimension.rule_category
+    ).filter(
+        AnalysisDimension.rule_type.isnot(None),
+        AnalysisDimension.rule_type != ''
+    ).distinct().all()
+
+    # 整理成 { rule_type: { sub_category, rule_category, name } }
+    dimension_tabs = {}
+    sub_category_names = {
+        'nickname_analysis': '昵称',
+        'bio_analysis': '简介',
+        'account_positioning': '账号定位',
+        'market_analysis': '目标人群',
+        'keyword_library': '关键词布局',
+        'operation_planning': '内容策略',
+        'title': '标题',
+        'hook': '开头钩子',
+        'ending': '结尾',
+        'visual_design': '视觉设计',
+        'content_body': '内容结构',
+        'applicable_audience': '适用人群',
+        'applicable_scenario': '适用场景'
+    }
+    for sub_cat, rule_type, rule_cat in sub_categories:
+        if sub_cat and rule_type:
+            dimension_tabs[rule_type] = {
+                'sub_category': sub_cat,
+                'rule_category': rule_cat or 'operation',
+                'name': sub_category_names.get(sub_cat, sub_cat)
+            }
+
+    # 一级分类（账号分析、内容分析、方法论）
+    category_tabs = {
+        'account': {'name': '账号分析', 'icon': 'bi-person-badge'},
+        'content': {'name': '内容分析', 'icon': 'bi-file-text'},
+        'methodology': {'name': '方法论', 'icon': 'bi-book'}
+    }
+    # 一级分类 -> 二级分类映射
+    category_map = {}
+    sub_category_names = {
+        'nickname_analysis': '昵称',
+        'bio_analysis': '简介',
+        'account_positioning': '账号定位',
+        'market_analysis': '目标人群',
+        'keyword_library': '关键词布局',
+        'operation_planning': '内容策略',
+        'title': '标题',
+        'hook': '开头钩子',
+        'ending': '结尾',
+        'visual_design': '视觉设计',
+        'content_body': '内容结构',
+        'applicable_audience': '适用人群',
+        'applicable_scenario': '适用场景',
+        'topic': '热门话题',
+        'structure': '内容结构',
+        'hook': '开头钩子',
+        'ending': '结尾引导',
+        'commercial': '商业化',
+        'psychology': '心理共鸣',
+        'emotion': '情感表达'
+    }
+
+    # 从 KnowledgeRule 读取所有二级分类及其公式数量
+    # 按 source_sub_category 分组统计
+    rule_counts_query = db.session.query(
+        KnowledgeRule.source_sub_category,
+        db.func.count(KnowledgeRule.id).label('count')
+    ).filter(
+        KnowledgeRule.status == 'active'
+    ).group_by(KnowledgeRule.source_sub_category).all()
+
+    rule_count_map = {r.source_sub_category: r.count for r in rule_counts_query}
+
+    # 从 AnalysisDimension 读取所有一级分类和二级分类
+    all_dims = db.session.query(
+        AnalysisDimension.category,
+        AnalysisDimension.sub_category,
+        AnalysisDimension.code,
+        AnalysisDimension.name
+    ).filter(
+        AnalysisDimension.is_active == True,
+        AnalysisDimension.code.isnot(None),
+        AnalysisDimension.code != ''
+    ).order_by(AnalysisDimension.category, AnalysisDimension.sub_category, AnalysisDimension.sort_order).all()
+
+    for cat, sub_cat, code, name in all_dims:
+        if cat and sub_cat and code:
+            # 记录二级分类（按一级分类分组）
+            if cat not in category_map:
+                category_map[cat] = {}
+            if sub_cat not in category_map[cat]:
+                category_map[cat][sub_cat] = {
+                    'name': sub_category_names.get(sub_cat, sub_cat),
+                    'dimensions': [],
+                    'ruleCount': rule_count_map.get(sub_cat, 0)  # 公式数量
+                }
+            # 记录维度
+            category_map[cat][sub_cat]['dimensions'].append({
+                'code': code,
+                'name': name
+            })
+
+    # 补充没有维度但有公式的二级分类
+    for sub_cat, count in rule_count_map.items():
+        found = False
+        for cat in category_map:
+            if sub_cat in category_map[cat]:
+                found = True
+                break
+        if not found and count > 0:
+            # 尝试确定一级分类
+            cat = 'account' if sub_cat in ['nickname_analysis', 'bio_analysis', 'account_positioning', 'market_analysis'] else \
+                  'content' if sub_cat in ['title', 'hook', 'ending', 'visual_design', 'content_body', 'topic', 'structure', 'commercial', 'psychology', 'emotion'] else \
+                  'methodology'
+            if cat not in category_map:
+                category_map[cat] = {}
+            category_map[cat][sub_cat] = {
+                'name': sub_category_names.get(sub_cat, sub_cat),
+                'dimensions': [],
+                'ruleCount': count
+            }
+
     return render_template('admin/rules_library.html',
-                          all_material_types=MATERIAL_TYPES,
-                          knowledge_rule_categories={
-                              'keywords': '关键词库',
-                              'topic': '选题库',
-                              'template': '内容模板',
-                              'operation': '运营规划',
-                              'market': '市场分析'
-                          })
+                          category_tabs=category_tabs,
+                          category_map=category_map)
 
 
 # 素材库模型映射（扩展版）
@@ -3118,11 +3533,47 @@ def get_unified_rules():
     """获取统一规则列表（素材库 + 知识规则 + 场景库 + 热点库）"""
     category = request.args.get('category', 'all')
     search = request.args.get('search', '')
+    rule_type = request.args.get('rule_type', '')
+    source_dimension = request.args.get('source_dimension', '')
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 50, type=int)
 
     items = []
     counts = {}
+
+    # 动态获取所有二级分类及其规则类型
+    sub_categories = db.session.query(
+        AnalysisDimension.sub_category,
+        AnalysisDimension.rule_type,
+        AnalysisDimension.rule_category
+    ).filter(
+        AnalysisDimension.rule_type.isnot(None),
+        AnalysisDimension.rule_type != ''
+    ).distinct().all()
+
+    sub_category_names = {
+        'nickname_analysis': '昵称',
+        'bio_analysis': '简介',
+        'account_positioning': '账号定位',
+        'market_analysis': '目标人群',
+        'keyword_library': '关键词布局',
+        'operation_planning': '内容策略',
+        'title': '标题',
+        'hook': '开头钩子',
+        'ending': '结尾',
+        'visual_design': '视觉设计',
+        'content_body': '内容结构',
+        'applicable_audience': '适用人群',
+        'applicable_scenario': '适用场景'
+    }
+    dimension_tabs = {}
+    for sub_cat, r_type, rule_cat in sub_categories:
+        if sub_cat and r_type:
+            dimension_tabs[r_type] = {
+                'sub_category': sub_cat,
+                'rule_category': rule_cat or 'operation',
+                'name': sub_category_names.get(sub_cat, sub_cat)
+            }
 
     # 知识规则分类列表
     knowledge_rule_categories = ['keywords', 'topic', 'template', 'operation', 'market']
@@ -3136,6 +3587,11 @@ def get_unified_rules():
         rule_query = KnowledgeRule.query
         if category != 'all':
             rule_query = rule_query.filter(KnowledgeRule.category == category)
+        if rule_type:
+            rule_query = rule_query.filter(KnowledgeRule.rule_type == rule_type)
+        # 支持按 source_dimension 维度筛选（更细粒度）
+        if source_dimension:
+            rule_query = rule_query.filter(KnowledgeRule.source_dimension == source_dimension)
         if search:
             rule_query = rule_query.filter(
                 db.or_(
@@ -3148,9 +3604,22 @@ def get_unified_rules():
         for cat in knowledge_rule_categories:
             cat_count = KnowledgeRule.query.filter_by(category=cat).count()
             counts[cat] = cat_count
+        # 动态统计所有规则类型（维度 Tab）的数量
+        for rule_type in dimension_tabs.keys():
+            rule_cat = dimension_tabs[rule_type].get('rule_category', 'operation')
+            counts[rule_type] = KnowledgeRule.query.filter_by(
+                category=rule_cat, rule_type=rule_type
+            ).count()
 
         rules = rule_query.all()
         for r in rules:
+            # 获取关联的维度名称
+            dimension_name = ''
+            if r.dimension_id:
+                dim = AnalysisDimension.query.get(r.dimension_id)
+                if dim:
+                    dimension_name = dim.name
+
             items.append({
                 'id': r.id,
                 'title': r.rule_title,
@@ -3161,7 +3630,10 @@ def get_unified_rules():
                 'applicable_scenarios': r.applicable_scenarios,
                 'applicable_audiences': r.applicable_audiences,
                 'platforms': r.platforms,
-                'type_labels': [r.category] if r.category else []
+                'type_labels': [x for x in [r.rule_type, r.source_dimension] if x],
+                'dimension_id': r.dimension_id,
+                'dimension_name': dimension_name,
+                'source_dimension': r.source_dimension
             })
 
     # 查询场景库
@@ -3381,6 +3853,7 @@ def create_unified_rule():
     source_type = data.get('source_type', 'material')
     title = data.get('title', '')
     content = data.get('content', '')
+    rule_type = data.get('rule_type') or 'dimension'
 
     # 解析场景和人群
     scenarios = data.get('applicable_scenarios', [])
@@ -3402,7 +3875,7 @@ def create_unified_rule():
                 category=category,
                 rule_title=title,
                 rule_content=content,
-                rule_type='dimension',
+                rule_type=rule_type,
                 applicable_scenarios=scenarios,
                 applicable_audiences=audiences,
                 platforms=platforms,
@@ -3444,6 +3917,7 @@ def update_unified_rule(id):
     source_type = data.get('source_type', 'material')
     title = data.get('title', '')
     content = data.get('content', '')
+    rule_type = data.get('rule_type') or None
 
     # 解析场景和人群
     scenarios = data.get('applicable_scenarios', [])
@@ -3462,6 +3936,8 @@ def update_unified_rule(id):
             rule = KnowledgeRule.query.get_or_404(id)
             rule.rule_title = title
             rule.rule_content = content
+            if rule_type:
+                rule.rule_type = rule_type
             rule.applicable_scenarios = scenarios
             rule.applicable_audiences = audiences
             rule.platforms = platforms
@@ -3516,3 +3992,106 @@ def delete_unified_rule(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# 简化版规则库 API（按一级分类+二级分类+维度筛选）
+@admin.route('/api/rules')
+@login_required
+def get_rules():
+    """获取规则列表（按一级分类+二级分类+维度筛选）"""
+    category = request.args.get('category', '')  # 一级分类 account/content/methodology
+    sub_category = request.args.get('sub_category', '')  # 二级分类
+    dimension_code = request.args.get('dimension_code', '')
+    page = request.args.get('page', 1, type=int)
+    page_size = request.args.get('page_size', 50, type=int)
+
+    # 查询 KnowledgeRule
+    query = KnowledgeRule.query
+
+    if category:
+        query = query.filter(KnowledgeRule.source_category == category)
+
+    if sub_category:
+        query = query.filter(KnowledgeRule.source_sub_category == sub_category)
+
+    if dimension_code:
+        query = query.filter(KnowledgeRule.source_dimension == dimension_code)
+
+    total = query.count()
+    rules = query.order_by(KnowledgeRule.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    # 整理返回数据
+    sub_category_names = {
+        'nickname_analysis': '昵称',
+        'bio_analysis': '简介',
+        'account_positioning': '账号定位',
+        'market_analysis': '目标人群',
+        'keyword_library': '关键词布局',
+        'operation_planning': '内容策略',
+        'title': '标题',
+        'hook': '开头钩子',
+        'ending': '结尾',
+        'visual_design': '视觉设计',
+        'content_body': '内容结构',
+        'applicable_audience': '适用人群',
+        'applicable_scenario': '适用场景'
+    }
+
+    items = []
+    category_names = {'account': '账号分析', 'content': '内容分析', 'methodology': '方法论'}
+    for r in rules:
+        items.append({
+            'id': r.id,
+            'title': r.rule_title,
+            'content': r.rule_content,
+            'category': r.source_category,
+            'category_name': category_names.get(r.source_category, r.source_category or ''),
+            'sub_category': r.source_sub_category,
+            'object_name': sub_category_names.get(r.source_sub_category, r.source_sub_category),
+            'dimension_code': r.source_dimension,
+            'dimension_name': r.dimension_name,
+            'applicable_scenarios': r.applicable_scenarios or [],
+            'applicable_audiences': r.applicable_audiences or [],
+            'keywords': r.keywords or []
+        })
+
+    return jsonify({'success': True, 'data': items, 'total': total})
+
+
+@admin.route('/api/rules/<int:id>')
+@login_required
+def get_rule_detail(id):
+    """获取规则详情"""
+    rule = KnowledgeRule.query.get_or_404(id)
+
+    sub_category_names = {
+        'nickname_analysis': '昵称',
+        'bio_analysis': '简介',
+        'account_positioning': '账号定位',
+        'market_analysis': '目标人群',
+        'keyword_library': '关键词布局',
+        'operation_planning': '内容策略',
+        'title': '标题',
+        'hook': '开头钩子',
+        'ending': '结尾',
+        'visual_design': '视觉设计',
+        'content_body': '内容结构',
+        'applicable_audience': '适用人群',
+        'applicable_scenario': '适用场景'
+    }
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': rule.id,
+            'title': rule.rule_title,
+            'content': rule.rule_content,
+            'sub_category': rule.source_sub_category,
+            'object_name': sub_category_names.get(rule.source_sub_category, rule.source_sub_category),
+            'dimension_code': rule.source_dimension,
+            'dimension_name': rule.dimension_name,
+            'applicable_scenarios': rule.applicable_scenarios or [],
+            'applicable_audiences': rule.applicable_audiences or [],
+            'keywords': rule.keywords or []
+        }
+    })

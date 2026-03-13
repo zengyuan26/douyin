@@ -214,10 +214,14 @@ class KnowledgeRule(db.Model):
     rule_content = db.Column(db.Text)  # 规则详情
     rule_type = db.Column(db.String(50))  # 规则类型：dimension(维度)/logic(逻辑)/structure(结构)/methodology(方法论)
     source_dimension = db.Column(db.String(100))  # 来源的分析维度
+    source_category = db.Column(db.String(50))  # 来源的一级分类（account/content/methodology）
+    source_sub_category = db.Column(db.String(100))  # 来源的二级分类
+    dimension_name = db.Column(db.String(100))  # 维度名称
 
     # 适用场景和人群
     applicable_scenarios = db.Column(db.JSON)  # 适用场景列表 ['种草', '带货', '品牌宣传']
     applicable_audiences = db.Column(db.JSON)  # 适用人群列表 ['年轻女性', '白领', '宝爸']
+    keywords = db.Column(db.JSON)  # 关键词标签
 
     # 适用平台
     platforms = db.Column(db.JSON)  # 适用平台 ['douyin', 'xhs', 'bilibili']
@@ -1181,6 +1185,11 @@ class AnalysisDimension(db.Model):
     # 素材库关联
     related_material_type = db.Column(db.String(50))  # 关联的素材库类型
 
+    # 规则库关联 - 分析维度对应的入库规则配置
+    rule_category = db.Column(db.String(50))  # 入库后的规则分类：keywords/topic/template/operation/market
+    rule_type = db.Column(db.String(100))  # 入库后的规则类型（如 account_design_nickname、content_title 等）
+    prompt_template = db.Column(db.Text)  # LLM分析时的提示词模板/建议项
+
     # 状态
     is_active = db.Column(db.Boolean, default=True)
     is_default = db.Column(db.Boolean, default=False)  # 是否为默认维度
@@ -1194,6 +1203,27 @@ class AnalysisDimension(db.Model):
 
     def __repr__(self):
         return f'<AnalysisDimension {self.code} {self.name}>'
+
+
+class AnalysisDimensionCategoryOrder(db.Model):
+    """分析维度二级分类排序表 - 存储每个一级分类下二级分类的显示顺序"""
+    __tablename__ = 'analysis_dimension_category_orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # 分类信息
+    category = db.Column(db.String(50), nullable=False)  # 一级分类：account/content/methodology
+    sub_category = db.Column(db.String(50), nullable=False)  # 二级分类
+
+    # 排序值
+    sort_order = db.Column(db.Integer, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint('category', 'sub_category', name='uix_category_sub_category'),
+    )
+
+    def __repr__(self):
+        return f'<AnalysisDimensionCategoryOrder {self.category}/{self.sub_category} order={self.sort_order}>'
 
 
 # ========== 规则自动提取记录 ==========

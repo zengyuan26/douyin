@@ -43,24 +43,15 @@
     <!-- 页面标题 -->
     <div class="row mb-3">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex justify-content-between align-items-center">
                 <div class="page-header mb-0 page-header-animate">
                     <h4 class="page-title">客户管理</h4>
                     <p class="page-subtitle mb-0">管理渠道商下的客户数据</p>
                 </div>
-                <div class="action-bar btn-animate">
-                    <select class="form-select filter-select" style="width: auto;">
-                        <option value="">全部渠道</option>
-                        {% for channel in channels %}
-                        <option value="{{ channel.id }}">{{ channel.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <select class="form-select filter-select" style="width: auto;">
-                        <option value="">全部行业</option>
-                        {% for industry in industries %}
-                        <option value="{{ industry.id }}">{{ industry.name }}</option>
-                        {% endfor %}
-                    </select>
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary btn-lg">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
                 </div>
             </div>
         </div>

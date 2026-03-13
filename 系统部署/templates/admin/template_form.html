@@ -17,8 +17,8 @@
                         {% if template_type == 'report' %}报告模板{% else %}内容模板{% endif %}
                     </p>
                 </div>
-                <div>
-                    <a href="{{ url_for('admin.templates', type=template_type) }}" class="btn btn-outline-secondary btn-sm me-2">
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin.templates', type=template_type) }}" class="btn btn-outline-secondary btn-lg">
                         <i class="bi bi-arrow-left me-1"></i>返回
                     </a>
                     {% if template %}

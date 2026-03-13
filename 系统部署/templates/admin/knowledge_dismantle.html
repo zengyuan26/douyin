@@ -12,8 +12,8 @@
                     <h5 class="mb-1">爆款拆解</h5>
                     <p class="text-muted mb-0 small">输入账号链接获取基础信息后，进行内容分析</p>
                 </div>
-                <div>
-                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-sm">
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-lg">
                         <i class="bi bi-arrow-left me-1"></i>返回
                     </a>
                 </div>
@@ -115,10 +115,6 @@
                                     </select>
                                 </div>
                                 <div class="mb-2">
-                                    <label class="form-label small">内容链接</label>
-                                    <input type="text" class="form-control form-control-sm" id="manual-content-url" placeholder="内容链接（选填）">
-                                </div>
-                                <div class="mb-2">
                                     <label class="form-label small">内容类型</label>
                                     <select class="form-select form-select-sm" id="manual-content-type">
                                         <option value="video">视频</option>
@@ -139,10 +135,10 @@
                                 </button>
                             </form>
 
-                            <!-- 分析维度（动态加载） -->
+                            <!-- 分析维度（自动加载所有启用维度） -->
                             <div class="mb-2">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="small text-muted">选择分析维度：</span>
+                                    <span class="small text-muted">分析维度（已自动加载全部启用维度）：</span>
                                     <a href="{{ url_for('admin.analysis_dimensions_page') }}" target="_blank" class="small text-primary text-decoration-none">
                                         <i class="bi bi-gear me-1"></i>管理维度
                                     </a>
@@ -171,9 +167,6 @@
         <!-- 右侧：结果展示 -->
         <div class="col-lg-7">
             <div class="card border-0 shadow-sm" style="min-height: 500px;">
-                <div class="card-header bg-white border-0 py-2">
-                    <h6 class="mb-0">分析结果</h6>
-                </div>
                 <div class="card-body" id="result-container">
                     <!-- 初始状态 -->
                     <div class="text-center py-4" id="result-empty">
@@ -353,15 +346,15 @@
 
                     <div class="tab-content" id="accountFormTabContent">
                         <!-- Tab1: 基础信息 -->
-                        <div class="tab-pane fade show active" id="form-tab-basic" role="tabpanel">
+                        <div class="tab-pane fade show active" id="form-tab-basic" role="tabpanel" tabindex="0">
                             <div class="row g-2">
                                 <div class="col-md-6">
                                     <label class="form-label small">账号名称 <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control form-control-sm" id="account-name" placeholder="请输入账号名称" required>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label small">平台</label>
-                                    <select class="form-select form-select-sm" id="account-platform">
+                                    <label class="form-label small">平台 <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" id="account-platform" required>
                                         <option value="douyin">抖音</option>
                                         <option value="xhs">小红书</option>
                                         <option value="bilibili">B站</option>
@@ -382,11 +375,11 @@
                         </div>
 
                         <!-- Tab2: 详细信息 -->
-                        <div class="tab-pane fade" id="form-tab-detail" role="tabpanel">
+                        <div class="tab-pane fade" id="form-tab-detail" role="tabpanel" tabindex="0">
                             <div class="row g-2">
                                 <div class="col-md-4">
-                                    <label class="form-label small">业务类型</label>
-                                    <select class="form-select form-select-sm" id="account-business-type">
+                                    <label class="form-label small">业务类型 <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" id="account-business-type" required>
                                         <option value="">请选择</option>
                                         <option value="卖货类">卖货类</option>
                                         <option value="服务类">服务类</option>
@@ -394,8 +387,8 @@
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">产品类型</label>
-                                    <select class="form-select form-select-sm" id="account-product-type">
+                                    <label class="form-label small">产品类型 <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" id="account-product-type" required>
                                         <option value="">请选择</option>
                                         <option value="实物商品">实物商品</option>
                                         <option value="批发供应链">批发供应链</option>
@@ -403,8 +396,8 @@
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">服务类型</label>
-                                    <select class="form-select form-select-sm" id="account-service-type">
+                                    <label class="form-label small">服务类型 <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" id="account-service-type" required>
                                         <option value="">请选择</option>
                                         <option value="本地生活">本地生活</option>
                                         <option value="线上专业">线上专业</option>
@@ -415,36 +408,36 @@
                                 <div class="col-md-4">
                                     <label class="form-label small">主营业务 1 <span class="text-danger">*</span></label>
                                     <div class="d-flex align-items-center gap-2">
-                                        <input type="text" class="form-control form-control-sm flex-grow-1" id="account-main-product" placeholder="如：豆芽批发">
-                                        <div class="input-group input-group-sm" style="width: 80px;">
-                                            <input type="number" class="form-control form-control-sm" id="account-main-product-pct" min="0" max="100" value="100">
+                                        <input type="text" class="form-control form-control-sm" style="width: 100px;" id="account-main-product" placeholder="如：豆芽批发" required>
+                                        <div class="input-group input-group-sm flex-grow-1">
+                                            <input type="text" class="form-control form-control-sm" id="account-main-product-pct" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="100" value="100" data-pct-input>
                                             <span class="input-group-text">%</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">主营业务 2</label>
+                                    <label class="form-label small">主营业务 2 <span class="text-muted">(选填)</span></label>
                                     <div class="d-flex align-items-center gap-2">
-                                        <input type="text" class="form-control form-control-sm flex-grow-1" id="account-main-product-2" placeholder="如：配饰">
-                                        <div class="input-group input-group-sm" style="width: 80px;">
-                                            <input type="number" class="form-control form-control-sm" id="account-main-product-2-pct" min="0" max="100" value="0">
+                                        <input type="text" class="form-control form-control-sm" style="width: 100px;" id="account-main-product-2" placeholder="如：配饰">
+                                        <div class="input-group input-group-sm flex-grow-1">
+                                            <input type="text" class="form-control form-control-sm" id="account-main-product-2-pct" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="0" value="0" data-pct-input>
                                             <span class="input-group-text">%</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">主营业务 3</label>
+                                    <label class="form-label small">主营业务 3 <span class="text-muted">(选填)</span></label>
                                     <div class="d-flex align-items-center gap-2">
-                                        <input type="text" class="form-control form-control-sm flex-grow-1" id="account-main-product-3" placeholder="其他业务">
-                                        <div class="input-group input-group-sm" style="width: 80px;">
-                                            <input type="number" class="form-control form-control-sm" id="account-main-product-3-pct" min="0" max="100" value="0">
+                                        <input type="text" class="form-control form-control-sm" style="width: 100px;" id="account-main-product-3" placeholder="其他业务">
+                                        <div class="input-group input-group-sm flex-grow-1">
+                                            <input type="text" class="form-control form-control-sm" id="account-main-product-3-pct" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="0" value="0" data-pct-input>
                                             <span class="input-group-text">%</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">地域范围</label>
-                                    <select class="form-select form-select-sm" id="account-service-range">
+                                    <label class="form-label small">地域范围 <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" id="account-service-range" required>
                                         <option value="">请选择</option>
                                         <option value="本地">本地</option>
                                         <option value="跨区域">跨区域</option>
@@ -452,12 +445,12 @@
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">目标地区</label>
+                                    <label class="form-label small">目标地区 <span class="text-muted">(选填)</span></label>
                                     <input type="text" class="form-control form-control-sm" id="account-target-area" placeholder="如：北京、上海">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">品牌定位</label>
-                                    <select class="form-select form-select-sm" id="account-brand-type">
+                                    <label class="form-label small">品牌定位 <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" id="account-brand-type" required>
                                         <option value="">请选择</option>
                                         <option value="个人IP">个人IP</option>
                                         <option value="企业品牌">企业品牌</option>
@@ -465,16 +458,16 @@
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">语言风格</label>
-                                    <select class="form-select form-select-sm" id="account-language-style">
+                                    <label class="form-label small">语言风格 <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" id="account-language-style" required>
                                         <option value="">请选择</option>
                                         <option value="普通话">普通话</option>
                                         <option value="方言">方言</option>
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">目标用户</label>
-                                    <select class="form-select form-select-sm" id="account-target-user">
+                                    <label class="form-label small">目标用户 <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" id="account-target-user" required>
                                         <option value="">请选择</option>
                                         <option value="付费者">付费者</option>
                                         <option value="使用者">使用者（付费和使用人不是同一人）</option>
@@ -484,19 +477,19 @@
                         </div>
 
                         <!-- Tab3: 内容布局 -->
-                        <div class="tab-pane fade" id="form-tab-content" role="tabpanel">
+                        <div class="tab-pane fade" id="form-tab-content" role="tabpanel" tabindex="0">
                             <div class="row g-2">
                                 <div class="col-md-4">
-                                    <label class="form-label small">人设IP类</label>
-                            <input type="number" min="0" step="1" class="form-control form-control-sm content-layout-input" id="account-persona-type" placeholder="人设IP类占比">
+                                    <label class="form-label small">人设IP类 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm content-layout-input" id="account-persona-type" inputmode="numeric" pattern="[0-9]*" placeholder="人设IP类占比" required>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">主题内容</label>
-                            <input type="number" min="0" step="1" class="form-control form-control-sm content-layout-input" id="account-topic-content" placeholder="主题内容占比">
+                                    <label class="form-label small">主题内容 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm content-layout-input" id="account-topic-content" inputmode="numeric" pattern="[0-9]*" placeholder="主题内容占比" required>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">日常运营</label>
-                            <input type="number" min="0" step="1" class="form-control form-control-sm content-layout-input" id="account-daily-operation" placeholder="日常运营占比">
+                                    <label class="form-label small">日常运营 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm content-layout-input" id="account-daily-operation" inputmode="numeric" pattern="[0-9]*" placeholder="日常运营占比" required>
                                 </div>
                             </div>
                             <!-- 比例预览 -->
@@ -574,11 +567,32 @@ document.addEventListener('DOMContentLoaded', function() {
     // 加载账号库列表
     loadAccountsList();
 
-    // 加载分析维度（动态）
-    loadAnalysisDimensions();
+    // 使用默认分析维度（所有启用的维度）
+    loadDefaultAnalysisDimensions();
 
     initEventListeners();
 });
+
+// 加载默认分析维度（自动加载所有启用维度）
+function loadDefaultAnalysisDimensions() {
+    const defaultDimensions = [
+        { code: 'title', name: '标题', category: 'content', is_active: true },
+        { code: 'cover', name: '封面', category: 'content', is_active: true },
+        { code: 'topic', name: '选题', category: 'content', is_active: true },
+        { code: 'content', name: '内容', category: 'content', is_active: true },
+        { code: 'psychology', name: '心理', category: 'content', is_active: true },
+        { code: 'commercial', name: '商业', category: 'content', is_active: true },
+        { code: 'why_popular', name: '爆款', category: 'content', is_active: true },
+        { code: 'ending', name: '结尾', category: 'content', is_active: true },
+        { code: 'tags', name: '标签', category: 'content', is_active: true },
+        { code: 'character', name: '人物', category: 'content', is_active: true },
+        { code: 'content_form', name: '形式', category: 'content', is_active: true },
+        { code: 'interaction', name: '互动', category: 'content', is_active: true }
+    ];
+
+    analysisDimensionsCache = defaultDimensions;
+    renderAnalysisDimensions(defaultDimensions);
+}
 
 // 获取操作历史
 function getAccountHistory() {
@@ -862,6 +876,13 @@ async function checkSavedAccount() {
                 displayAccountAnalysisResult(currentAccount);
                 showAccountLinkedState(currentAccount);
                 enableContentTab();
+
+                // 恢复之前保存的 Tab 状态
+                const savedTab = sessionStorage.getItem('dismantle_current_tab');
+                if (savedTab === 'content') {
+                    switchToContentTab();
+                }
+                // 如果是 account 或者没有保存的 tab，默认保持在账号分析 tab
             }
         }
     } catch (e) {
@@ -891,6 +912,9 @@ function switchToContentTab() {
     const contentTabEl = new bootstrap.Tab(contentTab);
     contentTabEl.show();
 
+    // 保存当前 Tab 状态
+    sessionStorage.setItem('dismantle_current_tab', 'content');
+
     // 切换到内容分析 tab 时，显示内容分析结果（如果有）
     if (analysisResult) {
         displayAnalysisResult(analysisResult);
@@ -906,6 +930,9 @@ function switchToAccountTab() {
     const accountTabEl = new bootstrap.Tab(accountTab);
     accountTabEl.show();
 
+    // 保存当前 Tab 状态
+    sessionStorage.setItem('dismantle_current_tab', 'account');
+
     // 切换到账号分析 tab 时，显示账号分析结果（如果有）
     if (accountAnalysisResult) {
         displayAccountAnalysisResult(accountAnalysisResult);
@@ -916,7 +943,166 @@ function switchToAccountTab() {
     }
 }
 
+// 显示匹配的规则库记录
+function showMatchedRules(rules) {
+    if (!rules || rules.length === 0) {
+        alert('没有匹配的规则');
+        return;
+    }
+    let html = '<div class="list-group">';
+    rules.forEach(rule => {
+        html += `
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-1">${rule.title}</h6>
+                    <span class="badge bg-primary">${rule.category}</span>
+                </div>
+                <p class="mb-1 small text-muted">${rule.content || '无内容'}</p>
+                <small class="text-info">匹配类型: ${rule.match_type}</small>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    // 创建临时模态框显示
+    const modalHtml = `
+        <div class="modal fade" id="matchedRulesModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">匹配的规则库记录</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${html}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 移除已存在的模态框
+    const existingModal = document.getElementById('matchedRulesModal');
+    if (existingModal) existingModal.remove();
+
+    // 添加新模态框
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('matchedRulesModal'));
+    modal.show();
+}
+
+// 将账号设计分析入库（运营规划 -> 账号设计）
+// 入库前先比对规则库，显示比对结果
+async function saveAccountDesignRule(accountId, dimensionCode) {
+    if (!accountId || !dimensionCode) {
+        alert('缺少必要参数');
+        return;
+    }
+
+    const dimName = dimensionCode.replace('nickname_', '昵称-').replace('bio_', '简介-');
+
+    // 第一步：先获取要入库的规则内容
+    let ruleContent = '';
+    let ruleTitle = '';
+    let category = 'operation';
+
+    // 从分析结果中提取规则内容（需要根据 dimensionCode 获取对应的分析结果）
+    try {
+        const res = await fetch(`/api/knowledge/rules/account-design/content?account_id=${accountId}&dimension_code=${dimensionCode}`);
+        const data = await res.json();
+        if (data.code === 200 && data.data) {
+            ruleContent = data.data.rule_content || '';
+            ruleTitle = data.data.rule_title || dimName;
+            category = data.data.category || 'operation';
+        } else {
+            alert('获取规则内容失败: ' + (data.message || ''));
+            return;
+        }
+    } catch (e) {
+        console.error('获取规则内容失败:', e);
+        alert('获取规则内容失败');
+        return;
+    }
+
+    if (!ruleContent) {
+        alert('没有可入库的规则内容');
+        return;
+    }
+
+    // 第二步：比对规则库
+    try {
+        const checkRes = await fetch('/admin/api/knowledge/rules/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                rules: [{
+                    rule_content: ruleContent,
+                    category: category,
+                    source_dimension: dimensionCode
+                }]
+            })
+        });
+        const checkData = await checkRes.json();
+
+        if (!checkData.success) {
+            alert('比对失败: ' + checkData.message);
+            return;
+        }
+
+        const checkResult = checkData.results[0];
+
+        if (checkResult && checkResult.is_duplicate) {
+            // 有重复，显示提示
+            let message = '⚠️ 系统已有相似规则：\n\n';
+            checkResult.similar_rules.forEach(r => {
+                message += `• ${r.rule_title || r.rule_content}\n  相似度: ${r.similarity}\n\n`;
+            });
+            message += '是否仍然入库？';
+            const ok = confirm(message);
+            if (!ok) return;
+        } else {
+            // 没有重复，直接入库
+            const ok = confirm(`确认将「${dimName}」维度分析结果入库到规则库？`);
+            if (!ok) return;
+        }
+
+        // 第三步：执行入库
+        const saveRes = await fetch('/api/knowledge/rules/account-design', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account_id: accountId, dimension_code: dimensionCode })
+        });
+        const saveData = await saveRes.json();
+        if (saveData.code === 200) {
+            alert('✅ 入库成功');
+        } else {
+            alert(saveData.message || '入库失败');
+        }
+    } catch (e) {
+        console.error('入库失败:', e);
+        alert('入库失败，请稍后重试');
+    }
+}
+
 function initEventListeners() {
+    // Tab 切换事件 - 保存当前 Tab 状态
+    const accountTabEl = document.getElementById('account-tab');
+    const contentTabEl = document.getElementById('content-tab');
+
+    if (accountTabEl) {
+        accountTabEl.addEventListener('shown.bs.tab', function() {
+            sessionStorage.setItem('dismantle_current_tab', 'account');
+        });
+    }
+    if (contentTabEl) {
+        contentTabEl.addEventListener('shown.bs.tab', function() {
+            sessionStorage.setItem('dismantle_current_tab', 'content');
+        });
+    }
+
     // 新增账号按钮
     document.getElementById('add-account-btn').addEventListener('click', function() {
         openAccountModal();
@@ -979,28 +1165,6 @@ const ACCOUNTS_PAGE_SIZE = 5;
 // 加载分析维度（动态）
 let analysisDimensionsCache = null;
 
-async function loadAnalysisDimensions() {
-    const container = document.getElementById('analysis-dimensions-container');
-    if (!container) return;
-
-    try {
-        const response = await fetch('/admin/api/analysis-dimensions?is_active=true&page_size=100');
-        const result = await response.json();
-
-        if (result.success && result.data && result.data.length > 0) {
-            analysisDimensionsCache = result.data;
-            renderAnalysisDimensions(result.data);
-        } else {
-            // 如果没有配置，使用默认维度
-            renderDefaultDimensions();
-        }
-    } catch (error) {
-        console.error('加载分析维度失败:', error);
-        renderDefaultDimensions();
-    }
-}
-
-// 渲染分析维度复选框
 function renderAnalysisDimensions(dimensions) {
     const container = document.getElementById('analysis-dimensions-container');
     if (!container) return;
@@ -1023,22 +1187,18 @@ function renderAnalysisDimensions(dimensions) {
     for (const [cat, dims] of Object.entries(grouped)) {
         const catName = categoryNames[cat] || cat;
         html += `<div class="w-100 mb-1"><small class="text-muted">${catName}：</small></div>`;
+        html += '<div class="d-flex flex-wrap gap-1">';
         dims.forEach(d => {
-            const isDefault = d.is_default || d.code === 'title' || d.code === 'cover' || d.code === 'topic' || d.code === 'content';
             html += `
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input analysis-dimension" type="checkbox"
-                           value="${d.code}" id="dim-${d.code}"
-                           ${isDefault ? 'checked' : ''}
-                           data-category="${d.category}"
-                           data-sub-category="${d.sub_category || ''}">
-                    <label class="form-check-label small" for="dim-${d.code}">${d.name}</label>
-                </div>
+                <span class="badge bg-light text-dark border">
+                    <i class="bi bi-check-circle text-success me-1"></i>${d.name}
+                </span>
             `;
         });
+        html += '</div>';
     }
 
-    container.innerHTML = html;
+    container.innerHTML = html || '<span class="text-muted small">暂无启用维度，请到分析维度管理配置</span>';
 }
 
 // 渲染默认维度（当没有配置时）
@@ -1477,6 +1637,26 @@ function accountsNextPage() {
     }
 }
 
+// 百分比输入框：仅允许数字 0-100，避免 type=number 在弹窗内无法输入
+function initAccountModalPctInputs() {
+    document.querySelectorAll('#accountModal [data-pct-input]').forEach(function(input) {
+        if (input._pctBound) return;
+        input._pctBound = true;
+        input.addEventListener('input', function() {
+            let v = this.value.replace(/\D/g, '');
+            if (v === '') return;
+            let n = parseInt(v, 10);
+            if (n > 100) v = '100';
+            this.value = v;
+        });
+        input.addEventListener('blur', function() {
+            let n = parseInt(this.value, 10);
+            if (Number.isNaN(n) || n < 0) this.value = '0';
+            else if (n > 100) this.value = '100';
+        });
+    });
+}
+
 // 打开账号弹窗（新增）
 function openAccountModal(account = null) {
     const modal = new bootstrap.Modal(document.getElementById('accountModal'));
@@ -1534,6 +1714,14 @@ function openAccountModal(account = null) {
 
     // 初始化内容布局比例预览
     initContentLayoutPreview();
+    // 初始化百分比输入框（仅允许 0-100，确保可输入）
+    initAccountModalPctInputs();
+    // 新增时重置后百分比默认值
+    if (!account) {
+        document.getElementById('account-main-product-pct').value = '100';
+        document.getElementById('account-main-product-2-pct').value = '0';
+        document.getElementById('account-main-product-3-pct').value = '0';
+    }
 
     modal.show();
 }
@@ -1675,9 +1863,13 @@ async function saveAccount() {
         return;
     }
 
-    // 校验详细信息（Tab2）
+    // 校验详细信息（Tab2）- 所有字段必填
     const businessType = document.getElementById('account-business-type').value;
+    const productType = document.getElementById('account-product-type').value;
+    const serviceType = document.getElementById('account-service-type').value;
     const mainProduct = document.getElementById('account-main-product').value.trim();
+    const mainProduct2 = document.getElementById('account-main-product-2').value.trim();
+    const mainProduct3 = document.getElementById('account-main-product-3').value.trim();
     const serviceRange = document.getElementById('account-service-range').value;
     const targetArea = document.getElementById('account-target-area').value.trim();
     const brandType = document.getElementById('account-brand-type').value;
@@ -1688,16 +1880,20 @@ async function saveAccount() {
         alert('请选择业务类型');
         return;
     }
+    if (!productType) {
+        alert('请选择产品类型');
+        return;
+    }
+    if (!serviceType) {
+        alert('请选择服务类型');
+        return;
+    }
     if (!mainProduct) {
         alert('请填写主营业务1');
         return;
     }
     if (!serviceRange) {
         alert('请选择地域范围');
-        return;
-    }
-    if (!targetArea) {
-        alert('请填写目标地区');
         return;
     }
     if (!brandType) {
@@ -1811,6 +2007,8 @@ async function saveAccount() {
                 setTimeout(() => {
                     selectAccount(savedAccountId);
                 }, 300);
+                // 触发后台分析（不阻塞跳转）
+                triggerAccountAnalysisAsync(savedAccountId);
                 // 轮询拉取账号分析结果，后台分析完成后更新前台
                 startAccountAnalysisPolling(savedAccountId);
             }
@@ -1819,6 +2017,19 @@ async function saveAccount() {
         }
     } catch (e) {
         alert('保存失败: ' + e.message);
+    }
+}
+
+// 触发后台账号分析（画像/关键词 + 账号设计）
+async function triggerAccountAnalysisAsync(accountId) {
+    try {
+        await fetch(`/api/knowledge/accounts/${accountId}/analyze-async`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+    } catch (e) {
+        // 静默失败：不影响用户录入/跳转
     }
 }
 
@@ -1837,7 +2048,9 @@ function startAccountAnalysisPolling(accountId) {
         try {
             const res = await fetch(`/api/knowledge/accounts/${accountId}`);
             const result = await res.json();
-            if (result.code === 200 && result.data && (result.data.target_audience || result.data.core_keywords)) {
+            const hasProfileData = result.data && (result.data.target_audience || result.data.core_keywords);
+            const hasDesignData = result.data && result.data.analysis_result && (result.data.analysis_result.account_design || result.data.analysis_result.keyword_layout);
+            if (result.code === 200 && (hasProfileData || hasDesignData)) {
                 clearInterval(accountAnalysisPollTimer);
                 accountAnalysisPollTimer = null;
                 accountAnalysisResult = result.data;
@@ -1881,7 +2094,6 @@ async function saveContentManually(e) {
 
     const title = document.getElementById('manual-content-title').value.trim();
     const accountId = document.getElementById('manual-content-account').value;
-    const contentUrl = document.getElementById('manual-content-url').value.trim();
     const contentType = document.getElementById('manual-content-type').value;
     const description = document.getElementById('manual-content-desc').value.trim();
     const extraDataStr = document.getElementById('manual-content-data').value.trim();
@@ -1904,7 +2116,7 @@ async function saveContentManually(e) {
             body: JSON.stringify({
                 title,
                 account_id: accountId ? parseInt(accountId) : null,
-                content_url: contentUrl,
+                content_url: '',
                 content_type: contentType,
                 source_type: 'manual',
                 content_data: contentData
@@ -1913,8 +2125,9 @@ async function saveContentManually(e) {
 
         const data = await response.json();
         if (data.code === 200) {
-            alert('内容保存成功！');
-            document.getElementById('content-manual-form').reset();
+            alert('内容保存成功！点击「开始分析」即可分析该内容');
+            // 不清除表单，方便用户继续操作
+            // document.getElementById('content-manual-form').reset();
         } else {
             alert(data.message || '保存失败');
         }
@@ -1934,9 +2147,13 @@ function clearAccount() {
     analysisResult = null;
     historyCurrentPage = 1;
 
-    // 清除内容分析页的链接输入框
-    const contentUrlEl = document.getElementById('manual-content-url');
-    if (contentUrlEl) contentUrlEl.value = '';
+    // 清除内容分析页的输入框
+    const titleEl = document.getElementById('manual-content-title');
+    const descEl = document.getElementById('manual-content-desc');
+    const dataEl = document.getElementById('manual-content-data');
+    if (titleEl) titleEl.value = '';
+    if (descEl) descEl.value = '';
+    if (dataEl) dataEl.value = '';
 
     // 禁用内容分析 Tab
     disableContentTab();
@@ -1952,9 +2169,13 @@ function clearAccount() {
 
 // 开始分析内容
 async function analyzeContent() {
-    const contentUrl = document.getElementById('content-url').value.trim();
-    if (!contentUrl) {
-        alert('请输入内容链接');
+    // 获取手动录入的内容
+    const manualTitle = document.getElementById('manual-content-title').value.trim();
+    const description = document.getElementById('manual-content-desc').value.trim();
+    const extraDataStr = document.getElementById('manual-content-data').value.trim();
+
+    if (!manualTitle && !description) {
+        alert('请录入内容');
         return;
     }
 
@@ -1965,57 +2186,51 @@ async function analyzeContent() {
         return;
     }
 
-    // 获取选择的分析维度
+    // 自动获取所有启用的分析维度
     const dimensions = [];
-    document.querySelectorAll('.analysis-dimension:checked').forEach(cb => {
-        dimensions.push(cb.value);
-    });
+    if (analysisDimensionsCache && analysisDimensionsCache.length > 0) {
+        analysisDimensionsCache.forEach(d => {
+            dimensions.push(d.code);
+        });
+    }
 
     if (dimensions.length === 0) {
-        alert('请至少选择一个分析维度');
+        alert('请先配置分析维度');
         return;
     }
 
     // 显示加载状态
     document.getElementById('content-analysis-form').classList.add('d-none');
     document.getElementById('content-loading').classList.remove('d-none');
-    document.getElementById('analysis-progress').textContent = '正在获取内容信息...';
+    document.getElementById('analysis-progress').textContent = '正在分析内容...';
+
+    // 构建内容信息
+    let contentInfo = {
+        title: manualTitle,
+        description: description
+    };
+
+    // 解析额外数据
+    if (extraDataStr) {
+        try {
+            const extraData = JSON.parse(extraDataStr);
+            contentInfo = { ...contentInfo, ...extraData };
+        } catch (e) {
+            console.warn('额外数据 JSON 解析失败');
+        }
+    }
 
     try {
-        // 第一步：先用爬虫获取内容信息（浏览器模式）
-        const contentInfoResponse = await fetch('/api/knowledge/content/basic-info', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                url: contentUrl,
-                use_browser: true  // 使用浏览器模式
-            })
-        });
-
-        const contentInfoData = await contentInfoResponse.json();
-        let contentInfo = null;
-
-        if (contentInfoData.code === 200 && contentInfoData.data) {
-            contentInfo = contentInfoData.data;
-            document.getElementById('analysis-progress').textContent = '正在分析内容...';
-            console.log('获取到内容信息:', contentInfo);
-        } else {
-            console.warn('获取内容信息失败，将使用纯LLM分析');
-        }
-
-        // 第二步：调用分析接口（传入获取到的内容信息）
+        // 调用分析接口
         const response = await fetch('/api/knowledge/analyze-with-account', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                url: contentUrl,
+                url: 'manual://' + manualTitle,
                 modules: dimensions,
                 account_info: currentAccount,
-                // 传入爬虫获取到的内容信息
                 content_info: contentInfo
             })
         });
@@ -2027,14 +2242,12 @@ async function analyzeContent() {
             displayAnalysisResult(analysisResult);
         } else {
             alert(data.message || data.error || '分析失败');
-            // 恢复表单
             document.getElementById('content-loading').classList.add('d-none');
             document.getElementById('content-analysis-form').classList.remove('d-none');
         }
     } catch (error) {
         console.error('分析失败:', error);
         alert('分析失败，请稍后重试');
-        // 恢复表单
         document.getElementById('content-loading').classList.add('d-none');
         document.getElementById('content-analysis-form').classList.remove('d-none');
     }
@@ -2369,7 +2582,198 @@ function displayAccountAnalysisResult(accountInfo) {
                     </div>
                 </div>
             </div>
-        `
+        `,
+
+        // Tab6: 账号设计
+        'tab-design': (function() {
+            const designData = accountInfo.analysis_result?.account_design || {};
+            const nicknameAnalysis = designData.nickname_analysis || {};
+            const bioAnalysis = designData.bio_analysis || {};
+
+            // 渲染单个维度结果（带入库按钮）
+            const renderDimensionCard = (dimensionCode, dimensionName, dimData, icon) => {
+                if (!dimData || Object.keys(dimData).length <= 2) {
+                    return ''; // 跳过空维度
+                }
+                const isNickname = dimensionCode.startsWith('nickname_');
+
+                // 根据不同维度显示不同内容
+                let contentHtml = '';
+                if (dimensionCode === 'nickname_keyword') {
+                    contentHtml = `
+                        <div class="row g-1 small">
+                            <div class="col-6">
+                                <div class="text-muted">是否有关键词</div>
+                                <div class="fw-medium">${dimData.has_keyword ? '是' : '否'}</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-muted">关键词类型</div>
+                                <div class="fw-medium">${dimData.keyword_type || '-'}</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="text-muted">关键词内容</div>
+                                <div class="fw-medium">${dimData.keyword_content || '-'}</div>
+                            </div>
+                        </div>
+                    `;
+                } else if (dimensionCode === 'nickname_memorability') {
+                    contentHtml = `
+                        <div class="row g-1 small">
+                            <div class="col-6">
+                                <div class="text-muted">字符长度</div>
+                                <div class="fw-medium">${dimData.length || '-'}</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-muted">易记程度</div>
+                                <div class="fw-medium">${dimData.memorability || '-'}</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="text-muted">易记原因</div>
+                                <div class="fw-medium small">${dimData.memorability_reason || '-'}</div>
+                            </div>
+                        </div>
+                    `;
+                } else if (dimensionCode === 'nickname_feature') {
+                    contentHtml = `
+                        <div class="d-flex flex-wrap gap-1">
+                            ${dimData.body_feature ? `<span class="badge bg-light text-dark">身体特征: ${dimData.body_feature}</span>` : ''}
+                            ${dimData.emotion_feature ? `<span class="badge bg-light text-dark">情绪特征: ${dimData.emotion_feature}</span>` : ''}
+                            ${dimData.professional_feature ? `<span class="badge bg-light text-dark">专业特征: ${dimData.professional_feature}</span>` : ''}
+                            ${dimData.persona_feature ? `<span class="badge bg-light text-dark">人设特征: ${dimData.persona_feature}</span>` : ''}
+                            ${(!dimData.body_feature && !dimData.emotion_feature && !dimData.professional_feature && !dimData.persona_feature) ? '<span class="text-muted">无明显特征</span>' : ''}
+                        </div>
+                    `;
+                } else if (dimensionCode === 'nickname_advantage') {
+                    contentHtml = `
+                        <div class="small">
+                            <div class="text-muted">优点</div>
+                            <div class="fw-medium">${(dimData.advantages || []).join('；') || '-'}</div>
+                            <div class="text-muted mt-1">适合对象</div>
+                            <div class="fw-medium">${dimData.suitable_for || '-'}</div>
+                        </div>
+                    `;
+                } else if (dimensionCode === 'bio_structure') {
+                    contentHtml = `
+                        <div class="row g-1 small">
+                            <div class="col-6">
+                                <div class="text-muted">有结构</div>
+                                <div class="fw-medium">${dimData.has_structure ? '是' : '否'}</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-muted">有联系方式</div>
+                                <div class="fw-medium">${dimData.has_contact ? '是' : '否'}</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-muted">有价值主张</div>
+                                <div class="fw-medium">${dimData.has_value_proposition ? '是' : '否'}</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-muted">有行动号召</div>
+                                <div class="fw-medium">${dimData.has_cta ? '是' : '否'}</div>
+                            </div>
+                        </div>
+                    `;
+                } else if (dimensionCode === 'bio_content') {
+                    contentHtml = `
+                        <div class="row g-1 small">
+                            <div class="col-12">
+                                <div class="text-muted">内容要素</div>
+                                <div class="d-flex flex-wrap gap-1">
+                                    ${(dimData.content_elements || []).map(e => `<span class="badge bg-light text-dark">${e}</span>`).join('') || '-'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (dimensionCode === 'bio_advantage') {
+                    contentHtml = `
+                        <div class="small">
+                            <div class="text-muted">优点</div>
+                            <div class="fw-medium">${(dimData.advantages || []).join('；') || '-'}</div>
+                            <div class="text-muted mt-1">可改进</div>
+                            <div class="fw-medium">${(dimData.improvements || []).join('；') || '-'}</div>
+                        </div>
+                    `;
+                } else {
+                    // 其他维度，显示全部字段
+                    const items = Object.entries(dimData).filter(([k]) => !['dimension_code', 'dimension_name'].includes(k));
+                    contentHtml = `
+                        <div class="small">
+                            ${items.map(([k, v]) => `<div class="row g-1"><div class="col-4 text-muted">${k}</div><div class="col-8">${JSON.stringify(v)}</div></div>`).join('')}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="col-12">
+                        <div class="p-2 border rounded">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0"><i class="bi ${icon} me-1"></i>${dimensionName}</h6>
+                                <button class="btn btn-sm btn-outline-primary" onclick="saveAccountDesignRule(${accountInfo.id}, '${dimensionCode}')">
+                                    <i class="bi bi-plus-lg me-1"></i>入库
+                                </button>
+                            </div>
+                            ${contentHtml}
+                        </div>
+                    </div>
+                `;
+            };
+
+            // 昵称维度
+            const nicknameCards = [];
+            const nicknameDimensionNames = {
+                'nickname_keyword': '核心关键词',
+                'nickname_memorability': '易记性分析',
+                'nickname_feature': '特征分析',
+                'nickname_advantage': '优点总结'
+            };
+            for (const [dimCode, dimData] of Object.entries(nicknameAnalysis)) {
+                if (dimCode === 'dimension_code' || dimCode === 'dimension_name') continue;
+                const dimName = dimData.dimension_name || nicknameDimensionNames[dimCode] || dimCode;
+                nicknameCards.push(renderDimensionCard(dimCode, dimName, dimData, 'bi bi-person-badge'));
+            }
+
+            // 简介维度
+            const bioCards = [];
+            const bioDimensionNames = {
+                'bio_structure': '结构分析',
+                'bio_content': '内容要素',
+                'bio_advantage': '优点总结'
+            };
+            for (const [dimCode, dimData] of Object.entries(bioAnalysis)) {
+                if (dimCode === 'dimension_code' || dimCode === 'dimension_name') continue;
+                const dimName = dimData.dimension_name || bioDimensionNames[dimCode] || dimCode;
+                bioCards.push(renderDimensionCard(dimCode, dimName, dimData, 'bi bi-card-text'));
+            }
+
+            // 总体评分
+            const overallScoreHtml = designData.overall_score ? `
+                <div class="col-12">
+                    <div class="p-2 bg-light rounded text-center">
+                        <div class="text-muted">总体评分</div>
+                        <div class="fs-3 fw-bold text-primary">${designData.overall_score}</div>
+                        <div class="small text-muted">${designData.recommendation || ''}</div>
+                    </div>
+                </div>
+            ` : '';
+
+            if (nicknameCards.length === 0 && bioCards.length === 0) {
+                return `<div class="text-muted p-3">暂无账号设计分析</div>`;
+            }
+
+            return `
+                <div class="row g-2">
+                    <div class="col-12">
+                        <h6 class="mb-2"><i class="bi bi-person-badge me-1"></i>昵称分析</h6>
+                    </div>
+                    ${nicknameCards.join('')}
+                    <div class="col-12 mt-2">
+                        <h6 class="mb-2"><i class="bi bi-card-text me-1"></i>简介分析</h6>
+                    </div>
+                    ${bioCards.join('')}
+                    ${overallScoreHtml}
+                </div>
+            `;
+        })()
     };
 
     // 构建 HTML
@@ -2401,6 +2805,11 @@ function displayAccountAnalysisResult(accountInfo) {
                     <i class="bi bi-layout-text-window me-1"></i>内容布局
                 </button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-design-tab" data-bs-toggle="tab" data-bs-target="#tab-design" type="button" role="tab">
+                    <i class="bi bi-palette me-1"></i>账号设计
+                </button>
+            </li>
         </ul>
 
         <!-- Tab 内容 -->
@@ -2419,6 +2828,9 @@ function displayAccountAnalysisResult(accountInfo) {
             </div>
             <div class="tab-pane fade" id="tab-content" role="tabpanel">
                 ${tabPanes['tab-content']}
+            </div>
+            <div class="tab-pane fade" id="tab-design" role="tabpanel">
+                ${tabPanes['tab-design'] || '<div class="text-muted p-3">暂无账号设计分析</div>'}
             </div>
         </div>
     `;
@@ -2974,12 +3386,13 @@ function updateMaterialTypeOptions(materialType) {
     }
 }
 
-// 确认入库
+// 确认入库（素材库）
 async function confirmSaveToMaterial() {
     const materialType = document.getElementById('material-type-select').value;
     const content = document.getElementById('material-content').value.trim();
     const industry = document.getElementById('material-industry').value;
     const type = document.getElementById('material-type').value;
+    const dimension = document.getElementById('material-dimension').value;
     const contentTypes = [];
     if (document.getElementById('material-content-type-video').checked) contentTypes.push('video');
     if (document.getElementById('material-content-type-image_text').checked) contentTypes.push('image_text');
@@ -2995,7 +3408,58 @@ async function confirmSaveToMaterial() {
         return;
     }
 
+    // 第一步：比对规则库
     try {
+        // 映射素材类型到规则分类
+        const categoryMap = {
+            'title': 'template',
+            'hook': 'template',
+            'cover': 'template',
+            'topic': 'topic',
+            'structure': 'template',
+            'ending': 'template',
+            'psychology': 'keywords',
+            'commercial': 'operation',
+            'why_popular': 'template',
+            'tags': 'keywords',
+            'character': 'template',
+            'content_form': 'template',
+            'interaction': 'template'
+        };
+        const category = categoryMap[materialType] || 'template';
+
+        const checkRes = await fetch('/admin/api/knowledge/rules/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                rules: [{
+                    rule_content: content,
+                    category: category,
+                    source_dimension: dimension
+                }]
+            })
+        });
+        const checkData = await checkRes.json();
+
+        if (!checkData.success) {
+            alert('比对失败: ' + checkData.message);
+            return;
+        }
+
+        const checkResult = checkData.results[0];
+
+        if (checkResult && checkResult.is_duplicate) {
+            // 有重复，显示提示
+            let message = '⚠️ 系统已有相似规则：\n\n';
+            checkResult.similar_rules.forEach(r => {
+                message += `• ${r.rule_title || r.rule_content}\n  相似度: ${r.similarity}\n\n`;
+            });
+            message += '是否仍然入库？';
+            const ok = confirm(message);
+            if (!ok) return;
+        }
+
+        // 第二步：执行入库
         const response = await fetch('/api/content-materials/save', {
             method: 'POST',
             headers: {
@@ -3007,14 +3471,14 @@ async function confirmSaveToMaterial() {
                 industry: industry,
                 type: type,
                 content_types: contentTypes,
-                dimension: document.getElementById('material-dimension').value
+                dimension: dimension
             })
         });
 
         const data = await response.json();
 
         if (data.code === 200) {
-            alert('入库成功！');
+            alert('✅ 入库成功！');
             bootstrap.Modal.getInstance(document.getElementById('saveToMaterialModal')).hide();
         } else {
             alert(data.message || '入库失败');

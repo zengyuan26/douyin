@@ -10,9 +10,12 @@ import json
 import logging
 import base64
 import threading
+import time
+
 import requests
 from flask import Blueprint, request, jsonify, current_app, render_template
 from flask_login import login_required, current_user
+from sqlalchemy.exc import OperationalError
 
 # 导入新添加的模型
 try:
@@ -22,7 +25,32 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# 维度与规则匹配辅助工具
+from services.analysis_dimension_runner import (
+    filter_modules_by_active_dimensions,
+    get_account_design_dimensions,
+    get_dimension_by_code,
+)
+from services.rule_matcher import match_rules_for_text
+
 knowledge_api = Blueprint('knowledge_api', __name__, url_prefix='/api/knowledge')
+
+def _commit_with_retry(max_retries: int = 5, base_delay_s: float = 0.08) -> None:
+    """提交事务，遇到 sqlite 'database is locked' 做轻量重试。"""
+    last_exc = None
+    for i in range(max_retries):
+        try:
+            db.session.commit()
+            return
+        except OperationalError as e:
+            db.session.rollback()
+            last_exc = e
+            msg = str(e).lower()
+            if "database is locked" not in msg:
+                raise
+            time.sleep(base_delay_s * (i + 1))
+    if last_exc:
+        raise last_exc
 
 
 def resolve_douyin_short_url(url):
@@ -4032,9 +4060,15 @@ def analyze_content_with_account():
 
         logger.info(f"[analyze_with_account] 开始分析: {real_url}")
 
-        # 如果选择了模块，使用模块化分析
+        # 如果选择了模块，使用模块化分析（受分析维度管理控制）
         if modules and len(modules) > 0:
-            return analyze_modules_with_account(real_url, content_type, note, modules, account_info, content_info)
+            # 只保留在「内容分析」分类下启用的维度对应的 code
+            filtered_modules = filter_modules_by_active_dimensions(
+                modules, category="content"
+            )
+            return analyze_modules_with_account(
+                real_url, content_type, note, filtered_modules, account_info, content_info
+            )
 
         # 完整分析
         prompt = build_analysis_prompt_with_account(real_url, content_type, note, account_info)
@@ -4387,6 +4421,15 @@ def analyze_modules_with_account(url, content_type, note, modules, account_info,
 
         logger.info(f"[analyze_modules_with_account] 模块分析完成: {url}, 完成模块: {list(results.keys())}")
 
+        # ========== AI 额外给出分析维度的建议 ==========
+        try:
+            dimensions_hint = get_ai_dimension_suggestions(url, results, content_info)
+            if dimensions_hint:
+                merged_result['ai_dimension_suggestions'] = dimensions_hint
+                logger.info(f"[analyze_modules_with_account] 获取到 {len(dimensions_hint)} 条AI分析维度建议")
+        except Exception as e:
+            logger.warning(f"[analyze_modules_with_account] 获取AI维度建议失败: {e}")
+
         # 如果有爬虫获取的内容信息，将其添加到结果中
         if content_info:
             if content_info.get('title') and not merged_result.get('title'):
@@ -4407,6 +4450,81 @@ def analyze_modules_with_account(url, content_type, note, modules, account_info,
             'code': 500,
             'message': f'分析失败: {str(e)}'
         })
+
+
+def get_ai_dimension_suggestions(url, module_results, content_info=None):
+    """让 AI 额外给出更多分析维度的建议"""
+    try:
+        llm_service = get_llm_service()
+        if not llm_service:
+            return None
+
+        # 提取已分析的模块信息
+        analyzed_modules = list(module_results.keys())
+
+        # 构建已分析的内容摘要
+        content_summary_parts = []
+        for module, result in module_results.items():
+            if isinstance(result, dict):
+                # 提取关键信息
+                module_key = f"{module}_analysis"
+                if module_key in result:
+                    content_summary_parts.append(f"【{module}】{str(result[module_key])[:200]}")
+
+        content_summary = "\n\n".join(content_summary_parts[:5])  # 限制长度
+
+        # 爬取的内容信息
+        extra_info = ""
+        if content_info:
+            if content_info.get('title'):
+                extra_info += f"- 视频标题：{content_info.get('title')}\n"
+            if content_info.get('description'):
+                desc = content_info.get('description')[:300]
+                extra_info += f"- 视频描述：{desc}...\n"
+            if content_info.get('hashtags'):
+                extra_info += f"- 话题标签：{', '.join(content_info.get('hashtags', [])[:10])}\n"
+
+        prompt = f"""基于以下已完成的分析，请给出更多可用的分析维度建议。
+
+## 已分析的维度
+{', '.join(analyzed_modules)}
+
+## 已分析的内容摘要
+{content_summary}
+
+## 额外信息
+{extra_info if extra_info else '无'}
+
+请给出2-4个可以进一步分析的角度，每个角度用一句话说明。
+要求：
+1. 必须是已分析维度之外的新角度
+2. 要具体、可执行
+3. 优先考虑内容本身的特点
+
+请以JSON数组格式返回，每项包含：
+- dimension: 维度英文标识
+- name: 中文名称
+- reason: 为什么建议分析这个维度
+"""
+        messages = [
+            {"role": "system", "content": "你是一个专业的内容分析专家，擅长发现内容的分析角度。请严格按照JSON格式输出。"},
+            {"role": "user", "content": prompt}
+        ]
+
+        result_text = llm_service.chat(messages, temperature=0.7, max_tokens=1000)
+
+        if not result_text:
+            return None
+
+        # 解析 JSON
+        suggestions = parse_llm_json(result_text)
+        if isinstance(suggestions, list):
+            return suggestions
+        return None
+
+    except Exception as e:
+        logger.warning(f"[get_ai_dimension_suggestions] 获取AI维度建议失败: {e}")
+        return None
 
 
 def build_module_prompt_with_account(module, url, note, account_info):
@@ -4731,35 +4849,16 @@ def create_account():
             daily_operation=data.get('daily_operation')
         )
         db.session.add(account)
+        _commit_with_retry()
 
-        # 同时创建历史记录
+        # 同时创建历史记录（单独事务，减少持锁时间）
         history = KnowledgeAccountHistory(
-            account_id=None,  # 先设为 None，之后更新
+            account_id=account.id,
             data=current_data,
             change_note='初始创建'
         )
-
-        db.session.flush()  # 获取 account.id
-
-        history.account_id = account.id
         db.session.add(history)
-
-        db.session.commit()
-
-        # 有业务信息时在后台异步执行 LLM 分析，不阻塞响应
-        has_business_info = any([
-            data.get('business_type'),
-            data.get('product_type'),
-            data.get('service_type'),
-            data.get('main_product')
-        ])
-        if has_business_info:
-            app = current_app._get_current_object()
-            threading.Thread(
-                target=_run_account_profile_analysis,
-                args=(app, account.id),
-                daemon=True
-            ).start()
+        _commit_with_retry()
 
         return jsonify({
             'code': 200,
@@ -4851,23 +4950,8 @@ def update_account(account_id):
             )
             db.session.add(history)
         
-        db.session.commit()
+        _commit_with_retry()
 
-        # 有业务信息时在后台异步执行 LLM 分析
-        has_business_info = any([
-            account.business_type,
-            account.product_type,
-            account.service_type,
-            account.main_product
-        ])
-        if has_business_info:
-            app = current_app._get_current_object()
-            threading.Thread(
-                target=_run_account_profile_analysis,
-                args=(app, account.id),
-                daemon=True
-            ).start()
-        
         return jsonify({
             'code': 200,
             'message': '更新成功',
@@ -4884,6 +4968,305 @@ def update_account(account_id):
         db.session.rollback()
         logger.error(f"更新账号失败: {e}", exc_info=True)
         return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'})
+
+
+@knowledge_api.route('/accounts/<int:account_id>/analyze-async', methods=['POST'])
+@login_required
+def analyze_account_async(account_id):
+    """后台异步触发账号画像/关键词 + 账号设计分析（不阻塞前端保存/跳转）"""
+    try:
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+
+        app = current_app._get_current_object()
+
+        has_business_info = any([
+            account.business_type,
+            account.product_type,
+            account.service_type,
+            account.main_product
+        ])
+        if has_business_info:
+            threading.Thread(
+                target=_run_account_profile_analysis,
+                args=(app, account.id),
+                daemon=True
+            ).start()
+
+        threading.Thread(
+            target=_run_account_design_analysis,
+            args=(app, account.id),
+            daemon=True
+        ).start()
+
+        return jsonify({'code': 200, 'message': '已触发后台分析'})
+    except Exception as e:
+        logger.error(f"触发后台账号分析失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'触发失败: {str(e)}'})
+
+
+@knowledge_api.route('/rules/account-design', methods=['POST'])
+@login_required
+def save_account_design_rule():
+    """将账号设计分析（昵称/简介）的单个维度沉淀到规则库。
+
+    前端传入:
+    - account_id: 账号ID
+    - dimension_code: 维度code（如 nickname_keyword, bio_structure）
+    """
+    try:
+        from models.models import KnowledgeRule
+
+        data = request.get_json() or {}
+        account_id = data.get('account_id')
+        dimension_code = (data.get('dimension_code') or '').strip()
+
+        if not account_id or not dimension_code:
+            return jsonify({'code': 400, 'message': '缺少必要参数'})
+
+        # 根据 dimension_code 获取维度信息
+        dimension = get_dimension_by_code(dimension_code)
+        if not dimension:
+            return jsonify({'code': 404, 'message': '维度不存在'})
+
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+
+        analysis = account.analysis_result or {}
+        design = analysis.get('account_design') or {}
+
+        # 解析 dimension_code 获取是 nickname 还是 bio
+        if dimension_code.startswith('nickname_'):
+            nickname = account.name or ''
+            nickname_analysis = design.get('nickname_analysis') or {}
+            # 提取对应维度的分析结果
+            dim_result = nickname_analysis.get(dimension_code) or {}
+            kind = 'nickname'
+        elif dimension_code.startswith('bio_'):
+            bio = (account.current_data or {}).get('bio', '')
+            bio_analysis = design.get('bio_analysis') or {}
+            dim_result = bio_analysis.get(dimension_code) or {}
+            kind = 'bio'
+        else:
+            return jsonify({'code': 400, 'message': '无效的维度code'})
+
+        # 构建规则内容
+        dimension_name = dimension.name or dimension_code
+        title = data.get('title') or f'{dimension_name}：{account.name or "未知账号"}'
+        custom_content = data.get('content')
+
+        if custom_content:
+            content = custom_content
+        else:
+            # 根据维度自动生成内容
+            content = _build_dimension_content(
+                kind=kind,
+                dimension_code=dimension_code,
+                dimension_name=dimension_name,
+                account=account,
+                dim_result=dim_result
+            )
+
+        # 入库，使用维度的规则分类和类型配置
+        # 如果维度配置了 rule_category 和 rule_type，则使用配置的值
+        rule_category = dimension.rule_category if dimension.rule_category else 'operation'
+        rule_type = dimension.rule_type if dimension.rule_type else f'account_design_{dimension_code}'
+
+        rule = KnowledgeRule(
+            category=rule_category,
+            rule_title=title,
+            rule_content=content,
+            rule_type=rule_type,
+            source_dimension=dimension_code,
+            source_sub_category=dimension.sub_category,  # 分析对象
+            dimension_name=dimension.name,  # 维度名称
+            dimension_id=dimension.id,  # 关联维度
+            status='active'
+        )
+        db.session.add(rule)
+        _commit_with_retry()
+        return jsonify({'code': 200, 'message': '已入库', 'data': {'id': rule.id}})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'code': 500, 'message': f'保存规则失败: {str(e)}'})
+
+
+@knowledge_api.route('/rules/account-design/content', methods=['GET'])
+@login_required
+def get_account_design_rule_content():
+    """获取账号设计规则的详细内容（用于入库前比对）
+
+    前端传入:
+    - account_id: 账号ID
+    - dimension_code: 维度code（如 nickname_keyword, bio_structure）
+    """
+    try:
+        account_id = request.args.get('account_id', type=int)
+        dimension_code = request.args.get('dimension_code', '').strip()
+
+        if not account_id or not dimension_code:
+            return jsonify({'code': 400, 'message': '缺少必要参数'})
+
+        # 根据 dimension_code 获取维度信息
+        dimension = get_dimension_by_code(dimension_code)
+        if not dimension:
+            return jsonify({'code': 404, 'message': '维度不存在'})
+
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+
+        analysis = account.analysis_result or {}
+        design = analysis.get('account_design') or {}
+
+        # 解析 dimension_code 获取是 nickname 还是 bio
+        if dimension_code.startswith('nickname_'):
+            nickname = account.name or ''
+            nickname_analysis = design.get('nickname_analysis') or {}
+            dim_result = nickname_analysis.get(dimension_code) or {}
+            kind = 'nickname'
+        elif dimension_code.startswith('bio_'):
+            bio = (account.current_data or {}).get('bio', '')
+            bio_analysis = design.get('bio_analysis') or {}
+            dim_result = bio_analysis.get(dimension_code) or {}
+            kind = 'bio'
+        else:
+            return jsonify({'code': 400, 'message': '无效的维度code'})
+
+        # 构建规则内容
+        dimension_name = dimension.name or dimension_code
+        title = f'{dimension_name}：{account.name or "未知账号"}'
+
+        content = _build_dimension_content(
+            kind=kind,
+            dimension_code=dimension_code,
+            dimension_name=dimension_name,
+            account=account,
+            dim_result=dim_result
+        )
+
+        rule_category = dimension.rule_category if dimension.rule_category else 'operation'
+        rule_type = dimension.rule_type if dimension.rule_type else f'account_design_{dimension_code}'
+
+        return jsonify({
+            'code': 200,
+            'data': {
+                'rule_title': title,
+                'rule_content': content,
+                'category': rule_category,
+                'rule_type': rule_type,
+                'source_dimension': dimension_code
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"获取账号设计规则内容失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"账号设计规则入库失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'入库失败: {str(e)}'})
+
+
+def _build_dimension_content(kind, dimension_code, dimension_name, account, dim_result):
+    """根据维度和分析结果构建规则内容"""
+    if kind == 'nickname':
+        nickname = account.name or ''
+        lines = [f"## 昵称", f"{nickname or '-'}\n"]
+
+        if dimension_code == 'nickname_keyword':
+            lines.append("## 维度：核心关键词检测")
+            lines.append(f"- 是否包含关键词：{dim_result.get('has_keyword', '未知')}")
+            lines.append(f"- 关键词类型：{dim_result.get('keyword_type', '无')}")
+            lines.append(f"- 关键词内容：{dim_result.get('keyword_content', '无')}")
+
+        elif dimension_code == 'nickname_memorability':
+            lines.append("## 维度：易记性分析")
+            lines.append(f"- 字符长度：{dim_result.get('length', '未知')}")
+            lines.append(f"- 易记程度：{dim_result.get('memorability', '未知')}")
+            lines.append(f"- 易记原因：{dim_result.get('memorability_reason', '未知')}")
+            lines.append(f"- 有重复字符：{'是' if dim_result.get('has_repeat_chars') else '否'}")
+            lines.append(f"- 规律类型：{dim_result.get('has_pattern', '无')}")
+
+        elif dimension_code == 'nickname_feature':
+            lines.append("## 维度：特征分析")
+            feat = dim_result
+            if feat.get('body_feature'):
+                lines.append(f"- 身体特征：{feat.get('body_feature')}")
+            if feat.get('emotion_feature'):
+                lines.append(f"- 情绪特征：{feat.get('emotion_feature')}")
+            if feat.get('professional_feature'):
+                lines.append(f"- 专业特征：{feat.get('professional_feature')}")
+            if feat.get('persona_feature'):
+                lines.append(f"- 人设特征：{feat.get('persona_feature')}")
+            if not any([feat.get('body_feature'), feat.get('emotion_feature'),
+                        feat.get('professional_feature'), feat.get('persona_feature')]):
+                lines.append("- 特征：无明显特征")
+
+        elif dimension_code == 'nickname_advantage':
+            lines.append("## 维度：优点总结")
+            advantages = dim_result.get('advantages') or []
+            if advantages:
+                lines.append("### 优点")
+                for adv in advantages:
+                    lines.append(f"- {adv}")
+            suitable = dim_result.get('suitable_for')
+            if suitable:
+                lines.append(f"\n### 适合对象\n{suitable}")
+
+        else:
+            # 其他维度，输出全部信息
+            lines.append(f"## 维度：{dimension_name}")
+            for k, v in dim_result.items():
+                if k not in ('dimension_code', 'dimension_name'):
+                    lines.append(f"- {k}: {v}")
+
+        return "\n".join(lines)
+
+    else:  # bio
+        bio = (account.current_data or {}).get('bio', '')
+        lines = [f"## 简介", f"{bio or '-'}\n"]
+
+        if dimension_code == 'bio_structure':
+            lines.append("## 维度：结构分析")
+            lines.append(f"- 有结构：{'是' if dim_result.get('has_structure') else '否'}")
+            lines.append(f"- 有联系方式：{'是' if dim_result.get('has_contact') else '否'}")
+            lines.append(f"- 有价值主张：{'是' if dim_result.get('has_value_proposition') else '否'}")
+            lines.append(f"- 有行动号召：{'是' if dim_result.get('has_cta') else '否'}")
+
+        elif dimension_code == 'bio_content':
+            lines.append("## 维度：内容要素")
+            elements = dim_result.get('content_elements') or []
+            if elements:
+                lines.append("### 内容要素")
+                for elem in elements:
+                    lines.append(f"- {elem}")
+            lines.append(f"- 有差异化卖点：{'是' if dim_result.get('has_differentiation') else '否'}")
+            lines.append(f"- 有清晰报价：{'是' if dim_result.get('has_clear_offer') else '否'}")
+
+        elif dimension_code == 'bio_advantage':
+            lines.append("## 维度：优点总结")
+            advantages = dim_result.get('advantages') or []
+            if advantages:
+                lines.append("### 优点")
+                for adv in advantages:
+                    lines.append(f"- {adv}")
+            improvements = dim_result.get('improvements') or []
+            if improvements:
+                lines.append("\n### 可改进")
+                for imp in improvements:
+                    lines.append(f"- {imp}")
+
+        else:
+            lines.append(f"## 维度：{dimension_name}")
+            for k, v in dim_result.items():
+                if k not in ('dimension_code', 'dimension_name'):
+                    lines.append(f"- {k}: {v}")
+
+        return "\n".join(lines)
 
 
 def _run_account_profile_analysis(app, account_id):
@@ -4941,6 +5324,281 @@ def _run_account_profile_analysis(app, account_id):
         except Exception as e:
             db.session.rollback()
             logger.error(f"后台账号分析失败: {e}", exc_info=True)
+
+
+def build_account_design_prompt(nickname, bio, business_info=None):
+    """根据昵称和简介构建账号设计分析提示词
+
+    Args:
+        nickname: 账号昵称
+        bio: 账号简介
+        business_info: 业务信息（可选），用于辅助分析
+    """
+    business_desc = ""
+    if business_info:
+        business_desc = f"""
+## 业务信息（供参考）
+- 主营业务: {business_info.get('main_product', '未填写')}
+- 业务类型: {business_info.get('business_type', '未填写')}
+- 产品类型: {business_info.get('product_type', '未填写')}
+- 目标用户: {business_info.get('target_user', '未填写')}
+"""
+
+    # 从「分析维度管理」中读取账号设计相关维度（昵称/简介）
+    # 按维度分组，用于构建 prompt
+    dimension_desc = ""
+    dimension_codes = {}  # 用于 prompt 中告知 LLM 要分析的维度 code
+    try:
+        design_dims = get_account_design_dimensions()
+        nickname_dims = design_dims.get("nickname") or []
+        bio_dims = design_dims.get("bio") or []
+
+        # 收集维度 code 列表
+        dimension_codes["nickname"] = [d["code"] for d in nickname_dims if d.get("code")]
+        dimension_codes["bio"] = [d["code"] for d in bio_dims if d.get("code")]
+
+        if nickname_dims or bio_dims:
+            parts = []
+            if nickname_dims:
+                items = [
+                    f"- **{d['code']}** ({d['name']})" + (f"：{d['description']}" if d["description"] else "")
+                    for d in nickname_dims
+                ]
+                parts.append(
+                    "### 账号昵称需要重点关注的分析维度（来自分析维度管理）\n"
+                    + "\n".join(items)
+                )
+            if bio_dims:
+                items = [
+                    f"- **{d['code']}** ({d['name']})" + (f"：{d['description']}" if d["description"] else "")
+                    for d in bio_dims
+                ]
+                parts.append(
+                    "### 账号简介需要重点关注的分析维度（来自分析维度管理）\n"
+                    + "\n".join(items)
+                )
+            dimension_desc = "\n".join(parts)
+    except Exception as e:
+        # 维度读取失败时不影响原有分析逻辑
+        logger.warning("加载账号设计分析维度失败: %s", e)
+
+    prompt = f"""你是一个资深的账号运营专家，擅长分析账号昵称和简介的设计优劣。
+
+## 待分析内容
+
+### 昵称: {nickname or '未填写'}
+### 简介: {bio or '未填写'}
+{business_desc}
+
+---
+
+## 分析任务
+
+请从以下维度分析该账号的昵称和简介设计：
+
+### 一、昵称分析（必须包含以下维度）
+
+1. **核心关键词检测**
+   - 是否包含行业关键词/产品关键词/地域关键词/品牌关键词
+   - 关键词类型：行业词/产品词/地域词/品牌词/功能词/其他
+
+2. **易记性分析**
+   - 字符长度
+   - 是否有重复字符
+   - 是否有规律（数字/拼音/叠字）
+   - 是否易读易记
+
+3. **特征分析**
+   - 身体特征：是否有描述身体部位的词（如：哥/叔/姐/妹/爷/婆等）
+   - 情绪特征：是否有表达情绪的词（如：甜/辣/酷/萌/搞笑等）
+   - 专业特征：是否有体现专业度的词（如：师傅/老师/医生/专家等）
+   - 人设特征：是否有明确人设标签
+
+4. **优点总结**
+   - 为什么容易记（节奏/押韵/重复/结构/画面感）
+   - 为什么这个昵称好
+   - 适合什么类型账号
+   - 适合什么目标受众
+
+{dimension_desc}
+
+### 二、简介分析
+
+1. **结构分析**
+   - 是否分段落/分点
+   - 是否包含联系方式
+   - 是否包含核心价值主张
+
+2. **内容要素**
+   - 是否说明是做什么的
+   - 是否有差异化卖点
+   - 是否有行动号召
+
+3. **优点总结**
+   - 为什么这个简介好
+   - 可以改进的地方
+
+---
+
+## 输出格式要求
+
+请严格按照以下JSON格式输出。注意：每个分析维度都需要标注对应的维度 code（来自分析维度管理的编码）。
+
+```json
+{{
+    "nickname_analysis": {{
+        // 维度: nickname_keyword (核心关键词检测)
+        "nickname_keyword": {{
+            "dimension_code": "nickname_keyword",
+            "dimension_name": "核心关键词检测",
+            "has_keyword": true或false,
+            "keyword_type": "行业词/产品词/地域词/品牌词/功能词/无",
+            "keyword_content": "如果有关键词，具体是什么"
+        }},
+        // 维度: nickname_memorability (易记性分析)
+        "nickname_memorability": {{
+            "dimension_code": "nickname_memorability",
+            "dimension_name": "易记性分析",
+            "length": 字符数,
+            "memorability": "易记/一般/难记",
+            "memorability_reason": "一句话说明为什么容易记/不容易记",
+            "has_repeat_chars": true或false,
+            "has_pattern": "数字/拼音/叠字/无"
+        }},
+        // 维度: nickname_feature (特征分析)
+        "nickname_feature": {{
+            "dimension_code": "nickname_feature",
+            "dimension_name": "特征分析",
+            "body_feature": "如果有，描述身体特征的词",
+            "emotion_feature": "如果有，描述情绪的词",
+            "professional_feature": "如果有，体现专业度的词",
+            "persona_feature": "如果有，人设标签"
+        }},
+        // 维度: nickname_advantage (优点总结)
+        "nickname_advantage": {{
+            "dimension_code": "nickname_advantage",
+            "dimension_name": "优点总结",
+            "advantages": ["优点1", "优点2"],
+            "suitable_for": "适合的账号类型/目标受众"
+        }}
+        // 你可以添加更多维度，只要包含 dimension_code 和 dimension_name 即可
+    }},
+    "bio_analysis": {{
+        // 维度: bio_structure (结构分析)
+        "bio_structure": {{
+            "dimension_code": "bio_structure",
+            "dimension_name": "结构分析",
+            "has_structure": true或false,
+            "has_contact": true或false,
+            "has_value_proposition": true或false,
+            "has_cta": true或false
+        }},
+        // 维度: bio_content (内容要素)
+        "bio_content": {{
+            "dimension_code": "bio_content",
+            "dimension_name": "内容要素",
+            "content_elements": ["包含的内容要素"],
+            "has_differentiation": true或false,
+            "has_clear_offer": true或false
+        }},
+        // 维度: bio_advantage (优点总结)
+        "bio_advantage": {{
+            "dimension_code": "bio_advantage",
+            "dimension_name": "优点总结",
+            "advantages": ["优点1", "优点2"],
+            "improvements": ["可改进点1", "可改进点2"]
+        }}
+    }},
+    "overall_score": "1-10分",
+    "recommendation": "总体评价和建议"
+}}
+```
+"""
+    return prompt
+
+
+def _match_rules_for_account_design(text, rule_types=None):
+    """对比规则库，查找与账号设计文本（昵称/简介）相似的规则。
+
+    使用通用的 rule_matcher 进行匹配，统一规则匹配行为。
+    """
+    return match_rules_for_text(
+        text=text,
+        category="operation",
+        rule_types=rule_types,
+        status="active",
+        limit=5,
+    )
+
+
+def _run_account_design_analysis(app, account_id):
+    """后台执行账号设计分析（昵称+简介），并对比规则库"""
+    with app.app_context():
+        try:
+            account = KnowledgeAccount.query.get(account_id)
+            if not account:
+                return
+
+            # 获取昵称和简介
+            nickname = account.name or ''
+            bio = account.current_data.get('bio', '') if account.current_data else ''
+
+            if not nickname and not bio:
+                return
+
+            # 准备业务信息
+            business_info = None
+            if any([account.business_type, account.product_type, account.main_product]):
+                business_info = {
+                    'main_product': account.main_product,
+                    'business_type': account.business_type,
+                    'product_type': account.product_type,
+                    'target_user': account.target_user
+                }
+
+            # 构建提示词
+            prompt = build_account_design_prompt(nickname, bio, business_info)
+
+            # 调用 LLM
+            llm_service = get_llm_service()
+            if not llm_service:
+                return
+
+            messages = [
+                {"role": "system", "content": "你是一个资深的账号运营专家，擅长分析账号昵称和简介的设计优劣。请严格按照JSON格式输出分析结果。"},
+                {"role": "user", "content": prompt}
+            ]
+
+            result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
+            if not result_text:
+                return
+
+            llm_result = parse_llm_json(result_text)
+
+            # 对比规则库（运营规划 -> 账号设计）
+            nickname_matched = _match_rules_for_account_design(nickname, rule_types=['account_design_nickname'])
+            bio_matched = _match_rules_for_account_design(bio, rule_types=['account_design_bio'])
+
+            # 保存分析结果
+            current_analysis = account.analysis_result or {}
+            current_analysis['account_design'] = llm_result
+            current_analysis['rule_library_check'] = {
+                'nickname': {
+                    'matched_rules': nickname_matched,
+                    'should_suggest_add': len(nickname_matched) == 0
+                },
+                'bio': {
+                    'matched_rules': bio_matched,
+                    'should_suggest_add': len(bio_matched) == 0
+                }
+            }
+            account.analysis_result = current_analysis
+
+            db.session.commit()
+            logger.info(f"[_run_account_design_analysis] 账号设计分析成功，账号: {account.name}")
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"后台账号设计分析失败: {e}", exc_info=True)
 
 
 @knowledge_api.route('/accounts/<int:account_id>/analyze-profile', methods=['POST'])

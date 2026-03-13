@@ -13,8 +13,8 @@
                     <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">场景库</h4>
                     <p class="text-muted mb-0" style="font-size: 16px;">管理使用场景、需求场景和用户痛点</p>
                 </div>
-                <div class="d-flex gap-2">
-                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-sm">
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-lg">
                         <i class="bi bi-arrow-left me-1"></i>返回
                     </a>
                     <a href="{{ url_for('admin.scenario_add', type=scenario_type) }}" class="btn btn-primary">

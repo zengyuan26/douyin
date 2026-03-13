@@ -12,9 +12,11 @@
                         <i class="bi bi-{% if client %}pencil{% else %}plus-lg{% endif %}"></i>
                         {% if client %}编辑客户{% else %}新增客户{% endif %}
                     </h5>
-                    <a href="{{ url_for('admin.clients') }}" class="btn btn-outline-secondary btn-sm">
-                        <i class="bi bi-arrow-left me-1"></i>返回列表
-                    </a>
+                    <div class="d-flex justify-content-end">
+                        <a href="{{ url_for('admin.clients') }}" class="btn btn-outline-secondary btn-lg">
+                            <i class="bi bi-arrow-left me-1"></i>返回列表
+                        </a>
+                    </div>
                 </div>
                 <div class="section-body">
                     <form method="POST">

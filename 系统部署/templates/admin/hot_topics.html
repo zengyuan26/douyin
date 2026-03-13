@@ -13,8 +13,8 @@
                     <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">热点话题</h4>
                     <p class="text-muted mb-0" style="font-size: 16px;">管理实时热点和季节性话题</p>
                 </div>
-                <div class="d-flex gap-2">
-                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-sm">
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-lg">
                         <i class="bi bi-arrow-left me-1"></i>返回
                     </a>
                     <a href="{{ url_for('admin.hot_topic_add', type=topic_type) }}" class="btn btn-primary">
