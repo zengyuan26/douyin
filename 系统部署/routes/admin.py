@@ -6,6 +6,7 @@ import re
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
 from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, Industry, Channel, Client, KnowledgeAccount, KnowledgeContent, ReportTemplate, ContentTemplate, TemplateDependency, TemplateRefreshLog, TemplateContentItem, TemplateEditHistory, PersonaMethod, PersonaRole, UsageScenario, DemandScenario, PainPoint, HotTopic, SeasonalTopic, ContentTitle, ContentHook, ContentStructure, ContentEnding, ContentReplication, ContentCover, ContentTopic, ContentPsychology, ContentCommercial, ContentWhyPopular, ContentTag, ContentCharacter, ContentForm, ContentInteraction, AnalysisDimension, AnalysisDimensionCategoryOrder, RuleExtractionLog
+from sqlalchemy import or_, and_
 from constants import ANALYSIS_DIMENSIONS, DIMENSION_TO_MATERIAL_TYPE, MATERIAL_TYPES, INDUSTRY_OPTIONS, ANALYSIS_DIMENSION_CATEGORIES
 from functools import wraps
 from datetime import datetime
@@ -4009,7 +4010,32 @@ def get_rules():
     query = KnowledgeRule.query
 
     if category:
-        query = query.filter(KnowledgeRule.source_category == category)
+        # 兼容旧数据：source_category 可能为 None
+        # 新数据使用 source_category 过滤，旧数据没有设置需要按 source_sub_category 推断
+        from sqlalchemy import or_
+        
+        # 尝试获取该一级分类对应的二级分类列表
+        sub_cats_for_category = []
+        if category == 'account':
+            sub_cats_for_category = ['nickname_analysis', 'bio_analysis', 'account_positioning', 'market_analysis', 'keyword_library', 'operation_planning']
+        elif category == 'content':
+            sub_cats_for_category = ['title', 'hook', 'ending', 'visual_design', 'content_body', 'topic', 'structure', 'commercial', 'psychology', 'emotion']
+        elif category == 'methodology':
+            sub_cats_for_category = ['applicable_audience', 'applicable_scenario']
+        
+        # 匹配：要么 source_category 匹配，要么 source_category 为空但 source_sub_category 在该分类的二级分类列表中
+        if sub_cats_for_category:
+            query = query.filter(
+                or_(
+                    KnowledgeRule.source_category == category,
+                    and_(KnowledgeRule.source_category.is_(None), KnowledgeRule.source_sub_category.in_(sub_cats_for_category))
+                )
+            )
+        else:
+            query = query.filter(KnowledgeRule.source_category == category)
+    else:
+        # 没有传 category 时，也返回 source_category 为空的记录
+        pass
 
     if sub_category:
         query = query.filter(KnowledgeRule.source_sub_category == sub_category)
@@ -4017,8 +4043,12 @@ def get_rules():
     if dimension_code:
         query = query.filter(KnowledgeRule.source_dimension == dimension_code)
 
+    # 调试日志
+    logger.info(f"[DEBUG get_rules] category={category}, sub_category={sub_category}, dimension_code={dimension_code}")
+    logger.info(f"[DEBUG get_rules] SQL: {query}")
+    
     total = query.count()
-    rules = query.order_by(KnowledgeRule.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    logger.info(f"[DEBUG get_rules] total count: {total}")
 
     # 整理返回数据
     sub_category_names = {

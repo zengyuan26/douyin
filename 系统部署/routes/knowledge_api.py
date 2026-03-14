@@ -34,6 +34,7 @@ from services.analysis_dimension_runner import (
     get_all_dimensions,
 )
 from services.rule_matcher import match_rules_for_text
+from services.analysis_task_queue import get_task_queue, TASK_TYPE_PROFILE, TASK_TYPE_DESIGN, TASK_TYPE_SUB_CATEGORY
 
 knowledge_api = Blueprint('knowledge_api', __name__, url_prefix='/api/knowledge')
 
@@ -4824,9 +4825,47 @@ def get_account(account_id):
         if not account:
             return jsonify({'code': 404, 'message': '账号不存在'})
         
+        # 刷新session确保获取最新数据（任务队列在独立线程中更新了数据）
+        db.session.expire_all()
+        
+        # 强制刷新并检查原始数据库数据
+        db.session.flush()
+        
+        # 调试日志：检查analysis_result中是否有sub_category_analysis
+        analysis_result = account.analysis_result
+        
+        # 再次从数据库查询验证 - 使用filter而不是get，避免缓存
+        account_verify = KnowledgeAccount.query.filter_by(id=account_id).first()
+        db_verify = account_verify.analysis_result if account_verify else None
+        
+        logger.info(f"[DEBUG] get_account analysis_result (account object): {analysis_result}")
+        logger.info(f"[DEBUG] get_account analysis_result (from fresh query): {db_verify}")
+        logger.info(f"[DEBUG] get_account analysis_result keys: {list(analysis_result.keys()) if isinstance(analysis_result, dict) else 'not dict'}")
+        logger.info(f"[DEBUG] Fresh query keys: {list(db_verify.keys()) if isinstance(db_verify, dict) else 'not dict'}")
+        logger.info(f"[DEBUG] get_account has sub_category_analysis: {'sub_category_analysis' in (analysis_result or {})}")
+        
+        has_sub_cat = 'sub_category_analysis' in (analysis_result or {})
+        if has_sub_cat:
+            logger.info(f"[DEBUG] sub_category_analysis keys: {list(analysis_result['sub_category_analysis'].keys())}")
+        else:
+            logger.info(f"[DEBUG] analysis_result is None or empty: {analysis_result}")
+        
+        logger.info(f"[DEBUG] Fresh query analysis_result: {db_verify}")
+        logger.info(f"[DEBUG] Fresh query has sub_category_analysis: {'sub_category_analysis' in (db_verify or {})}")
+        
+        # 将调试信息加入响应
+        debug_info = {
+            'analysis_result_keys': list(analysis_result.keys()) if isinstance(analysis_result, dict) else [],
+            'has_sub_category_analysis': has_sub_cat,
+            'sub_category_keys': list(analysis_result.get('sub_category_analysis', {}).keys()) if isinstance(analysis_result, dict) and has_sub_cat else [],
+            'fresh_query_has_sub': 'sub_category_analysis' in (db_verify or {}),
+            'fresh_query_keys': list(db_verify.keys()) if isinstance(db_verify, dict) else []
+        }
+        
         return jsonify({
             'code': 200,
             'message': '获取成功',
+            'debug': debug_info,
             'data': {
                 'id': account.id,
                 'name': account.name,
@@ -4864,6 +4903,7 @@ def get_account(account_id):
                 'daily_operation': account.daily_operation
             }
         })
+        logger.info(f"[DEBUG] get_account response: analysis_result = {account.analysis_result}")
     except Exception as e:
         logger.error(f"获取账号详情失败: {e}", exc_info=True)
         return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
@@ -4913,15 +4953,14 @@ def create_account():
         db.session.add(account)
         _commit_with_retry()
 
-        # 触发后台分析任务
+        # 触发后台分析任务（使用任务队列控制并发）
         app = current_app._get_current_object()
-        
-        # 触发二级分类分析（评分+公式）
-        threading.Thread(
-            target=_run_account_sub_category_analysis,
-            args=(app, account.id),
-            daemon=True
-        ).start()
+        task_queue = get_task_queue()
+        task_queue.add_task(
+            account.id,
+            [TASK_TYPE_PROFILE, TASK_TYPE_DESIGN, TASK_TYPE_SUB_CATEGORY],
+            app=app
+        )
 
         # 同时创建历史记录（单独事务，减少持锁时间）
         history = KnowledgeAccountHistory(
@@ -4958,70 +4997,145 @@ def update_account(account_id):
     """更新账号信息"""
     try:
         data = request.get_json()
-        
+
         account = KnowledgeAccount.query.get(account_id)
         if not account:
             return jsonify({'code': 404, 'message': '账号不存在'})
-        
+
         # 记录变更前的数据用于历史
-        old_data = account.current_data or {}
-        
+        old_data = {
+            'name': account.name,
+            'platform': account.platform,
+            'url': account.url,
+            'current_data': account.current_data,
+            'status': account.status,
+            'business_type': account.business_type,
+            'product_type': account.product_type,
+            'service_type': account.service_type,
+            'service_range': account.service_range,
+            'target_area': account.target_area,
+            'brand_type': account.brand_type,
+            'language_style': account.language_style,
+            'target_user': account.target_user,
+            'main_product': account.main_product,
+            'content_persona': account.content_persona,
+            'content_topic': account.content_topic,
+            'content_daily': account.content_daily,
+            'persona_type': account.persona_type,
+            'topic_content': account.topic_content,
+            'daily_operation': account.daily_operation
+        }
+
+        # 变更记录
+        changes = []
+
         # 更新字段
         if 'name' in data:
-            account.name = data['name'].strip()
+            new_val = data['name'].strip()
+            if new_val != (account.name or ''):
+                changes.append(f'账号名称: {account.name} -> {new_val}')
+            account.name = new_val
         if 'platform' in data:
-            account.platform = data['platform'].strip()
+            new_val = data['platform'].strip()
+            if new_val != (account.platform or ''):
+                changes.append(f'平台: {account.platform} -> {new_val}')
+            account.platform = new_val
         if 'url' in data:
-            account.url = data['url'].strip()
+            new_val = data['url'].strip()
+            if new_val != (account.url or ''):
+                changes.append(f'主页链接变更')
+            account.url = new_val
         if 'current_data' in data:
+            # 将 current_data 转换为字符串比较
+            old_current = json.dumps(account.current_data or {}, sort_keys=True, ensure_ascii=False)
+            new_current = json.dumps(data['current_data'] or {}, sort_keys=True, ensure_ascii=False)
+            if old_current != new_current:
+                changes.append(f'账号数据更新')
             account.current_data = data['current_data']
         if 'status' in data:
+            if data['status'] != account.status:
+                changes.append(f'状态: {account.status} -> {data["status"]}')
             account.status = data['status']
 
         # 详细信息字段
         if 'business_type' in data:
+            if str(data['business_type'] or '') != str(account.business_type or ''):
+                changes.append(f'业务类型变更')
             account.business_type = data['business_type']
         if 'product_type' in data:
+            if str(data['product_type'] or '') != str(account.product_type or ''):
+                changes.append(f'产品类型变更')
             account.product_type = data['product_type']
         if 'service_type' in data:
+            if str(data['service_type'] or '') != str(account.service_type or ''):
+                changes.append(f'服务类型变更')
             account.service_type = data['service_type']
         if 'service_range' in data:
+            if str(data['service_range'] or '') != str(account.service_range or ''):
+                changes.append(f'地域范围变更')
             account.service_range = data['service_range']
         if 'target_area' in data:
-            account.target_area = data['target_area'] if data['target_area'] else '全国'
+            new_val = data['target_area'] if data['target_area'] else '全国'
+            if str(new_val) != str(account.target_area or ''):
+                changes.append(f'目标地区变更')
+            account.target_area = new_val
         if 'brand_type' in data:
+            if str(data['brand_type'] or '') != str(account.brand_type or ''):
+                changes.append(f'品牌定位变更')
             account.brand_type = data['brand_type']
         if 'language_style' in data:
+            if str(data['language_style'] or '') != str(account.language_style or ''):
+                changes.append(f'语言风格变更')
             account.language_style = data['language_style']
         if 'target_user' in data:
+            if str(data['target_user'] or '') != str(account.target_user or ''):
+                changes.append(f'目标用户变更')
             account.target_user = data['target_user']
         if 'main_product' in data:
+            if str(data['main_product'] or '') != str(account.main_product or ''):
+                changes.append(f'主营业务变更')
             account.main_product = data['main_product']
 
         # 内容布局字段
         if 'content_persona' in data:
+            if int(data['content_persona'] or 0) != int(account.content_persona or 0):
+                changes.append(f'人设IP类内容比例变更')
             account.content_persona = data['content_persona']
         if 'content_topic' in data:
+            if int(data['content_topic'] or 0) != int(account.content_topic or 0):
+                changes.append(f'主题内容比例变更')
             account.content_topic = data['content_topic']
         if 'content_daily' in data:
+            if int(data['content_daily'] or 0) != int(account.content_daily or 0):
+                changes.append(f'日常运营比例变更')
             account.content_daily = data['content_daily']
         # 内容布局（文本描述）
         if 'persona_type' in data:
+            if int(data['persona_type'] or 0) != int(account.persona_type or 0):
+                changes.append(f'人设类型变更')
             account.persona_type = data['persona_type']
         if 'topic_content' in data:
+            if int(data['topic_content'] or 0) != int(account.topic_content or 0):
+                changes.append(f'主题内容变更')
             account.topic_content = data['topic_content']
         if 'daily_operation' in data:
+            if int(data['daily_operation'] or 0) != int(account.daily_operation or 0):
+                changes.append(f'日常运营变更')
             account.daily_operation = data['daily_operation']
 
-        # 如果更新了 current_data，记录历史
-        if 'current_data' in data and data['current_data'] != old_data:
+        # 如果有变更，记录历史
+        if changes:
+            change_note = data.get('change_note', '手动更新')
+            if changes:
+                change_note = '; '.join(changes)
+
             history = KnowledgeAccountHistory(
                 account_id=account.id,
-                data=data['current_data'],
-                change_note=data.get('change_note', '手动更新')
+                data=account.current_data or {},
+                change_note=change_note
             )
             db.session.add(history)
-        
+
         _commit_with_retry()
 
         return jsonify({
@@ -5059,25 +5173,24 @@ def analyze_account_async(account_id):
             account.service_type,
             account.main_product
         ])
+
+        # 触发后台分析任务（使用任务队列控制并发）
+        app = current_app._get_current_object()
+        task_queue = get_task_queue()
         if has_business_info:
-            threading.Thread(
-                target=_run_account_profile_analysis,
-                args=(app, account.id),
-                daemon=True
-            ).start()
-
-        threading.Thread(
-            target=_run_account_design_analysis,
-            args=(app, account.id),
-            daemon=True
-        ).start()
-
-        # 触发二级分类分析（评分+公式）
-        threading.Thread(
-            target=_run_account_sub_category_analysis,
-            args=(app, account.id),
-            daemon=True
-        ).start()
+            # 有业务信息才需要 profile 分析
+            task_queue.add_task(
+                account.id,
+                [TASK_TYPE_PROFILE, TASK_TYPE_DESIGN, TASK_TYPE_SUB_CATEGORY],
+                app=app
+            )
+        else:
+            # 没有业务信息，只做 design 和 sub_category 分析
+            task_queue.add_task(
+                account.id,
+                [TASK_TYPE_DESIGN, TASK_TYPE_SUB_CATEGORY],
+                app=app
+            )
 
         return jsonify({'code': 200, 'message': '已触发后台分析'})
     except Exception as e:
@@ -5153,11 +5266,21 @@ def save_account_design_rule():
         rule_category = dimension.rule_category if dimension.rule_category else 'operation'
         rule_type = dimension.rule_type if dimension.rule_type else f'account_design_{dimension_code}'
 
+        # 确定一级分类
+        sub_cat = dimension.sub_category
+        if sub_cat in ['nickname_analysis', 'bio_analysis', 'account_positioning', 'market_analysis', 'keyword_library', 'operation_planning']:
+            source_category = 'account'
+        elif sub_cat in ['title', 'hook', 'ending', 'visual_design', 'content_body', 'topic', 'structure', 'commercial', 'psychology', 'emotion']:
+            source_category = 'content'
+        else:
+            source_category = 'methodology'
+
         rule = KnowledgeRule(
             category=rule_category,
             rule_title=title,
             rule_content=content,
             rule_type=rule_type,
+            source_category=source_category,
             source_dimension=dimension_code,
             source_sub_category=dimension.sub_category,  # 分析对象
             dimension_name=dimension.name,  # 维度名称
@@ -5239,11 +5362,20 @@ def save_sub_category_rule():
         rule_category = main_dimension.rule_category if main_dimension and main_dimension.rule_category else 'operation'
         rule_type = main_dimension.rule_type if main_dimension and main_dimension.rule_type else f'{sub_category}_formula'
 
+        # 确定一级分类
+        if sub_category in ['nickname_analysis', 'bio_analysis', 'account_positioning', 'market_analysis', 'keyword_library', 'operation_planning']:
+            source_category = 'account'
+        elif sub_category in ['title', 'hook', 'ending', 'visual_design', 'content_body', 'topic', 'structure', 'commercial', 'psychology', 'emotion']:
+            source_category = 'content'
+        else:
+            source_category = 'methodology'
+
         rule = KnowledgeRule(
             category=rule_category,
             rule_title=rule_title,
             rule_content=content,
             rule_type=rule_type,
+            source_category=source_category,
             source_dimension=sub_category,
             source_sub_category=sub_category,
             dimension_name=sub_cat_name,
@@ -5813,6 +5945,7 @@ def _get_merged_nickname_dimensions():
 
 def _run_account_sub_category_analysis(app, account_id):
     """后台执行账号二级分类分析（评分+公式），不占请求"""
+    logger.info(f"[_run_account_sub_category_analysis] 开始分析 account_id={account_id}")
     with app.app_context():
         try:
             account = KnowledgeAccount.query.get(account_id)
@@ -5883,13 +6016,16 @@ def _run_account_sub_category_analysis(app, account_id):
                 prompt = _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_desc)
 
                 # 调用 LLM
+                logger.info(f"[_run_account_sub_category_analysis] 开始调用 LLM for {sub_cat}")
                 messages = [
                     {"role": "system", "content": f"你是一个资深的账号运营专家，擅长分析{ACCOUNT_SUB_CATEGORY_NAMES.get(sub_cat, '账号')}。请严格按照JSON格式输出分析结果和评分。"},
                     {"role": "user", "content": prompt}
                 ]
 
                 result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
+                logger.info(f"[_run_account_sub_category_analysis] LLM 返回 result_text={'有内容' if result_text else '空'}")
                 if not result_text:
+                    logger.warning(f"[_run_account_sub_category_analysis] {sub_cat} LLM 返回为空，跳过")
                     continue
 
                 llm_result = parse_llm_json(result_text)
@@ -5915,16 +6051,44 @@ def _run_account_sub_category_analysis(app, account_id):
                             'data': llm_result[dim_code]
                         })
 
-            # 保存分析结果
-            current_analysis = account.analysis_result or {}
+            # 保存分析结果 - 必须创建深拷贝，否则SQLAlchemy检测不到变化
+            import copy
+            current_analysis = copy.deepcopy(account.analysis_result) if account.analysis_result else {}
             current_analysis['sub_category_analysis'] = sub_category_results
+            
+            # 调试日志
+            logger.info(f"[DEBUG] Before setting - id(current_analysis): {id(current_analysis)}")
+            logger.info(f"[DEBUG] Before setting - id(account.analysis_result): {id(account.analysis_result) if account.analysis_result else 'None'}")
+            
             account.analysis_result = current_analysis
+            
+            logger.info(f"[DEBUG] After setting - id(account.analysis_result): {id(account.analysis_result)}")
+            logger.info(f"[DEBUG] sub_category_analysis saved: {sub_category_results}")
+            logger.info(f"[DEBUG] nickname_analysis dimensions count: {len(sub_category_results.get('nickname_analysis', {}).get('dimensions', []))}")
+            logger.info(f"[DEBUG] full analysis_result to save: {current_analysis}")
+            for sub_cat, sub_data in sub_category_results.items():
+                logger.info(f"[DEBUG] {sub_cat}: dimensions={len(sub_data.get('dimensions', []))}, llm_data keys={list(sub_data.get('llm_data', {}).keys())[:5]}")
 
             db.session.commit()
             logger.info(f"[_run_account_sub_category_analysis] 账号二级分类分析成功，账号: {account.name}")
+            
+            # 验证保存是否成功 - 使用filter_by而不是get
+            account_check = KnowledgeAccount.query.filter_by(id=account_id).first()
+            saved_result = account_check.analysis_result if account_check else None
+            logger.info(f"[DEBUG] Verification after commit - has sub_category_analysis: {'sub_category_analysis' in (saved_result or {})}")
+            logger.info(f"[DEBUG] Verification keys: {list(saved_result.keys()) if isinstance(saved_result, dict) else 'not dict'}")
+            
+            # 验证 nickname_analysis 内容
+            if saved_result and 'sub_category_analysis' in saved_result:
+                nickname_analysis = saved_result['sub_category_analysis'].get('nickname_analysis', {})
+                logger.info(f"[DEBUG] Verification nickname_analysis keys: {list(nickname_analysis.keys())}")
+                logger.info(f"[DEBUG] Verification nickname score: {nickname_analysis.get('score', 'N/A')}")
+                logger.info(f"[DEBUG] Verification nickname formula: {nickname_analysis.get('formula', 'N/A')}")
+            
         except Exception as e:
             db.session.rollback()
             logger.error(f"后台账号二级分类分析失败: {e}", exc_info=True)
+            logger.error(f"[_run_account_sub_category_analysis] 完整错误: {repr(e)}")
 
 
 def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_desc):
@@ -6050,11 +6214,16 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
 ## 分析任务
 
-请分析账号昵称，按照以下要求输出JSON：
+请分析账号昵称 **"{nickname}"**，按照以下要求输出JSON：
 
-1. **整体评分 (score)**: 0-100分，根据昵称的整体质量
-2. **评分理由 (score_reason)**: 一句话说明评分理由
-3. **可用公式 (formula)**: 总结出一个可复用的昵称设计公式/规律
+1. **整体评分 (score)**: 0-100分，根据昵称的实际质量。**评分必须有严格区分度**：
+   - 90-100分：非常优秀，有明显的记忆点、人设明确、业务清晰
+   - 75-89分：较好，有一定特点但可以优化
+   - 60-74分：一般，缺少明显记忆点或人设模糊
+   - 60分以下：较差，需要重新设计
+   **注意**：大多数昵称应该在60-85分之间，极少有完美昵称，不要轻易给90分以上！
+2. **评分理由 (score_reason)**: 一句话说明评分理由，必须说明具体原因
+3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"XX(具体含义) + XX(具体含义)"。例如：对于昵称"灌肠西施"，公式应该是"灌肠(产品词) + 西施(身份标签)"；对于昵称"纽约王老师"，公式应该是"纽约(地域词) + 王(姓氏) + 老师(职业标签)"
 4. **优化建议 (suggestions)**: 根据昵称实际情况列出2-3条有针对性的优化建议。注意：若昵称已含地域词（如南漳、北京等），则不要建议增加地域词；若已含数字（如20、10等），则不要建议加入数字。建议必须基于实际缺失的要素提出。
 
 5. **各维度详细分析**（必须包含以下所有维度，不可遗漏）：
@@ -6065,14 +6234,18 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
 ```json
 {{
-    "score": 85,
-    "score_reason": "简洁易记且体现人设特征",
-    "formula": "人设标签+核心业务词/情感词，如【人设】+【业务】",
-    "suggestions": ["可考虑强化人设辨识度", "可突出差异化卖点"],
+    "score": 75,
+    "score_reason": "缺少记忆点，建议加入差异化元素",
+    "formula": "灌肠(产品词) + 西施(身份标签)",
+    "suggestions": ["可加入地域词突出地域特色", "可加入数字或年份强调专业度"],
 {json_dims_block}
 }}
 ```
-"""
+
+**重要**：
+- 请直接分析提供的昵称 **{nickname}** 的实际构成
+- formula 字段必须填写这个昵称的实际组成部分，不能是通用模板
+- 评分要根据实际质量打分，大多数在60-85分之间""";
 
     elif sub_cat == 'bio_analysis':
         return f"""{base_info}
@@ -6080,11 +6253,11 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
 ## 分析任务
 
-请分析账号简介，按照以下要求输出JSON：
+请分析账号简介 **"{bio}"**，按照以下要求输出JSON：
 
-1. **评分 (score)**: 0-100分，根据简介的整体质量
+1. **评分 (score)**: 0-100分，根据简介的整体质量。**评分必须有区分度**。
 2. **评分理由 (score_reason)**: 一句话说明评分理由
-3. **可用公式 (formula)**: 总结出一个可复用的简介设计公式/规律
+3. **可用公式 (formula)**: **分析这个简介的具体构成**，而不是通用模板
 4. **优化建议 (suggestions)**: 列出2-3条优化建议
 
 ## 输出格式
@@ -6093,11 +6266,12 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 {{
     "score": 80,
     "score_reason": "结构清晰但缺少行动号召",
-    "formula": "身份标签+价值主张+联系方式",
+    "formula": "身份标签(我是XX) + 价值主张(专注XX年) + 差异化标签 + 行动号召",
     "suggestions": ["建议添加行动号召", "可以加入差异化卖点"]
 }}
 ```
-"""
+
+**重要**：请直接分析提供的简介，不要输出通用公式模板！"""
 
     elif sub_cat == 'account_positioning':
         return f"""{base_info}
@@ -6118,7 +6292,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 {{
     "score": 75,
     "score_reason": "定位较清晰但目标人群不够明确",
-    "formula": "【人设】+【业务】+【目标人群】+【差异化】",
+    "formula": "根据该账号定位的实际构成元素，总结出一个可复用的账号定位公式，例如：【实际人设】+【实际业务】+【实际目标人群】+【实际差异化】",
     "suggestions": ["建议明确目标人群画像", "可以突出差异化竞争优势"]
 }}
 ```
@@ -6143,7 +6317,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 {{
     "score": 70,
     "score_reason": "目标市场较清晰但竞争分析不足",
-    "formula": "目标人群画像+痛点需求+解决方案+竞争优势",
+    "formula": "根据该市场分析的实际内容，总结出一个可复用的市场分析思路，例如：{{目标人群画像}}+{{痛点需求}}+{{解决方案}}+{{竞争优势}}",
     "suggestions": ["建议深入分析竞争对手", "可以增加差异化定位"]
 }}
 ```
@@ -6168,7 +6342,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 {{
     "score": 75,
     "score_reason": "运营方向明确但内容规划不够具体",
-    "公式": "人设内容占比+主题内容占比+日常运营占比",
+    "formula": "根据该运营策略的实际内容，总结出一个可复用的运营规划公式，例如：{{人设内容占比}}+{{主题内容占比}}+{{日常运营占比}}",
     "suggestions": ["建议明确内容发布频率", "可以增加互动活动规划"]
 }}
 ```
@@ -6186,13 +6360,14 @@ def analyze_account_sub_categories(account_id):
         if not account:
             return jsonify({'code': 404, 'message': '账号不存在'})
 
-        # 触发后台分析
-        from flask import current_app
-        threading.Thread(
-            target=_run_account_sub_category_analysis,
-            args=(current_app._get_current_object(), account.id),
-            daemon=True
-        ).start()
+        # 触发后台分析（使用任务队列控制并发）
+        app = current_app._get_current_object()
+        task_queue = get_task_queue()
+        task_queue.add_task(account.id, [TASK_TYPE_SUB_CATEGORY], app=app)
+
+        # 调试：检查任务是否添加成功
+        queue_status = task_queue.get_queue_status()
+        logger.info(f"[DEBUG] 任务已添加，队列状态: {queue_status}")
 
         return jsonify({'code': 200, 'message': '已触发后台分析，请稍后刷新查看结果'})
     except Exception as e:
@@ -6343,6 +6518,62 @@ def get_account_history(account_id):
         })
     except Exception as e:
         logger.error(f"获取账号历史失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+
+@knowledge_api.route('/analysis-queue/status', methods=['GET'])
+@login_required
+def get_analysis_queue_status():
+    """获取分析任务队列状态"""
+    try:
+        task_queue = get_task_queue()
+        status = task_queue.get_queue_status()
+
+        # 获取账号名称
+        if db is not None:
+            try:
+                account_ids = []
+                for task in status.get('queue_preview', []):
+                    account_ids.append(task['account_id'])
+                for task in status.get('running_preview', []):
+                    account_ids.append(task['account_id'])
+
+                if account_ids:
+                    accounts = KnowledgeAccount.query.filter(KnowledgeAccount.id.in_(account_ids)).all()
+                    account_names = {acc.id: acc.name for acc in accounts}
+
+                    # 更新任务预览中的账号名称
+                    for task in status.get('queue_preview', []):
+                        task['account_name'] = account_names.get(task['account_id'], f'账号{task["account_id"]}')
+                    for task in status.get('running_preview', []):
+                        task['account_name'] = account_names.get(task['account_id'], f'账号{task["account_id"]}')
+            except Exception as e:
+                logger.warning(f"获取账号名称失败: {e}")
+
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': status
+        })
+    except Exception as e:
+        logger.error(f"获取队列状态失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+
+@knowledge_api.route('/accounts/<int:account_id>/analysis-status', methods=['GET'])
+@login_required
+def get_account_analysis_status(account_id):
+    """获取账号分析任务状态"""
+    try:
+        task_queue = get_task_queue()
+        status = task_queue.get_task_status(account_id)
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': status
+        })
+    except Exception as e:
+        logger.error(f"获取分析状态失败: {e}", exc_info=True)
         return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
 
 
