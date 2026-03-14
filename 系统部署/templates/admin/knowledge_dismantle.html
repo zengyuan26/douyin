@@ -579,7 +579,9 @@ function saveAccountDesignRuleByButton(dimensionCode) {
         alert('请先选择一个账号');
         return;
     }
-    saveAccountDesignRule(accountId, dimensionCode);
+    // 解码 URL 编码的参数
+    const decodedDimensionCode = decodeURIComponent(dimensionCode);
+    saveAccountDesignRule(accountId, decodedDimensionCode);
 }
 
 // 辅助函数：保存昵称公式（供按钮 onclick 使用）
@@ -589,7 +591,10 @@ function saveNicknameFormulaByButton(formula, score, scoreReason) {
         alert('请先选择一个账号');
         return;
     }
-    saveNicknameFormula(accountId, formula, score, scoreReason);
+    // 解码 URL 编码的参数
+    const decodedFormula = decodeURIComponent(formula);
+    const decodedScoreReason = decodeURIComponent(scoreReason);
+    saveNicknameFormula(accountId, decodedFormula, score, decodedScoreReason);
 }
 
 // 状态管理
@@ -2874,7 +2879,7 @@ function renderNicknameAnalysis(data, accountInfo) {
                     <div class="small text-muted">可用公式</div>
                     <div class="fw-medium">${formula}</div>
                 </div>
-                <button class="btn btn-sm btn-success" onclick="saveNicknameFormulaByButton('${formula}', ${score}, '${scoreReason}')">
+                <button class="btn btn-sm btn-success" onclick="saveNicknameFormulaByButton('${encodeURIComponent(formula)}', ${score}, '${encodeURIComponent(scoreReason || '')}')">
                     <i class="bi bi-download me-1"></i>入库
                 </button>
             </div>
@@ -3461,7 +3466,7 @@ function renderDimensionCards(data, prefix) {
                         <div class="p-2 border rounded">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <h6 class="mb-0"><i class="bi ${icon} me-1"></i>${dimensionName}</h6>
-                                <button class="btn btn-sm btn-outline-primary" onclick="saveAccountDesignRuleByButton('${dimensionCode}')">
+                                <button class="btn btn-sm btn-outline-primary" onclick="saveAccountDesignRuleByButton('${encodeURIComponent(dimensionCode)}')">
                                     <i class="bi bi-plus-lg me-1"></i>入库
                                 </button>
                             </div>
