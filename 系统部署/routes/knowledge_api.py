@@ -30,6 +30,8 @@ from services.analysis_dimension_runner import (
     filter_modules_by_active_dimensions,
     get_account_design_dimensions,
     get_dimension_by_code,
+    get_active_dimensions,
+    get_all_dimensions,
 )
 from services.rule_matcher import match_rules_for_text
 
@@ -4911,6 +4913,16 @@ def create_account():
         db.session.add(account)
         _commit_with_retry()
 
+        # 触发后台分析任务
+        app = current_app._get_current_object()
+        
+        # 触发二级分类分析（评分+公式）
+        threading.Thread(
+            target=_run_account_sub_category_analysis,
+            args=(app, account.id),
+            daemon=True
+        ).start()
+
         # 同时创建历史记录（单独事务，减少持锁时间）
         history = KnowledgeAccountHistory(
             account_id=account.id,
@@ -5773,10 +5785,34 @@ ACCOUNT_SUB_CATEGORY_NAMES = {
 }
 
 
+# 系统默认的昵称分析维度（作为用户维度的补充）
+SYSTEM_NICKNAME_DIMENSION_CODES = [
+    'nickname_keyword', 'nickname_memorability', 'nickname_feature', 'nickname_advantage'
+]
+
+
+def _get_merged_nickname_dimensions():
+    """获取昵称分析维度：用户设置的维度（必选） + 系统默认维度（补充）"""
+    from models.models import AnalysisDimension
+    # 用户维度：分析维度管理中启用的
+    user_dims = get_active_dimensions(category='account', sub_category='nickname_analysis')
+    # 按 is_default 排序：用户维度(is_default=False)在前，系统维度(is_default=True)在后
+    user_dims_sorted = sorted(user_dims, key=lambda d: (1 if getattr(d, 'is_default', False) else 0, d.sort_order or 0))
+    existing_codes = {d.code for d in user_dims_sorted}
+    # 系统维度作为补充：若用户未配置，则追加
+    for code in SYSTEM_NICKNAME_DIMENSION_CODES:
+        if code not in existing_codes:
+            dim = AnalysisDimension.query.filter_by(
+                sub_category='nickname_analysis', code=code, is_active=True
+            ).first()
+            if dim:
+                user_dims_sorted.append(dim)
+                existing_codes.add(code)
+    return user_dims_sorted
+
+
 def _run_account_sub_category_analysis(app, account_id):
     """后台执行账号二级分类分析（评分+公式），不占请求"""
-    from services.analysis_dimension_runner import get_active_dimensions
-
     with app.app_context():
         try:
             account = KnowledgeAccount.query.get(account_id)
@@ -5824,11 +5860,24 @@ def _run_account_sub_category_analysis(app, account_id):
 
             # 对每个二级分类进行分析
             for sub_cat in ACCOUNT_SUB_CATEGORIES:
-                # 获取该二级分类下的所有维度
-                dims = get_active_dimensions(category='account', sub_category=sub_cat)
-                if not dims:
-                    # 如果没有配置维度，使用默认分析
-                    dims = []
+                # 昵称分析：用户维度必选 + 系统维度补充；其他分类：仅用启用中的维度
+                if sub_cat == 'nickname_analysis':
+                    dims = _get_merged_nickname_dimensions()
+                    # #region agent log
+                    try:
+                        with open('/Volumes/增元/项目/douyin/.cursor/debug.log', 'a') as f:
+                            import json
+                            f.write(json.dumps({
+                                'location': 'knowledge_api:_run_account_sub_category_analysis',
+                                'message': 'nickname_analysis merged dims',
+                                'data': {'dim_codes': [d.code for d in dims], 'dim_names': [d.name for d in dims]},
+                                'timestamp': __import__('time').time() * 1000
+                            }, ensure_ascii=False) + '\n')
+                    except Exception:
+                        pass
+                    # #endregion
+                else:
+                    dims = get_active_dimensions(category='account', sub_category=sub_cat) or []
 
                 # 构建该二级分类的分析提示词
                 prompt = _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_desc)
@@ -5903,6 +5952,99 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
     # 根据不同二级分类构建不同提示词
     if sub_cat == 'nickname_analysis':
+        # 动态构建各维度的分析说明与 JSON 示例
+        dim_sections = []
+        json_dim_examples = []
+        for i, d in enumerate(dims, 1):
+            code, name = d.code, d.name
+            desc = (d.description or '').strip()
+            if code in SYSTEM_NICKNAME_DIMENSION_CODES:
+                if code == 'nickname_keyword':
+                    dim_sections.append(f"""### 维度{i}: {code} ({name})
+- 是否包含关键词 (has_keyword): true/false
+- 关键词类型 (keyword_type): 行业词/产品词/地域词/品牌词/功能词/无
+- 关键词内容 (keyword_content): 具体关键词内容
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                    json_dim_examples.append(f'''    "{code}": {{
+        "has_keyword": true,
+        "keyword_type": "产品词",
+        "keyword_content": "灌香肠",
+        "score": 90,
+        "reason": "包含产品关键词",
+        "conclusion": "昵称中包含产品词，能让用户快速了解业务"
+    }}''')
+                elif code == 'nickname_memorability':
+                    dim_sections.append(f"""### 维度{i}: {code} ({name})
+- 字符长度 (length): 数字
+- 易记程度 (memorability): 易记/一般/难记
+- 易记原因 (memorability_reason): 简单说明
+- 有无重复字符 (has_repeat_chars): true/false
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                    json_dim_examples.append(f'''    "{code}": {{
+        "length": 5,
+        "memorability": "易记",
+        "memorability_reason": "5个字朗朗上口",
+        "has_repeat_chars": false,
+        "score": 85,
+        "reason": "长度适中无重复",
+        "conclusion": "5个字易读易记"
+    }}''')
+                elif code == 'nickname_feature':
+                    dim_sections.append(f"""### 维度{i}: {code} ({name})
+- 身体特征 (body_feature): 是否有描述身体部位的词
+- 情绪特征 (emotion_feature): 是否有表达情绪的词
+- 专业特征 (professional_feature): 是否有体现专业度的词
+- 人设特征 (persona_feature): 是否有人设标签
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                    json_dim_examples.append(f'''    "{code}": {{
+        "body_feature": "无",
+        "emotion_feature": "无",
+        "professional_feature": "无",
+        "persona_feature": "有",
+        "score": 80,
+        "reason": "有人设标签",
+        "conclusion": "明确人设定位"
+    }}''')
+                elif code == 'nickname_advantage':
+                    dim_sections.append(f"""### 维度{i}: {code} ({name})
+- 节奏感 (rhythm): 是否有节奏感
+- 押韵 (rhyme): 是否押韵
+- 结构特点 (structure): 结构特点描述
+- 画面感 (imagery): 是否有画面感
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                    json_dim_examples.append(f'''    "{code}": {{
+        "rhythm": "有",
+        "rhyme": "无",
+        "structure": "3+2结构",
+        "imagery": "无",
+        "score": 85,
+        "reason": "结构清晰",
+        "conclusion": "结构简洁明了"
+    }}''')
+            else:
+                # 用户自定义维度：通用格式
+                extra = f"（{desc}）" if desc else ""
+                dim_sections.append(f"""### 维度{i}: {code} ({name}) {extra}
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                json_dim_examples.append(f'''    "{code}": {{
+        "score": 80,
+        "reason": "符合{name}的期望",
+        "conclusion": "简要结论"
+    }}''')
+
+        dim_sections_text = "\n\n".join(dim_sections)
+        json_dims_block = ",\n".join(json_dim_examples)
+
         return f"""{base_info}
 {dim_desc}
 
@@ -5910,10 +6052,14 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
 请分析账号昵称，按照以下要求输出JSON：
 
-1. **评分 (score)**: 0-100分，根据昵称的整体质量
+1. **整体评分 (score)**: 0-100分，根据昵称的整体质量
 2. **评分理由 (score_reason)**: 一句话说明评分理由
 3. **可用公式 (formula)**: 总结出一个可复用的昵称设计公式/规律
-4. **优化建议 (suggestions)**: 列出2-3条优化建议
+4. **优化建议 (suggestions)**: 根据昵称实际情况列出2-3条有针对性的优化建议。注意：若昵称已含地域词（如南漳、北京等），则不要建议增加地域词；若已含数字（如20、10等），则不要建议加入数字。建议必须基于实际缺失的要素提出。
+
+5. **各维度详细分析**（必须包含以下所有维度，不可遗漏）：
+
+{dim_sections_text}
 
 ## 输出格式
 
@@ -5922,7 +6068,8 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
     "score": 85,
     "score_reason": "简洁易记且体现人设特征",
     "formula": "人设标签+核心业务词/情感词，如【人设】+【业务】",
-    "suggestions": ["建议增加地域词", "可以加入数字增强记忆点"]
+    "suggestions": ["可考虑强化人设辨识度", "可突出差异化卖点"],
+{json_dims_block}
 }}
 ```
 """

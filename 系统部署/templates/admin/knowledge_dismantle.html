@@ -176,8 +176,8 @@
 
                     <!-- 分析结果 -->
                     <div id="result-content" class="d-none">
-                        <!-- 分析维度结果 -->
-                        <div id="analysis-results">
+                        <!-- 分析维度结果：可滚动区域，保证各 tab 内容完整展示，数据多时滚动查看 -->
+                        <div id="analysis-results" class="py-2" style="max-height: 65vh; overflow-y: auto;">
                             <!-- 动态加载分析结果 -->
                         </div>
                     </div>
@@ -539,6 +539,59 @@
 </div>
 
 <script>
+// 全局错误捕获
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+    console.error('[JS ERROR]', {
+        message: msg,
+        url: url,
+        line: lineNo,
+        column: columnNo,
+        error: error
+    });
+    return false;
+};
+
+// 全局变量 - 作为后备，避免 ReferenceError
+var accountInfo = { id: null };
+
+// 全局变量用于按钮点击处理
+let currentAccountInfoForButton = null;
+
+// 辅助函数：安全获取 accountId（供按钮 onclick 使用）
+function getAccountId() {
+    return currentAccountInfoForButton?.id || currentAccount?.id || 0;
+}
+
+// 辅助函数：触发二级分类分析（供按钮 onclick 使用）
+function triggerSubCategoryAnalysisByButton() {
+    const accountId = getAccountId();
+    if (!accountId) {
+        alert('请先选择一个账号');
+        return;
+    }
+    triggerSubCategoryAnalysis({ target: event.target }, accountId);
+}
+
+// 辅助函数：保存账号设计规则（供按钮 onclick 使用）
+function saveAccountDesignRuleByButton(dimensionCode) {
+    const accountId = getAccountId();
+    if (!accountId) {
+        alert('请先选择一个账号');
+        return;
+    }
+    saveAccountDesignRule(accountId, dimensionCode);
+}
+
+// 辅助函数：保存昵称公式（供按钮 onclick 使用）
+function saveNicknameFormulaByButton(formula, score, scoreReason) {
+    const accountId = getAccountId();
+    if (!accountId) {
+        alert('请先选择一个账号');
+        return;
+    }
+    saveNicknameFormula(accountId, formula, score, scoreReason);
+}
+
 // 状态管理
 let currentAccount = null;
 let analysisResult = null;
@@ -787,11 +840,26 @@ function escapeHtml(str) {
 // 从历史直接选择账号（仅显示账号分析结果，不跳转）
 function selectAccountFromHistoryOnlyShow(item) {
     currentAccount = {
+        id: item.id,
         name: item.name,
         url: item.url,
         bio: item.bio || '',
         fans_count: item.fans_count || '',
-        avatar_description: item.avatar_description || ''
+        avatar_description: item.avatar_description || '',
+        analysis_result: item.analysis_result,
+        core_business: item.core_business,
+        core_keywords: item.core_keywords,
+        account_positioning: item.account_positioning,
+        content_strategy: item.content_strategy,
+        target_audience: item.target_audience,
+        current_data: item.current_data,
+        // 内容布局字段
+        content_persona: item.content_persona,
+        content_topic: item.content_topic,
+        content_daily: item.content_daily,
+        persona_type: item.persona_type,
+        topic_content: item.topic_content,
+        daily_operation: item.daily_operation
     };
     sessionStorage.setItem('dismantle_account', JSON.stringify(currentAccount));
 
@@ -808,11 +876,26 @@ function selectAccountFromHistoryOnlyShow(item) {
 // 从历史选择账号并跳转到内容分析 tab
 function selectAccountFromHistory(item) {
     currentAccount = {
+        id: item.id,
         name: item.name,
         url: item.url,
         bio: item.bio || '',
         fans_count: item.fans_count || '',
-        avatar_description: item.avatar_description || ''
+        avatar_description: item.avatar_description || '',
+        analysis_result: item.analysis_result,
+        core_business: item.core_business,
+        core_keywords: item.core_keywords,
+        account_positioning: item.account_positioning,
+        content_strategy: item.content_strategy,
+        target_audience: item.target_audience,
+        current_data: item.current_data,
+        // 内容布局字段
+        content_persona: item.content_persona,
+        content_topic: item.content_topic,
+        content_daily: item.content_daily,
+        persona_type: item.persona_type,
+        topic_content: item.topic_content,
+        daily_operation: item.daily_operation
     };
     sessionStorage.setItem('dismantle_account', JSON.stringify(currentAccount));
 
@@ -820,7 +903,6 @@ function selectAccountFromHistory(item) {
     showAccountLinkedState(currentAccount);
 
     // 启用内容分析 Tab
-    enableContentTab();
 
     // 切换到内容分析 Tab
     switchToContentTab();
@@ -842,7 +924,22 @@ async function selectAccount(accountId) {
                 url: acc.url || '',
                 bio: acc.current_data?.bio || '',
                 fans_count: acc.current_data?.followers || acc.current_data?.fans_count || '',
-                platform: acc.platform
+                platform: acc.platform,
+                // 包含分析结果字段
+                core_business: acc.core_business,
+                core_keywords: acc.core_keywords,
+                account_positioning: acc.account_positioning,
+                content_strategy: acc.content_strategy,
+                target_audience: acc.target_audience,
+                analysis_result: acc.analysis_result,
+                current_data: acc.current_data,
+                // 内容布局字段
+                content_persona: acc.content_persona,
+                content_topic: acc.content_topic,
+                content_daily: acc.content_daily,
+                persona_type: acc.persona_type,
+                topic_content: acc.topic_content,
+                daily_operation: acc.daily_operation
             };
             sessionStorage.setItem('dismantle_account', JSON.stringify(currentAccount));
 
@@ -889,7 +986,15 @@ async function checkSavedAccount() {
                             account_positioning: acc.account_positioning,
                             content_strategy: acc.content_strategy,
                             target_audience: acc.target_audience,
-                            current_data: acc.current_data
+                            analysis_result: acc.analysis_result,
+                            current_data: acc.current_data,
+                            // 内容布局字段
+                            content_persona: acc.content_persona,
+                            content_topic: acc.content_topic,
+                            content_daily: acc.content_daily,
+                            persona_type: acc.persona_type,
+                            topic_content: acc.topic_content,
+                            daily_operation: acc.daily_operation
                         };
                         sessionStorage.setItem('dismantle_account', JSON.stringify(currentAccount));
                     } else {
@@ -1112,6 +1217,43 @@ async function saveAccountDesignRule(accountId, dimensionCode) {
             alert('✅ 入库成功');
         } else {
             alert(saveData.message || '入库失败');
+        }
+    } catch (e) {
+        console.error('入库失败:', e);
+        alert('入库失败，请稍后重试');
+    }
+}
+
+// 保存昵称分析公式到规则库
+async function saveNicknameFormula(accountId, formula, score, scoreReason) {
+    if (!accountId || !formula) {
+        alert('缺少必要参数');
+        return;
+    }
+
+    const ok = confirm('确认将该昵称分析公式入库到规则库？');
+    if (!ok) return;
+
+    try {
+        const response = await fetch('/api/knowledge/rules/sub-category', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                account_id: accountId,
+                sub_category: 'nickname_analysis',
+                data: {
+                    formula: formula,
+                    score: score,
+                    score_reason: scoreReason
+                }
+            })
+        });
+
+        const data = await response.json();
+        if (data.code === 200) {
+            alert('✅ 入库成功！');
+        } else {
+            alert(data.message || '入库失败');
         }
     } catch (e) {
         console.error('入库失败:', e);
@@ -1345,6 +1487,9 @@ async function selectAccountPreview(accountId) {
         const response = await fetch(`/api/knowledge/accounts/${accountId}`);
         const data = await response.json();
         console.log('API response:', data);
+        const nickAnalysis = data.data?.analysis_result?.sub_category_analysis?.nickname_analysis;
+        console.log('[DEBUG] nickname_analysis from API:', nickAnalysis);
+        console.log('[DEBUG] nickname_analysis keys:', nickAnalysis ? Object.keys(nickAnalysis) : 'null');
 
         if (data.code === 200 && data.data) {
             const acc = data.data;
@@ -1362,7 +1507,15 @@ async function selectAccountPreview(accountId) {
                 account_positioning: acc.account_positioning,
                 content_strategy: acc.content_strategy,
                 target_audience: acc.target_audience,
-                current_data: acc.current_data
+                analysis_result: acc.analysis_result,
+                current_data: acc.current_data,
+                // 内容布局字段
+                content_persona: acc.content_persona,
+                content_topic: acc.content_topic,
+                content_daily: acc.content_daily,
+                persona_type: acc.persona_type,
+                topic_content: acc.topic_content,
+                daily_operation: acc.daily_operation
             };
             sessionStorage.setItem('dismantle_account', JSON.stringify(currentAccount));
 
@@ -1385,11 +1538,14 @@ async function selectAccountPreview(accountId) {
 
 // 切换账号并跳转到内容分析 tab
 async function switchToAccount(accountId) {
-    console.log('switchToAccount called with id:', accountId);
+    console.log('[DEBUG] switchToAccount called with id:', accountId);
     try {
         const response = await fetch(`/api/knowledge/accounts/${accountId}`);
         const data = await response.json();
-        console.log('API response:', data);
+        console.log('[DEBUG] switchToAccount API response:', data);
+        console.log('[DEBUG] analysis_result from API:', data.data?.analysis_result);
+        console.log('[DEBUG] sub_category_analysis from API:', data.data?.analysis_result?.sub_category_analysis);
+        console.log('[DEBUG] nickname_analysis from API:', data.data?.analysis_result?.sub_category_analysis?.nickname_analysis);
 
         if (data.code === 200 && data.data) {
             const acc = data.data;
@@ -1407,7 +1563,15 @@ async function switchToAccount(accountId) {
                 account_positioning: acc.account_positioning,
                 content_strategy: acc.content_strategy,
                 target_audience: acc.target_audience,
-                current_data: acc.current_data
+                analysis_result: acc.analysis_result,
+                current_data: acc.current_data,
+                // 内容布局字段
+                content_persona: acc.content_persona,
+                content_topic: acc.content_topic,
+                content_daily: acc.content_daily,
+                persona_type: acc.persona_type,
+                topic_content: acc.topic_content,
+                daily_operation: acc.daily_operation
             };
             sessionStorage.setItem('dismantle_account', JSON.stringify(currentAccount));
 
@@ -1444,14 +1608,28 @@ async function viewAccountDetail(accountId) {
         if (data.code === 200 && data.data) {
             const acc = data.data;
             
-            // 更新当前账号
+            // 更新当前账号（包括分析增强字段）
             currentAccount = {
                 id: acc.id,
                 name: acc.name,
                 url: acc.url || '',
                 bio: acc.current_data?.bio || '',
                 fans_count: acc.current_data?.followers || acc.current_data?.fans_count || '',
-                platform: acc.platform
+                platform: acc.platform,
+                core_business: acc.core_business,
+                core_keywords: acc.core_keywords,
+                account_positioning: acc.account_positioning,
+                content_strategy: acc.content_strategy,
+                target_audience: acc.target_audience,
+                analysis_result: acc.analysis_result,
+                current_data: acc.current_data,
+                // 内容布局字段
+                content_persona: acc.content_persona,
+                content_topic: acc.content_topic,
+                content_daily: acc.content_daily,
+                persona_type: acc.persona_type,
+                topic_content: acc.topic_content,
+                daily_operation: acc.daily_operation
             };
             sessionStorage.setItem('dismantle_account', JSON.stringify(currentAccount));
             
@@ -1480,6 +1658,10 @@ async function viewAccountDetail(accountId) {
             const hasDetail = acc.business_type || acc.product_type || acc.service_type ||
                 acc.service_range || acc.target_area || acc.brand_type ||
                 acc.language_style || acc.target_user || acc.main_product;
+
+            // 检查是否有内容布局
+            const hasContentLayout = acc.content_persona || acc.content_topic || acc.content_daily ||
+                acc.persona_type || acc.topic_content || acc.daily_operation;
 
             let detailHtml = '';
             if (hasDetail) {
@@ -1591,6 +1773,48 @@ async function viewAccountDetail(accountId) {
                         </div>
                     </div>
                     ${detailHtml}
+                    ${hasContentLayout ? `
+                    <div class="col-12 mt-3">
+                        <h6 class="border-bottom pb-1 mb-2 text-info">
+                            <i class="bi bi-layout-text-window me-1"></i>内容布局
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-4 col-6 mb-2">
+                                <label class="text-muted small d-block">人设IP类</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="flex-grow-1">
+                                        <div class="progress" style="height: 14px;">
+                                            <div class="progress-bar bg-primary" role="progressbar" style="width: ${acc.content_persona || 0}%">${acc.content_persona || 0}%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="small text-muted mt-1">${escapeHtml(acc.persona_type || '-')}</div>
+                            </div>
+                            <div class="col-md-4 col-6 mb-2">
+                                <label class="text-muted small d-block">主题内容</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="flex-grow-1">
+                                        <div class="progress" style="height: 14px;">
+                                            <div class="progress-bar bg-success" role="progressbar" style="width: ${acc.content_topic || 0}%">${acc.content_topic || 0}%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="small text-muted mt-1">${escapeHtml(acc.topic_content || '-')}</div>
+                            </div>
+                            <div class="col-md-4 col-6 mb-2">
+                                <label class="text-muted small d-block">日常运营</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="flex-grow-1">
+                                        <div class="progress" style="height: 14px;">
+                                            <div class="progress-bar bg-info" role="progressbar" style="width: ${acc.content_daily || 0}%">${acc.content_daily || 0}%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="small text-muted mt-1">${escapeHtml(acc.daily_operation || '-')}</div>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
             `;
 
@@ -2315,6 +2539,21 @@ async function analyzeContent() {
 // 显示分析结果
 // 显示账号分析结果
 function displayAccountAnalysisResult(accountInfo) {
+    // 调试日志
+    console.log('[DEBUG] displayAccountAnalysisResult called', {
+        accountId: accountInfo?.id,
+        accountName: accountInfo?.name,
+        hasAnalysisResult: !!accountInfo?.analysis_result,
+        subCategoryAnalysis: accountInfo?.analysis_result?.sub_category_analysis,
+        nicknameAnalysis: accountInfo?.analysis_result?.sub_category_analysis?.nickname_analysis
+    });
+    
+    // 设置全局变量供按钮 onclick 使用
+    currentAccountInfoForButton = accountInfo;
+    
+    // 同时更新全局 accountInfo 变量（供模板字符串使用）
+    window.accountInfo = accountInfo;
+    
     // accountInfo 现在包含从 API 获取的完整账号数据
     // 包括 core_business, core_keywords, account_positioning, content_strategy, target_audience 等字段
 
@@ -2349,6 +2588,13 @@ function displayAccountAnalysisResult(accountInfo) {
 
 // 渲染账号分析Tab（抽取出来以便复用）
 function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
+    // 调试日志
+    console.log('[DEBUG] renderAccountAnalysisTabs called', {
+        accountId: accountInfo?.id,
+        hasAnalysisResult: !!accountInfo?.analysis_result,
+        subCategoryKeys: Object.keys(accountInfo?.analysis_result?.sub_category_analysis || {})
+    });
+    
     const resultsContainer = document.getElementById('analysis-results');
     const subCategoryAnalysis = accountInfo.analysis_result?.sub_category_analysis || {};
 
@@ -2376,6 +2622,7 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
 
     // 构建Tab内容
     let tabContentHtml = '';
+    console.log('[DEBUG] allSubCategories:', allSubCategories.map(g => g.sub_category));
     allSubCategories.forEach((group, index) => {
         const subCat = group.sub_category;
         const tabId = `tab-${subCat}`;
@@ -2391,6 +2638,7 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
         let contentHtml = '';
         if (subCat === 'nickname_analysis') {
             contentHtml = renderNicknameAnalysis(analysisData, accountInfo);
+            console.log('[DEBUG] nickname contentHtml length:', contentHtml.length);
         } else if (subCat === 'bio_analysis') {
             contentHtml = renderBioAnalysis(analysisData, accountInfo);
         } else if (subCat === 'account_positioning') {
@@ -2440,7 +2688,21 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
         </div>
     `;
 
+    console.log('[DEBUG] final tabContentHtml length:', tabContentHtml.length);
     resultsContainer.innerHTML = html;
+
+    // 调试：检查渲染后的DOM
+    setTimeout(() => {
+        // 检查所有 tab-pane
+        document.querySelectorAll('#accountAnalysisTabContent .tab-pane').forEach((tab, i) => {
+            console.log(`[DEBUG] tab-${i} id:`, tab.id, 'innerHTML length:', tab.innerHTML.length);
+            const dimsContainer = tab.querySelector('#nickname-dims-container');
+            if (dimsContainer) {
+                console.log(`[DEBUG] tab-${i} dims container found, children:`, dimsContainer.children.length);
+                console.log(`[DEBUG] tab-${i} dims container innerHTML:`, dimsContainer.innerHTML.substring(0, 200));
+            }
+        });
+    }, 100);
 }
 
 // 默认二级分类（备用）
@@ -2465,13 +2727,167 @@ function getDefaultSubCategories() {
 // 渲染昵称分析
 function renderNicknameAnalysis(data, accountInfo) {
     const nickname = accountInfo.name || accountInfo.nickname || '-';
+    const accountId = accountInfo.id || accountInfo.account_id;
+
+// 调试日志
+            console.log('[DEBUG] renderNicknameAnalysis called with data:', data);
+            console.log('[DEBUG] renderNicknameAnalysis data keys:', data ? Object.keys(data) : 'null');
+            console.log('[DEBUG] renderNicknameAnalysis data.dimensions:', data?.dimensions);
+            console.log('[DEBUG] renderNicknameAnalysis data.llm_data:', data?.llm_data);
+
+    // 提取整体信息
+    const score = data.score || 0;
+    const scoreReason = data.score_reason || '';
+    const formula = data.formula || '';
+    const suggestions = data.suggestions || [];
+
+    // 系统维度名称映射（用于未传入 dimensions 时的兼容）
+    const dimNames = {
+        'nickname_keyword': '核心关键词检测',
+        'nickname_memorability': '易记性分析',
+        'nickname_feature': '特征分析',
+        'nickname_advantage': '优点总结'
+    };
+
+    // 渲染单个维度卡片
+    function renderDimCard(dimCode, dimData, dimName) {
+        if (!dimData || typeof dimData !== 'object') return '';
+        const displayName = dimName || dimNames[dimCode] || dimCode;
+        const dimScore = dimData.score || 0;
+        const dimReason = dimData.reason || '';
+        const conclusion = dimData.conclusion || '';
+
+        // 根据维度代码提取不同字段
+        let extraFields = '';
+        if (dimCode === 'nickname_keyword') {
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-6"><span class="text-muted small">有关键词：</span><span class="fw-medium small">${dimData.has_keyword ? '是' : '否'}</span></div>
+                    <div class="col-6"><span class="text-muted small">关键词类型：</span><span class="fw-medium small">${dimData.keyword_type || '-'}</span></div>
+                    <div class="col-12"><span class="text-muted small">关键词内容：</span><span class="fw-medium small">${dimData.keyword_content || '-'}</span></div>
+                </div>
+            `;
+        } else if (dimCode === 'nickname_memorability') {
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-6"><span class="text-muted small">字符长度：</span><span class="fw-medium small">${dimData.length || '-'}</span></div>
+                    <div class="col-6"><span class="text-muted small">易记程度：</span><span class="fw-medium small">${dimData.memorability || '-'}</span></div>
+                    <div class="col-12"><span class="text-muted small">易记原因：</span><span class="fw-medium small">${dimData.memorability_reason || '-'}</span></div>
+                </div>
+            `;
+        } else if (dimCode === 'nickname_feature') {
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-6"><span class="text-muted small">身体特征：</span><span class="fw-medium small">${dimData.body_feature || '-'}</span></div>
+                    <div class="col-6"><span class="text-muted small">情绪特征：</span><span class="fw-medium small">${dimData.emotion_feature || '-'}</span></div>
+                    <div class="col-6"><span class="text-muted small">专业特征：</span><span class="fw-medium small">${dimData.professional_feature || '-'}</span></div>
+                    <div class="col-6"><span class="text-muted small">人设特征：</span><span class="fw-medium small">${dimData.persona_feature || '-'}</span></div>
+                </div>
+            `;
+        } else if (dimCode === 'nickname_advantage') {
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-6"><span class="text-muted small">节奏感：</span><span class="fw-medium small">${dimData.rhythm || '-'}</span></div>
+                    <div class="col-6"><span class="text-muted small">押韵：</span><span class="fw-medium small">${dimData.rhyme || '-'}</span></div>
+                    <div class="col-6"><span class="text-muted small">结构：</span><span class="fw-medium small">${dimData.structure || '-'}</span></div>
+                    <div class="col-6"><span class="text-muted small">画面感：</span><span class="fw-medium small">${dimData.imagery || '-'}</span></div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="col-6">
+                <div class="p-2 border rounded h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="small fw-medium">${displayName}</div>
+                        <span class="fw-bold ${dimScore >= 80 ? 'text-success' : (dimScore >= 60 ? 'text-warning' : 'text-danger')}">${dimScore}分</span>
+                    </div>
+                    <div class="small text-muted">${dimReason}</div>
+                    ${extraFields}
+                    <div class="mt-1 small">${conclusion}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    // 渲染维度卡片 - 优先使用 data.dimensions（用户+系统合并），兼容旧数据
+    let dimsHtml = '';
+    const llmData = data.llm_data || data;
+    const dimensions = data.dimensions || [];
+    console.log('[DEBUG] dimensions in render:', dimensions);
+    if (dimensions.length > 0) {
+        for (const dim of dimensions) {
+            const code = dim.code;
+            const name = dim.name;
+            const dimData = dim.data || llmData[code];
+            console.log('[DEBUG] dim:', code, name, dimData);
+            if (dimData) {
+                const cardHtml = renderDimCard(code, dimData, name);
+                console.log('[DEBUG] cardHtml for', code, ':', cardHtml ? 'has content' : 'empty');
+                dimsHtml += cardHtml;
+            }
+        }
+        console.log('[DEBUG] final dimsHtml length:', dimsHtml.length);
+        console.log('[DEBUG] dimsHtml preview:', dimsHtml.substring(0, 200));
+        console.log('[DEBUG] returning full renderNicknameAnalysis result');
+    } else {
+        const dimCodes = ['nickname_keyword', 'nickname_memorability', 'nickname_feature', 'nickname_advantage'];
+        for (const dimCode of dimCodes) {
+            if (llmData[dimCode]) {
+                dimsHtml += renderDimCard(dimCode, llmData[dimCode], null);
+            }
+        }
+    }
+
+    // 渲染优化建议
+    let suggestionsHtml = '';
+    if (suggestions.length > 0) {
+        suggestionsHtml = `
+            <div class="mt-2 p-2 bg-light rounded">
+                <div class="small text-muted mb-1">优化建议</div>
+                <ul class="mb-0 small">
+                    ${suggestions.map(s => `<li>${s}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+
     return `
         <div class="p-2 bg-light rounded mb-2">
-            <div class="small text-muted">账号昵称</div>
-            <div class="fw-medium">${nickname}</div>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="small text-muted">账号昵称</div>
+                    <div class="fw-medium">${nickname}</div>
+                </div>
+                <div class="text-end">
+                    <div class="small text-muted">整体评分</div>
+                    <div class="fs-4 fw-bold ${score >= 80 ? 'text-success' : (score >= 60 ? 'text-warning' : 'text-danger')}">${score}</div>
+                </div>
+            </div>
+            ${scoreReason ? `<div class="small text-muted mt-1">${scoreReason}</div>` : ''}
         </div>
-        <div class="row g-2">
-            ${renderDimensionCards(data, 'nickname')}
+
+        ${formula ? `
+        <div class="p-2 border rounded mb-2">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="small text-muted">可用公式</div>
+                    <div class="fw-medium">${formula}</div>
+                </div>
+                <button class="btn btn-sm btn-success" onclick="saveNicknameFormulaByButton('${formula}', ${score}, '${scoreReason}')">
+                    <i class="bi bi-download me-1"></i>入库
+                </button>
+            </div>
+        </div>
+        ` : ''}
+
+        ${suggestionsHtml}
+
+        <div class="mt-2">
+            <div class="small fw-medium mb-2">维度详情</div>
+            <div class="row g-2" id="nickname-dims-container">
+                ${dimsHtml || '<div class="col-12"><div class="text-muted small">暂无维度详情</div></div>'}
+            </div>
         </div>
     `;
 }
@@ -2479,13 +2895,15 @@ function renderNicknameAnalysis(data, accountInfo) {
 // 渲染简介分析
 function renderBioAnalysis(data, accountInfo) {
     const bio = accountInfo.bio || accountInfo.current_data?.bio || '-';
+    const llmData = data.llm_data || data;  // 兼容两种数据结构
+    
     return `
         <div class="p-2 bg-light rounded mb-2">
             <div class="small text-muted">账号简介</div>
             <div class="fw-medium small">${bio}</div>
         </div>
         <div class="row g-2">
-            ${renderDimensionCards(data, 'bio')}
+            ${renderDimensionCards(llmData, 'bio')}
         </div>
     `;
 }
@@ -2910,9 +3328,20 @@ function renderDimensionCards(data, prefix) {
 
         // Tab6: 账号设计
         'tab-design': (function() {
-            const designData = accountInfo.analysis_result?.account_design || {};
-            const nicknameAnalysis = designData.nickname_analysis || {};
-            const bioAnalysis = designData.bio_analysis || {};
+            // 从 sub_category_analysis 读取分析结果
+            const subCatAnalysis = accountInfo.analysis_result?.sub_category_analysis || {};
+            const nicknameAnalysis = subCatAnalysis.nickname_analysis || {};
+            const bioAnalysis = subCatAnalysis.bio_analysis || {};
+            const designData = {}; // 保留用于兼容旧数据结构
+            
+            // 调试日志
+            console.log('[DEBUG] tab-design:', {
+                subCatAnalysis: subCatAnalysis,
+                nicknameAnalysis: nicknameAnalysis,
+                nicknameAnalysisKeys: Object.keys(nicknameAnalysis),
+                bioAnalysis: bioAnalysis,
+                bioAnalysisKeys: Object.keys(bioAnalysis)
+            });
 
             // 渲染单个维度结果（带入库按钮）
             const renderDimensionCard = (dimensionCode, dimensionName, dimData, icon) => {
@@ -3032,7 +3461,7 @@ function renderDimensionCards(data, prefix) {
                         <div class="p-2 border rounded">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <h6 class="mb-0"><i class="bi ${icon} me-1"></i>${dimensionName}</h6>
-                                <button class="btn btn-sm btn-outline-primary" onclick="saveAccountDesignRule(${accountInfo.id}, '${dimensionCode}')">
+                                <button class="btn btn-sm btn-outline-primary" onclick="saveAccountDesignRuleByButton('${dimensionCode}')">
                                     <i class="bi bi-plus-lg me-1"></i>入库
                                 </button>
                             </div>
@@ -3050,11 +3479,18 @@ function renderDimensionCards(data, prefix) {
                 'nickname_feature': '特征分析',
                 'nickname_advantage': '优点总结'
             };
+            
+            // 调试日志
+            console.log('[DEBUG] nicknameAnalysis:', nicknameAnalysis);
+            
             for (const [dimCode, dimData] of Object.entries(nicknameAnalysis)) {
                 if (dimCode === 'dimension_code' || dimCode === 'dimension_name') continue;
+                if (!dimData || Object.keys(dimData).length <= 2) continue; // 跳过空数据
                 const dimName = dimData.dimension_name || nicknameDimensionNames[dimCode] || dimCode;
                 nicknameCards.push(renderDimensionCard(dimCode, dimName, dimData, 'bi bi-person-badge'));
             }
+            
+            console.log('[DEBUG] nicknameCards length:', nicknameCards.length);
 
             // 简介维度
             const bioCards = [];
@@ -3069,19 +3505,20 @@ function renderDimensionCards(data, prefix) {
                 bioCards.push(renderDimensionCard(dimCode, dimName, dimData, 'bi bi-card-text'));
             }
 
-            // 总体评分
-            const overallScoreHtml = designData.overall_score ? `
+            // 总体评分 - 从 nickname_analysis 或 bio_analysis 获取
+            const nicknameScore = nicknameAnalysis?.score || 0;
+            const bioScore = bioAnalysis?.score || 0;
+            const overallScoreHtml = (nicknameScore || bioScore) ? `
                 <div class="col-12">
                     <div class="p-2 bg-light rounded text-center">
-                        <div class="text-muted">总体评分</div>
-                        <div class="fs-3 fw-bold text-primary">${designData.overall_score}</div>
-                        <div class="small text-muted">${designData.recommendation || ''}</div>
+                        <div class="text-muted">昵称评分: ${nicknameScore || '-'}</div>
+                        <div class="text-muted">简介评分: ${bioScore || '-'}</div>
                     </div>
                 </div>
             ` : '';
 
             // 评分公式 - 二级分类分析结果（始终显示，即使没有昵称/简介分析）
-            const subCatAnalysis = accountInfo.analysis_result?.sub_category_analysis || {};
+            // subCatAnalysis 已在上面定义
             const subCategories = [
                 { code: 'nickname_analysis', name: '昵称分析', icon: 'bi-person-badge' },
                 { code: 'bio_analysis', name: '简介分析', icon: 'bi-card-text' },
@@ -3114,7 +3551,7 @@ function renderDimensionCards(data, prefix) {
                                     </div>
                                 </div>
                                 <div class="mt-1">
-                                    <span class="badge bg-primary-subtle text-primary">公式:</span>
+                                    <span class="text-primary fw-medium">公式:</span>
                                     <span class="small text-primary">${formula}</span>
                                 </div>
                             </div>
@@ -3154,7 +3591,7 @@ function renderDimensionCards(data, prefix) {
                     ${hasNicknameOrBio ? '<hr/>' : ''}
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="mb-0"><i class="bi bi-bar-chart me-1"></i>评分公式</h6>
-                        <button class="btn btn-outline-primary btn-sm py-0" onclick="triggerSubCategoryAnalysis(event, ${accountInfo.id})">
+                        <button class="btn btn-outline-primary btn-sm py-0" onclick="triggerSubCategoryAnalysisByButton()">
                             <i class="bi bi-arrow-repeat"></i> 重新分析
                         </button>
                     </div>
@@ -3167,7 +3604,7 @@ function renderDimensionCards(data, prefix) {
                     ${hasNicknameOrBio ? '<hr/>' : ''}
                     <div class="text-center py-2">
                         <span class="text-muted small">暂无评分公式分析</span>
-                        <button class="btn btn-primary btn-sm ms-2" onclick="triggerSubCategoryAnalysis(event, ${accountInfo.id})">
+                        <button class="btn btn-primary btn-sm ms-2" onclick="triggerSubCategoryAnalysisByButton()">
                             <i class="bi bi-lightning-charge me-1"></i>开始分析
                         </button>
                     </div>
@@ -3181,7 +3618,7 @@ function renderDimensionCards(data, prefix) {
                         <div class="col-12 mt-2">
                             <div class="text-center py-2">
                                 <span class="text-muted small">暂无评分公式分析</span>
-                                <button class="btn btn-primary btn-sm ms-2" onclick="triggerSubCategoryAnalysis(event, ${accountInfo.id})">
+                                <button class="btn btn-primary btn-sm ms-2" onclick="triggerSubCategoryAnalysisByButton()">
                                     <i class="bi bi-lightning-charge me-1"></i>开始分析
                                 </button>
                             </div>
