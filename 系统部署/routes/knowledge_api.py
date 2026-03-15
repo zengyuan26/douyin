@@ -2364,6 +2364,8 @@ def build_account_profile_from_manual_prompt(account_data):
     """
     name = account_data.get('name', '')
     platform = account_data.get('platform', '')
+    nickname = account_data.get('nickname', '')  # 昵称
+    bio = account_data.get('bio', '')  # 简介
     business_type = account_data.get('business_type', '')
     product_type = account_data.get('product_type', '')
     service_type = account_data.get('service_type', '')
@@ -2391,12 +2393,25 @@ def build_account_profile_from_manual_prompt(account_data):
 
     business_info = '\n'.join([f"- {item}" for item in business_desc if item]) if business_desc else "未填写"
 
-    prompt = f"""你是一个资深的账号运营专家。请根据以下手动录入的账号信息，分析目标客户画像和关键词布局。
+    # 账号设计信息（昵称+简介）
+    account_design_info = ""
+    if nickname or bio:
+        parts = []
+        if nickname:
+            parts.append(f"- 账号昵称: {nickname}")
+        if bio:
+            parts.append(f"- 账号简介: {bio}")
+        account_design_info = "\n".join(parts)
+
+    prompt = f"""你是一个资深的账号运营专家。请根据以下手动录入的账号信息，分析目标客户画像、关键词布局和人设定位。
 
 ## 账号基本信息
 - 账号名称: {name}
 - 平台: {platform}
 - 主页链接: {account_data.get('url', '未填写')}
+
+## 账号设计信息（昵称+简介）
+{account_design_info if account_design_info else "- 暂无昵称和简介信息"}
 
 ## 业务信息
 {business_info}
@@ -2443,6 +2458,18 @@ def build_account_profile_from_manual_prompt(account_data):
 - 价格词：价格相关
 - 促销词：优惠活动相关
 - 口碑词：口碑评价相关
+
+### 3. 人设定位分析
+结合账号昵称和简介，分析该账号适合的人设类型：
+
+**人设定位类型（5选1）**：
+- 陪伴者-我懂你：像朋友一样陪伴，分享日常生活，建立情感连接。特点：亲切、日常、温暖
+- 教导者-我教你：专业老师形象，教知识、讲道理、给建议。特点：专业、权威、有深度
+- 崇拜者-秀自己：展示自己牛X的地方，让粉丝崇拜。特点：成功、优秀、高端
+- 陪衬者-不如你：故意表现不如粉丝，让粉丝有优越感。特点：谦虚、亲和、接地气
+- 搞笑者-逗笑你：主要目的是让粉丝开心快乐。特点：幽默、搞笑、轻松
+
+请根据昵称和简介的风格，判断最合适的人设类型。
 
 ---
 
@@ -5598,6 +5625,8 @@ def _run_account_profile_analysis(app, account_id):
                 'name': account.name,
                 'platform': account.platform,
                 'url': account.url,
+                'nickname': account.name or '',  # 昵称
+                'bio': (account.current_data.get('bio', '') if account.current_data else ''),  # 简介
                 'business_type': account.business_type,
                 'product_type': account.product_type,
                 'service_type': account.service_type,
@@ -6650,6 +6679,8 @@ def analyze_account_profile(account_id):
             'name': account.name,
             'platform': account.platform,
             'url': account.url,
+            'nickname': account.name or '',  # 昵称
+            'bio': (account.current_data.get('bio', '') if account.current_data else ''),  # 简介
             'business_type': account.business_type,
             'product_type': account.product_type,
             'service_type': account.service_type,
