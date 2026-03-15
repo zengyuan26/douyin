@@ -1319,7 +1319,7 @@ def build_commercial_prompt(url, note):
 
 ### 4. 变现路径
 - 内容如何引导到变现？
-- 是否有明确的CTA？
+- 是否有明确的行动号召？
 
 ---
 
@@ -6009,6 +6009,37 @@ def _run_account_sub_category_analysis(app, account_id):
                     except Exception:
                         pass
                     # #endregion
+                elif sub_cat == 'bio_analysis':
+                    # 简介分析：使用固定的7个维度
+                    from models.models import AnalysisDimension
+                    bio_dim_codes = ['bio_identity', 'bio_value', 'bio_differentiate', 'bio_action', 'bio_structure', 'bio_content', 'bio_advantage']
+                    dims = []
+                    for code in bio_dim_codes:
+                        dim = AnalysisDimension.query.filter_by(
+                            sub_category='bio_analysis', code=code, is_active=True
+                        ).first()
+                        if dim:
+                            dims.append(dim)
+                        else:
+                            # 如果数据库没有，则创建临时对象
+                            class TempDim:
+                                def __init__(self, code, name, description=''):
+                                    self.code = code
+                                    self.name = name
+                                    self.description = description
+                            dim_map = {
+                                'bio_identity': ('身份标签', '是否有身份标签（如：XX创始人、XX专家）'),
+                                'bio_value': ('价值主张', '是否有价值主张（如：专注XX年、只做XX）'),
+                                'bio_differentiate': ('差异化标签', '是否有差异化标签（如：XX第一人、XX冠军）'),
+                                'bio_action': ('行动号召', '是否有行动号召（如：+V、扫码等）'),
+                                'bio_structure': ('结构分析', '是否有清晰结构：身份+价值+差异化+CTA'),
+                                'bio_content': ('内容要素', '包含哪些内容要素'),
+                                'bio_advantage': ('优点总结', '简介有哪些优点和可改进点')
+                            }
+                            dim_info = dim_map.get(code, (code, ''))
+                            dims.append(TempDim(code, dim_info[0], dim_info[1]))
+                    # 调试日志
+                    logger.info(f"[DEBUG] bio_analysis dims: {[(d.code, d.name) for d in dims]}")
                 else:
                     dims = get_active_dimensions(category='account', sub_category=sub_cat) or []
 
@@ -6042,14 +6073,18 @@ def _run_account_sub_category_analysis(app, account_id):
                 }
 
                 # 保存各维度的详细分析结果
+                logger.info(f"[DEBUG] dims for {sub_cat}: {[(d.code, d.name) for d in dims] if dims else 'empty'}")
+                logger.info(f"[DEBUG] llm_result keys: {list(llm_result.keys())}")
                 for dim in dims:
                     dim_code = dim.code
+                    logger.info(f"[DEBUG] checking dim_code={dim_code}, in llm_result: {dim_code in llm_result}")
                     if dim_code in llm_result:
                         sub_category_results[sub_cat]['dimensions'].append({
                             'code': dim_code,
                             'name': dim.name,
                             'data': llm_result[dim_code]
                         })
+                logger.info(f"[DEBUG] extracted dimensions count: {len(sub_category_results[sub_cat]['dimensions'])}")
 
             # 保存分析结果 - 必须创建深拷贝，否则SQLAlchemy检测不到变化
             import copy
@@ -6111,7 +6146,15 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
     # 维度信息
     dim_desc = ""
     if dims:
-        dim_items = [f"- **{d.code}** ({d.name})" + (f"：{d.description}" if d.description else "") for d in dims]
+        dim_items = []
+        for d in dims:
+            dim_code = getattr(d, 'code', '')
+            dim_name = getattr(d, 'name', '')
+            dim_desc_val = getattr(d, 'description', '')
+            if dim_desc_val:
+                dim_items.append(f"- **{dim_code}** ({dim_name})：{dim_desc_val}")
+            else:
+                dim_items.append(f"- **{dim_code}** ({dim_name})")
         dim_desc = "\n## 分析维度\n" + "\n".join(dim_items)
 
     # 根据不同二级分类构建不同提示词
@@ -6223,7 +6266,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
    - 60分以下：较差，需要重新设计
    **注意**：大多数昵称应该在60-85分之间，极少有完美昵称，不要轻易给90分以上！
 2. **评分理由 (score_reason)**: 一句话说明评分理由，必须说明具体原因
-3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"XX(具体含义) + XX(具体含义)"。例如：对于昵称"灌肠西施"，公式应该是"灌肠(产品词) + 西施(身份标签)"；对于昵称"纽约王老师"，公式应该是"纽约(地域词) + 王(姓氏) + 老师(职业标签)"
+3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"XX(具体含义) + XX(具体含义)"。例如：对于昵称"灌肠西施"，公式应该是"灌肠(产品词) + 西施(身份标签)"；对于昵称"纽约王老师"，公式应该是"纽约(地域词) + 王(姓氏) + 老师(职业标签)"；对于昵称"南漳黄姐灌香肠手工20年"，公式应该是"南漳(地域词) + 黄姐(人设标签) + 灌香肠(产品词) + 20年(时间词) + 手工(属性/工艺词)"
 4. **优化建议 (suggestions)**: 根据昵称实际情况列出2-3条有针对性的优化建议。注意：若昵称已含地域词（如南漳、北京等），则不要建议增加地域词；若已含数字（如20、10等），则不要建议加入数字。建议必须基于实际缺失的要素提出。
 
 5. **各维度详细分析**（必须包含以下所有维度，不可遗漏）：
@@ -6248,6 +6291,132 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - 评分要根据实际质量打分，大多数在60-85分之间""";
 
     elif sub_cat == 'bio_analysis':
+        # 构建各维度的分析说明与 JSON 示例
+        dim_sections = []
+        json_dim_examples = []
+        
+        # 简介分析的7个维度
+        bio_dims = [
+            ('bio_identity', '身份标签', '是否有身份标签（如：XX创始人、XX专家）'),
+            ('bio_value', '价值主张', '是否有价值主张（如：专注XX年、只做XX）'),
+            ('bio_differentiate', '差异化标签', '是否有差异化标签（如：XX第一人、XX冠军）'),
+            ('bio_action', '行动号召', '是否有行动号召（如：+V、扫码等）'),
+            ('bio_structure', '结构分析', '是否有清晰结构：身份+价值+差异化+行动号召'),
+            ('bio_content', '内容要素', '包含哪些内容要素'),
+            ('bio_advantage', '优点总结', '简介有哪些优点和可改进点')
+        ]
+        
+        for code, name, desc in bio_dims:
+            if code == 'bio_identity':
+                dim_sections.append(f"""### 维度: {code} ({name})
+- 是否有身份标签 (has_identity): true/false
+- 身份内容 (identity): 具体身份描述
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                json_dim_examples.append(f'''    "{code}": {{
+        "has_identity": true,
+        "identity": "XX品牌创始人",
+        "score": 85,
+        "reason": "包含明确身份标签",
+        "conclusion": "身份明确，有专业背书"
+    }}''')
+            elif code == 'bio_value':
+                dim_sections.append(f"""### 维度: {code} ({name})
+- 是否有价值主张 (has_value): true/false
+- 价值主张内容 (value_proposition): 具体价值描述
+- 清晰度 (clarity): 高/中/低
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                json_dim_examples.append(f'''    "{code}": {{
+        "has_value": true,
+        "value_proposition": "专注茶叶20年",
+        "clarity": "高",
+        "score": 80,
+        "reason": "价值主张清晰",
+        "conclusion": "明确传达核心价值"
+    }}''')
+            elif code == 'bio_differentiate':
+                dim_sections.append(f"""### 维度: {code} ({name})
+- 是否有差异化 (has_differentiation): true/false
+- 差异化内容 (differentiation): 具体差异化描述
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                json_dim_examples.append(f'''    "{code}": {{
+        "has_differentiation": true,
+        "differentiation": "XX第一人",
+        "score": 75,
+        "reason": "有差异化但不够突出",
+        "conclusion": "具备一定差异化"
+    }}''')
+            elif code == 'bio_action':
+                dim_sections.append(f"""### 维度: {code} ({name})
+- 是否有行动号召 (has_cta): true/false
+- 行动号召内容 (cta_content): 具体的行动号召内容
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                json_dim_examples.append(f'''    "{code}": {{
+        "has_cta": true,
+        "cta_content": "关注后私信领取",
+        "score": 70,
+        "reason": "有行动号召但不够明确",
+        "conclusion": "有引导意识"
+    }}''')
+            elif code == 'bio_structure':
+                dim_sections.append(f"""### 维度: {code} ({name})
+- 是否有结构 (has_structure): true/false
+- 有联系方式 (has_contact): true/false
+- 有价值主张 (has_value_proposition): true/false
+- 有行动号召 (has_cta): true/false
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                json_dim_examples.append(f'''    "{code}": {{
+        "has_structure": true,
+        "has_contact": false,
+        "has_value_proposition": true,
+        "has_cta": true,
+        "score": 80,
+        "reason": "结构清晰有价值主张",
+        "conclusion": "结构完整，缺少联系方式"
+    }}''')
+            elif code == 'bio_content':
+                dim_sections.append(f"""### 维度: {code} ({name})
+- 内容要素 (content_elements): 包含的内容要素列表
+- 有差异化 (has_differentiation): true/false
+- 有明确报价 (has_clear_offer): true/false
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                json_dim_examples.append(f'''    "{code}": {{
+        "content_elements": ["身份", "专业", "成就"],
+        "has_differentiation": true,
+        "has_clear_offer": false,
+        "score": 75,
+        "reason": "内容要素完整但缺少报价",
+        "conclusion": "要素齐全待完善"
+    }}''')
+            elif code == 'bio_advantage':
+                dim_sections.append(f"""### 维度: {code} ({name})
+- 优点 (advantages): 优点列表
+- 可改进点 (improvements): 可改进的地方列表
+- 评分 (score): 0-100分
+- 评分理由 (reason): 为什么给这个评分
+- 分析结论 (conclusion): 一句话总结""")
+                json_dim_examples.append(f'''    "{code}": {{
+        "advantages": ["结构清晰", "身份明确"],
+        "improvements": ["缺少联系方式", "缺少行动号召"],
+        "score": 70,
+        "reason": "整体不错但缺少引导",
+        "conclusion": "有提升空间"
+    }}''')
+
+        dim_sections_text = "\n\n".join(dim_sections)
+        json_dims_block = ",\n".join(json_dim_examples)
+
         return f"""{base_info}
 {dim_desc}
 
@@ -6255,23 +6424,35 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
 请分析账号简介 **"{bio}"**，按照以下要求输出JSON：
 
-1. **评分 (score)**: 0-100分，根据简介的整体质量。**评分必须有区分度**。
-2. **评分理由 (score_reason)**: 一句话说明评分理由
-3. **可用公式 (formula)**: **分析这个简介的具体构成**，而不是通用模板
-4. **优化建议 (suggestions)**: 列出2-3条优化建议
+1. **整体评分 (score)**: 0-100分，根据简介的实际质量。**评分必须有严格区分度**：
+   - 90-100分：非常优秀，结构完整、要素齐全、有差异化、有行动号召
+   - 75-89分：较好，结构完整但某些要素缺失
+   - 60-74分：一般，缺少明显结构或核心要素
+   - 60分以下：较差，需要重新设计
+2. **评分理由 (score_reason)**: 一句话说明评分理由，必须说明具体原因
+3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"身份标签 + 价值主张 + 差异化 + 行动号召"。例如：一个简介"XX品牌创始人，专注XX20年，全国XX冠军，+V领取资料"，公式应该是"身份标签(XX品牌创始人) + 价值主张(专注XX20年) + 差异化(全国XX冠军) + 行动号召(+V领取资料)"
+4. **优化建议 (suggestions)**: 根据简介实际情况列出2-3条有针对性的优化建议
+
+5. **各维度详细分析**（必须包含以下所有维度，不可遗漏）：
+
+{dim_sections_text}
 
 ## 输出格式
 
 ```json
 {{
-    "score": 80,
+    "score": 75,
     "score_reason": "结构清晰但缺少行动号召",
-    "formula": "身份标签(我是XX) + 价值主张(专注XX年) + 差异化标签 + 行动号召",
-    "suggestions": ["建议添加行动号召", "可以加入差异化卖点"]
+    "formula": "身份标签(XX创始人) + 价值主张(专注XX年) + 差异化标签",
+    "suggestions": ["建议添加行动号召", "可以加入联系方式"],
+{json_dims_block}
 }}
 ```
 
-**重要**：请直接分析提供的简介，不要输出通用公式模板！"""
+**重要**：
+- 请直接分析提供的简介 **{bio}** 的实际构成
+- formula 字段必须填写这个简介的实际组成部分，不能是通用模板
+- 评分要根据实际质量打分"""
 
     elif sub_cat == 'account_positioning':
         return f"""{base_info}

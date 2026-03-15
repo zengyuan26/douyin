@@ -94,13 +94,15 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="card-body py-2" style="max-height: 400px; overflow-y: auto;">
-                            <!-- 账号列表（卡片式） -->
-                            <div id="accounts-list" class="row g-2">
-                                <div class="col-12 text-center text-muted py-4">加载中...</div>
+                        <div class="card-body py-2 d-flex flex-column" style="height: 420px;">
+                            <!-- 账号列表（可滚动区域，为分页留出空间） -->
+                            <div id="accounts-list-wrap" class="flex-grow-1 overflow-y-auto min-h-0" style="max-height: 360px;">
+                                <div id="accounts-list" class="row g-2">
+                                    <div class="col-12 text-center text-muted py-4">加载中...</div>
+                                </div>
                             </div>
-                            <!-- 分页控件 -->
-                            <div id="accounts-pagination" class="d-flex justify-content-between align-items-center mt-3">
+                            <!-- 分页控件（固定在底部，始终可见） -->
+                            <div id="accounts-pagination" class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top flex-shrink-0">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="accounts-prev-btn" disabled>
                                     <i class="bi bi-chevron-left"></i>
                                 </button>
@@ -1397,6 +1399,56 @@ async function saveNicknameFormula(accountId, formula, score, scoreReason) {
             body: JSON.stringify({
                 account_id: accountId,
                 sub_category: 'nickname_analysis',
+                data: {
+                    formula: formula,
+                    score: score,
+                    score_reason: scoreReason
+                }
+            })
+        });
+
+        const data = await response.json();
+        if (data.code === 200) {
+            alert('✅ 入库成功！');
+        } else {
+            alert(data.message || '入库失败');
+        }
+    } catch (e) {
+        console.error('入库失败:', e);
+        alert('入库失败，请稍后重试');
+    }
+}
+
+// 辅助函数：保存简介公式（供按钮 onclick 使用）
+function saveBioFormulaByButton(formula, score, scoreReason) {
+    const accountId = getAccountId();
+    if (!accountId) {
+        alert('请先选择一个账号');
+        return;
+    }
+    // 解码 URL 编码的参数
+    const decodedFormula = decodeURIComponent(formula);
+    const decodedScoreReason = decodeURIComponent(scoreReason);
+    saveBioFormula(accountId, decodedFormula, score, decodedScoreReason);
+}
+
+// 保存简介分析公式到规则库
+async function saveBioFormula(accountId, formula, score, scoreReason) {
+    if (!accountId || !formula) {
+        alert('缺少必要参数');
+        return;
+    }
+
+    const ok = confirm('确认将该简介分析公式入库到规则库？');
+    if (!ok) return;
+
+    try {
+        const response = await fetch('/api/knowledge/rules/sub-category', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                account_id: accountId,
+                sub_category: 'bio_analysis',
                 data: {
                     formula: formula,
                     score: score,
@@ -2927,11 +2979,45 @@ function renderNicknameAnalysis(data, accountInfo) {
             console.log('[DEBUG] renderNicknameAnalysis data.dimensions:', data?.dimensions);
             console.log('[DEBUG] renderNicknameAnalysis data.llm_data:', data?.llm_data);
 
-    // 提取整体信息
-    const score = data.score || 0;
-    const scoreReason = data.score_reason || '';
     const formula = data.formula || '';
     const suggestions = data.suggestions || [];
+    const dimensions = data.dimensions || [];
+
+    // 根据维度详情中的分数计算综合评分
+    let score = 0;
+    let scoreReason = '';
+    if (dimensions && dimensions.length > 0) {
+        // 计算各维度平均分
+        let totalScore = 0;
+        let validCount = 0;
+        const dimScores = [];
+        dimensions.forEach(dim => {
+            const dimData = dim.data || {};
+            const dimScore = dimData.score || 0;
+            if (dimScore > 0) {
+                totalScore += dimScore;
+                validCount++;
+                dimScores.push({ name: dim.name, score: dimScore });
+            }
+        });
+        if (validCount > 0) {
+            score = Math.round(totalScore / validCount);
+            // 生成评分理由
+            const highScoreDims = dimScores.filter(d => d.score >= 80).map(d => d.name);
+            const lowScoreDims = dimScores.filter(d => d.score < 60).map(d => d.name);
+            if (highScoreDims.length > 0 && lowScoreDims.length === 0) {
+                scoreReason = `各维度表现良好，${highScoreDims[0]}尤为突出`;
+            } else if (lowScoreDims.length > 0) {
+                scoreReason = `${lowScoreDims[0]}需重点改进，建议加强`;
+            } else {
+                scoreReason = `基于${validCount}个维度的综合评分`;
+            }
+        }
+    } else {
+        // 兼容旧数据
+        score = data.score || 0;
+        scoreReason = data.score_reason || '';
+    }
 
     // 系统维度名称映射（用于未传入 dimensions 时的兼容）
     const dimNames = {
@@ -3005,7 +3091,6 @@ function renderNicknameAnalysis(data, accountInfo) {
     // 渲染维度卡片 - 优先使用 data.dimensions（用户+系统合并），兼容旧数据
     let dimsHtml = '';
     const llmData = data.llm_data || data;
-    const dimensions = data.dimensions || [];
     console.log('[DEBUG] dimensions in render:', dimensions);
     console.log('[DEBUG] llmData keys:', llmData ? Object.keys(llmData) : 'null');
     
@@ -3089,15 +3174,196 @@ function renderNicknameAnalysis(data, accountInfo) {
 // 渲染简介分析
 function renderBioAnalysis(data, accountInfo) {
     const bio = accountInfo.bio || accountInfo.current_data?.bio || '-';
-    const llmData = data.llm_data || data;  // 兼容两种数据结构
-    
+
+    // 提取整体信息
+    const formula = data.formula || '';
+    const suggestions = data.suggestions || [];
+    const dimensions = data.dimensions || [];
+
+    // 根据维度详情中的分数计算综合评分
+    let score = 0;
+    let scoreReason = '';
+    if (dimensions && dimensions.length > 0) {
+        // 计算各维度平均分
+        let totalScore = 0;
+        let validCount = 0;
+        const dimScores = [];
+        dimensions.forEach(dim => {
+            const dimData = dim.data || {};
+            const dimScore = dimData.score || 0;
+            if (dimScore > 0) {
+                totalScore += dimScore;
+                validCount++;
+                dimScores.push({ name: dim.name, score: dimScore });
+            }
+        });
+        if (validCount > 0) {
+            score = Math.round(totalScore / validCount);
+            // 生成评分理由
+            const highScoreDims = dimScores.filter(d => d.score >= 80).map(d => d.name);
+            const lowScoreDims = dimScores.filter(d => d.score < 60).map(d => d.name);
+            if (highScoreDims.length > 0 && lowScoreDims.length === 0) {
+                scoreReason = `各维度表现良好，${highScoreDims[0]}尤为突出`;
+            } else if (lowScoreDims.length > 0) {
+                scoreReason = `${lowScoreDims[0]}需重点改进，建议加强`;
+            } else {
+                scoreReason = `基于${validCount}个维度的综合评分`;
+            }
+        }
+    } else {
+        // 兼容旧数据
+        score = data.score || 0;
+        scoreReason = data.score_reason || '';
+    }
+
+    // 渲染优化建议
+    let suggestionsHtml = '';
+    if (suggestions.length > 0) {
+        suggestionsHtml = `
+            <div class="mt-2 p-2 bg-light rounded">
+                <div class="small text-muted mb-1">优化建议</div>
+                <ul class="mb-0 small">
+                    ${suggestions.map(s => `<li>${s}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+
+    // 系统维度名称映射
+    const dimNames = {
+        'bio_identity': '身份标签',
+        'bio_value': '价值主张',
+        'bio_differentiate': '差异化标签',
+        'bio_action': '行动号召',
+        'bio_structure': '结构分析',
+        'bio_content': '内容要素',
+        'bio_advantage': '优点总结'
+    };
+
+    // 渲染单个维度卡片（与昵称分析一致的逻辑）
+    function renderDimCard(dimCode, dimData, dimName) {
+        if (!dimData || typeof dimData !== 'object') return '';
+        const displayName = dimName || dimNames[dimCode] || dimCode;
+        const dimScore = dimData.score || 0;
+        const dimReason = dimData.reason || '';
+        const conclusion = dimData.conclusion || '';
+
+        // 根据维度代码提取不同字段
+        let extraFields = '';
+        if (dimCode === 'bio_structure') {
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-6"><span class="text-muted small">有结构：</span><span class="fw-medium small">${dimData.has_structure ? '是' : '否'}</span></div>
+                    <div class="col-6"><span class="text-muted small">有联系方式：</span><span class="fw-medium small">${dimData.has_contact ? '是' : '否'}</span></div>
+                    <div class="col-6"><span class="text-muted small">有价值主张：</span><span class="fw-medium small">${dimData.has_value_proposition ? '是' : '否'}</span></div>
+                    <div class="col-6"><span class="text-muted small">有行动号召：</span><span class="fw-medium small">${dimData.has_cta ? '是' : '否'}</span></div>
+                </div>
+            `;
+        } else if (dimCode === 'bio_content') {
+            const elements = Array.isArray(dimData.content_elements) ? dimData.content_elements.join('、') : '-';
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-12"><span class="text-muted small">内容要素：</span><span class="fw-medium small">${elements}</span></div>
+                    <div class="col-6"><span class="text-muted small">有差异化：</span><span class="fw-medium small">${dimData.has_differentiation ? '是' : '否'}</span></div>
+                    <div class="col-6"><span class="text-muted small">有明确报价：</span><span class="fw-medium small">${dimData.has_clear_offer ? '是' : '否'}</span></div>
+                </div>
+            `;
+        } else if (dimCode === 'bio_advantage') {
+            const advantages = Array.isArray(dimData.advantages) ? dimData.advantages.join('、') : '-';
+            const improvements = Array.isArray(dimData.improvements) ? dimData.improvements.join('、') : '-';
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-12"><span class="text-muted small">优点：</span><span class="fw-medium small">${advantages}</span></div>
+                    <div class="col-12"><span class="text-muted small">可改进：</span><span class="fw-medium small">${improvements}</span></div>
+                </div>
+            `;
+        } else if (dimCode === 'bio_identity') {
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-12"><span class="text-muted small">身份标签：</span><span class="fw-medium small">${dimData.identity || '-'}</span></div>
+                    <div class="col-12"><span class="text-muted small">匹配度：</span><span class="fw-medium small">${dimData.match_score || '-'}</span></div>
+                </div>
+            `;
+        } else if (dimCode === 'bio_value') {
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-12"><span class="text-muted small">价值主张：</span><span class="fw-medium small">${dimData.value_proposition || '-'}</span></div>
+                    <div class="col-12"><span class="text-muted small">清晰度：</span><span class="fw-medium small">${dimData.clarity || '-'}</span></div>
+                </div>
+            `;
+        } else if (dimCode === 'bio_differentiate') {
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-12"><span class="text-muted small">差异化标签：</span><span class="fw-medium small">${dimData.differentiation || '-'}</span></div>
+                    <div class="col-12"><span class="text-muted small">独特性：</span><span class="fw-medium small">${dimData.uniqueness || '-'}</span></div>
+                </div>
+            `;
+        } else if (dimCode === 'bio_action') {
+            extraFields = `
+                <div class="row g-1 mt-1">
+                    <div class="col-12"><span class="text-muted small">行动号召：</span><span class="fw-medium small">${dimData.call_to_action || '-'}</span></div>
+                    <div class="col-12"><span class="text-muted small">引导效果：</span><span class="fw-medium small">${dimData.effectiveness || '-'}</span></div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="col-12">
+                <div class="p-2 border rounded mb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="small fw-medium">${displayName}</div>
+                        <span class="fw-bold ${dimScore >= 80 ? 'text-success' : (dimScore >= 60 ? 'text-warning' : 'text-danger')}">${dimScore}分</span>
+                    </div>
+                    <div class="small text-muted">${dimReason}</div>
+                    ${extraFields}
+                    <div class="mt-1 small">${conclusion}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    // 渲染维度详情（优先使用 dimensions 数组）
+    let dimsHtml = '';
+    if (dimensions && dimensions.length > 0) {
+        dimsHtml = dimensions.map(dim => renderDimCard(dim.code, dim.data, dim.name)).join('');
+    }
+
     return `
         <div class="p-2 bg-light rounded mb-2">
-            <div class="small text-muted">账号简介</div>
-            <div class="fw-medium small">${bio}</div>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="small text-muted">账号简介</div>
+                    <div class="fw-medium">${bio}</div>
+                </div>
+                <div class="text-end">
+                    <div class="small text-muted">综合评分</div>
+                    <div class="fs-4 fw-bold ${score >= 80 ? 'text-success' : (score >= 60 ? 'text-warning' : 'text-danger')}">${score}</div>
+                </div>
+            </div>
+            ${scoreReason ? `<div class="small text-muted mt-1">${scoreReason}</div>` : ''}
         </div>
-        <div class="row g-2">
-            ${renderDimensionCards(llmData, 'bio')}
+
+        ${formula ? `
+        <div class="p-2 border rounded mb-2">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="small text-muted">可用公式</div>
+                    <div class="fw-medium">${formula}</div>
+                </div>
+                <button class="btn btn-sm btn-success" onclick="saveBioFormulaByButton('${encodeURIComponent(formula)}', ${score}, '${encodeURIComponent(scoreReason || '')}')">
+                    <i class="bi bi-download me-1"></i>入库
+                </button>
+            </div>
+        </div>
+        ` : ''}
+
+        ${suggestionsHtml}
+
+        <div class="mt-2">
+            <div class="small fw-medium mb-2">维度详情</div>
+            <div class="row g-2" id="bio-dims-container">
+                ${dimsHtml || '<div class="col-12"><div class="text-muted small">暂无维度详情</div></div>'}
+            </div>
         </div>
     `;
 }
@@ -3686,15 +3952,18 @@ function renderDimensionCards(data, prefix) {
             
             console.log('[DEBUG] nicknameCards length:', nicknameCards.length);
 
-            // 简介维度
+            // 简介维度 - 需要过滤掉非维度字段
             const bioCards = [];
             const bioDimensionNames = {
                 'bio_structure': '结构分析',
                 'bio_content': '内容要素',
                 'bio_advantage': '优点总结'
             };
+            const bioNonDimKeys = ['score', 'score_reason', 'formula', 'suggestions', 'dimensions', 'llm_data', 'sub_category_name'];
             for (const [dimCode, dimData] of Object.entries(bioAnalysis)) {
+                if (bioNonDimKeys.includes(dimCode)) continue;
                 if (dimCode === 'dimension_code' || dimCode === 'dimension_name') continue;
+                if (!dimData || Object.keys(dimData).length <= 2) continue; // 跳过空数据
                 const dimName = dimData.dimension_name || bioDimensionNames[dimCode] || dimCode;
                 bioCards.push(renderDimensionCard(dimCode, dimName, dimData, 'bi bi-card-text'));
             }

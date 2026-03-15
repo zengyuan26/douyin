@@ -205,7 +205,7 @@ DEFAULT_DIMENSIONS = [
         'name': '结尾',
         'code': 'ending',
         'icon': 'bi-flag',
-        'description': '分析结尾的 CTA 设计，引导互动和转化',
+        'description': '分析结尾的行动号召设计，引导互动和转化',
         'category': 'content',
         'sub_category': 'ending',
         'category_group': 'content',

@@ -281,7 +281,7 @@ ANALYSIS_DIMENSION_CATEGORIES = {
             },
             'ending': {
                 'name': '结尾',
-                'description': 'CTA、引导互动'
+                'description': '行动号召、引导互动'
             }
         }
     },
