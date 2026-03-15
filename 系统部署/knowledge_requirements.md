@@ -8,11 +8,11 @@
 ├─────────────┬─────────────┬─────────────┬─────────────┬─────────────────┤
 │  爆款拆解   │  方法论学习 │   规则库    │ 分析维度管理 │ 规则自动提取审核 │
 │   （入口）  │   （入口）  │   （入口）  │   （入口）   │     （入口）     │
-└──────┬──────┴──────┬──────┴──────┬──────┴───────┴────────┬────────────┘
-       │             │             │                        │
-       ▼             ▼             ▼                        ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              数据流向图                                   │
+├─────────────┴─────────────┴─────────────┴─────────────┴─────────────────┤
+│                                                                         │
+│                        账号库管理（独立模块）                              │
+│              账号导入 → 账号分析 → 公式入库 → 规则库                      │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -55,6 +55,37 @@
                          └── 入库流程：审核后直接入库
 
 当前状态：⚠️ 页面已存在，功能待完善
+```
+
+### 4. 账号库管理（新增）
+
+```
+导入账号 ──▶ 账号列表管理 ──▶ 选择账号进行多维度分析
+
+支持的账号分析维度（二级分类）：
+├── 昵称分析 (nickname_analysis)     - 关键词、易记性、特征、情绪、身份
+├── 简介分析 (bio_analysis)          - 身份标签、价值主张、差异化、行动号召、结构、内容要素
+├── 账号定位 (account_positioning)   - 人设、业务、目标人群、差异化
+├── 市场分析 (market_analysis)        - 目标人群、痛点需求、解决方案、竞争优势
+├── 关键词库 (keyword_library)        - 产品关键词、行业关键词、流量关键词
+└── 运营规划 (operation_planning)     - 人设定位、内容策略、发布节奏、变现路径
+
+分析输出：
+- 评分 (score)
+- 评分理由 (score_reason)
+- 可用公式 (formula) - 总结出的可复用规律
+- 各维度详细分析 (dimensions)
+- 优化建议 (suggestions)
+
+公式格式规范：
+- 昵称分析：产品词(具体内容) + 身份标签(具体内容) + 情绪特征(具体内容) + ...
+- 简介分析：身份标签(具体内容) + 价值主张(粉丝得到什么) + 差异化标签(为什么关注你) + 行动号召(具体内容)
+  - 身份标签：职业背景、学历、职称、专业身份（如：10年大厂PM、苏黎世大学博士）
+  - 价值主张：我提供什么价值，粉丝能得到什么（如：每天一个职场技巧｜教你拍照变好看）
+  - 差异化：为什么关注你，你和别人不一样在哪（如：只讲真话｜0基础也能学）
+
+当前状态：✅ 已实现
+核心流程：导入账号 → 自动/手动选择维度 → AI分析 → 查看结果 → 决定是否入库
 ```
 
 ---
@@ -222,12 +253,21 @@
 - **触发时机**：自动触发（生成报告时）
 - **入库流程**：审核后直接入库
 
-### 3. 优先级
+### 3. 账号库管理（已完成 ✅）
 
-**第一阶段：优化爆款拆解**
+- **支持导入**：手动添加、Excel导入
+- **支持分析**：昵称分析、简介分析、账号定位、市场分析、关键词库、运营规划
+- **公式入库**：分析后的公式可入库到规则库
+- **公式格式**：统一为「要素类型(具体内容)」格式
+
+### 4. 优先级
+
+**第一阶段：优化爆款拆解 + 账号分析**
 - 确保自动加载维度生效
 - AI额外给建议的功能
 - 入库流程顺畅
+- 账号库导入和分析功能
+- 公式格式统一规范
 
 **第二阶段：完善方法论学习**
 - 新建单页面交互
@@ -249,7 +289,89 @@
 知识库管理主页 (knowledge.html)
 ├── 爆款拆解 → knowledge_dismantle.html
 ├── 方法论学习 → persona_methods.html（待完善）
-├── 规则库 → rules_library.html（待简化）
+├── 规则库 → rules_library.html
 ├── 分析维度管理 → analysis_dimensions.html
-└── （隐含入口）规则自动提取审核 → rule_extractions.html
+├── （隐含入口）规则自动提取审核 → rule_extractions.html
+└── 账号库管理 → 独立入口 (knowledge_account_analysis)
+    ├── 账号列表 → clients.html（知识库账号Tab）
+    ├── 账号分析 → knowledge_account_analysis
+    └── 账号导入/编辑 → client_form.html
+```
+
+---
+
+## 八、数据库模型
+
+### KnowledgeAccount（知识库账号）
+
+```
+KnowledgeAccount
+├── id: Integer (主键)
+├── name: String (昵称)
+├── platform: String (平台：douyin/xhs/bilibili)
+├── url: String (主页链接)
+├── bio: String (简介)
+├── current_data: JSON (当前抓取的账号数据)
+├── analysis_result: JSON (分析结果)
+│   ├── nickname_analysis: 昵称分析结果
+│   │   ├── score: 评分
+│   │   ├── score_reason: 评分理由
+│   │   ├── formula: 可用公式
+│   │   ├── suggestions: 优化建议
+│   │   └── dimensions: 各维度详细分析
+│   ├── bio_analysis: 简介分析结果
+│   │   ├── score: 评分
+│   │   ├── score_reason: 评分理由
+│   │   ├── formula: 可用公式
+│   │   ├── suggestions: 优化建议
+│   │   └── dimensions: 各维度详细分析
+│   ├── account_positioning: 账号定位分析
+│   ├── market_analysis: 市场分析
+│   ├── keyword_library: 关键词库
+│   └── operation_planning: 运营规划
+├── business_desc: String (业务描述，用于分析参考)
+├── status: String (账号状态)
+├── created_at: DateTime
+└── updated_at: DateTime
+```
+
+### KnowledgeRule（知识库规则）
+
+```
+KnowledgeRule
+├── id: Integer (主键)
+├── category: String (规则分类：关键词库/选题库/内容模板/运营规划/市场分析)
+├── rule_title: String (规则标题)
+├── rule_content: String (规则内容)
+├── rule_type: String (规则类型标识)
+├── source_category: String (来源分类：account/content/methodology)
+├── source_dimension: String (来源维度)
+├── source_sub_category: String (来源二级分类)
+├── dimension_name: String (维度名称)
+├── dimension_id: Integer (关联的分析维度ID)
+├── applicable_scenarios: JSON (适用场景)
+├── applicable_audiences: JSON (适用人群)
+├── keywords: JSON (关键词标签)
+├── status: String (状态：pending/active/archived)
+├── created_at: DateTime
+└── updated_at: DateTime
+```
+
+### AnalysisDimension（分析维度配置）
+
+```
+AnalysisDimension
+├── id: Integer (主键)
+├── category: String (一级分类：account/content/methodology)
+├── sub_category: String (二级分类)
+├── code: String (维度编码)
+├── name: String (维度名称)
+├── description: String (维度描述)
+├── rule_category: String (入库分类)
+├── rule_type: String (规则类型标识)
+├── is_default: Boolean (是否默认选中)
+├── is_active: Boolean (是否启用)
+├── sort_order: Integer (排序)
+├── created_at: DateTime
+└── updated_at: DateTime
 ```
