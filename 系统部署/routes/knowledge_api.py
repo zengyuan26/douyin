@@ -6167,19 +6167,22 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
             desc = (d.description or '').strip()
             if code in SYSTEM_NICKNAME_DIMENSION_CODES:
                 if code == 'nickname_keyword':
+                    # 核心关键词检测：需要参考业务信息中的主营业务
                     dim_sections.append(f"""### 维度{i}: {code} ({name})
-- 是否包含关键词 (has_keyword): true/false
+- **重要**：请根据账号的"业务信息"中的"主营业务"来判断
+- 判断方法：先看主营业务是什么（如：卖红糖、灌香肠、卖茶叶），再判断昵称是否包含该业务的核心关键词
+- 是否包含关键词 (has_keyword): true/false（如果昵称包含业务相关的核心关键词则为true）
 - 关键词类型 (keyword_type): 行业词/产品词/地域词/品牌词/功能词/无
-- 关键词内容 (keyword_content): 具体关键词内容
+- 关键词内容 (keyword_content): 具体关键词内容（应从主营业务中提取，如主营业务是"卖福建红糖"，则关键词应为"红糖"或"福建红糖"）
 - 评分 (score): 0-100分
 - 评分理由 (reason): 为什么给这个评分
 - 分析结论 (conclusion): 一句话总结""")
                     json_dim_examples.append(f'''    "{code}": {{
         "has_keyword": true,
         "keyword_type": "产品词",
-        "keyword_content": "灌香肠",
+        "keyword_content": "红糖",
         "score": 90,
-        "reason": "包含产品关键词",
+        "reason": "昵称包含主营业务核心产品词",
         "conclusion": "昵称中包含产品词，能让用户快速了解业务"
     }}''')
                 elif code == 'nickname_memorability':
@@ -6266,7 +6269,10 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
    - 60分以下：较差，需要重新设计
    **注意**：大多数昵称应该在60-85分之间，极少有完美昵称，不要轻易给90分以上！
 2. **评分理由 (score_reason)**: 一句话说明评分理由，必须说明具体原因
-3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"XX(具体含义) + XX(具体含义)"。例如：对于昵称"灌肠西施"，公式应该是"灌肠(产品词) + 西施(身份标签)"；对于昵称"纽约王老师"，公式应该是"纽约(地域词) + 王(姓氏) + 老师(职业标签)"；对于昵称"南漳黄姐灌香肠手工20年"，公式应该是"南漳(地域词) + 黄姐(人设标签) + 灌香肠(产品词) + 20年(时间词) + 手工(属性/工艺词)"
+3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"XX(要素类型:具体内容)"。例如：
+   - 对于昵称"灌肠西施"，公式应该是"产品词(灌肠) + 身份标签(西施)"
+   - 对于昵称"纽约王老师"，公式应该是"地域词(纽约) + 姓氏(王) + 职业标签(老师)"
+   - 对于昵称"南漳黄姐灌香肠手工20年"，公式应该是"地域词(南漳) + 人设标签(黄姐) + 产品词(灌香肠) + 属性词(手工) + 时间词(20年)"
 4. **优化建议 (suggestions)**: 根据昵称实际情况列出2-3条有针对性的优化建议。注意：若昵称已含地域词（如南漳、北京等），则不要建议增加地域词；若已含数字（如20、10等），则不要建议加入数字。建议必须基于实际缺失的要素提出。
 
 5. **各维度详细分析**（必须包含以下所有维度，不可遗漏）：
@@ -6279,7 +6285,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 {{
     "score": 75,
     "score_reason": "缺少记忆点，建议加入差异化元素",
-    "formula": "灌肠(产品词) + 西施(身份标签)",
+    "formula": "产品词(灌肠) + 身份标签(西施)",
     "suggestions": ["可加入地域词突出地域特色", "可加入数字或年份强调专业度"],
 {json_dims_block}
 }}
@@ -6407,11 +6413,11 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - 评分理由 (reason): 为什么给这个评分
 - 分析结论 (conclusion): 一句话总结""")
                 json_dim_examples.append(f'''    "{code}": {{
-        "advantages": ["结构清晰", "身份明确"],
-        "improvements": ["缺少联系方式", "缺少行动号召"],
+        "advantages": ["结构清晰", "价值主张明确"],
+        "improvements": ["缺少联系方式"],
         "score": 70,
-        "reason": "整体不错但缺少引导",
-        "conclusion": "有提升空间"
+        "reason": "整体不错但缺少联系方式",
+        "conclusion": "有提升空间，建议添加联系方式"
     }}''')
 
         dim_sections_text = "\n\n".join(dim_sections)
@@ -6429,9 +6435,13 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
    - 75-89分：较好，结构完整但某些要素缺失
    - 60-74分：一般，缺少明显结构或核心要素
    - 60分以下：较差，需要重新设计
-2. **评分理由 (score_reason)**: 一句话说明评分理由，必须说明具体原因
-3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"身份标签 + 价值主张 + 差异化 + 行动号召"。例如：一个简介"XX品牌创始人，专注XX20年，全国XX冠军，+V领取资料"，公式应该是"身份标签(XX品牌创始人) + 价值主张(专注XX20年) + 差异化(全国XX冠军) + 行动号召(+V领取资料)"
-4. **优化建议 (suggestions)**: 根据简介实际情况列出2-3条有针对性的优化建议
+2. **评分理由 (score_reason)**: 一句话说明评分理由，**必须基于简介的实际内容来评价**
+3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"XX(要素类型:具体内容)"。例如：
+   - 对于简介"XX品牌创始人，专注XX20年，全国XX冠军，+V领取资料"，公式应该是"身份标签(XX品牌创始人) + 价值主张(专注XX20年) + 差异化(全国XX冠军) + 行动号召(+V领取资料)"
+   - 对于简介"20年老店拎肉来灌，2.5元/斤，关注到店有好礼"，公式应该是"价值主张(20年老店体现资历) + 行动号召(拎肉来灌) + 行动号召(关注到店有好礼) + 价格信息(2.5元/斤)"
+4. **优化建议 (suggestions)**: 根据简介实际情况列出2-3条有针对性的优化建议。**重要规则**：
+   - **必须先分析简介实际包含的要素**：如果简介已经有"价值主张"就不要再建议添加价值主张；如果简介已经有"行动号召"就不要再建议添加行动号召；如果简介已经有"联系方式"就不要再建议添加联系方式
+   - 只能建议添加简介中**真正缺失**的要素
 
 5. **各维度详细分析**（必须包含以下所有维度，不可遗漏）：
 
@@ -6442,9 +6452,9 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 ```json
 {{
     "score": 75,
-    "score_reason": "结构清晰但缺少行动号召",
-    "formula": "身份标签(XX创始人) + 价值主张(专注XX年) + 差异化标签",
-    "suggestions": ["建议添加行动号召", "可以加入联系方式"],
+    "score_reason": "结构清晰但缺少联系方式",
+    "formula": "价值主张(带你体验美食体现生活方式) + 差异化(200块吃遍全国体现特色) + 行动号召(关注我一起体验)",
+    "suggestions": ["建议添加联系方式方便粉丝私信", "可以突出人设标签增强记忆点"],
 {json_dims_block}
 }}
 ```
