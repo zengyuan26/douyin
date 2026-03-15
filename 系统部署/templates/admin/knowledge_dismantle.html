@@ -3,9 +3,9 @@
 {% block title %}爆款拆解 - AI棱镜{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-3">
+<div class="container-fluid py-2">
     <!-- 页面标题 -->
-    <div class="row mb-3">
+    <div class="row mb-2">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
@@ -21,43 +21,8 @@
         </div>
     </div>
 
-    <!-- 队列状态栏 -->
-    <div id="queue-status-bar" class="row mb-3">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm bg-light">
-                <div class="card-body py-2">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">
-                            <i class="bi bi-list-task me-2 text-primary"></i>分析队列状态
-                        </h6>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="refresh-queue-btn">
-                            <i class="bi bi-arrow-clockwise"></i> 刷新
-                        </button>
-                    </div>
-                    <div class="d-flex gap-4 mb-2">
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-warning me-2">
-                                <i class="bi bi-hourglass-split"></i> 等待
-                            </span>
-                            <span id="queue-waiting-count" class="fw-bold">0</span>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-success me-2">
-                                <i class="bi bi-play-circle"></i> 运行中
-                            </span>
-                            <span id="queue-running-count" class="fw-bold">0</span>
-                            <span class="text-muted small ms-1">/ <span id="queue-max-concurrent">2</span></span>
-                        </div>
-                    </div>
-                    <!-- 运行中的任务进度条 -->
-                    <div id="running-tasks-progress" class="d-flex flex-column gap-2"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Tab 导航 -->
-    <ul class="nav nav-tabs mb-3" id="analysisTabs" role="tablist">
+    <ul class="nav nav-tabs mb-2" id="analysisTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="account-tab" data-bs-toggle="tab" data-bs-target="#account-panel" type="button" role="tab">
                 <i class="bi bi-person-badge me-1"></i>账号分析
@@ -70,9 +35,40 @@
         </li>
     </ul>
 
+    <!-- 主体布局 -->
     <div class="row g-3">
-        <!-- 左侧：输入区域 -->
+        <!-- 左侧：队列状态 + 输入区域 -->
         <div class="col-lg-5">
+            <!-- 队列状态栏 -->
+            <div id="queue-status-bar" class="card border-0 shadow-sm mb-2">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-medium">
+                            <i class="bi bi-list-task me-2 text-primary"></i>分析队列
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="refresh-queue-btn">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                    </div>
+                    <div class="d-flex gap-4 mt-2">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-warning me-2">
+                                <i class="bi bi-hourglass-split"></i> 等待
+                            </span>
+                            <span id="queue-waiting-count" class="fw-bold fs-5">0</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-success me-2">
+                                <i class="bi bi-lightning-charge"></i> 运行中
+                            </span>
+                            <span id="queue-running-count" class="fw-bold fs-5">0</span>
+                            <span class="text-muted ms-1">/ <span id="queue-max-concurrent">2</span></span>
+                        </div>
+                    </div>
+                    <div id="running-tasks-progress" class="mt-2"></div>
+                </div>
+            </div>
+
             <!-- Tab 内容 -->
             <div class="tab-content" id="analysisTabsContent">
                 <!-- 账号分析 Tab -->
@@ -86,7 +82,7 @@
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="search-box me-2">
                                         <div class="input-group input-group-sm">
-                                            <input type="text" class="form-control" id="account-search-input" placeholder="搜索账号名称...">
+                                            <input type="text" class="form-control" id="account-search-input" placeholder="搜索...">
                                             <button class="btn btn-outline-secondary" type="button" id="account-search-btn">
                                                 <i class="bi bi-search"></i>
                                             </button>
@@ -98,7 +94,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="card-body py-2">
+                        <div class="card-body py-2" style="max-height: 400px; overflow-y: auto;">
                             <!-- 账号列表（卡片式） -->
                             <div id="accounts-list" class="row g-2">
                                 <div class="col-12 text-center text-muted py-4">加载中...</div>
@@ -125,7 +121,7 @@
                                 <i class="bi bi-play-btn me-2 text-success"></i>内容分析
                             </h6>
                         </div>
-                        <div class="card-body py-3" id="content-analysis-form">
+                        <div class="card-body py-3 overflow-auto" id="content-analysis-form">
                             <!-- 当前账号信息 -->
                             <div id="current-account-info" class="mb-3 p-2 bg-light rounded d-flex align-items-center justify-content-between">
                                 <div class="d-flex align-items-center">
@@ -201,8 +197,8 @@
 
         <!-- 右侧：结果展示 -->
         <div class="col-lg-7">
-            <div class="card border-0 shadow-sm" style="min-height: 500px;">
-                <div class="card-body" id="result-container">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-3" id="result-container" style="overflow-y: auto; max-height: calc(100vh - 180px);">
                     <!-- 初始状态 -->
                     <div class="text-center py-4" id="result-empty">
                         <i class="bi bi-graph-up text-muted fs-3"></i>
@@ -217,8 +213,8 @@
                                 <i class="bi bi-arrow-repeat me-1"></i>重新分析
                             </button>
                         </div>
-                        <!-- 分析维度结果：可滚动区域，保证各 tab 内容完整展示，数据多时滚动查看 -->
-                        <div id="analysis-results" class="py-2" style="max-height: 65vh; overflow-y: auto;">
+                        <!-- 分析维度结果 -->
+                        <div id="analysis-results" class="py-2">
                             <!-- 动态加载分析结果 -->
                         </div>
                     </div>
@@ -2865,7 +2861,7 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
         }
 
         tabContentHtml += `
-            <div class="tab-pane fade ${activeClass}" id="${tabId}" role="tabpanel">
+            <div class="tab-pane fade ${activeClass}" id="${tabId}" role="tabpanel" style="min-height: 150px;">
                 ${contentHtml}
             </div>
         `;
@@ -2874,12 +2870,12 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
     // 构建完整HTML
     let html = `
         <!-- 账号分析 Tab 导航 -->
-        <ul class="nav nav-tabs nav-sm mb-2" id="accountAnalysisTabs" role="tablist">
+        <ul class="nav nav-tabs nav-sm mb-2" id="accountAnalysisTabs" role="tablist" style="flex-wrap: nowrap; overflow-x: auto;">
             ${tabsHtml}
         </ul>
 
         <!-- Tab 内容 -->
-        <div class="tab-content" id="accountAnalysisTabContent">
+        <div class="tab-content" id="accountAnalysisTabContent" style="min-height: 200px;">
             ${tabContentHtml}
         </div>
     `;
@@ -2992,8 +2988,8 @@ function renderNicknameAnalysis(data, accountInfo) {
         }
 
         return `
-            <div class="col-6">
-                <div class="p-2 border rounded h-100">
+            <div class="col-12">
+                <div class="p-2 border rounded mb-2">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <div class="small fw-medium">${displayName}</div>
                         <span class="fw-bold ${dimScore >= 80 ? 'text-success' : (dimScore >= 60 ? 'text-warning' : 'text-danger')}">${dimScore}分</span>
@@ -3011,6 +3007,8 @@ function renderNicknameAnalysis(data, accountInfo) {
     const llmData = data.llm_data || data;
     const dimensions = data.dimensions || [];
     console.log('[DEBUG] dimensions in render:', dimensions);
+    console.log('[DEBUG] llmData keys:', llmData ? Object.keys(llmData) : 'null');
+    
     if (dimensions.length > 0) {
         for (const dim of dimensions) {
             const code = dim.code;
@@ -3024,11 +3022,11 @@ function renderNicknameAnalysis(data, accountInfo) {
             }
         }
         console.log('[DEBUG] final dimsHtml length:', dimsHtml.length);
-        console.log('[DEBUG] dimsHtml preview:', dimsHtml.substring(0, 200));
-        console.log('[DEBUG] returning full renderNicknameAnalysis result');
     } else {
+        console.log('[DEBUG] No dimensions in data, falling back to hardcoded dimCodes');
         const dimCodes = ['nickname_keyword', 'nickname_memorability', 'nickname_feature', 'nickname_advantage'];
         for (const dimCode of dimCodes) {
+            console.log('[DEBUG] checking dimCode:', dimCode, 'in llmData:', llmData[dimCode]);
             if (llmData[dimCode]) {
                 dimsHtml += renderDimCard(dimCode, llmData[dimCode], null);
             }

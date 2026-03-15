@@ -4050,6 +4050,9 @@ def get_rules():
     total = query.count()
     logger.info(f"[DEBUG get_rules] total count: {total}")
 
+    # 获取查询结果
+    rules = query.all()
+
     # 整理返回数据
     sub_category_names = {
         'nickname_analysis': '昵称',

@@ -98,22 +98,20 @@
             </div>
             <div class="modal-body">
                 <h6 id="view-rule-title" class="mb-3"></h6>
-                <div class="mb-3 small text-muted">
-                    <span id="view-rule-dimension"></span>
-                    <span id="view-rule-object" class="ms-1"></span>
-                </div>
                 <div id="view-rule-content" style="white-space: pre-wrap; line-height: 1.8;"></div>
                 <hr>
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <small class="text-muted">适用场景：</small>
                         <div id="view-rule-scenarios"></div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <small class="text-muted">适用人群：</small>
                         <div id="view-rule-audiences"></div>
                     </div>
-                    <div class="col-md-4">
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12">
                         <small class="text-muted">关键词：</small>
                         <div id="view-rule-keywords"></div>
                     </div>
@@ -256,19 +254,25 @@ function renderRules(items) {
         return;
     }
 
+    // 去掉标题前缀（如"昵称分析："、"简介分析："等）
+    const cleanTitle = (title) => {
+        if (!title) return '未命名公式';
+        const idx = title.indexOf('：');
+        return idx > 0 ? title.substring(idx + 1) : title;
+    };
+
     container.innerHTML = `
         <ul class="list-group list-group-flush">
             ${items.map(item => `
                 <li class="list-group-item list-group-item-action d-flex justify-content-between align-items-start py-3" onclick="viewRule(${item.id})" style="cursor: pointer;">
                     <div class="ms-2 me-auto flex-grow-1">
-                        <div class="fw-medium mb-1">${item.title || '未命名公式'}</div>
+                        <div class="fw-medium mb-1">${cleanTitle(item.title)}</div>
                         <div class="text-muted small" style="line-height: 1.5;">
                             ${(item.content || '').substring(0, 120)}${(item.content || '').length > 120 ? '...' : ''}
                         </div>
                     </div>
                     <div class="d-flex flex-shrink-0 gap-1 ms-2 small text-muted">
                         <span>${item.category_name || ''}</span>
-                        <span>${item.object_name ? ' · ' + item.object_name : ''}</span>
                     </div>
                 </li>
             `).join('')}
@@ -283,9 +287,15 @@ async function viewRule(id) {
         
         if (result.success) {
             const rule = result.data;
-            document.getElementById('view-rule-title').textContent = rule.title || '(无标题)';
-            document.getElementById('view-rule-dimension').textContent = rule.dimension_name || '';
-            document.getElementById('view-rule-object').textContent = rule.object_name ? ' · ' + rule.object_name : '';
+            
+            // 清理标题，去掉前缀（如"昵称分析："等）
+            const cleanTitle = (title) => {
+                if (!title) return '(无标题)';
+                const idx = title.indexOf('：');
+                return idx > 0 ? title.substring(idx + 1) : title;
+            };
+            
+            document.getElementById('view-rule-title').textContent = cleanTitle(rule.title);
             document.getElementById('view-rule-content').textContent = rule.content || '';
 
             const toBadges = arr => arr && arr.length > 0 
