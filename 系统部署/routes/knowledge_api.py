@@ -2452,6 +2452,7 @@ def build_account_profile_from_manual_prompt(account_data):
 
 ```json
 {{
+    "persona_role": "人设定位类型（从以下5种选择：陪伴者-我懂你、教导者-我教你、崇拜者-秀自己、陪衬者-不如你、搞笑者-逗笑你）",
     "target_audience": {{
         "age_range": "目标客户年龄阶段",
         "gender_ratio": "性别比例",
@@ -2491,7 +2492,14 @@ def build_account_profile_from_manual_prompt(account_data):
 1. 核心关键词应该直接与业务相关，如卖奶粉则核心关键词应包含"奶粉"相关
 2. 地域范围如果是"跨区域"，则地域词可以留空或填"全国"
 3. 关键词要具有实际搜索价值和转化价值
-4. 如果某些关键词类型不适用，可以为空数组但字段必须存在"""
+4. 如果某些关键词类型不适用，可以为空数组但字段必须存在
+
+**人设定位类型说明（5选1）**：
+- 陪伴者-我懂你：像朋友一样陪伴，分享日常生活，建立情感连接
+- 教导者-我教你：专业老师形象，教知识、讲道理、给建议
+- 崇拜者-秀自己：展示自己牛X的地方，让粉丝崇拜
+- 陪衬者-不如你：故意表现不如粉丝，让粉丝有优越感
+- 搞笑者-逗笑你：主要目的是让粉丝开心快乐"""
     return prompt
 
 
@@ -4893,6 +4901,9 @@ def get_account(account_id):
                 'content_strategy': account.content_strategy,
                 'target_audience': account.target_audience,
                 'analysis_result': account.analysis_result,
+                # 人设定位和商业定位
+                'persona_role': account.persona_role,
+                'commercial_positioning': account.commercial_positioning,
                 # 内容布局字段
                 'content_persona': account.content_persona,
                 'content_topic': account.content_topic,
@@ -5610,6 +5621,20 @@ def _run_account_profile_analysis(app, account_id):
             llm_result = parse_llm_json(result_text)
             if 'target_audience' in llm_result:
                 account.target_audience = llm_result['target_audience']
+
+            # 根据业务类型自动计算商业定位
+            # 卖货类业务 = 电商(卖货)，其他 = 引流
+            business_type = account.business_type or ''
+            if '卖货' in business_type or '电商' in business_type:
+                account.commercial_positioning = '卖货'
+            else:
+                account.commercial_positioning = '引流'
+
+            # 根据分析结果获取人设定位
+            # 如果LLM返回了persona_role则使用，否则默认尝试从账号定位推断
+            if 'persona_role' in llm_result:
+                account.persona_role = llm_result['persona_role']
+
             if 'keyword_layout' in llm_result:
                 core_keywords = llm_result['keyword_layout'].get('core_keywords', [])
                 if core_keywords:
@@ -6637,6 +6662,19 @@ def analyze_account_profile(account_id):
         # 保存结果到数据库
         if 'target_audience' in llm_result:
             account.target_audience = llm_result['target_audience']
+
+        # 根据业务类型自动计算商业定位
+        # 卖货类业务 = 电商(卖货)，其他 = 引流
+        business_type = account.business_type or ''
+        if '卖货' in business_type or '电商' in business_type:
+            account.commercial_positioning = '卖货'
+        else:
+            account.commercial_positioning = '引流'
+
+        # 根据分析结果获取人设定位
+        # 如果LLM返回了persona_role则使用
+        if 'persona_role' in llm_result:
+            account.persona_role = llm_result['persona_role']
 
         if 'keyword_layout' in llm_result:
             # 保存核心关键词

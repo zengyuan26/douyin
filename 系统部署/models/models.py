@@ -507,6 +507,11 @@ class KnowledgeAccount(db.Model):
     # 完整分析结果（JSON）
     analysis_result = db.Column(db.JSON)
 
+    # 人设定位（陪伴者/教导者/崇拜者/陪衬者/搞笑者）
+    persona_role = db.Column(db.String(50))  # 陪伴者-我懂你/教导者-我教你/崇拜者-秀自己/陪衬者-不如你/搞笑者-逗笑你
+    # 商业定位（引流/卖货）
+    commercial_positioning = db.Column(db.String(50))  # 引流/卖货
+
     # ========== 内容布局字段 ==========
     content_persona = db.Column(db.Integer, default=0)  # 人设IP类内容数量
     content_topic = db.Column(db.Integer, default=0)  # 主题内容数量

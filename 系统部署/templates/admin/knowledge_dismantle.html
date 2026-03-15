@@ -3370,6 +3370,24 @@ function renderBioAnalysis(data, accountInfo) {
 
 // 渲染账号定位
 function renderAccountPositioning(accountInfo) {
+    // 人设定位标签映射
+    const personaRoleMap = {
+        '陪伴者-我懂你': { text: '陪伴者-我懂你', color: 'bg-primary' },
+        '教导者-我教你': { text: '教导者-我教你', color: 'bg-success' },
+        '崇拜者-秀自己': { text: '崇拜者-秀自己', color: 'bg-warning' },
+        '陪衬者-不如你': { text: '陪衬者-不如你', color: 'bg-info' },
+        '搞笑者-逗笑你': { text: '搞笑者-逗笑你', color: 'bg-danger' }
+    };
+    const personaRole = accountInfo.persona_role || '';
+    const personaInfo = personaRoleMap[personaRole] || { text: personaRole || '-', color: 'bg-light text-dark' };
+
+    // 商业定位标签映射
+    const commercialMap = {
+        '引流': { text: '引流', color: 'bg-warning text-dark' },
+        '卖货': { text: '卖货', color: 'bg-success' }
+    };
+    const commercialInfo = commercialMap[accountInfo.commercial_positioning] || { text: accountInfo.commercial_positioning || '-', color: 'bg-light text-dark' };
+
     return `
         <div class="row g-2">
             <div class="col-6">
@@ -3382,6 +3400,18 @@ function renderAccountPositioning(accountInfo) {
                 <div class="p-2 border rounded">
                     <div class="small text-muted">账号定位</div>
                     <div class="fw-medium small">${formatFieldValue(accountInfo.account_positioning || '-')}</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">人设定位</div>
+                    <span class="badge ${personaInfo.color}">${personaInfo.text}</span>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">商业定位</div>
+                    <span class="badge ${commercialInfo.color}">${commercialInfo.text}</span>
                 </div>
             </div>
             <div class="col-12">
