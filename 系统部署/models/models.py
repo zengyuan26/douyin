@@ -511,6 +511,8 @@ class KnowledgeAccount(db.Model):
     persona_role = db.Column(db.String(50))  # 陪伴者-我懂你/教导者-我教你/崇拜者-秀自己/陪衬者-不如你/搞笑者-逗笑你
     # 商业定位（引流/卖货）
     commercial_positioning = db.Column(db.String(50))  # 引流/卖货
+    # 变现类型（单品/赛道级）- 根据主营业务判断
+    monetization_type = db.Column(db.String(50))  # 单品/赛道级
 
     # ========== 内容布局字段 ==========
     content_persona = db.Column(db.Integer, default=0)  # 人设IP类内容数量

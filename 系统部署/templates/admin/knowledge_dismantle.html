@@ -3388,6 +3388,13 @@ function renderAccountPositioning(accountInfo) {
     };
     const commercialInfo = commercialMap[accountInfo.commercial_positioning] || { text: accountInfo.commercial_positioning || '-', color: 'bg-light text-dark' };
 
+    // 变现类型标签映射
+    const monetizationMap = {
+        '单品': { text: '单品', color: 'bg-primary' },
+        '赛道级': { text: '赛道级', color: 'bg-info text-dark' }
+    };
+    const monetizationInfo = monetizationMap[accountInfo.monetization_type] || { text: accountInfo.monetization_type || '-', color: 'bg-light text-dark' };
+
     return `
         <div class="row g-2">
             <div class="col-6">
@@ -3412,6 +3419,12 @@ function renderAccountPositioning(accountInfo) {
                 <div class="p-2 border rounded">
                     <div class="small text-muted">商业定位</div>
                     <span class="badge ${commercialInfo.color}">${commercialInfo.text}</span>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="p-2 border rounded">
+                    <div class="small text-muted">变现类型</div>
+                    <span class="badge ${monetizationInfo.color}">${monetizationInfo.text}</span>
                 </div>
             </div>
             <div class="col-12">

@@ -4904,6 +4904,7 @@ def get_account(account_id):
                 # 人设定位和商业定位
                 'persona_role': account.persona_role,
                 'commercial_positioning': account.commercial_positioning,
+                'monetization_type': account.monetization_type,
                 # 内容布局字段
                 'content_persona': account.content_persona,
                 'content_topic': account.content_topic,
@@ -5629,6 +5630,32 @@ def _run_account_profile_analysis(app, account_id):
                 account.commercial_positioning = '卖货'
             else:
                 account.commercial_positioning = '引流'
+
+            # 变现类型：根据主营业务判断
+            # 只有主营业务1有数据=单品，否则=赛道级
+            main_product = account.main_product or ''
+            if main_product:
+                # 检查是否只有主营业务1有数据（格式如："红糖:60%, :30%, :10%"）
+                # 简单的判断：如果包含":"且第二、第三个冒号后都是空的或百分比为0
+                parts = main_product.split(',')
+                has_main = False
+                has_secondary = False
+                for i, part in enumerate(parts):
+                    part = part.strip()
+                    if ':' in part:
+                        name = part.split(':')[0].strip()
+                        ratio = part.split(':')[1].strip() if len(part.split(':')) > 1 else ''
+                        if name and ratio and float(ratio.replace('%', '').strip()) > 0:
+                            if i == 0:
+                                has_main = True
+                            else:
+                                has_secondary = True
+                if has_main and not has_secondary:
+                    account.monetization_type = '单品'
+                else:
+                    account.monetization_type = '赛道级'
+            else:
+                account.monetization_type = '赛道级'
 
             # 根据分析结果获取人设定位
             # 如果LLM返回了persona_role则使用，否则默认尝试从账号定位推断
@@ -6670,6 +6697,34 @@ def analyze_account_profile(account_id):
             account.commercial_positioning = '卖货'
         else:
             account.commercial_positioning = '引流'
+
+        # 变现类型：根据主营业务判断
+        # 只有主营业务1有数据=单品，否则=赛道级
+        main_product = account.main_product or ''
+        if main_product:
+            parts = main_product.split(',')
+            has_main = False
+            has_secondary = False
+            for i, part in enumerate(parts):
+                part = part.strip()
+                if ':' in part:
+                    name = part.split(':')[0].strip()
+                    ratio = part.split(':')[1].strip() if len(part.split(':')) > 1 else ''
+                    if name and ratio:
+                        try:
+                            ratio_val = float(ratio.replace('%', '').strip())
+                            if i == 0 and ratio_val > 0:
+                                has_main = True
+                            elif ratio_val > 0:
+                                has_secondary = True
+                        except:
+                            pass
+            if has_main and not has_secondary:
+                account.monetization_type = '单品'
+            else:
+                account.monetization_type = '赛道级'
+        else:
+            account.monetization_type = '赛道级'
 
         # 根据分析结果获取人设定位
         # 如果LLM返回了persona_role则使用
