@@ -1011,6 +1011,11 @@ function selectAccountFromHistoryOnlyShow(item) {
         content_strategy: item.content_strategy,
         target_audience: item.target_audience,
         current_data: item.current_data,
+        // 账号定位相关字段
+        main_product: item.main_product,
+        persona_role: item.persona_role,
+        commercial_positioning: item.commercial_positioning,
+        monetization_type: item.monetization_type,
         // 内容布局字段
         content_persona: item.content_persona,
         content_topic: item.content_topic,
@@ -1047,6 +1052,11 @@ function selectAccountFromHistory(item) {
         content_strategy: item.content_strategy,
         target_audience: item.target_audience,
         current_data: item.current_data,
+        // 账号定位相关字段
+        main_product: item.main_product,
+        persona_role: item.persona_role,
+        commercial_positioning: item.commercial_positioning,
+        monetization_type: item.monetization_type,
         // 内容布局字段
         content_persona: item.content_persona,
         content_topic: item.content_topic,
@@ -1776,6 +1786,11 @@ async function switchToAccount(accountId) {
                 target_audience: acc.target_audience,
                 analysis_result: acc.analysis_result,
                 current_data: acc.current_data,
+                // 账号定位相关字段
+                main_product: acc.main_product,
+                persona_role: acc.persona_role,
+                commercial_positioning: acc.commercial_positioning,
+                monetization_type: acc.monetization_type,
                 // 内容布局字段
                 content_persona: acc.content_persona,
                 content_topic: acc.content_topic,
@@ -1834,6 +1849,11 @@ async function viewAccountDetail(accountId) {
                 target_audience: acc.target_audience,
                 analysis_result: acc.analysis_result,
                 current_data: acc.current_data,
+                // 账号定位相关字段
+                main_product: acc.main_product,
+                persona_role: acc.persona_role,
+                commercial_positioning: acc.commercial_positioning,
+                monetization_type: acc.monetization_type,
                 // 内容布局字段
                 content_persona: acc.content_persona,
                 content_topic: acc.content_topic,
@@ -3395,18 +3415,38 @@ function renderAccountPositioning(accountInfo) {
     };
     const monetizationInfo = monetizationMap[accountInfo.monetization_type] || { text: accountInfo.monetization_type || '-', color: 'bg-light text-dark' };
 
+    // 解析主营业务（从 main_product 字段）
+    function parseMainProductForDisplay(mainProduct) {
+        if (!mainProduct) return [];
+        // 支持的格式： "红糖(60%), 配饰(30%)" 或 "红糖批发, 配饰批发"
+        const parts = mainProduct.split(/[,，\n]/).filter(p => p.trim());
+        return parts.map(part => {
+            const trimmed = part.trim();
+            // 如果包含括号，提取名称
+            if (trimmed.includes('(')) {
+                const name = trimmed.split('(')[0].trim();
+                return name;
+            }
+            // 如果包含冒号（备用兼容）
+            if (trimmed.includes(':')) {
+                const name = trimmed.split(':')[0].trim();
+                return name;
+            }
+            return trimmed;
+        }).filter(name => name);
+    }
+    const mainProducts = parseMainProductForDisplay(accountInfo.main_product);
+    const mainProductsHtml = mainProducts.length ? mainProducts.join('、') : '-';
+
+    // 目标客户（从 target_audience 字段）
+    const targetAudience = accountInfo.target_audience || '-';
+
     return `
         <div class="row g-2">
-            <div class="col-6">
+            <div class="col-12">
                 <div class="p-2 border rounded">
-                    <div class="small text-muted">核心业务</div>
-                    <div class="fw-medium small">${formatFieldValue(accountInfo.core_business || '-')}</div>
-                </div>
-            </div>
-            <div class="col-6">
-                <div class="p-2 border rounded">
-                    <div class="small text-muted">账号定位</div>
-                    <div class="fw-medium small">${formatFieldValue(accountInfo.account_positioning || '-')}</div>
+                    <div class="small text-muted">主营业务</div>
+                    <div class="fw-medium small">${mainProductsHtml}</div>
                 </div>
             </div>
             <div class="col-6">
@@ -3427,16 +3467,10 @@ function renderAccountPositioning(accountInfo) {
                     <span class="badge ${monetizationInfo.color}">${monetizationInfo.text}</span>
                 </div>
             </div>
-            <div class="col-12">
+            <div class="col-6">
                 <div class="p-2 border rounded">
-                    <div class="small text-muted">核心关键词</div>
-                    <div class="fw-medium small">${(accountInfo.core_keywords || []).length ? (accountInfo.core_keywords || []).join('、') : '-'}</div>
-                </div>
-            </div>
-            <div class="col-12">
-                <div class="p-2 border rounded">
-                    <div class="small text-muted">内容策略</div>
-                    <div class="small">${renderContentStrategy(accountInfo.content_strategy)}</div>
+                    <div class="small text-muted">目标客户</div>
+                    <div class="fw-medium small">${targetAudience}</div>
                 </div>
             </div>
         </div>

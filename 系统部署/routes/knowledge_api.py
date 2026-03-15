@@ -5662,23 +5662,42 @@ def _run_account_profile_analysis(app, account_id):
 
             # 变现类型：根据主营业务判断
             # 只有主营业务1有数据=单品，否则=赛道级
+            # 支持格式："红糖(60%), 配饰(30%)" 或 "红糖批发, 配饰批发" 或 "红糖"
             main_product = account.main_product or ''
             if main_product:
-                # 检查是否只有主营业务1有数据（格式如："红糖:60%, :30%, :10%"）
-                # 简单的判断：如果包含":"且第二、第三个冒号后都是空的或百分比为0
+                # 解析主营业务
                 parts = main_product.split(',')
-                has_main = False
-                has_secondary = False
+                has_main = False  # 主营业务1有数据
+                has_secondary = False  # 主营业务2或3有数据
+                
                 for i, part in enumerate(parts):
                     part = part.strip()
-                    if ':' in part:
-                        name = part.split(':')[0].strip()
-                        ratio = part.split(':')[1].strip() if len(part.split(':')) > 1 else ''
-                        if name and ratio and float(ratio.replace('%', '').strip()) > 0:
-                            if i == 0:
-                                has_main = True
-                            else:
-                                has_secondary = True
+                    if not part:
+                        continue
+                    
+                    # 检查是否有有效数据
+                    has_valid_data = False
+                    
+                    # 格式1: "名称(百分比%)"
+                    if '(' in part and ')' in part:
+                        name = part.split('(')[0].strip()
+                        ratio_str = part.split('(')[1].replace(')', '').strip()
+                        try:
+                            ratio_val = float(ratio_str.replace('%', ''))
+                            if ratio_val > 0:
+                                has_valid_data = True
+                        except:
+                            pass
+                    # 格式2: 纯名称（没有百分比）
+                    elif part:
+                        has_valid_data = True
+                    
+                    if has_valid_data:
+                        if i == 0:
+                            has_main = True
+                        else:
+                            has_secondary = True
+                
                 if has_main and not has_secondary:
                     account.monetization_type = '单品'
                 else:
@@ -6350,7 +6369,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
    - 60分以下：较差，需要重新设计
    **注意**：大多数昵称应该在60-85分之间，极少有完美昵称，不要轻易给90分以上！
 2. **评分理由 (score_reason)**: 一句话说明评分理由，必须说明具体原因
-3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"XX(要素类型:具体内容)"。例如：
+3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"要素类型(具体内容)"。例如：
    - 对于昵称"灌肠西施"，公式应该是"产品词(灌肠) + 身份标签(西施)"
    - 对于昵称"纽约王老师"，公式应该是"地域词(纽约) + 姓氏(王) + 职业标签(老师)"
    - 对于昵称"南漳黄姐灌香肠手工20年"，公式应该是"地域词(南漳) + 人设标签(黄姐) + 产品词(灌香肠) + 属性词(手工) + 时间词(20年)"
@@ -6731,25 +6750,42 @@ def analyze_account_profile(account_id):
 
         # 变现类型：根据主营业务判断
         # 只有主营业务1有数据=单品，否则=赛道级
+        # 支持格式："红糖(60%), 配饰(30%)" 或 "红糖批发, 配饰批发" 或 "红糖"
         main_product = account.main_product or ''
         if main_product:
+            # 解析主营业务
             parts = main_product.split(',')
-            has_main = False
-            has_secondary = False
+            has_main = False  # 主营业务1有数据
+            has_secondary = False  # 主营业务2或3有数据
+            
             for i, part in enumerate(parts):
                 part = part.strip()
-                if ':' in part:
-                    name = part.split(':')[0].strip()
-                    ratio = part.split(':')[1].strip() if len(part.split(':')) > 1 else ''
-                    if name and ratio:
-                        try:
-                            ratio_val = float(ratio.replace('%', '').strip())
-                            if i == 0 and ratio_val > 0:
-                                has_main = True
-                            elif ratio_val > 0:
-                                has_secondary = True
-                        except:
-                            pass
+                if not part:
+                    continue
+                
+                # 检查是否有有效数据
+                has_valid_data = False
+                
+                # 格式1: "名称(百分比%)"
+                if '(' in part and ')' in part:
+                    name = part.split('(')[0].strip()
+                    ratio_str = part.split('(')[1].replace(')', '').strip()
+                    try:
+                        ratio_val = float(ratio_str.replace('%', ''))
+                        if ratio_val > 0:
+                            has_valid_data = True
+                    except:
+                        pass
+                # 格式2: 纯名称（没有百分比）
+                elif part:
+                    has_valid_data = True
+                
+                if has_valid_data:
+                    if i == 0:
+                        has_main = True
+                    else:
+                        has_secondary = True
+            
             if has_main and not has_secondary:
                 account.monetization_type = '单品'
             else:
