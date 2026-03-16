@@ -577,6 +577,14 @@
     </div>
 </div>
 
+<!-- 外部 JS 模块 -->
+<script src="{{ url_for('static', filename='admin/js/utils.js') }}"></script>
+<script src="{{ url_for('static', filename='admin/js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='admin/js/accounts.js') }}"></script>
+<script src="{{ url_for('static', filename='admin/js/render.js') }}"></script>
+<script src="{{ url_for('static', filename='admin/js/dimensions.js') }}"></script>
+<script src="{{ url_for('static', filename='admin/js/materials.js') }}"></script>
+
 <script>
 // 全局错误捕获
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -4318,7 +4326,7 @@ function renderDimensionResult(dimension, data) {
                 <h6 class="text-muted mb-0">
                     <i class="bi ${icon} me-1"></i>${title}
                 </h6>
-                <button class="btn btn-sm btn-outline-success" onclick="showSaveToMaterialModal('${dimension}', '${materialType}', \`${escapeHtml(data.content || '')}\`)">
+                <button class="btn btn-sm btn-outline-success" onclick="Materials.showSaveModal('${dimension}', '${materialType}', \`${escapeHtml(data.content || '')}\`)">
                     <i class="bi bi-download me-1"></i>入库
                 </button>
             </div>
@@ -4675,195 +4683,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// 加载素材库配置
-let materialConfig = null;
-
-async function loadMaterialConfig() {
-    if (materialConfig) return materialConfig;
-    try {
-        const response = await fetch('/api/content-materials/config');
-        const data = await response.json();
-        if (data.code === 200) {
-            materialConfig = data.data;
-            return materialConfig;
-        }
-    } catch (e) {
-        console.error('加载素材库配置失败:', e);
-    }
-    return null;
-}
-
-// HTML转义
-function escapeHtml(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
-
-// 显示入库弹窗
-async function showSaveToMaterialModal(dimension, materialType, content) {
-    const config = await loadMaterialConfig();
-    if (!config) {
-        alert('加载素材库配置失败');
-        return;
-    }
-
-    // 设置维度
-    document.getElementById('material-dimension').value = dimension;
-
-    // 填充素材类型下拉框
-    const typeSelect = document.getElementById('material-type-select');
-    typeSelect.innerHTML = '<option value="">请选择素材库类型</option>';
-
-    // 找到对应的素材库配置
-    const materialConfigForType = config.material_types[materialType];
-    if (materialConfigForType) {
-        typeSelect.innerHTML += `<option value="${materialType}" selected>${materialConfigForType.name}</option>`;
-    }
-
-    // 填充内容（截取前500字符避免过长）
-    const shortContent = content.length > 500 ? content.substring(0, 500) + '...' : content;
-    document.getElementById('material-content').value = shortContent;
-
-    // 填充行业下拉框
-    const industrySelect = document.getElementById('material-industry');
-    industrySelect.innerHTML = '<option value="">请选择行业</option>';
-    config.industry_options.forEach(ind => {
-        industrySelect.innerHTML += `<option value="${ind}">${ind}</option>`;
-    });
-
-    // 填充类型下拉框
-    updateMaterialTypeOptions(materialType);
-
-    // 显示弹窗
-    const modal = new bootstrap.Modal(document.getElementById('saveToMaterialModal'));
-    modal.show();
-}
-
-// 更新类型下拉框
-function updateMaterialTypeOptions(materialType) {
-    const typeSelect = document.getElementById('material-type');
-    typeSelect.innerHTML = '<option value="">请选择类型</option>';
-
-    if (materialConfig && materialConfig.material_types[materialType]) {
-        const options = materialConfig.material_types[materialType].type_options || [];
-        options.forEach(opt => {
-            typeSelect.innerHTML += `<option value="${opt}">${opt}</option>`;
-        });
-    }
-}
-
-// 确认入库（素材库）
-async function confirmSaveToMaterial() {
-    const materialType = document.getElementById('material-type-select').value;
-    const content = document.getElementById('material-content').value.trim();
-    const industry = document.getElementById('material-industry').value;
-    const type = document.getElementById('material-type').value;
-    const dimension = document.getElementById('material-dimension').value;
-    const contentTypes = [];
-    if (document.getElementById('material-content-type-video').checked) contentTypes.push('video');
-    if (document.getElementById('material-content-type-image_text').checked) contentTypes.push('image_text');
-    if (document.getElementById('material-content-type-long_text').checked) contentTypes.push('long_text');
-
-    if (!materialType) {
-        alert('请选择素材库类型');
-        return;
-    }
-
-    if (!content) {
-        alert('请输入入库内容');
-        return;
-    }
-
-    // 第一步：比对规则库
-    try {
-        // 映射素材类型到规则分类
-        const categoryMap = {
-            'title': 'template',
-            'hook': 'template',
-            'cover': 'template',
-            'topic': 'topic',
-            'structure': 'template',
-            'ending': 'template',
-            'psychology': 'keywords',
-            'commercial': 'operation',
-            'why_popular': 'template',
-            'tags': 'keywords',
-            'character': 'template',
-            'content_form': 'template',
-            'interaction': 'template'
-        };
-        const category = categoryMap[materialType] || 'template';
-
-        const checkRes = await fetch('/admin/api/knowledge/rules/check', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                rules: [{
-                    rule_content: content,
-                    category: category,
-                    source_dimension: dimension
-                }]
-            })
-        });
-        const checkData = await checkRes.json();
-
-        if (!checkData.success) {
-            alert('比对失败: ' + checkData.message);
-            return;
-        }
-
-        const checkResult = checkData.results[0];
-
-        if (checkResult && checkResult.is_duplicate) {
-            // 有重复，显示提示
-            let message = '⚠️ 系统已有相似规则：\n\n';
-            checkResult.similar_rules.forEach(r => {
-                message += `• ${r.rule_title || r.rule_content}\n  相似度: ${r.similarity}\n\n`;
-            });
-            message += '是否仍然入库？';
-            const ok = confirm(message);
-            if (!ok) return;
-        }
-
-        // 第二步：执行入库
-        const response = await fetch('/api/content-materials/save', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                material_type: materialType,
-                content: content,
-                industry: industry,
-                type: type,
-                content_types: contentTypes,
-                dimension: dimension
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.code === 200) {
-            alert('✅ 入库成功！');
-            bootstrap.Modal.getInstance(document.getElementById('saveToMaterialModal')).hide();
-        } else {
-            alert(data.message || '入库失败');
-        }
-    } catch (error) {
-        console.error('入库失败:', error);
-        alert('入库失败，请稍后重试');
-    }
-}
-
-// 页面加载完成后绑定入库相关事件
-document.addEventListener('DOMContentLoaded', function() {
-    // 确认入库按钮
-    const confirmBtn = document.getElementById('confirm-save-btn');
-    if (confirmBtn) {
-        confirmBtn.addEventListener('click', confirmSaveToMaterial);
-    }
-});
 </script>
 {% endblock %}

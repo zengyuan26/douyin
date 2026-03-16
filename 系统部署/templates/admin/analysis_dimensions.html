@@ -196,6 +196,10 @@ main.main-content:has(.analysis-dimensions-page) {
 .dimension-card-wrapper .drag-handle:active { cursor: grabbing; }
 .dimension-card-wrapper .card { height: 100%; }
 </style>
+<!-- 外部 JS 模块 -->
+<script src="{{ url_for('static', path='admin/js/utils.js') }}"></script>
+<script src="{{ url_for('static', path='admin/js/api.js') }}"></script>
+<script src="{{ url_for('static', path='admin/js/dimensions.js') }}"></script>
 <script>
 // 一级分类图标与样式
 const CATEGORY_META = {
