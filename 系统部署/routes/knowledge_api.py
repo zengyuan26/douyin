@@ -4942,7 +4942,7 @@ def get_account(account_id):
                 'daily_operation': account.daily_operation
             }
         })
-        logger.info(f"[DEBUG] get_account response: analysis_result = {account.analysis_result}")
+        logger.info(f"[DEBUG] get_account response: persona_role={account.persona_role}, commercial_positioning={account.commercial_positioning}, monetization_type={account.monetization_type}, target_audience={account.target_audience}")
     except Exception as e:
         logger.error(f"获取账号详情失败: {e}", exc_info=True)
         return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
@@ -4980,6 +4980,11 @@ def create_account():
             language_style=data.get('language_style'),
             target_user=data.get('target_user'),
             main_product=data.get('main_product'),
+            # 账号定位新增字段
+            persona_role=data.get('persona_role'),
+            commercial_positioning=data.get('commercial_positioning'),
+            monetization_type=data.get('monetization_type'),
+            target_audience=data.get('target_audience'),
             # 内容布局（数量）
             content_persona=data.get('content_persona', 0),
             content_topic=data.get('content_topic', 0),
@@ -5134,6 +5139,24 @@ def update_account(account_id):
             if str(data['main_product'] or '') != str(account.main_product or ''):
                 changes.append(f'主营业务变更')
             account.main_product = data['main_product']
+
+        # 账号定位新增字段
+        if 'persona_role' in data:
+            if str(data['persona_role'] or '') != str(account.persona_role or ''):
+                changes.append(f'人设定位变更')
+            account.persona_role = data['persona_role']
+        if 'commercial_positioning' in data:
+            if str(data['commercial_positioning'] or '') != str(account.commercial_positioning or ''):
+                changes.append(f'商业定位变更')
+            account.commercial_positioning = data['commercial_positioning']
+        if 'monetization_type' in data:
+            if str(data['monetization_type'] or '') != str(account.monetization_type or ''):
+                changes.append(f'变现类型变更')
+            account.monetization_type = data['monetization_type']
+        if 'target_audience' in data:
+            if str(data['target_audience'] or '') != str(account.target_audience or ''):
+                changes.append(f'目标客户变更')
+            account.target_audience = data['target_audience']
 
         # 内容布局字段
         if 'content_persona' in data:
@@ -5664,6 +5687,7 @@ def _run_account_profile_analysis(app, account_id):
             # 只有主营业务1有数据=单品，否则=赛道级
             # 支持格式："红糖(60%), 配饰(30%)" 或 "红糖批发, 配饰批发" 或 "红糖"
             main_product = account.main_product or ''
+            logger.info(f"[_run_account_profile_analysis] 主营业务: {main_product}")
             if main_product:
                 # 解析主营业务
                 parts = main_product.split(',')
@@ -5705,6 +5729,9 @@ def _run_account_profile_analysis(app, account_id):
             else:
                 account.monetization_type = '赛道级'
 
+            # 记录调试日志
+            logger.info(f"[_run_account_profile_analysis] 保存前: persona_role={account.persona_role}, commercial_positioning={account.commercial_positioning}, monetization_type={account.monetization_type}, target_audience={account.target_audience}")
+
             # 根据分析结果获取人设定位
             # 如果LLM返回了persona_role则使用，否则默认尝试从账号定位推断
             if 'persona_role' in llm_result:
@@ -5717,6 +5744,10 @@ def _run_account_profile_analysis(app, account_id):
                 current_analysis = account.analysis_result or {}
                 current_analysis['keyword_layout'] = llm_result['keyword_layout']
                 account.analysis_result = current_analysis
+            
+            # 记录保存后的值
+            logger.info(f"[_run_account_profile_analysis] 保存后: persona_role={account.persona_role}, commercial_positioning={account.commercial_positioning}, monetization_type={account.monetization_type}")
+            
             db.session.commit()
             logger.info(f"[_run_account_profile_analysis] 分析成功，账号: {account.name}")
         except Exception as e:
@@ -6369,10 +6400,26 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
    - 60分以下：较差，需要重新设计
    **注意**：大多数昵称应该在60-85分之间，极少有完美昵称，不要轻易给90分以上！
 2. **评分理由 (score_reason)**: 一句话说明评分理由，必须说明具体原因
-3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"要素类型(具体内容)"。例如：
+3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"要素类型(具体内容)"。要素类型必须是以下10种之一：
+   - **产品词**：具体产品/服务、业务关键词（**最高优先级**，如：AI代表AI相关业务、香肠、茶叶、手机）
+   - **身份标签**：身份/职业（如：哥、姐、老师、医生、创始人）
+   - **人设词**：人格化角色/形象（如：魔女、西施、侠客、公主）
+   - **风格词**：外观/气质描述（如：红发、金丝雀、高冷）
+   - **行业词**：行业/技术前缀（**仅当无法确定具体产品时使用**，如：数码、美食、旅游）
+   - **地域词**：地区名称（如：南漳、北京、上海）
+   - **属性词**：品质/特点（如：手工、野生、正宗）
+   - **数字词**：年份/数量（如：20年、10年）
+   - **行动词**：动作/行为（如：吃、玩、学）
+
+   **分析优先级**：产品词 > 身份标签 > 人设词 > 风格词 > 行业词 > 地域词 > 属性词 > 数字词 > 行动词
+
+   例如：
    - 对于昵称"灌肠西施"，公式应该是"产品词(灌肠) + 身份标签(西施)"
    - 对于昵称"纽约王老师"，公式应该是"地域词(纽约) + 姓氏(王) + 职业标签(老师)"
-   - 对于昵称"南漳黄姐灌香肠手工20年"，公式应该是"地域词(南漳) + 人设标签(黄姐) + 产品词(灌香肠) + 属性词(手工) + 时间词(20年)"
+   - 对于昵称"南漳黄姐灌香肠手工20年"，公式应该是"地域词(南漳) + 身份标签(黄姐) + 产品词(灌香肠) + 属性词(手工) + 数字词(20年)"
+   - **对于昵称"AI红发魔女"**，公式应该是"产品词(AI) + 风格词(红发) + 人设词(魔女)"
+   - **对于昵称"红发魔女"**，公式应该是"风格词(红发) + 人设词(魔女)"
+   - **对于昵称"数码哥"**，公式应该是"行业词(数码) + 身份标签(哥)"
 4. **优化建议 (suggestions)**: 根据昵称实际情况列出2-3条有针对性的优化建议。注意：若昵称已含地域词（如南漳、北京等），则不要建议增加地域词；若已含数字（如20、10等），则不要建议加入数字。建议必须基于实际缺失的要素提出。
 
 5. **各维度详细分析**（必须包含以下所有维度，不可遗漏）：
@@ -6394,7 +6441,8 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 **重要**：
 - 请直接分析提供的昵称 **{nickname}** 的实际构成
 - formula 字段必须填写这个昵称的实际组成部分，不能是通用模板
-- 评分要根据实际质量打分，大多数在60-85分之间""";
+- 评分要根据实际质量打分，大多数在60-85分之间
+- **特别注意**：分析"产品词+风格词+人设词"组合的昵称（如"AI红发魔女"）时，产品词(如AI)是业务关键词，优先级最高！""";
 
     elif sub_cat == 'bio_analysis':
         # 构建各维度的分析说明与 JSON 示例

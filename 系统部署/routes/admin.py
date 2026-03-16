@@ -4047,11 +4047,15 @@ def get_rules():
     logger.info(f"[DEBUG get_rules] category={category}, sub_category={sub_category}, dimension_code={dimension_code}")
     logger.info(f"[DEBUG get_rules] SQL: {query}")
     
-    total = query.count()
-    logger.info(f"[DEBUG get_rules] total count: {total}")
+    # 按入库时间倒序排列（新增的在前）
+    query = query.order_by(KnowledgeRule.id.desc())
+    
+    # 分页
+    pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+    rules = pagination.items
+    total = pagination.total
 
     # 获取查询结果
-    rules = query.all()
 
     # 整理返回数据
     sub_category_names = {
@@ -4088,7 +4092,14 @@ def get_rules():
             'keywords': r.keywords or []
         })
 
-    return jsonify({'success': True, 'data': items, 'total': total})
+    return jsonify({
+        'success': True,
+        'data': items,
+        'total': total,
+        'page': page,
+        'page_size': page_size,
+        'pages': pagination.pages
+    })
 
 
 @admin.route('/api/rules/<int:id>')

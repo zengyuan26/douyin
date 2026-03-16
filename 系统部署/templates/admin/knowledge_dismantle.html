@@ -1156,6 +1156,11 @@ async function checkSavedAccount() {
                             target_audience: acc.target_audience,
                             analysis_result: acc.analysis_result,
                             current_data: acc.current_data,
+                            // 账号定位相关字段
+                            main_product: acc.main_product,
+                            persona_role: acc.persona_role,
+                            commercial_positioning: acc.commercial_positioning,
+                            monetization_type: acc.monetization_type,
                             // 内容布局字段
                             content_persona: acc.content_persona,
                             content_topic: acc.content_topic,
@@ -2802,7 +2807,15 @@ function displayAccountAnalysisResult(accountInfo) {
         accountName: accountInfo?.name,
         hasAnalysisResult: !!accountInfo?.analysis_result,
         subCategoryAnalysis: accountInfo?.analysis_result?.sub_category_analysis,
-        nicknameAnalysis: accountInfo?.analysis_result?.sub_category_analysis?.nickname_analysis
+        nicknameAnalysis: accountInfo?.analysis_result?.sub_category_analysis?.nickname_analysis,
+        // 账号定位相关字段
+        main_product: accountInfo?.main_product,
+        persona_role: accountInfo?.persona_role,
+        commercial_positioning: accountInfo?.commercial_positioning,
+        monetization_type: accountInfo?.monetization_type,
+        target_audience: accountInfo?.target_audience,
+        // 所有键
+        accountInfoKeys: accountInfo ? Object.keys(accountInfo) : []
     });
     
     // 设置全局变量供按钮 onclick 使用
@@ -3390,30 +3403,39 @@ function renderBioAnalysis(data, accountInfo) {
 
 // 渲染账号定位
 function renderAccountPositioning(accountInfo) {
-    // 人设定位标签映射
+    // 调试日志
+    console.log('[DEBUG] renderAccountPositioning called', {
+        main_product: accountInfo?.main_product,
+        persona_role: accountInfo?.persona_role,
+        commercial_positioning: accountInfo?.commercial_positioning,
+        monetization_type: accountInfo?.monetization_type,
+        target_audience: accountInfo?.target_audience
+    });
+
+    // 人设定位标签映射（无底色，仅边框+深色字，保证可读）
     const personaRoleMap = {
-        '陪伴者-我懂你': { text: '陪伴者-我懂你', color: 'bg-primary' },
-        '教导者-我教你': { text: '教导者-我教你', color: 'bg-success' },
-        '崇拜者-秀自己': { text: '崇拜者-秀自己', color: 'bg-warning' },
-        '陪衬者-不如你': { text: '陪衬者-不如你', color: 'bg-info' },
-        '搞笑者-逗笑你': { text: '搞笑者-逗笑你', color: 'bg-danger' }
+        '陪伴者-我懂你': { text: '陪伴者-我懂你', cls: 'border border-primary text-primary' },
+        '教导者-我教你': { text: '教导者-我教你', cls: 'border border-success text-success' },
+        '崇拜者-秀自己': { text: '崇拜者-秀自己', cls: 'border border-warning text-warning' },
+        '陪衬者-不如你': { text: '陪衬者-不如你', cls: 'border border-info text-info' },
+        '搞笑者-逗笑你': { text: '搞笑者-逗笑你', cls: 'border border-danger text-danger' }
     };
     const personaRole = accountInfo.persona_role || '';
-    const personaInfo = personaRoleMap[personaRole] || { text: personaRole || '-', color: 'bg-light text-dark' };
+    const personaInfo = personaRoleMap[personaRole] || { text: personaRole || '-', cls: 'border text-dark' };
 
     // 商业定位标签映射
     const commercialMap = {
-        '引流': { text: '引流', color: 'bg-warning text-dark' },
-        '卖货': { text: '卖货', color: 'bg-success' }
+        '引流': { text: '引流', cls: 'border border-warning text-warning' },
+        '卖货': { text: '卖货', cls: 'border border-success text-success' }
     };
-    const commercialInfo = commercialMap[accountInfo.commercial_positioning] || { text: accountInfo.commercial_positioning || '-', color: 'bg-light text-dark' };
+    const commercialInfo = commercialMap[accountInfo.commercial_positioning] || { text: accountInfo.commercial_positioning || '-', cls: 'border text-dark' };
 
     // 变现类型标签映射
     const monetizationMap = {
-        '单品': { text: '单品', color: 'bg-primary' },
-        '赛道级': { text: '赛道级', color: 'bg-info text-dark' }
+        '单品': { text: '单品', cls: 'border border-primary text-primary' },
+        '赛道级': { text: '赛道级', cls: 'border border-info text-info' }
     };
-    const monetizationInfo = monetizationMap[accountInfo.monetization_type] || { text: accountInfo.monetization_type || '-', color: 'bg-light text-dark' };
+    const monetizationInfo = monetizationMap[accountInfo.monetization_type] || { text: accountInfo.monetization_type || '-', cls: 'border text-dark' };
 
     // 解析主营业务（从 main_product 字段）
     function parseMainProductForDisplay(mainProduct) {
@@ -3438,8 +3460,22 @@ function renderAccountPositioning(accountInfo) {
     const mainProducts = parseMainProductForDisplay(accountInfo.main_product);
     const mainProductsHtml = mainProducts.length ? mainProducts.join('、') : '-';
 
-    // 目标客户（从 target_audience 字段）
-    const targetAudience = accountInfo.target_audience || '-';
+    // 目标客户（target_audience 可能是对象，需格式化为可读文本）
+    function formatTargetAudience(ta) {
+        if (!ta) return '-';
+        if (typeof ta === 'string') return ta;
+        const parts = [];
+        if (ta.age_range) parts.push('年龄：' + ta.age_range);
+        if (ta.gender_ratio) parts.push('性别：' + ta.gender_ratio);
+        if (ta.occupation) parts.push('职业：' + ta.occupation);
+        if (ta.consumption_level) parts.push('消费：' + ta.consumption_level);
+        if (ta.region) parts.push('地域：' + ta.region);
+        if (ta.pain_points && Array.isArray(ta.pain_points)) parts.push('痛点：' + ta.pain_points.join('；'));
+        if (ta.needs && Array.isArray(ta.needs)) parts.push('需求：' + ta.needs.join('；'));
+        if (ta.usage_scenes && Array.isArray(ta.usage_scenes)) parts.push('场景：' + ta.usage_scenes.join('、'));
+        return parts.length ? parts.join('；') : '-';
+    }
+    const targetAudienceHtml = formatTargetAudience(accountInfo.target_audience);
 
     return `
         <div class="row g-2">
@@ -3452,25 +3488,19 @@ function renderAccountPositioning(accountInfo) {
             <div class="col-6">
                 <div class="p-2 border rounded">
                     <div class="small text-muted">人设定位</div>
-                    <span class="badge ${personaInfo.color}">${personaInfo.text}</span>
+                    <span class="badge ${personaInfo.cls}">${personaInfo.text}</span>
                 </div>
             </div>
             <div class="col-6">
                 <div class="p-2 border rounded">
                     <div class="small text-muted">商业定位</div>
-                    <span class="badge ${commercialInfo.color}">${commercialInfo.text}</span>
+                    <span class="badge ${commercialInfo.cls}">${commercialInfo.text}</span>
                 </div>
             </div>
             <div class="col-6">
                 <div class="p-2 border rounded">
                     <div class="small text-muted">变现类型</div>
-                    <span class="badge ${monetizationInfo.color}">${monetizationInfo.text}</span>
-                </div>
-            </div>
-            <div class="col-6">
-                <div class="p-2 border rounded">
-                    <div class="small text-muted">目标客户</div>
-                    <div class="fw-medium small">${targetAudience}</div>
+                    <span class="badge ${monetizationInfo.cls}">${monetizationInfo.text}</span>
                 </div>
             </div>
         </div>
