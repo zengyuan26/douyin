@@ -4866,35 +4866,14 @@ def get_account(account_id):
         # 强制刷新并检查原始数据库数据
         db.session.flush()
         
-        # 调试日志：检查analysis_result中是否有sub_category_analysis
+        # 检查 analysis_result
         analysis_result = account.analysis_result
-        
-        # 再次从数据库查询验证 - 使用filter而不是get，避免缓存
-        account_verify = KnowledgeAccount.query.filter_by(id=account_id).first()
-        db_verify = account_verify.analysis_result if account_verify else None
-        
-        logger.info(f"[DEBUG] get_account analysis_result (account object): {analysis_result}")
-        logger.info(f"[DEBUG] get_account analysis_result (from fresh query): {db_verify}")
-        logger.info(f"[DEBUG] get_account analysis_result keys: {list(analysis_result.keys()) if isinstance(analysis_result, dict) else 'not dict'}")
-        logger.info(f"[DEBUG] Fresh query keys: {list(db_verify.keys()) if isinstance(db_verify, dict) else 'not dict'}")
-        logger.info(f"[DEBUG] get_account has sub_category_analysis: {'sub_category_analysis' in (analysis_result or {})}")
-        
         has_sub_cat = 'sub_category_analysis' in (analysis_result or {})
-        if has_sub_cat:
-            logger.info(f"[DEBUG] sub_category_analysis keys: {list(analysis_result['sub_category_analysis'].keys())}")
-        else:
-            logger.info(f"[DEBUG] analysis_result is None or empty: {analysis_result}")
         
-        logger.info(f"[DEBUG] Fresh query analysis_result: {db_verify}")
-        logger.info(f"[DEBUG] Fresh query has sub_category_analysis: {'sub_category_analysis' in (db_verify or {})}")
-        
-        # 将调试信息加入响应
+        # 将调试信息加入响应（生产环境可移除）
         debug_info = {
-            'analysis_result_keys': list(analysis_result.keys()) if isinstance(analysis_result, dict) else [],
             'has_sub_category_analysis': has_sub_cat,
-            'sub_category_keys': list(analysis_result.get('sub_category_analysis', {}).keys()) if isinstance(analysis_result, dict) and has_sub_cat else [],
-            'fresh_query_has_sub': 'sub_category_analysis' in (db_verify or {}),
-            'fresh_query_keys': list(db_verify.keys()) if isinstance(db_verify, dict) else []
+            'sub_category_keys': list(analysis_result.get('sub_category_analysis', {}).keys()) if isinstance(analysis_result, dict) and has_sub_cat else []
         }
         
         return jsonify({
@@ -4940,6 +4919,8 @@ def get_account(account_id):
                 'persona_type': account.persona_type,
                 'topic_content': account.topic_content,
                 'daily_operation': account.daily_operation,
+                # 自动分析配置
+                'auto_analysis_config': account.auto_analysis_config,
                 # 增量分析控制字段
                 'analysis_status': {
                     'nickname_analyzed_at': account.nickname_analyzed_at.isoformat() if account.nickname_analyzed_at else None,
@@ -4952,7 +4933,6 @@ def get_account(account_id):
                 }
             }
         })
-        logger.info(f"[DEBUG] get_account response: persona_role={account.persona_role}, commercial_positioning={account.commercial_positioning}, monetization_type={account.monetization_type}, target_audience={account.target_audience}")
     except Exception as e:
         logger.error(f"获取账号详情失败: {e}", exc_info=True)
         return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
@@ -5007,14 +4987,39 @@ def create_account():
         db.session.add(account)
         _commit_with_retry()
 
+        # 获取自动分析配置
+        auto_config = data.get('auto_analysis_config', account.auto_analysis_config)
+        account.auto_analysis_config = auto_config
+
+        # 根据配置决定触发哪些分析任务
+        # 默认只触发: nickname, bio, account_positioning（用户手动触发的单独分析 keyword_library/market_analysis/operation_planning）
+        create_config = auto_config.get('on_create', {})
+
+        # 需要分析的任务类型
+        task_types_to_run = []
+
+        # 始终执行 profile（基础画像分析）
+        task_types_to_run.append(TASK_TYPE_PROFILE)
+
+        # 如果有业务信息，执行 design
+        if account.business_type or account.product_type or account.service_type:
+            task_types_to_run.append(TASK_TYPE_DESIGN)
+
+        # 根据配置决定 sub_category 分析哪些
+        sub_cats_enabled = [k for k, v in create_config.items() if v]
+        if sub_cats_enabled:
+            task_types_to_run.append(TASK_TYPE_SUB_CATEGORY)
+
         # 触发后台分析任务（使用任务队列控制并发）
-        app = current_app._get_current_object()
-        task_queue = get_task_queue()
-        task_queue.add_task(
-            account.id,
-            [TASK_TYPE_PROFILE, TASK_TYPE_DESIGN, TASK_TYPE_SUB_CATEGORY],
-            app=app
-        )
+        if task_types_to_run:
+            app = current_app._get_current_object()
+            task_queue = get_task_queue()
+            task_queue.add_task(
+                account.id,
+                task_types_to_run,
+                app=app,
+                extra_data={'target_sub_cats': sub_cats_enabled} if sub_cats_enabled else None
+            )
 
         # 同时创建历史记录（单独事务，减少持锁时间）
         history = KnowledgeAccountHistory(
@@ -5235,7 +5240,39 @@ def update_account(account_id):
             )
             db.session.add(history)
 
+        # 更新自动分析配置
+        if 'auto_analysis_config' in data:
+            account.auto_analysis_config = data['auto_analysis_config']
+
         _commit_with_retry()
+
+        # 根据配置决定是否自动触发分析
+        # 只有开启了自动分析的配置，才会触发
+        auto_config = account.auto_analysis_config or {}
+        update_config = auto_config.get('on_update', {})
+
+        # 需要分析的分类
+        sub_cats_to_analyze = []
+
+        # 根据变更内容和配置决定触发哪些分析
+        if need_nickname_analysis and update_config.get('nickname', False):
+            sub_cats_to_analyze.append('nickname_analysis')
+        if need_bio_analysis and update_config.get('bio', False):
+            sub_cats_to_analyze.append('bio_analysis')
+        if need_other_analysis and update_config.get('account_positioning', False):
+            sub_cats_to_analyze.append('account_positioning')
+        # keyword_library, market_analysis, operation_planning 默认关闭，不自动触发
+
+        # 如果有需要分析的分类，触发任务
+        if sub_cats_to_analyze:
+            app = current_app._get_current_object()
+            task_queue = get_task_queue()
+            task_queue.add_task(
+                account.id,
+                [TASK_TYPE_SUB_CATEGORY],
+                app=app,
+                extra_data={'target_sub_cats': sub_cats_to_analyze}
+            )
 
         # 返回增量分析标志，供前端判断是否需要提示用户
         analysis_status = {
@@ -5302,6 +5339,76 @@ def analyze_account_async(account_id):
         return jsonify({'code': 200, 'message': '已触发后台分析'})
     except Exception as e:
         logger.error(f"触发后台账号分析失败: {e}", exc_info=True)
+        return jsonify({'code': 500, 'message': f'触发失败: {str(e)}'})
+
+
+@knowledge_api.route('/accounts/<int:account_id>/analyze-specific', methods=['POST'])
+@login_required
+def analyze_specific_types(account_id):
+    """手动触发指定的分析类型（用于用户主动触发 keyword_library/market_analysis/operation_planning）
+    
+    请求体:
+    {
+        "types": ["keyword_library", "market_analysis", "operation_planning"],  // 要分析的类型
+        "force": false  // 是否强制重新分析
+    }
+    """
+    try:
+        account = KnowledgeAccount.query.get(account_id)
+        if not account:
+            return jsonify({'code': 404, 'message': '账号不存在'})
+
+        data = request.get_json() or {}
+        target_types = data.get('types', [])
+        force = data.get('force', False)
+
+        # 有效的分析类型
+        valid_types = ['nickname_analysis', 'bio_analysis', 'account_positioning', 
+                       'keyword_library', 'market_analysis', 'operation_planning']
+        
+        # 过滤有效的类型
+        target_sub_cats = [t for t in target_types if t in valid_types]
+        
+        if not target_sub_cats:
+            return jsonify({'code': 400, 'message': '请指定有效的分析类型'})
+
+        # 如果不是强制分析，检查是否已有分析结果，避免重复分析
+        if not force:
+            existing_sub_data = (account.analysis_result or {}).get('sub_category_analysis', {})
+            # 如果已经有分析结果，跳过
+            if any(existing_sub_data.get(t) for t in target_sub_cats):
+                return jsonify({
+                    'code': 200, 
+                    'message': '该分析已有结果，如需重新分析请勾选"强制重新分析"',
+                    'data': {'skipped': True, 'existing_types': target_sub_cats}
+                })
+
+        # 触发后台分析任务
+        app = current_app._get_current_object()
+        task_queue = get_task_queue()
+        task_queue.add_task(
+            account.id,
+            [TASK_TYPE_SUB_CATEGORY],
+            app=app,
+            extra_data={'target_sub_cats': target_sub_cats, 'force': force}
+        )
+
+        type_names = {
+            'nickname_analysis': '昵称分析',
+            'bio_analysis': '简介分析',
+            'account_positioning': '账号定位',
+            'keyword_library': '关键词库',
+            'market_analysis': '市场分析',
+            'operation_planning': '运营规划'
+        }
+        names = [type_names.get(t, t) for t in target_sub_cats]
+
+        return jsonify({
+            'code': 200, 
+            'message': f'已触发分析：{", ".join(names)}'
+        })
+    except Exception as e:
+        logger.error(f"手动触发分析失败: {e}", exc_info=True)
         return jsonify({'code': 500, 'message': f'触发失败: {str(e)}'})
 
 
@@ -6276,7 +6383,11 @@ def _run_account_sub_category_analysis(app, account_id, target_sub_cats=None):
             # 保存分析结果 - 必须创建深拷贝，否则SQLAlchemy检测不到变化
             import copy
             current_analysis = copy.deepcopy(account.analysis_result) if account.analysis_result else {}
-            current_analysis['sub_category_analysis'] = sub_category_results
+            
+            # 合并已有的 sub_category_analysis，而不是直接覆盖
+            existing_sub_analysis = current_analysis.get('sub_category_analysis', {})
+            merged_sub_analysis = {**existing_sub_analysis, **sub_category_results}
+            current_analysis['sub_category_analysis'] = merged_sub_analysis
             
             # 调试日志
             logger.info(f"[DEBUG] Before setting - id(current_analysis): {id(current_analysis)}")

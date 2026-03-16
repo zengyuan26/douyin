@@ -108,6 +108,16 @@ const API = (function() {
             },
 
             /**
+             * 手动触发指定的分析类型（关键词库/市场分析/运营规划）
+             */
+            analyzeSpecificTypes: async function(accountId, types = [], force = false) {
+                return await request(`/accounts/${accountId}/analyze-specific`, {
+                    method: 'POST',
+                    body: { types, force }
+                });
+            },
+
+            /**
              * 获取账号变更历史
              */
             getHistory: async function(accountId) {

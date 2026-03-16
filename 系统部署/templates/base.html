@@ -400,7 +400,14 @@
             min-height: calc(100vh - var(--navbar-height));
             background: var(--color-bg-secondary);
         }
-        
+
+        /* 页面可滚动容器 - 用于替换 overflow: hidden 的页面 */
+        .page-scrollable {
+            height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
         /* Toast 消息提示 */
         .toast-container {
             z-index: 9999;

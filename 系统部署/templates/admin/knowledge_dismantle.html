@@ -3,51 +3,52 @@
 {% block title %}爆款拆解 - AI棱镜{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-2">
-    <!-- 页面标题 -->
-    <div class="row mb-2">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="mb-1">爆款拆解</h5>
-                    <p class="text-muted mb-0 small">输入账号链接获取基础信息后，进行内容分析</p>
-                </div>
-                <div class="d-flex justify-content-end">
-                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-lg">
-                        <i class="bi bi-arrow-left me-1"></i>返回
-                    </a>
+<div style="height: 100vh; overflow: hidden;">
+    <div class="container-fluid py-2 h-100 d-flex flex-column">
+        <!-- 页面标题 -->
+        <div class="row mb-2 flex-shrink-0">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-1">爆款拆解</h5>
+                        <p class="text-muted mb-0 small">输入账号链接获取基础信息后，进行内容分析</p>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-lg">
+                            <i class="bi bi-arrow-left me-1"></i>返回
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Tab 导航 -->
-    <ul class="nav nav-tabs mb-2" id="analysisTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="account-tab" data-bs-toggle="tab" data-bs-target="#account-panel" type="button" role="tab">
-                <i class="bi bi-person-badge me-1"></i>账号分析
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="content-tab" data-bs-toggle="tab" data-bs-target="#content-panel" type="button" role="tab" disabled>
-                <i class="bi bi-play-btn me-1"></i>内容分析
-            </button>
-        </li>
-    </ul>
+        <!-- Tab 导航 -->
+        <ul class="nav nav-tabs mb-2 flex-shrink-0" id="analysisTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="account-tab" data-bs-toggle="tab" data-bs-target="#account-panel" type="button" role="tab">
+                    <i class="bi bi-person-badge me-1"></i>账号分析
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="content-tab" data-bs-toggle="tab" data-bs-target="#content-panel" type="button" role="tab" disabled>
+                    <i class="bi bi-play-btn me-1"></i>内容分析
+                </button>
+            </li>
+        </ul>
 
-    <!-- 主体布局 -->
-    <div class="row g-3">
-        <!-- 左侧：队列状态 + 输入区域 -->
-        <div class="col-lg-5">
-            <!-- 队列状态栏 -->
-            <div id="queue-status-bar" class="card border-0 shadow-sm mb-2">
-                <div class="card-body py-2">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="fw-medium">
-                            <i class="bi bi-list-task me-2 text-primary"></i>分析队列
-                        </span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="refresh-queue-btn">
-                            <i class="bi bi-arrow-clockwise"></i> 刷新
+        <!-- 主体布局 - 使用 flex 布局让内容可滚动 -->
+        <div class="row g-3 flex-grow-1" style="height: calc(100vh - 140px);">
+            <!-- 左侧：队列状态 + 输入区域 -->
+            <div class="col-lg-5 d-flex flex-column">
+                <!-- 队列状态栏 -->
+                <div id="queue-status-bar" class="card border-0 shadow-sm mb-2 flex-shrink-0" style="min-height: 80px;">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-medium">
+                                <i class="bi bi-list-task me-2 text-primary"></i>分析队列
+                            </span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="refresh-queue-btn">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
                         </button>
                     </div>
                     <div class="d-flex gap-4 mt-2">
@@ -70,9 +71,9 @@
             </div>
 
             <!-- Tab 内容 -->
-            <div class="tab-content" id="analysisTabsContent">
+            <div class="tab-content flex-grow-1 overflow-hidden" id="analysisTabsContent">
                 <!-- 账号分析 Tab -->
-                <div class="tab-pane fade show active" id="account-panel" role="tabpanel">
+                <div class="tab-pane fade show active h-100" id="account-panel" role="tabpanel">
                     <div class="card border-0 shadow-sm">
                         <div class="card-header bg-white border-0 py-2">
                             <div class="d-flex justify-content-between align-items-center">
@@ -94,9 +95,9 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="card-body py-2 d-flex flex-column" style="height: 420px;">
+                        <div class="card-body py-2 d-flex flex-column overflow-hidden" style="min-height: 300px;">
                             <!-- 账号列表（可滚动区域，为分页留出空间） -->
-                            <div id="accounts-list-wrap" class="flex-grow-1 overflow-y-auto min-h-0" style="max-height: 360px;">
+                            <div id="accounts-list-wrap" class="flex-grow-1 overflow-y-auto min-h-0" style="max-height: none;">
                                 <div id="accounts-list" class="row g-2">
                                     <div class="col-12 text-center text-muted py-4">加载中...</div>
                                 </div>
@@ -116,14 +117,14 @@
                 </div>
 
                 <!-- 内容分析 Tab -->
-                <div class="tab-pane fade" id="content-panel" role="tabpanel">
-                    <div class="card border-0 shadow-sm">
+                <div class="tab-pane fade h-100" id="content-panel" role="tabpanel">
+                    <div class="card border-0 shadow-sm h-100">
                         <div class="card-header bg-white border-0 py-2">
                             <h6 class="mb-0">
                                 <i class="bi bi-play-btn me-2 text-success"></i>内容分析
                             </h6>
                         </div>
-                        <div class="card-body py-3 overflow-auto" id="content-analysis-form">
+                        <div class="card-body py-3 overflow-auto" style="max-height: calc(100vh - 220px);" id="content-analysis-form">
                             <!-- 当前账号信息 -->
                             <div id="current-account-info" class="mb-3 p-2 bg-light rounded d-flex align-items-center justify-content-between">
                                 <div class="d-flex align-items-center">
@@ -197,27 +198,32 @@
             </div>
         </div>
 
-        <!-- 右侧：结果展示 -->
-        <div class="col-lg-7">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-3" id="result-container" style="overflow-y: auto; max-height: calc(100vh - 180px);">
+        <!-- 右侧：结果展示（固定 tab 导航，仅下方内容区可滚动） -->
+        <div class="col-lg-7 d-flex flex-column overflow-hidden">
+            <div class="card border-0 shadow-sm flex-grow-1 d-flex flex-column min-h-0">
+                <div class="card-body p-3 d-flex flex-column min-h-0 overflow-hidden" id="result-container">
                     <!-- 初始状态 -->
                     <div class="text-center py-4" id="result-empty">
                         <i class="bi bi-graph-up text-muted fs-3"></i>
                         <div class="mt-2 text-muted small">分析结果将在此展示</div>
                     </div>
 
-                    <!-- 分析结果 -->
-                    <div id="result-content" class="d-none">
-                        <!-- 重新分析按钮 -->
-                        <div class="d-flex justify-content-end mb-2" id="reanalyze-btn-container">
-                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="reanalyzeCurrentAccount()">
-                                <i class="bi bi-arrow-repeat me-1"></i>重新分析
-                            </button>
+                    <!-- 分析结果：头部固定，仅下方 tab 内容可滚动 -->
+                    <div id="result-content" class="d-none d-flex flex-column flex-grow-1 min-h-0 overflow-hidden">
+                        <!-- 固定头部：重新分析 + tab 导航 -->
+                        <div class="flex-shrink-0">
+                            <div class="d-flex justify-content-end mb-2" id="reanalyze-btn-container">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="reanalyzeCurrentAccount()">
+                                    <i class="bi bi-arrow-repeat me-1"></i>重新分析
+                                </button>
+                            </div>
+                            <div id="analysis-results" class="py-2">
+                                <!-- 仅 tab 导航 ul，由 JS 注入 -->
+                            </div>
                         </div>
-                        <!-- 分析维度结果 -->
-                        <div id="analysis-results" class="py-2">
-                            <!-- 动态加载分析结果 -->
+                        <!-- 仅此区域可滚动：tab 内容 -->
+                        <div id="analysis-results-scroll" class="flex-grow-1 min-h-0 overflow-y-auto" style="max-height: calc(100vh - 280px);">
+                            <!-- tab 内容由 JS 注入到 #accountAnalysisTabContent -->
                         </div>
                     </div>
                 </div>
@@ -655,24 +661,6 @@ const ACCOUNT_HISTORY_MAX = 10;
 const HISTORY_PAGE_SIZE = 10;
 let historyCurrentPage = 1;
 
-// 格式化工具函数 - 全局
-function formatFieldValue(fieldValue) {
-    if (!fieldValue) return '-';
-    if (typeof fieldValue === 'object') {
-        if (Array.isArray(fieldValue)) {
-            return fieldValue.map(item => {
-                if (typeof item === 'object') {
-                    return Object.entries(item).map(([k, v]) => `${k}: ${v}`).join('<br>');
-                }
-                return item;
-            }).join('<br>');
-        } else {
-            return Object.entries(fieldValue).map(([k, v]) => `<strong>${k}:</strong> ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('<br>');
-        }
-    }
-    return fieldValue;
-}
-
 // Tab 元素
 const accountTab = document.getElementById('account-tab');
 const contentTab = document.getElementById('content-tab');
@@ -782,24 +770,6 @@ function updateQueueStatusUI(status) {
         const queueListEl = document.getElementById('queue-tasks-list');
         if (queueListEl) queueListEl.remove();
     }
-}
-
-// 根据进度获取进度条颜色
-function getProgressBarClass(progress) {
-    if (progress >= 100) return 'bg-success';
-    if (progress >= 50) return 'bg-info';
-    return 'bg-primary';
-}
-
-// 获取任务类型名称
-function getTaskTypeNames(taskTypes) {
-    if (!taskTypes) return '未知';
-    const typeNames = {
-        'profile': '画像',
-        'design': '设计',
-        'sub_category': '二级分类'
-    };
-    return taskTypes.map(t => typeNames[t] || t).join('+');
 }
 
 // 页面离开时清除轮询
@@ -994,13 +964,6 @@ function historyNextPage() {
         historyCurrentPage++;
         renderAccountHistory();
     }
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
 }
 
 // 从历史直接选择账号（仅显示账号分析结果，不跳转）
@@ -1565,7 +1528,7 @@ function initEventListeners() {
 let accountsPage = 1;
 let accountsTotalPages = 1;
 let accountsSearchKeyword = '';
-const ACCOUNTS_PAGE_SIZE = 5;
+const ACCOUNTS_PAGE_SIZE = 4;
 
 // 加载分析维度（动态）
 let analysisDimensionsCache = null;
@@ -2532,7 +2495,8 @@ async function triggerSubCategoryAnalysis(event, accountId) {
 
         const response = await fetch(`/api/knowledge/accounts/${accountId}/analyze-sub-categories`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})  // 添加空请求体
         });
         const data = await response.json();
 
@@ -2540,6 +2504,8 @@ async function triggerSubCategoryAnalysis(event, accountId) {
             alert('分析已触发，请稍后刷新查看结果');
             // 刷新当前账号数据
             selectAccount(accountId);
+            // 启动轮询，监控分析结果
+            startAccountAnalysisPolling(accountId);
         } else {
             alert(data.message || '分析失败');
         }
@@ -2567,17 +2533,22 @@ function startAccountAnalysisPolling(accountId) {
         try {
             const res = await fetch(`/api/knowledge/accounts/${accountId}`);
             const result = await res.json();
+            // 检查是否有分析数据（包括 profile、design 和 sub_category_analysis）
+            const analysisResult = result.data?.analysis_result;
             const hasProfileData = result.data && (result.data.target_audience || result.data.core_keywords);
-            const hasDesignData = result.data && result.data.analysis_result && (result.data.analysis_result.account_design || result.data.analysis_result.keyword_layout);
-            if (result.code === 200 && (hasProfileData || hasDesignData)) {
+            const hasDesignData = result.data && analysisResult && (analysisResult.account_design || analysisResult.keyword_layout);
+            const hasSubCategoryData = analysisResult && analysisResult.sub_category_analysis && Object.keys(analysisResult.sub_category_analysis).length > 0;
+            if (result.code === 200 && (hasProfileData || hasDesignData || hasSubCategoryData)) {
                 clearInterval(accountAnalysisPollTimer);
                 accountAnalysisPollTimer = null;
-                accountAnalysisResult = result.data;
+                // 更新全局账号对象（包含 analysis_result）
                 if (currentAccount && currentAccount.id === accountId) {
                     currentAccount = { ...currentAccount, ...result.data };
                 }
+                // 同时更新 accountAnalysisResult 供切换tab时使用
+                accountAnalysisResult = result.data;
                 if (document.querySelector('#account-tab')?.classList.contains('active')) {
-                    displayAccountAnalysisResult(accountAnalysisResult);
+                    displayAccountAnalysisResult(result.data);
                 }
             }
         } catch (e) {}
@@ -2670,7 +2641,8 @@ async function reanalyzeCurrentAccount() {
     try {
         const response = await fetch(`/api/knowledge/accounts/${currentAccount.id}/analyze-sub-categories`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})  // 添加空请求体
         });
         const data = await response.json();
 
@@ -2960,20 +2932,92 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
         `;
     });
 
-    // 构建完整HTML
-    let html = `
-        <!-- 账号分析 Tab 导航 -->
-        <ul class="nav nav-tabs nav-sm mb-2" id="accountAnalysisTabs" role="tablist" style="flex-wrap: nowrap; overflow-x: auto;">
+    // 构建完整HTML：tab导航放入 #analysis-results，tab内容放入 #analysis-results-scroll
+    const tabNavHtml = `
+        <ul class="nav nav-tabs nav-sm mb-2" id="accountAnalysisTabs" role="tablist" style="flex-wrap: nowrap; overflow-x: hidden;">
             ${tabsHtml}
         </ul>
-
-        <!-- Tab 内容 -->
+    `;
+    const fullTabContentHtml = `
         <div class="tab-content" id="accountAnalysisTabContent" style="min-height: 200px;">
             ${tabContentHtml}
         </div>
     `;
 
-    console.log('[DEBUG] final tabContentHtml length:', tabContentHtml.length);
+    // 将 tab 导航放入固定头部区域，将 tab 内容放入可滚动区域
+    const tabNavContainer = document.getElementById('analysis-results');
+    const tabScrollContainer = document.getElementById('analysis-results-scroll');
+    console.log('[DEBUG] 放置前 - tabNavContainer:', tabNavContainer ? '存在' : '不存在');
+    console.log('[DEBUG] 放置前 - tabScrollContainer:', tabScrollContainer ? '存在' : '不存在');
+    if (tabNavContainer && tabScrollContainer) {
+        tabNavContainer.innerHTML = tabNavHtml;
+        tabScrollContainer.innerHTML = fullTabContentHtml;
+        
+        console.log('[DEBUG] 放置后 - tabNavContainer.innerHTML长度:', tabNavContainer.innerHTML.length);
+        console.log('[DEBUG] 放置后 - tabScrollContainer.innerHTML长度:', tabScrollContainer.innerHTML.length);
+        console.log('[DEBUG] tabScrollContainer class:', tabScrollContainer.className);
+        console.log('[DEBUG] tabScrollContainer offsetHeight:', tabScrollContainer.offsetHeight);
+        console.log('[DEBUG] tabScrollContainer scrollHeight:', tabScrollContainer.scrollHeight);
+        
+        // 检查 analysis-results 容器
+        const analysisResults = document.getElementById('analysis-results');
+        if (analysisResults) {
+            const arStyle = window.getComputedStyle(analysisResults);
+            console.log('[DEBUG] analysis-results class:', analysisResults.className);
+            console.log('[DEBUG] analysis-results offsetHeight:', analysisResults.offsetHeight);
+            console.log('[DEBUG] analysis-results scrollHeight:', analysisResults.scrollHeight);
+            console.log('[DEBUG] analysis-results overflow:', arStyle.overflow);
+            console.log('[DEBUG] analysis-results overflowY:', arStyle.overflowY);
+        }
+        
+        // 检查父容器 result-content
+        const resultContent = document.getElementById('result-content');
+        if (resultContent) {
+            const rcStyle = window.getComputedStyle(resultContent);
+            console.log('[DEBUG] result-content class:', resultContent.className);
+            console.log('[DEBUG] result-content offsetHeight:', resultContent.offsetHeight);
+            console.log('[DEBUG] result-content scrollHeight:', resultContent.scrollHeight);
+            console.log('[DEBUG] result-content overflow:', rcStyle.overflow);
+            console.log('[DEBUG] result-content overflowY:', rcStyle.overflowY);
+        }
+        
+        // 检查父容器 result-container
+        const resultContainer = document.getElementById('result-container');
+        if (resultContainer) {
+            const rc2Style = window.getComputedStyle(resultContainer);
+            console.log('[DEBUG] result-container class:', resultContainer.className);
+            console.log('[DEBUG] result-container offsetHeight:', resultContainer.offsetHeight);
+            console.log('[DEBUG] result-container scrollHeight:', resultContainer.scrollHeight);
+            console.log('[DEBUG] result-container overflow:', rc2Style.overflow);
+            console.log('[DEBUG] result-container overflowY:', rc2Style.overflowY);
+        }
+        
+        // 检查是否真的有overflow
+        const scrollStyle = window.getComputedStyle(tabScrollContainer);
+        console.log('[DEBUG] tabScrollContainer overflow:', scrollStyle.overflow);
+        console.log('[DEBUG] tabScrollContainer overflowY:', scrollStyle.overflowY);
+        
+        // 延迟检查实际渲染后的高度
+        setTimeout(() => {
+            const tabContent = document.getElementById('accountAnalysisTabContent');
+            if (tabContent) {
+                console.log('[DEBUG] 延迟检查 - tabContent scrollHeight:', tabContent.scrollHeight);
+                console.log('[DEBUG] 延迟检查 - tabContent offsetHeight:', tabContent.offsetHeight);
+            }
+        }, 500);
+        
+        return; // 直接返回，不使用 resultsContainer.innerHTML
+    }
+
+    // 兼容旧逻辑（如果找不到新容器）
+    let html = `
+        <!-- 账号分析 Tab 导航 -->
+        ${tabNavHtml}
+        <!-- Tab 内容 -->
+        ${fullTabContentHtml}
+    `;
+
+    console.log('[DEBUG] final fullTabContentHtml length:', fullTabContentHtml.length);
     resultsContainer.innerHTML = html;
 
     // 调试：检查渲染后的DOM
@@ -4218,16 +4262,21 @@ function displayAnalysisResult(result) {
     document.getElementById('result-empty').classList.add('d-none');
     document.getElementById('result-content').classList.remove('d-none');
 
-    // 清空之前的分析结果
-    const resultsContainer = document.getElementById('analysis-results');
-    resultsContainer.innerHTML = '';
+    // 内容分析没有 sub-tabs，直接将结果渲染到可滚动区域
+    // 固定头部留空（无重新分析按钮和 tab 导航），内容直接放入可滚动区
+    const tabNavContainer = document.getElementById('analysis-results');
+    const tabScrollContainer = document.getElementById('analysis-results-scroll');
 
-    // 渲染各个维度的分析结果
+    // 清空之前的分析结果
+    tabNavContainer.innerHTML = ''; // 固定头部不留内容
+    tabScrollContainer.innerHTML = '';
+
+    // 渲染各个维度的分析结果到可滚动区域
     if (result.analyses) {
         for (const [dimension, data] of Object.entries(result.analyses)) {
             if (data && data.content) {
                 const html = renderDimensionResult(dimension, data);
-                resultsContainer.innerHTML += html;
+                tabScrollContainer.innerHTML += html;
             }
         }
     }
@@ -4336,14 +4385,6 @@ function renderDimensionResult(dimension, data) {
             </div>
         </div>
     `;
-}
-
-// 根据评分返回颜色
-function getScoreColor(score) {
-    if (score >= 8) return 'success';
-    if (score >= 6) return 'primary';
-    if (score >= 4) return 'warning';
-    return 'danger';
 }
 
 // 显示导入模态框
@@ -4681,7 +4722,65 @@ document.addEventListener('DOMContentLoaded', function() {
     if (confirmBtn) {
         confirmBtn.addEventListener('click', confirmExtract);
     }
+
+    // #region 调试日志 - 检查滚动容器状态
+    const resultContainer = document.getElementById('result-container');
+    if (resultContainer) {
+        console.log('=== 滚动容器调试信息 ===');
+        console.log('clientHeight:', resultContainer.clientHeight);
+        console.log('scrollHeight:', resultContainer.scrollHeight);
+        console.log('offsetHeight:', resultContainer.offsetHeight);
+        console.log('scrollTop:', resultContainer.scrollTop);
+        console.log('overflow-y:', window.getComputedStyle(resultContainer).overflowY);
+        console.log('position:', window.getComputedStyle(resultContainer).position);
+        console.log('display:', window.getComputedStyle(resultContainer).display);
+        console.log('========================');
+
+        // 检查父元素
+        const parent = resultContainer.parentElement;
+        console.log('父元素 class:', parent.className);
+        console.log('父元素 min-height:', window.getComputedStyle(parent).minHeight);
+        console.log('父元素 height:', window.getComputedStyle(parent).height);
+
+        // 检查 col-lg-7 容器
+        const grandParent = parent.parentElement;
+        console.log('祖父元素 class:', grandParent.className);
+        console.log('祖父元素 overflow:', window.getComputedStyle(grandParent).overflow);
+        console.log('祖父元素 height:', window.getComputedStyle(grandParent).height);
+
+        // 检查 row
+        const greatGrandParent = grandParent.parentElement;
+        console.log('曾祖父元素 class:', greatGrandParent.className);
+        console.log('曾祖父元素 height:', window.getComputedStyle(greatGrandParent).height);
+
+        // 检查 result-content 内部内容高度
+        const resultContent = document.getElementById('result-content');
+        if (resultContent) {
+            console.log('result-content display:', window.getComputedStyle(resultContent).display);
+            console.log('result-content children count:', resultContent.children.length);
+            let totalContentHeight = 0;
+            for (let child of resultContent.children) {
+                totalContentHeight += child.offsetHeight || 0;
+                console.log('  child:', child.className, 'height:', child.offsetHeight);
+            }
+            console.log('总内容高度:', totalContentHeight);
+        }
+
+        // 检查 result-empty 高度
+        const resultEmpty = document.getElementById('result-empty');
+        if (resultEmpty) {
+            console.log('result-empty height:', resultEmpty.offsetHeight);
+        }
+
+        // 检查 analysis-results
+        const analysisResults = document.getElementById('analysis-results');
+        if (analysisResults) {
+            console.log('analysis-results innerHTML length:', analysisResults.innerHTML.length);
+            console.log('analysis-results height:', analysisResults.offsetHeight);
+        }
+    }
+    // #endregion
 });
 
 </script>
-{% endblock %}
+</div>{% endblock %}

@@ -517,6 +517,27 @@ class KnowledgeAccount(db.Model):
     # 其他分析缓存（账号定位、市场分析、运营规划）
     other_analyzed_at = db.Column(db.DateTime)  # 其他分析时间
 
+    # ========== 自动分析配置字段 ==========
+    # 控制创建/更新账号时是否自动触发特定分析
+    auto_analysis_config = db.Column(db.JSON, default=lambda: {
+        'on_create': {
+            'nickname': True,
+            'bio': True,
+            'account_positioning': True,
+            'keyword_library': False,      # 默认关闭
+            'market_analysis': False,      # 默认关闭
+            'operation_planning': False    # 默认关闭
+        },
+        'on_update': {
+            'nickname': True,
+            'bio': True,
+            'account_positioning': True,
+            'keyword_library': False,
+            'market_analysis': False,
+            'operation_planning': False
+        }
+    })
+
     # 人设定位（陪伴者/教导者/崇拜者/陪衬者/搞笑者）
     persona_role = db.Column(db.String(50))  # 陪伴者-我懂你/教导者-我教你/崇拜者-秀自己/陪衬者-不如你/搞笑者-逗笑你
     # 商业定位（引流/卖货）
