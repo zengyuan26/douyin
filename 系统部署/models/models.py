@@ -507,6 +507,16 @@ class KnowledgeAccount(db.Model):
     # 完整分析结果（JSON）
     analysis_result = db.Column(db.JSON)
 
+    # ========== 增量分析控制字段 ==========
+    # 昵称分析缓存
+    last_nickname = db.Column(db.String(100))  # 上次分析的昵称
+    nickname_analyzed_at = db.Column(db.DateTime)  # 昵称分析时间
+    # 简介分析缓存
+    last_bio = db.Column(db.Text)  # 上次分析的简介
+    bio_analyzed_at = db.Column(db.DateTime)  # 简介分析时间
+    # 其他分析缓存（账号定位、市场分析、运营规划）
+    other_analyzed_at = db.Column(db.DateTime)  # 其他分析时间
+
     # 人设定位（陪伴者/教导者/崇拜者/陪衬者/搞笑者）
     persona_role = db.Column(db.String(50))  # 陪伴者-我懂你/教导者-我教你/崇拜者-秀自己/陪衬者-不如你/搞笑者-逗笑你
     # 商业定位（引流/卖货）

@@ -4939,7 +4939,17 @@ def get_account(account_id):
                 # 内容布局（文本描述）
                 'persona_type': account.persona_type,
                 'topic_content': account.topic_content,
-                'daily_operation': account.daily_operation
+                'daily_operation': account.daily_operation,
+                # 增量分析控制字段
+                'analysis_status': {
+                    'nickname_analyzed_at': account.nickname_analyzed_at.isoformat() if account.nickname_analyzed_at else None,
+                    'bio_analyzed_at': account.bio_analyzed_at.isoformat() if account.bio_analyzed_at else None,
+                    'other_analyzed_at': account.other_analyzed_at.isoformat() if account.other_analyzed_at else None,
+                    'last_nickname': account.last_nickname,
+                    'last_bio': account.last_bio,
+                    'current_nickname': account.name,
+                    'current_bio': account.current_data.get('bio', '') if account.current_data else ''
+                }
             }
         })
         logger.info(f"[DEBUG] get_account response: persona_role={account.persona_role}, commercial_positioning={account.commercial_positioning}, monetization_type={account.monetization_type}, target_audience={account.target_audience}")
@@ -5074,10 +5084,19 @@ def update_account(account_id):
         changes = []
 
         # 更新字段
+        # 增量分析控制：记录需要重新分析的标志
+        need_nickname_analysis = False
+        need_bio_analysis = False
+        need_other_analysis = False
+
         if 'name' in data:
             new_val = data['name'].strip()
             if new_val != (account.name or ''):
                 changes.append(f'账号名称: {account.name} -> {new_val}')
+                # 昵称变更：标记需要重新分析昵称
+                account.last_nickname = new_val
+                account.nickname_analyzed_at = None
+                need_nickname_analysis = True
             account.name = new_val
         if 'platform' in data:
             new_val = data['platform'].strip()
@@ -5095,6 +5114,19 @@ def update_account(account_id):
             new_current = json.dumps(data['current_data'] or {}, sort_keys=True, ensure_ascii=False)
             if old_current != new_current:
                 changes.append(f'账号数据更新')
+                # 检查简介是否变更
+                old_bio = account.current_data.get('bio', '') if account.current_data else ''
+                new_bio = data['current_data'].get('bio', '')
+                if new_bio != old_bio:
+                    # 简介变更：标记需要重新分析简介
+                    account.last_bio = new_bio
+                    account.bio_analyzed_at = None
+                    need_bio_analysis = True
+                # 检查业务信息是否变更（影响其他分析）
+                old_business = account.current_data.get('business_info', {}) if account.current_data else {}
+                new_business = data['current_data'].get('business_info', {})
+                if old_business != new_business:
+                    need_other_analysis = True
             account.current_data = data['current_data']
         if 'status' in data:
             if data['status'] != account.status:
@@ -5105,14 +5137,17 @@ def update_account(account_id):
         if 'business_type' in data:
             if str(data['business_type'] or '') != str(account.business_type or ''):
                 changes.append(f'业务类型变更')
+                need_other_analysis = True
             account.business_type = data['business_type']
         if 'product_type' in data:
             if str(data['product_type'] or '') != str(account.product_type or ''):
                 changes.append(f'产品类型变更')
+                need_other_analysis = True
             account.product_type = data['product_type']
         if 'service_type' in data:
             if str(data['service_type'] or '') != str(account.service_type or ''):
                 changes.append(f'服务类型变更')
+                need_other_analysis = True
             account.service_type = data['service_type']
         if 'service_range' in data:
             if str(data['service_range'] or '') != str(account.service_range or ''):
@@ -5134,10 +5169,12 @@ def update_account(account_id):
         if 'target_user' in data:
             if str(data['target_user'] or '') != str(account.target_user or ''):
                 changes.append(f'目标用户变更')
+                need_other_analysis = True
             account.target_user = data['target_user']
         if 'main_product' in data:
             if str(data['main_product'] or '') != str(account.main_product or ''):
                 changes.append(f'主营业务变更')
+                need_other_analysis = True
             account.main_product = data['main_product']
 
         # 账号定位新增字段
@@ -5200,6 +5237,13 @@ def update_account(account_id):
 
         _commit_with_retry()
 
+        # 返回增量分析标志，供前端判断是否需要提示用户
+        analysis_status = {
+            'need_nickname_analysis': need_nickname_analysis,
+            'need_bio_analysis': need_bio_analysis,
+            'need_other_analysis': need_other_analysis
+        }
+
         return jsonify({
             'code': 200,
             'message': '更新成功',
@@ -5209,7 +5253,8 @@ def update_account(account_id):
                 'platform': account.platform,
                 'url': account.url,
                 'current_data': account.current_data,
-                'status': account.status
+                'status': account.status,
+                'analysis_status': analysis_status
             }
         })
     except Exception as e:
@@ -6074,14 +6119,25 @@ def _get_merged_nickname_dimensions():
     return user_dims_sorted
 
 
-def _run_account_sub_category_analysis(app, account_id):
-    """后台执行账号二级分类分析（评分+公式），不占请求"""
-    logger.info(f"[_run_account_sub_category_analysis] 开始分析 account_id={account_id}")
+def _run_account_sub_category_analysis(app, account_id, target_sub_cats=None):
+    """后台执行账号二级分类分析（评分+公式），不占请求
+    
+    Args:
+        app: Flask app
+        account_id: 账号ID
+        target_sub_cats: 要分析的分类列表，为空时分析全部
+    """
+    from datetime import datetime
+    
+    logger.info(f"[_run_account_sub_category_analysis] 开始分析 account_id={account_id}, target={target_sub_cats}")
     with app.app_context():
         try:
             account = KnowledgeAccount.query.get(account_id)
             if not account:
                 return
+
+            # 确定要分析的分类
+            sub_cats_to_analyze = target_sub_cats if target_sub_cats else ACCOUNT_SUB_CATEGORIES
 
             # 收集账号信息
             account_info = {
@@ -6122,8 +6178,8 @@ def _run_account_sub_category_analysis(app, account_id):
             if not llm_service:
                 return
 
-            # 对每个二级分类进行分析
-            for sub_cat in ACCOUNT_SUB_CATEGORIES:
+            # 对每个二级分类进行分析（根据 target_sub_cats 决定分析范围）
+            for sub_cat in sub_cats_to_analyze:
                 # 昵称分析：用户维度必选 + 系统维度补充；其他分类：仅用启用中的维度
                 if sub_cat == 'nickname_analysis':
                     dims = _get_merged_nickname_dimensions()
@@ -6237,6 +6293,18 @@ def _run_account_sub_category_analysis(app, account_id):
 
             db.session.commit()
             logger.info(f"[_run_account_sub_category_analysis] 账号二级分类分析成功，账号: {account.name}")
+            
+            # 更新分析时间戳（用于增量分析控制）
+            now = datetime.utcnow()
+            if 'nickname_analysis' in sub_cats_to_analyze:
+                account.nickname_analyzed_at = now
+                account.last_nickname = account.name
+            if 'bio_analysis' in sub_cats_to_analyze:
+                account.bio_analyzed_at = now
+                account.last_bio = account.current_data.get('bio', '') if account.current_data else ''
+            if any(cat in sub_cats_to_analyze for cat in ['account_positioning', 'market_analysis', 'operation_planning']):
+                account.other_analyzed_at = now
+            db.session.commit()
             
             # 验证保存是否成功 - 使用filter_by而不是get
             account_check = KnowledgeAccount.query.filter_by(id=account_id).first()
@@ -6697,22 +6765,80 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 @knowledge_api.route('/accounts/<int:account_id>/analyze-sub-categories', methods=['POST'])
 @login_required
 def analyze_account_sub_categories(account_id):
-    """手动触发账号二级分类分析（评分+公式）"""
+    """手动触发账号二级分类分析（评分+公式）
+    
+    请求参数（可选）:
+    - force: 强制全量分析（true/false）
+    - target: 指定分析某个分类（nickname/bio/other/all）
+    """
     try:
         account = KnowledgeAccount.query.get(account_id)
         if not account:
             return jsonify({'code': 404, 'message': '账号不存在'})
 
+        # 解析请求参数
+        data = request.get_json() or {}
+        force = data.get('force', False)
+        target = data.get('target', 'auto')  # auto/nickname/bio/other/all
+        
+        # 确定要分析的分类
+        if force or target == 'all':
+            # 强制全量分析
+            target_sub_cats = None  # None 表示全部
+            message = '已触发全量分析'
+        elif target == 'nickname':
+            target_sub_cats = ['nickname_analysis']
+            message = '已触发昵称分析'
+        elif target == 'bio':
+            target_sub_cats = ['bio_analysis']
+            message = '已触发简介分析'
+        elif target == 'other':
+            target_sub_cats = ['account_positioning', 'market_analysis', 'operation_planning']
+            message = '已触发其他分析'
+        else:
+            # 智能增量分析：根据分析状态决定
+            target_sub_cats = []
+            
+            # 检查昵称是否需要分析
+            need_nickname = account.nickname_analyzed_at is None or \
+                           (account.last_nickname != account.name)
+            if need_nickname:
+                target_sub_cats.append('nickname_analysis')
+            
+            # 检查简介是否需要分析
+            current_bio = account.current_data.get('bio', '') if account.current_data else ''
+            need_bio = account.bio_analyzed_at is None or \
+                      (account.last_bio != current_bio)
+            if need_bio:
+                target_sub_cats.append('bio_analysis')
+            
+            # 检查其他分析是否需要（业务信息变更）
+            need_other = account.other_analyzed_at is None
+            if need_other:
+                target_sub_cats.extend(['account_positioning', 'market_analysis', 'operation_planning'])
+            
+            if not target_sub_cats:
+                return jsonify({'code': 200, 'message': '数据无变化，无需重新分析', 'data': {'skipped': True}})
+            
+            message = f'已触发增量分析：{", ".join(target_sub_cats)}'
+
         # 触发后台分析（使用任务队列控制并发）
         app = current_app._get_current_object()
         task_queue = get_task_queue()
-        task_queue.add_task(account.id, [TASK_TYPE_SUB_CATEGORY], app=app)
+        
+        # 将目标分类传递给任务
+        task_queue.add_task(
+            account.id, 
+            [TASK_TYPE_SUB_CATEGORY], 
+            app=app,
+            extra_data={'target_sub_cats': target_sub_cats}
+        )
 
         # 调试：检查任务是否添加成功
         queue_status = task_queue.get_queue_status()
-        logger.info(f"[DEBUG] 任务已添加，队列状态: {queue_status}")
+        logger.info(f"[DEBUG] 任务已添加，target_sub_cats={target_sub_cats}，队列状态: {queue_status}")
 
-        return jsonify({'code': 200, 'message': '已触发后台分析，请稍后刷新查看结果'})
+        return jsonify({'code': 200, 'message': message, 'data': {'target_sub_cats': target_sub_cats}})
     except Exception as e:
         logger.error(f"触发账号二级分类分析失败: {e}", exc_info=True)
         return jsonify({'code': 500, 'message': f'触发失败: {str(e)}'})
