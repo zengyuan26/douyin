@@ -6271,11 +6271,14 @@ def _build_formula_elements_text(sub_category):
         return None
 
     if sub_category == 'nickname_analysis':
-        # 构建要素列表
+        # 构建要素列表（包含区分技巧）
         element_lines = []
         for e in elements:
             examples_str = e.examples.replace('|', '、') if e.examples else ''
-            element_lines.append(f"   - **{e.name}**：{e.description}" + (f"（如：{examples_str}）" if examples_str else ""))
+            base_desc = e.description or ''
+            # 添加 usage_tips 作为区分技巧
+            tips = f"。**区分技巧：{e.usage_tips}**" if e.usage_tips else ""
+            element_lines.append(f"   - **{e.name}**：{base_desc}{tips}" + (f"（如：{examples_str}）" if examples_str else ""))
 
         elements_text = "\n".join(element_lines)
 
@@ -6303,7 +6306,9 @@ def _build_formula_elements_text(sub_category):
         element_lines = []
         for e in elements:
             examples_str = e.examples.replace('|', '、') if e.examples else ''
-            element_lines.append(f"   - **{e.name}**：{e.description}" + (f"（如：{examples_str}）" if examples_str else ""))
+            base_desc = e.description or ''
+            tips = f"。**区分技巧：{e.usage_tips}**" if e.usage_tips else ""
+            element_lines.append(f"   - **{e.name}**：{base_desc}{tips}" + (f"（如：{examples_str}）" if examples_str else ""))
 
         elements_text = "\n".join(element_lines)
 
@@ -6557,28 +6562,28 @@ def register_formula_elements_routes(bp):
 
         from app import db
 
-        # 昵称分析默认要素
+        # 昵称分析默认要素（包含区分技巧）
         nickname_elements = [
-            {'code': 'product_word', 'name': '产品词', 'description': '具体产品/服务、业务关键词（最高优先级）', 'examples': '香肠|茶叶|手机|AI', 'priority': 1},
-            {'code': 'identity_tag', 'name': '身份标签', 'description': '身份/职业', 'examples': '哥|姐|老师|医生|创始人', 'priority': 2},
-            {'code': 'persona_word', 'name': '人设词', 'description': '人格化角色/形象', 'examples': '魔女|西施|侠客|公主', 'priority': 3},
-            {'code': 'style_word', 'name': '风格词', 'description': '外观/气质/体型描述', 'examples': '红发|高冷|胖|瘦', 'priority': 4},
-            {'code': 'industry_word', 'name': '行业词', 'description': '行业/技术前缀（仅当无法确定具体产品时使用）', 'examples': '数码|美食|旅游', 'priority': 5},
-            {'code': 'region_word', 'name': '地域词', 'description': '地区名称', 'examples': '南漳|北京|上海', 'priority': 6},
-            {'code': 'attribute_word', 'name': '属性词', 'description': '品质/特点', 'examples': '手工|野生|正宗', 'priority': 7},
-            {'code': 'number_word', 'name': '数字词', 'description': '年份/数量', 'examples': '20年|10年|90年', 'priority': 8},
-            {'code': 'action_word', 'name': '行动词', 'description': '动作/行为', 'examples': '吃|玩|学', 'priority': 9},
+            {'code': 'product_word', 'name': '产品词', 'description': '具体产品/服务、业务关键词（最高优先级）', 'examples': '香肠|茶叶|手机|AI', 'priority': 1, 'usage_tips': '能回答"你卖什么"的就是产品词'},
+            {'code': 'identity_tag', 'name': '身份标签', 'description': '身份/职业', 'examples': '哥|姐|老师|医生|创始人', 'priority': 2, 'usage_tips': '回答"你是做什么的"（哥/姐/老师/医生等）'},
+            {'code': 'persona_word', 'name': '人设词', 'description': '人格化角色/形象', 'examples': '魔女|西施|侠客|公主', 'priority': 3, 'usage_tips': '回答"你是谁"（人格化角色/虚拟身份），不是真实身份'},
+            {'code': 'style_word', 'name': '风格词', 'description': '外观/气质/体型描述', 'examples': '红发|高冷|胖|瘦', 'priority': 4, 'usage_tips': '只能描述外观/气质，不能回答"你是谁"'},
+            {'code': 'industry_word', 'name': '行业词', 'description': '行业/技术前缀（仅当无法确定具体产品时使用）', 'examples': '数码|美食|旅游', 'priority': 5, 'usage_tips': '当不知道具体产品时使用，优先级低于产品词'},
+            {'code': 'region_word', 'name': '地域词', 'description': '地区名称', 'examples': '南漳|北京|上海', 'priority': 6, 'usage_tips': '地名/区域名'},
+            {'code': 'attribute_word', 'name': '属性词', 'description': '品质/特点', 'examples': '手工|野生|正宗', 'priority': 7, 'usage_tips': '品质/工艺/特点描述'},
+            {'code': 'number_word', 'name': '数字词', 'description': '年份/数量', 'examples': '20年|10年|90年', 'priority': 8, 'usage_tips': '数字+年/月/天等单位'},
+            {'code': 'action_word', 'name': '行动词', 'description': '动作/行为', 'examples': '吃|玩|学', 'priority': 9, 'usage_tips': '动词/动作词'},
         ]
 
-        # 简介分析默认要素
+        # 简介分析默认要素（包含区分技巧）
         bio_elements = [
-            {'code': 'identity_tag', 'name': '身份标签', 'description': '职业背景、学历、职称、专业身份', 'examples': '10年大厂PM|XX创始人|XX专家', 'priority': 1},
-            {'code': 'value_proposition', 'name': '价值主张', 'description': '卖什么产品/服务、提供什么具体价值', 'examples': '专注茶叶20年|只卖正宗XX|专业手工XX', 'priority': 2},
-            {'code': 'differentiation', 'name': '差异化标签', 'description': '为什么关注你，你和别人不一样在哪', 'examples': '只讲真话|不割韭菜|0基础也能学', 'priority': 3},
-            {'code': 'cta', 'name': '行动号召', 'description': '让粉丝做什么、关注后做什么', 'examples': '关注送XX|扫码领取|私信咨询|到店试吃', 'priority': 4},
-            {'code': 'price_info', 'name': '价格信息', 'description': '具体的价格/报价', 'examples': '2.5元/斤|99元/盒', 'priority': 5},
-            {'code': 'contact', 'name': '联系方式', 'description': '联系方式', 'examples': '微信号|电话|地址', 'priority': 6},
-            {'code': 'content_element', 'name': '内容要素', 'description': '其他内容要素', 'examples': 'slogan|品牌故事', 'priority': 7},
+            {'code': 'identity_tag', 'name': '身份标签', 'description': '职业背景、学历、职称、专业身份', 'examples': '10年大厂PM|XX创始人|XX专家', 'priority': 1, 'usage_tips': '回答"你是谁"——职业、学历、职称、身份'},
+            {'code': 'value_proposition', 'name': '价值主张', 'description': '卖什么产品/服务、提供什么具体价值', 'examples': '专注茶叶20年|只卖正宗XX|专业手工XX', 'priority': 2, 'usage_tips': '回答"你提供什么价值"——卖什么产品/服务'},
+            {'code': 'differentiation', 'name': '差异化标签', 'description': '为什么关注你，你和别人不一样在哪', 'examples': '只讲真话|不割韭菜|0基础也能学', 'priority': 3, 'usage_tips': '回答"为什么选你"——与竞品差异点'},
+            {'code': 'cta', 'name': '行动号召', 'description': '让粉丝做什么、关注后做什么', 'examples': '关注送XX|扫码领取|私信咨询|到店试吃', 'priority': 4, 'usage_tips': '回答"让你做什么"——CTA指令'},
+            {'code': 'price_info', 'name': '价格信息', 'description': '具体的价格/报价', 'examples': '2.5元/斤|99元/盒', 'priority': 5, 'usage_tips': '具体数字+价格单位'},
+            {'code': 'contact', 'name': '联系方式', 'description': '联系方式', 'examples': '微信号|电话|地址', 'priority': 6, 'usage_tips': '可直接联系的方式'},
+            {'code': 'content_element', 'name': '内容要素', 'description': '其他内容要素', 'examples': 'slogan|品牌故事', 'priority': 7, 'usage_tips': '不属于以上任何类型的其他要素'},
         ]
 
         created_count = 0
