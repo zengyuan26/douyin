@@ -2781,23 +2781,6 @@ async function analyzeContent() {
 // 显示分析结果
 // 显示账号分析结果
 function displayAccountAnalysisResult(accountInfo) {
-    // 调试日志
-    // console.log('[DEBUG] displayAccountAnalysisResult called', {
-        accountId: accountInfo?.id,
-        accountName: accountInfo?.name,
-        hasAnalysisResult: !!accountInfo?.analysis_result,
-        subCategoryAnalysis: accountInfo?.analysis_result?.sub_category_analysis,
-        nicknameAnalysis: accountInfo?.analysis_result?.sub_category_analysis?.nickname_analysis,
-        // 账号定位相关字段
-        main_product: accountInfo?.main_product,
-        persona_role: accountInfo?.persona_role,
-        commercial_positioning: accountInfo?.commercial_positioning,
-        monetization_type: accountInfo?.monetization_type,
-        target_audience: accountInfo?.target_audience,
-        // 所有键
-        accountInfoKeys: accountInfo ? Object.keys(accountInfo) : []
-    });
-    
     // 设置全局变量供按钮 onclick 使用
     currentAccountInfoForButton = accountInfo;
     
