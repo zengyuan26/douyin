@@ -2821,13 +2821,6 @@ function displayAccountAnalysisResult(accountInfo) {
 
 // 渲染账号分析Tab（抽取出来以便复用）
 function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
-    // 调试日志
-    // console.log('[DEBUG] renderAccountAnalysisTabs called', {
-        accountId: accountInfo?.id,
-        hasAnalysisResult: !!accountInfo?.analysis_result,
-        subCategoryKeys: Object.keys(accountInfo?.analysis_result?.sub_category_analysis || {})
-    });
-    
     const resultsContainer = document.getElementById('analysis-results');
     const subCategoryAnalysis = accountInfo.analysis_result?.sub_category_analysis || {};
 
@@ -3438,15 +3431,6 @@ function renderBioAnalysis(data, accountInfo) {
 
 // 渲染账号定位
 function renderAccountPositioning(accountInfo) {
-    // 调试日志
-    // console.log('[DEBUG] renderAccountPositioning called', {
-        main_product: accountInfo?.main_product,
-        persona_role: accountInfo?.persona_role,
-        commercial_positioning: accountInfo?.commercial_positioning,
-        monetization_type: accountInfo?.monetization_type,
-        target_audience: accountInfo?.target_audience
-    });
-
     // 人设定位标签映射（无底色，仅边框+深色字，保证可读）
     const personaRoleMap = {
         '陪伴者-我懂你': { text: '陪伴者-我懂你', cls: 'border border-primary text-primary' },
@@ -3935,15 +3919,6 @@ function renderDimensionCards(data, prefix) {
             const nicknameAnalysis = subCatAnalysis.nickname_analysis || {};
             const bioAnalysis = subCatAnalysis.bio_analysis || {};
             const designData = {}; // 保留用于兼容旧数据结构
-            
-            // 调试日志
-            // console.log('[DEBUG] tab-design:', {
-                subCatAnalysis: subCatAnalysis,
-                nicknameAnalysis: nicknameAnalysis,
-                nicknameAnalysisKeys: Object.keys(nicknameAnalysis),
-                bioAnalysis: bioAnalysis,
-                bioAnalysisKeys: Object.keys(bioAnalysis)
-            });
 
             // 渲染单个维度结果（带入库按钮）
             const renderDimensionCard = (dimensionCode, dimensionName, dimData, icon) => {
