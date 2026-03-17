@@ -2646,10 +2646,11 @@ async function reanalyzeCurrentAccount() {
 
     try {
         console.log('Calling API with account id:', currentAccount.id);
+        // 强制全量分析
         const response = await fetch(`/api/knowledge/accounts/${currentAccount.id}/analyze-sub-categories`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})  // 添加空请求体
+            body: JSON.stringify({ force: true })  // 强制全量分析
         });
         console.log('API response status:', response.status);
         const data = await response.json();
