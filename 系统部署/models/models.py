@@ -1299,6 +1299,45 @@ class FormulaElementType(db.Model):
         return f'<FormulaElementType {self.sub_category}/{self.code}>'
 
 
+class FormulaElementSuggestion(db.Model):
+    """公式要素建议表 - LLM分析时发现的新要素建议"""
+    __tablename__ = 'formula_element_suggestions'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # 关联账号分析（可选）
+    account_id = db.Column(db.Integer, db.ForeignKey('knowledge_accounts.id'))
+
+    # 建议的要素信息
+    sub_category = db.Column(db.String(50), nullable=False)  # nickname_analysis / bio_analysis
+    name = db.Column(db.String(50), nullable=False)  # 要素名称
+    code = db.Column(db.String(50), nullable=False)  # 要素编码
+    description = db.Column(db.Text)  # 要素定义说明
+    example = db.Column(db.String(200))  # 示例（来自分析内容）
+
+    # 来源信息
+    source_nickname = db.Column(db.String(100))  # 发现的昵称/简介
+    source_formula = db.Column(db.Text)  # 发现时的 formula
+
+    # 审核状态
+    status = db.Column(db.String(20), default='pending')  # pending/approved/rejected
+
+    # 审核信息
+    reviewed_at = db.Column(db.DateTime)  # 审核时间
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'))  # 审核人
+    review_note = db.Column(db.Text)  # 审核备注
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('sub_category', 'code', name='uix_suggestion_sub_category_code'),
+    )
+
+    def __repr__(self):
+        return f'<FormulaElementSuggestion {self.sub_category}/{self.code}>'
+
+
 # ========== 规则自动提取记录 ==========
 
 class RuleExtractionLog(db.Model):

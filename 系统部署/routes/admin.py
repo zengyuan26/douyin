@@ -2859,6 +2859,16 @@ def analysis_dimensions_page():
     return render_template('admin/analysis_dimensions.html')
 
 
+# ==================== 公式要素管理 ====================
+
+@admin.route('/formula-elements')
+@login_required
+@super_admin_required
+def formula_elements_page():
+    """公式要素管理页面"""
+    return render_template('admin/formula_elements.html')
+
+
 @admin.route('/api/analysis-dimensions', methods=['GET'])
 @login_required
 def get_analysis_dimensions():

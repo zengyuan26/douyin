@@ -1,0 +1,532 @@
+{% extends "base.html" %}
+
+{% block title %}公式要素管理 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 formula-elements-page">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1">公式要素管理</h4>
+                    <p class="text-muted mb-0">管理昵称分析和简介分析的公式要素，支持自动发现新要素</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-success" id="init-elements-btn">
+                    <i class="bi bi-plus-circle me-1"></i>初始化默认要素
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="export-btn">
+                    <i class="bi bi-download me-1"></i>导出
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="import-btn">
+                    <i class="bi bi-upload me-1"></i>导入
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 待审核建议 -->
+    <div class="row mb-4" id="suggestions-section">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-warning bg-opacity-10 py-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>待审核的新要素建议
+                        <span class="badge bg-warning text-dark" id="suggestion-count">0</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0" id="suggestions-list">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mt-2">暂无待审核的建议</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 公式要素列表 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header py-3">
+                    <ul class="nav nav-tabs card-header-tabs" id="element-tabs" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active" id="tab-nickname" data-bs-toggle="tab" data-bs-target="#pane-nickname" type="button">
+                                <i class="bi bi-person me-1"></i>昵称分析要素
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" id="tab-bio" data-bs-toggle="tab" data-bs-target="#pane-bio" type="button">
+                                <i class="bi bi-card-text me-1"></i>简介分析要素
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body p-0">
+                    <div class="tab-content" id="element-tab-content">
+                        <!-- 昵称分析要素 -->
+                        <div class="tab-pane fade show active" id="pane-nickname" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0" id="nickname-elements-table">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>优先级</th>
+                                            <th>名称</th>
+                                            <th>编码</th>
+                                            <th>描述</th>
+                                            <th>示例</th>
+                                            <th>状态</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <!-- 简介分析要素 -->
+                        <div class="tab-pane fade" id="pane-bio" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0" id="bio-elements-table">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>优先级</th>
+                                            <th>名称</th>
+                                            <th>编码</th>
+                                            <th>描述</th>
+                                            <th>示例</th>
+                                            <th>状态</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-primary" id="add-element-btn">
+                        <i class="bi bi-plus-lg me-1"></i>新增要素
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增/编辑要素弹窗 -->
+<div class="modal fade" id="elementModal" tabindex="-1" aria-labelledby="elementModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="elementModalLabel">新增要素</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+                <form id="element-form">
+                    <input type="hidden" id="element-id">
+
+                    <div class="mb-3">
+                        <label class="form-label">所属分析 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="element-sub-category" required>
+                            <option value="">请选择</option>
+                            <option value="nickname_analysis">昵称分析</option>
+                            <option value="bio_analysis">简介分析</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">要素名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="element-name" required placeholder="如：产品词、身份标签">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">要素编码 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="element-code" required placeholder="如：product_word、identity_tag">
+                        <small class="text-muted">用于代码中标识，请使用英文</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">要素定义说明</label>
+                        <textarea class="form-control" id="element-description" rows="2" placeholder="简短说明这个要素是什么"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">示例</label>
+                        <input type="text" class="form-control" id="element-examples" placeholder="多个示例用 | 分隔，如：香肠|茶叶|手机">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">优先级</label>
+                            <input type="number" class="form-control" id="element-priority" value="0" min="0">
+                            <small class="text-muted">数字越小越靠前</small>
+                        </div>
+                        <div class="col-6 mb-3 d-flex align-items-end">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="element-is-active" checked>
+                                <label class="form-check-label" for="element-is-active">
+                                    启用
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="save-element-btn">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 导入弹窗 -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">导入公式要素</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+                <textarea class="form-control" id="import-data" rows="10" placeholder="请粘贴 JSON 数据"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirm-import-btn">导入</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentEditId = null;
+
+// 加载要素列表
+function loadElements(subCategory) {
+    fetch(`/api/formula-elements/?sub_category=${subCategory}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 0) {
+                renderElements(subCategory, data.data);
+            }
+        });
+}
+
+// 渲染要素表格
+function renderElements(subCategory, elements) {
+    const tbody = $(`#${subCategory === 'nickname_analysis' ? 'nickname' : 'bio'}-elements-table tbody`);
+    tbody.empty();
+
+    elements.forEach(e => {
+        const row = `
+            <tr>
+                <td>${e.priority}</td>
+                <td><strong>${e.name}</strong></td>
+                <td><code>${e.code}</code></td>
+                <td>${e.description || '-'}</td>
+                <td>${e.examples ? e.examples.replace(/\|/g, '、') : '-'}</td>
+                <td>${e.is_active ? '<span class="badge bg-success">启用</span>' : '<span class="badge bg-secondary">禁用</span>'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editElement(${e.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteElement(${e.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
+
+// 加载待审核建议
+function loadSuggestions() {
+    fetch('/api/formula-elements/suggestions?status=pending')
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 0) {
+                renderSuggestions(data.data);
+            }
+        });
+}
+
+// 渲染建议列表
+function renderSuggestions(suggestions) {
+    const container = $('#suggestions-list');
+    const count = suggestions.length;
+    $('#suggestion-count').text(count);
+
+    if (count === 0) {
+        container.html(`
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-inbox fs-1"></i>
+                <p class="mt-2">暂无待审核的建议</p>
+            </div>
+        `);
+        return;
+    }
+
+    let html = '<div class="list-group list-group-flush">';
+    suggestions.forEach(s => {
+        const subCatName = s.sub_category === 'nickname_analysis' ? '昵称分析' : '简介分析';
+        html += `
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-primary">${subCatName}</span>
+                            <strong>${s.name}</strong>
+                            <code class="small">${s.code}</code>
+                        </div>
+                        <p class="mb-1 small">${s.description || '无描述'}</p>
+                        <p class="mb-0 small text-muted">示例: ${s.example || '-'}</p>
+                        <p class="mb-0 small text-muted">来源: ${s.source_nickname || s.source_bio || '-'}</p>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-success" onclick="approveSuggestion(${s.id})">
+                            <i class="bi bi-check-lg"></i>通过
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="rejectSuggestion(${s.id})">
+                            <i class="bi bi-x-lg"></i>拒绝
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.html(html);
+}
+
+// 编辑要素
+function editElement(id) {
+    fetch('/api/formula-elements/')
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 0) {
+                const element = data.data.find(e => e.id === id);
+                if (element) {
+                    currentEditId = id;
+                    $('#elementModalLabel').text('编辑要素');
+                    $('#element-id').val(element.id);
+                    $('#element-sub-category').val(element.sub_category);
+                    $('#element-name').val(element.name);
+                    $('#element-code').val(element.code);
+                    $('#element-description').val(element.description || '');
+                    $('#element-examples').val(element.examples || '');
+                    $('#element-priority').val(element.priority);
+                    $('#element-is-active').prop('checked', element.is_active);
+                    $('#elementModal').modal('show');
+                }
+            }
+        });
+}
+
+// 删除要素
+function deleteElement(id) {
+    if (!confirm('确定要删除这个要素吗？')) return;
+
+    fetch(`/api/formula-elements/${id}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 0) {
+                alert('删除成功');
+                loadElements('nickname_analysis');
+                loadElements('bio_analysis');
+            } else {
+                alert(data.message || '删除失败');
+            }
+        });
+}
+
+// 通过建议
+function approveSuggestion(id) {
+    if (!confirm('确定要通过这个要素建议吗？将通过后添加到要素库。')) return;
+
+    fetch(`/api/formula-elements/suggestions/${id}/approve`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 0) {
+                alert('已添加到要素库');
+                loadSuggestions();
+                loadElements('nickname_analysis');
+                loadElements('bio_analysis');
+            } else {
+                alert(data.message || '操作失败');
+            }
+        });
+}
+
+// 拒绝建议
+function rejectSuggestion(id) {
+    const note = prompt('请输入拒绝原因（可选）:');
+    fetch(`/api/formula-elements/suggestions/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: note || '' })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 0) {
+                loadSuggestions();
+            } else {
+                alert(data.message || '操作失败');
+            }
+        });
+}
+
+// 初始化默认要素
+$('#init-elements-btn').click(function() {
+    if (!confirm('确定要初始化默认要素吗？已存在的要素不会被重复创建。')) return;
+
+    fetch('/api/formula-elements/init', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 0) {
+                alert(data.message);
+                loadElements('nickname_analysis');
+                loadElements('bio_analysis');
+            } else {
+                alert(data.message || '初始化失败');
+            }
+        });
+});
+
+// 导出
+$('#export-btn').click(function() {
+    fetch('/api/formula-elements/export')
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 0) {
+                const json = JSON.stringify(data.data, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'formula_elements.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        });
+});
+
+// 导入
+$('#import-btn').click(function() {
+    $('#import-data').val('');
+    $('#importModal').modal('show');
+});
+
+$('#confirm-import-btn').click(function() {
+    const data = $('#import-data').val();
+    if (!data.trim()) {
+        alert('请输入 JSON 数据');
+        return;
+    }
+
+    try {
+        const json = JSON.parse(data);
+        fetch('/api/formula-elements/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(json)
+        })
+            .then(res => res.json())
+            .then(result => {
+                if (result.code === 0) {
+                    alert(result.message);
+                    $('#importModal').modal('hide');
+                    loadElements('nickname_analysis');
+                    loadElements('bio_analysis');
+                } else {
+                    alert(result.message || '导入失败');
+                }
+            });
+    } catch (e) {
+        alert('JSON 格式不正确');
+    }
+});
+
+// 新增要素
+$('#add-element-btn').click(function() {
+    currentEditId = null;
+    $('#elementModalLabel').text('新增要素');
+    $('#element-form')[0].reset();
+    $('#element-id').val('');
+    $('#elementModal').modal('show');
+});
+
+// 保存要素
+$('#save-element-btn').click(function() {
+    const id = $('#element-id').val();
+    const data = {
+        sub_category: $('#element-sub-category').val(),
+        name: $('#element-name').val(),
+        code: $('#element-code').val(),
+        description: $('#element-description').val(),
+        examples: $('#element-examples').val(),
+        priority: parseInt($('#element-priority').val()) || 0,
+        is_active: $('#element-is-active').is(':checked')
+    };
+
+    if (!data.sub_category || !data.name || !data.code) {
+        alert('请填写必填字段');
+        return;
+    }
+
+    const url = id ? `/api/formula-elements/${id}` : '/api/formula-elements/';
+    const method = id ? 'PUT' : 'POST';
+
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+        .then(res => res.json())
+        .then(result => {
+            if (result.code === 0) {
+                alert('保存成功');
+                $('#elementModal').modal('hide');
+                loadElements('nickname_analysis');
+                loadElements('bio_analysis');
+            } else {
+                alert(result.message || '保存失败');
+            }
+        });
+});
+
+// Tab 切换时重新加载
+$('#tab-nickname, #tab-bio').on('shown.bs.tab', function(e) {
+    const target = e.target.getAttribute('data-bs-target');
+    if (target === '#pane-nickname') {
+        loadElements('nickname_analysis');
+    } else {
+        loadElements('bio_analysis');
+    }
+});
+
+// 页面加载时
+$(document).ready(function() {
+    loadElements('nickname_analysis');
+    loadElements('bio_analysis');
+    loadSuggestions();
+});
+</script>
+{% endblock %}

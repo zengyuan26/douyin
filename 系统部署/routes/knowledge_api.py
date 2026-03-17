@@ -6315,6 +6315,78 @@ def _build_formula_elements_text(sub_category):
     return None
 
 
+def _save_discovered_formula_elements(account_id, sub_category_results, account_info):
+    """从分析结果中提取发现的新要素并保存为待审核建议"""
+    try:
+        from models.models import FormulaElementSuggestion, FormulaElementType
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # 获取已存在的要素 code
+        existing_codes = set()
+        for sub_cat in ['nickname_analysis', 'bio_analysis']:
+            existing = FormulaElementType.query.filter_by(
+                sub_category=sub_cat, is_active=True
+            ).all()
+            existing_codes.update((sub_cat, e.code) for e in existing)
+
+        # 检查每个分析结果中的 discovered_elements
+        for sub_cat, result in sub_category_results.items():
+            llm_data = result.get('llm_data', {})
+            discovered = llm_data.get('discovered_elements', [])
+
+            if not discovered:
+                continue
+
+            # 获取来源信息
+            source_nickname = account_info.get('nickname', '')
+            source_bio = account_info.get('bio', '')
+
+            for elem in discovered:
+                if not elem:
+                    continue
+
+                code = elem.get('code', '')
+                name = elem.get('name', '')
+                if not code or not name:
+                    continue
+
+                # 检查是否已存在
+                if (sub_cat, code) in existing_codes:
+                    continue
+
+                # 检查是否已有待审核的建议
+                existing_suggestion = FormulaElementSuggestion.query.filter_by(
+                    sub_category=sub_cat,
+                    code=code,
+                    status='pending'
+                ).first()
+
+                if existing_suggestion:
+                    continue
+
+                # 创建新建议
+                suggestion = FormulaElementSuggestion(
+                    account_id=account_id,
+                    sub_category=sub_cat,
+                    name=name,
+                    code=code,
+                    description=elem.get('description', ''),
+                    example=elem.get('example', ''),
+                    source_nickname=source_nickname,
+                    source_formula=result.get('formula', ''),
+                    status='pending'
+                )
+                db.session.add(suggestion)
+                logger.info(f"[FormulaElement] 发现新要素建议: {sub_cat}/{code} - {name}")
+
+        db.session.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"保存发现的新要素失败: {e}", exc_info=True)
+        db.session.rollback()
+
+
 # ========== 公式要素 CRUD API ==========
 
 def register_formula_elements_routes(bp):
@@ -6649,6 +6721,130 @@ def register_formula_elements_routes(bp):
             'message': f'导入成功：新增 {imported_count} 个，更新 {skipped_count} 个'
         })
 
+    @bp.route('/api/formula-elements/suggestions', methods=['GET'])
+    def get_formula_element_suggestions():
+        """获取待审核的要素建议"""
+        from flask import jsonify, request
+        from models.models import FormulaElementSuggestion
+
+        status = request.args.get('status', 'pending')
+
+        query = FormulaElementSuggestion.query
+        if status:
+            query = query.filter_by(status=status)
+
+        suggestions = query.order_by(
+            FormulaElementSuggestion.created_at.desc()
+        ).all()
+
+        return jsonify({
+            'code': 0,
+            'data': [{
+                'id': s.id,
+                'sub_category': s.sub_category,
+                'name': s.name,
+                'code': s.code,
+                'description': s.description,
+                'example': s.example,
+                'source_nickname': s.source_nickname,
+                'source_formula': s.source_formula,
+                'status': s.status,
+                'created_at': s.created_at.isoformat() if s.created_at else None,
+            } for s in suggestions]
+        })
+
+    @bp.route('/api/formula-elements/suggestions/<int:suggestion_id>/approve', methods=['POST'])
+    def approve_formula_element_suggestion(suggestion_id):
+        """审核通过要素建议，添加到要素库"""
+        from flask import jsonify, request
+        from models.models import FormulaElementSuggestion, FormulaElementType
+        from flask_login import current_user
+
+        if not current_user or not current_user.is_authenticated:
+            return jsonify({'code': 401, 'message': '未登录'}), 401
+
+        suggestion = FormulaElementSuggestion.query.get(suggestion_id)
+        if not suggestion:
+            return jsonify({'code': 404, 'message': '建议不存在'}), 404
+
+        if suggestion.status != 'pending':
+            return jsonify({'code': 400, 'message': '该建议已处理'}), 400
+
+        # 检查是否已存在相同 code 的要素
+        existing = FormulaElementType.query.filter_by(
+            sub_category=suggestion.sub_category,
+            code=suggestion.code
+        ).first()
+
+        if existing:
+            # 更新现有要素
+            existing.name = suggestion.name
+            existing.description = suggestion.description
+            existing.examples = suggestion.example
+            message = '要素已更新'
+        else:
+            # 创建新要素
+            element = FormulaElementType(
+                sub_category=suggestion.sub_category,
+                name=suggestion.name,
+                code=suggestion.code,
+                description=suggestion.description,
+                examples=suggestion.example,
+                priority=99,  # 默认放到最后
+                is_active=True
+            )
+            db.session.add(element)
+            message = '要素已添加'
+
+        # 更新建议状态
+        suggestion.status = 'approved'
+        suggestion.reviewed_at = datetime.utcnow()
+        suggestion.reviewer_id = current_user.id
+
+        note = request.json.get('note', '') if request.json else ''
+        suggestion.review_note = note
+
+        db.session.commit()
+
+        # 清除缓存
+        _invalidate_formula_elements_cache(suggestion.sub_category)
+
+        return jsonify({
+            'code': 0,
+            'message': message
+        })
+
+    @bp.route('/api/formula-elements/suggestions/<int:suggestion_id>/reject', methods=['POST'])
+    def reject_formula_element_suggestion(suggestion_id):
+        """拒绝要素建议"""
+        from flask import jsonify, request
+        from models.models import FormulaElementSuggestion
+        from flask_login import current_user
+
+        if not current_user or not current_user.is_authenticated:
+            return jsonify({'code': 401, 'message': '未登录'}), 401
+
+        suggestion = FormulaElementSuggestion.query.get(suggestion_id)
+        if not suggestion:
+            return jsonify({'code': 404, 'message': '建议不存在'}), 404
+
+        if suggestion.status != 'pending':
+            return jsonify({'code': 400, 'message': '该建议已处理'}), 400
+
+        suggestion.status = 'rejected'
+        suggestion.reviewed_at = datetime.utcnow()
+        suggestion.reviewer_id = current_user.id
+
+        note = request.json.get('note', '') if request.json else ''
+        suggestion.review_note = note
+
+        db.session.commit()
+
+        return jsonify({
+            'code': 0,
+            'message': '已拒绝'
+        })
+
 
 def _get_merged_nickname_dimensions():
     """获取昵称分析维度：用户设置的维度（必选） + 系统默认维度（补充）"""
@@ -6848,7 +7044,14 @@ def _run_account_sub_category_analysis(app, account_id, target_sub_cats=None):
 
             db.session.commit()
             logger.info(f"[_run_account_sub_category_analysis] 账号二级分类分析成功，账号: {account.name}")
-            
+
+            # 提取并保存发现的新要素
+            _save_discovered_formula_elements(
+                account_id=account.id,
+                sub_category_results=sub_category_results,
+                account_info=account_info
+            )
+
             # 更新分析时间戳（用于增量分析控制）
             now = datetime.utcnow()
             if 'nickname_analysis' in sub_cats_to_analyze:
@@ -7091,6 +7294,9 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
     "score_reason": "缺少记忆点，建议加入差异化元素",
     "formula": "产品词(灌肠) + 身份标签(西施)",
     "suggestions": ["可加入地域词突出地域特色", "可加入数字或年份强调专业度"],
+    "discovered_elements": [
+        {{"name": "新要素名称", "code": "new_element_code", "description": "要素定义", "example": "示例"}}
+    ],
 {json_dims_block}
 }}
 ```
@@ -7099,7 +7305,8 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - 请直接分析提供的昵称 **{nickname}** 的实际构成
 - formula 字段必须填写这个昵称的实际组成部分，不能是通用模板
 - 评分要根据实际质量打分，大多数在60-85分之间
-- **特别注意**：分析"产品词+风格词+人设词"组合的昵称（如"AI红发魔女"）时，产品词(如AI)是业务关键词，优先级最高！""";
+- **特别注意**：分析"产品词+风格词+人设词"组合的昵称（如"AI红发魔女"）时，产品词(如AI)是业务关键词，优先级最高！
+- **发现新要素**：如果分析过程中发现当前要素库中没有涵盖的新要素类型，请在 discovered_elements 字段中列出，包括：name(要素名称)、code(要素编码)、description(要素定义)、example(示例)；如果没有新要素则返回空数组 []""";
 
     elif sub_cat == 'bio_analysis':
         # 构建各维度的分析说明与 JSON 示例
@@ -7286,6 +7493,9 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
     "score_reason": "结构清晰但缺少联系方式",
     "formula": "身份标签(10年大厂PM) + 价值主张(带你学ai) + 差异化标签(0基础也能学) + 差异化标签(普通人也能学会)",
     "suggestions": ["建议添加联系方式方便粉丝私信", "可以突出人设标签增强记忆点"],
+    "discovered_elements": [
+        {{"name": "新要素名称", "code": "new_element_code", "description": "要素定义", "example": "示例"}}
+    ],
 {json_dims_block}
 }}
 ```
@@ -7293,7 +7503,8 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 **重要**：
 - 请直接分析提供的简介 **{bio}** 的实际构成
 - formula 字段必须填写这个简介的实际组成部分，不能是通用模板
-- 评分要根据实际质量打分"""
+- 评分要根据实际质量打分
+- **发现新要素**：如果分析过程中发现当前要素库中没有涵盖的新要素类型，请在 discovered_elements 字段中列出，包括：name(要素名称)、code(要素编码)、description(要素定义)、example(示例)；如果没有新要素则返回空数组 []"""
 
     elif sub_cat == 'account_positioning':
         return f"""{base_info}
