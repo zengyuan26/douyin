@@ -55,6 +55,10 @@ def create_app(config_name='default'):
     # 注册知识库分析 API
     from routes.knowledge_api import knowledge_api as knowledge_api_blueprint
     app.register_blueprint(knowledge_api_blueprint)
+
+    # 注册公式要素 API
+    from routes.knowledge_api import register_formula_elements_routes
+    register_formula_elements_routes(knowledge_api_blueprint)
     
     # 创建上传目录
     import os
