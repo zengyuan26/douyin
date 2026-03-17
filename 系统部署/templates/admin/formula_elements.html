@@ -2,17 +2,35 @@
 
 {% block title %}公式要素管理 - AI棱镜{% endblock %}
 
+{% block extra_css %}
+<style>
+.line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid py-4 formula-elements-page">
-    <div class="row mb-4">
+<div class="container-fluid py-3">
+    <!-- 页面标题和操作栏 -->
+    <div class="row mb-3">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
                 <div>
-                    <h4 class="mb-1">公式要素管理</h4>
-                    <p class="text-muted mb-0">管理昵称分析和简介分析的公式要素，支持自动发现新要素</p>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">公式要素管理</h4>
+                    <p class="text-muted mb-0" style="font-size: 14px;">管理昵称分析和简介分析的公式要素</p>
                 </div>
-                <div class="d-flex gap-2">
-                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary">
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-primary" id="add-element-btn">
+                        <i class="bi bi-plus-lg me-1"></i>新增要素
+                    </button>
+                    <button type="button" class="btn btn-success" id="init-elements-btn">
+                        <i class="bi bi-plus-circle me-1"></i>初始化
+                    </button>
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-lg">
                         <i class="bi bi-arrow-left me-1"></i>返回
                     </a>
                 </div>
@@ -20,107 +38,112 @@
         </div>
     </div>
 
-    <!-- 操作按钮 -->
-    <div class="row mb-4">
+    <!-- 标签页导航 -->
+    <div class="row mb-3">
         <div class="col-12">
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-success" id="init-elements-btn">
-                    <i class="bi bi-plus-circle me-1"></i>初始化默认要素
-                </button>
-                <button type="button" class="btn btn-outline-primary" id="export-btn">
-                    <i class="bi bi-download me-1"></i>导出
-                </button>
-                <button type="button" class="btn btn-outline-primary" id="import-btn">
-                    <i class="bi bi-upload me-1"></i>导入
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 待审核建议 -->
-    <div class="row mb-4" id="suggestions-section">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-warning bg-opacity-10 py-3">
-                    <h5 class="mb-0">
-                        <i class="bi bi-lightbulb me-2"></i>待审核的新要素建议
-                        <span class="badge bg-warning text-dark" id="suggestion-count">0</span>
-                    </h5>
-                </div>
-                <div class="card-body p-0" id="suggestions-list">
-                    <div class="text-center text-muted py-4">
-                        <i class="bi bi-inbox fs-1"></i>
-                        <p class="mt-2">暂无待审核的建议</p>
-                    </div>
-                </div>
-            </div>
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <button class="nav-link active" id="tab-nickname-elements" data-bs-toggle="tab" data-bs-target="#pane-nickname-elements" type="button">
+                        <i class="bi bi-person me-1"></i>昵称分析要素
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="tab-bio-elements" data-bs-toggle="tab" data-bs-target="#pane-bio-elements" type="button">
+                        <i class="bi bi-card-text me-1"></i>简介分析要素
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link position-relative" id="tab-suggestions" data-bs-toggle="tab" data-bs-target="#pane-suggestions" type="button">
+                        <i class="bi bi-lightbulb me-1"></i>待审核建议
+                        <span class="position-absolute top-50 start-100 translate-middle badge rounded-pill bg-danger" id="suggestion-badge" style="display: none;">
+                            0
+                        </span>
+                    </button>
+                </li>
+            </ul>
         </div>
     </div>
 
     <!-- 公式要素列表 -->
     <div class="row">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header py-3">
-                    <ul class="nav nav-tabs card-header-tabs" id="element-tabs" role="tablist">
-                        <li class="nav-item">
-                            <button class="nav-link active" id="tab-nickname" data-bs-toggle="tab" data-bs-target="#pane-nickname" type="button">
-                                <i class="bi bi-person me-1"></i>昵称分析要素
-                            </button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link" id="tab-bio" data-bs-toggle="tab" data-bs-target="#pane-bio" type="button">
-                                <i class="bi bi-card-text me-1"></i>简介分析要素
-                            </button>
-                        </li>
-                    </ul>
-                </div>
-                <div class="card-body p-0">
-                    <div class="tab-content" id="element-tab-content">
+            <div class="section-card">
+                <div class="section-body p-0">
+                    <div class="tab-content" id="main-tab-content">
                         <!-- 昵称分析要素 -->
-                        <div class="tab-pane fade show active" id="pane-nickname" role="tabpanel">
+                        <div class="tab-pane fade show active" id="pane-nickname-elements" role="tabpanel">
                             <div class="table-responsive">
                                 <table class="table table-hover mb-0" id="nickname-elements-table">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>优先级</th>
-                                            <th>名称</th>
-                                            <th>编码</th>
+                                            <th style="width: 120px;">名称</th>
+                                            <th style="width: 150px;">编码</th>
                                             <th>描述</th>
-                                            <th>示例</th>
-                                            <th>状态</th>
-                                            <th>操作</th>
+                                            <th style="width: 200px;">示例</th>
+                                            <th style="width: 100px;">操作</th>
                                         </tr>
                                     </thead>
-                                    <tbody></tbody>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                                加载中...
+                                            </td>
+                                        </tr>
+                                    </tbody>
                                 </table>
+                            </div>
+                            <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+                                <div class="text-muted small">
+                                    共 <span id="nickname-total">0</span> 个要素
+                                </div>
+                                <nav>
+                                    <ul class="pagination pagination-sm mb-0" id="nickname-pagination"></ul>
+                                </nav>
                             </div>
                         </div>
                         <!-- 简介分析要素 -->
-                        <div class="tab-pane fade" id="pane-bio" role="tabpanel">
+                        <div class="tab-pane fade" id="pane-bio-elements" role="tabpanel">
                             <div class="table-responsive">
                                 <table class="table table-hover mb-0" id="bio-elements-table">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>优先级</th>
-                                            <th>名称</th>
-                                            <th>编码</th>
+                                            <th style="width: 120px;">名称</th>
+                                            <th style="width: 150px;">编码</th>
                                             <th>描述</th>
-                                            <th>示例</th>
-                                            <th>状态</th>
-                                            <th>操作</th>
+                                            <th style="width: 200px;">示例</th>
+                                            <th style="width: 100px;">操作</th>
                                         </tr>
                                     </thead>
-                                    <tbody></tbody>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                                加载中...
+                                            </td>
+                                        </tr>
+                                    </tbody>
                                 </table>
+                            </div>
+                            <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+                                <div class="text-muted small">
+                                    共 <span id="bio-total">0</span> 个要素
+                                </div>
+                                <nav>
+                                    <ul class="pagination pagination-sm mb-0" id="bio-pagination"></ul>
+                                </nav>
+                            </div>
+                        </div>
+                        <!-- 待审核建议 -->
+                        <div class="tab-pane fade" id="pane-suggestions" role="tabpanel">
+                            <div id="suggestions-container" class="p-3">
+                                <div class="text-center text-muted py-4">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                    加载中...
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="card-footer">
-                    <button type="button" class="btn btn-primary" id="add-element-btn">
-                        <i class="bi bi-plus-lg me-1"></i>新增要素
-                    </button>
                 </div>
             </div>
         </div>
@@ -139,24 +162,23 @@
                 <form id="element-form">
                     <input type="hidden" id="element-id">
 
-                    <div class="mb-3">
-                        <label class="form-label">所属分析 <span class="text-danger">*</span></label>
-                        <select class="form-select" id="element-sub-category" required>
-                            <option value="">请选择</option>
-                            <option value="nickname_analysis">昵称分析</option>
-                            <option value="bio_analysis">简介分析</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">要素名称 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="element-name" required placeholder="如：产品词、身份标签">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">要素编码 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="element-code" required placeholder="如：product_word、identity_tag">
-                        <small class="text-muted">用于代码中标识，请使用英文</small>
+                    <div class="row">
+                        <div class="col-4">
+                            <div class="mb-3">
+                                <label class="form-label">所属分析 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="element-sub-category" required>
+                                    <option value="">请选择</option>
+                                    <option value="nickname_analysis">昵称分析</option>
+                                    <option value="bio_analysis">简介分析</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-8">
+                            <div class="mb-3">
+                                <label class="form-label">要素名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="element-name" required placeholder="如：产品词、身份标签">
+                            </div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -166,23 +188,7 @@
 
                     <div class="mb-3">
                         <label class="form-label">示例</label>
-                        <input type="text" class="form-control" id="element-examples" placeholder="多个示例用 | 分隔，如：香肠|茶叶|手机">
-                    </div>
-
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <label class="form-label">优先级</label>
-                            <input type="number" class="form-control" id="element-priority" value="0" min="0">
-                            <small class="text-muted">数字越小越靠前</small>
-                        </div>
-                        <div class="col-6 mb-3 d-flex align-items-end">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="element-is-active" checked>
-                                <label class="form-check-label" for="element-is-active">
-                                    启用
-                                </label>
-                            </div>
-                        </div>
+                        <textarea class="form-control" id="element-examples" rows="3" placeholder="多个示例用 | 分隔，如：香肠|茶叶|手机"></textarea>
                     </div>
                 </form>
             </div>
@@ -194,158 +200,315 @@
     </div>
 </div>
 
-<!-- 导入弹窗 -->
-<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="importModalLabel">导入公式要素</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body py-4">
-                <textarea class="form-control" id="import-data" rows="10" placeholder="请粘贴 JSON 数据"></textarea>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" id="confirm-import-btn">导入</button>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+function getElementById(id) {
+    return document.getElementById(id);
+}
+
+// 分页状态
+const paginationState = {
+    nickname: { page: 1, perPage: 5, total: 0, pages: 0 },
+    bio: { page: 1, perPage: 5, total: 0, pages: 0 }
+};
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadElements('nickname_analysis');
+    loadElements('bio_analysis');
+    loadSuggestions();
+    
+    getElementById('init-elements-btn').addEventListener('click', handleInitElements);
+    
+    const exportBtn = getElementById('export-btn');
+    if (exportBtn) exportBtn.addEventListener('click', handleExport);
+    
+    const importBtn = getElementById('import-btn');
+    if (importBtn) importBtn.addEventListener('click', handleImportClick);
+    
+    const confirmImportBtn = getElementById('confirm-import-btn');
+    if (confirmImportBtn) confirmImportBtn.addEventListener('click', handleConfirmImport);
+    
+    getElementById('add-element-btn').addEventListener('click', handleAddElement);
+    getElementById('save-element-btn').addEventListener('click', handleSaveElement);
+    
+    getElementById('tab-nickname-elements').addEventListener('shown.bs.tab', function(e) {
+        loadElements('nickname_analysis');
+    });
+    getElementById('tab-bio-elements').addEventListener('shown.bs.tab', function(e) {
+        loadElements('bio_analysis');
+    });
+    getElementById('tab-suggestions').addEventListener('shown.bs.tab', function(e) {
+        loadSuggestions();
+    });
+});
+
 let currentEditId = null;
 
 // 加载要素列表
 function loadElements(subCategory) {
-    fetch(`/api/formula-elements/?sub_category=${subCategory}`)
-        .then(res => res.json())
+    const state = subCategory === 'nickname_analysis' ? paginationState.nickname : paginationState.bio;
+    
+    fetch(`/api/knowledge/formula-elements/?sub_category=${subCategory}&page=${state.page}&per_page=${state.perPage}`)
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
         .then(data => {
             if (data.code === 0) {
                 renderElements(subCategory, data.data);
+                state.total = data.total;
+                state.pages = data.pages;
+                renderPagination(subCategory);
+            } else {
+                console.error('加载要素失败:', data.message);
+                renderElementsError(subCategory);
             }
+        })
+        .catch(err => {
+            console.error('加载要素失败:', err);
+            renderElementsError(subCategory);
         });
+}
+
+// 渲染分页
+function renderPagination(subCategory) {
+    const state = subCategory === 'nickname_analysis' ? paginationState.nickname : paginationState.bio;
+    const totalId = subCategory === 'nickname_analysis' ? 'nickname-total' : 'bio-total';
+    const pagId = subCategory === 'nickname_analysis' ? 'nickname-pagination' : 'bio-pagination';
+    
+    getElementById(totalId).textContent = state.total;
+    
+    const pag = getElementById(pagId);
+    pag.innerHTML = '';
+    
+    if (state.pages <= 1) return;
+    
+    // 上一页
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${state.page === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage('${subCategory}', ${state.page - 1}); return false;">上一页</a>`;
+    pag.appendChild(prevLi);
+    
+    // 页码
+    const maxShow = 5;
+    let start = Math.max(1, state.page - Math.floor(maxShow / 2));
+    let end = Math.min(state.pages, start + maxShow - 1);
+    if (end - start < maxShow - 1) {
+        start = Math.max(1, end - maxShow + 1);
+    }
+    
+    for (let i = start; i <= end; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === state.page ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#" onclick="goToPage('${subCategory}', ${i}); return false;">${i}</a>`;
+        pag.appendChild(li);
+    }
+    
+    // 下一页
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${state.page >= state.pages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" onclick="goToPage('${subCategory}', ${state.page + 1}); return false;">下一页</a>`;
+    pag.appendChild(nextLi);
+}
+
+// 跳转页面
+function goToPage(subCategory, page) {
+    const state = subCategory === 'nickname_analysis' ? paginationState.nickname : paginationState.bio;
+    state.page = page;
+    loadElements(subCategory);
 }
 
 // 渲染要素表格
 function renderElements(subCategory, elements) {
-    const tbody = $(`#${subCategory === 'nickname_analysis' ? 'nickname' : 'bio'}-elements-table tbody`);
-    tbody.empty();
-
-    elements.forEach(e => {
-        const row = `
+    const tableId = subCategory === 'nickname_analysis' ? 'nickname-elements-table' : 'bio-elements-table';
+    const tbody = getElementById(tableId).querySelector('tbody');
+    
+    if (!elements || elements.length === 0) {
+        tbody.innerHTML = `
             <tr>
-                <td>${e.priority}</td>
-                <td><strong>${e.name}</strong></td>
-                <td><code>${e.code}</code></td>
-                <td>${e.description || '-'}</td>
-                <td>${e.examples ? e.examples.replace(/\|/g, '、') : '-'}</td>
-                <td>${e.is_active ? '<span class="badge bg-success">启用</span>' : '<span class="badge bg-secondary">禁用</span>'}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editElement(${e.id})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteElement(${e.id})">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                <td colspan="5" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    暂无要素，请点击"初始化"或"新增要素"
                 </td>
             </tr>
         `;
-        tbody.append(row);
-    });
+        return;
+    }
+
+    tbody.innerHTML = elements.map(e => `
+        <tr style="vertical-align: top;">
+            <td><strong>${e.name}</strong></td>
+            <td><code class="small">${e.code}</code></td>
+            <td class="text-truncate" style="max-width: 250px;" title="${e.description || ''}">${e.description || '-'}</td>
+            <td class="line-clamp-3" style="max-width: 200px;" title="${e.examples || ''}">${e.examples ? e.examples.replace(/\|/g, '、') : '-'}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editElement(${e.id})" title="编辑">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteElement(${e.id})" title="删除">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 渲染加载错误
+function renderElementsError(subCategory) {
+    const tableId = subCategory === 'nickname_analysis' ? 'nickname-elements-table' : 'bio-elements-table';
+    const tbody = getElementById(tableId).querySelector('tbody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center text-danger py-4">
+                <i class="bi bi-exclamation-triangle fs-1 d-block mb-2"></i>
+                加载失败，请刷新页面重试
+            </td>
+        </tr>
+    `;
 }
 
 // 加载待审核建议
 function loadSuggestions() {
-    fetch('/api/formula-elements/suggestions?status=pending')
-        .then(res => res.json())
+    fetch('/api/knowledge/formula-elements/suggestions?status=pending')
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
         .then(data => {
             if (data.code === 0) {
                 renderSuggestions(data.data);
+                updateSuggestionBadge(data.data.length);
             }
+        })
+        .catch(err => {
+            console.error('加载建议失败:', err);
+            renderSuggestionsError();
         });
 }
 
 // 渲染建议列表
 function renderSuggestions(suggestions) {
-    const container = $('#suggestions-list');
-    const count = suggestions.length;
-    $('#suggestion-count').text(count);
-
-    if (count === 0) {
-        container.html(`
-            <div class="text-center text-muted py-4">
-                <i class="bi bi-inbox fs-1"></i>
-                <p class="mt-2">暂无待审核的建议</p>
+    const container = getElementById('suggestions-container');
+    
+    if (!suggestions || suggestions.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-check-circle fs-1 d-block mb-2 text-success"></i>
+                <p class="mb-0">暂无待审核的建议</p>
+                <small class="text-muted">系统会自动发现新的公式要素</small>
             </div>
-        `);
+        `;
         return;
     }
 
-    let html = '<div class="list-group list-group-flush">';
-    suggestions.forEach(s => {
+    container.innerHTML = suggestions.map(s => {
         const subCatName = s.sub_category === 'nickname_analysis' ? '昵称分析' : '简介分析';
-        html += `
-            <div class="list-group-item">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="d-flex align-items-center gap-2 mb-1">
-                            <span class="badge bg-primary">${subCatName}</span>
-                            <strong>${s.name}</strong>
-                            <code class="small">${s.code}</code>
+        return `
+            <div class="card mb-3 border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="badge bg-primary">${subCatName}</span>
+                                <strong class="fs-5">${s.name}</strong>
+                                <code class="text-muted">${s.code}</code>
+                            </div>
+                            <p class="mb-1">${s.description || '<span class="text-muted">无描述</span>'}</p>
+                            <div class="row">
+                                <div class="col-auto">
+                                    <small class="text-muted">
+                                        <i class="bi bi-card-text me-1"></i>示例: ${s.example || '-'}
+                                    </small>
+                                </div>
+                                <div class="col-auto">
+                                    <small class="text-muted">
+                                        <i class="bi bi-person me-1"></i>来源: ${s.source_nickname || s.source_bio || '-'}
+                                    </small>
+                                </div>
+                            </div>
                         </div>
-                        <p class="mb-1 small">${s.description || '无描述'}</p>
-                        <p class="mb-0 small text-muted">示例: ${s.example || '-'}</p>
-                        <p class="mb-0 small text-muted">来源: ${s.source_nickname || s.source_bio || '-'}</p>
-                    </div>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-success" onclick="approveSuggestion(${s.id})">
-                            <i class="bi bi-check-lg"></i>通过
-                        </button>
-                        <button class="btn btn-outline-danger" onclick="rejectSuggestion(${s.id})">
-                            <i class="bi bi-x-lg"></i>拒绝
-                        </button>
+                        <div class="btn-group btn-group-sm ms-3">
+                            <button class="btn btn-success" onclick="approveSuggestion(${s.id})" title="通过">
+                                <i class="bi bi-check-lg"></i>通过
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="rejectSuggestion(${s.id})" title="拒绝">
+                                <i class="bi bi-x-lg"></i>拒绝
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
-    });
-    html += '</div>';
-    container.html(html);
+    }).join('');
+}
+
+// 渲染建议加载错误
+function renderSuggestionsError() {
+    const container = getElementById('suggestions-container');
+    container.innerHTML = `
+        <div class="text-center text-danger py-5">
+            <i class="bi bi-exclamation-triangle fs-1 d-block mb-2"></i>
+            <p class="mb-0">加载失败，请刷新页面重试</p>
+        </div>
+    `;
+}
+
+// 更新建议徽章
+function updateSuggestionBadge(count) {
+    const badge = getElementById('suggestion-badge');
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
+    }
 }
 
 // 编辑要素
 function editElement(id) {
-    fetch('/api/formula-elements/')
-        .then(res => res.json())
-        .then(data => {
-            if (data.code === 0) {
-                const element = data.data.find(e => e.id === id);
-                if (element) {
-                    currentEditId = id;
-                    $('#elementModalLabel').text('编辑要素');
-                    $('#element-id').val(element.id);
-                    $('#element-sub-category').val(element.sub_category);
-                    $('#element-name').val(element.name);
-                    $('#element-code').val(element.code);
-                    $('#element-description').val(element.description || '');
-                    $('#element-examples').val(element.examples || '');
-                    $('#element-priority').val(element.priority);
-                    $('#element-is-active').prop('checked', element.is_active);
-                    $('#elementModal').modal('show');
-                }
-            }
-        });
+    // 遍历两个分类查找要素
+    Promise.all([
+        fetch('/api/knowledge/formula-elements/?sub_category=nickname_analysis&page=1&per_page=100').then(res => res.json()),
+        fetch('/api/knowledge/formula-elements/?sub_category=bio_analysis&page=1&per_page=100').then(res => res.json())
+    ])
+    .then(([nickRes, bioRes]) => {
+        const allElements = [...(nickRes.data || []), ...(bioRes.data || [])];
+        const element = allElements.find(e => e.id === id);
+        if (element) {
+            currentEditId = id;
+            getElementById('elementModalLabel').textContent = '编辑要素';
+            getElementById('element-id').value = element.id;
+            getElementById('element-sub-category').value = element.sub_category;
+            getElementById('element-name').value = element.name;
+            getElementById('element-description').value = element.description || '';
+            getElementById('element-examples').value = element.examples || '';
+            bootstrap.Modal.getOrCreateInstance(getElementById('elementModal')).show();
+        }
+    })
+    .catch(err => {
+        console.error('加载要素失败:', err);
+        alert('加载失败，请重试');
+    });
 }
 
 // 删除要素
 function deleteElement(id) {
     if (!confirm('确定要删除这个要素吗？')) return;
 
-    fetch(`/api/formula-elements/${id}`, { method: 'DELETE' })
-        .then(res => res.json())
+    fetch(`/api/knowledge/formula-elements/${id}`, { method: 'DELETE' })
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
         .then(data => {
             if (data.code === 0) {
                 alert('删除成功');
@@ -354,6 +517,10 @@ function deleteElement(id) {
             } else {
                 alert(data.message || '删除失败');
             }
+        })
+        .catch(err => {
+            console.error('删除失败:', err);
+            alert('删除失败，请重试');
         });
 }
 
@@ -361,8 +528,13 @@ function deleteElement(id) {
 function approveSuggestion(id) {
     if (!confirm('确定要通过这个要素建议吗？将通过后添加到要素库。')) return;
 
-    fetch(`/api/formula-elements/suggestions/${id}/approve`, { method: 'POST' })
-        .then(res => res.json())
+    fetch(`/api/knowledge/formula-elements/suggestions/${id}/approve`, { method: 'POST' })
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
         .then(data => {
             if (data.code === 0) {
                 alert('已添加到要素库');
@@ -372,33 +544,51 @@ function approveSuggestion(id) {
             } else {
                 alert(data.message || '操作失败');
             }
+        })
+        .catch(err => {
+            console.error('操作失败:', err);
+            alert('操作失败，请重试');
         });
 }
 
 // 拒绝建议
 function rejectSuggestion(id) {
     const note = prompt('请输入拒绝原因（可选）:');
-    fetch(`/api/formula-elements/suggestions/${id}/reject`, {
+    fetch(`/api/knowledge/formula-elements/suggestions/${id}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note: note || '' })
     })
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
         .then(data => {
             if (data.code === 0) {
                 loadSuggestions();
             } else {
                 alert(data.message || '操作失败');
             }
+        })
+        .catch(err => {
+            console.error('操作失败:', err);
+            alert('操作失败，请重试');
         });
 }
 
 // 初始化默认要素
-$('#init-elements-btn').click(function() {
+function handleInitElements() {
     if (!confirm('确定要初始化默认要素吗？已存在的要素不会被重复创建。')) return;
 
-    fetch('/api/formula-elements/init', { method: 'POST' })
-        .then(res => res.json())
+    fetch('/api/knowledge/formula-elements/init', { method: 'POST' })
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
         .then(data => {
             if (data.code === 0) {
                 alert(data.message);
@@ -407,13 +597,22 @@ $('#init-elements-btn').click(function() {
             } else {
                 alert(data.message || '初始化失败');
             }
+        })
+        .catch(err => {
+            console.error('初始化失败:', err);
+            alert('初始化失败，请重试');
         });
-});
+}
 
 // 导出
-$('#export-btn').click(function() {
-    fetch('/api/formula-elements/export')
-        .then(res => res.json())
+function handleExport() {
+    fetch('/api/knowledge/formula-elements/export')
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
         .then(data => {
             if (data.code === 0) {
                 const json = JSON.stringify(data.data, null, 2);
@@ -425,17 +624,22 @@ $('#export-btn').click(function() {
                 a.click();
                 URL.revokeObjectURL(url);
             }
+        })
+        .catch(err => {
+            console.error('导出失败:', err);
+            alert('导出失败，请重试');
         });
-});
+}
 
-// 导入
-$('#import-btn').click(function() {
-    $('#import-data').val('');
-    $('#importModal').modal('show');
-});
+// 导入点击
+function handleImportClick() {
+    getElementById('import-data').value = '';
+    bootstrap.Modal.getOrCreateInstance(getElementById('importModal')).show();
+}
 
-$('#confirm-import-btn').click(function() {
-    const data = $('#import-data').val();
+// 确认导入
+function handleConfirmImport() {
+    const data = getElementById('import-data').value;
     if (!data.trim()) {
         alert('请输入 JSON 数据');
         return;
@@ -443,55 +647,89 @@ $('#confirm-import-btn').click(function() {
 
     try {
         const json = JSON.parse(data);
-        fetch('/api/formula-elements/import', {
+        fetch('/api/knowledge/formula-elements/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(json)
         })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                return res.json();
+            })
             .then(result => {
                 if (result.code === 0) {
                     alert(result.message);
-                    $('#importModal').modal('hide');
+                    bootstrap.Modal.getOrCreateInstance(getElementById('importModal')).hide();
                     loadElements('nickname_analysis');
                     loadElements('bio_analysis');
                 } else {
                     alert(result.message || '导入失败');
                 }
+            })
+            .catch(err => {
+                console.error('导入失败:', err);
+                alert('导入失败，请重试');
             });
     } catch (e) {
         alert('JSON 格式不正确');
     }
-});
+}
 
 // 新增要素
-$('#add-element-btn').click(function() {
+function handleAddElement() {
     currentEditId = null;
-    $('#elementModalLabel').text('新增要素');
-    $('#element-form')[0].reset();
-    $('#element-id').val('');
-    $('#elementModal').modal('show');
-});
+    getElementById('elementModalLabel').textContent = '新增要素';
+    getElementById('element-form').reset();
+    getElementById('element-id').value = '';
+    bootstrap.Modal.getOrCreateInstance(getElementById('elementModal')).show();
+}
 
 // 保存要素
-$('#save-element-btn').click(function() {
-    const id = $('#element-id').val();
+function handleSaveElement() {
+    const id = getElementById('element-id').value;
+    const name = getElementById('element-name').value;
+    
+    const autoGenerateCode = (name) => {
+        const pinyinMap = {
+            '产品': 'product', '身份': 'identity', '职业': 'occupation', '地域': 'region',
+            '年龄': 'age', '性别': 'gender', '兴趣': 'interest', '行为': 'behavior',
+            '消费': 'consumption', '品牌': 'brand', '品质': 'quality', '价格': 'price',
+            '风格': 'style', '功效': 'effect', '成分': 'ingredient', '材质': 'material',
+            '颜色': 'color', '大小': 'size', '数量': 'quantity', '频率': 'frequency'
+        };
+        
+        let code = name.toLowerCase();
+        for (const [cn, en] of Object.entries(pinyinMap)) {
+            if (name.includes(cn)) {
+                code = en + '_' + Date.now().toString(36);
+                break;
+            }
+        }
+        if (!code.includes('_')) {
+            code = 'element_' + Date.now().toString(36);
+        }
+        code = code.replace(/[^a-z0-9_]/g, '');
+        return code;
+    };
+    
     const data = {
-        sub_category: $('#element-sub-category').val(),
-        name: $('#element-name').val(),
-        code: $('#element-code').val(),
-        description: $('#element-description').val(),
-        examples: $('#element-examples').val(),
-        priority: parseInt($('#element-priority').val()) || 0,
-        is_active: $('#element-is-active').is(':checked')
+        sub_category: getElementById('element-sub-category').value,
+        name: name,
+        code: id ? '' : autoGenerateCode(name),
+        description: getElementById('element-description').value,
+        examples: getElementById('element-examples').value,
+        priority: 0,
+        is_active: true
     };
 
-    if (!data.sub_category || !data.name || !data.code) {
+    if (!data.sub_category || !data.name) {
         alert('请填写必填字段');
         return;
     }
 
-    const url = id ? `/api/formula-elements/${id}` : '/api/formula-elements/';
+    const url = id ? `/api/knowledge/formula-elements/${id}` : '/api/knowledge/formula-elements/';
     const method = id ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -499,34 +737,26 @@ $('#save-element-btn').click(function() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     })
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
         .then(result => {
             if (result.code === 0) {
                 alert('保存成功');
-                $('#elementModal').modal('hide');
+                bootstrap.Modal.getOrCreateInstance(getElementById('elementModal')).hide();
                 loadElements('nickname_analysis');
                 loadElements('bio_analysis');
             } else {
                 alert(result.message || '保存失败');
             }
+        })
+        .catch(err => {
+            console.error('保存失败:', err);
+            alert('保存失败，请重试');
         });
-});
-
-// Tab 切换时重新加载
-$('#tab-nickname, #tab-bio').on('shown.bs.tab', function(e) {
-    const target = e.target.getAttribute('data-bs-target');
-    if (target === '#pane-nickname') {
-        loadElements('nickname_analysis');
-    } else {
-        loadElements('bio_analysis');
-    }
-});
-
-// 页面加载时
-$(document).ready(function() {
-    loadElements('nickname_analysis');
-    loadElements('bio_analysis');
-    loadSuggestions();
-});
+}
 </script>
 {% endblock %}

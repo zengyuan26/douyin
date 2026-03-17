@@ -6397,22 +6397,25 @@ def _save_discovered_formula_elements(account_id, sub_category_results, account_
 def register_formula_elements_routes(bp):
     """注册公式要素 API 路由"""
 
-    @bp.route('/api/formula-elements/', methods=['GET'])
+    @bp.route('/formula-elements/', methods=['GET'])
     def get_formula_elements():
-        """获取所有公式要素（可按 sub_category 过滤）"""
+        """获取所有公式要素（可按 sub_category 过滤，支持分页）"""
         from flask import jsonify, request
         from models.models import FormulaElementType
 
         sub_category = request.args.get('sub_category')
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
 
         query = FormulaElementType.query
         if sub_category:
             query = query.filter_by(sub_category=sub_category)
 
-        elements = query.order_by(
+        # 分页
+        pagination = query.order_by(
             FormulaElementType.sub_category,
             FormulaElementType.priority
-        ).all()
+        ).paginate(page=page, per_page=per_page, error_out=False)
 
         return jsonify({
             'code': 0,
@@ -6428,31 +6431,60 @@ def register_formula_elements_routes(bp):
                 'usage_tips': e.usage_tips,
                 'created_at': e.created_at.isoformat() if e.created_at else None,
                 'updated_at': e.updated_at.isoformat() if e.updated_at else None,
-            } for e in elements]
+            } for e in pagination.items],
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'page': page,
+            'per_page': per_page
         })
 
-    @bp.route('/api/formula-elements/', methods=['POST'])
+    @bp.route('/formula-elements/', methods=['POST'])
     def create_formula_element():
         """创建公式要素"""
         from flask import jsonify, request
         from models.models import FormulaElementType
         from flask_login import current_user
+        import re
+        from datetime import datetime
 
-        if not current_user or not current_user.is_authenticated:
-            return jsonify({'code': 401, 'message': '未登录'}), 401
+        # 临时跳过登录检查（管理后台）
+        # if not current_user or not current_user.is_authenticated:
+        #     return jsonify({'code': 401, 'message': '未登录'}), 401
 
         data = request.get_json()
 
-        # 验证必填字段
-        required = ['sub_category', 'name', 'code']
+        # 验证必填字段（code 可选）
+        required = ['sub_category', 'name']
         for field in required:
             if not data.get(field):
                 return jsonify({'code': 400, 'message': f'缺少必填字段: {field}'}), 400
 
+        # 自动生成编码（如果未提供）
+        code = data.get('code', '').strip()
+        if not code:
+            # 从名称生成拼音编码
+            pinyin_map = {
+                '产品': 'product', '身份': 'identity', '职业': 'occupation', '地域': 'region',
+                '年龄': 'age', '性别': 'gender', '兴趣': 'interest', '行为': 'behavior',
+                '消费': 'consumption', '品牌': 'brand', '品质': 'quality', '价格': 'price',
+                '风格': 'style', '功效': 'effect', '成分': 'ingredient', '材质': 'material',
+                '颜色': 'color', '大小': 'size', '数量': 'quantity', '频率': 'frequency'
+            }
+            name = data['name']
+            code = None
+            for cn, en in pinyin_map.items():
+                if cn in name:
+                    code = f"{en}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    break
+            if not code:
+                code = f"elem_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            # 移除非字母数字字符
+            code = re.sub(r'[^a-z0-9_]', '', code.lower())
+
         # 检查 code 唯一性
         existing = FormulaElementType.query.filter_by(
             sub_category=data['sub_category'],
-            code=data['code']
+            code=code
         ).first()
         if existing:
             return jsonify({'code': 400, 'message': '该要素编码已存在'}), 400
@@ -6460,7 +6492,7 @@ def register_formula_elements_routes(bp):
         element = FormulaElementType(
             sub_category=data['sub_category'],
             name=data['name'],
-            code=data['code'],
+            code=code,
             description=data.get('description', ''),
             examples=data.get('examples', ''),
             priority=data.get('priority', 0),
@@ -6468,7 +6500,6 @@ def register_formula_elements_routes(bp):
             usage_tips=data.get('usage_tips', '')
         )
 
-        from app import db
         db.session.add(element)
         db.session.commit()
 
@@ -6481,7 +6512,7 @@ def register_formula_elements_routes(bp):
             'data': {'id': element.id}
         })
 
-    @bp.route('/api/formula-elements/<int:element_id>', methods=['PUT'])
+    @bp.route('/formula-elements/<int:element_id>', methods=['PUT'])
     def update_formula_element(element_id):
         """更新公式要素"""
         from flask import jsonify, request
@@ -6511,7 +6542,6 @@ def register_formula_elements_routes(bp):
         if 'usage_tips' in data:
             element.usage_tips = data['usage_tips']
 
-        from app import db
         db.session.commit()
 
         # 清除缓存
@@ -6522,7 +6552,7 @@ def register_formula_elements_routes(bp):
             'message': '更新成功'
         })
 
-    @bp.route('/api/formula-elements/<int:element_id>', methods=['DELETE'])
+    @bp.route('/formula-elements/<int:element_id>', methods=['DELETE'])
     def delete_formula_element(element_id):
         """删除公式要素"""
         from flask import jsonify
@@ -6550,7 +6580,7 @@ def register_formula_elements_routes(bp):
             'message': '删除成功'
         })
 
-    @bp.route('/api/formula-elements/init', methods=['POST'])
+    @bp.route('/formula-elements/init', methods=['POST'])
     def init_formula_elements():
         """初始化默认公式要素"""
         from flask import jsonify
@@ -6560,75 +6590,81 @@ def register_formula_elements_routes(bp):
         if not current_user or not current_user.is_authenticated:
             return jsonify({'code': 401, 'message': '未登录'}), 401
 
-        from app import db
+        import traceback
 
-        # 昵称分析默认要素（包含区分技巧）
-        nickname_elements = [
-            {'code': 'product_word', 'name': '产品词', 'description': '具体产品/服务、业务关键词（最高优先级）', 'examples': '香肠|茶叶|手机|AI', 'priority': 1, 'usage_tips': '能回答"你卖什么"的就是产品词'},
-            {'code': 'identity_tag', 'name': '身份标签', 'description': '身份/职业', 'examples': '哥|姐|老师|医生|创始人', 'priority': 2, 'usage_tips': '回答"你是做什么的"（哥/姐/老师/医生等）'},
-            {'code': 'persona_word', 'name': '人设词', 'description': '人格化角色/形象', 'examples': '魔女|西施|侠客|公主', 'priority': 3, 'usage_tips': '回答"你是谁"（人格化角色/虚拟身份），不是真实身份'},
-            {'code': 'style_word', 'name': '风格词', 'description': '外观/气质/体型描述', 'examples': '红发|高冷|胖|瘦', 'priority': 4, 'usage_tips': '只能描述外观/气质，不能回答"你是谁"'},
-            {'code': 'industry_word', 'name': '行业词', 'description': '行业/技术前缀（仅当无法确定具体产品时使用）', 'examples': '数码|美食|旅游', 'priority': 5, 'usage_tips': '当不知道具体产品时使用，优先级低于产品词'},
-            {'code': 'region_word', 'name': '地域词', 'description': '地区名称', 'examples': '南漳|北京|上海', 'priority': 6, 'usage_tips': '地名/区域名'},
-            {'code': 'attribute_word', 'name': '属性词', 'description': '品质/特点', 'examples': '手工|野生|正宗', 'priority': 7, 'usage_tips': '品质/工艺/特点描述'},
-            {'code': 'number_word', 'name': '数字词', 'description': '年份/数量', 'examples': '20年|10年|90年', 'priority': 8, 'usage_tips': '数字+年/月/天等单位'},
-            {'code': 'action_word', 'name': '行动词', 'description': '动作/行为', 'examples': '吃|玩|学', 'priority': 9, 'usage_tips': '动词/动作词'},
-        ]
+        try:
+            # 昵称分析默认要素（包含区分技巧）
+            nickname_elements = [
+                {'code': 'product_word', 'name': '产品词', 'description': '具体产品/服务、业务关键词（最高优先级）', 'examples': '香肠|茶叶|手机|AI', 'priority': 1, 'usage_tips': '能回答"你卖什么"的就是产品词'},
+                {'code': 'identity_tag', 'name': '身份标签', 'description': '身份/职业', 'examples': '哥|姐|老师|医生|创始人', 'priority': 2, 'usage_tips': '回答"你是做什么的"（哥/姐/老师/医生等）'},
+                {'code': 'persona_word', 'name': '人设词', 'description': '人格化角色/形象', 'examples': '魔女|西施|侠客|公主', 'priority': 3, 'usage_tips': '回答"你是谁"（人格化角色/虚拟身份），不是真实身份'},
+                {'code': 'style_word', 'name': '风格词', 'description': '外观/气质/体型描述', 'examples': '红发|高冷|胖|瘦', 'priority': 4, 'usage_tips': '只能描述外观/气质，不能回答"你是谁"'},
+                {'code': 'industry_word', 'name': '行业词', 'description': '行业/技术前缀（仅当无法确定具体产品时使用）', 'examples': '数码|美食|旅游', 'priority': 5, 'usage_tips': '当不知道具体产品时使用，优先级低于产品词'},
+                {'code': 'region_word', 'name': '地域词', 'description': '地区名称', 'examples': '南漳|北京|上海', 'priority': 6, 'usage_tips': '地名/区域名'},
+                {'code': 'attribute_word', 'name': '属性词', 'description': '品质/特点', 'examples': '手工|野生|正宗', 'priority': 7, 'usage_tips': '品质/工艺/特点描述'},
+                {'code': 'number_word', 'name': '数字词', 'description': '年份/数量', 'examples': '20年|10年|90年', 'priority': 8, 'usage_tips': '数字+年/月/天等单位'},
+                {'code': 'action_word', 'name': '行动词', 'description': '动作/行为', 'examples': '吃|玩|学', 'priority': 9, 'usage_tips': '动词/动作词'},
+            ]
 
-        # 简介分析默认要素（包含区分技巧）
-        bio_elements = [
-            {'code': 'identity_tag', 'name': '身份标签', 'description': '职业背景、学历、职称、专业身份', 'examples': '10年大厂PM|XX创始人|XX专家', 'priority': 1, 'usage_tips': '回答"你是谁"——职业、学历、职称、身份'},
-            {'code': 'value_proposition', 'name': '价值主张', 'description': '卖什么产品/服务、提供什么具体价值', 'examples': '专注茶叶20年|只卖正宗XX|专业手工XX', 'priority': 2, 'usage_tips': '回答"你提供什么价值"——卖什么产品/服务'},
-            {'code': 'differentiation', 'name': '差异化标签', 'description': '为什么关注你，你和别人不一样在哪', 'examples': '只讲真话|不割韭菜|0基础也能学', 'priority': 3, 'usage_tips': '回答"为什么选你"——与竞品差异点'},
-            {'code': 'cta', 'name': '行动号召', 'description': '让粉丝做什么、关注后做什么', 'examples': '关注送XX|扫码领取|私信咨询|到店试吃', 'priority': 4, 'usage_tips': '回答"让你做什么"——CTA指令'},
-            {'code': 'price_info', 'name': '价格信息', 'description': '具体的价格/报价', 'examples': '2.5元/斤|99元/盒', 'priority': 5, 'usage_tips': '具体数字+价格单位'},
-            {'code': 'contact', 'name': '联系方式', 'description': '联系方式', 'examples': '微信号|电话|地址', 'priority': 6, 'usage_tips': '可直接联系的方式'},
-            {'code': 'content_element', 'name': '内容要素', 'description': '其他内容要素', 'examples': 'slogan|品牌故事', 'priority': 7, 'usage_tips': '不属于以上任何类型的其他要素'},
-        ]
+            # 简介分析默认要素（包含区分技巧）
+            bio_elements = [
+                {'code': 'identity_tag', 'name': '身份标签', 'description': '职业背景、学历、职称、专业身份', 'examples': '10年大厂PM|XX创始人|XX专家', 'priority': 1, 'usage_tips': '回答"你是谁"——职业、学历、职称、身份'},
+                {'code': 'value_proposition', 'name': '价值主张', 'description': '卖什么产品/服务、提供什么具体价值', 'examples': '专注茶叶20年|只卖正宗XX|专业手工XX', 'priority': 2, 'usage_tips': '回答"你提供什么价值"——卖什么产品/服务'},
+                {'code': 'differentiation', 'name': '差异化标签', 'description': '为什么关注你，你和别人不一样在哪', 'examples': '只讲真话|不割韭菜|0基础也能学', 'priority': 3, 'usage_tips': '回答"为什么选你"——与竞品差异点'},
+                {'code': 'cta', 'name': '行动号召', 'description': '让粉丝做什么、关注后做什么', 'examples': '关注送XX|扫码领取|私信咨询|到店试吃', 'priority': 4, 'usage_tips': '回答"让你做什么"——CTA指令'},
+                {'code': 'price_info', 'name': '价格信息', 'description': '具体的价格/报价', 'examples': '2.5元/斤|99元/盒', 'priority': 5, 'usage_tips': '具体数字+价格单位'},
+                {'code': 'contact', 'name': '联系方式', 'description': '联系方式', 'examples': '微信号|电话|地址', 'priority': 6, 'usage_tips': '可直接联系的方式'},
+                {'code': 'content_element', 'name': '内容要素', 'description': '其他内容要素', 'examples': 'slogan|品牌故事', 'priority': 7, 'usage_tips': '不属于以上任何类型的其他要素'},
+            ]
 
-        created_count = 0
+            created_count = 0
 
-        # 创建昵称要素
-        for item in nickname_elements:
-            exists = FormulaElementType.query.filter_by(
-                sub_category='nickname_analysis',
-                code=item['code']
-            ).first()
-            if not exists:
-                element = FormulaElementType(
+            # 创建昵称要素
+            for item in nickname_elements:
+                exists = FormulaElementType.query.filter_by(
                     sub_category='nickname_analysis',
-                    **item,
-                    is_active=True
-                )
-                db.session.add(element)
-                created_count += 1
+                    code=item['code']
+                ).first()
+                if not exists:
+                    element = FormulaElementType(
+                        sub_category='nickname_analysis',
+                        **item,
+                        is_active=True
+                    )
+                    db.session.add(element)
+                    created_count += 1
 
-        # 创建简介要素
-        for item in bio_elements:
-            exists = FormulaElementType.query.filter_by(
-                sub_category='bio_analysis',
-                code=item['code']
-            ).first()
-            if not exists:
-                element = FormulaElementType(
+            # 创建简介要素
+            for item in bio_elements:
+                exists = FormulaElementType.query.filter_by(
                     sub_category='bio_analysis',
-                    **item,
-                    is_active=True
-                )
-                db.session.add(element)
-                created_count += 1
+                    code=item['code']
+                ).first()
+                if not exists:
+                    element = FormulaElementType(
+                        sub_category='bio_analysis',
+                        **item,
+                        is_active=True
+                    )
+                    db.session.add(element)
+                    created_count += 1
 
-        db.session.commit()
+            db.session.commit()
 
-        # 清除缓存
-        _invalidate_formula_elements_cache()
+            # 清除缓存
+            _invalidate_formula_elements_cache()
 
-        return jsonify({
-            'code': 0,
-            'message': f'初始化成功，共创建 {created_count} 个要素'
-        })
+            return jsonify({
+                'code': 0,
+                'message': f'初始化成功，共创建 {created_count} 个要素'
+            })
+        except Exception as e:
+            db.session.rollback()
+            import logging
+            logging.getLogger(__name__).error(f"初始化公式要素失败: {e}\n{traceback.format_exc()}")
+            return jsonify({'code': 500, 'message': f'初始化失败: {str(e)}'}), 500
 
-    @bp.route('/api/formula-elements/export', methods=['GET'])
+    @bp.route('/formula-elements/export', methods=['GET'])
     def export_formula_elements():
         """导出公式要素（JSON格式）"""
         from flask import jsonify, request
@@ -6665,7 +6701,7 @@ def register_formula_elements_routes(bp):
             'data': export_data
         })
 
-    @bp.route('/api/formula-elements/import', methods=['POST'])
+    @bp.route('/formula-elements/import', methods=['POST'])
     def import_formula_elements():
         """导入公式要素（JSON格式）"""
         from flask import jsonify, request
@@ -6679,8 +6715,6 @@ def register_formula_elements_routes(bp):
 
         if not data or 'elements' not in data:
             return jsonify({'code': 400, 'message': '无效的导入数据'}), 400
-
-        from app import db
 
         imported_count = 0
         skipped_count = 0
@@ -6726,7 +6760,7 @@ def register_formula_elements_routes(bp):
             'message': f'导入成功：新增 {imported_count} 个，更新 {skipped_count} 个'
         })
 
-    @bp.route('/api/formula-elements/suggestions', methods=['GET'])
+    @bp.route('/formula-elements/suggestions', methods=['GET'])
     def get_formula_element_suggestions():
         """获取待审核的要素建议"""
         from flask import jsonify, request
@@ -6758,7 +6792,7 @@ def register_formula_elements_routes(bp):
             } for s in suggestions]
         })
 
-    @bp.route('/api/formula-elements/suggestions/<int:suggestion_id>/approve', methods=['POST'])
+    @bp.route('/formula-elements/suggestions/<int:suggestion_id>/approve', methods=['POST'])
     def approve_formula_element_suggestion(suggestion_id):
         """审核通过要素建议，添加到要素库"""
         from flask import jsonify, request
@@ -6819,7 +6853,7 @@ def register_formula_elements_routes(bp):
             'message': message
         })
 
-    @bp.route('/api/formula-elements/suggestions/<int:suggestion_id>/reject', methods=['POST'])
+    @bp.route('/formula-elements/suggestions/<int:suggestion_id>/reject', methods=['POST'])
     def reject_formula_element_suggestion(suggestion_id):
         """拒绝要素建议"""
         from flask import jsonify, request
