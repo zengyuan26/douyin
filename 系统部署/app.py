@@ -52,13 +52,15 @@ def create_app(config_name='default'):
     from routes.expert_api import expert_api as expert_api_blueprint
     app.register_blueprint(expert_api_blueprint, url_prefix='/api/expert')
     
-    # 注册知识库分析 API
+    # 注册知识库分析 API - 先注册要素路由，再注册 blueprint
     from routes.knowledge_api import knowledge_api as knowledge_api_blueprint
-    app.register_blueprint(knowledge_api_blueprint)
-
-    # 注册公式要素 API
     from routes.knowledge_api import register_formula_elements_routes
+
+    # 先注册公式要素 API 路由到 blueprint
     register_formula_elements_routes(knowledge_api_blueprint)
+
+    # 再注册 blueprint 到 app
+    app.register_blueprint(knowledge_api_blueprint)
     
     # 创建上传目录
     import os
