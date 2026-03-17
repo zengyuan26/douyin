@@ -2654,9 +2654,11 @@ async function reanalyzeCurrentAccount() {
         const data = await response.json();
 
         if (data.code === 200) {
+            console.log('API returned 200, triggering selectAccount refresh');
             alert('重新分析已触发，请稍候...');
             // 刷新当前账号数据
             await selectAccount(currentAccount.id);
+            console.log('selectAccount completed, currentAccount:', currentAccount);
         } else {
             alert(data.message || '分析失败');
         }
