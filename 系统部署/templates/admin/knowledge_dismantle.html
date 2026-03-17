@@ -1049,11 +1049,11 @@ function selectAccountFromHistory(item) {
 
 // 根据ID选择账号并跳转到内容分析 tab
 async function selectAccount(accountId) {
-    console.log('selectAccount called with id:', accountId);
+    // console.log('selectAccount called with id:', accountId);
     try {
         const response = await fetch(`/api/knowledge/accounts/${accountId}`);
         const data = await response.json();
-        console.log('API response:', data);
+        // console.log('API response:', data);
 
         if (data.code === 200 && data.data) {
             const acc = data.data;
@@ -1676,17 +1676,17 @@ async function loadAccountsList() {
 // 查看账号详情（含变更历史）
 // 预览账号 - 点击卡片时只更新分析结果，不跳转页面
 async function selectAccountPreview(accountId) {
-    console.log('selectAccountPreview called with id:', accountId);
+    // console.log('selectAccountPreview called with id:', accountId);
     try {
         const response = await fetch(`/api/knowledge/accounts/${accountId}`);
         const data = await response.json();
-        console.log('API response:', data);
+        // console.log('API response:', data);
         const nickAnalysis = data.data?.analysis_result?.sub_category_analysis?.nickname_analysis;
-        console.log('[DEBUG] nickname_analysis from API:', nickAnalysis);
-        console.log('[DEBUG] nickname_analysis keys:', nickAnalysis ? Object.keys(nickAnalysis) : 'null');
+        // console.log('[DEBUG] nickname_analysis from API:', nickAnalysis);
+        // console.log('[DEBUG] nickname_analysis keys:', nickAnalysis ? Object.keys(nickAnalysis) : 'null');
 
         // 调试：打印完整的API返回数据
-        console.log('[DEBUG] full API data.data:', JSON.stringify(data.data).substring(0, 2000));
+        // console.log('[DEBUG] full API data.data:', JSON.stringify(data.data).substring(0, 2000));
 
         if (data.code === 200 && data.data) {
             const acc = data.data;
@@ -1735,14 +1735,14 @@ async function selectAccountPreview(accountId) {
 
 // 切换账号并跳转到内容分析 tab
 async function switchToAccount(accountId) {
-    console.log('[DEBUG] switchToAccount called with id:', accountId);
+    // console.log('[DEBUG] switchToAccount called with id:', accountId);
     try {
         const response = await fetch(`/api/knowledge/accounts/${accountId}`);
         const data = await response.json();
-        console.log('[DEBUG] switchToAccount API response:', data);
-        console.log('[DEBUG] analysis_result from API:', data.data?.analysis_result);
-        console.log('[DEBUG] sub_category_analysis from API:', data.data?.analysis_result?.sub_category_analysis);
-        console.log('[DEBUG] nickname_analysis from API:', data.data?.analysis_result?.sub_category_analysis?.nickname_analysis);
+        // console.log('[DEBUG] switchToAccount API response:', data);
+        // console.log('[DEBUG] analysis_result from API:', data.data?.analysis_result);
+        // console.log('[DEBUG] sub_category_analysis from API:', data.data?.analysis_result?.sub_category_analysis);
+        // console.log('[DEBUG] nickname_analysis from API:', data.data?.analysis_result?.sub_category_analysis?.nickname_analysis);
 
         if (data.code === 200 && data.data) {
             const acc = data.data;
@@ -2663,7 +2663,7 @@ async function reanalyzeCurrentAccount() {
 
 // 切换账号
 function clearAccount() {
-    console.log('clearAccount called');
+    // console.log('clearAccount called');
 
     // 清除 sessionStorage
     sessionStorage.removeItem('dismantle_account');
@@ -2689,7 +2689,7 @@ function clearAccount() {
     // 重新渲染历史记录
     renderAccountHistory();
 
-    console.log('账号已清除');
+    // console.log('账号已清除');
 }
 
 // 开始分析内容
@@ -2782,7 +2782,7 @@ async function analyzeContent() {
 // 显示账号分析结果
 function displayAccountAnalysisResult(accountInfo) {
     // 调试日志
-    console.log('[DEBUG] displayAccountAnalysisResult called', {
+    // console.log('[DEBUG] displayAccountAnalysisResult called', {
         accountId: accountInfo?.id,
         accountName: accountInfo?.name,
         hasAnalysisResult: !!accountInfo?.analysis_result,
@@ -2839,7 +2839,7 @@ function displayAccountAnalysisResult(accountInfo) {
 // 渲染账号分析Tab（抽取出来以便复用）
 function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
     // 调试日志
-    console.log('[DEBUG] renderAccountAnalysisTabs called', {
+    // console.log('[DEBUG] renderAccountAnalysisTabs called', {
         accountId: accountInfo?.id,
         hasAnalysisResult: !!accountInfo?.analysis_result,
         subCategoryKeys: Object.keys(accountInfo?.analysis_result?.sub_category_analysis || {})
@@ -2872,7 +2872,7 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
 
     // 构建Tab内容
     let tabContentHtml = '';
-    console.log('[DEBUG] allSubCategories:', allSubCategories.map(g => g.sub_category));
+    // console.log('[DEBUG] allSubCategories:', allSubCategories.map(g => g.sub_category));
     allSubCategories.forEach((group, index) => {
         const subCat = group.sub_category;
         const tabId = `tab-${subCat}`;
@@ -2885,17 +2885,17 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
         const analysisData = subCategoryAnalysis[subCat] || {};
         
         // 调试日志
-        console.log('[DEBUG] subCat:', subCat);
-        console.log('[DEBUG] analysisData:', analysisData);
-        console.log('[DEBUG] analysisData keys:', Object.keys(analysisData));
-        console.log('[DEBUG] analysisData.dimensions:', analysisData.dimensions);
-        console.log('[DEBUG] analysisData.llm_data:', analysisData.llm_data);
+        // console.log('[DEBUG] subCat:', subCat);
+        // console.log('[DEBUG] analysisData:', analysisData);
+        // console.log('[DEBUG] analysisData keys:', Object.keys(analysisData));
+        // console.log('[DEBUG] analysisData.dimensions:', analysisData.dimensions);
+        // console.log('[DEBUG] analysisData.llm_data:', analysisData.llm_data);
 
         // 根据不同二级分类构建不同内容
         let contentHtml = '';
         if (subCat === 'nickname_analysis') {
             contentHtml = renderNicknameAnalysis(analysisData, accountInfo);
-            console.log('[DEBUG] nickname contentHtml length:', contentHtml.length);
+            // console.log('[DEBUG] nickname contentHtml length:', contentHtml.length);
         } else if (subCat === 'bio_analysis') {
             contentHtml = renderBioAnalysis(analysisData, accountInfo);
         } else if (subCat === 'account_positioning') {
@@ -2947,62 +2947,62 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
     // 将 tab 导航放入固定头部区域，将 tab 内容放入可滚动区域
     const tabNavContainer = document.getElementById('analysis-results');
     const tabScrollContainer = document.getElementById('analysis-results-scroll');
-    console.log('[DEBUG] 放置前 - tabNavContainer:', tabNavContainer ? '存在' : '不存在');
-    console.log('[DEBUG] 放置前 - tabScrollContainer:', tabScrollContainer ? '存在' : '不存在');
+    // console.log('[DEBUG] 放置前 - tabNavContainer:', tabNavContainer ? '存在' : '不存在');
+    // console.log('[DEBUG] 放置前 - tabScrollContainer:', tabScrollContainer ? '存在' : '不存在');
     if (tabNavContainer && tabScrollContainer) {
         tabNavContainer.innerHTML = tabNavHtml;
         tabScrollContainer.innerHTML = fullTabContentHtml;
         
-        console.log('[DEBUG] 放置后 - tabNavContainer.innerHTML长度:', tabNavContainer.innerHTML.length);
-        console.log('[DEBUG] 放置后 - tabScrollContainer.innerHTML长度:', tabScrollContainer.innerHTML.length);
-        console.log('[DEBUG] tabScrollContainer class:', tabScrollContainer.className);
-        console.log('[DEBUG] tabScrollContainer offsetHeight:', tabScrollContainer.offsetHeight);
-        console.log('[DEBUG] tabScrollContainer scrollHeight:', tabScrollContainer.scrollHeight);
+        // console.log('[DEBUG] 放置后 - tabNavContainer.innerHTML长度:', tabNavContainer.innerHTML.length);
+        // console.log('[DEBUG] 放置后 - tabScrollContainer.innerHTML长度:', tabScrollContainer.innerHTML.length);
+        // console.log('[DEBUG] tabScrollContainer class:', tabScrollContainer.className);
+        // console.log('[DEBUG] tabScrollContainer offsetHeight:', tabScrollContainer.offsetHeight);
+        // console.log('[DEBUG] tabScrollContainer scrollHeight:', tabScrollContainer.scrollHeight);
         
         // 检查 analysis-results 容器
         const analysisResults = document.getElementById('analysis-results');
         if (analysisResults) {
             const arStyle = window.getComputedStyle(analysisResults);
-            console.log('[DEBUG] analysis-results class:', analysisResults.className);
-            console.log('[DEBUG] analysis-results offsetHeight:', analysisResults.offsetHeight);
-            console.log('[DEBUG] analysis-results scrollHeight:', analysisResults.scrollHeight);
-            console.log('[DEBUG] analysis-results overflow:', arStyle.overflow);
-            console.log('[DEBUG] analysis-results overflowY:', arStyle.overflowY);
+            // console.log('[DEBUG] analysis-results class:', analysisResults.className);
+            // console.log('[DEBUG] analysis-results offsetHeight:', analysisResults.offsetHeight);
+            // console.log('[DEBUG] analysis-results scrollHeight:', analysisResults.scrollHeight);
+            // console.log('[DEBUG] analysis-results overflow:', arStyle.overflow);
+            // console.log('[DEBUG] analysis-results overflowY:', arStyle.overflowY);
         }
         
         // 检查父容器 result-content
         const resultContent = document.getElementById('result-content');
         if (resultContent) {
             const rcStyle = window.getComputedStyle(resultContent);
-            console.log('[DEBUG] result-content class:', resultContent.className);
-            console.log('[DEBUG] result-content offsetHeight:', resultContent.offsetHeight);
-            console.log('[DEBUG] result-content scrollHeight:', resultContent.scrollHeight);
-            console.log('[DEBUG] result-content overflow:', rcStyle.overflow);
-            console.log('[DEBUG] result-content overflowY:', rcStyle.overflowY);
+            // console.log('[DEBUG] result-content class:', resultContent.className);
+            // console.log('[DEBUG] result-content offsetHeight:', resultContent.offsetHeight);
+            // console.log('[DEBUG] result-content scrollHeight:', resultContent.scrollHeight);
+            // console.log('[DEBUG] result-content overflow:', rcStyle.overflow);
+            // console.log('[DEBUG] result-content overflowY:', rcStyle.overflowY);
         }
         
         // 检查父容器 result-container
         const resultContainer = document.getElementById('result-container');
         if (resultContainer) {
             const rc2Style = window.getComputedStyle(resultContainer);
-            console.log('[DEBUG] result-container class:', resultContainer.className);
-            console.log('[DEBUG] result-container offsetHeight:', resultContainer.offsetHeight);
-            console.log('[DEBUG] result-container scrollHeight:', resultContainer.scrollHeight);
-            console.log('[DEBUG] result-container overflow:', rc2Style.overflow);
-            console.log('[DEBUG] result-container overflowY:', rc2Style.overflowY);
+            // console.log('[DEBUG] result-container class:', resultContainer.className);
+            // console.log('[DEBUG] result-container offsetHeight:', resultContainer.offsetHeight);
+            // console.log('[DEBUG] result-container scrollHeight:', resultContainer.scrollHeight);
+            // console.log('[DEBUG] result-container overflow:', rc2Style.overflow);
+            // console.log('[DEBUG] result-container overflowY:', rc2Style.overflowY);
         }
         
         // 检查是否真的有overflow
         const scrollStyle = window.getComputedStyle(tabScrollContainer);
-        console.log('[DEBUG] tabScrollContainer overflow:', scrollStyle.overflow);
-        console.log('[DEBUG] tabScrollContainer overflowY:', scrollStyle.overflowY);
+        // console.log('[DEBUG] tabScrollContainer overflow:', scrollStyle.overflow);
+        // console.log('[DEBUG] tabScrollContainer overflowY:', scrollStyle.overflowY);
         
         // 延迟检查实际渲染后的高度
         setTimeout(() => {
             const tabContent = document.getElementById('accountAnalysisTabContent');
             if (tabContent) {
-                console.log('[DEBUG] 延迟检查 - tabContent scrollHeight:', tabContent.scrollHeight);
-                console.log('[DEBUG] 延迟检查 - tabContent offsetHeight:', tabContent.offsetHeight);
+                // console.log('[DEBUG] 延迟检查 - tabContent scrollHeight:', tabContent.scrollHeight);
+                // console.log('[DEBUG] 延迟检查 - tabContent offsetHeight:', tabContent.offsetHeight);
             }
         }, 500);
         
@@ -3017,18 +3017,18 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
         ${fullTabContentHtml}
     `;
 
-    console.log('[DEBUG] final fullTabContentHtml length:', fullTabContentHtml.length);
+    // console.log('[DEBUG] final fullTabContentHtml length:', fullTabContentHtml.length);
     resultsContainer.innerHTML = html;
 
     // 调试：检查渲染后的DOM
     setTimeout(() => {
         // 检查所有 tab-pane
         document.querySelectorAll('#accountAnalysisTabContent .tab-pane').forEach((tab, i) => {
-            console.log(`[DEBUG] tab-${i} id:`, tab.id, 'innerHTML length:', tab.innerHTML.length);
+            // console.log(`[DEBUG] tab-${i} id:`, tab.id, 'innerHTML length:', tab.innerHTML.length);
             const dimsContainer = tab.querySelector('#nickname-dims-container');
             if (dimsContainer) {
-                console.log(`[DEBUG] tab-${i} dims container found, children:`, dimsContainer.children.length);
-                console.log(`[DEBUG] tab-${i} dims container innerHTML:`, dimsContainer.innerHTML.substring(0, 200));
+                // console.log(`[DEBUG] tab-${i} dims container found, children:`, dimsContainer.children.length);
+                // console.log(`[DEBUG] tab-${i} dims container innerHTML:`, dimsContainer.innerHTML.substring(0, 200));
             }
         });
     }, 100);
@@ -3059,10 +3059,10 @@ function renderNicknameAnalysis(data, accountInfo) {
     const accountId = accountInfo.id || accountInfo.account_id;
 
 // 调试日志
-            console.log('[DEBUG] renderNicknameAnalysis called with data:', data);
-            console.log('[DEBUG] renderNicknameAnalysis data keys:', data ? Object.keys(data) : 'null');
-            console.log('[DEBUG] renderNicknameAnalysis data.dimensions:', data?.dimensions);
-            console.log('[DEBUG] renderNicknameAnalysis data.llm_data:', data?.llm_data);
+            // console.log('[DEBUG] renderNicknameAnalysis called with data:', data);
+            // console.log('[DEBUG] renderNicknameAnalysis data keys:', data ? Object.keys(data) : 'null');
+            // console.log('[DEBUG] renderNicknameAnalysis data.dimensions:', data?.dimensions);
+            // console.log('[DEBUG] renderNicknameAnalysis data.llm_data:', data?.llm_data);
 
     const formula = data.formula || '';
     const suggestions = data.suggestions || [];
@@ -3176,27 +3176,27 @@ function renderNicknameAnalysis(data, accountInfo) {
     // 渲染维度卡片 - 优先使用 data.dimensions（用户+系统合并），兼容旧数据
     let dimsHtml = '';
     const llmData = data.llm_data || data;
-    console.log('[DEBUG] dimensions in render:', dimensions);
-    console.log('[DEBUG] llmData keys:', llmData ? Object.keys(llmData) : 'null');
+    // console.log('[DEBUG] dimensions in render:', dimensions);
+    // console.log('[DEBUG] llmData keys:', llmData ? Object.keys(llmData) : 'null');
     
     if (dimensions.length > 0) {
         for (const dim of dimensions) {
             const code = dim.code;
             const name = dim.name;
             const dimData = dim.data || llmData[code];
-            console.log('[DEBUG] dim:', code, name, dimData);
+            // console.log('[DEBUG] dim:', code, name, dimData);
             if (dimData) {
                 const cardHtml = renderDimCard(code, dimData, name);
-                console.log('[DEBUG] cardHtml for', code, ':', cardHtml ? 'has content' : 'empty');
+                // console.log('[DEBUG] cardHtml for', code, ':', cardHtml ? 'has content' : 'empty');
                 dimsHtml += cardHtml;
             }
         }
-        console.log('[DEBUG] final dimsHtml length:', dimsHtml.length);
+        // console.log('[DEBUG] final dimsHtml length:', dimsHtml.length);
     } else {
-        console.log('[DEBUG] No dimensions in data, falling back to hardcoded dimCodes');
+        // console.log('[DEBUG] No dimensions in data, falling back to hardcoded dimCodes');
         const dimCodes = ['nickname_keyword', 'nickname_memorability', 'nickname_feature', 'nickname_advantage'];
         for (const dimCode of dimCodes) {
-            console.log('[DEBUG] checking dimCode:', dimCode, 'in llmData:', llmData[dimCode]);
+            // console.log('[DEBUG] checking dimCode:', dimCode, 'in llmData:', llmData[dimCode]);
             if (llmData[dimCode]) {
                 dimsHtml += renderDimCard(dimCode, llmData[dimCode], null);
             }
@@ -3456,7 +3456,7 @@ function renderBioAnalysis(data, accountInfo) {
 // 渲染账号定位
 function renderAccountPositioning(accountInfo) {
     // 调试日志
-    console.log('[DEBUG] renderAccountPositioning called', {
+    // console.log('[DEBUG] renderAccountPositioning called', {
         main_product: accountInfo?.main_product,
         persona_role: accountInfo?.persona_role,
         commercial_positioning: accountInfo?.commercial_positioning,
@@ -3954,7 +3954,7 @@ function renderDimensionCards(data, prefix) {
             const designData = {}; // 保留用于兼容旧数据结构
             
             // 调试日志
-            console.log('[DEBUG] tab-design:', {
+            // console.log('[DEBUG] tab-design:', {
                 subCatAnalysis: subCatAnalysis,
                 nicknameAnalysis: nicknameAnalysis,
                 nicknameAnalysisKeys: Object.keys(nicknameAnalysis),
@@ -4100,7 +4100,7 @@ function renderDimensionCards(data, prefix) {
             };
             
             // 调试日志
-            console.log('[DEBUG] nicknameAnalysis:', nicknameAnalysis);
+            // console.log('[DEBUG] nicknameAnalysis:', nicknameAnalysis);
             
             for (const [dimCode, dimData] of Object.entries(nicknameAnalysis)) {
                 if (dimCode === 'dimension_code' || dimCode === 'dimension_name') continue;
@@ -4109,7 +4109,7 @@ function renderDimensionCards(data, prefix) {
                 nicknameCards.push(renderDimensionCard(dimCode, dimName, dimData, 'bi bi-person-badge'));
             }
             
-            console.log('[DEBUG] nicknameCards length:', nicknameCards.length);
+            // console.log('[DEBUG] nicknameCards length:', nicknameCards.length);
 
             // 简介维度 - 需要过滤掉非维度字段
             const bioCards = [];
@@ -4726,57 +4726,57 @@ document.addEventListener('DOMContentLoaded', function() {
     // #region 调试日志 - 检查滚动容器状态
     const resultContainer = document.getElementById('result-container');
     if (resultContainer) {
-        console.log('=== 滚动容器调试信息 ===');
-        console.log('clientHeight:', resultContainer.clientHeight);
-        console.log('scrollHeight:', resultContainer.scrollHeight);
-        console.log('offsetHeight:', resultContainer.offsetHeight);
-        console.log('scrollTop:', resultContainer.scrollTop);
-        console.log('overflow-y:', window.getComputedStyle(resultContainer).overflowY);
-        console.log('position:', window.getComputedStyle(resultContainer).position);
-        console.log('display:', window.getComputedStyle(resultContainer).display);
-        console.log('========================');
+        // console.log('=== 滚动容器调试信息 ===');
+        // console.log('clientHeight:', resultContainer.clientHeight);
+        // console.log('scrollHeight:', resultContainer.scrollHeight);
+        // console.log('offsetHeight:', resultContainer.offsetHeight);
+        // console.log('scrollTop:', resultContainer.scrollTop);
+        // console.log('overflow-y:', window.getComputedStyle(resultContainer).overflowY);
+        // console.log('position:', window.getComputedStyle(resultContainer).position);
+        // console.log('display:', window.getComputedStyle(resultContainer).display);
+        // console.log('========================');
 
         // 检查父元素
         const parent = resultContainer.parentElement;
-        console.log('父元素 class:', parent.className);
-        console.log('父元素 min-height:', window.getComputedStyle(parent).minHeight);
-        console.log('父元素 height:', window.getComputedStyle(parent).height);
+        // console.log('父元素 class:', parent.className);
+        // console.log('父元素 min-height:', window.getComputedStyle(parent).minHeight);
+        // console.log('父元素 height:', window.getComputedStyle(parent).height);
 
         // 检查 col-lg-7 容器
         const grandParent = parent.parentElement;
-        console.log('祖父元素 class:', grandParent.className);
-        console.log('祖父元素 overflow:', window.getComputedStyle(grandParent).overflow);
-        console.log('祖父元素 height:', window.getComputedStyle(grandParent).height);
+        // console.log('祖父元素 class:', grandParent.className);
+        // console.log('祖父元素 overflow:', window.getComputedStyle(grandParent).overflow);
+        // console.log('祖父元素 height:', window.getComputedStyle(grandParent).height);
 
         // 检查 row
         const greatGrandParent = grandParent.parentElement;
-        console.log('曾祖父元素 class:', greatGrandParent.className);
-        console.log('曾祖父元素 height:', window.getComputedStyle(greatGrandParent).height);
+        // console.log('曾祖父元素 class:', greatGrandParent.className);
+        // console.log('曾祖父元素 height:', window.getComputedStyle(greatGrandParent).height);
 
         // 检查 result-content 内部内容高度
         const resultContent = document.getElementById('result-content');
         if (resultContent) {
-            console.log('result-content display:', window.getComputedStyle(resultContent).display);
-            console.log('result-content children count:', resultContent.children.length);
+            // console.log('result-content display:', window.getComputedStyle(resultContent).display);
+            // console.log('result-content children count:', resultContent.children.length);
             let totalContentHeight = 0;
             for (let child of resultContent.children) {
                 totalContentHeight += child.offsetHeight || 0;
-                console.log('  child:', child.className, 'height:', child.offsetHeight);
+                // console.log('  child:', child.className, 'height:', child.offsetHeight);
             }
-            console.log('总内容高度:', totalContentHeight);
+            // console.log('总内容高度:', totalContentHeight);
         }
 
         // 检查 result-empty 高度
         const resultEmpty = document.getElementById('result-empty');
         if (resultEmpty) {
-            console.log('result-empty height:', resultEmpty.offsetHeight);
+            // console.log('result-empty height:', resultEmpty.offsetHeight);
         }
 
         // 检查 analysis-results
         const analysisResults = document.getElementById('analysis-results');
         if (analysisResults) {
-            console.log('analysis-results innerHTML length:', analysisResults.innerHTML.length);
-            console.log('analysis-results height:', analysisResults.offsetHeight);
+            // console.log('analysis-results innerHTML length:', analysisResults.innerHTML.length);
+            // console.log('analysis-results height:', analysisResults.offsetHeight);
         }
     }
     // #endregion
