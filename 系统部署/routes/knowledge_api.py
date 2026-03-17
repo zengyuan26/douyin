@@ -6206,6 +6206,76 @@ SYSTEM_NICKNAME_DIMENSION_CODES = [
 ]
 
 
+# ========== 公式要素类型辅助函数 ==========
+
+def _get_formula_elements(sub_category):
+    """从数据库获取公式要素配置"""
+    try:
+        from models.models import FormulaElementType
+        elements = FormulaElementType.query.filter_by(
+            sub_category=sub_category,
+            is_active=True
+        ).order_by(FormulaElementType.priority.asc()).all()
+        return elements
+    except Exception as e:
+        logger.warning(f"获取公式要素失败: {e}")
+        return None
+
+
+def _build_formula_elements_text(sub_category):
+    """构建公式要素说明文本（用于 prompt）"""
+    elements = _get_formula_elements(sub_category)
+
+    # 如果数据库没有要素，返回 None 让调用方使用默认
+    if not elements:
+        return None
+
+    if sub_category == 'nickname_analysis':
+        # 构建要素列表
+        element_lines = []
+        for e in elements:
+            examples_str = e.examples.replace('|', '、') if e.examples else ''
+            element_lines.append(f"   - **{e.name}**：{e.description}" + (f"（如：{examples_str}）" if examples_str else ""))
+
+        elements_text = "\n".join(element_lines)
+
+        # 构建优先级说明
+        priority_text = " > ".join([e.name for e in elements])
+
+        # 构建示例
+        example_texts = []
+        for e in elements:
+            if e.examples:
+                # 取第一个示例
+                first_example = e.examples.split('|')[0]
+                example_texts.append(f"   - **{e.name}({first_example})**")
+
+        # 优先使用数据库中的示例，如果没有则用硬编码的
+        example_str = "\n".join(example_texts) if example_texts else None
+
+        return {
+            'elements_text': elements_text,
+            'priority_text': priority_text,
+            'example_str': example_str,
+            'count': len(elements)
+        }
+
+    elif sub_category == 'bio_analysis':
+        element_lines = []
+        for e in elements:
+            examples_str = e.examples.replace('|', '、') if e.examples else ''
+            element_lines.append(f"   - **{e.name}**：{e.description}" + (f"（如：{examples_str}）" if examples_str else ""))
+
+        elements_text = "\n".join(element_lines)
+
+        return {
+            'elements_text': elements_text,
+            'count': len(elements)
+        }
+
+    return None
+
+
 def _get_merged_nickname_dimensions():
     """获取昵称分析维度：用户设置的维度（必选） + 系统默认维度（补充）"""
     from models.models import AnalysisDimension
@@ -6565,21 +6635,38 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
         dim_sections_text = "\n\n".join(dim_sections)
         json_dims_block = ",\n".join(json_dim_examples)
 
-        return f"""{base_info}
-{dim_desc}
+        # 尝试从数据库获取公式要素配置
+        formula_config = _build_formula_elements_text('nickname_analysis')
 
-## 分析任务
+        if formula_config:
+            # 使用数据库中的要素配置
+            elements_text = formula_config['elements_text']
+            priority_text = formula_config['priority_text']
+            example_str = formula_config.get('example_str')
 
-请分析账号昵称 **"{nickname}"**，按照以下要求输出JSON：
+            formula_section = f"""3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"要素类型(具体内容)"。要素类型必须是以下{formula_config['count']}种之一：
+{elements_text}
 
-1. **整体评分 (score)**: 0-100分，根据昵称的实际质量。**评分必须有严格区分度**：
-   - 90-100分：非常优秀，有明显的记忆点、人设明确、业务清晰
-   - 75-89分：较好，有一定特点但可以优化
-   - 60-74分：一般，缺少明显记忆点或人设模糊
-   - 60分以下：较差，需要重新设计
-   **注意**：大多数昵称应该在60-85分之间，极少有完美昵称，不要轻易给90分以上！
-2. **评分理由 (score_reason)**: 一句话说明评分理由，必须说明具体原因
-3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"要素类型(具体内容)"。要素类型必须是以下10种之一：
+   **分析优先级**：{priority_text}
+
+   例如："""
+
+            # 添加示例
+            if example_str:
+                formula_section += f"""
+{example_str}"""
+            else:
+                formula_section += f"""
+   - 对于昵称"灌肠西施"，公式应该是"产品词(灌肠) + 身份标签(西施)"
+   - 对于昵称"纽约王老师"，公式应该是"地域词(纽约) + 身份标签(王老师)"
+   - 对于昵称"南漳黄姐灌香肠手工20年"，公式应该是"地域词(南漳) + 身份标签(黄姐) + 产品词(灌香肠) + 属性词(手工) + 数字词(20年)"
+   - **对于昵称"罗胖香肠90年"**，公式应该是"产品词(香肠) + 数字词(90年) + 风格词(胖)"
+   - **对于昵称"AI红发魔女"**，公式应该是"产品词(AI) + 风格词(红发) + 人设词(魔女)"
+   - **对于昵称"红发魔女"**，公式应该是"风格词(红发) + 人设词(魔女)"
+   - **对于昵称"数码哥"**，公式应该是"行业词(数码) + 身份标签(哥)" """
+        else:
+            # 使用默认硬编码
+            formula_section = """3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"要素类型(具体内容)"。要素类型必须是以下10种之一：
    - **产品词**：具体产品/服务、业务关键词（**最高优先级**，如：AI代表AI相关业务、香肠、茶叶、手机）
    - **身份标签**：身份/职业（如：哥、姐、老师、医生、创始人）
    - **人设词**：人格化角色/形象（如：魔女、西施、侠客、公主）
@@ -6594,12 +6681,28 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
    例如：
    - 对于昵称"灌肠西施"，公式应该是"产品词(灌肠) + 身份标签(西施)"
-   - 对于昵称"纽约王老师"，公式应该是"地域词(纽约) + 姓氏(王) + 职业标签(老师)"
+   - 对于昵称"纽约王老师"，公式应该是"地域词(纽约) + 身份标签(王老师)"
    - 对于昵称"南漳黄姐灌香肠手工20年"，公式应该是"地域词(南漳) + 身份标签(黄姐) + 产品词(灌香肠) + 属性词(手工) + 数字词(20年)"
    - **对于昵称"罗胖香肠90年"**，公式应该是"产品词(香肠) + 数字词(90年) + 风格词(胖)"
    - **对于昵称"AI红发魔女"**，公式应该是"产品词(AI) + 风格词(红发) + 人设词(魔女)"
    - **对于昵称"红发魔女"**，公式应该是"风格词(红发) + 人设词(魔女)"
-   - **对于昵称"数码哥"**，公式应该是"行业词(数码) + 身份标签(哥)"
+   - **对于昵称"数码哥"**，公式应该是"行业词(数码) + 身份标签(哥)" """
+
+        return f"""{base_info}
+{dim_desc}
+
+## 分析任务
+
+请分析账号昵称 **"{nickname}"**，按照以下要求输出JSON：
+
+1. **整体评分 (score)**: 0-100分，根据昵称的实际质量。**评分必须有严格区分度**：
+   - 90-100分：非常优秀，有明显的记忆点、人设明确、业务清晰
+   - 75-89分：较好，有一定特点但可以优化
+   - 60-74分：一般，缺少明显记忆点或人设模糊
+   - 60分以下：较差，需要重新设计
+   **注意**：大多数昵称应该在60-85分之间，极少有完美昵称，不要轻易给90分以上！
+2. **评分理由 (score_reason)**: 一句话说明评分理由，必须说明具体原因
+{formula_section}
 4. **优化建议 (suggestions)**: 根据昵称实际情况列出2-3条有针对性的优化建议。注意：若昵称已含地域词（如南漳、北京等），则不要建议增加地域词；若已含数字（如20、10等），则不要建议加入数字。建议必须基于实际缺失的要素提出。
 
 5. **各维度详细分析**（必须包含以下所有维度，不可遗漏）：
@@ -6751,6 +6854,35 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
         dim_sections_text = "\n\n".join(dim_sections)
         json_dims_block = ",\n".join(json_dim_examples)
 
+        # 尝试从数据库获取公式要素配置
+        formula_config = _build_formula_elements_text('bio_analysis')
+
+        if formula_config:
+            # 使用数据库中的要素配置
+            elements_text = formula_config['elements_text']
+
+            formula_section = f"""3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。**重要：要素类型必须是以下{formula_config['count']}种之一：{elements_text}**
+   例如：
+   - 对于简介"XX品牌创始人，专注XX20年，全国XX冠军，+V领取资料"，公式应该是"身份标签(XX品牌创始人) + 价值主张(专注XX20年) + 差异化标签(全国XX冠军) + 行动号召(+V领取资料)"
+   - 对于简介"20年老店拎肉来灌，2.5元/斤，关注到店有好礼"，公式应该是"价值主张(20年老店体现资历) + 行动号召(拎肉来灌) + 行动号召(关注到店有好礼) + 价格信息(2.5元/斤)"
+   - **特别注意**：
+     - 身份标签指：职业背景、学历、职称、专业身份等（如：10年大厂PM、苏黎世大学博士、XX创始人、XX专家）
+     - **价值主张指**：你卖什么产品/服务、提供什么具体价值。例：专注茶叶20年｜只卖正宗XX｜专业手工XX
+     - **差异化标签指**：为什么关注你，你和别人不一样在哪。例：只讲真话｜不割韭菜｜0基础也能学
+     - **行动号召(CTA)指**：让粉丝做什么、关注后做什么。例：关注送XX｜扫码领取｜私信咨询｜到店试吃
+     - **价格信息指**：具体的价格/报价（如：2.5元/斤、99元/盒）"""
+        else:
+            # 使用默认硬编码
+            formula_section = """3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。**重要：要素类型必须是以下7种之一：身份标签、价值主张、差异化标签、行动号召、价格信息、联系方式、内容要素**。例如：
+   - 对于简介"XX品牌创始人，专注XX20年，全国XX冠军，+V领取资料"，公式应该是"身份标签(XX品牌创始人) + 价值主张(专注XX20年) + 差异化标签(全国XX冠军) + 行动号召(+V领取资料)"
+   - 对于简介"20年老店拎肉来灌，2.5元/斤，关注到店有好礼"，公式应该是"价值主张(20年老店体现资历) + 行动号召(拎肉来灌) + 行动号召(关注到店有好礼) + 价格信息(2.5元/斤)"
+   - **特别注意**：
+     - 身份标签指：职业背景、学历、职称、专业身份等（如：10年大厂PM、苏黎世大学博士、XX创始人、XX专家）
+     - **价值主张指**：你卖什么产品/服务、提供什么具体价值。例：专注茶叶20年｜只卖正宗XX｜专业手工XX
+     - **差异化标签指**：为什么关注你，你和别人不一样在哪。例：只讲真话｜不割韭菜｜0基础也能学
+     - **行动号召(CTA)指**：让粉丝做什么、关注后做什么。例：关注送XX｜扫码领取｜私信咨询｜到店试吃
+     - **价格信息指**：具体的价格/报价（如：2.5元/斤、99元/盒）"""
+
         return f"""{base_info}
 {dim_desc}
 
@@ -6764,15 +6896,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
    - 60-74分：一般，缺少明显结构或核心要素
    - 60分以下：较差，需要重新设计
 2. **评分理由 (score_reason)**: 一句话说明评分理由，**必须基于简介的实际内容来评价**
-3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。**重要：要素类型必须是以下7种之一：身份标签、价值主张、差异化标签、行动号召、价格信息、联系方式、内容要素**。例如：
-   - 对于简介"XX品牌创始人，专注XX20年，全国XX冠军，+V领取资料"，公式应该是"身份标签(XX品牌创始人) + 价值主张(专注XX20年) + 差异化标签(全国XX冠军) + 行动号召(+V领取资料)"
-   - 对于简介"20年老店拎肉来灌，2.5元/斤，关注到店有好礼"，公式应该是"价值主张(20年老店体现资历) + 行动号召(拎肉来灌) + 行动号召(关注到店有好礼) + 价格信息(2.5元/斤)"
-   - **特别注意**：
-     - 身份标签指：职业背景、学历、职称、专业身份等（如：10年大厂PM、苏黎世大学博士、XX创始人、XX专家）
-     - **价值主张指**：你卖什么产品/服务、提供什么具体价值。例：专注茶叶20年｜只卖正宗XX｜专业手工XX
-     - **差异化标签指**：为什么关注你，你和别人不一样在哪。例：只讲真话｜不割韭菜｜0基础也能学
-     - **行动号召(CTA)指**：让粉丝做什么、关注后做什么。例：关注送XX｜扫码领取｜私信咨询｜到店试吃
-     - **价格信息指**：具体的价格/报价（如：2.5元/斤、99元/盒）
+{formula_section}
 4. **优化建议 (suggestions)**: 根据简介实际情况列出2-3条有针对性的优化建议。**重要规则**：
    - **必须先分析简介实际包含的要素**：如果简介已经有"价值主张"就不要再建议添加价值主张；如果简介已经有"行动号召"就不要再建议添加行动号召；如果简介已经有"联系方式"就不要再建议添加联系方式
    - 只能建议添加简介中**真正缺失**的要素

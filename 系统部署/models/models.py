@@ -1264,6 +1264,41 @@ class AnalysisDimensionCategoryOrder(db.Model):
         return f'<AnalysisDimensionCategoryOrder {self.category}/{self.sub_category} order={self.sort_order}>'
 
 
+# ========== 公式要素类型配置 ==========
+
+class FormulaElementType(db.Model):
+    """公式要素类型配置表 - 存储昵称/简介分析的公式要素定义"""
+    __tablename__ = 'formula_element_types'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # 所属分析类型
+    sub_category = db.Column(db.String(50), nullable=False)  # nickname_analysis / bio_analysis
+
+    # 要素基本信息
+    name = db.Column(db.String(50), nullable=False)  # 要素名称（如：产品词、身份标签）
+    code = db.Column(db.String(50), nullable=False)  # 要素编码（如：product_word、identity_tag）
+    description = db.Column(db.Text)  # 要素定义说明
+    examples = db.Column(db.Text)  # 示例（多个，用 | 分隔，如：香肠|茶叶|手机）
+
+    # 排序和状态
+    priority = db.Column(db.Integer, default=0)  # 优先级（数字越小越靠前）
+    is_active = db.Column(db.Boolean, default=True)  # 是否启用
+
+    # 用途说明（用于 prompt 中）
+    usage_tips = db.Column(db.Text)  # 使用场景/注意事项
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('sub_category', 'code', name='uix_sub_category_code'),
+    )
+
+    def __repr__(self):
+        return f'<FormulaElementType {self.sub_category}/{self.code}>'
+
+
 # ========== 规则自动提取记录 ==========
 
 class RuleExtractionLog(db.Model):

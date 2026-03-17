@@ -5,7 +5,7 @@ import os
 import re
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
-from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, Industry, Channel, Client, KnowledgeAccount, KnowledgeContent, ReportTemplate, ContentTemplate, TemplateDependency, TemplateRefreshLog, TemplateContentItem, TemplateEditHistory, PersonaMethod, PersonaRole, UsageScenario, DemandScenario, PainPoint, HotTopic, SeasonalTopic, ContentTitle, ContentHook, ContentStructure, ContentEnding, ContentReplication, ContentCover, ContentTopic, ContentPsychology, ContentCommercial, ContentWhyPopular, ContentTag, ContentCharacter, ContentForm, ContentInteraction, AnalysisDimension, AnalysisDimensionCategoryOrder, RuleExtractionLog
+from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, Industry, Channel, Client, KnowledgeAccount, KnowledgeContent, ReportTemplate, ContentTemplate, TemplateDependency, TemplateRefreshLog, TemplateContentItem, TemplateEditHistory, PersonaMethod, PersonaRole, UsageScenario, DemandScenario, PainPoint, HotTopic, SeasonalTopic, ContentTitle, ContentHook, ContentStructure, ContentEnding, ContentReplication, ContentCover, ContentTopic, ContentPsychology, ContentCommercial, ContentWhyPopular, ContentTag, ContentCharacter, ContentForm, ContentInteraction, AnalysisDimension, AnalysisDimensionCategoryOrder, RuleExtractionLog, FormulaElementType
 from sqlalchemy import or_, and_
 from constants import ANALYSIS_DIMENSIONS, DIMENSION_TO_MATERIAL_TYPE, MATERIAL_TYPES, INDUSTRY_OPTIONS, ANALYSIS_DIMENSION_CATEGORIES
 from functools import wraps
@@ -3232,6 +3232,280 @@ def get_dimension_categories():
     return jsonify({
         'success': True,
         'data': ANALYSIS_DIMENSION_CATEGORIES
+    })
+
+
+# ==================== 公式要素类型管理 ====================
+
+@admin.route('/formula-elements')
+@login_required
+@super_admin_required
+def formula_elements_page():
+    """公式要素管理页面"""
+    return render_template('admin/formula_elements.html')
+
+
+@admin.route('/api/formula-elements', methods=['GET'])
+@login_required
+def get_formula_elements():
+    """获取公式要素列表"""
+    sub_category = request.args.get('sub_category')
+    is_active = request.args.get('is_active')
+
+    query = FormulaElementType.query
+
+    if sub_category:
+        query = query.filter(FormulaElementType.sub_category == sub_category)
+
+    if is_active is not None:
+        if is_active.lower() in ('true', '1', 'yes'):
+            query = query.filter(FormulaElementType.is_active == True)
+        elif is_active.lower() in ('false', '0', 'no'):
+            query = query.filter(FormulaElementType.is_active == False)
+
+    # 按优先级排序
+    query = query.order_by(FormulaElementType.priority.asc(), FormulaElementType.id.asc())
+
+    elements = query.all()
+
+    return jsonify({
+        'success': True,
+        'data': [{
+            'id': e.id,
+            'sub_category': e.sub_category,
+            'name': e.name,
+            'code': e.code,
+            'description': e.description,
+            'examples': e.examples,
+            'priority': e.priority,
+            'is_active': e.is_active,
+            'usage_tips': e.usage_tips,
+            'created_at': e.created_at.isoformat() if e.created_at else None,
+            'updated_at': e.updated_at.isoformat() if e.updated_at else None,
+        } for e in elements]
+    })
+
+
+@admin.route('/api/formula-elements/<int:id>', methods=['GET'])
+@login_required
+def get_formula_element(id):
+    """获取单个公式要素"""
+    element = FormulaElementType.query.get_or_404(id)
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': element.id,
+            'sub_category': element.sub_category,
+            'name': element.name,
+            'code': element.code,
+            'description': element.description,
+            'examples': element.examples,
+            'priority': element.priority,
+            'is_active': element.is_active,
+            'usage_tips': element.usage_tips,
+        }
+    })
+
+
+@admin.route('/api/formula-elements', methods=['POST'])
+@login_required
+@super_admin_required
+def create_formula_element():
+    """创建公式要素"""
+    data = request.get_json()
+
+    # 检查编码是否已存在
+    existing = FormulaElementType.query.filter_by(
+        sub_category=data.get('sub_category'),
+        code=data.get('code')
+    ).first()
+
+    if existing:
+        return jsonify({
+            'success': False,
+            'message': f"要素编码 '{data.get('code')}' 已在 sub_category '{data.get('sub_category')}' 中存在"
+        }), 400
+
+    element = FormulaElementType(
+        sub_category=data.get('sub_category'),
+        name=data.get('name'),
+        code=data.get('code'),
+        description=data.get('description', ''),
+        examples=data.get('examples', ''),
+        priority=data.get('priority', 0),
+        is_active=data.get('is_active', True),
+        usage_tips=data.get('usage_tips', '')
+    )
+
+    db.session.add(element)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': element.id,
+            'name': element.name,
+            'code': element.code
+        }
+    })
+
+
+@admin.route('/api/formula-elements/<int:id>', methods=['PUT'])
+@login_required
+@super_admin_required
+def update_formula_element(id):
+    """更新公式要素"""
+    element = FormulaElementType.query.get_or_404(id)
+    data = request.get_json()
+
+    # 检查编码冲突（排除自己）
+    if 'code' in data or 'sub_category' in data:
+        new_sub_category = data.get('sub_category', element.sub_category)
+        new_code = data.get('code', element.code)
+
+        existing = FormulaElementType.query.filter(
+            FormulaElementType.sub_category == new_sub_category,
+            FormulaElementType.code == new_code,
+            FormulaElementType.id != id
+        ).first()
+
+        if existing:
+            return jsonify({
+                'success': False,
+                'message': f"要素编码 '{new_code}' 已在 sub_category '{new_sub_category}' 中存在"
+            }), 400
+
+    if 'sub_category' in data:
+        element.sub_category = data['sub_category']
+    if 'name' in data:
+        element.name = data['name']
+    if 'code' in data:
+        element.code = data['code']
+    if 'description' in data:
+        element.description = data['description']
+    if 'examples' in data:
+        element.examples = data['examples']
+    if 'priority' in data:
+        element.priority = data['priority']
+    if 'is_active' in data:
+        element.is_active = data['is_active']
+    if 'usage_tips' in data:
+        element.usage_tips = data['usage_tips']
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': element.id,
+            'name': element.name,
+            'code': element.code
+        }
+    })
+
+
+@admin.route('/api/formula-elements/<int:id>', methods=['DELETE'])
+@login_required
+@super_admin_required
+def delete_formula_element(id):
+    """删除公式要素"""
+    element = FormulaElementType.query.get_or_404(id)
+
+    db.session.delete(element)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': '要素已删除'
+    })
+
+
+@admin.route('/api/formula-elements/init', methods=['POST'])
+@login_required
+@super_admin_required
+def init_formula_elements():
+    """初始化默认公式要素"""
+    from datetime import datetime
+
+    # 昵称分析要素（10种）
+    nickname_elements = [
+        {'name': '产品词', 'code': 'product_word', 'description': '具体产品/服务、业务关键词（最高优先级）', 'examples': 'AI|香肠|茶叶|手机', 'priority': 1, 'usage_tips': '如AI代表AI相关业务、香肠、茶叶、手机'},
+        {'name': '身份标签', 'code': 'identity_tag', 'description': '身份/职业', 'examples': '哥|姐|老师|医生|创始人', 'priority': 2, 'usage_tips': '如哥、姐、老师、医生、创始人'},
+        {'name': '人设词', 'code': 'persona_word', 'description': '人格化角色/形象', 'examples': '魔女|西施|侠客|公主', 'priority': 3, 'usage_tips': '如魔女、西施、侠客、公主'},
+        {'name': '风格词', 'code': 'style_word', 'description': '外观/气质/体型描述', 'examples': '红发|金丝雀|高冷|胖|瘦|矮', 'priority': 4, 'usage_tips': '如红发、金丝雀、高冷、胖、瘦、矮'},
+        {'name': '行业词', 'code': 'industry_word', 'description': '行业/技术前缀（仅当无法确定具体产品时使用）', 'examples': '数码|美食|旅游', 'priority': 5, 'usage_tips': '如数码、美食、旅游'},
+        {'name': '地域词', 'code': 'region_word', 'description': '地区名称', 'examples': '南漳|北京|上海', 'priority': 6, 'usage_tips': '如南漳、北京、上海'},
+        {'name': '属性词', 'code': 'attribute_word', 'description': '品质/特点', 'examples': '手工|野生|正宗', 'priority': 7, 'usage_tips': '如手工、野生、正宗'},
+        {'name': '数字词', 'code': 'number_word', 'description': '年份/数量', 'examples': '20年|10年|90年', 'priority': 8, 'usage_tips': '如20年、10年、90年'},
+        {'name': '行动词', 'code': 'action_word', 'description': '动作/行为', 'examples': '吃|玩|学', 'priority': 9, 'usage_tips': '如吃、玩、学'},
+    ]
+
+    # 简介分析要素（7种）
+    bio_elements = [
+        {'name': '身份标签', 'code': 'bio_identity', 'description': '职业背景、学历、职称、专业身份', 'examples': '10年大厂PM|苏黎世大学博士|XX创始人|XX专家', 'priority': 1, 'usage_tips': '如10年大厂PM、苏黎世大学博士、XX创始人、XX专家'},
+        {'name': '价值主张', 'code': 'bio_value', 'description': '你卖什么产品/服务、提供什么具体价值', 'examples': '专注茶叶20年|只卖正宗XX|专业手工XX', 'priority': 2, 'usage_tips': '如专注茶叶20年、只卖正宗XX、专业手工XX'},
+        {'name': '差异化标签', 'code': 'bio_differentiate', 'description': '为什么关注你，你和别人不一样在哪', 'examples': '只讲真话|不割韭菜|0基础也能学', 'priority': 3, 'usage_tips': '如只讲真话、不割韭菜、0基础也能学'},
+        {'name': '行动号召', 'code': 'bio_action', 'description': '让粉丝做什么、关注后做什么', 'examples': '关注送XX|扫码领取|私信咨询|到店试吃', 'priority': 4, 'usage_tips': '如关注送XX、扫码领取、私信咨询、到店试吃'},
+        {'name': '价格信息', 'code': 'bio_price', 'description': '具体的价格/报价', 'examples': '2.5元/斤|99元/盒', 'priority': 5, 'usage_tips': '如2.5元/斤、99元/盒'},
+        {'name': '联系方式', 'code': 'bio_contact', 'description': '联系方式（微信、邮箱、电话等）', 'examples': '+V|扫码|私信', 'priority': 6, 'usage_tips': '如+V、扫码、私信'},
+        {'name': '内容要素', 'code': 'bio_content', 'description': '包含哪些内容要素', 'examples': '干货|技巧|避坑', 'priority': 7, 'usage_tips': '如干货、技巧、避坑'},
+    ]
+
+    created_count = 0
+    skipped_count = 0
+
+    # 插入昵称要素
+    for item in nickname_elements:
+        existing = FormulaElementType.query.filter_by(
+            sub_category='nickname_analysis',
+            code=item['code']
+        ).first()
+
+        if not existing:
+            element = FormulaElementType(
+                sub_category='nickname_analysis',
+                name=item['name'],
+                code=item['code'],
+                description=item['description'],
+                examples=item['examples'],
+                priority=item['priority'],
+                is_active=True,
+                usage_tips=item['usage_tips']
+            )
+            db.session.add(element)
+            created_count += 1
+        else:
+            skipped_count += 1
+
+    # 插入简介要素
+    for item in bio_elements:
+        existing = FormulaElementType.query.filter_by(
+            sub_category='bio_analysis',
+            code=item['code']
+        ).first()
+
+        if not existing:
+            element = FormulaElementType(
+                sub_category='bio_analysis',
+                name=item['name'],
+                code=item['code'],
+                description=item['description'],
+                examples=item['examples'],
+                priority=item['priority'],
+                is_active=True,
+                usage_tips=item['usage_tips']
+            )
+            db.session.add(element)
+            created_count += 1
+        else:
+            skipped_count += 1
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'初始化完成：新建 {created_count} 个要素，跳过 {skipped_count} 个已存在要素'
     })
 
 

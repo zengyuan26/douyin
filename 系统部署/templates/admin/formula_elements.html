@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+
+{% block title %}公式要素管理 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 formula-elements-page">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center page-header-animate">
+                <div>
+                    <h4 class="mb-1">公式要素管理</h4>
+                    <p class="text-muted mb-0">配置昵称分析和简介分析中使用的公式要素类型，可动态调整要素定义和示例</p>
+                </div>
+                <div class="btn-animate d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-lg" id="init-default-btn" title="初始化默认要素">
+                        <i class="bi bi-arrow-repeat me-1"></i>初始化默认要素
+                    </button>
+                    <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-lg">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 导航 -->
+    <ul class="nav nav-tabs mb-4" id="element-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-nickname" data-bs-toggle="tab" data-bs-target="#pane-nickname" type="button" role="tab" aria-selected="true">
+                <i class="bi bi-person me-1"></i>昵称分析公式要素
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-bio" data-bs-toggle="tab" data-bs-target="#pane-bio" type="button" role="tab" aria-selected="false">
+                <i class="bi bi-card-text me-1"></i>简介分析公式要素
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab 内容 -->
+    <div class="tab-content" id="element-tab-content">
+        <!-- 昵称分析要素 -->
+        <div class="tab-pane fade show active" id="pane-nickname" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">昵称公式要素（<span id="nickname-count">0</span>种）</h5>
+                        <button type="button" class="btn btn-primary" id="add-nickname-btn">
+                            <i class="bi bi-plus-lg me-1"></i>新增要素
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="nickname-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 80px;">优先级</th>
+                                    <th style="width: 120px;">要素名称</th>
+                                    <th style="width: 150px;">要素编码</th>
+                                    <th>要素定义</th>
+                                    <th>示例</th>
+                                    <th style="width: 80px;">状态</th>
+                                    <th style="width: 150px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="nickname-tbody">
+                                <!-- 由 JS 渲染 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 简介分析要素 -->
+        <div class="tab-pane fade" id="pane-bio" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">简介公式要素（<span id="bio-count">0</span>种）</h5>
+                        <button type="button" class="btn btn-primary" id="add-bio-btn">
+                            <i class="bi bi-plus-lg me-1"></i>新增要素
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="bio-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 80px;">优先级</th>
+                                    <th style="width: 120px;">要素名称</th>
+                                    <th style="width: 150px;">要素编码</th>
+                                    <th>要素定义</th>
+                                    <th>示例</th>
+                                    <th style="width: 80px;">状态</th>
+                                    <th style="width: 150px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bio-tbody">
+                                <!-- 由 JS 渲染 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增/编辑要素弹窗 -->
+<div class="modal fade" id="elementModal" tabindex="-1" aria-labelledby="elementModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 600px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="elementModalLabel">新增要素</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="element-form">
+                    <input type="hidden" id="element-id">
+                    <input type="hidden" id="element-sub-category">
+
+                    <div class="mb-3">
+                        <label class="form-label">要素名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="element-name" required placeholder="如：产品词、身份标签">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">要素编码 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="element-code" required placeholder="如：product_word、identity_tag">
+                        <div class="form-text">用于系统标识，建议使用英文下划线命名</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">要素定义 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="element-description" rows="2" required placeholder="要素的定义说明"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">示例 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="element-examples" required placeholder="多个示例用 | 分隔，如：香肠|茶叶|手机">
+                        <div class="form-text">多个示例用 | 分隔，LLM 会从中选取示例</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">优先级</label>
+                        <input type="number" class="form-control" id="element-priority" value="0" min="0">
+                        <div class="form-text">数字越小越排在前面</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">使用说明</label>
+                        <textarea class="form-control" id="element-usage-tips" rows="2" placeholder="使用场景/注意事项"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="element-is-active" checked>
+                            <label class="form-check-label" for="element-is-active">启用此要素</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="save-element-btn">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 确认删除弹窗 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除要素 <strong id="delete-element-name"></strong> 吗？</p>
+                <p class="text-muted">此操作不可恢复。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-btn">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 当前数据
+let nicknameElements = [];
+let bioElements = [];
+let deleteElementId = null;
+
+// 页面加载完成后
+document.addEventListener('DOMContentLoaded', function() {
+    loadElements();
+
+    // 绑定事件
+    document.getElementById('add-nickname-btn').addEventListener('click', () => openModal('nickname_analysis'));
+    document.getElementById('add-bio-btn').addEventListener('click', () => openModal('bio_analysis'));
+    document.getElementById('save-element-btn').addEventListener('click', saveElement);
+    document.getElementById('confirm-delete-btn').addEventListener('click', deleteElement);
+    document.getElementById('init-default-btn').addEventListener('click', initDefaultElements);
+});
+
+// 加载要素数据
+async function loadElements() {
+    try {
+        const response = await fetch('/admin/api/formula-elements');
+        const result = await response.json();
+
+        if (result.success) {
+            nicknameElements = result.data.filter(e => e.sub_category === 'nickname_analysis');
+            bioElements = result.data.filter(e => e.sub_category === 'bio_analysis');
+
+            renderTable('nickname', nicknameElements);
+            renderTable('bio', bioElements);
+        } else {
+            showToast('加载失败: ' + result.message, 'danger');
+        }
+    } catch (error) {
+        console.error('加载要素失败:', error);
+        showToast('加载失败', 'danger');
+    }
+}
+
+// 渲染表格
+function renderTable(type, elements) {
+    const tbody = document.getElementById(type + '-tbody');
+    const countSpan = document.getElementById(type + '-count');
+
+    countSpan.textContent = elements.length;
+
+    if (elements.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">暂无数据</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = elements.map(e => `
+        <tr>
+            <td>${e.priority}</td>
+            <td><strong>${e.name}</strong></td>
+            <td><code>${e.code}</code></td>
+            <td>${e.description || '-'}</td>
+            <td>${e.examples ? e.examples.replace(/\|/g, ' | ') : '-'}</td>
+            <td>${e.is_active ? '<span class="badge bg-success">启用</span>' : '<span class="badge bg-secondary">禁用</span>'}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editElement(${e.id})">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete(${e.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 打开弹窗
+function openModal(subCategory, element = null) {
+    const modal = new bootstrap.Modal(document.getElementById('elementModal'));
+    const form = document.getElementById('element-form');
+
+    // 重置表单
+    form.reset();
+    document.getElementById('element-id').value = '';
+    document.getElementById('element-sub-category').value = subCategory;
+
+    if (element) {
+        document.getElementById('elementModalLabel').textContent = '编辑要素';
+        document.getElementById('element-id').value = element.id;
+        document.getElementById('element-name').value = element.name;
+        document.getElementById('element-code').value = element.code;
+        document.getElementById('element-description').value = element.description || '';
+        document.getElementById('element-examples').value = element.examples || '';
+        document.getElementById('element-priority').value = element.priority;
+        document.getElementById('element-usage-tips').value = element.usage_tips || '';
+        document.getElementById('element-is-active').checked = element.is_active;
+    } else {
+        document.getElementById('elementModalLabel').textContent = '新增要素';
+    }
+
+    modal.show();
+}
+
+// 编辑要素
+function editElement(id) {
+    const allElements = [...nicknameElements, ...bioElements];
+    const element = allElements.find(e => e.id === id);
+
+    if (element) {
+        openModal(element.sub_category, element);
+    }
+}
+
+// 保存要素
+async function saveElement() {
+    const id = document.getElementById('element-id').value;
+    const subCategory = document.getElementById('element-sub-category').value;
+    const name = document.getElementById('element-name').value.trim();
+    const code = document.getElementById('element-code').value.trim();
+    const description = document.getElementById('element-description').value.trim();
+    const examples = document.getElementById('element-examples').value.trim();
+    const priority = parseInt(document.getElementById('element-priority').value) || 0;
+    const usageTips = document.getElementById('element-usage-tips').value.trim();
+    const isActive = document.getElementById('element-is-active').checked;
+
+    if (!name || !code || !description || !examples) {
+        showToast('请填写必填字段', 'warning');
+        return;
+    }
+
+    const data = {
+        sub_category: subCategory,
+        name: name,
+        code: code,
+        description: description,
+        examples: examples,
+        priority: priority,
+        usage_tips: usageTips,
+        is_active: isActive
+    };
+
+    try {
+        let url = '/admin/api/formula-elements';
+        let method = 'POST';
+
+        if (id) {
+            url = '/admin/api/formula-elements/' + id;
+            method = 'PUT';
+        }
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(id ? '更新成功' : '创建成功', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('elementModal')).hide();
+            loadElements();
+        } else {
+            showToast(result.message || '保存失败', 'danger');
+        }
+    } catch (error) {
+        console.error('保存失败:', error);
+        showToast('保存失败', 'danger');
+    }
+}
+
+// 确认删除
+function confirmDelete(id) {
+    const allElements = [...nicknameElements, ...bioElements];
+    const element = allElements.find(e => e.id === id);
+
+    if (element) {
+        deleteElementId = id;
+        document.getElementById('delete-element-name').textContent = element.name;
+        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+    }
+}
+
+// 删除要素
+async function deleteElement() {
+    if (!deleteElementId) return;
+
+    try {
+        const response = await fetch('/admin/api/formula-elements/' + deleteElementId, {
+            method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('删除成功', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+            loadElements();
+        } else {
+            showToast(result.message || '删除失败', 'danger');
+        }
+    } catch (error) {
+        console.error('删除失败:', error);
+        showToast('删除失败', 'danger');
+    }
+
+    deleteElementId = null;
+}
+
+// 初始化默认要素
+async function initDefaultElements() {
+    if (!confirm('确定要初始化默认要素吗？已存在的要素会被跳过。')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/admin/api/formula-elements/init', {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            loadElements();
+        } else {
+            showToast(result.message || '初始化失败', 'danger');
+        }
+    } catch (error) {
+        console.error('初始化失败:', error);
+        showToast('初始化失败', 'danger');
+    }
+}
+</script>
+{% endblock %}
