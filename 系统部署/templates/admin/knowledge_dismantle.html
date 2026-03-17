@@ -2628,17 +2628,24 @@ async function saveContentManually(e) {
 
 // 重新分析当前账号
 async function reanalyzeCurrentAccount() {
+    console.log('reanalyzeCurrentAccount called, currentAccount:', currentAccount);
     if (!currentAccount || !currentAccount.id) {
         alert('请先选择一个账号');
         return;
     }
 
     const btn = document.querySelector('#reanalyze-btn-container button');
+    console.log('reanalyze button:', btn);
+    if (!btn) {
+        alert('找不到重新分析按钮');
+        return;
+    }
     const originalText = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>分析中...';
 
     try {
+        console.log('Calling API with account id:', currentAccount.id);
         const response = await fetch(`/api/knowledge/accounts/${currentAccount.id}/analyze-sub-categories`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
