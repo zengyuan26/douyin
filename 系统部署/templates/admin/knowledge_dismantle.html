@@ -2651,7 +2651,9 @@ async function reanalyzeCurrentAccount() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})  // 添加空请求体
         });
+        console.log('API response status:', response.status);
         const data = await response.json();
+        console.log('API response data:', data);
 
         if (data.code === 200) {
             console.log('API returned 200, triggering selectAccount refresh');
