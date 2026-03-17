@@ -6320,6 +6320,64 @@ def _build_formula_elements_text(sub_category):
     return None
 
 
+def _validate_formula_elements(formula, original_text, sub_cat):
+    """验证 formula 中的要素是否出现在原始文本中
+    
+    Args:
+        formula: LLM 返回的公式，如 "产品词(香肠) + 数字词(90年) + 风格词(胖)"
+        original_text: 原始文本（昵称或简介）
+        sub_cat: 分析分类 ('nickname_analysis' 或 'bio_analysis')
+    
+    Returns:
+        tuple: (is_valid, validated_formula, invalid_elements)
+        - is_valid: 验证是否通过
+        - validated_formula: 验证后的公式（移除无效要素）
+        - invalid_elements: 无效要素列表
+    """
+    import re
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    if not formula or not original_text:
+        return True, formula, []
+    
+    # 解析 formula，提取各要素
+    # 格式: "要素类型(具体内容) + 要素类型(具体内容)"
+    element_pattern = r'([^（]+)\(([^）]+)\)'
+    matches = re.findall(element_pattern, formula)
+    
+    if not matches:
+        return True, formula, []
+    
+    invalid_elements = []
+    validated_parts = []
+    
+    for element_type, element_content in matches:
+        element_type = element_type.strip()
+        element_content = element_content.strip()
+        
+        # 检查要素内容是否出现在原始文本中
+        if element_content and element_content.lower() not in original_text.lower():
+            invalid_elements.append({
+                'type': element_type,
+                'content': element_content,
+                'reason': f'要素"{element_content}"不存在于原始文本"{original_text}"中'
+            })
+            logger.warning(f"[Formula Validation] 发现无效要素: {element_type}({element_content}) - 不在原始文本中")
+        else:
+            validated_parts.append(f"{element_type}({element_content})")
+    
+    if invalid_elements:
+        # 重新构建 formula，只保留有效要素
+        validated_formula = " + ".join(validated_parts) if validated_parts else ""
+        logger.info(f"[Formula Validation] 原始formula: {formula}")
+        logger.info(f"[Formula Validation] 验证后formula: {validated_formula}")
+        logger.info(f"[Formula Validation] 移除的无效要素: {invalid_elements}")
+        return False, validated_formula, invalid_elements
+    
+    return True, formula, []
+
+
 def _save_discovered_formula_elements(account_id, sub_category_results, account_info):
     """从分析结果中提取发现的新要素并保存为待审核建议"""
     try:
@@ -7045,6 +7103,22 @@ def _run_account_sub_category_analysis(app, account_id, target_sub_cats=None):
                     'llm_data': llm_result
                 }
 
+                # 验证 formula 要素是否出现在原始文本中
+                if sub_cat in ['nickname_analysis', 'bio_analysis']:
+                    original_text = account_info.get('nickname' if sub_cat == 'nickname_analysis' else 'bio', '')
+                    if original_text:
+                        formula = llm_result.get('formula', '')
+                        is_valid, validated_formula, invalid_elements = _validate_formula_elements(
+                            formula, original_text, sub_cat
+                        )
+                        if not is_valid:
+                            # 更新 formula 为验证后的版本
+                            sub_category_results[sub_cat]['formula'] = validated_formula
+                            sub_category_results[sub_cat]['llm_data']['formula'] = validated_formula
+                            # 同时更新 llm_data 中的 formula
+                            llm_result['formula'] = validated_formula
+                            logger.warning(f"[Formula Validation] {sub_cat} formula验证失败，已修正: {formula} -> {validated_formula}")
+
                 # 保存各维度的详细分析结果
                 logger.info(f"[DEBUG] dims for {sub_cat}: {[(d.code, d.name) for d in dims] if dims else 'empty'}")
                 logger.info(f"[DEBUG] llm_result keys: {list(llm_result.keys())}")
@@ -7342,7 +7416,8 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
 **重要**：
 - 请直接分析提供的昵称 **{nickname}** 的实际构成
-- formula 字段必须填写这个昵称的实际组成部分，不能是通用模板
+- formula 字段必须填写这个昵称的**实际组成部分**，不能是通用模板，**更不能捏造不存在的要素**
+- **绝对禁止**：不要在 formula 中添加昵称文本中不存在的内容（如"专业"、"老师"等）
 - 评分要根据实际质量打分，大多数在60-85分之间
 - **特别注意**：分析"产品词+风格词+人设词"组合的昵称（如"AI红发魔女"）时，产品词(如AI)是业务关键词，优先级最高！
 - **发现新要素**：如果分析过程中发现当前要素库中没有涵盖的新要素类型，请在 discovered_elements 字段中列出，包括：name(要素名称)、code(要素编码)、description(要素定义)、example(示例)；如果没有新要素则返回空数组 []""";
@@ -7541,7 +7616,8 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
 **重要**：
 - 请直接分析提供的简介 **{bio}** 的实际构成
-- formula 字段必须填写这个简介的实际组成部分，不能是通用模板
+- formula 字段必须填写这个简介的**实际组成部分**，不能是通用模板，**更不能捏造不存在的要素**
+- **绝对禁止**：不要在 formula 中添加简介文本中不存在的内容
 - 评分要根据实际质量打分
 - **发现新要素**：如果分析过程中发现当前要素库中没有涵盖的新要素类型，请在 discovered_elements 字段中列出，包括：name(要素名称)、code(要素编码)、description(要素定义)、example(示例)；如果没有新要素则返回空数组 []"""
 
@@ -7640,13 +7716,33 @@ def analyze_account_sub_categories(account_id):
         # 解析请求参数
         data = request.get_json() or {}
         force = data.get('force', False)
-        target = data.get('target', 'auto')  # auto/nickname/bio/other/all
-        
+        target = data.get('target', 'auto')  # auto/nb/positioning/market/operation/keyword/nickname/bio/other/all
+
         # 确定要分析的分类
         if force or target == 'all':
-            # 强制全量分析
-            target_sub_cats = None  # None 表示全部
+            # 强制全量分析（只包含昵称+简介+账号定位，不包含市场分析/运营规划/关键词库）
+            target_sub_cats = ['nickname_analysis', 'bio_analysis', 'account_positioning']
             message = '已触发全量分析'
+        elif target == 'nb':
+            # 昵称 + 简介
+            target_sub_cats = ['nickname_analysis', 'bio_analysis']
+            message = '已触发昵称+简介分析'
+        elif target == 'positioning':
+            # 账号定位
+            target_sub_cats = ['account_positioning']
+            message = '已触发账号定位分析'
+        elif target == 'market':
+            # 市场分析
+            target_sub_cats = ['market_analysis']
+            message = '已触发市场分析'
+        elif target == 'operation':
+            # 运营规划
+            target_sub_cats = ['operation_planning']
+            message = '已触发运营规划分析'
+        elif target == 'keyword':
+            # 关键词库
+            target_sub_cats = ['keyword_library']
+            message = '已触发关键词库分析'
         elif target == 'nickname':
             target_sub_cats = ['nickname_analysis']
             message = '已触发昵称分析'

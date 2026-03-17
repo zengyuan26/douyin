@@ -209,18 +209,32 @@
                     </div>
 
                     <!-- 分析结果：头部固定，仅下方 tab 内容可滚动 -->
-                    <div id="result-content" class="d-none d-flex flex-column flex-grow-1 min-h-0 overflow-hidden">
-                        <!-- 固定头部：重新分析 + tab 导航 -->
-                        <div class="flex-shrink-0">
-                            <div class="d-flex justify-content-end mb-2" id="reanalyze-btn-container">
-                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="reanalyzeCurrentAccount()">
-                                    <i class="bi bi-arrow-repeat me-1"></i>重新分析
-                                </button>
-                            </div>
-                            <div id="analysis-results" class="py-2">
-                                <!-- 仅 tab 导航 ul，由 JS 注入 -->
-                            </div>
-                        </div>
+        <div id="result-content" class="d-none d-flex flex-column flex-grow-1 min-h-0 overflow-hidden">
+            <!-- 固定头部：重新分析 + tab 导航 -->
+            <div class="flex-shrink-0">
+                <div class="analysis-result-top">
+                    <div class="analysis-toolbar" id="reanalyze-btn-container">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="reanalyzeCurrentAccount('nb')">
+                            <i class="bi bi-arrow-repeat me-1"></i>重新分析(nb)
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="reanalyzeCurrentAccount('positioning')">
+                            <i class="bi bi-person-badge me-1"></i>账号定位
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="reanalyzeCurrentAccount('market')">
+                            <i class="bi bi-graph-up me-1"></i>市场分析
+                        </button>
+                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="reanalyzeCurrentAccount('operation')">
+                            <i class="bi bi-list-task me-1"></i>运营规划
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="reanalyzeCurrentAccount('keyword')">
+                            <i class="bi bi-key me-1"></i>关键词库
+                        </button>
+                    </div>
+                    <div id="analysis-results" class="analysis-tab-strip">
+                        <!-- 仅 tab 导航 ul，由 JS 注入 -->
+                    </div>
+                </div>
+            </div>
                         <!-- 仅此区域可滚动：tab 内容 -->
                         <div id="analysis-results-scroll" class="flex-grow-1 min-h-0 overflow-y-auto" style="max-height: calc(100vh - 280px);">
                             <!-- tab 内容由 JS 注入到 #accountAnalysisTabContent -->
@@ -355,6 +369,83 @@
 .account-card.active {
     border-color: #0d6efd;
     background-color: #f0f7ff;
+}
+
+.analysis-result-top {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 0.75rem;
+}
+
+.analysis-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.analysis-tab-strip {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+#analysis-results {
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+}
+
+#analysis-results .nav {
+    gap: 0.4rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+#analysis-results .nav-link {
+    border-radius: 0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.4rem 0.95rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    min-height: unset;
+    background: transparent;
+    color: #6c757d;
+    box-shadow: none;
+}
+
+#analysis-results .nav-link.active {
+    background: transparent;
+    color: #0d6efd;
+    border-color: transparent;
+    box-shadow: none;
+    font-weight: 600;
+}
+
+#analysis-results::-webkit-scrollbar {
+    height: 5px;
+}
+
+#analysis-results::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+    .analysis-toolbar {
+        justify-content: center;
+    }
+
+    #analysis-results .nav-link {
+        padding: 0.3rem 0.7rem;
+        font-size: 0.85rem;
+    }
 }
 </style>
 
@@ -2627,49 +2718,54 @@ async function saveContentManually(e) {
 }
 
 // 重新分析当前账号
-async function reanalyzeCurrentAccount() {
-    console.log('reanalyzeCurrentAccount called, currentAccount:', currentAccount);
+// target: nb(昵称+简介), positioning(账号定位), market(市场分析), operation(运营规划), keyword(关键词库), all(全量)
+async function reanalyzeCurrentAccount(target = 'nb') {
     if (!currentAccount || !currentAccount.id) {
         alert('请先选择一个账号');
         return;
     }
 
-    const btn = document.querySelector('#reanalyze-btn-container button');
-    console.log('reanalyze button:', btn);
-    if (!btn) {
+    // 获取所有重新分析按钮
+    const btns = document.querySelectorAll('#reanalyze-btn-container button');
+    if (!btns.length) {
         alert('找不到重新分析按钮');
         return;
     }
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>分析中...';
+
+    // 记录按钮原始状态
+    const originalTexts = Array.from(btns).map(btn => btn.innerHTML);
+
+    // 禁用所有按钮并显示 loading
+    btns.forEach(btn => {
+        btn.disabled = true;
+        const targetType = btn.innerText.match(/\(([^)]+)\)/)?.[1] || btn.innerText.trim();
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>分析中...`;
+    });
 
     try {
-        console.log('Calling API with account id:', currentAccount.id);
-        // 强制全量分析
+        // 根据 target 参数调用不同的 API
         const response = await fetch(`/api/knowledge/accounts/${currentAccount.id}/analyze-sub-categories`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ force: true })  // 强制全量分析
+            body: JSON.stringify({ target: target, force: false })
         });
-        console.log('API response status:', response.status);
         const data = await response.json();
-        console.log('API response data:', data);
 
         if (data.code === 200) {
-            console.log('API returned 200, triggering selectAccount refresh');
-            alert('重新分析已触发，请稍候...');
+            alert(data.message || '重新分析已触发，请稍候...');
             // 刷新当前账号数据
             await selectAccount(currentAccount.id);
-            console.log('selectAccount completed, currentAccount:', currentAccount);
         } else {
             alert(data.message || '分析失败');
         }
     } catch (e) {
         alert('分析失败: ' + e.message);
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
+        // 恢复所有按钮状态
+        btns.forEach((btn, index) => {
+            btn.disabled = false;
+            btn.innerHTML = originalTexts[index];
+        });
     }
 }
 
@@ -2922,7 +3018,7 @@ function renderAccountAnalysisTabs(accountInfo, allSubCategories) {
 
     // 构建完整HTML：tab导航放入 #analysis-results，tab内容放入 #analysis-results-scroll
     const tabNavHtml = `
-        <ul class="nav nav-tabs nav-sm mb-2" id="accountAnalysisTabs" role="tablist" style="flex-wrap: nowrap; overflow-x: hidden;">
+        <ul class="nav nav-pills gap-2 flex-nowrap mb-0" id="accountAnalysisTabs" role="tablist">
             ${tabsHtml}
         </ul>
     `;
