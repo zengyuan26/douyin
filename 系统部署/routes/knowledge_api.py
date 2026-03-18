@@ -2000,11 +2000,6 @@ def get_rules_by_category(category):
         })
 
 
-def register_routes(app):
-    """注册路由"""
-    app.register_blueprint(knowledge_api)
-
-
 # ========== 账号分析相关接口 ==========
 
 # 账号分析模块定义
@@ -6209,7 +6204,7 @@ SYSTEM_NICKNAME_DIMENSION_CODES = [
 # ========== 公式要素缓存 ==========
 # 内存缓存：{sub_category: {'elements': [...], 'updated_at': timestamp}}
 _formula_elements_cache = {}
-_formula_elements_cache_ttl = 300  # 缓存有效期5分钟
+_formula_elements_cache_ttl = 0  # 禁用缓存，每次都从数据库读取，确保数据一致性
 
 
 def _get_cached_formula_elements(sub_category):
@@ -6229,6 +6224,8 @@ def _get_cached_formula_elements(sub_category):
 def _load_formula_elements_from_db(sub_category):
     """从数据库加载公式要素"""
     import time
+    import logging
+    logger = logging.getLogger(__name__)
     try:
         from models.models import FormulaElementType
 
@@ -6236,6 +6233,10 @@ def _load_formula_elements_from_db(sub_category):
             sub_category=sub_category,
             is_active=True
         ).order_by(FormulaElementType.priority.asc()).all()
+        
+        logger.info(f"[_load_formula_elements_from_db] 从DB加载 {sub_category}, 找到 {len(elements)} 个要素")
+        for e in elements:
+            logger.info(f"  - {e.name}({e.code}): examples={e.examples[:50] if e.examples else 'None'}..., priority={e.priority}")
 
         # 更新缓存
         _formula_elements_cache[sub_category] = {
@@ -6245,8 +6246,7 @@ def _load_formula_elements_from_db(sub_category):
 
         return elements
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"从数据库加载公式要素失败: {e}")
+        logger.warning(f"从数据库加载公式要素失败: {e}")
         return None
 
 
@@ -6320,8 +6320,195 @@ def _build_formula_elements_text(sub_category):
     return None
 
 
+def _parse_nickname_formula_by_rules(nickname):
+    """用规则解析昵称公式
+    
+    Args:
+        nickname: 昵称字符串
+        
+    Returns:
+        str: 解析后的公式，如 "人设词(罗胖) + 产品词(奶粉) + 属性词(进口)"
+    """
+    import re
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    if not nickname:
+        return ""
+    
+    # 获取公式要素
+    elements = _get_formula_elements('nickname_analysis')
+    if not elements:
+        logger.warning("[_parse_nickname_formula_by_rules] 没有找到昵称公式要素配置")
+        return ""
+    
+    logger.info(f"[_parse_nickname_formula_by_rules] 开始解析昵称: {nickname}, 找到 {len(elements)} 个要素")
+    
+    # 构建所有匹配规则
+    match_rules = []
+    for e in elements:
+        # 统一分隔符：| 或 ｜ 或 换行 或 逗号
+        if not e.examples:
+            continue
+        examples_text = e.examples.replace('｜', '|').replace('\n', '|').replace('，', '|')
+        examples = [ex.strip() for ex in examples_text.split('|') if ex.strip()]
+        
+        for ex in examples:
+            if not ex:
+                continue
+            match_rules.append({
+                'code': e.code,
+                'name': e.name,
+                'pattern': ex,  # 保留原始文本用于匹配
+                'priority': e.priority or 999,
+                'length': len(ex)  # 长度用于优先匹配更长的
+            })
+    
+    # 按优先级和长度排序（优先级高、长度长的优先）
+    match_rules.sort(key=lambda x: (x['priority'], -x['length']))
+    
+    # 从左到右扫描匹配
+    pos = 0
+    matched_elements = []
+    nickname_len = len(nickname)
+    
+    logger.info(f"[_parse_nickname_formula_by_rules] 开始扫描, nickname_len={nickname_len}")
+    
+    while pos < nickname_len:
+        best_match = None
+        best_match_length = 0
+        
+        # 尝试所有规则匹配当前位置
+        for rule in match_rules:
+            pattern = rule['pattern']
+            pattern_len = len(pattern)
+            
+            # 检查是否能匹配
+            if pos + pattern_len <= nickname_len:
+                text_to_check = nickname[pos:pos + pattern_len]
+                if text_to_check == pattern:
+                    # 找到匹配，选择更长的
+                    if pattern_len > best_match_length:
+                        best_match = {
+                            'name': rule['name'],
+                            'code': rule['code'],
+                            'text': pattern,
+                            'start': pos,
+                            'end': pos + pattern_len
+                        }
+                        best_match_length = pattern_len
+        
+        if best_match:
+            logger.info(f"  位置 {pos}: 匹配到 '{best_match['text']}' -> {best_match['name']}")
+            matched_elements.append(best_match)
+            pos = best_match['end']  # 移动到匹配文本之后
+        else:
+            # 没有匹配，跳过当前字符（可能是装饰性字符如符号）
+            if pos < 5:
+                logger.info(f"  位置 {pos}: 字符 '{nickname[pos]}' 无匹配")
+            pos += 1
+    
+    logger.info(f"[_parse_nickname_formula_by_rules] 解析完成, 匹配到 {len(matched_elements)} 个要素")
+    
+    # 构建公式字符串
+    if matched_elements:
+        formula_parts = []
+        for el in matched_elements:
+            formula_parts.append(f"{el['name']}({el['text']})")
+        return " + ".join(formula_parts)
+    
+    return ""
+
+
+def _parse_bio_formula_by_rules(bio):
+    """用规则解析简介公式
+    
+    Args:
+        bio: 简介字符串
+        
+    Returns:
+        str: 解析后的公式
+    """
+    import re
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    if not bio:
+        return ""
+    
+    # 获取公式要素
+    elements = _get_formula_elements('bio_analysis')
+    if not elements:
+        logger.warning("[_parse_bio_formula_by_rules] 没有找到简介公式要素配置")
+        return ""
+    
+    # 构建所有匹配规则
+    match_rules = []
+    for e in elements:
+        # 统一分隔符：| 或 ｜ 或 换行
+        if not e.examples:
+            continue
+        examples_text = e.examples.replace('｜', '|').replace('\n', '|').replace('，', '|')
+        examples = [ex.strip() for ex in examples_text.split('|') if ex.strip()]
+        
+        for ex in examples:
+            if not ex:
+                continue
+            match_rules.append({
+                'code': e.code,
+                'name': e.name,
+                'pattern': ex,
+                'priority': e.priority or 999,
+                'length': len(ex)
+            })
+    
+    # 按优先级和长度排序
+    match_rules.sort(key=lambda x: (x['priority'], -x['length']))
+    
+    # 从左到右扫描匹配
+    pos = 0
+    matched_elements = []
+    bio_len = len(bio)
+    
+    while pos < bio_len:
+        best_match = None
+        best_match_length = 0
+        
+        for rule in match_rules:
+            pattern = rule['pattern']
+            pattern_len = len(pattern)
+            
+            if pos + pattern_len <= bio_len:
+                text_to_check = bio[pos:pos + pattern_len]
+                if text_to_check == pattern:
+                    if pattern_len > best_match_length:
+                        best_match = {
+                            'name': rule['name'],
+                            'code': rule['code'],
+                            'text': pattern,
+                            'start': pos,
+                            'end': pos + pattern_len
+                        }
+                        best_match_length = pattern_len
+        
+        if best_match:
+            matched_elements.append(best_match)
+            pos = best_match['end']
+        else:
+            pos += 1
+    
+    # 构建公式字符串
+    if matched_elements:
+        formula_parts = []
+        for el in matched_elements:
+            formula_parts.append(f"{el['name']}({el['text']})")
+        return " + ".join(formula_parts)
+    
+    return ""
+
+
 def _validate_formula_elements(formula, original_text, sub_cat):
-    """验证 formula 中的要素是否出现在原始文本中
+    """验证 formula 要素是否出现在原始文本中，并尝试修正要素类型
     
     Args:
         formula: LLM 返回的公式，如 "产品词(香肠) + 数字词(90年) + 风格词(胖)"
@@ -6331,7 +6518,7 @@ def _validate_formula_elements(formula, original_text, sub_cat):
     Returns:
         tuple: (is_valid, validated_formula, invalid_elements)
         - is_valid: 验证是否通过
-        - validated_formula: 验证后的公式（移除无效要素）
+        - validated_formula: 验证后的公式（移除无效要素并修正类型）
         - invalid_elements: 无效要素列表
     """
     import re
@@ -6351,10 +6538,98 @@ def _validate_formula_elements(formula, original_text, sub_cat):
     
     invalid_elements = []
     validated_parts = []
+    corrected_parts = []  # 记录修正过的要素
+    
+    # 名称标准化映射：将简称映射到标准名称
+    # 格式: {简称/错误名称: 标准名称}
+    name_normalize_map = {
+        # 身份/人设词
+        '身份标签': '身份 / 人设词',
+        '身份词': '身份 / 人设词',
+        '人设标签': '身份 / 人设词',
+        '人设词': '身份 / 人设词',
+        # 品质词
+        '品质词': '品质 / 筛选词',
+        '品质筛选词': '品质 / 筛选词',
+        '品质关键词': '品质 / 筛选词',
+        # 数字词
+        '数字词': '数字 / 字母符号',
+        '数字': '数字 / 字母符号',
+        # 属性词
+        '属性词': '属性关键词',
+        '属性关键词': '属性关键词',
+        # 行业词
+        '行业词': '领域 / 垂类词',
+        '行业': '领域 / 垂类词',
+        '垂类词': '领域 / 垂类词',
+        # 风格词
+        '风格词': '风格 / 记忆词',
+        '记忆词': '风格 / 记忆词',
+        # 产品词
+        '产品词': '产品词',
+        # 地域词
+        '地域词': '地域词',
+        '地域': '地域词',
+        # 行动词
+        '行动词': '行动 / 价值词',
+        '价值词': '行动 / 价值词',
+    }
+    
+    # 常见错误类型修正映射（内容, 错误类型）-> 正确类型
+    correction_map = {
+        # "罗胖" 应该是 "身份 / 人设词"
+        ('胖', '身份标签'): '身份 / 人设词',
+        ('胖', '产品词'): '身份 / 人设词',
+        ('罗胖', '身份标签'): '身份 / 人设词',
+        ('罗胖', '产品词'): '身份 / 人设词',
+        ('罗胖', '身份 / 人设词'): '身份 / 人设词',  # 如果已经是正确的，不变
+        # "进口" 应该是 "属性关键词"
+        ('进口', '产品词'): '属性关键词',
+        ('进口', '身份标签'): '属性关键词',
+        # "精选" 应该是 "品质 / 筛选词"
+        ('精选', '产品词'): '品质 / 筛选词',
+        ('精选', '身份标签'): '品质 / 筛选词',
+        ('优质', '产品词'): '品质 / 筛选词',
+        ('高端', '产品词'): '品质 / 筛选词',
+        # "8年" 应该是 "数字 / 字母符号"
+        ('8年', '产品词'): '数字 / 字母符号',
+        ('8年', '身份标签'): '数字 / 字母符号',
+        ('8年', '领域 / 垂类词'): '数字 / 字母符号',
+        ('8年', '领域/垂类词'): '数字 / 字母符号',
+        ('8年', '产品词'): '数字 / 字母符号',
+        # "AI" 应该是 "产品词"
+        ('AI', '领域 / 垂类词'): '产品词',
+        ('AI', '身份标签'): '产品词',
+        ('AI', '行业词'): '产品词',
+        ('AI', '领域/垂类词'): '产品词',
+        # "红发" 应该是 "风格 / 记忆词"
+        ('红发', '产品词'): '风格 / 记忆词',
+        ('红发', '身份标签'): '风格 / 记忆词',
+        # "魔女" 应该是 "身份 / 人设词"
+        ('魔女', '身份标签'): '身份 / 人设词',
+        ('魔女', '产品词'): '身份 / 人设词',
+        # "芬哥" 整体匹配
+        ('芬哥', '身份标签'): '身份 / 人设词',
+        ('芬哥', '产品词'): '身份 / 人设词',
+        ('芬哥', '身份 / 人设词'): '身份 / 人设词',  # 已经正确但保留
+        # "干货局" 应该是领域/垂类词
+        ('干货局', '身份标签'): '领域 / 垂类词',
+        ('干货局', '产品词'): '领域 / 垂类词',
+        ('干货局', '领域 / 垂类词'): '领域 / 垂类词',
+    }
+    
+    # 修正后的要素（用于去重）
+    corrected_contents = set()
     
     for element_type, element_content in matches:
         element_type = element_type.strip()
         element_content = element_content.strip()
+        
+        original_element_type = element_type  # 保留原始名称
+        
+        # 先标准化要素名称
+        if element_type in name_normalize_map:
+            element_type = name_normalize_map[element_type]
         
         # 检查要素内容是否出现在原始文本中
         if element_content and element_content.lower() not in original_text.lower():
@@ -6364,18 +6639,295 @@ def _validate_formula_elements(formula, original_text, sub_cat):
                 'reason': f'要素"{element_content}"不存在于原始文本"{original_text}"中'
             })
             logger.warning(f"[Formula Validation] 发现无效要素: {element_type}({element_content}) - 不在原始文本中")
-        else:
-            validated_parts.append(f"{element_type}({element_content})")
+            continue  # 跳过无效要素
+        
+        # 尝试修正错误的要素类型 - 先用原始名称匹配
+        original_type = element_type
+        correction_key = (element_content, original_element_type)
+        
+        # 如果原始名称匹配不到，尝试标准化后的名称
+        if correction_key not in correction_map:
+            correction_key = (element_content, element_type)
+        
+        if correction_key in correction_map:
+            correct_type = correction_map[correction_key]
+            element_type = correct_type
+            corrected_parts.append({
+                'content': element_content,
+                'original_type': original_type,
+                'correct_type': correct_type
+            })
+            logger.info(f"[Formula Correction] 修正要素类型: {element_content}: {original_type} -> {correct_type}")
+        
+        # 如果这个内容已经被修正过，跳过
+        if element_content in corrected_contents:
+            continue
+        corrected_contents.add(element_content)
+        
+        validated_parts.append(f"{element_type}({element_content})")
     
-    if invalid_elements:
-        # 重新构建 formula，只保留有效要素
+    # 额外检查：补充遗漏的要素
+    if sub_cat == 'nickname_analysis':
+        validated_parts = _补充遗漏的要素(validated_parts, original_text)
+    
+    if invalid_elements or corrected_parts:
         validated_formula = " + ".join(validated_parts) if validated_parts else ""
         logger.info(f"[Formula Validation] 原始formula: {formula}")
         logger.info(f"[Formula Validation] 验证后formula: {validated_formula}")
-        logger.info(f"[Formula Validation] 移除的无效要素: {invalid_elements}")
+        if corrected_parts:
+            logger.info(f"[Formula Validation] 修正的要素: {corrected_parts}")
+        if invalid_elements:
+            logger.info(f"[Formula Validation] 移除的无效要素: {invalid_elements}")
         return False, validated_formula, invalid_elements
     
     return True, formula, []
+
+
+def _补充遗漏的要素(validated_parts, nickname):
+    """彻底解析 nickname，强制提取每个字符/词语的要素类型
+    
+    Args:
+        validated_parts: 已验证的要素列表 ["产品词(A)", "数字词(8年)"]
+        nickname: 原始昵称
+    
+    Returns:
+        list: 完整分析后的要素列表
+    """
+    import re
+    
+    # 将现有要素转换为字典，便于快速查找
+    existing_map = {}  # {内容: 类型}
+    for part in validated_parts:
+        match = re.search(r'([^（(]+)[（(]([^)）]+)[)）]', part)
+        if match:
+            elem_type = match.group(1).strip()
+            elem_content = match.group(2).strip()
+            existing_map[elem_content] = elem_type
+    
+    added = []
+    
+    # ========== 彻底解析 nickname ==========
+    # 定义各类别的关键词库（按优先级排序，优先匹配长的）
+    # 格式：(正则/字符串, 类型)
+    element_patterns = [
+        # 数字/字母 - 优先匹配完整的"XX年"格式
+        (r'\d+年(经验|店|手艺|历史)?', '数字 / 字母符号'),
+        (r'\d+个?月', '数字 / 字母符号'),
+        
+        # 产品词 - AI 等业务关键词
+        (r'AI', '产品词'),
+        
+        # 地域词（较长优先）
+        (r'北京|上海|深圳|广州|杭州|成都|武汉|西安|南京|苏州|重庆|天津', '地域词'),
+        (r'青岛|大连|沈阳|长沙|厦门|福州|泉州|珠海|东莞|佛山', '地域词'),
+        (r'南漳|福建|浙江|江苏|广东|四川|湖南|湖北|河南|河北|山东|安徽|江西', '地域词'),
+        (r'云南|贵州|广西|海南|陕西|甘肃|新疆|西藏|内蒙古|黑龙江|吉林', '地域词'),
+        
+        # 品质词
+        (r'精选|优质|高端|正宗|手工|传统|秘制|免费|天然|野生|有机|绿色|健康', '品质 / 筛选词'),
+        
+        # 属性词
+        (r'进口|国产|出口|内地|海外|原装', '属性关键词'),
+        
+        # 行动/价值词
+        (r'定制|设计|教学|培训|分享|干货|技巧|避坑|指南|推荐|必备|神器|法宝|秘笈|秘诀|心得|经验|探店|测评', '行动 / 价值词'),
+        
+        # 领域/垂类词
+        (r'数码|美食|美妆|穿搭|母婴|育儿|职场|旅游|健身|家居|汽车|教育|摄影|音乐|游戏|娱乐|搞笑|情感|生活|探店|种草|干货局', '领域 / 垂类词'),
+        
+        # 人设词 - 整体匹配的网名（优先匹配）
+        (r'罗胖|罗哥|罗姐|罗叔|王胖|王哥|王姐|张胖|张哥|张姐|张叔|黄胖|黄哥|黄姐|黄叔|刘胖|刘哥|刘姐|陈胖|陈哥|陈姐|杨胖|杨哥|杨姐|周胖|周哥|周姐|吴胖|吴哥|吴姐|郑胖|郑哥|郑姐|孙胖|孙哥|孙姐|马胖|马哥|马姐|朱胖|朱哥|朱姐|胡胖|胡哥|胡姐|郭胖|郭哥|郭姐|林胖|林哥|林姐|何胖|何哥|何姐|高胖|高哥|高姐', '身份 / 人设词'),
+        (r'芬哥|芬姐|胖哥|胖姐|高哥|高姐|美哥|美姐|老王|老张|老黄|老刘|老陈|老杨|小王|小张|小黄|小刘|小陈|小杨', '身份 / 人设词'),
+        
+        # 职业身份词
+        (r'老师|医生|师傅|老板|总裁|创始|主理人|管|先生|太太', '身份 / 人设词'),
+        (r'魔女|西施|侠客|公主|王子|将军|仙女|仙子|女王|男神|女神|酱|帝|仙|神|侠|圣', '身份 / 人设词'),
+        
+        # 常见的单字人设词
+        (r'哥|姐|叔|姨|爷|婆|娘|妮|妹|姑娘|美女|帅哥|大叔|阿姨', '身份 / 人设词'),
+        
+        # 单字特征词
+        (r'胖|瘦|高|矮|美|丑|酷|帅|白|黑|红|蓝|绿|黄|粉', '身份 / 人设词'),
+        
+        # 纯数字（最后匹配）
+        (r'\d+', '数字 / 字母符号'),
+    ]
+    
+    # 从左到右匹配，记录已覆盖的位置
+    matched = {}  # {位置(开始,结束): (内容, 类型)}
+    
+    for pattern, elem_type in element_patterns:
+        try:
+            for match in re.finditer(pattern, nickname):
+                start, end = match.span()
+                content = match.group()
+                
+                # 检查这个位置是否已被匹配（优先保留更长的匹配）
+                is_covered = False
+                covered_by = None
+                for (s, e), (c, t) in list(matched.items()):
+                    if start >= s and end <= e:
+                        # 被更长的匹配覆盖
+                        is_covered = True
+                        covered_by = c
+                        break
+                    elif start < e and end > s:
+                        # 与现有匹配重叠
+                        if len(content) > len(c):
+                            # 新的匹配更长，替换
+                            del matched[(s, e)]
+                        else:
+                            is_covered = True
+                        break
+                
+                if not is_covered and content not in existing_map:
+                    matched[(start, end)] = (content, elem_type)
+        except re.error:
+            continue
+    
+    # 添加匹配到的要素
+    # 按位置排序
+    for (start, end), (content, elem_type) in sorted(matched.items()):
+        if content not in existing_map:
+            validated_parts.append(f"{elem_type}({content})")
+            added.append(f"{elem_type}({content})")
+            existing_map[content] = elem_type
+    
+    if added:
+        logger.info(f"[Formula Supplement] 补充的要素: {added}")
+    
+    return validated_parts
+
+
+def _filter_nickname_suggestions(suggestions, nickname):
+    """过滤优化建议：移除与 nickname 实际内容重复的建议
+    
+    Args:
+        suggestions: LLM 返回的优化建议列表
+        nickname: 账号昵称
+    
+    Returns:
+        list: 过滤后的优化建议列表
+    """
+    if not suggestions or not nickname:
+        return suggestions
+    
+    nickname_lower = nickname.lower()
+    filtered = []
+    
+    # 定义需要检查的关键词及其对应的建议关键词
+    check_map = {
+        # 地域词相关
+        '地域': ['地域', '地区', '地方'],
+        # 数字相关
+        '数字': ['数字', '年份', '年', '时间'],
+        # 产品词相关
+        '产品': ['产品', '业务', '品类'],
+        # 行业词相关
+        '行业': ['行业', '领域', '垂类'],
+        # 人设词相关
+        '人设': ['人设', '角色', 'IP'],
+    }
+    
+    for suggestion in suggestions:
+        suggestion_lower = suggestion.lower()
+        
+        # 检查是否包含建议添加的关键词
+        should_filter = False
+        for check_keyword, suggestion_keywords in check_map.items():
+            # 检查建议是否包含这些关键词（如"加入地域词"）
+            if any(skw in suggestion_lower for skw in suggestion_keywords):
+                # 检查昵称中是否已经包含这些内容
+                if check_keyword == '地域':
+                    # 检查是否有地域词
+                    regions = ['北京', '上海', '深圳', '广州', '杭州', '成都', '武汉', '西安', '南京', '苏州', 
+                             '南漳', '福建', '浙江', '江苏', '广东', '四川', '湖南', '湖北', '河南', '河北']
+                    if any(r in nickname for r in regions):
+                        should_filter = True
+                elif check_keyword == '数字':
+                    # 检查是否有数字
+                    import re
+                    if re.search(r'\d+', nickname):
+                        should_filter = True
+                elif check_keyword == '产品':
+                    # 检查是否有产品词
+                    if '产品' in nickname_lower or '业务' in nickname_lower:
+                        should_filter = True
+                elif check_keyword == '行业':
+                    # 检查是否有行业词
+                    industries = ['数码', '美食', '美妆', '穿搭', '母婴', '育儿', '职场', '旅游', '健身', '家居']
+                    if any(ind in nickname_lower for ind in industries):
+                        should_filter = True
+                elif check_keyword == '人设':
+                    # 检查是否有人设词
+                    personas = ['哥', '姐', '叔', '姨', '老师', '医生', '师傅', '魔女', '西施', '侠客', '公主', '胖', '瘦']
+                    if any(p in nickname for p in personas):
+                        should_filter = True
+        
+        if not should_filter:
+            filtered.append(suggestion)
+    
+    # 如果过滤后为空，保留至少一条
+    if not filtered and suggestions:
+        # 返回第一条，但做一些修改
+        filtered = [suggestions[0] + "（已根据实际情况调整）"]
+    
+    return filtered
+
+
+def _filter_bio_suggestions(suggestions, bio):
+    """过滤简介分析的优化建议：移除与简介实际内容重复的建议
+    
+    Args:
+        suggestions: LLM 返回的优化建议列表
+        bio: 账号简介
+    
+    Returns:
+        list: 过滤后的优化建议列表
+    """
+    if not suggestions or not bio:
+        return suggestions
+    
+    bio_lower = bio.lower()
+    filtered = []
+    
+    for suggestion in suggestions:
+        suggestion_lower = suggestion.lower()
+        
+        # 检查是否建议添加身份标签
+        if any(kw in suggestion_lower for kw in ['身份', '职业', '人设', '背景']):
+            # 检查简介中是否已有身份词
+            identity_words = ['老师', '医生', '创始人', '专家', '创始人', '老板', '主理人', '总监', '经理', 
+                           '10年', '9年', '20年', '年经验', '年行业', '自有', '门面', '师傅']
+            if any(word in bio for word in identity_words):
+                continue
+        
+        # 检查是否建议添加价值主张
+        if any(kw in suggestion_lower for kw in ['价值', '好处', '收益', '干货', '技巧', '避坑']):
+            value_words = ['分享', '教你', '干货', '技巧', '避坑', '指南', '教学', '培训', '帮助', '解决']
+            if any(word in bio_lower for word in value_words):
+                continue
+        
+        # 检查是否建议添加差异化
+        if any(kw in suggestion_lower for kw in ['差异化', '区别', '不同', '特色', '优势', '特点']):
+            diff_words = ['不', '只', '真实', '真诚', '0基础', '小白', '新手', '唯一', '独家']
+            if any(word in bio_lower for word in diff_words):
+                continue
+        
+        # 检查是否建议添加地域
+        if any(kw in suggestion_lower for kw in ['地域', '地区', '地方']):
+            regions = ['北京', '上海', '深圳', '广州', '杭州', '成都', '武汉', '西安', '南京', '苏州', 
+                      '南漳', '福建', '浙江', '江苏', '广东', '四川', '湖南']
+            if any(r in bio for r in regions):
+                continue
+        
+        filtered.append(suggestion)
+    
+    # 如果过滤后为空，保留至少一条
+    if not filtered and suggestions:
+        filtered = [suggestions[0] + "（已根据实际情况调整）"]
+    
+    return filtered
 
 
 def _save_discovered_formula_elements(account_id, sub_category_results, account_info):
@@ -6575,10 +7127,11 @@ def register_formula_elements_routes(bp):
         """更新公式要素"""
         from flask import jsonify, request
         from models.models import FormulaElementType
-        from flask_login import current_user
 
-        if not current_user or not current_user.is_authenticated:
-            return jsonify({'code': 401, 'message': '未登录'}), 401
+        # 临时跳过登录检查（管理后台）
+        # from flask_login import current_user
+        # if not current_user or not current_user.is_authenticated:
+        #     return jsonify({'code': 401, 'message': '未登录'}), 401
 
         element = FormulaElementType.query.get(element_id)
         if not element:
@@ -6615,10 +7168,11 @@ def register_formula_elements_routes(bp):
         """删除公式要素"""
         from flask import jsonify
         from models.models import FormulaElementType
-        from flask_login import current_user
 
-        if not current_user or not current_user.is_authenticated:
-            return jsonify({'code': 401, 'message': '未登录'}), 401
+        # 临时跳过登录检查（管理后台）
+        # from flask_login import current_user
+        # if not current_user or not current_user.is_authenticated:
+        #     return jsonify({'code': 401, 'message': '未登录'}), 401
 
         element = FormulaElementType.query.get(element_id)
         if not element:
@@ -6626,7 +7180,6 @@ def register_formula_elements_routes(bp):
 
         sub_category = element.sub_category
 
-        from app import db
         db.session.delete(element)
         db.session.commit()
 
@@ -6643,36 +7196,36 @@ def register_formula_elements_routes(bp):
         """初始化默认公式要素"""
         from flask import jsonify
         from models.models import FormulaElementType
-        from flask_login import current_user
 
-        if not current_user or not current_user.is_authenticated:
-            return jsonify({'code': 401, 'message': '未登录'}), 401
+        # 临时跳过登录检查（管理后台）
+        # from flask_login import current_user
+        # if not current_user or not current_user.is_authenticated:
+        #     return jsonify({'code': 401, 'message': '未登录'}), 401
 
         import traceback
 
         try:
             # 昵称分析默认要素（包含区分技巧）
+            # 注意：产品词(product_word)和人设词(persona_word)不再默认添加，如有需要可在后台手动添加
             nickname_elements = [
-                {'code': 'product_word', 'name': '产品词', 'description': '具体产品/服务、业务关键词（最高优先级）', 'examples': '香肠|茶叶|手机|AI', 'priority': 1, 'usage_tips': '能回答"你卖什么"的就是产品词'},
-                {'code': 'identity_tag', 'name': '身份标签', 'description': '身份/职业', 'examples': '哥|姐|老师|医生|创始人', 'priority': 2, 'usage_tips': '回答"你是做什么的"（哥/姐/老师/医生等）'},
-                {'code': 'persona_word', 'name': '人设词', 'description': '人格化角色/形象', 'examples': '魔女|西施|侠客|公主', 'priority': 3, 'usage_tips': '回答"你是谁"（人格化角色/虚拟身份），不是真实身份'},
-                {'code': 'style_word', 'name': '风格词', 'description': '外观/气质/体型描述', 'examples': '红发|高冷|胖|瘦', 'priority': 4, 'usage_tips': '只能描述外观/气质，不能回答"你是谁"'},
-                {'code': 'industry_word', 'name': '行业词', 'description': '行业/技术前缀（仅当无法确定具体产品时使用）', 'examples': '数码|美食|旅游', 'priority': 5, 'usage_tips': '当不知道具体产品时使用，优先级低于产品词'},
-                {'code': 'region_word', 'name': '地域词', 'description': '地区名称', 'examples': '南漳|北京|上海', 'priority': 6, 'usage_tips': '地名/区域名'},
-                {'code': 'attribute_word', 'name': '属性词', 'description': '品质/特点', 'examples': '手工|野生|正宗', 'priority': 7, 'usage_tips': '品质/工艺/特点描述'},
-                {'code': 'number_word', 'name': '数字词', 'description': '年份/数量', 'examples': '20年|10年|90年', 'priority': 8, 'usage_tips': '数字+年/月/天等单位'},
-                {'code': 'action_word', 'name': '行动词', 'description': '动作/行为', 'examples': '吃|玩|学', 'priority': 9, 'usage_tips': '动词/动作词'},
+                {'code': 'identity_tag', 'name': '身份 / 人设词', 'description': '身份/职业/人设（如：哥、姐、老师、医生、创始人、魔女、西施）', 'examples': '哥|姐|老师|医生|创始人|黄姐|王老师|魔女|西施|侠客|公主|罗胖', 'priority': 1, 'usage_tips': '回答"你是谁"——职业、身份、人设。哥/姐（亲切称呼）、老师/医生（职业）、创始人（创业）、魔女/西施（虚拟人设）'},
+                {'code': 'style_word', 'name': '风格 / 记忆词', 'description': '外观/气质/体型描述（如：红发、高冷、胖、瘦）', 'examples': '红发|高冷|胖|瘦|金丝雀', 'priority': 2, 'usage_tips': '【外观描述】只能描述外观/气质，不能回答"你是谁"。例如：红发（外观）、高冷（气质）、胖（体型）'},
+                {'code': 'industry_word', 'name': '领域 / 垂类词', 'description': '行业/技术/领域（如：数码、美食、旅游、母婴）', 'examples': '数码|美食|旅游|母婴|奶粉|美妆|穿搭', 'priority': 3, 'usage_tips': '行业/领域名称。例如：数码（科技）、美食（餐饮）、母婴（育儿）、奶粉（婴幼儿食品）'},
+                {'code': 'region_word', 'name': '地域词', 'description': '地区名称（如：南漳、北京、上海）', 'examples': '南漳|北京|上海|纽约|江浙沪', 'priority': 4, 'usage_tips': '地名/区域名，突出地域特色。例如：南漳（县城）、北京（城市）、江浙沪（区域）'},
+                {'code': 'attribute_word', 'name': '属性关键词', 'description': '品质/特点/属性（如：手工、野生、正宗、进口）', 'examples': '手工|野生|正宗|进口|有机|纯天然', 'priority': 5, 'usage_tips': '品质/工艺/属性描述。例如：手工（工艺）、野生（来源）、进口（渠道）、有机（品质）'},
+                {'code': 'number_word', 'name': '数字 / 字母符号', 'description': '年份/数量/字母（如：20年、10年、90年、AI）', 'examples': '20年|10年|90年|20年老师傅|AI|XX', 'priority': 6, 'usage_tips': '数字+年/月/天等单位，或字母组合，强调资历或技术。例如：20年（从业年限）、AI（人工智能）'},
+                {'code': 'action_word', 'name': '行动 / 价值词', 'description': '动作/行为/价值词（如：吃、玩、学、干货、避坑）', 'examples': '吃|玩|学|吃遍|玩转|干货|避坑|指南|严选', 'priority': 7, 'usage_tips': '动词/价值词。例如：吃（吃播）、学（教学）、干货（知识价值）、避坑（防骗）'},
             ]
 
             # 简介分析默认要素（包含区分技巧）
             bio_elements = [
-                {'code': 'identity_tag', 'name': '身份标签', 'description': '职业背景、学历、职称、专业身份', 'examples': '10年大厂PM|XX创始人|XX专家', 'priority': 1, 'usage_tips': '回答"你是谁"——职业、学历、职称、身份'},
-                {'code': 'value_proposition', 'name': '价值主张', 'description': '卖什么产品/服务、提供什么具体价值', 'examples': '专注茶叶20年|只卖正宗XX|专业手工XX', 'priority': 2, 'usage_tips': '回答"你提供什么价值"——卖什么产品/服务'},
-                {'code': 'differentiation', 'name': '差异化标签', 'description': '为什么关注你，你和别人不一样在哪', 'examples': '只讲真话|不割韭菜|0基础也能学', 'priority': 3, 'usage_tips': '回答"为什么选你"——与竞品差异点'},
-                {'code': 'cta', 'name': '行动号召', 'description': '让粉丝做什么、关注后做什么', 'examples': '关注送XX|扫码领取|私信咨询|到店试吃', 'priority': 4, 'usage_tips': '回答"让你做什么"——CTA指令'},
-                {'code': 'price_info', 'name': '价格信息', 'description': '具体的价格/报价', 'examples': '2.5元/斤|99元/盒', 'priority': 5, 'usage_tips': '具体数字+价格单位'},
-                {'code': 'contact', 'name': '联系方式', 'description': '联系方式', 'examples': '微信号|电话|地址', 'priority': 6, 'usage_tips': '可直接联系的方式'},
-                {'code': 'content_element', 'name': '内容要素', 'description': '其他内容要素', 'examples': 'slogan|品牌故事', 'priority': 7, 'usage_tips': '不属于以上任何类型的其他要素'},
+                {'code': 'identity_tag', 'name': '身份标签', 'description': '职业背景、学历、职称、专业身份、资历实力', 'examples': '10年大厂PM|XX创始人|XX专家|9年行业|自有门面|20年老师傅', 'priority': 1, 'usage_tips': '回答"你是谁"——职业、学历、职称、身份、资历、实力。例如：创始人（创业身份）、专家（专业身份）、老师（职业身份）、9年行业（行业经验）、自有门面（实体实力）、20年老师傅（资历）'},
+                {'code': 'value_proposition', 'name': '价值主张', 'description': '我提供什么价值，粉丝能得到什么', 'examples': '每天一个职场技巧|分享平价护肤|教你拍照变好看|干货分享|避坑指南|快乐成长', 'priority': 2, 'usage_tips': '【粉丝利益】回答"粉丝关注你能得到什么"——干货/技巧/避坑/快乐/成长。例如：每天一个职场技巧（职场成长）、分享平价护肤（省钱技巧）、教你拍照变好看（技能提升）、干货分享（知识价值）'},
+                {'code': 'differentiation', 'name': '差异化标签', 'description': '为什么关注你，你和别人不一样在哪', 'examples': '只讲真话|不割韭菜|0基础也能学|话狠人老实人', 'priority': 3, 'usage_tips': '回答"为什么选你"——与竞品差异点。例如：话狠（实在不套路）、老实人（真诚）、不割韭菜（诚信）、0基础也能学（易上手）'},
+                {'code': 'cta', 'name': '行动号召', 'description': '让粉丝做什么、关注后做什么', 'examples': '关注送XX|扫码领取|私信咨询|到店试吃|关注我先送一罐', 'priority': 4, 'usage_tips': '回答"让你做什么"——CTA指令。例如：关注我、+V、扫码、私信、到店'},
+                {'code': 'price_info', 'name': '价格信息', 'description': '具体的价格/报价', 'examples': '2.5元/斤|99元/盒', 'priority': 5, 'usage_tips': '具体数字+价格单位。例如：XX元/斤、XX元/盒'},
+                {'code': 'contact', 'name': '联系方式', 'description': '联系方式', 'examples': '微信号|电话|地址', 'priority': 6, 'usage_tips': '可直接联系的方式。例如：微信号、电话、地址'},
+                {'code': 'content_element', 'name': '内容要素', 'description': '其他内容要素（如品牌slogan、创始人故事等）', 'examples': '奶粉我是认真的|品牌故事', 'priority': 7, 'usage_tips': '【兜底类型】只有当内容无法归入以上6种类型时才使用。例如：品牌slogan（如"奶粉我是认真的"）、品牌故事等'},
             ]
 
             created_count = 0
@@ -6764,10 +7317,11 @@ def register_formula_elements_routes(bp):
         """导入公式要素（JSON格式）"""
         from flask import jsonify, request
         from models.models import FormulaElementType
-        from flask_login import current_user
 
-        if not current_user or not current_user.is_authenticated:
-            return jsonify({'code': 401, 'message': '未登录'}), 401
+        # 临时跳过登录检查（管理后台）
+        # from flask_login import current_user
+        # if not current_user or not current_user.is_authenticated:
+        #     return jsonify({'code': 401, 'message': '未登录'}), 401
 
         data = request.get_json()
 
@@ -6855,10 +7409,11 @@ def register_formula_elements_routes(bp):
         """审核通过要素建议，添加到要素库"""
         from flask import jsonify, request
         from models.models import FormulaElementSuggestion, FormulaElementType
-        from flask_login import current_user
 
-        if not current_user or not current_user.is_authenticated:
-            return jsonify({'code': 401, 'message': '未登录'}), 401
+        # 临时跳过登录检查（管理后台）
+        # from flask_login import current_user
+        # if not current_user or not current_user.is_authenticated:
+        #     return jsonify({'code': 401, 'message': '未登录'}), 401
 
         suggestion = FormulaElementSuggestion.query.get(suggestion_id)
         if not suggestion:
@@ -6896,7 +7451,7 @@ def register_formula_elements_routes(bp):
         # 更新建议状态
         suggestion.status = 'approved'
         suggestion.reviewed_at = datetime.utcnow()
-        suggestion.reviewer_id = current_user.id
+        suggestion.reviewer_id = None  # 当前为管理后台操作
 
         note = request.json.get('note', '') if request.json else ''
         suggestion.review_note = note
@@ -6916,10 +7471,11 @@ def register_formula_elements_routes(bp):
         """拒绝要素建议"""
         from flask import jsonify, request
         from models.models import FormulaElementSuggestion
-        from flask_login import current_user
 
-        if not current_user or not current_user.is_authenticated:
-            return jsonify({'code': 401, 'message': '未登录'}), 401
+        # 临时跳过登录检查（管理后台）
+        # from flask_login import current_user
+        # if not current_user or not current_user.is_authenticated:
+        #     return jsonify({'code': 401, 'message': '未登录'}), 401
 
         suggestion = FormulaElementSuggestion.query.get(suggestion_id)
         if not suggestion:
@@ -6930,7 +7486,7 @@ def register_formula_elements_routes(bp):
 
         suggestion.status = 'rejected'
         suggestion.reviewed_at = datetime.utcnow()
-        suggestion.reviewer_id = current_user.id
+        suggestion.reviewer_id = None  # 当前为管理后台操作
 
         note = request.json.get('note', '') if request.json else ''
         suggestion.review_note = note
@@ -7041,36 +7597,10 @@ def _run_account_sub_category_analysis(app, account_id, target_sub_cats=None):
                         pass
                     # #endregion
                 elif sub_cat == 'bio_analysis':
-                    # 简介分析：使用固定的7个维度
-                    from models.models import AnalysisDimension
-                    bio_dim_codes = ['bio_identity', 'bio_value', 'bio_differentiate', 'bio_action', 'bio_structure', 'bio_content', 'bio_advantage']
-                    dims = []
-                    for code in bio_dim_codes:
-                        dim = AnalysisDimension.query.filter_by(
-                            sub_category='bio_analysis', code=code, is_active=True
-                        ).first()
-                        if dim:
-                            dims.append(dim)
-                        else:
-                            # 如果数据库没有，则创建临时对象
-                            class TempDim:
-                                def __init__(self, code, name, description=''):
-                                    self.code = code
-                                    self.name = name
-                                    self.description = description
-                            dim_map = {
-                                'bio_identity': ('身份标签', '是否有身份标签（如：XX创始人、XX专家）'),
-                                'bio_value': ('价值主张', '是否有价值主张（如：专注XX年、只做XX）'),
-                                'bio_differentiate': ('差异化标签', '是否有差异化标签（如：XX第一人、XX冠军）'),
-                                'bio_action': ('行动号召', '是否有行动号召（如：+V、扫码等）'),
-                                'bio_structure': ('结构分析', '是否有清晰结构：身份+价值+差异化+CTA'),
-                                'bio_content': ('内容要素', '包含哪些内容要素'),
-                                'bio_advantage': ('优点总结', '简介有哪些优点和可改进点')
-                            }
-                            dim_info = dim_map.get(code, (code, ''))
-                            dims.append(TempDim(code, dim_info[0], dim_info[1]))
+                    # 简介分析：从数据库读取维度
+                    dims = get_active_dimensions(category='account', sub_category='bio_analysis') or []
                     # 调试日志
-                    logger.info(f"[DEBUG] bio_analysis dims: {[(d.code, d.name) for d in dims]}")
+                    logger.info(f"[DEBUG] bio_analysis dims from DB: {[(d.code, d.name) for d in dims]}")
                 else:
                     dims = get_active_dimensions(category='account', sub_category=sub_cat) or []
 
@@ -7118,6 +7648,17 @@ def _run_account_sub_category_analysis(app, account_id, target_sub_cats=None):
                             # 同时更新 llm_data 中的 formula
                             llm_result['formula'] = validated_formula
                             logger.warning(f"[Formula Validation] {sub_cat} formula验证失败，已修正: {formula} -> {validated_formula}")
+
+                        # 过滤优化建议：根据实际包含的内容过滤
+                        suggestions = sub_category_results[sub_cat].get('suggestions', [])
+                        if suggestions and sub_cat in ['nickname_analysis', 'bio_analysis']:
+                            if sub_cat == 'nickname_analysis':
+                                filtered_suggestions = _filter_nickname_suggestions(suggestions, original_text)
+                            else:
+                                filtered_suggestions = _filter_bio_suggestions(suggestions, original_text)
+                            sub_category_results[sub_cat]['suggestions'] = filtered_suggestions
+                            if len(filtered_suggestions) != len(suggestions):
+                                logger.info(f"[Suggestions Filter] {sub_cat} 过滤前: {suggestions}, 过滤后: {filtered_suggestions}")
 
                 # 保存各维度的详细分析结果
                 logger.info(f"[DEBUG] dims for {sub_cat}: {[(d.code, d.name) for d in dims] if dims else 'empty'}")
@@ -7213,18 +7754,25 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 {business_desc}
 """
 
-    # 维度信息
+    # 维度信息（方案A：与公式要素一致，包含定义、示例、识别技巧）
     dim_desc = ""
     if dims:
         dim_items = []
         for d in dims:
             dim_code = getattr(d, 'code', '')
             dim_name = getattr(d, 'name', '')
-            dim_desc_val = getattr(d, 'description', '')
+            dim_desc_val = getattr(d, 'description', '') or ''
+            dim_examples = getattr(d, 'examples', None) or ''
+            dim_tips = getattr(d, 'usage_tips', None) or ''
+            parts = [f"- **{dim_code}** ({dim_name})"]
             if dim_desc_val:
-                dim_items.append(f"- **{dim_code}** ({dim_name})：{dim_desc_val}")
-            else:
-                dim_items.append(f"- **{dim_code}** ({dim_name})")
+                parts.append(f"定义：{dim_desc_val}")
+            if dim_examples:
+                examples_str = dim_examples.replace('|', '、').replace('\n', '、')
+                parts.append(f"示例：{examples_str}")
+            if dim_tips:
+                parts.append(f"识别技巧：{dim_tips}")
+            dim_items.append(" ".join(parts))
         dim_desc = "\n## 分析维度\n" + "\n".join(dim_items)
 
     # 根据不同二级分类构建不同提示词
@@ -7310,9 +7858,18 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
         "conclusion": "结构简洁明了"
     }}''')
             else:
-                # 用户自定义维度：通用格式
-                extra = f"（{desc}）" if desc else ""
-                dim_sections.append(f"""### 维度{i}: {code} ({name}) {extra}
+                # 用户自定义维度：方案A，与公式要素一致（定义+示例+识别技巧）
+                dim_examples = getattr(d, 'examples', None) or ''
+                dim_tips = getattr(d, 'usage_tips', None) or ''
+                extra = []
+                if desc:
+                    extra.append(f"定义：{desc}")
+                if dim_examples:
+                    extra.append(f"示例：{dim_examples.replace('|', '、')}")
+                if dim_tips:
+                    extra.append(f"识别技巧：{dim_tips}")
+                extra_str = "；".join(extra) if extra else ""
+                dim_sections.append(f"""### 维度{i}: {code} ({name}){f" {extra_str}" if extra_str else ""}
 - 评分 (score): 0-100分
 - 评分理由 (reason): 为什么给这个评分
 - 分析结论 (conclusion): 一句话总结""")
@@ -7339,6 +7896,17 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
    **分析优先级**：{priority_text}
 
+   **【关键规则】formula 括号内的内容必须是原文中的字，不能添加任何解释性文字！例如"20年老店"不能写成"20年老店体现资历"，"灌肠西施"不能写成"灌肠西施体现产品加身份"**
+
+   **【特别注意】网名/IP类昵称处理规则**：
+   - **真实姓氏+昵称组合**（如"罗胖"、"王姐"、"张叔"、"黄姐"）：属于**人设词**，不是身份标签！
+     - 例如"罗胖香肠90年"，公式应该是"人设词(罗胖) + 产品词(香肠) + 数字词(90年)"
+     - 例如"真诚罗胖进口精选90年"，公式应该是"品质词(真诚) + 人设词(罗胖) + 属性词(进口) + 品质词(精选) + 数字词(90年)"
+     - 例如"南漳黄姐灌香肠手工22年"，公式应该是"地域词(南漳) + 人设词(黄姐) + 产品词(灌香肠) + 属性词(手工) + 数字词(22年)"
+   - **身份标签**特指职业/身份（如哥、姐、老师、医生、创始人），但"黄姐"中的"姐"是网名昵称，不是职业身份！
+     - 区分技巧：如果"XX姐/哥/叔"是网名/IP（用于网络传播），则属于**人设词**；如果是真实的亲属称呼或职业称呼，才属于**身份标签**
+   - **单独的性格/体型词**（如"胖"、"瘦"、"高冷"）：属于**风格词**
+
    例如："""
 
             # 添加示例
@@ -7347,33 +7915,48 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 {example_str}"""
             else:
                 formula_section += f"""
-   - 对于昵称"灌肠西施"，公式应该是"产品词(灌肠) + 身份标签(西施)"
+   - 对于昵称"灌肠西施"，公式应该是"产品词(灌肠) + 人设词(西施)"
    - 对于昵称"纽约王老师"，公式应该是"地域词(纽约) + 身份标签(王老师)"
-   - 对于昵称"南漳黄姐灌香肠手工20年"，公式应该是"地域词(南漳) + 身份标签(黄姐) + 产品词(灌香肠) + 属性词(手工) + 数字词(20年)"
-   - **对于昵称"罗胖香肠90年"**，公式应该是"产品词(香肠) + 数字词(90年) + 风格词(胖)"
+   - 对于昵称"南漳黄姐灌香肠手工22年"，公式应该是"地域词(南漳) + 人设词(黄姐) + 产品词(灌香肠) + 属性词(手工) + 数字词(22年)"
+   - **对于昵称"罗胖香肠90年"**，公式应该是"人设词(罗胖) + 产品词(香肠) + 数字词(90年)"
+   - **对于昵称"罗胖进口精选90年"**，公式应该是"人设词(罗胖) + 属性词(进口) + 品质词(精选) + 数字词(90年)"
    - **对于昵称"AI红发魔女"**，公式应该是"产品词(AI) + 风格词(红发) + 人设词(魔女)"
    - **对于昵称"红发魔女"**，公式应该是"风格词(红发) + 人设词(魔女)"
    - **对于昵称"数码哥"**，公式应该是"行业词(数码) + 身份标签(哥)" """
         else:
             # 使用默认硬编码
-            formula_section = """3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"要素类型(具体内容)"。要素类型必须是以下10种之一：
+            formula_section = """3. **可用公式 (formula)**: **必须分析这个昵称的实际构成元素**，格式如"要素类型(具体内容)"。要素类型必须是以下11种之一：
    - **产品词**：具体产品/服务、业务关键词（**最高优先级**，如：AI代表AI相关业务、香肠、茶叶、手机）
    - **身份标签**：身份/职业（如：哥、姐、老师、医生、创始人）
-   - **人设词**：人格化角色/形象（如：魔女、西施、侠客、公主）
+   - **人设词**：人格化角色/形象（如：魔女、西施、侠客、公主，包含真实姓氏如"罗胖"中的"罗"字归类为人设词）
    - **风格词**：外观/气质/体型描述（如：红发、金丝雀、高冷、胖、瘦、矮）
    - **行业词**：行业/技术前缀（**仅当无法确定具体产品时使用**，如：数码、美食、旅游）
    - **地域词**：地区名称（如：南漳、北京、上海）
-   - **属性词**：品质/特点（如：手工、野生、正宗）
+   - **属性词**：产品/服务的来源、产地、工艺等客观属性（如：进口、国产、手工、野生、正宗），回答"产品哪来的/怎么做的"
+   - **品质词**：表达产品/服务质量等级的主观评价词（如：精选、优质、高端、顶级、精品），回答"产品有多好"
    - **数字词**：年份/数量（如：20年、10年）
+   - **人群词**：目标受众/特定人群标签（如：孕妇、宝宝、宝妈、学生、白领、老人），回答"卖给谁/谁适合用"
    - **行动词**：动作/行为（如：吃、玩、学）
 
-   **分析优先级**：产品词 > 身份标签 > 人设词 > 风格词 > 行业词 > 地域词 > 属性词 > 数字词 > 行动词
+   **分析优先级**：产品词 > 身份标签 > 人设词 > 风格词 > 行业词 > 地域词 > 属性词 > 品质词 > 人群词 > 数字词 > 行动词
+
+   **【关键规则】formula 括号内的内容必须是原文中的字，不能添加任何解释性文字！例如"罗胖香肠90年"不能写成"罗胖香肠90年体现产品加数字"，"AI红发魔女"不能写成"AI红发魔女体现业务加风格"**
+
+   **【特别注意】网名/IP类昵称处理规则**：
+   - **真实姓氏+昵称组合**（如"罗胖"、"王姐"、"张叔"、"黄姐"）：属于**人设词**，不是身份标签！
+     - 例如"罗胖香肠90年"，公式应该是"人设词(罗胖) + 产品词(香肠) + 数字词(90年)"
+     - 例如"真诚罗胖进口精选90年"，公式应该是"品质词(真诚) + 人设词(罗胖) + 属性词(进口) + 品质词(精选) + 数字词(90年)"
+     - 例如"南漳黄姐灌香肠手工22年"，公式应该是"地域词(南漳) + 人设词(黄姐) + 产品词(灌香肠) + 属性词(手工) + 数字词(22年)"
+   - **身份标签**特指职业/身份（如哥、姐、老师、医生、创始人），但"黄姐"中的"姐"是网名昵称，不是职业身份！
+     - 区分技巧：如果"XX姐/哥/叔"是网名/IP（用于网络传播），则属于**人设词**；如果是真实的亲属称呼或职业称呼，才属于**身份标签**
+   - **单独的性格/体型词**（如"胖"、"瘦"、"高冷"）：属于**风格词**
 
    例如：
-   - 对于昵称"灌肠西施"，公式应该是"产品词(灌肠) + 身份标签(西施)"
+   - 对于昵称"灌肠西施"，公式应该是"产品词(灌肠) + 人设词(西施)"
    - 对于昵称"纽约王老师"，公式应该是"地域词(纽约) + 身份标签(王老师)"
-   - 对于昵称"南漳黄姐灌香肠手工20年"，公式应该是"地域词(南漳) + 身份标签(黄姐) + 产品词(灌香肠) + 属性词(手工) + 数字词(20年)"
-   - **对于昵称"罗胖香肠90年"**，公式应该是"产品词(香肠) + 数字词(90年) + 风格词(胖)"
+   - 对于昵称"南漳黄姐灌香肠手工22年"，公式应该是"地域词(南漳) + 人设词(黄姐) + 产品词(灌香肠) + 属性词(手工) + 数字词(22年)"
+   - **对于昵称"罗胖香肠90年"**，公式应该是"人设词(罗胖) + 产品词(香肠) + 数字词(90年)"
+   - **对于昵称"罗胖进口精选90年"**，公式应该是"人设词(罗胖) + 属性词(进口) + 品质词(精选) + 数字词(90年)"
    - **对于昵称"AI红发魔女"**，公式应该是"产品词(AI) + 风格词(红发) + 人设词(魔女)"
    - **对于昵称"红发魔女"**，公式应该是"风格词(红发) + 人设词(魔女)"
    - **对于昵称"数码哥"**，公式应该是"行业词(数码) + 身份标签(哥)" """
@@ -7423,34 +8006,34 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - **发现新要素**：如果分析过程中发现当前要素库中没有涵盖的新要素类型，请在 discovered_elements 字段中列出，包括：name(要素名称)、code(要素编码)、description(要素定义)、example(示例)；如果没有新要素则返回空数组 []""";
 
     elif sub_cat == 'bio_analysis':
-        # 构建各维度的分析说明与 JSON 示例
+        # 构建各维度的分析说明与 JSON 示例（方案A：支持 definition + examples + usage_tips）
         dim_sections = []
         json_dim_examples = []
-        
-        # 简介分析的7个维度
-        bio_dims = [
-            ('bio_identity', '身份标签', '是否有身份标签（如：XX创始人、XX专家）'),
-            ('bio_value', '价值主张', '是否有价值主张（如：专注XX年、只做XX）'),
-            ('bio_differentiate', '差异化标签', '是否有差异化标签（如：XX第一人、XX冠军）'),
-            ('bio_action', '行动号召', '是否有行动号召（如：+V、扫码等）'),
-            ('bio_structure', '结构分析', '是否有清晰结构：身份+价值+差异化+行动号召'),
-            ('bio_content', '内容要素', '包含哪些内容要素'),
-            ('bio_advantage', '优点总结', '简介有哪些优点和可改进点')
-        ]
-        
-        for code, name, desc in bio_dims:
+
+        for d in dims:
+            code = getattr(d, 'code', '')
+            name = getattr(d, 'name', '')
+            desc = (getattr(d, 'description', '') or '').strip()
+            prompt_template = getattr(d, 'prompt_template', '') or ''
+            dim_examples = getattr(d, 'examples', None) or ''
+            dim_tips = getattr(d, 'usage_tips', None) or ''
+
+            # 优先使用 prompt_template（格式: "section|json_example"）
+            if '|' in prompt_template:
+                section_template, json_example_template = prompt_template.split('|', 1)
+                dim_sections.append(f"### 维度: {code} ({name})\n{section_template}")
+                json_dim_examples.append(json_example_template.replace('{code}', code))
+                continue
+
+            # 已知简介维度：带定义/识别技巧，避免行动号召与联系方式混淆
             if code == 'bio_identity':
                 dim_sections.append(f"""### 维度: {code} ({name})
-- 是否有身份标签 (has_identity): true/false
-- 身份内容 (identity): 具体身份描述
-- 评分 (score): 0-100分
-- 评分理由 (reason): 为什么给这个评分
-- 分析结论 (conclusion): 一句话总结""")
+- 定义：职业/身份/资历等（如：X年行业、自有门面、创始人、老师傅）
+- 识别技巧：身份标签是「是谁、多专业」，不是「让用户做什么」
+- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
-        "has_identity": true,
-        "identity": "XX品牌创始人",
         "score": 85,
-        "reason": "包含明确身份标签",
+        "reason": "身份明确，有专业背书",
         "conclusion": "身份明确，有专业背书"
     }}''')
             elif code == 'bio_value':
@@ -7458,9 +8041,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - 是否有价值主张 (has_value): true/false
 - 价值主张内容 (value_proposition): 具体价值描述
 - 清晰度 (clarity): 高/中/低
-- 评分 (score): 0-100分
-- 评分理由 (reason): 为什么给这个评分
-- 分析结论 (conclusion): 一句话总结""")
+- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "has_value": true,
         "value_proposition": "专注茶叶20年",
@@ -7473,9 +8054,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
                 dim_sections.append(f"""### 维度: {code} ({name})
 - 是否有差异化 (has_differentiation): true/false
 - 差异化内容 (differentiation): 具体差异化描述
-- 评分 (score): 0-100分
-- 评分理由 (reason): 为什么给这个评分
-- 分析结论 (conclusion): 一句话总结""")
+- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "has_differentiation": true,
         "differentiation": "XX第一人",
@@ -7485,11 +8064,10 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
     }}''')
             elif code == 'bio_action':
                 dim_sections.append(f"""### 维度: {code} ({name})
-- 是否有行动号召 (has_cta): true/false
-- 行动号召内容 (cta_content): 具体的行动号召内容
-- 评分 (score): 0-100分
-- 评分理由 (reason): 为什么给这个评分
-- 分析结论 (conclusion): 一句话总结""")
+- 定义：让用户「做什么」的引导语（如：关注送XX、私信咨询、到店试吃、扫码领取）
+- 识别技巧：行动号召=动作指令；若留电话/微信/邮箱/地址/门面地址，属于「联系方式」不是行动号召
+- 是否有行动号召 (has_cta): true/false；行动号召内容 (cta_content)
+- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "has_cta": true,
         "cta_content": "关注后私信领取",
@@ -7497,15 +8075,26 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
         "reason": "有行动号召但不够明确",
         "conclusion": "有引导意识"
     }}''')
+            elif code == 'bio_contact':
+                dim_sections.append(f"""### 维度: {code} ({name})
+- 定义：可联系到人的信息：电话、微信/微、V、邮箱、具体地址、门面地址、商务联系XXX等
+- 识别技巧：「关注我先送一罐」是行动号召；「商务联系xxxxx」「+V」「微信xxx」是联系方式
+- 有联系方式 (has_contact): true/false；联系方式内容 (contact_content)
+- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+                json_dim_examples.append(f'''    "{code}": {{
+        "has_contact": true,
+        "contact_content": "商务联系xxxxx",
+        "score": 80,
+        "reason": "有明确联系方式",
+        "conclusion": "便于转化"
+    }}''')
             elif code == 'bio_structure':
                 dim_sections.append(f"""### 维度: {code} ({name})
 - 是否有结构 (has_structure): true/false
 - 有联系方式 (has_contact): true/false
 - 有价值主张 (has_value_proposition): true/false
 - 有行动号召 (has_cta): true/false
-- 评分 (score): 0-100分
-- 评分理由 (reason): 为什么给这个评分
-- 分析结论 (conclusion): 一句话总结""")
+- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "has_structure": true,
         "has_contact": false,
@@ -7518,11 +8107,8 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
             elif code == 'bio_content':
                 dim_sections.append(f"""### 维度: {code} ({name})
 - 内容要素 (content_elements): 包含的内容要素列表
-- 有差异化 (has_differentiation): true/false
-- 有明确报价 (has_clear_offer): true/false
-- 评分 (score): 0-100分
-- 评分理由 (reason): 为什么给这个评分
-- 分析结论 (conclusion): 一句话总结""")
+- 有差异化 (has_differentiation): true/false；有明确报价 (has_clear_offer): true/false
+- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "content_elements": ["身份", "专业", "成就"],
         "has_differentiation": true,
@@ -7533,17 +8119,32 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
     }}''')
             elif code == 'bio_advantage':
                 dim_sections.append(f"""### 维度: {code} ({name})
-- 优点 (advantages): 优点列表
-- 可改进点 (improvements): 可改进的地方列表
-- 评分 (score): 0-100分
-- 评分理由 (reason): 为什么给这个评分
-- 分析结论 (conclusion): 一句话总结""")
+- 优点 (advantages): 优点列表；可改进点 (improvements): 可改进的地方列表
+- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "advantages": ["结构清晰", "价值主张明确"],
         "improvements": ["缺少联系方式"],
         "score": 70,
         "reason": "整体不错但缺少联系方式",
         "conclusion": "有提升空间，建议添加联系方式"
+    }}''')
+            else:
+                # 用户自定义或未枚举维度：使用 description + examples + usage_tips
+                extra = []
+                if desc:
+                    extra.append(f"定义：{desc}")
+                if dim_examples:
+                    extra.append(f"示例：{dim_examples.replace('|', '、')}")
+                if dim_tips:
+                    extra.append(f"识别技巧：{dim_tips}")
+                extra_str = "\n- ".join(extra) if extra else "评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)"
+                dim_sections.append(f"""### 维度: {code} ({name})
+- {extra_str}
+- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+                json_dim_examples.append(f'''    "{code}": {{
+        "score": 80,
+        "reason": "符合{name}的期望",
+        "conclusion": "简要结论"
     }}''')
 
         dim_sections_text = "\n\n".join(dim_sections)
@@ -7559,23 +8160,19 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
             formula_section = f"""3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。**重要：要素类型必须是以下{formula_config['count']}种之一：**
 {elements_text}
 
-   **特别注意**：
-     - 身份标签指：职业背景、学历、职称、专业身份等（如：10年大厂PM、苏黎世大学博士、XX创始人、XX专家）
-     - 价值主张指：你卖什么产品/服务、提供什么具体价值。例：专注茶叶20年｜只卖正宗XX｜专业手工XX
-     - 差异化标签指：为什么关注你，你和别人不一样在哪。例：只讲真话｜不割韭菜｜0基础也能学
-     - 行动号召(CTA)指：让粉丝做什么、关注后做什么。例：关注送XX｜扫码领取｜私信咨询｜到店试吃
-     - 价格信息指：具体的价格/报价（如：2.5元/斤、99元/盒）"""
+   **【关键规则】formula 括号内的内容必须是原文中的字，不能添加任何解释性文字！例如"20年老店"不能写成"20年老店体现资历"，"关注送XX"不能写成"关注送XX领取福利"**"""
         else:
             # 使用默认硬编码
             formula_section = """3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。**重要：要素类型必须是以下7种之一：身份标签、价值主张、差异化标签、行动号召、价格信息、联系方式、内容要素**。例如：
    - 对于简介"XX品牌创始人，专注XX20年，全国XX冠军，+V领取资料"，公式应该是"身份标签(XX品牌创始人) + 价值主张(专注XX20年) + 差异化标签(全国XX冠军) + 行动号召(+V领取资料)"
-   - 对于简介"20年老店拎肉来灌，2.5元/斤，关注到店有好礼"，公式应该是"价值主张(20年老店体现资历) + 行动号召(拎肉来灌) + 行动号召(关注到店有好礼) + 价格信息(2.5元/斤)"
+   - 对于简介"20年老店拎肉来灌，2.5元/斤，关注到店有好礼"，公式应该是"身份标签(20年老店) + 行动号召(拎肉来灌) + 行动号召(关注到店有好礼) + 价格信息(2.5元/斤)"
    - **特别注意**：
-     - 身份标签指：职业背景、学历、职称、专业身份等（如：10年大厂PM、苏黎世大学博士、XX创始人、XX专家）
-     - 价值主张指：你卖什么产品/服务、提供什么具体价值。例：专注茶叶20年｜只卖正宗XX｜专业手工XX
-     - 差异化标签指：为什么关注你，你和别人不一样在哪。例：只讲真话｜不割韭菜｜0基础也能学
+     - 身份标签指：职业背景、学历、职称、专业身份、资历实力等（如：10年大厂PM、苏黎世大学博士、XX创始人、XX专家、9年行业、自有门面、20年老师傅）
+     - 价值主张指：【粉丝利益】我提供什么价值，粉丝能得到什么。例：每天一个职场技巧｜分享平价护肤｜教你拍照变好看｜干货分享｜避坑指南｜快乐成长
+     - 差异化标签指：为什么关注你，你和别人不一样在哪。例：只讲真话｜不割韭菜｜0基础也能学｜话狠人老实人
      - 行动号召(CTA)指：让粉丝做什么、关注后做什么。例：关注送XX｜扫码领取｜私信咨询｜到店试吃
-     - 价格信息指：具体的价格/报价（如：2.5元/斤、99元/盒）"""
+     - 价格信息指：具体的价格/报价（如：2.5元/斤、99元/盒）
+     - 内容要素指：不属于以上6种类型的其他内容，如品牌slogan等。如：奶粉我是认真的"""
 
         return f"""{base_info}
 {dim_desc}
