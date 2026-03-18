@@ -6674,6 +6674,9 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         
         validated_parts.append(f"{element_type}({element_content})")
     
+    # 去重：移除被包含的重复要素（比如"芬哥"和"哥"同时存在时，保留"芬哥"）
+    validated_parts = _去重重复要素(validated_parts)
+    
     # 额外检查：补充遗漏的要素
     if sub_cat == 'nickname_analysis':
         validated_parts = _补充遗漏的要素(validated_parts, original_text)
@@ -6689,6 +6692,58 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         return False, validated_formula, invalid_elements
     
     return True, formula, []
+
+
+def _去重重复要素(validated_parts):
+    """移除被包含的重复要素（比如"芬哥"和"哥"同时存在时，保留"芬哥"）
+    
+    Args:
+        validated_parts: 已验证的要素列表
+    
+    Returns:
+        list: 去重后的要素列表
+    """
+    import re
+    
+    # 解析所有要素的位置
+    elements_with_pos = []
+    for part in validated_parts:
+        match = re.search(r'([^（(]+)[（(]([^)）]+)[)）]', part)
+        if match:
+            elem_type = match.group(1).strip()
+            elem_content = match.group(2).strip()
+            # 在原始文本中找位置
+            # 这里我们不依赖位置，而是按内容长度排序
+            elements_with_pos.append({
+                'content': elem_content,
+                'type': elem_type,
+                'length': len(elem_content),
+                'original': part
+            })
+    
+    # 按长度降序排列，优先保留长的
+    elements_with_pos.sort(key=lambda x: x['length'], reverse=True)
+    
+    # 移除被包含的短内容
+    result = []
+    kept_contents = set()
+    for elem in elements_with_pos:
+        content = elem['content']
+        # 检查是否被已保留的内容包含
+        is_duplicate = False
+        for kept in kept_contents:
+            if content in kept:
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            result.append(elem['original'])
+            kept_contents.add(content)
+    
+    # 保持原始顺序
+    result_dict = {re.search(r'([^（(]+)[（(]([^)）]+)[)）]', p).group(2): p for p in result if re.search(r'([^（(]+)[（(]([^)）]+)[)）]', p)}
+    
+    return list(result_dict.values())
 
 
 def _补充遗漏的要素(validated_parts, nickname):
