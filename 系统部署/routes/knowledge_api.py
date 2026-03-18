@@ -6604,7 +6604,7 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         ('8年', '身份标签'): '数字 / 字母符号',
         ('8年', '领域 / 垂类词'): '数字 / 字母符号',
         ('8年', '领域/垂类词'): '数字 / 字母符号',
-        ('8年', '产品词'): '数字 / 字母符号',
+        ('8年', '时间词'): '数字 / 字母符号',
         # "AI" 应该是 "产品词"
         ('AI', '领域 / 垂类词'): '产品词',
         ('AI', '身份标签'): '产品词',
@@ -6703,14 +6703,39 @@ def _补充遗漏的要素(validated_parts, nickname):
     """
     import re
     
-    # 将现有要素转换为字典，便于快速查找
+    # 名称标准化映射
+    name_normalize_map = {
+        '身份标签': '身份 / 人设词',
+        '身份词': '身份 / 人设词',
+        '人设标签': '身份 / 人设词',
+        '人设词': '身份 / 人设词',
+        '品质词': '品质 / 筛选词',
+        '品质筛选词': '品质 / 筛选词',
+        '品质关键词': '品质 / 筛选词',
+        '数字词': '数字 / 字母符号',
+        '数字': '数字 / 字母符号',
+        '时间词': '数字 / 字母符号',
+        '属性词': '属性关键词',
+        '行业词': '领域 / 垂类词',
+        '领域词': '领域 / 垂类词',
+        '垂类词': '领域 / 垂类词',
+        '风格词': '风格 / 记忆词',
+        '风格标签': '风格 / 记忆词',
+    }
+    
+    # 将现有要素转换为字典，便于快速查找（需要标准化）
     existing_map = {}  # {内容: 类型}
     for part in validated_parts:
         match = re.search(r'([^（(]+)[（(]([^)）]+)[)）]', part)
         if match:
             elem_type = match.group(1).strip()
             elem_content = match.group(2).strip()
+            # 标准化类型
+            if elem_type in name_normalize_map:
+                elem_type = name_normalize_map[elem_type]
             existing_map[elem_content] = elem_type
+    
+    print(f"[DEBUG _补充遗漏的要素] 已有要素: {existing_map}")
     
     added = []
     
