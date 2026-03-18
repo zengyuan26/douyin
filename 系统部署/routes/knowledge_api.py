@@ -6530,8 +6530,16 @@ def _validate_formula_elements(formula, original_text, sub_cat):
     
     # 解析 formula，提取各要素
     # 格式: "要素类型(具体内容) + 要素类型(具体内容)"
-    element_pattern = r'([^（]+)\(([^）]+)\)'
-    matches = re.findall(element_pattern, formula)
+    # 先按 " + " 分割成单个要素
+    formula = formula.replace(' + ', '|').replace('＋', '|')  # 统一分隔符
+    elements = [e.strip() for e in formula.split('|') if e.strip()]
+    
+    matches = []
+    element_pattern = r'([^（]+)[（(]([^)）]+)[)）]'
+    for elem in elements:
+        elem_match = re.match(element_pattern, elem.strip())
+        if elem_match:
+            matches.append((elem_match.group(1).strip(), elem_match.group(2).strip()))
     
     if not matches:
         return True, formula, []
@@ -6973,11 +6981,12 @@ def _save_discovered_formula_elements(account_id, sub_category_results, account_
                 # 检查是否已有待审核的建议
                 existing_suggestion = FormulaElementSuggestion.query.filter_by(
                     sub_category=sub_cat,
-                    code=code,
-                    status='pending'
+                    code=code
                 ).first()
 
                 if existing_suggestion:
+                    # 如果已有记录，跳过或更新
+                    logger.info(f"[FormulaElement] 要素建议已存在: {sub_cat}/{code} - 状态: {existing_suggestion.status}")
                     continue
 
                 # 创建新建议
