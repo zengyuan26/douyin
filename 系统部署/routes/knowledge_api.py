@@ -7730,11 +7730,27 @@ def _run_account_sub_category_analysis(app, account_id, target_sub_cats=None):
 
                 llm_result = parse_llm_json(result_text)
 
-                # 提取评分和公式
+                # 计算综合评分：取所有维度评分的平均值
+                dim_scores = []
+                for key, value in llm_result.items():
+                    if key not in ['score', 'score_reason', 'formula', 'suggestions', 'discovered_elements'] and isinstance(value, dict) and 'score' in value:
+                        dim_score = value.get('score', 0)
+                        if isinstance(dim_score, (int, float)) and 0 <= dim_score <= 100:
+                            dim_scores.append(dim_score)
+                
+                # 计算平均分
+                if dim_scores:
+                    avg_score = round(sum(dim_scores) / len(dim_scores))
+                else:
+                    avg_score = llm_result.get('score', 0)
+                
+                logger.info(f"[Score Calculation] {sub_cat} 维度评分: {dim_scores}, 平均分: {avg_score}")
+
+                # 提取评分和公式（使用计算后的平均分）
                 sub_category_results[sub_cat] = {
                     'sub_category_name': ACCOUNT_SUB_CATEGORY_NAMES.get(sub_cat, sub_cat),
                     'dimensions': [],
-                    'score': llm_result.get('score', 0),
+                    'score': avg_score,
                     'score_reason': llm_result.get('score_reason', ''),
                     'formula': llm_result.get('formula', ''),
                     'suggestions': llm_result.get('suggestions', []),
@@ -8079,12 +8095,13 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
 请分析账号昵称 **"{nickname}"**，按照以下要求输出JSON：
 
-1. **整体评分 (score)**: 0-100分，根据昵称的实际质量。**评分必须有严格区分度**：
-   - 90-100分：非常优秀，有明显的记忆点、人设明确、业务清晰
-   - 75-89分：较好，有一定特点但可以优化
-   - 60-74分：一般，缺少明显记忆点或人设模糊
-   - 60分以下：较差，需要重新设计
-   **注意**：大多数昵称应该在60-85分之间，极少有完美昵称，不要轻易给90分以上！
+1. **整体评分 (score)**: 0-100分，根据昵称的实际质量。**评分必须非常严格，拉开差距**：
+   - 90-100分：完美昵称，极其少见（人设独特+业务明确+易记+有特色）
+   - 80-89分：优秀，有明显记忆点，人设和业务都清晰
+   - 70-79分：良好，基本要素具备但有优化空间
+   - 60-69分：及格，能看出业务但缺少记忆点或人设不明确
+   - 60分以下：不及格，业务模糊或难以记忆
+   **注意**：不要轻易给高分，大多数普通昵称应该在50-75分之间！
 2. **评分理由 (score_reason)**: 一句话说明评分理由，必须说明具体原因
 {formula_section}
 4. **优化建议 (suggestions)**: 根据昵称实际情况列出2-3条有针对性的优化建议。注意：若昵称已含地域词（如南漳、北京等），则不要建议增加地域词；若已含数字（如20、10等），则不要建议加入数字。建议必须基于实际缺失的要素提出。
@@ -8298,11 +8315,13 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
 请分析账号简介 **"{bio}"**，按照以下要求输出JSON：
 
-1. **整体评分 (score)**: 0-100分，根据简介的实际质量。**评分必须有严格区分度**：
-   - 90-100分：非常优秀，结构完整、要素齐全、有差异化、有行动号召
-   - 75-89分：较好，结构完整但某些要素缺失
-   - 60-74分：一般，缺少明显结构或核心要素
-   - 60分以下：较差，需要重新设计
+1. **整体评分 (score)**: 0-100分，根据简介的实际质量。**评分必须非常严格，拉开差距**：
+   - 90-100分：完美简介，极其少见（结构完整+要素齐全+有差异化+有行动号召+有联系方式）
+   - 80-89分：优秀，结构完整、要素齐全、有差异化
+   - 70-79分：良好，基本结构完整但缺少某些关键要素
+   - 60-69分：及格，有一定结构但要素不齐全
+   - 60分以下：不及格，结构混乱或缺少核心要素
+   **注意**：不要轻易给高分，大多数普通简介应该在50-70分之间！
 2. **评分理由 (score_reason)**: 一句话说明评分理由，**必须基于简介的实际内容来评价**
 {formula_section}
 4. **优化建议 (suggestions)**: 根据简介实际情况列出2-3条有针对性的优化建议。**重要规则**：
