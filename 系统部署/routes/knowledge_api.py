@@ -6699,9 +6699,9 @@ def _validate_formula_elements(formula, original_text, sub_cat):
     # 去重：移除被包含的重复要素（比如"芬哥"和"哥"同时存在时，保留"芬哥"）
     validated_parts = _去重重复要素(validated_parts)
     
-    # 额外检查：补充遗漏的要素
-    if sub_cat == 'nickname_analysis':
-        validated_parts = _补充遗漏的要素(validated_parts, original_text)
+    # 额外检查：补充遗漏的要素（昵称和简介都需要）
+    if sub_cat in ['nickname_analysis', 'bio_analysis']:
+        validated_parts = _补充遗漏的要素(validated_parts, original_text, sub_cat)
     
     if invalid_elements or corrected_parts:
         validated_formula = " + ".join(validated_parts) if validated_parts else ""
@@ -6835,12 +6835,13 @@ def _去重重复要素(validated_parts):
     return list(result_dict.values())
 
 
-def _补充遗漏的要素(validated_parts, nickname):
-    """彻底解析 nickname，强制提取每个字符/词语的要素类型
+def _补充遗漏的要素(validated_parts, original_text, sub_cat='nickname_analysis'):
+    """彻底解析文本，强制提取每个字符/词语的要素类型
     
     Args:
         validated_parts: 已验证的要素列表 ["产品词(A)", "数字词(8年)"]
-        nickname: 原始昵称
+        original_text: 原始文本（昵称或简介）
+        sub_cat: 分析分类 ('nickname_analysis' 或 'bio_analysis')
     
     Returns:
         list: 完整分析后的要素列表
@@ -6879,9 +6880,15 @@ def _补充遗漏的要素(validated_parts, nickname):
                 elem_type = name_normalize_map[elem_type]
             existing_map[elem_content] = elem_type
     
-    print(f"[DEBUG _补充遗漏的要素] 已有要素: {existing_map}")
+    print(f"[DEBUG _补充遗漏的要素] 已有要素: {existing_map}, sub_cat={sub_cat}")
     
     added = []
+    
+    # ========== 根据类型选择解析策略 ==========
+    if sub_cat == 'bio_analysis':
+        # 简介分析：只检查是否有遗漏的关键要素，不强制拆分所有内容
+        validated_parts = _补充简介遗漏的要素(validated_parts, original_text)
+        return validated_parts
     
     # ========== 彻底解析 nickname ==========
     # 定义各类别的关键词库（按优先级排序，优先匹配长的）
@@ -6935,7 +6942,7 @@ def _补充遗漏的要素(validated_parts, nickname):
     
     for pattern, elem_type in element_patterns:
         try:
-            for match in re.finditer(pattern, nickname):
+            for match in re.finditer(pattern, original_text):
                 start, end = match.span()
                 content = match.group()
                 
@@ -6972,6 +6979,85 @@ def _补充遗漏的要素(validated_parts, nickname):
     
     if added:
         logger.info(f"[Formula Supplement] 补充的要素: {added}")
+    
+    return validated_parts
+
+
+def _补充简介遗漏的要素(validated_parts, bio):
+    """检查简介是否有遗漏的关键要素（如联系方式、价格等）
+    
+    Args:
+        validated_parts: 已验证的要素列表
+        bio: 原始简介
+    
+    Returns:
+        list: 完整分析后的要素列表
+    """
+    import re
+    
+    # 解析现有要素
+    existing_contents = set()
+    for part in validated_parts:
+        match = re.search(r'([^（(]+)[（(]([^)）]+)[)）]', part)
+        if match:
+            existing_contents.add(match.group(2).strip())
+    
+    added = []
+    
+    # 简介关键要素检测
+    bio_element_patterns = [
+        # 联系方式
+        (r'微[信嘞勒乐]?[信星号\*]+:?[a-zA-Z0-9_]{6,20}', '联系方式'),
+        (r'[Vv][信星号\*]?:?[a-zA-Z0-9_]{6,20}', '联系方式'),
+        (r'电话[:：]?1[3-9]\d{9}', '联系方式'),
+        (r'1[3-9]\d{9}', '联系方式'),
+        (r'邮箱[:：]?[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', '联系方式'),
+        (r'[各店地门][址点市房]?[:：]?[^\s，,]{5,30}', '联系方式'),
+        (r'某[东西南北中]路?\d+号', '联系方式'),
+        
+        # 价格信息
+        (r'\d+[.．]?\d*[元块圆][/／]?[斤公斤袋盒包个件批]?', '价格信息'),
+        (r'[收清优][费货]?[:：]?\d+[.．]?\d*', '价格信息'),
+        (r'\d+折', '价格信息'),
+        
+        # 行动号召
+        (r'[关住]注[我送领加]', '行动号召'),
+        (r'[扫码扫一扫]+[图二维码微信]', '行动号召'),
+        (r'私信|咨询|+V|加微信', '行动号召'),
+        (r'[试喝品尝体验]?[各店地]?[试吃试喝体验]', '行动号召'),
+        
+        # 差异化标签
+        (r'[不无非莫别休]{1,2}[割骗导黑熏]', '差异化标签'),
+        (r'[真话实][人做]', '差异化标签'),
+        (r'0?基[础][也能]', '差异化标签'),
+        (r'[话狠][人老]', '差异化标签'),
+        
+        # 价值主张（常见关键词）
+        (r'分享|干货|技巧|避坑|指南|推荐|必备|神器|法宝|秘笈|秘诀', '价值主张'),
+        (r'教学|培训|教你|教你|学习|成长', '价值主张'),
+        (r'每天|每日|定期|持续', '价值主张'),
+    ]
+    
+    for pattern, elem_type in bio_element_patterns:
+        try:
+            for match in re.finditer(pattern, bio):
+                content = match.group()
+                # 避免过度匹配，去除明显的子串
+                is_duplicate = False
+                for existing in existing_contents:
+                    if content in existing or existing in content:
+                        is_duplicate = True
+                        break
+                
+                if not is_duplicate:
+                    validated_parts.append(f"{elem_type}({content})")
+                    added.append(f"{elem_type}({content})")
+                    existing_contents.add(content)
+        except re.error:
+            continue
+    
+    if added:
+        logger.info(f"[Formula Supplement - Bio] 补充的要素: {added}")
     
     return validated_parts
 
