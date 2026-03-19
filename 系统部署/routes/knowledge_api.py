@@ -6910,7 +6910,14 @@ def _补充遗漏的要素(validated_parts, nickname):
     # 添加匹配到的要素
     # 按位置排序
     for (start, end), (content, elem_type) in sorted(matched.items()):
-        if content not in existing_map:
+        # 检查是否已经存在（精确匹配）或是否有父字符串已存在
+        should_add = True
+        for existing_content in existing_map:
+            if content in existing_content or existing_content in content:
+                should_add = False
+                break
+        
+        if should_add:
             validated_parts.append(f"{elem_type}({content})")
             added.append(f"{elem_type}({content})")
             existing_map[content] = elem_type
