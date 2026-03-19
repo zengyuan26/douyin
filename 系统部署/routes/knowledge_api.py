@@ -6693,6 +6693,9 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         
         validated_parts.append(f"{element_type}({element_content})")
     
+    # 去除重复字的要素（如"红发魔女"被分析成"红发+魔女+红"，需要移除"红"）
+    validated_parts = _去除重复字符的要素(validated_parts, original_text)
+    
     # 去重：移除被包含的重复要素（比如"芬哥"和"哥"同时存在时，保留"芬哥"）
     validated_parts = _去重重复要素(validated_parts)
     
@@ -6711,6 +6714,73 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         return False, validated_formula, invalid_elements
     
     return True, formula, []
+
+
+def _去除重复字符的要素(validated_parts, original_text):
+    """去除有重复字符的要素。
+    
+    例如："红发魔女" 被分析成 "红发(风格词) + 魔女(人设词) + 红(人设词)"
+    需要检测 "红" 被包含在 "红发" 中，移除 "红"
+    
+    Args:
+        validated_parts: 已验证的要素列表
+        original_text: 原始文本（昵称）
+    
+    Returns:
+        list: 去重后的要素列表
+    """
+    import re
+    
+    # 解析所有要素
+    elements = []
+    for part in validated_parts:
+        match = re.search(r'([^（(]+)[（(]([^)）]+)[)）]', part)
+        if match:
+            elem_type = match.group(1).strip()
+            elem_content = match.group(2).strip()
+            elements.append({
+                'content': elem_content,
+                'type': elem_type,
+                'original': part
+            })
+    
+    if not elements:
+        return validated_parts
+    
+    # 按长度降序排列
+    elements.sort(key=lambda x: len(x['content']), reverse=True)
+    
+    # 找出被其他要素包含的短内容
+    result = []
+    kept_contents = []
+    
+    for elem in elements:
+        content = elem['content']
+        # 检查这个内容是否被已保留的内容包含
+        is_contained = False
+        for kept in kept_contents:
+            # 如果当前内容被已保留的内容包含，或者已保留的内容被当前内容包含
+            if content in kept or kept in content:
+                is_contained = True
+                break
+        
+        if not is_contained:
+            result.append(elem['original'])
+            kept_contents.append(content)
+    
+    # 验证：组合所有内容是否等于原始文本（去除符号后）
+    combined = ''.join(kept_contents)
+    # 去除原始文本中的符号
+    import re
+    original_clean = re.sub(r'[^\w\u4e00-\u9fff]', '', original_text)
+    combined_clean = re.sub(r'[^\w\u4e00-\u9fff]', '', combined)
+    
+    # 如果去重后不等于原始文本，保留原始的去重结果（避免误删）
+    if combined_clean != original_clean:
+        # 回退到原始 validated_parts（只做简单的被包含去重）
+        return _去重重复要素(validated_parts)
+    
+    return result
 
 
 def _去重重复要素(validated_parts):
@@ -8019,9 +8089,11 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
    **分析优先级**：{priority_text}
 
-   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！例如"20年老店"不能写成"20年老店体现资历"，"灌肠西施"不能写成"灌肠西施体现产品加身份"**
-   
-   **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始昵称 "{nickname}"（不含符号和各种表情），内容不能多于 nickname，不能遗漏任何字！
+   **【关键规则1-字不重复】同一个字只能分配给一个要素，不能重复使用！例如"AI红发魔女"中：如果"红发"被识别为风格词，则"红"不能再单独作为任何要素。正确示例："产品词(AI) + 风格词(红发) + 人设词(魔女)"，错误示例："产品词(AI) + 风格词(红发) + 人设词(魔女) + 人设词(红)"（红被重复使用）**
+
+   **【关键规则2-长度守恒】formula 括号内的所有内容组合起来（不含符号）必须等于原始昵称（不含符号），字一个字都不能多、一个都不能少！**
+
+   **【关键规则3-不添加解释】括号内的内容必须是原文中的字，不能添加任何解释性文字！**
 
    **【特别注意】网名/IP类昵称处理规则**：
    - **真实姓氏+昵称组合**（如"罗胖"、"王姐"、"张叔"、"黄姐"）：属于**人设词**，不是身份标签！
@@ -8065,9 +8137,14 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
    **分析优先级**：产品词 > 身份标签 > 人设词 > 风格词 > 行业词 > 地域词 > 属性词 > 品质词 > 人群词 > 数字词 > 行动词
 
-   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！例如"罗胖香肠90年"不能写成"罗胖香肠90年体现产品加数字"，"AI红发魔女"不能写成"AI红发魔女体现业务加风格"**
+   **【关键规则1-字不重复】同一个字只能分配给一个要素，不能重复使用！例如"AI红发魔女"中：**
+   - 如果"红发"被识别为风格词，则"红"不能再单独作为任何要素
+   - 正确示例："产品词(AI) + 风格词(红发) + 人设词(魔女)"
+   - 错误示例："身份/人设词(魔女) + 风格/记忆词(红发) + 产品词(AI) + 身份/人设词(红)" ❌ 红被重复使用了
 
-   **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始昵称 "{nickname}"（不含符号和各种表情），内容不能多于 nickname，不能遗漏任何字！
+   **【关键规则2-长度守恒】formula 括号内的所有内容组合起来（不含符号）必须等于原始昵称（不含符号），字一个字都不能多、一个都不能少！**
+
+   **【关键规则3-不添加解释】括号内的内容必须是原文中的字，不能添加任何解释性文字！**
 
    **【特别注意】网名/IP类昵称处理规则**：
    - **真实姓氏+昵称组合**（如"罗胖"、"王姐"、"张叔"、"黄姐"）：属于**人设词**，不是身份标签！
@@ -8288,16 +8365,20 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
             formula_section = f"""3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。**重要：要素类型必须是以下{formula_config['count']}种之一：**
 {elements_text}
 
-   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！**
+   **【关键规则1-字不重复】同一个字只能分配给一个要素，不能重复使用！**
 
-   **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始简介 "{bio}"（不含符号和各种表情），内容不能多于 bio，不能遗漏任何关键信息！**"""
+   **【关键规则2-长度守恒】formula 括号内的所有内容组合起来（不含符号）必须等于原始简介（不含符号），字一个字都不能多、一个都不能少！**
+
+   **【关键规则3-不添加解释】括号内的内容必须是原文中的字，不能添加任何解释性文字！**"""
         else:
             # 使用默认硬编码（理论上不会被执行，因为数据库已配置26个要素）
             formula_section = """3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。
 
-   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！**
+   **【关键规则1-字不重复】同一个字只能分配给一个要素，不能重复使用！**
 
-   **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始简介 "{bio}"（不含符号和各种表情），内容不能多于 bio，不能遗漏任何关键信息！**
+   **【关键规则2-长度守恒】formula 括号内的所有内容组合起来（不含符号）必须等于原始简介（不含符号），字一个字都不能多、一个都不能少！**
+
+   **【关键规则3-不添加解释】括号内的内容必须是原文中的字，不能添加任何解释性文字！**
 
    **【要素说明】**：
      - 身份标签指：职业背景、学历、职称、专业身份、资历实力等
