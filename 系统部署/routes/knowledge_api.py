@@ -6265,15 +6265,9 @@ def _get_formula_elements(sub_category):
 
 def _build_formula_elements_text(sub_category):
     """构建公式要素说明文本（用于 prompt）"""
-    import logging
-    logger = logging.getLogger(__name__)
-    
     elements = _get_formula_elements(sub_category)
-    
-    logger.info(f"[_build_formula_elements_text] sub_category={sub_category}, elements_count={len(elements) if elements else 0}")
 
     if not elements:
-        logger.warning(f"[_build_formula_elements_text] 没有找到 {sub_category} 的公式要素配置，将使用默认硬编码要素")
         return None
 
     if sub_category == 'nickname_analysis':
@@ -7862,7 +7856,6 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - 昵称: {nickname or '未填写'}
 - 简介: {bio or '未填写'}
 - 平台: {account_info['platform'] or '未填写'}
-- 主页链接: {account_info['url'] or '未填写'}
 
 ## 业务信息
 {business_desc}
@@ -8011,6 +8004,8 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
    **分析优先级**：{priority_text}
 
    **【关键规则】formula 括号内的内容必须是原文中的字，不能添加任何解释性文字！例如"20年老店"不能写成"20年老店体现资历"，"灌肠西施"不能写成"灌肠西施体现产品加身份"**
+   
+   **【重要验证规则】formula 括号内的所有内容组合起来必须等于原始昵称 "{nickname}"，内容不能多于 nickname，不能遗漏任何字！
 
    **【特别注意】网名/IP类昵称处理规则**：
    - **真实姓氏+昵称组合**（如"罗胖"、"王姐"、"张叔"、"黄姐"）：属于**人设词**，不是身份标签！
@@ -8055,6 +8050,8 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
    **分析优先级**：产品词 > 身份标签 > 人设词 > 风格词 > 行业词 > 地域词 > 属性词 > 品质词 > 人群词 > 数字词 > 行动词
 
    **【关键规则】formula 括号内的内容必须是原文中的字，不能添加任何解释性文字！例如"罗胖香肠90年"不能写成"罗胖香肠90年体现产品加数字"，"AI红发魔女"不能写成"AI红发魔女体现业务加风格"**
+
+   **【重要验证规则】formula 括号内的所有内容组合起来必须等于原始昵称 "{nickname}"，内容不能多于 nickname，不能遗漏任何字！
 
    **【特别注意】网名/IP类昵称处理规则**：
    - **真实姓氏+昵称组合**（如"罗胖"、"王姐"、"张叔"、"黄姐"）：属于**人设词**，不是身份标签！
