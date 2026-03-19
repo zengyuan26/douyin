@@ -6693,15 +6693,12 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         
         validated_parts.append(f"{element_type}({element_content})")
     
-    # 去除重复字的要素（如"红发魔女"被分析成"红发+魔女+红"，需要移除"红"）
-    validated_parts = _去除重复字符的要素(validated_parts, original_text)
-    
     # 去重：移除被包含的重复要素（比如"芬哥"和"哥"同时存在时，保留"芬哥"）
     validated_parts = _去重重复要素(validated_parts)
     
-    # 额外检查：补充遗漏的要素（昵称和简介都需要）
-    if sub_cat in ['nickname_analysis', 'bio_analysis']:
-        validated_parts = _补充遗漏的要素(validated_parts, original_text, sub_cat)
+    # 额外检查：补充遗漏的要素
+    if sub_cat == 'nickname_analysis':
+        validated_parts = _补充遗漏的要素(validated_parts, original_text)
     
     if invalid_elements or corrected_parts:
         validated_formula = " + ".join(validated_parts) if validated_parts else ""
@@ -6714,73 +6711,6 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         return False, validated_formula, invalid_elements
     
     return True, formula, []
-
-
-def _去除重复字符的要素(validated_parts, original_text):
-    """去除有重复字符的要素。
-    
-    例如："红发魔女" 被分析成 "红发(风格词) + 魔女(人设词) + 红(人设词)"
-    需要检测 "红" 被包含在 "红发" 中，移除 "红"
-    
-    Args:
-        validated_parts: 已验证的要素列表
-        original_text: 原始文本（昵称）
-    
-    Returns:
-        list: 去重后的要素列表
-    """
-    import re
-    
-    # 解析所有要素
-    elements = []
-    for part in validated_parts:
-        match = re.search(r'([^（(]+)[（(]([^)）]+)[)）]', part)
-        if match:
-            elem_type = match.group(1).strip()
-            elem_content = match.group(2).strip()
-            elements.append({
-                'content': elem_content,
-                'type': elem_type,
-                'original': part
-            })
-    
-    if not elements:
-        return validated_parts
-    
-    # 按长度降序排列
-    elements.sort(key=lambda x: len(x['content']), reverse=True)
-    
-    # 找出被其他要素包含的短内容
-    result = []
-    kept_contents = []
-    
-    for elem in elements:
-        content = elem['content']
-        # 检查这个内容是否被已保留的内容包含
-        is_contained = False
-        for kept in kept_contents:
-            # 如果当前内容被已保留的内容包含，或者已保留的内容被当前内容包含
-            if content in kept or kept in content:
-                is_contained = True
-                break
-        
-        if not is_contained:
-            result.append(elem['original'])
-            kept_contents.append(content)
-    
-    # 验证：组合所有内容是否等于原始文本（去除符号后）
-    combined = ''.join(kept_contents)
-    # 去除原始文本中的符号
-    import re
-    original_clean = re.sub(r'[^\w\u4e00-\u9fff]', '', original_text)
-    combined_clean = re.sub(r'[^\w\u4e00-\u9fff]', '', combined)
-    
-    # 如果去重后不等于原始文本，保留原始的去重结果（避免误删）
-    if combined_clean != original_clean:
-        # 回退到原始 validated_parts（只做简单的被包含去重）
-        return _去重重复要素(validated_parts)
-    
-    return result
 
 
 def _去重重复要素(validated_parts):
@@ -6835,13 +6765,12 @@ def _去重重复要素(validated_parts):
     return list(result_dict.values())
 
 
-def _补充遗漏的要素(validated_parts, original_text, sub_cat='nickname_analysis'):
-    """彻底解析文本，强制提取每个字符/词语的要素类型
+def _补充遗漏的要素(validated_parts, nickname):
+    """彻底解析 nickname，强制提取每个字符/词语的要素类型
     
     Args:
         validated_parts: 已验证的要素列表 ["产品词(A)", "数字词(8年)"]
-        original_text: 原始文本（昵称或简介）
-        sub_cat: 分析分类 ('nickname_analysis' 或 'bio_analysis')
+        nickname: 原始昵称
     
     Returns:
         list: 完整分析后的要素列表
@@ -6880,15 +6809,9 @@ def _补充遗漏的要素(validated_parts, original_text, sub_cat='nickname_ana
                 elem_type = name_normalize_map[elem_type]
             existing_map[elem_content] = elem_type
     
-    print(f"[DEBUG _补充遗漏的要素] 已有要素: {existing_map}, sub_cat={sub_cat}")
+    print(f"[DEBUG _补充遗漏的要素] 已有要素: {existing_map}")
     
     added = []
-    
-    # ========== 根据类型选择解析策略 ==========
-    if sub_cat == 'bio_analysis':
-        # 简介分析：只检查是否有遗漏的关键要素，不强制拆分所有内容
-        validated_parts = _补充简介遗漏的要素(validated_parts, original_text)
-        return validated_parts
     
     # ========== 彻底解析 nickname ==========
     # 定义各类别的关键词库（按优先级排序，优先匹配长的）
@@ -6942,7 +6865,7 @@ def _补充遗漏的要素(validated_parts, original_text, sub_cat='nickname_ana
     
     for pattern, elem_type in element_patterns:
         try:
-            for match in re.finditer(pattern, original_text):
+            for match in re.finditer(pattern, nickname):
                 start, end = match.span()
                 content = match.group()
                 
@@ -6966,6 +6889,15 @@ def _补充遗漏的要素(validated_parts, original_text, sub_cat='nickname_ana
                 
                 if not is_covered and content not in existing_map:
                     matched[(start, end)] = (content, elem_type)
+                    # 检查是否有更短的子串已经在 matched 中（需要移除）
+                    # 例如匹配了"8年"之后，不应该再匹配"8"
+                    to_remove = []
+                    for (s, e), (c, t) in matched.items():
+                        # 如果已存在的内容被新内容包含，且新内容更长，则删除旧的
+                        if (s, e) != (start, end) and c in content and len(c) < len(content):
+                            to_remove.append((s, e))
+                    for s_e in to_remove:
+                        del matched[s_e]
         except re.error:
             continue
     
@@ -6979,85 +6911,6 @@ def _补充遗漏的要素(validated_parts, original_text, sub_cat='nickname_ana
     
     if added:
         logger.info(f"[Formula Supplement] 补充的要素: {added}")
-    
-    return validated_parts
-
-
-def _补充简介遗漏的要素(validated_parts, bio):
-    """检查简介是否有遗漏的关键要素（如联系方式、价格等）
-    
-    Args:
-        validated_parts: 已验证的要素列表
-        bio: 原始简介
-    
-    Returns:
-        list: 完整分析后的要素列表
-    """
-    import re
-    
-    # 解析现有要素
-    existing_contents = set()
-    for part in validated_parts:
-        match = re.search(r'([^（(]+)[（(]([^)）]+)[)）]', part)
-        if match:
-            existing_contents.add(match.group(2).strip())
-    
-    added = []
-    
-    # 简介关键要素检测
-    bio_element_patterns = [
-        # 联系方式
-        (r'微[信嘞勒乐]?[信星号\*]+:?[a-zA-Z0-9_]{6,20}', '联系方式'),
-        (r'[Vv][信星号\*]?:?[a-zA-Z0-9_]{6,20}', '联系方式'),
-        (r'电话[:：]?1[3-9]\d{9}', '联系方式'),
-        (r'1[3-9]\d{9}', '联系方式'),
-        (r'邮箱[:：]?[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', '联系方式'),
-        (r'[各店地门][址点市房]?[:：]?[^\s，,]{5,30}', '联系方式'),
-        (r'某[东西南北中]路?\d+号', '联系方式'),
-        
-        # 价格信息
-        (r'\d+[.．]?\d*[元块圆][/／]?[斤公斤袋盒包个件批]?', '价格信息'),
-        (r'[收清优][费货]?[:：]?\d+[.．]?\d*', '价格信息'),
-        (r'\d+折', '价格信息'),
-        
-        # 行动号召
-        (r'[关住]注[我送领加]', '行动号召'),
-        (r'[扫码扫一扫]+[图二维码微信]', '行动号召'),
-        (r'私信|咨询|+V|加微信', '行动号召'),
-        (r'[试喝品尝体验]?[各店地]?[试吃试喝体验]', '行动号召'),
-        
-        # 差异化标签
-        (r'[不无非莫别休]{1,2}[割骗导黑熏]', '差异化标签'),
-        (r'[真话实][人做]', '差异化标签'),
-        (r'0?基[础][也能]', '差异化标签'),
-        (r'[话狠][人老]', '差异化标签'),
-        
-        # 价值主张（常见关键词）
-        (r'分享|干货|技巧|避坑|指南|推荐|必备|神器|法宝|秘笈|秘诀', '价值主张'),
-        (r'教学|培训|教你|教你|学习|成长', '价值主张'),
-        (r'每天|每日|定期|持续', '价值主张'),
-    ]
-    
-    for pattern, elem_type in bio_element_patterns:
-        try:
-            for match in re.finditer(pattern, bio):
-                content = match.group()
-                # 避免过度匹配，去除明显的子串
-                is_duplicate = False
-                for existing in existing_contents:
-                    if content in existing or existing in content:
-                        is_duplicate = True
-                        break
-                
-                if not is_duplicate:
-                    validated_parts.append(f"{elem_type}({content})")
-                    added.append(f"{elem_type}({content})")
-                    existing_contents.add(content)
-        except re.error:
-            continue
-    
-    if added:
-        logger.info(f"[Formula Supplement - Bio] 补充的要素: {added}")
     
     return validated_parts
 
@@ -8175,11 +8028,9 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
    **分析优先级**：{priority_text}
 
-   **【关键规则1-字不重复】同一个字只能分配给一个要素，不能重复使用！例如"AI红发魔女"中：如果"红发"被识别为风格词，则"红"不能再单独作为任何要素。正确示例："产品词(AI) + 风格词(红发) + 人设词(魔女)"，错误示例："产品词(AI) + 风格词(红发) + 人设词(魔女) + 人设词(红)"（红被重复使用）**
-
-   **【关键规则2-长度守恒】formula 括号内的所有内容组合起来（不含符号）必须等于原始昵称（不含符号），字一个字都不能多、一个都不能少！**
-
-   **【关键规则3-不添加解释】括号内的内容必须是原文中的字，不能添加任何解释性文字！**
+   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！例如"20年老店"不能写成"20年老店体现资历"，"灌肠西施"不能写成"灌肠西施体现产品加身份"**
+   
+   **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始昵称 "{nickname}"（不含符号和各种表情），内容不能多于 nickname，不能遗漏任何字！
 
    **【特别注意】网名/IP类昵称处理规则**：
    - **真实姓氏+昵称组合**（如"罗胖"、"王姐"、"张叔"、"黄姐"）：属于**人设词**，不是身份标签！
@@ -8223,14 +8074,9 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
    **分析优先级**：产品词 > 身份标签 > 人设词 > 风格词 > 行业词 > 地域词 > 属性词 > 品质词 > 人群词 > 数字词 > 行动词
 
-   **【关键规则1-字不重复】同一个字只能分配给一个要素，不能重复使用！例如"AI红发魔女"中：**
-   - 如果"红发"被识别为风格词，则"红"不能再单独作为任何要素
-   - 正确示例："产品词(AI) + 风格词(红发) + 人设词(魔女)"
-   - 错误示例："身份/人设词(魔女) + 风格/记忆词(红发) + 产品词(AI) + 身份/人设词(红)" ❌ 红被重复使用了
+   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！例如"罗胖香肠90年"不能写成"罗胖香肠90年体现产品加数字"，"AI红发魔女"不能写成"AI红发魔女体现业务加风格"**
 
-   **【关键规则2-长度守恒】formula 括号内的所有内容组合起来（不含符号）必须等于原始昵称（不含符号），字一个字都不能多、一个都不能少！**
-
-   **【关键规则3-不添加解释】括号内的内容必须是原文中的字，不能添加任何解释性文字！**
+   **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始昵称 "{nickname}"（不含符号和各种表情），内容不能多于 nickname，不能遗漏任何字！
 
    **【特别注意】网名/IP类昵称处理规则**：
    - **真实姓氏+昵称组合**（如"罗胖"、"王姐"、"张叔"、"黄姐"）：属于**人设词**，不是身份标签！
@@ -8451,20 +8297,16 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
             formula_section = f"""3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。**重要：要素类型必须是以下{formula_config['count']}种之一：**
 {elements_text}
 
-   **【关键规则1-字不重复】同一个字只能分配给一个要素，不能重复使用！**
+   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！**
 
-   **【关键规则2-长度守恒】formula 括号内的所有内容组合起来（不含符号）必须等于原始简介（不含符号），字一个字都不能多、一个都不能少！**
-
-   **【关键规则3-不添加解释】括号内的内容必须是原文中的字，不能添加任何解释性文字！**"""
+   **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始简介 "{bio}"（不含符号和各种表情），内容不能多于 bio，不能遗漏任何关键信息！**"""
         else:
             # 使用默认硬编码（理论上不会被执行，因为数据库已配置26个要素）
             formula_section = """3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。
 
-   **【关键规则1-字不重复】同一个字只能分配给一个要素，不能重复使用！**
+   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！**
 
-   **【关键规则2-长度守恒】formula 括号内的所有内容组合起来（不含符号）必须等于原始简介（不含符号），字一个字都不能多、一个都不能少！**
-
-   **【关键规则3-不添加解释】括号内的内容必须是原文中的字，不能添加任何解释性文字！**
+   **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始简介 "{bio}"（不含符号和各种表情），内容不能多于 bio，不能遗漏任何关键信息！**
 
    **【要素说明】**：
      - 身份标签指：职业背景、学历、职称、专业身份、资历实力等
@@ -8968,13 +8810,17 @@ def get_account_analysis_status(account_id):
 @knowledge_api.route('/contents', methods=['GET'])
 @login_required
 def get_contents():
-    """获取内容列表"""
+    """获取内容列表（支持分页、按账号、搜索）"""
     try:
         # 获取查询参数
         account_id = request.args.get('account_id', type=int)
         content_type = request.args.get('content_type')
         source_type = request.args.get('source_type')
-        
+        search = request.args.get('search', '').strip()
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 4, type=int)
+        page_size = min(max(page_size, 1), 100)
+
         # 构建查询
         query = KnowledgeContent.query
         if account_id:
@@ -8983,24 +8829,50 @@ def get_contents():
             query = query.filter(KnowledgeContent.content_type == content_type)
         if source_type:
             query = query.filter(KnowledgeContent.source_type == source_type)
-        
-        contents = query.order_by(KnowledgeContent.updated_at.desc()).all()
-        
+        if search:
+            # 标题模糊 或 content_data 中的 description 模糊（SQLite/MySQL JSON 或应用层）
+            query = query.filter(
+                db.or_(
+                    KnowledgeContent.title.ilike(f'%{search}%'),
+                    db.cast(KnowledgeContent.content_data, db.String).ilike(f'%{search}%')
+                )
+            )
+
+        query = query.order_by(KnowledgeContent.updated_at.desc())
+        total = query.count()
+        pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+        contents = pagination.items
+
+        # 若未传 account_id 且未分页参数，兼容旧版：无 page 时返回全部（不推荐大表使用）
+        if page is None or page < 1:
+            page = 1
+            page_size = max(total, 1)
+            contents = query.limit(1000).all()
+            total_pages = 1
+        else:
+            total_pages = max(1, (total + page_size - 1) // page_size)
+
         return jsonify({
             'code': 200,
             'message': '获取成功',
-            'data': [{
-                'id': c.id,
-                'account_id': c.account_id,
-                'title': c.title,
-                'content_url': c.content_url,
-                'content_type': c.content_type,
-                'source_type': c.source_type,
-                'content_data': c.content_data,
-                'analysis_result': c.analysis_result,
-                'created_at': c.created_at.isoformat() if c.created_at else None,
-                'updated_at': c.updated_at.isoformat() if c.updated_at else None
-            } for c in contents]
+            'data': {
+                'items': [{
+                    'id': c.id,
+                    'account_id': c.account_id,
+                    'title': c.title,
+                    'content_url': c.content_url,
+                    'content_type': c.content_type,
+                    'source_type': c.source_type,
+                    'content_data': c.content_data,
+                    'analysis_result': c.analysis_result,
+                    'created_at': c.created_at.isoformat() if c.created_at else None,
+                    'updated_at': c.updated_at.isoformat() if c.updated_at else None
+                } for c in contents],
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': total_pages
+            }
         })
     except Exception as e:
         logger.error(f"获取内容列表失败: {e}", exc_info=True)
