@@ -6265,9 +6265,15 @@ def _get_formula_elements(sub_category):
 
 def _build_formula_elements_text(sub_category):
     """构建公式要素说明文本（用于 prompt）"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     elements = _get_formula_elements(sub_category)
+    
+    logger.info(f"[_build_formula_elements_text] sub_category={sub_category}, elements_count={len(elements) if elements else 0}")
 
     if not elements:
+        logger.warning(f"[_build_formula_elements_text] 没有找到 {sub_category} 的公式要素配置，将使用默认 11 个旧要素")
         return None
 
     if sub_category == 'nickname_analysis':
@@ -6585,6 +6591,10 @@ def _validate_formula_elements(formula, original_text, sub_cat):
     
     # 常见错误类型修正映射（内容, 错误类型）-> 正确类型
     correction_map = {
+        # "免费设计" 需要拆分成 "免费" + "设计"
+        ('免费设计', '服务词'): 'SPLIT:品质 / 筛选词(免费) + 行动 / 价值词(设计)',
+        ('免费设计', '产品词'): 'SPLIT:品质 / 筛选词(免费) + 行动 / 价值词(设计)',
+        ('免费设计', '行动 / 价值词'): 'SPLIT:品质 / 筛选词(免费) + 行动 / 价值词(设计)',
         # "罗胖" 应该是 "身份 / 人设词"
         ('胖', '身份标签'): '身份 / 人设词',
         ('胖', '产品词'): '身份 / 人设词',
@@ -6659,6 +6669,21 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         
         if correction_key in correction_map:
             correct_type = correction_map[correction_key]
+            
+            # 处理拆分的情况
+            if correct_type.startswith('SPLIT:'):
+                split_parts = correct_type[6:]  # 去掉 "SPLIT:" 前缀
+                for split_part in split_parts.split(' + '):
+                    validated_parts.append(split_part)
+                    corrected_contents.add(split_part.split('(')[1].rstrip(')'))
+                corrected_parts.append({
+                    'content': element_content,
+                    'original_type': original_type,
+                    'correct_type': correct_type
+                })
+                logger.info(f"[Formula Correction] 拆分要素: {element_content}: {original_type} -> {split_parts}")
+                continue
+            
             element_type = correct_type
             corrected_parts.append({
                 'content': element_content,
