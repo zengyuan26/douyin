@@ -6534,12 +6534,16 @@ def _validate_formula_elements(formula, original_text, sub_cat):
     formula = formula.replace(' + ', '|').replace('＋', '|')  # 统一分隔符
     elements = [e.strip() for e in formula.split('|') if e.strip()]
     
+    logger.info(f"[Formula Validation] 解析 elements: {elements}")
+    
     matches = []
     element_pattern = r'([^（]+)[（(]([^)）]+)[)）]'
     for elem in elements:
         elem_match = re.match(element_pattern, elem.strip())
         if elem_match:
             matches.append((elem_match.group(1).strip(), elem_match.group(2).strip()))
+    
+    logger.info(f"[Formula Validation] 解析 matches: {matches}")
     
     if not matches:
         return True, formula, []
