@@ -6531,6 +6531,8 @@ def _validate_formula_elements(formula, original_text, sub_cat):
     # 解析 formula，提取各要素
     # 格式: "要素类型(具体内容) + 要素类型(具体内容)"
     # 先按 " + " 分割成单个要素
+    logger.info(f"[Formula Validation] 原始 formula: {formula}")
+    logger.info(f"[Formula Validation] original_text: {original_text}")
     formula = formula.replace(' + ', '|').replace('＋', '|')  # 统一分隔符
     elements = [e.strip() for e in formula.split('|') if e.strip()]
     
