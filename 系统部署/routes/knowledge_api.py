@@ -6273,7 +6273,7 @@ def _build_formula_elements_text(sub_category):
     logger.info(f"[_build_formula_elements_text] sub_category={sub_category}, elements_count={len(elements) if elements else 0}")
 
     if not elements:
-        logger.warning(f"[_build_formula_elements_text] 没有找到 {sub_category} 的公式要素配置，将使用默认 11 个旧要素")
+        logger.warning(f"[_build_formula_elements_text] 没有找到 {sub_category} 的公式要素配置，将使用默认硬编码要素")
         return None
 
     if sub_category == 'nickname_analysis':
