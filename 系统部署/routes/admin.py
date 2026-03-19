@@ -2916,7 +2916,9 @@ def get_analysis_dimensions():
             'usage_count': d.usage_count,
             'rule_category': d.rule_category,
             'rule_type': d.rule_type,
-            'prompt_template': d.prompt_template
+            'prompt_template': d.prompt_template,
+            'examples': getattr(d, 'examples', None) or '',
+            'usage_tips': getattr(d, 'usage_tips', None) or ''
         } for d in pagination.items],
         'total': pagination.total,
         'pages': pagination.pages,
@@ -3077,7 +3079,9 @@ def get_analysis_dimension(id):
             'usage_count': dimension.usage_count,
             'rule_category': dimension.rule_category,
             'rule_type': dimension.rule_type,
-            'prompt_template': dimension.prompt_template
+            'prompt_template': dimension.prompt_template,
+            'examples': getattr(dimension, 'examples', None) or '',
+            'usage_tips': getattr(dimension, 'usage_tips', None) or ''
         }
     })
 
@@ -3140,7 +3144,9 @@ def create_analysis_dimension():
         sort_order=data.get('sort_order', 0),
         rule_category=data.get('rule_category'),
         rule_type=data.get('rule_type'),
-        prompt_template=data.get('prompt_template')
+        prompt_template=data.get('prompt_template'),
+        examples=data.get('examples', '') or None,
+        usage_tips=data.get('usage_tips', '') or None
     )
 
     db.session.add(dimension)
@@ -3205,6 +3211,10 @@ def update_analysis_dimension(id):
         dimension.rule_type = data['rule_type']
     if 'prompt_template' in data:
         dimension.prompt_template = data['prompt_template']
+    if 'examples' in data:
+        dimension.examples = data['examples'] or None
+    if 'usage_tips' in data:
+        dimension.usage_tips = data['usage_tips'] or None
 
     db.session.commit()
 
@@ -3243,6 +3253,101 @@ def get_dimension_categories():
         'success': True,
         'data': ANALYSIS_DIMENSION_CATEGORIES
     })
+
+
+# 分析维度默认数据
+DEFAULT_ANALYSIS_DIMENSIONS = [
+    # 账号分析 - 昵称分析
+    {'name': '身份/职业词', 'category': 'account', 'sub_category': 'nickname_analysis', 'description': '身份/职业/人设词，如：哥、姐、老师、医生', 'icon': 'bi-person-badge', 'usage_tips': '回答"你是谁"——职业、身份、人设'},
+    {'name': '风格/记忆词', 'category': 'account', 'sub_category': 'nickname_analysis', 'description': '外观/气质/体型描述，如：红发、高冷、胖', 'icon': 'bi-palette', 'usage_tips': '只能描述外观/气质，不能回答"你是谁"'},
+    {'name': '领域/垂类词', 'category': 'account', 'sub_category': 'nickname_analysis', 'description': '行业/技术/领域，如：数码、美食、母婴', 'icon': 'bi-tag', 'usage_tips': '行业/领域名称'},
+    {'name': '地域词', 'category': 'account', 'sub_category': 'nickname_analysis', 'description': '地区名称，如：南漳、北京、上海', 'icon': 'bi-geo-alt', 'usage_tips': '地名/区域名，突出地域特色'},
+    {'name': '属性关键词', 'category': 'account', 'sub_category': 'nickname_analysis', 'description': '品质/特点/属性，如：手工、野生、正宗', 'icon': 'bi-gem', 'usage_tips': '品质/工艺/属性描述'},
+    # 账号分析 - 简介分析
+    {'name': '身份标签', 'category': 'account', 'sub_category': 'bio_analysis', 'description': '职业背景、学历、职称、专业身份', 'icon': 'bi-person-vcard', 'usage_tips': '回答"你是谁"——职业、学历、职称'},
+    {'name': '价值主张', 'category': 'account', 'sub_category': 'bio_analysis', 'description': '我提供什么价值，粉丝能得到什么', 'icon': 'bi-gift', 'usage_tips': '回答"粉丝关注你能得到什么"'},
+    {'name': '差异化标签', 'category': 'account', 'sub_category': 'bio_analysis', 'description': '为什么关注你，你和别人不一样在哪', 'icon': 'bi-stars', 'usage_tips': '回答"为什么选你"'},
+    {'name': '行动号召', 'category': 'account', 'sub_category': 'bio_analysis', 'description': '让粉丝做什么、关注后做什么', 'icon': 'bi-cursor', 'usage_tips': 'CTA指令'},
+    {'name': '价格信息', 'category': 'account', 'sub_category': 'bio_analysis', 'description': '具体的价格/报价', 'icon': 'bi-currency-dollar', 'usage_tips': '具体数字+价格单位'},
+    {'name': '联系方式', 'category': 'account', 'sub_category': 'bio_analysis', 'description': '联系方式', 'icon': 'bi-telephone', 'usage_tips': '可直接联系的方式'},
+    # 内容分析 - 标题
+    {'name': '标题类型', 'category': 'content', 'sub_category': 'title', 'description': '疑问、数字、对比、情感、悬念等', 'icon': 'bi-card-heading', 'usage_tips': '判断标题属于哪种类型'},
+    {'name': '核心关键词', 'category': 'content', 'sub_category': 'title', 'description': '标题中的核心关键词', 'icon': 'bi-key', 'usage_tips': '提取标题核心词'},
+    {'name': '情绪词', 'category': 'content', 'sub_category': 'title', 'description': '标题中的情绪化词语', 'icon': 'bi-emoji-heart-eyes', 'usage_tips': '识别情绪表达'},
+    # 内容分析 - 开头钩子
+    {'name': '钩子类型', 'category': 'content', 'sub_category': 'hook', 'description': '提问、悬念、冲突、数字、故事等', 'icon': 'bi-lightning', 'usage_tips': '判断钩子类型'},
+    {'name': '痛点/痒点', 'category': 'content', 'sub_category': 'hook', 'description': '引发共鸣的需求点', 'icon': 'bi-exclamation-triangle', 'usage_tips': '识别痛点/痒点'},
+    # 内容分析 - 内容
+    {'name': '选题方向', 'category': 'content', 'sub_category': 'content_body', 'description': '内容的主题方向', 'icon': 'bi-lightbulb', 'usage_tips': '识别选题'},
+    {'name': '内容框架', 'category': 'content', 'sub_category': 'content_body', 'description': '内容的结构安排', 'icon': 'bi-diagram-3', 'usage_tips': '识别内容结构'},
+    {'name': '情绪节奏', 'category': 'content', 'sub_category': 'content_body', 'description': '情绪起伏和节奏把控', 'icon': 'bi-graph-up', 'usage_tips': '识别情绪变化'},
+    # 内容分析 - 视觉设计
+    {'name': '封面类型', 'category': 'content', 'sub_category': 'visual_design', 'description': '图文、纯文字、人物、产品等', 'icon': 'bi-image', 'usage_tips': '识别封面类型'},
+    {'name': '视觉元素', 'category': 'content', 'sub_category': 'visual_design', 'description': '构图、配色、字幕等', 'icon': 'bi-palette', 'usage_tips': '识别视觉元素'},
+    # 内容分析 - 结尾
+    {'name': '行动号召', 'category': 'content', 'sub_category': 'ending', 'description': '引导评论、关注、购买等', 'icon': 'bi-hand-thumbs-up', 'usage_tips': '识别CTA类型'},
+    {'name': '互动引导', 'category': 'content', 'sub_category': 'ending', 'description': '引导用户互动', 'icon': 'bi-chat-dots', 'usage_tips': '识别互动方式'},
+    # 方法论 - 适用场景
+    {'name': '场景描述', 'category': 'methodology', 'sub_category': 'applicable_scenario', 'description': '适用场景的描述', 'icon': 'bi-scene', 'usage_tips': '识别方法适用场景'},
+    # 方法论 - 适用人群
+    {'name': '人群画像', 'category': 'methodology', 'sub_category': 'applicable_audience', 'description': '目标人群特征', 'icon': 'bi-people', 'usage_tips': '识别目标人群'},
+]
+
+
+@admin.route('/api/analysis-dimensions/init', methods=['POST'])
+@login_required
+@super_admin_required
+def init_analysis_dimensions():
+    """初始化默认分析维度"""
+    import traceback
+
+    try:
+        created_count = 0
+
+        for item in DEFAULT_ANALYSIS_DIMENSIONS:
+            # 检查是否已存在（按 category + sub_category + name 判断）
+            exists = AnalysisDimension.query.filter_by(
+                category=item['category'],
+                sub_category=item['sub_category'],
+                name=item['name']
+            ).first()
+            
+            if not exists:
+                # 自动生成编码
+                code = _generate_dimension_code(
+                    name=item['name'],
+                    category=item['category'],
+                    sub_category=item.get('sub_category')
+                )
+                
+                dimension = AnalysisDimension(
+                    name=item['name'],
+                    code=code,
+                    icon=item.get('icon', 'bi-circle'),
+                    description=item.get('description', ''),
+                    category=item['category'],
+                    sub_category=item.get('sub_category'),
+                    usage_tips=item.get('usage_tips', ''),
+                    is_active=True,
+                    is_default=True
+                )
+                db.session.add(dimension)
+                created_count += 1
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'初始化成功，共创建 {created_count} 个维度'
+        })
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.getLogger(__name__).error(f"初始化分析维度失败: {e}\n{traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'初始化失败: {str(e)}'
+        }), 500
 
 
 # ==================== 规则自动提取管理 ====================

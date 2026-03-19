@@ -190,6 +190,21 @@ def api_classify_title():
 
 def parse_llm_json(result_text):
     """解析 LLM 返回的 JSON，支持多种格式并自动修复常见问题"""
+    # #region agent log - 调试 JSON 解析
+    import json as _json
+    try:
+        with open('/Volumes/增元/项目/douyin/.cursor/debug.log', 'a') as _f:
+            _f.write(_json.dumps({
+                'location': 'knowledge_api:parse_llm_json',
+                'message': 'parse_llm_json called',
+                'data': {'raw_length': len(result_text), 'raw_preview': result_text[:300]},
+                'timestamp': __import__('time').time() * 1000,
+                'hypothesisId': 'debug'
+            }, ensure_ascii=False) + '\n')
+    except Exception:
+        pass
+    # #endregion
+    
     # 1. 尝试从 markdown 代码块中提取
     json_match = re.search(r'```json\s*([\s\S]*?)\s*```', result_text)
     if json_match:
@@ -223,6 +238,19 @@ def parse_llm_json(result_text):
         r'\1,\n\3',
         json_str
     )
+    
+    # 1.7 修复 formula 字段中的圆括号问题
+    # LLM 可能会使用要素类型(内容)格式，这会破坏 JSON 结构
+    # 尝试将 formula 中的 "要素类型(内容)" 转换为 "要素类型【内容】"
+    # 匹配模式：双引号内有 "XXX(...)" 格式
+    json_str = re.sub(
+        r'("formula":\s*")([^"]*)\(([^)]+)\)',
+        r'\1\2【\3】',
+        json_str
+    )
+
+    # 1.8 修复 {{ 和 }} 问题（Python f-string 转义）- 提前处理，避免后续解析失败
+    json_str = json_str.replace('{{', '{').replace('}}', '}')
 
     # 2. 尝试直接解析
     try:
@@ -249,6 +277,23 @@ def parse_llm_json(result_text):
     try:
         return json.loads(fixed)
     except json.JSONDecodeError as e:
+        # #region agent log - 记录修复后的 JSON 内容
+        try:
+            with open('/Volumes/增元/项目/douyin/.cursor/debug.log', 'a') as _f:
+                _f.write(_json.dumps({
+                    'location': 'knowledge_api:parse_llm_json',
+                    'message': 'JSON parse failed after fixes',
+                    'data': {
+                        'error': str(e),
+                        'fixed_preview': fixed[:500],
+                        'fixed_length': len(fixed)
+                    },
+                    'timestamp': __import__('time').time() * 1000,
+                    'hypothesisId': 'debug'
+                }, ensure_ascii=False) + '\n')
+        except Exception:
+            pass
+        # #endregion
         logger.error(f"JSON 解析失败，已尝试修复仍失败: {e}, 内容: {result_text[:300]}")
         raise
 
@@ -6529,7 +6574,7 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         return True, formula, []
     
     # 解析 formula，提取各要素
-    # 格式: "要素类型(具体内容) + 要素类型(具体内容)"
+    # 格式: "要素类型(具体内容)" 或 "要素类型【具体内容】"
     # 先按 " + " 分割成单个要素
     logger.info(f"[Formula Validation] 原始 formula: {formula}")
     logger.info(f"[Formula Validation] original_text: {original_text}")
@@ -6539,7 +6584,8 @@ def _validate_formula_elements(formula, original_text, sub_cat):
     logger.info(f"[Formula Validation] 解析 elements: {elements}")
     
     matches = []
-    element_pattern = r'([^（]+)[（(]([^)）]+)[)）]'
+    # 支持圆括号()和方括号【】
+    element_pattern = r'([^（\[]+)[（\[]['"'"']([^)）\]]+)['"'"'\]]'
     for elem in elements:
         elem_match = re.match(element_pattern, elem.strip())
         if elem_match:
@@ -6585,8 +6631,11 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         '地域词': '地域词',
         '地域': '地域词',
         # 行动词
-        '行动词': '行动 / 价值词',
+        '行动词': '行动号召',
         '价值词': '行动 / 价值词',
+        # 简介分析专用
+        '价值主张': '价值主张',
+        '行动号召': '行动号召',
     }
     
     # 常见错误类型修正映射（内容, 错误类型）-> 正确类型
@@ -6649,15 +6698,99 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         if element_type in name_normalize_map:
             element_type = name_normalize_map[element_type]
         
+        # 跳过内容为空或"无"的要素（LLM 未分析出内容）
+        if not element_content or element_content.strip() in ['', '无', '无内容', '无信息', '无有效信息', '未提供', '未提及']:
+            logger.info(f"[Formula Validation] 跳过无效内容: {element_type}({element_content})")
+            validated_parts.append(f"{element_type}({element_content})")
+            continue
+        
         # 检查要素内容是否出现在原始文本中
-        if element_content and element_content.lower() not in original_text.lower():
-            invalid_elements.append({
-                'type': element_type,
-                'content': element_content,
-                'reason': f'要素"{element_content}"不存在于原始文本"{original_text}"中'
-            })
-            logger.warning(f"[Formula Validation] 发现无效要素: {element_type}({element_content}) - 不在原始文本中")
-            continue  # 跳过无效要素
+        # 使用更宽松的匹配：检查要素内容中的每个关键词是否都在原始文本中
+        if element_content:
+            # 清理文本：移除常见标点符号和空格
+            clean_original = original_text.lower().replace(' ', '').replace('\\n', '').replace('\\r', '')
+            clean_element = element_content.lower().replace(' ', '')
+            
+            # #region agent log - 调试公式验证
+            try:
+                import json as _json
+                with open('/Volumes/增元/项目/douyin/.cursor/debug.log', 'a') as _f:
+                    _f.write(_json.dumps({
+                        'location': '_validate_formula_elements',
+                        'message': 'checking element in original',
+                        'data': {
+                            'element_content': element_content,
+                            'clean_element': clean_element,
+                            'clean_original': clean_original,
+                            'element_type': element_type
+                        },
+                        'timestamp': __import__('time').time() * 1000,
+                        'hypothesisId': 'formula_validation'
+                    }, ensure_ascii=False) + '\n')
+            except Exception:
+                pass
+            # #endregion
+            
+            # 精确匹配
+            is_found = clean_element in clean_original
+            
+            # 如果精确匹配失败，尝试子串匹配：检查 clean_element 的关键部分是否在原始文本中
+            if not is_found:
+                # 尝试使用更宽松的子串匹配
+                # 例如："关注送24k金名片" 应该匹配 "关注我就送24k金名片一张"
+                is_found = True  # 先假设通过，然后检查关键部分
+                
+                # 取要素内容的核心关键词（去掉停用词后检查）
+                # 例如："关注送24k金名片" -> 检查 "关注" 和 "24k金名片" 是否都在
+                key_parts = []
+                # 简单处理：按长度>=3的连续字符分割
+                import re
+                parts = re.findall(r'.{2,}', clean_element)
+                if len(parts) >= 2:
+                    # 有多个部分，检查是否至少有一半的部分在原始文本中
+                    matching_parts = [p for p in parts if p in clean_original]
+                    is_found = len(matching_parts) >= len(parts) * 0.5
+                elif parts:
+                    # 只有一个部分，检查是否足够长且在原始文本中
+                    is_found = len(parts[0]) >= 4 and parts[0] in clean_original
+            
+            # 如果子串匹配失败，尝试检查要素中的每个词是否都在原始文本中（至少50%匹配）
+                # #region agent log - 记录精确匹配失败
+                try:
+                    import json as _json
+                    with open('/Volumes/增元/项目/douyin/.cursor/debug.log', 'a') as _f:
+                        _f.write(_json.dumps({
+                            'location': '_validate_formula_elements',
+                            'message': 'exact match failed, trying word-by-word',
+                            'data': {
+                                'element_content': element_content,
+                                'clean_element': clean_element,
+                                'clean_original': clean_original
+                            },
+                            'timestamp': __import__('time').time() * 1000,
+                            'hypothesisId': 'formula_validation'
+                        }, ensure_ascii=False) + '\n')
+                except Exception:
+                    pass
+                # #endregion
+                
+                # 按常见分隔符分割要素内容
+                element_words = re.split(r'[，。、，,，、：:；;！!？?]', element_content)
+                element_words = [w.strip() for w in element_words if w.strip()]
+                if element_words:
+                    is_found = all(
+                        w.lower() in clean_original or w.lower().replace(' ', '') in clean_original 
+                        for w in element_words
+                    )
+            
+            if not is_found:
+                invalid_elements.append({
+                    'type': element_type,
+                    'content': element_content,
+                    'reason': f'要素"{element_content}"不存在于原始文本"{original_text}"中'
+                })
+                logger.warning(f"[Formula Validation] 发现无效要素: {element_type}({element_content}) - 不在原始文本中")
+                continue  # 跳过无效要素
         
         # 尝试修正错误的要素类型 - 先用原始名称匹配
         original_type = element_type
@@ -6705,6 +6838,8 @@ def _validate_formula_elements(formula, original_text, sub_cat):
     # 额外检查：补充遗漏的要素
     if sub_cat == 'nickname_analysis':
         validated_parts = _补充遗漏的要素(validated_parts, original_text)
+    elif sub_cat == 'bio_analysis':
+        validated_parts = _补充遗漏的要素_简介(validated_parts, original_text)
     
     if invalid_elements or corrected_parts:
         validated_formula = " + ".join(validated_parts) if validated_parts else ""
@@ -6717,6 +6852,113 @@ def _validate_formula_elements(formula, original_text, sub_cat):
         return False, validated_formula, invalid_elements
     
     return True, formula, []
+
+
+def _补充遗漏的要素_简介(validated_parts, bio):
+    """彻底解析简介文本，补充 LLM 遗漏的要素
+    
+    Args:
+        validated_parts: 已验证的要素列表
+        bio: 原始简介文本
+    
+    Returns:
+        list: 完整分析后的要素列表
+    """
+    import re
+    
+    # 将现有要素转换为字典
+    existing_map = {}
+    for part in validated_parts:
+        match = re.search(r'([^【(]+)【(?P<content>[^】)]+)】|\((?P<content2>[^)]+)\)', part)
+        if match:
+            elem_type = match.group(1).strip()
+            elem_content = match.group('content') or match.group('content2')
+            existing_map[elem_content.strip()] = elem_type
+    
+    print(f"[DEBUG _补充遗漏的要素_简介] 已有要素: {existing_map}")
+    
+    added = []
+    
+    # 清理简介文本
+    bio_clean = bio.replace('\n', ' ').replace(' ', '')
+    
+    # ========== 简介要素补充逻辑 ==========
+    # 定义简介中各类别的关键词库
+    element_patterns = [
+        # 身份/职业相关
+        (r'\d+年', '身份标签'),
+        (r'\d+年经验', '身份标签'),
+        (r'\d+年店', '身份标签'),
+        (r'创始人', '身份标签'),
+        (r'老师傅', '身份标签'),
+        (r'老板', '身份标签'),
+        (r'老师', '身份标签'),
+        (r'医生', '身份标签'),
+        (r'专家', '身份标签'),
+        
+        # 行动号召
+        (r'关注[我你]?[送领拿取]', '行动号召'),
+        (r'私信', '行动号召'),
+        (r'加微信', '行动号召'),
+        (r'扫码', '行动号召'),
+        (r'到店', '行动号召'),
+        
+        # 联系方式
+        (r'\d{11,}', '联系方式'),
+        (r'微[信号]?\d+', '联系方式'),
+        (r'电话\d+', '联系方式'),
+        
+        # 价值主张（知识/技能类）
+        (r'教你', '价值主张'),
+        (r'带你', '价值主张'),
+        (r'干货', '价值主张'),
+        (r'分享', '价值主张'),
+        (r'知识', '价值主张'),
+        (r'科普', '价值主张'),
+        (r'技巧', '价值主张'),
+        (r'秘方', '价值主张'),
+        (r'秘诀', '价值主张'),
+    ]
+    
+    # 对简介的每一行进行分析
+    bio_lines = bio.split('\n')
+    
+    for line in bio_lines:
+        line = line.strip()
+        if not line:
+            continue
+        
+        # 检查这一行是否已经被某个要素覆盖
+        is_covered = False
+        for existing_content in existing_map.keys():
+            if existing_content in line:
+                is_covered = True
+                break
+        
+        if is_covered:
+            continue
+        
+        # 尝试匹配要素类型
+        matched_type = None
+        matched_content = line
+        
+        for pattern, elem_type in element_patterns:
+            if re.search(pattern, line):
+                matched_type = elem_type
+                matched_content = line
+                break
+        
+        if matched_type and matched_content:
+            # 检查是否已存在
+            if matched_content not in existing_map:
+                validated_parts.append(f"{matched_type}【{matched_content}】")
+                existing_map[matched_content] = matched_type
+                added.append(f"{matched_type}【{matched_content}】")
+    
+    if added:
+        print(f"[DEBUG _补充遗漏的要素_简介] 补充的要素: {added}")
+    
+    return validated_parts
 
 
 def _去重重复要素(validated_parts):
@@ -7746,11 +7988,32 @@ def _run_account_sub_category_analysis(app, account_id, target_sub_cats=None):
 
                 result_text = llm_service.chat(messages, temperature=0.7, max_tokens=2000)
                 logger.info(f"[_run_account_sub_category_analysis] LLM 返回 result_text={'有内容' if result_text else '空'}")
+                # 添加原始返回数据日志
+                if result_text:
+                    logger.info(f"[DEBUG] LLM raw result for {sub_cat}: {result_text[:500]}...")
                 if not result_text:
                     logger.warning(f"[_run_account_sub_category_analysis] {sub_cat} LLM 返回为空，跳过")
                     continue
 
                 llm_result = parse_llm_json(result_text)
+                logger.info(f"[DEBUG] Parsed llm_result keys for {sub_cat}: {list(llm_result.keys())}")
+                # #region agent log - 记录完整的 llm_result
+                try:
+                    with open('/Volumes/增元/项目/douyin/.cursor/debug.log', 'a') as _f:
+                        _f.write(_json.dumps({
+                            'location': 'knowledge_api:_run_account_sub_category_analysis',
+                            'message': f'llm_result for {sub_cat}',
+                            'data': {
+                                'expected_dims': [(d.code, d.name) for d in dims],
+                                'llm_result_keys': list(llm_result.keys()),
+                                'llm_result': llm_result
+                            },
+                            'timestamp': __import__('time').time() * 1000,
+                            'hypothesisId': 'bio_analysis'
+                        }, ensure_ascii=False) + '\n')
+                except Exception:
+                    pass
+                # #endregion
 
                 # 计算综合评分：取所有维度评分的平均值
                 dim_scores = []
@@ -7759,6 +8022,9 @@ def _run_account_sub_category_analysis(app, account_id, target_sub_cats=None):
                         dim_score = value.get('score', 0)
                         if isinstance(dim_score, (int, float)) and 0 <= dim_score <= 100:
                             dim_scores.append(dim_score)
+                        else:
+                            # 记录无效评分便于调试
+                            logger.warning(f"[Score Calculation] {sub_cat} 维度 {key} 评分无效: {dim_score} (type: {type(dim_score).__name__})")
                 
                 # 计算平均分
                 if dim_scores:
@@ -7937,16 +8203,16 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - 是否包含关键词 (has_keyword): true/false（如果昵称包含业务相关的核心关键词则为true）
 - 关键词类型 (keyword_type): 行业词/产品词/地域词/品牌词/功能词/无
 - 关键词内容 (keyword_content): 具体关键词内容（应从主营业务中提取，如主营业务是"卖福建红糖"，则关键词应为"红糖"或"福建红糖"）
-- 评分 (score): 0-100分
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分
 - 评分理由 (reason): 为什么给这个评分
 - 分析结论 (conclusion): 一句话总结""")
                     json_dim_examples.append(f'''    "{code}": {{
         "has_keyword": true,
         "keyword_type": "产品词",
         "keyword_content": "红糖",
-        "score": 90,
-        "reason": "昵称包含主营业务核心产品词",
-        "conclusion": "昵称中包含产品词，能让用户快速了解业务"
+        "score": 65,
+        "reason": "包含产品词但缺少其他要素",
+        "conclusion": "基本体现业务但有优化空间"
     }}''')
                 elif code == 'nickname_memorability':
                     dim_sections.append(f"""### 维度{i}: {code} ({name})
@@ -7954,17 +8220,17 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - 易记程度 (memorability): 易记/一般/难记
 - 易记原因 (memorability_reason): 简单说明
 - 有无重复字符 (has_repeat_chars): true/false
-- 评分 (score): 0-100分
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分
 - 评分理由 (reason): 为什么给这个评分
 - 分析结论 (conclusion): 一句话总结""")
                     json_dim_examples.append(f'''    "{code}": {{
         "length": 5,
-        "memorability": "易记",
-        "memorability_reason": "5个字朗朗上口",
+        "memorability": "一般",
+        "memorability_reason": "5个字但有生僻字",
         "has_repeat_chars": false,
-        "score": 85,
-        "reason": "长度适中无重复",
-        "conclusion": "5个字易读易记"
+        "score": 65,
+        "reason": "长度适中但有生僻字影响记忆",
+        "conclusion": "长度合适但记忆难度偏高"
     }}''')
                 elif code == 'nickname_feature':
                     dim_sections.append(f"""### 维度{i}: {code} ({name})
@@ -7972,7 +8238,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - 情绪特征 (emotion_feature): 是否有表达情绪的词
 - 专业特征 (professional_feature): 是否有体现专业度的词
 - 人设特征 (persona_feature): 是否有人设标签
-- 评分 (score): 0-100分
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分
 - 评分理由 (reason): 为什么给这个评分
 - 分析结论 (conclusion): 一句话总结""")
                     json_dim_examples.append(f'''    "{code}": {{
@@ -7980,9 +8246,9 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
         "emotion_feature": "无",
         "professional_feature": "无",
         "persona_feature": "有",
-        "score": 80,
-        "reason": "有人设标签",
-        "conclusion": "明确人设定位"
+        "score": 60,
+        "reason": "仅有人设标签，缺少其他特征",
+        "conclusion": "人设不够立体"
     }}''')
                 elif code == 'nickname_advantage':
                     dim_sections.append(f"""### 维度{i}: {code} ({name})
@@ -7990,7 +8256,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - 押韵 (rhyme): 是否押韵
 - 结构特点 (structure): 结构特点描述
 - 画面感 (imagery): 是否有画面感
-- 评分 (score): 0-100分
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分
 - 评分理由 (reason): 为什么给这个评分
 - 分析结论 (conclusion): 一句话总结""")
                     json_dim_examples.append(f'''    "{code}": {{
@@ -7998,30 +8264,48 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
         "rhyme": "无",
         "structure": "3+2结构",
         "imagery": "无",
-        "score": 85,
-        "reason": "结构清晰",
-        "conclusion": "结构简洁明了"
+        "score": 60,
+        "reason": "有节奏但无押韵和画面感",
+        "conclusion": "结构一般，缺乏亮点"
     }}''')
             else:
-                # 用户自定义维度：方案A，与公式要素一致（定义+示例+识别技巧）
-                dim_examples = getattr(d, 'examples', None) or ''
-                dim_tips = getattr(d, 'usage_tips', None) or ''
-                extra = []
-                if desc:
-                    extra.append(f"定义：{desc}")
-                if dim_examples:
-                    extra.append(f"示例：{dim_examples.replace('|', '、')}")
-                if dim_tips:
-                    extra.append(f"识别技巧：{dim_tips}")
-                extra_str = "；".join(extra) if extra else ""
-                dim_sections.append(f"""### 维度{i}: {code} ({name}){f" {extra_str}" if extra_str else ""}
-- 评分 (score): 0-100分
+                # 用户自定义维度：优先使用 prompt_template
+                prompt_template = getattr(d, 'prompt_template', '') or ''
+                if '|' in prompt_template:
+                    # 格式: "section|json_example"
+                    section_template, json_example_template = prompt_template.split('|', 1)
+                    dim_sections.append(f"### 维度{i}: {code} ({name})\n{section_template}")
+                    # 转换 Python f-string 转义：{{ -> { , }} -> }
+                    json_example_template = json_example_template.replace('{{', '{').replace('}}', '}')
+                    json_dim_examples.append(json_example_template.replace('{code}', code))
+                elif prompt_template:
+                    # 只有 section，没有 json_example，使用通用示例
+                    dim_sections.append(f"### 维度{i}: {code} ({name})\n{prompt_template}")
+                    json_dim_examples.append(f'''    "{code}": {{
+        "score": 60,
+        "reason": "仅有基本要素，缺少亮点",
+        "conclusion": "需要优化"
+    }}''')
+                else:
+                    # 降级使用 description + examples + usage_tips
+                    dim_examples = getattr(d, 'examples', None) or ''
+                    dim_tips = getattr(d, 'usage_tips', None) or ''
+                    extra = []
+                    if desc:
+                        extra.append(f"定义：{desc}")
+                    if dim_examples:
+                        extra.append(f"示例：{dim_examples.replace('|', '、')}")
+                    if dim_tips:
+                        extra.append(f"识别技巧：{dim_tips}")
+                    extra_str = "；".join(extra) if extra else ""
+                    dim_sections.append(f"""### 维度{i}: {code} ({name}){f" {extra_str}" if extra_str else ""}
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分
 - 评分理由 (reason): 为什么给这个评分
 - 分析结论 (conclusion): 一句话总结""")
-                json_dim_examples.append(f'''    "{code}": {{
-        "score": 80,
-        "reason": "符合{name}的期望",
-        "conclusion": "简要结论"
+                    json_dim_examples.append(f'''    "{code}": {{
+        "score": 60,
+        "reason": "仅有基本要素，缺少亮点",
+        "conclusion": "需要优化"
     }}''')
 
         dim_sections_text = "\n\n".join(dim_sections)
@@ -8041,7 +8325,11 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 
    **分析优先级**：{priority_text}
 
-   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！例如"20年老店"不能写成"20年老店体现资历"，"灌肠西施"不能写成"灌肠西施体现产品加身份"**
+   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！例如"20年老店"不能写成"20年老店体现资历"，"灌肠西施"不能写成"灌肠西施体现产品加身份"
+   
+   **【格式强制要求】每个要素必须有明确的类型前缀！禁止出现"要素类型(内容)"格式以外的任何内容！**
+   - ✅ 正确格式：身份标签(芬哥) + 产品词(定制水) + 行动词(免费) + 行动词(设计)
+   - ❌ 错误格式：身份标签(芬哥) + 产品词(定制水) + 免费 + 设计（缺少类型前缀）
    
    **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始昵称 "{nickname}"（不含符号和各种表情），内容不能多于 nickname，不能遗漏任何字！
 
@@ -8172,6 +8460,8 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
             if '|' in prompt_template:
                 section_template, json_example_template = prompt_template.split('|', 1)
                 dim_sections.append(f"### 维度: {code} ({name})\n{section_template}")
+                # 转换 Python f-string 转义：{{ -> { , }} -> }
+                json_example_template = json_example_template.replace('{{', '{').replace('}}', '}')
                 json_dim_examples.append(json_example_template.replace('{code}', code))
                 continue
 
@@ -8180,63 +8470,63 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
                 dim_sections.append(f"""### 维度: {code} ({name})
 - 定义：职业/身份/资历等（如：X年行业、自有门面、创始人、老师傅）
 - 识别技巧：身份标签是「是谁、多专业」，不是「让用户做什么」
-- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
-        "score": 85,
-        "reason": "身份明确，有专业背书",
-        "conclusion": "身份明确，有专业背书"
+        "score": 60,
+        "reason": "有基本身份但缺少专业背书",
+        "conclusion": "身份信息不够突出"
     }}''')
             elif code == 'bio_value':
                 dim_sections.append(f"""### 维度: {code} ({name})
 - 是否有价值主张 (has_value): true/false
 - 价值主张内容 (value_proposition): 具体价值描述
 - 清晰度 (clarity): 高/中/低
-- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "has_value": true,
         "value_proposition": "专注茶叶20年",
-        "clarity": "高",
-        "score": 80,
-        "reason": "价值主张清晰",
-        "conclusion": "明确传达核心价值"
+        "clarity": "中",
+        "score": 60,
+        "reason": "有价值主张但不够清晰",
+        "conclusion": "价值主张模糊"
     }}''')
             elif code == 'bio_differentiate':
                 dim_sections.append(f"""### 维度: {code} ({name})
 - 是否有差异化 (has_differentiation): true/false
 - 差异化内容 (differentiation): 具体差异化描述
-- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "has_differentiation": true,
         "differentiation": "XX第一人",
-        "score": 75,
-        "reason": "有差异化但不够突出",
-        "conclusion": "具备一定差异化"
+        "score": 55,
+        "reason": "有差异化但不够具体",
+        "conclusion": "差异化不明显"
     }}''')
             elif code == 'bio_action':
                 dim_sections.append(f"""### 维度: {code} ({name})
 - 定义：让用户「做什么」的引导语（如：关注送XX、私信咨询、到店试吃、扫码领取）
 - 识别技巧：行动号召=动作指令；若留电话/微信/邮箱/地址/门面地址，属于「联系方式」不是行动号召
 - 是否有行动号召 (has_cta): true/false；行动号召内容 (cta_content)
-- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "has_cta": true,
         "cta_content": "关注后私信领取",
-        "score": 70,
-        "reason": "有行动号召但不够明确",
-        "conclusion": "有引导意识"
+        "score": 55,
+        "reason": "有行动号召但不够明确具体",
+        "conclusion": "引导力度不足"
     }}''')
             elif code == 'bio_contact':
                 dim_sections.append(f"""### 维度: {code} ({name})
 - 定义：可联系到人的信息：电话、微信/微、V、邮箱、具体地址、门面地址、商务联系XXX等
 - 识别技巧：「关注我先送一罐」是行动号召；「商务联系xxxxx」「+V」「微信xxx」是联系方式
 - 有联系方式 (has_contact): true/false；联系方式内容 (contact_content)
-- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "has_contact": true,
         "contact_content": "商务联系xxxxx",
-        "score": 80,
-        "reason": "有明确联系方式",
-        "conclusion": "便于转化"
+        "score": 65,
+        "reason": "有联系方式但不够直接",
+        "conclusion": "联系方式可优化"
     }}''')
             elif code == 'bio_structure':
                 dim_sections.append(f"""### 维度: {code} ({name})
@@ -8244,39 +8534,39 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 - 有联系方式 (has_contact): true/false
 - 有价值主张 (has_value_proposition): true/false
 - 有行动号召 (has_cta): true/false
-- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
         "has_structure": true,
         "has_contact": false,
         "has_value_proposition": true,
-        "has_cta": true,
-        "score": 80,
-        "reason": "结构清晰有价值主张",
-        "conclusion": "结构完整，缺少联系方式"
+        "has_cta": false,
+        "score": 55,
+        "reason": "有结构但缺少联系方式和行动号召",
+        "conclusion": "结构不完整"
     }}''')
             elif code == 'bio_content':
                 dim_sections.append(f"""### 维度: {code} ({name})
 - 内容要素 (content_elements): 包含的内容要素列表
 - 有差异化 (has_differentiation): true/false；有明确报价 (has_clear_offer): true/false
-- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
-        "content_elements": ["身份", "专业", "成就"],
-        "has_differentiation": true,
+        "content_elements": ["身份", "专业"],
+        "has_differentiation": false,
         "has_clear_offer": false,
-        "score": 75,
-        "reason": "内容要素完整但缺少报价",
-        "conclusion": "要素齐全待完善"
+        "score": 50,
+        "reason": "内容要素少且缺少差异化和报价",
+        "conclusion": "内容单薄需丰富"
     }}''')
             elif code == 'bio_advantage':
                 dim_sections.append(f"""### 维度: {code} ({name})
 - 优点 (advantages): 优点列表；可改进点 (improvements): 可改进的地方列表
-- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
-        "advantages": ["结构清晰", "价值主张明确"],
-        "improvements": ["缺少联系方式"],
-        "score": 70,
-        "reason": "整体不错但缺少联系方式",
-        "conclusion": "有提升空间，建议添加联系方式"
+        "advantages": ["结构清晰"],
+        "improvements": ["缺少联系方式", "缺少差异化"],
+        "score": 55,
+        "reason": "结构可以但缺少关键要素",
+        "conclusion": "需要补充多个要素"
     }}''')
             else:
                 # 用户自定义或未枚举维度：使用 description + examples + usage_tips
@@ -8287,14 +8577,14 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
                     extra.append(f"示例：{dim_examples.replace('|', '、')}")
                 if dim_tips:
                     extra.append(f"识别技巧：{dim_tips}")
-                extra_str = "\n- ".join(extra) if extra else "评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)"
+                extra_str = "\n- ".join(extra) if extra else "评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分；评分理由 (reason)；分析结论 (conclusion)"
                 dim_sections.append(f"""### 维度: {code} ({name})
 - {extra_str}
-- 评分 (score): 0-100分；评分理由 (reason)；分析结论 (conclusion)""")
+- 评分 (score): 0-100分，**评分必须非常严格**，大多数评分应在50-75分之间，不要轻易给高分；评分理由 (reason)；分析结论 (conclusion)""")
                 json_dim_examples.append(f'''    "{code}": {{
-        "score": 80,
-        "reason": "符合{name}的期望",
-        "conclusion": "简要结论"
+        "score": 55,
+        "reason": "基本符合要求但缺少亮点",
+        "conclusion": "需要优化"
     }}''')
 
         dim_sections_text = "\n\n".join(dim_sections)
@@ -8307,25 +8597,34 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
             # 使用数据库中的要素配置
             elements_text = formula_config['elements_text']
 
-            formula_section = f"""3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。**重要：要素类型必须是以下{formula_config['count']}种之一：**
+            formula_section = f"""3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型【具体内容】"（**注意：使用中文方括号【】而不是圆括号()，避免JSON解析错误**）。**重要：要素类型必须是以下{formula_config['count']}种之一：**
 {elements_text}
 
-   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！**
+   **【关键规则】formula 方括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！**
 
-   **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始简介 "{bio}"（不含符号和各种表情），内容不能多于 bio，不能遗漏任何关键信息！**"""
+   **【重要验证规则】formula 方括号内的所有内容组合起来（不含符号和各种表情）必须等于原始简介 "{bio}"（不含符号和各种表情），内容不能多于 bio，不能遗漏任何关键信息！**
+
+   **【要素区分规则】（非常重要）**：
+     - 身份标签指：职业背景、学历、职称、专业身份、资历实力等
+     - 价值主张指：【粉丝利益】回答"粉丝得到什么"——教你XX、带你XX、干货分享（强调粉丝收益）
+     - 行动号召(CTA)指：【重点注意】只要包含"关注"、"送"、"扫码"、"私信"、"到店"、"加V"、"领取"、"进群"等动作指令的，**必须**归类为行动号召！例如："关注送XX"是行动号召（不是差异化！）、"扫码领取"是行动号召
+     - 差异化标签指：**不包含动作指令**的差异化卖点，如"只讲真话"、"不割韭菜"、"0基础也能学"
+     - 价格信息指：具体的价格/报价
+     - 联系方式指：可联系到人的信息（电话、微信/V、邮箱、地址等）
+     - 内容要素指：不属于以上类型的其他内容"""
         else:
             # 使用默认硬编码（理论上不会被执行，因为数据库已配置26个要素）
-            formula_section = """3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型(具体内容)"。
+            formula_section = """3. **可用公式 (formula)**: **必须分析这个简介的实际构成元素**，格式如"要素类型【具体内容】"（**注意：使用中文方括号【】而不是圆括号()，避免JSON解析错误**）。
 
-   **【关键规则】formula 括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！**
+   **【关键规则】formula 方括号内的内容必须是原文中的字（不含符号和各种表情），不能添加任何解释性文字！**
 
-   **【重要验证规则】formula 括号内的所有内容组合起来（不含符号和各种表情）必须等于原始简介 "{bio}"（不含符号和各种表情），内容不能多于 bio，不能遗漏任何关键信息！**
+   **【重要验证规则】formula 方括号内的所有内容组合起来（不含符号和各种表情）必须等于原始简介 "{bio}"（不含符号和各种表情），内容不能多于 bio，不能遗漏任何关键信息！**
 
-   **【要素说明】**：
+   **【要素区分规则】（非常重要）**：
      - 身份标签指：职业背景、学历、职称、专业身份、资历实力等
-     - 价值主张指：【粉丝利益】我提供什么价值，粉丝能得到什么
-     - 差异化标签指：为什么关注你，你和别人不一样在哪
-     - 行动号召(CTA)指：让粉丝做什么、关注后做什么
+     - 价值主张指：【粉丝利益】回答"粉丝得到什么"——教你XX、带你XX、干货分享（强调粉丝收益）
+     - 行动号召(CTA)指：【重点注意】只要包含"关注"、"送"、"扫码"、"私信"、"到店"、"加V"、"领取"、"进群"等动作指令的，**必须**归类为行动号召！例如："关注送XX"是行动号召（不是差异化！）、"扫码领取"是行动号召
+     - 差异化标签指：**不包含动作指令**的差异化卖点，如"只讲真话"、"不割韭菜"、"0基础也能学"
      - 价格信息指：具体的价格/报价
      - 联系方式指：可联系到人的信息（电话、微信/V、邮箱、地址等）
      - 内容要素指：不属于以上类型的其他内容"""
@@ -8360,7 +8659,7 @@ def _build_sub_category_analysis_prompt(sub_cat, account_info, dims, business_de
 {{
     "score": 75,
     "score_reason": "结构清晰但缺少联系方式",
-    "formula": "身份标签(10年大厂PM) + 价值主张(带你学ai) + 差异化标签(0基础也能学) + 差异化标签(普通人也能学会)",
+    "formula": "身份标签【10年大厂PM】 + 价值主张【带你学ai】 + 差异化标签【0基础也能学】 + 差异化标签【普通人也能学会】",
     "suggestions": ["建议添加联系方式方便粉丝私信", "可以突出人设标签增强记忆点"],
     "discovered_elements": [
         {{"name": "新要素名称", "code": "new_element_code", "description": "要素定义", "example": "示例"}}

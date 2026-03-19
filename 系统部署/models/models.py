@@ -519,22 +519,25 @@ class KnowledgeAccount(db.Model):
 
     # ========== 自动分析配置字段 ==========
     # 控制创建/更新账号时是否自动触发特定分析
+    # 默认全部关闭，需要用户手动触发分析
     auto_analysis_config = db.Column(db.JSON, default=lambda: {
         'on_create': {
-            'nickname': True,
-            'bio': True,
-            'account_positioning': True,
-            'keyword_library': False,      # 默认关闭
-            'market_analysis': False,      # 默认关闭
-            'operation_planning': False    # 默认关闭
+            'profile': False,           # 账号画像分析（目标人群、关键词等）
+            'nickname': False,          # 昵称分析
+            'bio': False,              # 简介分析
+            'account_positioning': False,  # 账号定位分析
+            'keyword_library': False,   # 关键词库分析
+            'market_analysis': False,  # 市场分析
+            'operation_planning': False   # 运营规划分析
         },
         'on_update': {
-            'nickname': True,
-            'bio': True,
-            'account_positioning': True,
-            'keyword_library': False,
-            'market_analysis': False,
-            'operation_planning': False
+            'profile': False,           # 账号画像分析
+            'nickname': False,          # 昵称分析
+            'bio': False,              # 简介分析
+            'account_positioning': False,  # 账号定位分析
+            'keyword_library': False,  # 关键词库分析
+            'market_analysis': False,  # 市场分析
+            'operation_planning': False   # 运营规划分析
         }
     })
 
@@ -1227,6 +1230,9 @@ class AnalysisDimension(db.Model):
     rule_category = db.Column(db.String(50))  # 入库后的规则分类：keywords/topic/template/operation/market
     rule_type = db.Column(db.String(100))  # 入库后的规则类型（如 account_design_nickname、content_title 等）
     prompt_template = db.Column(db.Text)  # LLM分析时的提示词模板/建议项
+    # 方案A：与公式要素一致，供 LLM 按维度打分
+    examples = db.Column(db.Text)  # 示例（多个用 | 分隔，如：关注送一罐|私信咨询|到店试吃）
+    usage_tips = db.Column(db.Text)  # 识别技巧/注意事项（如：行动号召是让用户做什么，联系方式是留电话/微信/地址）
 
     # 状态
     is_active = db.Column(db.Boolean, default=True)

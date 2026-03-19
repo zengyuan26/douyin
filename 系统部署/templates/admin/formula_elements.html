@@ -187,8 +187,13 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">示例</label>
-                        <textarea class="form-control" id="element-examples" rows="3" placeholder="多个示例用 | 分隔，如：香肠|茶叶|手机"></textarea>
+                        <label class="form-label">示例 <span class="text-muted small">(支持 | 、 ， 换行分隔，系统会自动统一为 |)</span></label>
+                        <textarea class="form-control" id="element-examples" rows="3" placeholder="多个示例用 | 分隔，如：香肠|茶叶|手机（支持全角竖线｜、逗号、换行）"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">区分技巧（usage_tips）</label>
+                        <textarea class="form-control" id="element-usage-tips" rows="3" placeholder="帮助 LLM 区分此要素与其他要素的技巧，如：回答&quot;你是谁&quot;——职业、学历、职称、身份"></textarea>
                     </div>
                 </form>
             </div>
@@ -416,7 +421,7 @@ function renderSuggestions(suggestions) {
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="flex-grow-1">
                             <div class="d-flex align-items-center gap-2 mb-2">
-                                <span class="badge bg-primary">${subCatName}</span>
+                                <span class="badge bg-transparent text-primary border border-primary">${subCatName}</span>
                                 <strong class="fs-5">${s.name}</strong>
                                 <code class="text-muted">${s.code}</code>
                             </div>
@@ -489,6 +494,7 @@ function editElement(id) {
             getElementById('element-name').value = element.name;
             getElementById('element-description').value = element.description || '';
             getElementById('element-examples').value = element.examples || '';
+            getElementById('element-usage-tips').value = element.usage_tips || '';
             bootstrap.Modal.getOrCreateInstance(getElementById('elementModal')).show();
         }
     })
@@ -714,12 +720,19 @@ function handleSaveElement() {
         return code;
     };
     
+    // 统一分隔符：将各种符号转换为 |
+    const rawExamples = getElementById('element-examples').value;
+    const normalizedExamples = rawExamples
+        .replace(/[｜,\n，]/g, '|')  // 全角竖线、逗号、换行 → |
+        .replace(/\|+/g, '|');        // 多个 | 合并为一个
+    
     const data = {
         sub_category: getElementById('element-sub-category').value,
         name: name,
         code: id ? '' : autoGenerateCode(name),
         description: getElementById('element-description').value,
-        examples: getElementById('element-examples').value,
+        examples: normalizedExamples,
+        usage_tips: getElementById('element-usage-tips').value,
         priority: 0,
         is_active: true
     };

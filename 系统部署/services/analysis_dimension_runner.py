@@ -130,8 +130,9 @@ def get_account_design_dimensions() -> Dict[str, List[Dict[str, str]]]:
     """
     result: Dict[str, List[Dict[str, str]]] = {"nickname": [], "bio": []}
 
-    for sub_cat in ("nickname", "bio"):
-        dims = get_active_dimensions(category="account", sub_category=sub_cat)
+    # 前端 key 为 nickname/bio，DB 二级分类为 nickname_analysis/bio_analysis
+    for key, db_sub_cat in [("nickname", "nickname_analysis"), ("bio", "bio_analysis")]:
+        dims = get_active_dimensions(category="account", sub_category=db_sub_cat)
         items: List[Dict[str, str]] = []
         for d in dims:
             items.append(
@@ -140,11 +141,13 @@ def get_account_design_dimensions() -> Dict[str, List[Dict[str, str]]]:
                     "name": d.name or "",
                     "description": d.description or "",
                     "prompt_template": d.prompt_template or "",
+                    "examples": getattr(d, "examples", None) or "",
+                    "usage_tips": getattr(d, "usage_tips", None) or "",
                     "rule_category": d.rule_category or "",
                     "rule_type": d.rule_type or ""
                 }
             )
-        result[sub_cat] = items
+        result[key] = items
 
     return result
 

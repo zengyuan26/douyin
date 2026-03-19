@@ -15,6 +15,9 @@
                         <p class="text-muted mb-0">配置爆款拆解的分析维度，按一级分类Tab切换，点击卡片查看该分类下的维度</p>
                     </div>
                     <div class="btn-animate d-flex justify-content-end">
+                        <button type="button" class="btn btn-outline-primary btn-lg me-3" id="init-dimension-btn" title="初始化默认维度">
+                            <i class="bi bi-plus-circle me-1"></i>初始化
+                        </button>
                         <a href="{{ url_for('admin.knowledge') }}" class="btn btn-outline-secondary btn-lg">
                             <i class="bi bi-arrow-left me-1"></i>返回
                         </a>
@@ -96,14 +99,13 @@
 
 <!-- 新增/编辑维度弹窗：不再包含排序 -->
 <div class="modal fade" id="dimensionModal" tabindex="-1" aria-labelledby="dimensionModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 500px;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 700px;">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header d-flex justify-content-between align-items-center">
                 <h5 class="modal-title" id="dimensionModalLabel">新增维度</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn btn-primary btn-sm" id="save-dimension-btn">保存</button>
             </div>
             <div class="modal-body py-4">
-                <p class="small text-muted mb-3">在详情页点击「新增维度」后，本弹窗会自动带上该分类与二级分类；填写维度名称与描述即可。</p>
                 <form id="dimension-form">
                     <input type="hidden" id="dimension-id">
                     <input type="hidden" id="dimension-code">
@@ -132,14 +134,18 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">描述</label>
+                        <label class="form-label">描述（定义）</label>
                         <textarea class="form-control" id="dimension-description" rows="2" placeholder="简短说明这个维度分析什么"></textarea>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">示例</label>
+                        <textarea class="form-control" id="dimension-examples" rows="2" placeholder="多个示例用 | 分隔，如：关注送一罐|私信咨询|到店试吃"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">识别技巧</label>
+                        <textarea class="form-control" id="dimension-usage-tips" rows="2" placeholder="如：行动号召是让用户做什么，联系方式是留电话/微信/地址"></textarea>
+                    </div>
                 </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" id="save-dimension-btn">保存</button>
             </div>
         </div>
     </div>
@@ -197,9 +203,9 @@ main.main-content:has(.analysis-dimensions-page) {
 .dimension-card-wrapper .card { height: 100%; }
 </style>
 <!-- 外部 JS 模块 -->
-<script src="{{ url_for('static', path='admin/js/utils.js') }}"></script>
-<script src="{{ url_for('static', path='admin/js/api.js') }}"></script>
-<script src="{{ url_for('static', path='admin/js/dimensions.js') }}"></script>
+<script src="{{ url_for('static', filename='admin/js/utils.js') }}"></script>
+<script src="{{ url_for('static', filename='admin/js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='admin/js/dimensions.js') }}"></script>
 <script>
 // 一级分类图标与样式
 const CATEGORY_META = {
@@ -243,6 +249,8 @@ const DIMENSION_CATEGORIES = {
 // 当前分组数据与详情视图所在分组（用于详情页刷新）
 var groupedDataCache = [];
 var currentDetailGroup = null;
+var currentPage = 1;
+var pageSize = 5;
 
 // 从sessionStorage恢复详情页状态
 function restoreDetailState() {
@@ -315,10 +323,12 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSubCategoryOptions(this.value);
     });
     document.getElementById('save-dimension-btn').addEventListener('click', saveDimension);
+    document.getElementById('init-dimension-btn').addEventListener('click', handleInitDimensions);
     document.getElementById('detail-back-btn').addEventListener('click', function() {
         document.getElementById('dimension-list-view').classList.remove('d-none');
         document.getElementById('dimension-detail-view').classList.add('d-none');
         currentDetailGroup = null;
+        currentPage = 1;
         clearDetailState();
     });
     document.getElementById('detail-add-btn').addEventListener('click', function() {
@@ -427,6 +437,7 @@ function renderCards(groups) {
 function showDetailView(group) {
     console.log('[DEBUG] showDetailView called with:', group);
     currentDetailGroup = group;
+    currentPage = 1;  // 重置分页
     saveDetailState(group);  // 保存状态
     document.getElementById('dimension-list-view').classList.add('d-none');
     document.getElementById('dimension-detail-view').classList.remove('d-none');
@@ -441,7 +452,17 @@ function renderDetailDimensions(dimensions, category) {
         container.innerHTML = '<div class="list-group-item text-muted text-center py-5">暂无维度，点击右上角「新增维度」添加</div>';
         return;
     }
-    container.innerHTML = dimensions.map(function(d) {
+    
+    // 计算分页
+    const totalItems = dimensions.length;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    if (currentPage > totalPages) currentPage = 1;
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    const pageItems = dimensions.slice(start, end);
+    
+    // 渲染维度列表
+    container.innerHTML = pageItems.map(function(d) {
         return (
             '<div class="list-group-item detail-dimension-item d-flex align-items-center justify-content-between py-3">' +
             '  <div class="d-flex align-items-center flex-grow-1 min-width-0">' +
@@ -457,6 +478,48 @@ function renderDetailDimensions(dimensions, category) {
             '</div>'
         );
     }).join('');
+    
+    // 渲染分页控件
+    if (totalPages > 1) {
+        container.innerHTML += renderPagination(totalPages, currentPage, totalItems, start, end);
+    }
+}
+
+function renderPagination(totalPages, currentPage, totalItems, start, end) {
+    var html = '<div class="list-group-item py-3 d-flex justify-content-between align-items-center">';
+    html += '<span class="text-muted small">显示 ' + (start + 1) + '-' + Math.min(end, totalItems) + ' 条，共 ' + totalItems + ' 条</span>';
+    html += '<nav><ul class="pagination pagination-sm mb-0">';
+    
+    // 上一页
+    if (currentPage > 1) {
+        html += '<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="goToPage(' + (currentPage - 1) + ')">上一页</a></li>';
+    } else {
+        html += '<li class="page-item disabled"><span class="page-link">上一页</span></li>';
+    }
+    
+    // 页码
+    for (var i = 1; i <= totalPages; i++) {
+        if (i === currentPage) {
+            html += '<li class="page-item active"><span class="page-link">' + i + '</span></li>';
+        } else {
+            html += '<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="goToPage(' + i + ')">' + i + '</a></li>';
+        }
+    }
+    
+    // 下一页
+    if (currentPage < totalPages) {
+        html += '<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="goToPage(' + (currentPage + 1) + ')">下一页</a></li>';
+    } else {
+        html += '<li class="page-item disabled"><span class="page-link">下一页</span></li>';
+    }
+    
+    html += '</ul></nav></div>';
+    return html;
+}
+
+function goToPage(page) {
+    currentPage = page;
+    renderDetailDimensions(currentDetailGroup.dimensions || [], currentDetailGroup.category);
 }
 
 function refreshDetailView() {
@@ -494,6 +557,8 @@ function openDimensionModal(dimension, prefillCategory, prefillSubCategory) {
         categorySelect.disabled = true;
         updateSubCategoryOptions(dimension.category, dimension.sub_category);
         document.getElementById('dimension-description').value = dimension.description || '';
+        document.getElementById('dimension-examples').value = dimension.examples || '';
+        document.getElementById('dimension-usage-tips').value = dimension.usage_tips || '';
     } else {
         document.getElementById('dimensionModalLabel').textContent = '新增维度';
         document.getElementById('dimension-id').value = '';
@@ -527,7 +592,9 @@ function updateSubCategoryOptions(category, selectedSubCategory) {
 
 async function editDimension(id) {
     try {
-        var response = await fetch('/admin/api/analysis-dimensions/' + id);
+        var response = await fetch('/admin/api/analysis-dimensions/' + id, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
         var result = await response.json();
         if (result.success) openDimensionModal(result.data);
         else alert('加载失败: ' + result.message);
@@ -564,7 +631,9 @@ async function saveDimension() {
         name: document.getElementById('dimension-name').value,
         category: document.getElementById('dimension-category').value,
         sub_category: document.getElementById('dimension-sub-category').value,
-        description: document.getElementById('dimension-description').value
+        description: document.getElementById('dimension-description').value,
+        examples: document.getElementById('dimension-examples').value,
+        usage_tips: document.getElementById('dimension-usage-tips').value
     };
     if (!data.name || !data.category) {
         alert('请填写必填项');
@@ -576,13 +645,23 @@ async function saveDimension() {
         var method = id ? 'PUT' : 'POST';
         var response = await fetch(url, {
             method: method,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
             body: JSON.stringify(data)
         });
         var result = await response.json();
         if (result.success) {
             bootstrap.Modal.getInstance(document.getElementById('dimensionModal')).hide();
-            loadGroupedDimensions();
+            // 如果当前在详情页，刷新详情页；否则重新加载列表
+            if (currentDetailGroup) {
+                loadGroupedDimensions(false).then(function() {
+                    refreshDetailView();
+                });
+            } else {
+                loadGroupedDimensions();
+            }
             showToast('保存成功', 'success');
         } else {
             alert('保存失败: ' + result.message);
@@ -601,6 +680,37 @@ function showToast(message, type) {
     document.body.appendChild(toast);
     new bootstrap.Toast(toast).show();
     setTimeout(function() { toast.remove(); }, 3000);
+}
+
+// 初始化默认维度
+function handleInitDimensions() {
+    if (!confirm('确定要初始化默认维度吗？已存在的维度不会被重复创建。')) return;
+
+    fetch('/admin/api/analysis-dimensions/init', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                loadGroupedDimensions();
+            } else {
+                alert(data.message || '初始化失败');
+            }
+        })
+        .catch(err => {
+            console.error('初始化失败:', err);
+            alert('初始化失败，请重试');
+        });
 }
 
 // 拖拽排序功能

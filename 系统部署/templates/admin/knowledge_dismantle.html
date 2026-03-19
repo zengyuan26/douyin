@@ -735,7 +735,7 @@ function saveNicknameFormulaByButton(formula, score, scoreReason) {
         alert('请先选择一个账号');
         return;
     }
-    // 解码 URL 编码的参数
+    // 直接使用传入的 formula（AI分析结果）
     const decodedFormula = decodeURIComponent(formula);
     const decodedScoreReason = decodeURIComponent(scoreReason);
     saveNicknameFormula(accountId, decodedFormula, score, decodedScoreReason);
@@ -1503,7 +1503,7 @@ function saveBioFormulaByButton(formula, score, scoreReason) {
         alert('请先选择一个账号');
         return;
     }
-    // 解码 URL 编码的参数
+    // 直接使用传入的 formula（AI分析结果）
     const decodedFormula = decodeURIComponent(formula);
     const decodedScoreReason = decodeURIComponent(scoreReason);
     saveBioFormula(accountId, decodedFormula, score, decodedScoreReason);
@@ -3149,6 +3149,7 @@ function renderNicknameAnalysis(data, accountInfo) {
             // console.log('[DEBUG] renderNicknameAnalysis data.llm_data:', data?.llm_data);
 
     const formula = data.formula || '';
+    const systemFormula = data.system_formula || '';
     const suggestions = data.suggestions || [];
     const dimensions = data.dimensions || [];
 
@@ -3319,8 +3320,8 @@ function renderNicknameAnalysis(data, accountInfo) {
         <div class="p-2 border rounded mb-2">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <div class="small text-muted">可用公式</div>
-                    <div class="fw-medium">${formula}</div>
+                    <div class="small text-muted">公式</div>
+                    <div class="mt-1 fw-medium small text-primary">${formula}</div>
                 </div>
                 <button class="btn btn-sm btn-success" onclick="saveNicknameFormulaByButton('${encodeURIComponent(formula)}', ${score}, '${encodeURIComponent(scoreReason || '')}')">
                     <i class="bi bi-download me-1"></i>入库
@@ -3346,6 +3347,7 @@ function renderBioAnalysis(data, accountInfo) {
 
     // 提取整体信息
     const formula = data.formula || '';
+    const systemFormula = data.system_formula || '';
     const suggestions = data.suggestions || [];
     const dimensions = data.dimensions || [];
 
@@ -3512,14 +3514,16 @@ function renderBioAnalysis(data, accountInfo) {
             ${scoreReason ? `<div class="small text-muted mt-1">${scoreReason}</div>` : ''}
         </div>
 
-        ${formula ? `
+        ${formula || systemFormula ? `
         <div class="p-2 border rounded mb-2">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <div class="small text-muted">可用公式</div>
-                    <div class="fw-medium">${formula}</div>
+                    <div class="small text-muted">公式</div>
+                    ${formula ? `
+                    <div class="mt-1 fw-medium small text-primary">${formula}</div>
+                    ` : ''}
                 </div>
-                <button class="btn btn-sm btn-success" onclick="saveBioFormulaByButton('${encodeURIComponent(formula)}', ${score}, '${encodeURIComponent(scoreReason || '')}')">
+                <button class="btn btn-sm btn-success" onclick="saveBioFormulaByButton('${encodeURIComponent(formula || systemFormula)}', ${score}, '${encodeURIComponent(scoreReason || '')}')">
                     <i class="bi bi-download me-1"></i>入库
                 </button>
             </div>
@@ -4218,12 +4222,21 @@ function renderDimensionCards(data, prefix) {
             const renderSubCategoryCard = (subCat) => {
                 const data = subCatAnalysis[subCat.code] || {};
                 const score = data.score || 0;
-                const formula = data.formula || '暂无公式';
+                const formula = data.formula || '';
+                const systemFormula = data.system_formula || '';
                 const scoreReason = data.score_reason || '';
 
                 let scoreColor = 'text-danger';
                 if (score >= 80) scoreColor = 'text-success';
                 else if (score >= 60) scoreColor = 'text-warning';
+
+                // 构建公式显示（优先显示用户选择的）
+                let formulaDisplay = '暂无公式';
+                if (formula) {
+                    formulaDisplay = `<span class="text-primary">${formula}</span>`;
+                } else if (systemFormula) {
+                    formulaDisplay = `<span class="text-success">${systemFormula}</span>`;
+                }
 
                 return `
                     <div class="col-12 col-md-6 mb-2">
@@ -4239,8 +4252,8 @@ function renderDimensionCards(data, prefix) {
                                     </div>
                                 </div>
                                 <div class="mt-1">
-                                    <span class="text-primary fw-medium">公式:</span>
-                                    <span class="small text-primary">${formula}</span>
+                                    <span class="fw-medium">公式:</span>
+                                    <span class="small">${formulaDisplay}</span>
                                 </div>
                             </div>
                         </div>
