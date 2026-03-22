@@ -56,7 +56,7 @@
                                     <h6 class="mb-2 rule-title">{{ rule.title }}</h6>
                                     <p class="text-muted mb-0 small rule-summary">{{ rule.summary }}</p>
                                 </div>
-                                <span class="badge text-bg-light text-dark">
+                                <span class="badge" style="background: transparent; border: 1px solid #dee2e6; color: #495057;">
                                     {% if rule.id.split('_')[0] == 'keywords' %}关键词库
                                     {% elif rule.id.split('_')[0] == 'topic' %}选题库
                                     {% elif rule.id.split('_')[0] == 'template' %}内容模板

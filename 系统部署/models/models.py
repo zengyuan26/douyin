@@ -1233,6 +1233,7 @@ class AnalysisDimension(db.Model):
     # 方案A：与公式要素一致，供 LLM 按维度打分
     examples = db.Column(db.Text)  # 示例（多个用 | 分隔，如：关注送一罐|私信咨询|到店试吃）
     usage_tips = db.Column(db.Text)  # 识别技巧/注意事项（如：行动号召是让用户做什么，联系方式是留电话/微信/地址）
+    applicable_audience = db.Column(db.Text)  # 适用人群（如：创业者、企业家、B2B销售，用 | 分隔）
 
     # 状态
     is_active = db.Column(db.Boolean, default=True)

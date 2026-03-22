@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-方案A 迁移：为 analysis_dimensions 表增加 examples、usage_tips 字段
+方案A 迁移：为 analysis_dimensions 表增加 examples、usage_tips、applicable_audience 字段
 与公式要素一致，供 LLM 按「定义+示例+识别技巧」打分。
+适用人群字段用于存储每个维度适用的目标人群（用 | 分隔）。
 运行：在系统部署目录下执行 python migrate_analysis_dimension_examples_tips.py
 """
 import os
@@ -42,6 +43,11 @@ def run_sqlite_migration():
         print('已添加列: usage_tips')
     else:
         print('列 usage_tips 已存在，跳过')
+    if 'applicable_audience' not in cols:
+        cur.execute("ALTER TABLE analysis_dimensions ADD COLUMN applicable_audience TEXT")
+        print('已添加列: applicable_audience')
+    else:
+        print('列 applicable_audience 已存在，跳过')
     conn.commit()
     conn.close()
     print('迁移完成')
@@ -53,7 +59,7 @@ def run_mysql_migration():
     with app.app_context():
         conn = db.engine.connect()
         try:
-            for col, label in [('examples', 'examples'), ('usage_tips', 'usage_tips')]:
+            for col, label in [('examples', 'examples'), ('usage_tips', 'usage_tips'), ('applicable_audience', 'applicable_audience')]:
                 try:
                     conn.execute(db.text(f"ALTER TABLE analysis_dimensions ADD COLUMN {col} TEXT"))
                     conn.commit()
@@ -77,4 +83,4 @@ if __name__ == '__main__':
         elif 'mysql' in url:
             run_mysql_migration()
         else:
-            print('请手动在 analysis_dimensions 表中添加列: examples TEXT, usage_tips TEXT')
+            print('请手动在 analysis_dimensions 表中添加列: examples TEXT, usage_tips TEXT, applicable_audience TEXT')

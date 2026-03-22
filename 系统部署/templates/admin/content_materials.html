@@ -89,35 +89,35 @@
                                     </td>
                                     <td>
                                         {% if material_type == 'title' %}
-                                            <span class="badge bg-info">{{ item.title_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.title_type or '-' }}</span>
                                         {% elif material_type == 'hook' %}
-                                            <span class="badge bg-info">{{ item.hook_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.hook_type or '-' }}</span>
                                         {% elif material_type == 'structure' %}
-                                            <span class="badge bg-info">{{ item.content_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.content_type or '-' }}</span>
                                         {% elif material_type == 'ending' %}
-                                            <span class="badge bg-info">{{ item.ending_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.ending_type or '-' }}</span>
                                         {% elif material_type == 'cover' %}
-                                            <span class="badge bg-info">{{ item.cover_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.cover_type or '-' }}</span>
                                         {% elif material_type == 'topic' %}
-                                            <span class="badge bg-info">{{ item.topic_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.topic_type or '-' }}</span>
                                         {% elif material_type == 'psychology' %}
-                                            <span class="badge bg-info">{{ item.psychology_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.psychology_type or '-' }}</span>
                                         {% elif material_type == 'commercial' %}
-                                            <span class="badge bg-info">{{ item.commercial_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.commercial_type or '-' }}</span>
                                         {% elif material_type == 'why_popular' %}
-                                            <span class="badge bg-info">{{ item.reason_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.reason_type or '-' }}</span>
                                         {% elif material_type == 'tags' %}
-                                            <span class="badge bg-info">{{ item.tag_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.tag_type or '-' }}</span>
                                         {% elif material_type == 'character' %}
-                                            <span class="badge bg-info">{{ item.character_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.character_type or '-' }}</span>
                                         {% elif material_type == 'content_form' %}
-                                            <span class="badge bg-info">{{ item.form_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.form_type or '-' }}</span>
                                         {% elif material_type == 'interaction' %}
-                                            <span class="badge bg-info">{{ item.interaction_type or '-' }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.interaction_type or '-' }}</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ item.industry or '-' }}</td>
-                                    <td><span class="badge bg-secondary">{{ item.usage_count or 0 }}</span></td>
+                                    <td><span class="badge bg-transparent border border-secondary text-secondary">{{ item.usage_count or 0 }}</span></td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
                                             <a href="{{ url_for('admin.content_material_edit', id=item.id, type=material_type) }}" class="btn btn-outline-primary" title="编辑">

@@ -102,15 +102,15 @@
                                     <td>
                                         {% if item.keywords %}
                                         {% for k in item.keywords[:3] %}
-                                        <span class="badge bg-info">{{ k }}</span>
+                                        <span class="badge bg-transparent border border-info text-info">{{ k }}</span>
                                         {% endfor %}
                                         {% else %}-{% endif %}
                                     </td>
                                     <td>
                                         {% if item.is_active %}
-                                        <span class="badge bg-success">启用</span>
+                                        <span class="badge bg-transparent border border-success text-success">启用</span>
                                         {% else %}
-                                        <span class="badge bg-secondary">禁用</span>
+                                        <span class="badge bg-transparent border border-secondary text-secondary">禁用</span>
                                         {% endif %}
                                     </td>
                                     <td>

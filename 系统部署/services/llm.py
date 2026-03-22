@@ -28,15 +28,20 @@ class LLMService:
     def chat(self, messages, temperature=0.7, max_tokens=2000):
         """
         发送聊天请求
-        
+
         Args:
-            messages: 消息列表 [{"role": "user/assistant/system", "content": "..."}]
+            messages: 消息列表 [{"role": "user/assistant/system", "content": "..."}]，
+                      也支持直接传字符串（自动包装成 user 消息）
             temperature: 温度参数
             max_tokens: 最大令牌数
-            
+
         Returns:
             回复文本或 None
         """
+        # 兼容直接传字符串的场景
+        if isinstance(messages, str):
+            messages = [{"role": "user", "content": messages}]
+
         try:
             if self.provider == 'ollama':
                 return self._chat_ollama(messages, temperature, max_tokens)

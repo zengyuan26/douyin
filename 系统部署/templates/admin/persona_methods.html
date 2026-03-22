@@ -71,41 +71,41 @@
                                 {% for method in methods %}
                                 <tr>
                                     <td>
-                                        {% if method.methodology_category == 'consumer_psychology' %}<span class="badge bg-info">消费心理学</span>
-                                        {% elif method.methodology_category == 'keyword_screening' %}<span class="badge bg-primary">关键词筛选</span>
-                                        {% elif method.methodology_category == 'persona' %}<span class="badge bg-secondary">人设</span>
-                                        {% elif method.methodology_category == 'visual_design' %}<span class="badge bg-warning text-dark">视觉设计</span>
-                                        {% elif method.methodology_category == 'operation' %}<span class="badge bg-success">运营策略</span>
-                                        {% else %}<span class="badge bg-light text-dark">通用</span>{% endif %}
+                                        {% if method.methodology_category == 'consumer_psychology' %}<span class="badge bg-transparent border border-info text-info">消费心理学</span>
+                                        {% elif method.methodology_category == 'keyword_screening' %}<span class="badge bg-transparent border border-primary text-primary">关键词筛选</span>
+                                        {% elif method.methodology_category == 'persona' %}<span class="badge bg-transparent border border-secondary text-secondary">人设</span>
+                                        {% elif method.methodology_category == 'visual_design' %}<span class="badge bg-transparent border border-warning text-dark">视觉设计</span>
+                                        {% elif method.methodology_category == 'operation' %}<span class="badge bg-transparent border border-success text-success">运营策略</span>
+                                        {% else %}<span class="badge bg-transparent border text-dark">通用</span>{% endif %}
                                     </td>
                                     <td><strong>{{ method.name }}</strong></td>
                                     <td>{{ method.source_book or '-' }}</td>
                                     <td>
                                         {% if method.applicable_scenario %}
                                         {% for s in method.applicable_scenario[:2] %}
-                                        <span class="badge bg-light text-dark">{{ s }}</span>
+                                        <span class="badge bg-transparent border text-dark">{{ s }}</span>
                                         {% endfor %}
                                         {% else %}-{% endif %}
                                     </td>
                                     <td>
                                         {% if method.applicable_audience %}
                                         {% for a in method.applicable_audience[:2] %}
-                                        <span class="badge bg-light text-dark">{{ a }}</span>
+                                        <span class="badge bg-transparent border text-dark">{{ a }}</span>
                                         {% endfor %}
                                         {% else %}-{% endif %}
                                     </td>
                                     <td>
                                         {% if method.keywords %}
                                         {% for k in method.keywords[:3] %}
-                                        <span class="badge bg-info">{{ k }}</span>
+                                        <span class="badge bg-transparent border border-info text-info">{{ k }}</span>
                                         {% endfor %}
                                         {% else %}-{% endif %}
                                     </td>
                                     <td>
                                         {% if method.is_active %}
-                                        <span class="badge bg-success">启用</span>
+                                        <span class="badge bg-transparent border border-success text-success">启用</span>
                                         {% else %}
-                                        <span class="badge bg-secondary">禁用</span>
+                                        <span class="badge bg-transparent border border-secondary text-secondary">禁用</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ method.created_at.strftime('%Y-%m-%d') if method.created_at else '-' }}</td>

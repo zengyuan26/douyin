@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+
+{% block title %}公开用户管理 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- 页面标题 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">公开用户管理</h4>
+                    <p class="text-muted mb-0">管理公开平台用户账号、套餐和配额</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin.public_user_stats') }}" class="btn btn-outline-secondary btn-sm" target="_blank">
+                        <i class="bi bi-bar-chart"></i> 统计详情
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-opacity-10 rounded-3 p-2">
+                                <i class="bi bi-people text-primary"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 text-muted small">总用户</h6>
+                            <h4 class="mb-0">{{ stats.total }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 rounded-3 p-2">
+                                <i class="bi bi-patch-check text-success"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 text-muted small">已验证</h6>
+                            <h4 class="mb-0">{{ stats.total_verified }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-opacity-10 rounded-3 p-2">
+                                <i class="bi bi-star text-warning"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 text-muted small">付费用户</h6>
+                            <h4 class="mb-0">{{ stats.total_premium }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-secondary bg-opacity-10 rounded-3 p-2">
+                                <i class="bi bi-person text-secondary"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 text-muted small">免费用户</h6>
+                            <h4 class="mb-0">{{ stats.total_free }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 rounded-3 p-2">
+                                <i class="bi bi-lightning text-info"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 text-muted small">总生成</h6>
+                            <h4 class="mb-0">{{ stats.total_generations }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 搜索和筛选 -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" class="form-control" name="search" placeholder="搜索邮箱或昵称..." value="{{ search }}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" name="plan">
+                        <option value="">全部套餐</option>
+                        <option value="free" {% if plan_filter == 'free' %}selected{% endif %}>免费版</option>
+                        <option value="paid" {% if plan_filter == 'paid' %}selected{% endif %}>付费用户</option>
+                        <option value="expired" {% if plan_filter == 'expired' %}selected{% endif %}>已过期</option>
+                        <option value="basic" {% if plan_filter == 'basic' %}selected{% endif %}>基础版</option>
+                        <option value="professional" {% if plan_filter == 'professional' %}selected{% endif %}>专业版</option>
+                        <option value="enterprise" {% if plan_filter == 'enterprise' %}selected{% endif %}>企业版</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" name="status">
+                        <option value="">全部状态</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>活跃</option>
+                        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>禁用</option>
+                        <option value="unverified" {% if status_filter == 'unverified' %}selected{% endif %}>未验证</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-search me-1"></i> 搜索
+                    </button>
+                    <a href="{{ url_for('admin.public_user_list') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> 重置
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 用户列表 -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="border-0 py-3 ps-4">用户</th>
+                            <th class="border-0 py-3">套餐</th>
+                            <th class="border-0 py-3">Token余额</th>
+                            <th class="border-0 py-3">验证状态</th>
+                            <th class="border-0 py-3">账号状态</th>
+                            <th class="border-0 py-3">注册时间</th>
+                            <th class="border-0 py-3">最后登录</th>
+                            <th class="border-0 py-3 text-end pe-4">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar avatar-sm bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3">
+                                        {{ user.email[0]|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-medium">{{ user.nickname or '未设置昵称' }}</div>
+                                        <div class="text-muted small">{{ user.email }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if user.is_premium %}
+                                    {% if user.premium_expires and user.premium_expires < now %}
+                                        <span class="badge bg-danger">已过期</span>
+                                        <span class="badge bg-secondary ms-1">{{ user.premium_plan }}</span>
+                                    {% elif user.premium_plan == 'enterprise' %}
+                                        <span class="badge bg-success">企业版</span>
+                                    {% elif user.premium_plan == 'professional' %}
+                                        <span class="badge bg-primary">专业版</span>
+                                    {% else %}
+                                        <span class="badge bg-info">基础版</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-secondary">免费版</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="fw-medium">{{ user.token_balance or 0 }}</span>
+                            </td>
+                            <td>
+                                {% if user.is_verified %}
+                                    <span class="badge bg-success">已验证</span>
+                                {% else %}
+                                    <span class="badge bg-warning">未验证</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.is_active %}
+                                    <span class="badge bg-success">正常</span>
+                                {% else %}
+                                    <span class="badge bg-danger">禁用</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="small">{{ user.created_at.strftime('%Y-%m-%d') }}</div>
+                                <div class="text-muted small">{{ user.created_at.strftime('%H:%M') }}</div>
+                            </td>
+                            <td>
+                                {% if user.last_login %}
+                                    <div class="small">{{ user.last_login.strftime('%Y-%m-%d %H:%M') }}</div>
+                                {% else %}
+                                    <span class="text-muted">从未登录</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('admin.public_user_detail', user_id=user.id) }}" class="btn btn-outline-primary" title="查看详情">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('admin.public_user_edit', user_id=user.id) }}" class="btn btn-outline-secondary" title="编辑">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-warning dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-lightning"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><h6 class="dropdown-header">快速操作</h6></li>
+                                        <li>
+                                            <a class="dropdown-item quick-upgrade" href="#" data-user-id="{{ user.id }}" data-plan="professional">
+                                                <i class="bi bi-star me-2"></i>升级专业版
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item quick-upgrade" href="#" data-user-id="{{ user.id }}" data-plan="enterprise">
+                                                <i class="bi bi-building me-2"></i>升级企业版
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item quick-downgrade" href="#" data-user-id="{{ user.id }}">
+                                                <i class="bi bi-arrow-down me-2"></i>降级免费版
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item text-danger quick-delete" href="#" data-user-id="{{ user.id }}">
+                                                <i class="bi bi-trash me-2"></i>删除账号
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="bi bi-people fs-1 d-block mb-3"></i>
+                                    暂无用户数据
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分页 -->
+    {% if pagination.pages > 1 %}
+    <div class="d-flex justify-content-center mt-4">
+        <nav>
+            <ul class="pagination mb-0">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin.public_user_list', page=pagination.prev_num, search=search, plan=plan_filter, status=status_filter) }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if p %}
+                        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('admin.public_user_list', page=p, search=search, plan=plan_filter, status=status_filter) }}">{{ p }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin.public_user_list', page=pagination.next_num, search=search, plan=plan_filter, status=status_filter) }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 升级 Modal -->
+<div class="modal fade" id="upgradeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">升级用户套餐</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="upgradeUserId">
+                <div class="mb-3">
+                    <label class="form-label">选择套餐</label>
+                    <select class="form-select" id="upgradePlan">
+                        <option value="professional">专业版</option>
+                        <option value="enterprise">企业版（无限）</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">有效期（天）</label>
+                    <input type="number" class="form-control" id="upgradeDays" value="30" min="1">
+                    <small class="text-muted">输入 0 表示永不过期</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmUpgrade">确认升级</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 快速升级
+    document.querySelectorAll('.quick-upgrade').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const userId = this.dataset.userId;
+            const plan = this.dataset.plan;
+
+            fetch(`/admin/public-users/${userId}/upgrade`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({plan: plan, days: 30})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message, 'danger');
+                }
+            });
+        });
+    });
+
+    // 快速降级
+    document.querySelectorAll('.quick-downgrade').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const userId = this.dataset.userId;
+
+            if (!confirm('确定要将该用户降级为免费版吗？')) return;
+
+            fetch(`/admin/public-users/${userId}/downgrade`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message, 'danger');
+                }
+            });
+        });
+    });
+
+    // 快速删除
+    document.querySelectorAll('.quick-delete').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const userId = this.dataset.userId;
+
+            if (!confirm('确定要删除该用户吗？此操作不可恢复！')) return;
+
+            fetch(`/admin/public-users/${userId}/delete`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message, 'danger');
+                }
+            });
+        });
+    });
+
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        document.querySelector('.toast-container')?.appendChild(toast);
+        new bootstrap.Toast(toast).show();
+        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成本统计 - 公开平台管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-tags-readable.css') }}">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --bg-light: #F9FAFB;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-light);
+        }
+
+        .page-header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .stat-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .stat-card .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .stat-card .stat-number {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1F2937;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.875rem;
+            color: #6B7280;
+        }
+
+        .stat-card.today .stat-icon { background: rgba(79, 70, 229, 0.1); color: var(--primary); }
+        .stat-card.week .stat-icon { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .stat-card.month .stat-icon { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .stat-card.total .stat-icon { background: rgba(59, 130, 246, 0.1); color: #3B82F6; }
+
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1F2937;
+            margin-bottom: 1rem;
+        }
+
+        .table-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1F2937;
+            margin: 0;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #6B7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: #F9FAFB;
+            border-bottom: 1px solid #E5E7EB;
+            padding: 0.75rem 1rem;
+        }
+
+        .table td {
+            padding: 1rem;
+            vertical-align: middle;
+            border-bottom: 1px solid #F3F4F6;
+        }
+
+        .badge {
+            padding: 0.35rem 0.65rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 6px;
+        }
+
+        .cost-value {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .token-value {
+            font-weight: 600;
+            color: #1F2937;
+        }
+
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            height: 200px;
+            padding: 1rem 0;
+        }
+
+        .bar-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .bar {
+            width: 100%;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary) 100%);
+            border-radius: 4px 4px 0 0;
+            min-height: 4px;
+            transition: height 0.3s ease;
+        }
+
+        .bar-label {
+            font-size: 0.75rem;
+            color: #6B7280;
+            text-align: center;
+        }
+
+        .bar-value {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #1F2937;
+        }
+
+        .tab-nav {
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 1px solid #E5E7EB;
+            margin-bottom: 1rem;
+        }
+
+        .tab-item {
+            padding: 0.75rem 1.25rem;
+            border: none;
+            background: none;
+            color: #6B7280;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab-item:hover {
+            color: var(--primary);
+        }
+
+        .tab-item.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @media (max-width: 992px) {
+            .stat-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 576px) {
+            .stat-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="admin-standalone">
+    <div class="container-fluid py-4">
+        <!-- 页面标题 -->
+        <div class="page-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600;">LLM 成本统计</h4>
+                    <p class="text-muted mb-0" style="font-size: 0.875rem;">监控公开平台 AI 调用的成本消耗</p>
+                </div>
+                <div>
+                    <a href="/admin/dashboard" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> 返回后台
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计概览 -->
+        <div class="stat-cards" id="stats-cards">
+            <div class="stat-card today">
+                <div class="stat-icon"><i class="bi bi-calendar-day"></i></div>
+                <div class="stat-number" id="stat-today-cost">¥0.00</div>
+                <div class="stat-label">今日消耗</div>
+                <div class="text-muted small mt-1" id="stat-today-tokens">0 tokens · 0 次调用</div>
+            </div>
+            <div class="stat-card week">
+                <div class="stat-icon"><i class="bi bi-calendar-week"></i></div>
+                <div class="stat-number" id="stat-week-cost">¥0.00</div>
+                <div class="stat-label">本周消耗</div>
+                <div class="text-muted small mt-1" id="stat-week-tokens">0 tokens · 0 次调用</div>
+            </div>
+            <div class="stat-card month">
+                <div class="stat-icon"><i class="bi bi-calendar-month"></i></div>
+                <div class="stat-number" id="stat-month-cost">¥0.00</div>
+                <div class="stat-label">本月消耗</div>
+                <div class="text-muted small mt-1" id="stat-month-tokens">0 tokens · 0 次调用</div>
+            </div>
+            <div class="stat-card total">
+                <div class="stat-icon"><i class="bi bi-pie-chart"></i></div>
+                <div class="stat-number" id="stat-total-cost">¥0.00</div>
+                <div class="stat-label">累计消耗</div>
+                <div class="text-muted small mt-1" id="stat-total-tokens">0 tokens · 0 次调用</div>
+            </div>
+        </div>
+
+        <!-- 图表区域 -->
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="chart-card">
+                    <h5 class="chart-title"><i class="bi bi-bar-chart me-2"></i>每日消耗趋势</h5>
+                    <div class="bar-chart" id="daily-chart">
+                        <div class="text-center text-muted w-100 py-5">加载中...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="chart-card">
+                    <h5 class="chart-title"><i class="bi bi-pie-chart me-2"></i>按类型分布</h5>
+                    <div id="type-chart" class="pt-3">
+                        <div class="text-center text-muted py-5">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详细数据 -->
+        <div class="table-card">
+            <div class="table-header">
+                <h5 class="table-title"><i class="bi bi-list-ul me-2"></i>详细数据</h5>
+            </div>
+
+            <div class="tab-nav px-3">
+                <button class="tab-item active" data-tab="by-model">按模型</button>
+                <button class="tab-item" data-tab="by-type">按类型</button>
+                <button class="tab-item" data-tab="by-user">按用户</button>
+                <button class="tab-item" data-tab="logs">调用日志</button>
+            </div>
+
+            <!-- 按模型 -->
+            <div class="tab-content active" id="tab-by-model">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>模型</th>
+                                <th>调用次数</th>
+                                <th>输入 Tokens</th>
+                                <th>输出 Tokens</th>
+                                <th>总 Tokens</th>
+                                <th>消耗金额</th>
+                                <th>平均耗时</th>
+                            </tr>
+                        </thead>
+                        <tbody id="model-table-body">
+                            <tr><td colspan="7" class="text-center py-4">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 按类型 -->
+            <div class="tab-content" id="tab-by-type">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>调用类型</th>
+                                <th>调用次数</th>
+                                <th>总 Tokens</th>
+                                <th>消耗金额</th>
+                                <th>占比</th>
+                            </tr>
+                        </thead>
+                        <tbody id="type-table-body">
+                            <tr><td colspan="5" class="text-center py-4">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 按用户 -->
+            <div class="tab-content" id="tab-by-user">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>用户邮箱</th>
+                                <th>调用次数</th>
+                                <th>总 Tokens</th>
+                                <th>消耗金额</th>
+                                <th>占比</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-table-body">
+                            <tr><td colspan="5" class="text-center py-4">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 调用日志 -->
+            <div class="tab-content" id="tab-logs">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>用户</th>
+                                <th>类型</th>
+                                <th>模型</th>
+                                <th>Tokens</th>
+                                <th>消耗</th>
+                                <th>耗时</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-table-body">
+                            <tr><td colspan="8" class="text-center py-4">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- 分页 -->
+                <div class="d-flex justify-content-between align-items-center p-3 border-top" id="logs-pagination">
+                    <div class="text-muted" style="font-size: 0.875rem;">
+                        共 <span id="logs-total">0</span> 条记录
+                    </div>
+                    <nav>
+                        <ul class="pagination mb-0" id="logs-pagination-ul">
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentLogPage = 1;
+
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const resp = await fetch('/admin/api/public/cost-stats', { credentials: 'include' });
+                const data = await resp.json();
+
+                if (data.code === 200) {
+                    const stats = data.data;
+
+                    // 今日
+                    document.getElementById('stat-today-cost').textContent = '¥' + stats.today.total_cost.toFixed(2);
+                    document.getElementById('stat-today-tokens').textContent =
+                        formatNumber(stats.today.total_tokens) + ' tokens · ' + stats.today.call_count + ' 次调用';
+
+                    // 本周
+                    document.getElementById('stat-week-cost').textContent = '¥' + stats.week.total_cost.toFixed(2);
+                    document.getElementById('stat-week-tokens').textContent =
+                        formatNumber(stats.week.total_tokens) + ' tokens · ' + stats.week.call_count + ' 次调用';
+
+                    // 本月
+                    document.getElementById('stat-month-cost').textContent = '¥' + stats.month.total_cost.toFixed(2);
+                    document.getElementById('stat-month-tokens').textContent =
+                        formatNumber(stats.month.total_tokens) + ' tokens · ' + stats.month.call_count + ' 次调用';
+
+                    // 总计
+                    document.getElementById('stat-total-cost').textContent = '¥' + stats.total.total_cost.toFixed(2);
+                    document.getElementById('stat-total-tokens').textContent =
+                        formatNumber(stats.total.total_tokens) + ' tokens · ' + stats.total.call_count + ' 次调用';
+                }
+            } catch (e) {
+                console.error('加载统计失败:', e);
+            }
+        }
+
+        // 加载每日趋势
+        async function loadDailyTrend() {
+            try {
+                const resp = await fetch('/admin/api/public/cost-stats/daily?days=7', { credentials: 'include' });
+                const data = await resp.json();
+
+                if (data.code === 200 && data.data.length > 0) {
+                    const chart = document.getElementById('daily-chart');
+                    const maxCost = Math.max(...data.data.map(d => d.total_cost), 0.01);
+
+                    chart.innerHTML = data.data.map(item => {
+                        const height = (item.total_cost / maxCost * 100).toFixed(1);
+                        const date = new Date(item.date);
+                        const label = (date.getMonth() + 1) + '/' + date.getDate();
+                        return `
+                            <div class="bar-item">
+                                <div class="bar-value">¥${item.total_cost.toFixed(2)}</div>
+                                <div class="bar" style="height: ${height}%;"></div>
+                                <div class="bar-label">${label}</div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    document.getElementById('daily-chart').innerHTML =
+                        '<div class="text-center text-muted w-100 py-5">暂无数据</div>';
+                }
+            } catch (e) {
+                console.error('加载趋势失败:', e);
+            }
+        }
+
+        // 加载类型分布
+        async function loadTypeDistribution() {
+            try {
+                const resp = await fetch('/admin/api/public/cost-stats/by-type?days=30', { credentials: 'include' });
+                const data = await resp.json();
+
+                if (data.code === 200 && data.data.length > 0) {
+                    const chart = document.getElementById('type-chart');
+                    const totalCost = data.data.reduce((sum, item) => sum + item.total_cost, 0);
+
+                    const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#3B82F6'];
+
+                    chart.innerHTML = data.data.map((item, index) => {
+                        const percent = totalCost > 0 ? (item.total_cost / totalCost * 100).toFixed(1) : 0;
+                        return `
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span style="width: 12px; height: 12px; border-radius: 3px; background: ${colors[index % colors.length]};"></span>
+                                    <span>${item.call_type || '未知'}</span>
+                                </div>
+                                <div>
+                                    <span class="cost-value me-2">¥${item.total_cost.toFixed(2)}</span>
+                                    <span class="badge bg-secondary">${percent}%</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    document.getElementById('type-chart').innerHTML =
+                        '<div class="text-center text-muted py-5">暂无数据</div>';
+                }
+            } catch (e) {
+                console.error('加载类型分布失败:', e);
+            }
+        }
+
+        // 加载模型统计
+        async function loadModelStats() {
+            try {
+                const resp = await fetch('/admin/api/public/cost-stats/by-model?days=30', { credentials: 'include' });
+                const data = await resp.json();
+
+                const tbody = document.getElementById('model-table-body');
+
+                if (data.code === 200 && data.data.length > 0) {
+                    tbody.innerHTML = data.data.map(item => `
+                        <tr>
+                            <td><span class="badge bg-primary">${item.model || 'unknown'}</span></td>
+                            <td>${item.call_count}</td>
+                            <td>${formatNumber(item.input_tokens)}</td>
+                            <td>${formatNumber(item.output_tokens)}</td>
+                            <td class="token-value">${formatNumber(item.total_tokens)}</td>
+                            <td class="cost-value">¥${item.total_cost.toFixed(4)}</td>
+                            <td>${(item.avg_duration / 1000).toFixed(2)}s</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">暂无数据</td></tr>';
+                }
+            } catch (e) {
+                console.error('加载模型统计失败:', e);
+            }
+        }
+
+        // 加载类型统计
+        async function loadTypeStats() {
+            try {
+                const resp = await fetch('/admin/api/public/cost-stats/by-type?days=30', { credentials: 'include' });
+                const data = await resp.json();
+
+                const tbody = document.getElementById('type-table-body');
+
+                if (data.code === 200 && data.data.length > 0) {
+                    const totalCost = data.data.reduce((sum, item) => sum + item.total_cost, 0);
+
+                    tbody.innerHTML = data.data.map(item => {
+                        const percent = totalCost > 0 ? (item.total_cost / totalCost * 100).toFixed(1) : 0;
+                        return `
+                            <tr>
+                                <td>${item.call_type || '未知'}</td>
+                                <td>${item.call_count}</td>
+                                <td class="token-value">${formatNumber(item.total_tokens)}</td>
+                                <td class="cost-value">¥${item.total_cost.toFixed(4)}</td>
+                                <td>
+                                    <div class="progress" style="width: 100px;">
+                                        <div class="progress-bar" style="width: ${percent}%;"></div>
+                                    </div>
+                                    <span class="small text-muted ms-2">${percent}%</span>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">暂无数据</td></tr>';
+                }
+            } catch (e) {
+                console.error('加载类型统计失败:', e);
+            }
+        }
+
+        // 加载用户统计
+        async function loadUserStats() {
+            try {
+                const resp = await fetch('/admin/api/public/cost-stats/by-user?days=30&limit=20', { credentials: 'include' });
+                const data = await resp.json();
+
+                const tbody = document.getElementById('user-table-body');
+
+                if (data.code === 200 && data.data.length > 0) {
+                    const totalCost = data.data.reduce((sum, item) => sum + item.total_cost, 0);
+
+                    tbody.innerHTML = data.data.map(item => {
+                        const percent = totalCost > 0 ? (item.total_cost / totalCost * 100).toFixed(1) : 0;
+                        return `
+                            <tr>
+                                <td>${escapeHtml(item.email)}</td>
+                                <td>${item.call_count}</td>
+                                <td class="token-value">${formatNumber(item.total_tokens)}</td>
+                                <td class="cost-value">¥${item.total_cost.toFixed(4)}</td>
+                                <td>
+                                    <div class="progress" style="width: 100px;">
+                                        <div class="progress-bar" style="width: ${percent}%;"></div>
+                                    </div>
+                                    <span class="small text-muted ms-2">${percent}%</span>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">暂无数据</td></tr>';
+                }
+            } catch (e) {
+                console.error('加载用户统计失败:', e);
+            }
+        }
+
+        // 加载调用日志
+        async function loadLogs(page = 1) {
+            currentLogPage = page;
+
+            try {
+                const resp = await fetch(`/admin/api/public/llm-logs?page=${page}&per_page=20`, { credentials: 'include' });
+                const data = await resp.json();
+
+                const tbody = document.getElementById('logs-table-body');
+
+                if (data.code === 200) {
+                    if (data.data.items && data.data.items.length > 0) {
+                        tbody.innerHTML = data.data.items.map(item => `
+                            <tr>
+                                <td class="small">${item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-'}</td>
+                                <td class="small">${item.user_email ? escapeHtml(item.user_email) : '<span class="text-muted">-</span>'}</td>
+                                <td><span class="badge bg-secondary">${item.call_type || '-'}</span></td>
+                                <td class="small">${item.model || '-'}</td>
+                                <td class="small">${formatNumber(item.total_tokens)}</td>
+                                <td class="cost-value small">¥${item.cost.toFixed(4)}</td>
+                                <td class="small">${item.duration_ms ? (item.duration_ms / 1000).toFixed(2) + 's' : '-'}</td>
+                                <td>
+                                    ${item.status === 'success'
+                                        ? '<span class="badge badge-success">成功</span>'
+                                        : '<span class="badge badge-danger">失败</span>'}
+                                </td>
+                            </tr>
+                        `).join('');
+
+                        // 分页
+                        renderLogsPagination(data.data.page, data.data.pages, data.data.total);
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">暂无数据</td></tr>';
+                        document.getElementById('logs-pagination').style.display = 'none';
+                    }
+                }
+            } catch (e) {
+                console.error('加载日志失败:', e);
+            }
+        }
+
+        // 渲染日志分页
+        function renderLogsPagination(current, total, totalCount) {
+            document.getElementById('logs-total').textContent = totalCount;
+            const pagination = document.getElementById('logs-pagination-ul');
+
+            if (total <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+
+            if (current > 1) {
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="loadLogs(${current - 1})">上一页</a></li>`;
+            }
+
+            for (let i = 1; i <= total; i++) {
+                if (i === 1 || i === total || (i >= current - 2 && i <= current + 2)) {
+                    html += `<li class="page-item ${i === current ? 'active' : ''}"><a class="page-link" href="#" onclick="loadLogs(${i})">${i}</a></li>`;
+                } else if (i === current - 3 || i === current + 3) {
+                    html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                }
+            }
+
+            if (current < total) {
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="loadLogs(${current + 1})">下一页</a></li>`;
+            }
+
+            pagination.innerHTML = html;
+        }
+
+        // 格式化数字
+        function formatNumber(num) {
+            if (!num) return '0';
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        // HTML 转义
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            loadDailyTrend();
+            loadTypeDistribution();
+            loadModelStats();
+            loadTypeStats();
+            loadUserStats();
+            loadLogs(1);
+
+            // Tab 切换
+            document.querySelectorAll('.tab-item').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                    this.classList.add('active');
+                    document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+
+                    // 懒加载数据
+                    if (this.dataset.tab === 'logs') {
+                        loadLogs(currentLogPage);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

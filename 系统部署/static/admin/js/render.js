@@ -23,13 +23,13 @@ const Render = (function() {
                 <div class="card-body py-2">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="mb-0">${Utils.escapeHtml(dimName)}</h6>
-                        ${scoreText ? `<span class="badge bg-${scoreColor}">${scoreText}</span>` : ''}
+                        ${scoreText ? `<span class="badge bg-transparent border border-${scoreColor} text-${scoreColor}">${scoreText}</span>` : ''}
                     </div>
                     ${formula ? `<p class="mb-1 small"><strong>公式:</strong> ${Utils.escapeHtml(formula)}</p>` : ''}
                     ${analysis ? `<p class="mb-1 small text-muted">${Utils.escapeHtml(analysis)}</p>` : ''}
                     ${suggestions.length > 0 ? `
                         <div class="mt-2">
-                            ${suggestions.map(s => `<span class="badge bg-light text-dark me-1 mb-1">${Utils.escapeHtml(s)}</span>`).join('')}
+                            ${suggestions.map(s => `<span class="badge bg-transparent border text-dark me-1 mb-1">${Utils.escapeHtml(s)}</span>`).join('')}
                         </div>
                     ` : ''}
                 </div>
@@ -72,7 +72,7 @@ const Render = (function() {
                     ${score !== undefined ? `
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted">评分</span>
-                            <span class="badge bg-${scoreColor}">${score}分</span>
+                            <span class="badge bg-transparent border border-${scoreColor} text-${scoreColor}">${score}分</span>
                         </div>
                     ` : ''}
                     <div class="analysis-content">${Utils.formatFieldValue(content)}</div>
@@ -160,7 +160,7 @@ const Render = (function() {
                             <h6>执行计划</h6>
                             ${schedule.map((item, idx) => `
                                 <div class="d-flex align-items-start mb-2">
-                                    <span class="badge bg-primary me-2">${idx + 1}</span>
+                                    <span class="badge bg-transparent border border-primary text-primary me-2">${idx + 1}</span>
                                     <div>
                                         <strong>${Utils.escapeHtml(item.phase || '')}</strong>
                                         <p class="mb-0 small text-muted">${Utils.escapeHtml(item.description || '')}</p>
@@ -188,7 +188,7 @@ const Render = (function() {
                     ${score !== undefined ? `
                         <div class="mb-3">
                             <span class="text-muted">评分:</span>
-                            <span class="badge bg-${Utils.getScoreColor(score)} ms-1">${score}分</span>
+                            <span class="badge bg-transparent border border-${Utils.getScoreColor(score)} text-${Utils.getScoreColor(score)} ms-1">${score}分</span>
                         </div>
                     ` : ''}
                     ${keywords.length > 0 ? `
@@ -224,7 +224,7 @@ const Render = (function() {
                     ${score !== undefined ? `
                         <div class="mb-3">
                             <span class="text-muted">评分:</span>
-                            <span class="badge bg-${Utils.getScoreColor(score)} ms-1">${score}分</span>
+                            <span class="badge bg-transparent border border-${Utils.getScoreColor(score)} text-${Utils.getScoreColor(score)} ms-1">${score}分</span>
                         </div>
                     ` : ''}
                     ${hooks.length > 0 ? `
@@ -233,7 +233,7 @@ const Render = (function() {
                             ${hooks.map(h => `
                                 <div class="p-2 bg-light rounded mb-2">
                                     ${Utils.escapeHtml(h.content || '')}
-                                    <span class="badge bg-success ms-1">${h.score || ''}</span>
+                                    <span class="badge bg-transparent border border-success text-success ms-1">${h.score || ''}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -241,7 +241,7 @@ const Render = (function() {
                     ${patterns.length > 0 ? `
                         <div>
                             <strong>常用模式:</strong>
-                            ${patterns.map(p => `<span class="badge bg-secondary me-1 mb-1">${Utils.escapeHtml(p)}</span>`).join('')}
+                            ${patterns.map(p => `<span class="badge bg-transparent border border-secondary text-secondary me-1 mb-1">${Utils.escapeHtml(p)}</span>`).join('')}
                         </div>
                     ` : ''}
                 </div>
@@ -263,7 +263,7 @@ const Render = (function() {
                     ${score !== undefined ? `
                         <div class="mb-3">
                             <span class="text-muted">评分:</span>
-                            <span class="badge bg-${Utils.getScoreColor(score)} ms-1">${score}分</span>
+                            <span class="badge bg-transparent border border-${Utils.getScoreColor(score)} text-${Utils.getScoreColor(score)} ms-1">${score}分</span>
                         </div>
                     ` : ''}
                     ${Object.keys(length).length > 0 ? `
@@ -302,19 +302,19 @@ const Render = (function() {
                     ${score !== undefined ? `
                         <div class="mb-3">
                             <span class="text-muted">评分:</span>
-                            <span class="badge bg-${Utils.getScoreColor(score)} ms-1">${score}分</span>
+                            <span class="badge bg-transparent border border-${Utils.getScoreColor(score)} text-${Utils.getScoreColor(score)} ms-1">${score}分</span>
                         </div>
                     ` : ''}
                     ${styles.length > 0 ? `
                         <div class="mb-3">
                             <strong>风格:</strong>
-                            ${styles.map(s => `<span class="badge bg-info me-1 mb-1">${Utils.escapeHtml(s)}</span>`).join('')}
+                            ${styles.map(s => `<span class="badge bg-transparent border border-info text-info me-1 mb-1">${Utils.escapeHtml(s)}</span>`).join('')}
                         </div>
                     ` : ''}
                     ${elements.length > 0 ? `
                         <div>
                             <strong>元素:</strong>
-                            ${elements.map(e => `<span class="badge bg-secondary me-1 mb-1">${Utils.escapeHtml(e)}</span>`).join('')}
+                            ${elements.map(e => `<span class="badge bg-transparent border border-secondary text-secondary me-1 mb-1">${Utils.escapeHtml(e)}</span>`).join('')}
                         </div>
                     ` : ''}
                 </div>
@@ -336,7 +336,7 @@ const Render = (function() {
                     ${score !== undefined ? `
                         <div class="mb-3">
                             <span class="text-muted">评分:</span>
-                            <span class="badge bg-${Utils.getScoreColor(score)} ms-1">${score}分</span>
+                            <span class="badge bg-transparent border border-${Utils.getScoreColor(score)} text-${Utils.getScoreColor(score)} ms-1">${score}分</span>
                         </div>
                     ` : ''}
                     ${ctas.length > 0 ? `
@@ -375,13 +375,13 @@ const Render = (function() {
                     ${score !== undefined ? `
                         <div class="mb-3">
                             <span class="text-muted">评分:</span>
-                            <span class="badge bg-${Utils.getScoreColor(score)} ms-1">${score}分</span>
+                            <span class="badge bg-transparent border border-${Utils.getScoreColor(score)} text-${Utils.getScoreColor(score)} ms-1">${score}分</span>
                         </div>
                     ` : ''}
                     ${scenarios.length > 0 ? `
                         <div class="d-flex flex-wrap gap-2">
                             ${scenarios.map(s => `
-                                <span class="badge bg-primary">${Utils.escapeHtml(s.name || '')}</span>
+                                <span class="badge bg-transparent border border-primary text-primary">${Utils.escapeHtml(s.name || '')}</span>
                             `).join('')}
                         </div>
                     ` : '<p class="text-muted">暂无数据</p>'}
@@ -404,7 +404,7 @@ const Render = (function() {
                     ${score !== undefined ? `
                         <div class="mb-3">
                             <span class="text-muted">评分:</span>
-                            <span class="badge bg-${Utils.getScoreColor(score)} ms-1">${score}分</span>
+                            <span class="badge bg-transparent border border-${Utils.getScoreColor(score)} text-${Utils.getScoreColor(score)} ms-1">${score}分</span>
                         </div>
                     ` : ''}
                     ${audiences.length > 0 ? `
@@ -412,7 +412,7 @@ const Render = (function() {
                             <strong>目标人群:</strong>
                             <div class="d-flex flex-wrap gap-2 mt-1">
                                 ${audiences.map(a => `
-                                    <span class="badge bg-success">${Utils.escapeHtml(a.name || '')}</span>
+                                    <span class="badge bg-transparent border border-success text-success">${Utils.escapeHtml(a.name || '')}</span>
                                 `).join('')}
                             </div>
                         </div>

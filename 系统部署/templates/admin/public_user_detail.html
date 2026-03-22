@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}用户详情 - {{ user.email }} - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- 返回按钮 -->
+    <div class="mb-3">
+        <a href="{{ url_for('admin.public_user_list') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>返回用户列表
+        </a>
+    </div>
+
+    <!-- 用户基本信息 -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <div class="avatar avatar-lg bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; font-size: 2rem;">
+                            {{ user.email[0]|upper }}
+                        </div>
+                        <h5 class="mb-1">{{ user.nickname or '未设置昵称' }}</h5>
+                        <p class="text-muted mb-3">{{ user.email }}</p>
+
+                        <div class="d-flex justify-content-center gap-2 flex-wrap">
+                            {% if user.is_premium %}
+                                {% if user.premium_plan == 'enterprise' %}
+                                    <span class="badge bg-success fs-6">企业版</span>
+                                {% elif user.premium_plan == 'professional' %}
+                                    <span class="badge bg-primary fs-6">专业版</span>
+                                {% else %}
+                                    <span class="badge bg-info fs-6">基础版</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary fs-6">免费版</span>
+                            {% endif %}
+
+                            {% if user.is_verified %}
+                                <span class="badge bg-success">已验证</span>
+                            {% else %}
+                                <span class="badge bg-warning">未验证</span>
+                            {% endif %}
+
+                            {% if user.is_active %}
+                                <span class="badge bg-success">正常</span>
+                            {% else %}
+                                <span class="badge bg-danger">禁用</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="small">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">用户ID</span>
+                            <span>{{ user.id }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">注册时间</span>
+                            <span>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">最后登录</span>
+                            <span>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else '从未登录' }}</span>
+                        </div>
+                        {% if user.premium_expires %}
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">套餐到期</span>
+                            <span class="{{ 'text-danger' if user.premium_expires < now else 'text-success' }}">
+                                {{ user.premium_expires.strftime('%Y-%m-%d') }}
+                            </span>
+                        </div>
+                        {% endif %}
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Token余额</span>
+                            <span class="fw-bold">{{ user.token_balance or 0 }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0">
+                    <a href="{{ url_for('admin.public_user_edit', user_id=user.id) }}" class="btn btn-primary w-100">
+                        <i class="bi bi-pencil me-1"></i>编辑用户
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <!-- 生成统计 -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body py-3">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-info bg-opacity-10 rounded-3 p-2">
+                                        <i class="bi bi-lightning text-info"></i>
+                                    </div>
+                                </div>
+                                <div class="ms-3">
+                                    <h6 class="mb-0 text-muted small">总生成次数</h6>
+                                    <h4 class="mb-0">{{ generation_stats.total }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body py-3">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-success bg-opacity-10 rounded-3 p-2">
+                                        <i class="bi bi-calendar-day text-success"></i>
+                                    </div>
+                                </div>
+                                <div class="ms-3">
+                                    <h6 class="mb-0 text-muted small">今日生成</h6>
+                                    <h4 class="mb-0">{{ generation_stats.today }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body py-3">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-primary bg-opacity-10 rounded-3 p-2">
+                                        <i class="bi bi-calendar-month text-primary"></i>
+                                    </div>
+                                </div>
+                                <div class="ms-3">
+                                    <h6 class="mb-0 text-muted small">本月生成</h6>
+                                    <h4 class="mb-0">{{ generation_stats.this_month }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LLM 成本统计 -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent py-3">
+                    <h6 class="mb-0">LLM 调用统计</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-3">
+                            <div class="text-muted small">输入 Tokens</div>
+                            <div class="fs-5 fw-bold">{{ llm_stats.input_tokens or 0|default(0)|int }}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted small">输出 Tokens</div>
+                            <div class="fs-5 fw-bold">{{ llm_stats.output_tokens or 0|default(0)|int }}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted small">总 Tokens</div>
+                            <div class="fs-5 fw-bold text-primary">{{ llm_stats.total_tokens or 0|default(0)|int }}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted small">总成本</div>
+                            <div class="fs-5 fw-bold text-danger">¥{{ '%.4f'|format(llm_stats.total_cost or 0) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 最近生成记录 -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">最近生成记录</h6>
+                    <a href="#" class="btn btn-sm btn-outline-primary">查看全部</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="border-0 py-2 px-3">行业</th>
+                                    <th class="border-0 py-2">目标客户</th>
+                                    <th class="border-0 py-2">类型</th>
+                                    <th class="border-0 py-2">Tokens</th>
+                                    <th class="border-0 py-2 text-end pe-3">时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for gen in recent_generations %}
+                                <tr>
+                                    <td class="px-3">{{ gen.industry }}</td>
+                                    <td>{{ gen.target_customer }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ gen.content_type }}</span>
+                                    </td>
+                                    <td>{{ gen.used_tokens }}</td>
+                                    <td class="text-end pe-3 text-muted small">
+                                        {{ gen.created_at.strftime('%m-%d %H:%M') }}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">
+                                        暂无生成记录
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 最近 LLM 调用 -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent py-3">
+            <h6 class="mb-0">最近 LLM 调用</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="border-0 py-2 px-3">类型</th>
+                            <th class="border-0 py-2">模型</th>
+                            <th class="border-0 py-2">输入</th>
+                            <th class="border-0 py-2">输出</th>
+                            <th class="border-0 py-2">总Tokens</th>
+                            <th class="border-0 py-2">成本</th>
+                            <th class="border-0 py-2">耗时</th>
+                            <th class="border-0 py-2">状态</th>
+                            <th class="border-0 py-2 text-end pe-3">时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in recent_llm_calls %}
+                        <tr>
+                            <td class="px-3">
+                                <span class="badge bg-info">{{ log.call_type }}</span>
+                            </td>
+                            <td class="small">{{ log.model or '-' }}</td>
+                            <td class="small">{{ log.input_tokens or 0 }}</td>
+                            <td class="small">{{ log.output_tokens or 0 }}</td>
+                            <td class="small fw-medium">{{ log.total_tokens or 0 }}</td>
+                            <td class="small text-danger">¥{{ '%.4f'|format(log.cost or 0) }}</td>
+                            <td class="small">{{ log.duration_ms }}ms</td>
+                            <td>
+                                {% if log.status == 'success' %}
+                                    <span class="badge bg-success">成功</span>
+                                {% else %}
+                                    <span class="badge bg-danger">失败</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-3 text-muted small">
+                                {{ log.created_at.strftime('%m-%d %H:%M:%S') }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4 text-muted">
+                                暂无调用记录
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

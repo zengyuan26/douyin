@@ -59,6 +59,45 @@ def create_app(config_name='default'):
     register_formula_elements_routes(knowledge_api_blueprint)
     # 再注册 blueprint
     app.register_blueprint(knowledge_api_blueprint)
+
+    # 注册内容分析 API（独立模块）
+    from routes.content_analysis_api import content_analysis_api as content_analysis_api_blueprint
+    app.register_blueprint(content_analysis_api_blueprint)
+
+    # 注册公开内容生成平台
+    from routes.public_api import public_bp as public_api_blueprint
+    app.register_blueprint(public_api_blueprint)
+
+    # 注册公开用户管理后台
+    try:
+        from routes.admin_public_users import admin_public as admin_public_users_bp
+        app.register_blueprint(admin_public_users_bp)
+        logging.info("公开用户管理后台已注册")
+    except Exception as e:
+        logging.warning(f"公开用户管理后台注册失败: {e}")
+
+    # 注册公开平台管理 API（待处理行业 + 成本统计）
+    try:
+        from routes.admin_pending_industries import admin_pending_industries_bp
+        app.register_blueprint(admin_pending_industries_bp)
+        logging.info("待处理行业管理 API 已注册")
+    except Exception as e:
+        logging.warning(f"待处理行业管理 API 注册失败: {e}")
+
+    try:
+        from routes.admin_cost_stats import admin_cost_stats_bp
+        app.register_blueprint(admin_cost_stats_bp)
+        logging.info("成本统计 API 已注册")
+    except Exception as e:
+        logging.warning(f"成本统计 API 注册失败: {e}")
+
+    # 初始化公开平台缓存预热
+    try:
+        from services.public_cache import public_cache
+        public_cache.warm_up(app)
+        logging.info("公开平台缓存预热完成")
+    except Exception as e:
+        logging.warning(f"公开平台缓存预热失败: {e}")
     
     # 创建上传目录
     import os

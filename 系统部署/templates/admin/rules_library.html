@@ -79,7 +79,7 @@
 <div class="modal fade" id="ruleViewModal" tabindex="-1" aria-labelledby="ruleViewModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-light">
+            <div class="modal-header">
                 <h5 class="modal-title" id="ruleViewModalLabel">
                     <i class="bi bi-file-text me-2"></i>公式详情
                 </h5>
@@ -87,29 +87,29 @@
             </div>
             <div class="modal-body">
                 <h6 id="view-rule-title" class="text-primary fw-bold mb-3"></h6>
-                <div id="view-rule-content" class="bg-light p-3 rounded mb-3" style="white-space: pre-wrap; line-height: 1.8; font-family: monospace;"></div>
+                <div id="view-rule-content" class="p-3 rounded mb-3" style="white-space: pre-wrap; line-height: 1.8; font-family: monospace; background: #f9fafb;"></div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <div class="p-2 bg-light rounded">
+                        <div class="p-2 rounded">
                             <small class="text-muted fw-bold d-block mb-1">适用场景</small>
                             <div id="view-rule-scenarios"></div>
                         </div>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <div class="p-2 bg-light rounded">
+                        <div class="p-2 rounded">
                             <small class="text-muted fw-bold d-block mb-1">适用人群</small>
                             <div id="view-rule-audiences"></div>
                         </div>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <div class="p-2 bg-light rounded">
+                    <div class="p-2 rounded">
                         <small class="text-muted fw-bold d-block mb-1">关键词</small>
                         <div id="view-rule-keywords"></div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer bg-light">
+            <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
             </div>
         </div>
@@ -330,7 +330,7 @@ async function viewRule(id) {
             document.getElementById('view-rule-content').textContent = rule.content || '';
 
             const toBadges = arr => arr && arr.length > 0
-                ? arr.map(s => `<span class="badge bg-secondary me-1 mb-1">${s}</span>`).join('')
+                ? arr.map(s => `<span class="badge bg-transparent border border-secondary text-secondary me-1 mb-1">${s}</span>`).join('')
                 : '-';
             document.getElementById('view-rule-scenarios').innerHTML = toBadges(rule.applicable_scenarios);
             document.getElementById('view-rule-audiences').innerHTML = toBadges(rule.applicable_audiences);

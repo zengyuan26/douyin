@@ -70,14 +70,14 @@
                                     <td>
                                         {% if topic_type == 'hot' %}
                                             {% if item.hot_level == '高' %}
-                                            <span class="badge bg-danger">高</span>
+                                            <span class="badge bg-transparent border border-danger text-danger">高</span>
                                             {% elif item.hot_level == '中' %}
-                                            <span class="badge bg-warning">中</span>
+                                            <span class="badge bg-transparent border border-warning text-dark">中</span>
                                             {% else %}
-                                            <span class="badge bg-secondary">低</span>
+                                            <span class="badge bg-transparent border border-secondary text-secondary">低</span>
                                             {% endif %}
                                         {% else %}
-                                            <span class="badge bg-info">{{ item.topic_type }}</span>
+                                            <span class="badge bg-transparent border border-info text-info">{{ item.topic_type }}</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -90,22 +90,22 @@
                                     <td>
                                         {% if item.related_industry %}
                                         {% for ind in item.related_industry[:2] %}
-                                        <span class="badge bg-light text-dark">{{ ind }}</span>
+                                        <span class="badge bg-transparent border text-dark">{{ ind }}</span>
                                         {% endfor %}
                                         {% else %}-{% endif %}
                                     </td>
                                     <td>
                                         {% if topic_type == 'hot' %}
                                             {% if item.status == 'active' %}
-                                            <span class="badge bg-success">有效</span>
+                                            <span class="badge bg-transparent border border-success text-success">有效</span>
                                             {% else %}
-                                            <span class="badge bg-secondary">过期</span>
+                                            <span class="badge bg-transparent border border-secondary text-secondary">过期</span>
                                             {% endif %}
                                         {% else %}
                                             {% if item.is_active %}
-                                            <span class="badge bg-success">启用</span>
+                                            <span class="badge bg-transparent border border-success text-success">启用</span>
                                             {% else %}
-                                            <span class="badge bg-secondary">禁用</span>
+                                            <span class="badge bg-transparent border border-secondary text-secondary">禁用</span>
                                             {% endif %}
                                         {% endif %}
                                     </td>

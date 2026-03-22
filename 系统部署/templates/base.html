@@ -16,6 +16,7 @@
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/apple-design-system.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-tags-readable.css') }}">
 
     <style>
         /* =====================================================
@@ -558,7 +559,7 @@
     {% endif %}
     
     <!-- 主内容区 -->
-    <main class="main-content">
+    <main class="main-content{% if request.endpoint and 'admin' in request.endpoint %} admin-console{% endif %}">
         {% block content %}{% endblock %}
     </main>
     

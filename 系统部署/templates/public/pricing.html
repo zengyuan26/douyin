@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>定价方案 - AI 棱镜</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-dark: #4338CA;
+            --secondary: #10B981;
+            --bg-light: #F9FAFB;
+            --text-dark: #1F2937;
+            --text-muted: #6B7280;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+        }
+
+        .navbar {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 60px 0;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .pricing-card {
+            background: white;
+            border-radius: 20px;
+            padding: 2.5rem;
+            text-align: center;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s;
+            height: 100%;
+            position: relative;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .pricing-card.featured {
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        .pricing-card.featured:hover {
+            transform: scale(1.05) translateY(-8px);
+        }
+
+        .pricing-card .badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .pricing-card .plan-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .pricing-card .price {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .pricing-card .price span {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .pricing-card ul {
+            list-style: none;
+            padding: 0;
+            margin: 2rem 0;
+            text-align: left;
+        }
+
+        .pricing-card li {
+            padding: 0.75rem 0;
+            padding-left: 2rem;
+            position: relative;
+            color: var(--text-muted);
+        }
+
+        .pricing-card li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--secondary);
+            font-weight: 700;
+        }
+
+        .pricing-card li.disabled {
+            color: #d1d5db;
+            text-decoration: line-through;
+        }
+
+        .pricing-card li.disabled::before {
+            content: "✗";
+            color: #d1d5db;
+        }
+
+        .pricing-card .btn {
+            padding: 0.875rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .pricing-card .btn-primary {
+            background: var(--primary);
+            border: none;
+        }
+
+        .pricing-card .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .pricing-card .btn-outline-primary {
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            background: transparent;
+        }
+
+        .pricing-card .btn-outline-primary:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .features-section {
+            padding: 80px 0;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .feature-icon svg {
+            width: 30px;
+            height: 30px;
+            color: white;
+        }
+
+        .faq-section {
+            background: white;
+            padding: 80px 0;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1.5rem 0;
+        }
+
+        .faq-item h5 {
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        .faq-item p {
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 2rem 0;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 1.75rem;
+            }
+
+            .pricing-card.featured {
+                transform: scale(1);
+            }
+
+            .pricing-card.featured:hover {
+                transform: translateY(-8px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/public">
+                <span style="color: var(--primary);">内容</span>生成
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/public/#features">功能</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/public/pricing">定价</a></li>
+                    <li class="nav-item" id="nav-login">
+                        <a class="nav-link" href="/public/login">登录</a>
+                    </li>
+                    <li class="nav-item" id="nav-register">
+                        <a class="btn btn-primary ms-2" href="/public/register">免费试用</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container text-center">
+            <h1>简单透明的定价方案</h1>
+            <p class="lead opacity-75">选择最适合您的方案，开始高效内容创作</p>
+        </div>
+    </section>
+
+    <!-- 定价卡片 -->
+    <section class="py-5">
+        <div class="container py-5">
+            <div class="row g-4 justify-content-center">
+                <!-- 免费版 -->
+                <div class="col-md-3">
+                    <div class="pricing-card">
+                        <div class="plan-name">免费体验</div>
+                        <div class="price">¥0<span>/月</span></div>
+                        <ul>
+                            <li>每日 2 次生成</li>
+                            <li>基础内容模板</li>
+                            <li>2 种内容结构</li>
+                            <li>2 个标题方案</li>
+                            <li>预设标签模板</li>
+                            <li class="disabled">AI 内容增强</li>
+                            <li class="disabled">混合选题生成</li>
+                            <li class="disabled">精准埋词方案</li>
+                            <li class="disabled">专属客服支持</li>
+                        </ul>
+                        <button class="btn btn-outline-primary w-100" onclick="window.location.href='/public/register'">免费注册</button>
+                    </div>
+                </div>
+
+                <!-- 基础版 -->
+                <div class="col-md-3">
+                    <div class="pricing-card featured">
+                        <span class="badge">推荐</span>
+                        <div class="plan-name">基础版</div>
+                        <div class="price">¥99<span>/月</span></div>
+                        <ul>
+                            <li>每月 100 次生成</li>
+                            <li>10 种爆款结构</li>
+                            <li>5 个标题方案</li>
+                            <li>多目标客户分层</li>
+                            <li>AI 内容增强</li>
+                            <li>专属选题推荐</li>
+                            <li class="disabled">混合选题生成</li>
+                            <li class="disabled">精准埋词方案</li>
+                            <li class="disabled">专属客服支持</li>
+                        </ul>
+                        <button class="btn btn-primary w-100" onclick="subscribePlan('basic')">立即升级</button>
+                    </div>
+                </div>
+
+                <!-- 专业版 -->
+                <div class="col-md-3">
+                    <div class="pricing-card">
+                        <div class="plan-name">专业版</div>
+                        <div class="price">¥299<span>/月</span></div>
+                        <ul>
+                            <li>每月 300 次生成</li>
+                            <li>15 种爆款结构</li>
+                            <li>10 个标题方案</li>
+                            <li>多目标客户分层</li>
+                            <li>AI 内容增强</li>
+                            <li>混合选题生成</li>
+                            <li>精准埋词方案</li>
+                            <li>图片比例可选</li>
+                            <li>优先客服支持</li>
+                        </ul>
+                        <button class="btn btn-outline-primary w-100" onclick="subscribePlan('professional')">立即升级</button>
+                    </div>
+                </div>
+
+                <!-- 企业版 -->
+                <div class="col-md-3">
+                    <div class="pricing-card">
+                        <div class="plan-name">企业版</div>
+                        <div class="price">¥999<span>/月</span></div>
+                        <ul>
+                            <li><strong>不限次数</strong>生成</li>
+                            <li>20 种爆款结构</li>
+                            <li>15 个标题方案</li>
+                            <li>多目标客户分层</li>
+                            <li>AI 内容增强</li>
+                            <li>混合选题生成</li>
+                            <li>精准埋词方案</li>
+                            <li>所有图片比例</li>
+                            <li>API 接口访问</li>
+                            <li>专属客服支持</li>
+                        </ul>
+                        <button class="btn btn-outline-primary w-100" onclick="subscribePlan('enterprise')">联系咨询</button>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-center text-muted mt-5">
+                所有方案均支持随时升级或降级 · 付费方案不满意 7 天内可退款
+            </p>
+        </div>
+    </section>
+
+    <!-- 功能对比 -->
+    <section class="features-section">
+        <div class="container">
+            <h2 class="text-center mb-5">更多优质服务</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h5>极速生成</h5>
+                            <p class="text-muted mb-0">基于海量数据训练的 AI 模型，3 秒内即可生成完整内容方案</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h5>数据安全</h5>
+                            <p class="text-muted mb-0">企业级数据加密存储，您的商业信息绝对安全</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h5>持续更新</h5>
+                            <p class="text-muted mb-0">每周更新热门选题和模板，紧跟平台热点</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h5>技术支持</h5>
+                            <p class="text-muted mb-0">7×24 小时在线客服，遇到问题随时咨询</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq-section">
+        <div class="container">
+            <h2 class="text-center mb-5">常见问题</h2>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="faq-item">
+                        <h5>免费次数用完了怎么办？</h5>
+                        <p>免费用户每天有 2 次生成机会，次日自动重置。如果需要更多次数，可以升级到付费方案。</p>
+                    </div>
+                    <div class="faq-item">
+                        <h5>升级后立即生效吗？</h5>
+                        <p>是的，支付成功后您的账号会立即升级，可以立即使用新方案的所有功能。</p>
+                    </div>
+                    <div class="faq-item">
+                        <h5>可以随时退款吗？</h5>
+                        <p>付费方案不满意可在 7 天内申请全额退款，无需任何理由。</p>
+                    </div>
+                    <div class="faq-item">
+                        <h5>生成的模板可以直接使用吗？</h5>
+                        <p>是的，我们生成的模板都是针对具体平台优化的，可以直接复制使用。</p>
+                    </div>
+                    <div class="faq-item">
+                        <h5>企业版有什么特别服务？</h5>
+                        <p>企业版提供 API 接口、专属客服、定制化模板等服务，还可以开具增值税发票。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container text-center">
+            <p class="mb-0">© 2024 AI 棱镜 - AI时代创作者的内容生产引擎. All rights reserved.</p>
+            <p class="mb-0 mt-2"><a href="/public" class="text-white-50">返回首页</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 检查登录状态
+        async function checkAuth() {
+            try {
+                const resp = await fetch('/public/api/quota', { credentials: 'include' });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.success) {
+                        updateNavForLoggedInUser(data.data);
+                    }
+                }
+            } catch (e) {
+                console.log('Not logged in');
+            }
+        }
+
+        function updateNavForLoggedInUser(userData) {
+            document.getElementById('nav-login').innerHTML =
+                '<a class="nav-link" href="#" onclick="logout()">退出</a>';
+            document.getElementById('nav-register').innerHTML =
+                `<a class="btn btn-outline-primary ms-2" href="/public">去创作</a>`;
+        }
+
+        function subscribePlan(plan) {
+            // 检查是否登录
+            fetch('/public/api/quota', { credentials: 'include' })
+                .then(resp => resp.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('您已是付费用户，无需再次订阅');
+                    } else {
+                        window.location.href = '/public/register?plan=' + plan;
+                    }
+                })
+                .catch(() => {
+                    window.location.href = '/public/register?plan=' + plan;
+                });
+        }
+
+        async function logout() {
+            await fetch('/public/api/logout', {
+                method: 'POST',
+                credentials: 'include'
+            });
+            location.reload();
+        }
+
+        checkAuth();
+    </script>
+</body>
+</html>

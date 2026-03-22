@@ -27,12 +27,25 @@ class Config:
     
     # Session
     PERMANENT_SESSION_LIFETIME = 3600  # 1 hour
+    SESSION_COOKIE_SAMESITE = 'Lax'
     
     # LLM Configuration
     LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'ollama')  # ollama, openai, azure
     LLM_MODEL = os.environ.get('LLM_MODEL', 'qwen2.5:7b')
     LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'http://localhost:11434')
     LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
+
+    # Mail Configuration (SMTP)
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
+    MAIL_USE_SSL = os.environ.get('MAIL_USE_SSL', 'false').lower() == 'true'
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', '')
+    
+    # Public Platform Base URL
+    PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'http://localhost:5001')
 
 
 class DevelopmentConfig(Config):

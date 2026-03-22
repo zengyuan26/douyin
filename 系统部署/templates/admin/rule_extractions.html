@@ -222,9 +222,9 @@ function renderExtractions(extractions) {
 
     tbody.innerHTML = extractions.map(e => {
         const statusBadge = {
-            'pending': '<span class="badge bg-warning text-dark">待审核</span>',
-            'approved': '<span class="badge bg-success">已通过</span>',
-            'rejected': '<span class="badge bg-danger">已拒绝</span>'
+            'pending': '<span class="badge bg-transparent border border-warning text-dark">待审核</span>',
+            'approved': '<span class="badge bg-transparent border border-success text-success">已通过</span>',
+            'rejected': '<span class="badge bg-transparent border border-danger text-danger">已拒绝</span>'
         }[e.status] || e.status;
 
         const rulesCount = e.suggested_rules ? e.suggested_rules.length : 0;
@@ -337,8 +337,8 @@ function showExtractionDetail(extraction) {
                             <strong>规则 ${index + 1}: ${rule.rule_title || '未命名规则'}</strong>
                             <p class="mb-0 text-muted small">${rule.rule_content || ''}</p>
                             <div class="mt-1">
-                                ${rule.category ? `<span class="badge bg-light text-dark me-1">${rule.category}</span>` : ''}
-                                ${rule.source_dimension ? `<span class="badge bg-light text-dark me-1">${rule.source_dimension}</span>` : ''}
+                                ${rule.category ? `<span class="badge me-1" style="background: transparent; border: 1px solid #adb5bd; color: #495057;">${rule.category}</span>` : ''}
+                                ${rule.source_dimension ? `<span class="badge me-1" style="background: transparent; border: 1px solid #adb5bd; color: #495057;">${rule.source_dimension}</span>` : ''}
                             </div>
                         </div>
                     </div>

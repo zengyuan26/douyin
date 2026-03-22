@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}编辑用户 - {{ user.email }} - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- 返回按钮 -->
+    <div class="mb-3">
+        <a href="{{ url_for('admin.public_user_detail', user_id=user.id) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>返回用户详情
+        </a>
+        <a href="{{ url_for('admin.public_user_list') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-list me-1"></i>返回列表
+        </a>
+    </div>
+
+    <form method="POST">
+        <div class="row g-4">
+            <!-- 基本信息 -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent py-3">
+                        <h6 class="mb-0">基本信息</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">邮箱</label>
+                            <input type="email" class="form-control" value="{{ user.email }}" disabled>
+                            <small class="text-muted">邮箱不可修改</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">昵称</label>
+                            <input type="text" class="form-control" name="nickname" value="{{ user.nickname or '' }}" placeholder="请输入昵称">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label d-block">账号状态</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="is_active" id="active1" value="1" {% if user.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="active1">正常</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="is_active" id="active0" value="0" {% if not user.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="active0">禁用</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label d-block">邮箱验证</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="is_verified" id="verified1" value="1" {% if user.is_verified %}checked{% endif %}>
+                                <label class="form-check-label" for="verified1">已验证</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="is_verified" id="verified0" value="0" {% if not user.is_verified %}checked{% endif %}>
+                                <label class="form-check-label" for="verified0">未验证</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 套餐管理 -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent py-3">
+                        <h6 class="mb-0">套餐管理</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">选择套餐</label>
+                            <select class="form-select" name="plan" id="planSelect">
+                                <option value="free" {% if not user.is_premium %}selected{% endif %}>免费版</option>
+                                <option value="basic" {% if user.premium_plan == 'basic' %}selected{% endif %}>基础版</option>
+                                <option value="professional" {% if user.premium_plan == 'professional' %}selected{% endif %}>专业版</option>
+                                <option value="enterprise" {% if user.premium_plan == 'enterprise' %}selected{% endif %}>企业版（无限）</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3" id="expiresGroup">
+                            <label class="form-label">有效期（天）</label>
+                            <input type="number" class="form-control" name="expires_days" id="expiresDays" value="30" min="0">
+                            <small class="text-muted">输入 0 表示永不过期（企业版推荐）</small>
+                        </div>
+
+                        <div class="alert alert-info mb-0">
+                            <i class="bi bi-info-circle me-1"></i>
+                            当前套餐: <strong>{{ user.premium_plan or 'free' }}</strong>
+                            {% if user.premium_expires %}
+                                ，到期时间: <strong>{{ user.premium_expires.strftime('%Y-%m-%d') }}</strong>
+                            {% else %}
+                                ，无过期限制
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Token 配额 -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent py-3">
+                        <h6 class="mb-0">Token 配额</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">当前余额</label>
+                            <input type="number" class="form-control" value="{{ user.token_balance or 0 }}" disabled>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">设置余额</label>
+                            <input type="number" class="form-control" name="token_balance" placeholder="直接设置余额（留空则不变）" min="0">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">添加 Token</label>
+                            <input type="number" class="form-control" name="add_tokens" placeholder="增量添加 Token" min="0">
+                            <small class="text-muted">在当前余额基础上增加</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快速操作 -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent py-3">
+                        <h6 class="mb-0">快速操作</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-success" id="btnUpgradeEnterprise">
+                                <i class="bi bi-building me-1"></i>一键升级为企业版（永不过期）
+                            </button>
+                            <button type="button" class="btn btn-primary" id="btnAddTokens">
+                                <i class="bi bi-plus-circle me-1"></i>快速添加 1000 Tokens
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" id="btnResetPassword">
+                                <i class="bi bi-key me-1"></i>重置密码
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 提交按钮 -->
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check2 me-1"></i>保存修改
+            </button>
+            <a href="{{ url_for('admin.public_user_detail', user_id=user.id) }}" class="btn btn-outline-secondary ms-2">
+                取消
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- 重置密码 Modal -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">重置密码</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">新密码</label>
+                    <input type="password" class="form-control" id="newPassword" placeholder="请输入新密码（至少6位）" minlength="6">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">确认密码</label>
+                    <input type="password" class="form-control" id="confirmPassword" placeholder="请再次输入新密码">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmResetPassword">确认重置</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const planSelect = document.getElementById('planSelect');
+    const expiresGroup = document.getElementById('expiresGroup');
+
+    // 根据套餐选择显示/隐藏有效期
+    planSelect.addEventListener('change', function() {
+        if (this.value === 'free') {
+            expiresGroup.style.display = 'none';
+        } else if (this.value === 'enterprise') {
+            expiresGroup.style.display = 'block';
+            document.getElementById('expiresDays').value = '0';
+        } else {
+            expiresGroup.style.display = 'block';
+            document.getElementById('expiresDays').value = '30';
+        }
+    });
+
+    // 初始化状态
+    planSelect.dispatchEvent(new Event('change'));
+
+    // 一键升级企业版
+    document.getElementById('btnUpgradeEnterprise').addEventListener('click', function() {
+        if (!confirm('确定要将该用户升级为企业版（永不过期）吗？')) return;
+
+        fetch(`/admin/public-users/{{ user.id }}/upgrade`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({plan: 'enterprise', days: 0})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, 'danger');
+            }
+        });
+    });
+
+    // 快速添加 Token
+    document.getElementById('btnAddTokens').addEventListener('click', function() {
+        fetch(`/admin/public-users/{{ user.id }}/add-tokens`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tokens: 1000})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message, 'danger');
+            }
+        });
+    });
+
+    // 重置密码
+    document.getElementById('btnResetPassword').addEventListener('click', function() {
+        new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();
+    });
+
+    document.getElementById('confirmResetPassword').addEventListener('click', function() {
+        const newPwd = document.getElementById('newPassword').value;
+        const confirmPwd = document.getElementById('confirmPassword').value;
+
+        if (newPwd.length < 6) {
+            showToast('密码至少6位', 'warning');
+            return;
+        }
+
+        if (newPwd !== confirmPwd) {
+            showToast('两次密码不一致', 'warning');
+            return;
+        }
+
+        fetch(`/admin/public-users/{{ user.id }}/reset-password`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({password: newPwd})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast('密码已重置', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();
+            } else {
+                showToast(data.message, 'danger');
+            }
+        });
+    });
+
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        document.querySelector('.toast-container')?.appendChild(toast);
+        new bootstrap.Toast(toast).show();
+        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    }
+});
+</script>
+{% endblock %}

@@ -53,13 +53,13 @@
                     </div>
                     <div class="d-flex gap-4 mt-2">
                         <div class="d-flex align-items-center">
-                            <span class="badge bg-warning me-2">
+                            <span class="badge bg-transparent text-dark border border-warning me-2">
                                 <i class="bi bi-hourglass-split"></i> 等待
                             </span>
                             <span id="queue-waiting-count" class="fw-bold fs-5">0</span>
                         </div>
                         <div class="d-flex align-items-center">
-                            <span class="badge bg-success me-2">
+                            <span class="badge bg-transparent text-success border border-success me-2">
                                 <i class="bi bi-lightning-charge"></i> 运行中
                             </span>
                             <span id="queue-running-count" class="fw-bold fs-5">0</span>
@@ -116,81 +116,76 @@
                     </div>
                 </div>
 
-                <!-- 内容分析 Tab -->
+                <!-- 内容分析 Tab：仅列表区，新增/编辑在弹窗中完成 -->
                 <div class="tab-pane fade h-100" id="content-panel" role="tabpanel">
                     <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white border-0 py-2">
-                            <h6 class="mb-0">
-                                <i class="bi bi-play-btn me-2 text-success"></i>内容分析
-                            </h6>
-                        </div>
-                        <div class="card-body py-3 overflow-auto" style="max-height: calc(100vh - 220px);" id="content-analysis-form">
+                        <div class="d-flex flex-column h-100" style="max-height: calc(100vh - 180px);">
                             <!-- 当前账号信息 -->
-                            <div id="current-account-info" class="mb-3 p-2 bg-light rounded d-flex align-items-center justify-content-between">
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-person-check text-success me-2"></i>
-                                    <span class="small fw-medium" id="current-account-name">-</span>
+                            <div id="current-account-info" class="p-2 border-bottom d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center overflow-hidden">
+                                    <i class="bi bi-person-check text-success me-2 flex-shrink-0"></i>
+                                    <span class="small fw-medium text-truncate" id="current-account-name">-</span>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-account-btn" title="切换账号" onclick="clearAccount()">
-                                    <i class="bi bi-arrow-repeat me-1"></i>切换账号
+                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" title="切换账号" onclick="clearAccount()">
+                                    <i class="bi bi-arrow-repeat"></i>
                                 </button>
                             </div>
 
-                            <!-- 手动录入内容 -->
-                            <form id="content-manual-form">
-                                <div class="mb-2">
-                                    <label class="form-label small">内容标题</label>
-                                    <input type="text" class="form-control form-control-sm" id="manual-content-title" placeholder="请输入内容标题" required>
+                            <!-- 搜索 + 新增 -->
+                            <div class="p-2 border-bottom d-flex gap-2 align-items-stretch">
+                                <div class="input-group input-group-sm flex-grow-1">
+                                    <input type="text" class="form-control" id="content-search-input" placeholder="搜索标题...">
+                                    <button class="btn btn-outline-secondary" type="button" id="content-search-btn">
+                                        <i class="bi bi-search"></i>
+                                    </button>
                                 </div>
-                                <div class="mb-2">
-                                    <label class="form-label small">关联账号</label>
-                                    <select class="form-select form-select-sm" id="manual-content-account">
-                                        <option value="">-- 选择账号 --</option>
-                                    </select>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label small">内容类型</label>
-                                    <select class="form-select form-select-sm" id="manual-content-type">
-                                        <option value="video">视频</option>
-                                        <option value="image_text">图文</option>
-                                        <option value="plain_text">纯文字</option>
-                                    </select>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label small">内容描述/文案</label>
-                                    <textarea class="form-control form-control-sm" id="manual-content-desc" rows="3" placeholder="请输入内容描述或文案"></textarea>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label small">其他数据（JSON）</label>
-                                    <textarea class="form-control form-control-sm" id="manual-content-data" rows="2" placeholder='{"likes": 1000, "comments": 100}'></textarea>
-                                </div>
-                                <button type="submit" class="btn btn-success btn-sm w-100">
-                                    <i class="bi bi-check-lg me-1"></i>保存内容
+                                <button class="btn btn-success btn-sm flex-shrink-0 px-2" type="button" id="add-content-btn" title="新增内容">
+                                    <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">新增</span>
                                 </button>
-                            </form>
+                            </div>
 
-                            <!-- 分析维度（自动加载所有启用维度） -->
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="small text-muted">分析维度（已自动加载全部启用维度）：</span>
-                                    <a href="{{ url_for('admin.analysis_dimensions_page') }}" target="_blank" class="small text-primary text-decoration-none">
-                                        <i class="bi bi-gear me-1"></i>管理维度
-                                    </a>
-                                </div>
-                                <div class="d-flex flex-wrap gap-1" id="analysis-dimensions-container">
-                                    <div class="text-muted small py-1">加载中...</div>
+                            <!-- 分析/批量任务时的轻量提示条 -->
+                            <div id="content-loading" class="d-none px-2 py-2 border-bottom text-center small">
+                                <span class="spinner-border spinner-border-sm text-success me-2" role="status"></span>
+                                <span class="text-muted" id="analysis-progress">处理中...</span>
+                            </div>
+
+                            <!-- 批量操作工具栏（默认隐藏） -->
+                            <div id="content-batch-toolbar" class="d-none p-2 border-bottom">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="small">已选 <span class="selected-count fw-bold">0</span> 项</span>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-success" type="button" id="batch-analyze-btn">
+                                            <i class="bi bi-lightning-charge me-1"></i>批量分析
+                                        </button>
+                                        <button class="btn btn-outline-danger" type="button" id="batch-delete-btn">
+                                            <i class="bi bi-trash me-1"></i>批量删除
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- 分析按钮 -->
-                            <button class="btn btn-success w-100 btn-sm" id="analyze-content-btn">
-                                <i class="bi bi-lightning-charge me-1"></i>开始分析
-                            </button>
+                            <!-- 内容列表（可滚动） -->
+                            <div id="contents-list-wrap" class="flex-grow-1 overflow-y-auto">
+                                <div id="contents-list" class="p-2">
+                                    <div class="text-center text-muted py-4">加载中...</div>
+                                </div>
+                            </div>
 
-                            <!-- 分析加载状态 -->
-                            <div id="content-loading" class="text-center py-3 d-none">
-                                <div class="spinner-border spinner-border-sm text-success me-2" role="status"></div>
-                                <span class="text-muted small" id="analysis-progress">正在分析...</span>
+                            <!-- 队列状态显示 -->
+                            <div id="content-queue-status" class="d-none p-2 border-top bg-success bg-opacity-10">
+                                <!-- 由 JS 动态填充 -->
+                            </div>
+
+                            <!-- 分页控件 -->
+                            <div id="contents-pagination" class="d-flex justify-content-between align-items-center p-2 border-top">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="contents-prev-btn" disabled>
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                                <div class="small text-muted" id="contents-page-info">1/1</div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="contents-next-btn" disabled>
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -210,10 +205,11 @@
 
                     <!-- 分析结果：头部固定，仅下方 tab 内容可滚动 -->
         <div id="result-content" class="d-none d-flex flex-column flex-grow-1 min-h-0 overflow-hidden">
-            <!-- 固定头部：重新分析 + tab 导航 -->
+            <!-- 固定头部：账号分析 / 内容分析工具栏（由 JS 切换） -->
             <div class="flex-shrink-0">
                 <div class="analysis-result-top">
-                    <div class="analysis-toolbar" id="reanalyze-btn-container">
+                    <!-- 账号分析按钮组（内容分析时隐藏） -->
+                    <div class="analysis-toolbar" id="account-reanalyze-container">
                         <button type="button" class="btn btn-outline-primary btn-sm" onclick="reanalyzeCurrentAccount('nb')">
                             <i class="bi bi-arrow-repeat me-1"></i>重新分析(nb)
                         </button>
@@ -230,14 +226,14 @@
                             <i class="bi bi-key me-1"></i>关键词库
                         </button>
                     </div>
-                    <div id="analysis-results" class="analysis-tab-strip">
-                        <!-- 仅 tab 导航 ul，由 JS 注入 -->
+                    <!-- 内容分析 tab 条（账号分析时隐藏） -->
+                    <div id="content-dim-tabs" class="d-none analysis-tab-strip">
+                        <!-- 由 JS 动态渲染内容分析维度 tab -->
                     </div>
                 </div>
             </div>
                         <!-- 仅此区域可滚动：tab 内容 -->
                         <div id="analysis-results-scroll" class="flex-grow-1 min-h-0 overflow-y-auto" style="max-height: calc(100vh - 280px);">
-                            <!-- tab 内容由 JS 注入到 #accountAnalysisTabContent -->
                         </div>
                     </div>
                 </div>
@@ -288,6 +284,46 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                 <button type="button" class="btn btn-primary" id="confirm-import-btn">确认导入</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 内容分析：新增/编辑（弹窗） -->
+<div class="modal fade" id="contentEditModal" tabindex="-1" aria-labelledby="content-edit-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="content-edit-modal-title">新增内容</h5>
+                <button type="submit" form="content-manual-form" class="btn btn-success btn-sm">
+                    <i class="bi bi-check-lg me-1"></i>保存
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="content-manual-form">
+                    <div class="mb-2">
+                        <label class="form-label small">内容标题</label>
+                        <input type="text" class="form-control form-control-sm" id="manual-content-title" placeholder="请输入内容标题" required>
+                    </div>
+                    <div class="mb-2 d-none">
+                        <label class="form-label small">关联账号</label>
+                        <select class="form-select form-select-sm" id="manual-content-account">
+                            <option value="">-- 选择账号 --</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">内容类型</label>
+                        <select class="form-select form-select-sm" id="manual-content-type">
+                            <option value="video">视频</option>
+                            <option value="image_text">图文</option>
+                            <option value="plain_text">纯文字</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">内容描述/文案</label>
+                        <textarea class="form-control form-control-sm" id="manual-content-desc" rows="6" placeholder="请输入内容描述或文案"></textarea>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -629,7 +665,7 @@
                                 </div>
                             </div>
                             <!-- 比例预览 -->
-                            <div class="mt-3 p-2 bg-light rounded">
+                            <div class="mt-3 p-2 rounded" style="background: #f9fafb;">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span class="small text-muted">内容比例预览</span>
                                     <button type="button" class="btn btn-sm btn-link text-primary p-0" id="normalize-ratio-btn" title="自动调整比例">
@@ -681,6 +717,7 @@
 <script src="{{ url_for('static', filename='admin/js/render.js') }}"></script>
 <script src="{{ url_for('static', filename='admin/js/dimensions.js') }}"></script>
 <script src="{{ url_for('static', filename='admin/js/materials.js') }}"></script>
+<script src="{{ url_for('static', filename='admin/js/content-analysis.js') }}"></script>
 
 <script>
 // 全局错误捕获
@@ -1287,8 +1324,17 @@ function switchToContentTab() {
     // 保存当前 Tab 状态
     sessionStorage.setItem('dismantle_current_tab', 'content');
 
-    // 切换到内容分析 tab 时，显示内容分析结果（如果有）
-    if (analysisResult) {
+    // 加载内容列表（通过 ContentAnalysis 模块）
+    if (currentAccount && currentAccount.id) {
+        ContentAnalysis.setAccount(currentAccount.id);
+    }
+
+    // 切换到内容分析 tab 时，显示当前选中内容的分析结果（如果有）
+    if (currentContentId) {
+        // 已有选中内容，重新加载详情和分析结果
+        ContentAnalysis.selectContent(currentContentId);
+    } else if (analysisResult) {
+        // 兼容旧的全局变量
         displayAnalysisResult(analysisResult);
     } else {
         // 显示空状态
@@ -1327,7 +1373,7 @@ function showMatchedRules(rules) {
             <div class="list-group-item">
                 <div class="d-flex justify-content-between align-items-center">
                     <h6 class="mb-1">${rule.title}</h6>
-                    <span class="badge bg-primary">${rule.category}</span>
+                    <span class="badge bg-transparent border border-primary text-primary">${rule.category}</span>
                 </div>
                 <p class="mb-1 small text-muted">${rule.content || '无内容'}</p>
                 <small class="text-info">匹配类型: ${rule.match_type}</small>
@@ -1574,6 +1620,10 @@ function initEventListeners() {
     document.getElementById('accounts-prev-btn').addEventListener('click', accountsPrevPage);
     document.getElementById('accounts-next-btn').addEventListener('click', accountsNextPage);
 
+    // 内容列表分页
+    document.getElementById('contents-prev-btn').addEventListener('click', contentsPrevPage);
+    document.getElementById('contents-next-btn').addEventListener('click', contentsNextPage);
+
     // 账号搜索
     const searchInput = document.getElementById('account-search-input');
     const searchBtn = document.getElementById('account-search-btn');
@@ -1594,17 +1644,17 @@ function initEventListeners() {
         });
     }
 
-    // 手动录入内容表单
-    document.getElementById('content-manual-form').addEventListener('submit', saveContentManually);
-
-    // 加载账号列表到下拉框
-    loadAccountsForSelect();
+    // 内容搜索/分页/新增/清空/保存/分析 -> 全部委托给 ContentAnalysis 模块
+    // ContentAnalysis 模块已在 content-analysis.js 中初始化并绑定了所有事件
 
     // 清除账号（内容分析页的按钮）
     document.getElementById('clear-account-btn').addEventListener('click', clearAccount);
 
-    // 开始分析
-    document.getElementById('analyze-content-btn').addEventListener('click', analyzeContent);
+    // 「开始分析」按钮已移除（请在内容列表行内点击「分析」）；保留兼容避免报错
+    const legacyAnalyzeContentBtn = document.getElementById('analyze-content-btn');
+    if (legacyAnalyzeContentBtn) {
+        legacyAnalyzeContentBtn.addEventListener('click', analyzeContent);
+    }
 
     document.getElementById('confirm-import-btn').addEventListener('click', importRules);
 
@@ -1620,6 +1670,15 @@ let accountsPage = 1;
 let accountsTotalPages = 1;
 let accountsSearchKeyword = '';
 const ACCOUNTS_PAGE_SIZE = 4;
+
+// 内容列表分页变量
+let contentsPage = 1;
+let contentsTotalPages = 1;
+let contentsSearchKeyword = '';
+const CONTENTS_PAGE_SIZE = 4;
+let currentContentId = null; // 当前选中的内容ID
+// 供 content-analysis.js 同步「当前内容」到本页全局变量（切换 Tab 等逻辑依赖）
+window.__syncDismantleContentId = function(id) { currentContentId = id; };
 
 // 加载分析维度（动态）
 let analysisDimensionsCache = null;
@@ -1649,7 +1708,7 @@ function renderAnalysisDimensions(dimensions) {
         html += '<div class="d-flex flex-wrap gap-1">';
         dims.forEach(d => {
             html += `
-                <span class="badge bg-light text-dark border">
+                <span class="badge" style="background: transparent; border: 1px solid #dee2e6; color: #495057;">
                     <i class="bi bi-check-circle text-success me-1"></i>${d.name}
                 </span>
             `;
@@ -1763,6 +1822,20 @@ async function loadAccountsList() {
         listEl.innerHTML = '<div class="col-12 text-center text-danger py-4">加载失败</div>';
     }
 }
+
+// 内容分析功能已迁移到 ContentAnalysis 模块（static/admin/js/content-analysis.js）
+// 以下为兼容调用
+async function loadContentsList() { ContentAnalysis.loadList(); }
+async function selectContent(contentId) { ContentAnalysis.selectContent(contentId); }
+async function editContent(contentId) { ContentAnalysis.editContent(contentId); }
+async function deleteContent(contentId) { ContentAnalysis.deleteContent(contentId); }
+async function analyzeContentById(contentId) { ContentAnalysis.analyzeContent(contentId); }
+function displayContentAnalysisResult(result) { ContentAnalysis.displayAnalysisResult(result); }
+function clearContentAnalysisResult() { ContentAnalysis.clearAnalysisResult(); }
+function clearContentForm() { ContentAnalysis.clearForm(); }
+function contentsPrevPage() { ContentAnalysis.loadList(); }
+function contentsNextPage() { ContentAnalysis.loadList(); }
+async function saveContentManually(e) { await ContentAnalysis.saveContent(e); }
 
 // 查看账号详情（含变更历史）
 // 预览账号 - 点击卡片时只更新分析结果，不跳转页面
@@ -2177,6 +2250,21 @@ function accountsNextPage() {
     if (accountsPage < accountsTotalPages) {
         accountsPage++;
         loadAccountsList();
+    }
+}
+
+// 内容列表分页
+function contentsPrevPage() {
+    if (contentsPage > 1) {
+        contentsPage--;
+        loadContentsList();
+    }
+}
+
+function contentsNextPage() {
+    if (contentsPage < contentsTotalPages) {
+        contentsPage++;
+        loadContentsList();
     }
 }
 
@@ -2669,54 +2757,6 @@ async function loadAccountsForSelect() {
     }
 }
 
-// 手动保存内容
-async function saveContentManually(e) {
-    e.preventDefault();
-
-    const title = document.getElementById('manual-content-title').value.trim();
-    const accountId = document.getElementById('manual-content-account').value;
-    const contentType = document.getElementById('manual-content-type').value;
-    const description = document.getElementById('manual-content-desc').value.trim();
-    const extraDataStr = document.getElementById('manual-content-data').value.trim();
-
-    let contentData = { description };
-    if (extraDataStr) {
-        try {
-            const extraData = JSON.parse(extraDataStr);
-            contentData = { ...contentData, ...extraData };
-        } catch (e) {
-            alert('JSON 格式错误');
-            return;
-        }
-    }
-
-    try {
-        const response = await fetch('/api/knowledge/contents', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title,
-                account_id: accountId ? parseInt(accountId) : null,
-                content_url: '',
-                content_type: contentType,
-                source_type: 'manual',
-                content_data: contentData
-            })
-        });
-
-        const data = await response.json();
-        if (data.code === 200) {
-            alert('内容保存成功！点击「开始分析」即可分析该内容');
-            // 不清除表单，方便用户继续操作
-            // document.getElementById('content-manual-form').reset();
-        } else {
-            alert(data.message || '保存失败');
-        }
-    } catch (e) {
-        alert('保存失败: ' + e.message);
-    }
-}
-
 // 重新分析当前账号
 // target: nb(昵称+简介), positioning(账号定位), market(市场分析), operation(运营规划), keyword(关键词库), all(全量)
 async function reanalyzeCurrentAccount(target = 'nb') {
@@ -2780,13 +2820,27 @@ function clearAccount() {
     analysisResult = null;
     historyCurrentPage = 1;
 
+    // 清除内容分析相关（通过 ContentAnalysis 模块）
+    if (typeof ContentAnalysis !== 'undefined') {
+        const caState = ContentAnalysis.getState();
+        currentContentId = null;  // 与 ContentAnalysis 模块同步
+        contentsPage = 1;
+        contentsSearchKeyword = '';
+        ContentAnalysis.clearForm();
+        ContentAnalysis.clearAnalysisResult();
+    }
+
     // 清除内容分析页的输入框
     const titleEl = document.getElementById('manual-content-title');
     const descEl = document.getElementById('manual-content-desc');
-    const dataEl = document.getElementById('manual-content-data');
     if (titleEl) titleEl.value = '';
     if (descEl) descEl.value = '';
-    if (dataEl) dataEl.value = '';
+
+    // 清空内容列表和分析结果（通过 ContentAnalysis 模块）
+    if (typeof ContentAnalysis !== 'undefined') {
+        ContentAnalysis.clearForm();
+        ContentAnalysis.clearAnalysisResult();
+    }
 
     // 禁用内容分析 Tab
     disableContentTab();
@@ -2800,89 +2854,15 @@ function clearAccount() {
     // console.log('账号已清除');
 }
 
-// 开始分析内容
+// 开始分析内容（通过 ContentAnalysis 模块）
 async function analyzeContent() {
-    // 获取手动录入的内容
-    const manualTitle = document.getElementById('manual-content-title').value.trim();
-    const description = document.getElementById('manual-content-desc').value.trim();
-    const extraDataStr = document.getElementById('manual-content-data').value.trim();
-
-    if (!manualTitle && !description) {
-        alert('请录入内容');
-        return;
-    }
-
-    // 检查是否有关联账号
-    if (!currentAccount) {
-        alert('请先获取账号信息');
+    if (!currentAccount || !currentAccount.id) {
+        alert('请先选择账号');
         switchToAccountTab();
         return;
     }
-
-    // 自动获取所有启用的分析维度
-    const dimensions = [];
-    if (analysisDimensionsCache && analysisDimensionsCache.length > 0) {
-        analysisDimensionsCache.forEach(d => {
-            dimensions.push(d.code);
-        });
-    }
-
-    if (dimensions.length === 0) {
-        alert('请先配置分析维度');
-        return;
-    }
-
-    // 显示加载状态
-    document.getElementById('content-analysis-form').classList.add('d-none');
-    document.getElementById('content-loading').classList.remove('d-none');
-    document.getElementById('analysis-progress').textContent = '正在分析内容...';
-
-    // 构建内容信息
-    let contentInfo = {
-        title: manualTitle,
-        description: description
-    };
-
-    // 解析额外数据
-    if (extraDataStr) {
-        try {
-            const extraData = JSON.parse(extraDataStr);
-            contentInfo = { ...contentInfo, ...extraData };
-        } catch (e) {
-            console.warn('额外数据 JSON 解析失败');
-        }
-    }
-
-    try {
-        // 调用分析接口
-        const response = await fetch('/api/knowledge/analyze-with-account', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                url: 'manual://' + manualTitle,
-                modules: dimensions,
-                account_info: currentAccount,
-                content_info: contentInfo
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.code === 200 || data.success) {
-            analysisResult = data.data || data;
-            displayAnalysisResult(analysisResult);
-        } else {
-            alert(data.message || data.error || '分析失败');
-            document.getElementById('content-loading').classList.add('d-none');
-            document.getElementById('content-analysis-form').classList.remove('d-none');
-        }
-    } catch (error) {
-        console.error('分析失败:', error);
-        alert('分析失败，请稍后重试');
-        document.getElementById('content-loading').classList.add('d-none');
-        document.getElementById('content-analysis-form').classList.remove('d-none');
+    if (typeof ContentAnalysis !== 'undefined') {
+        ContentAnalysis.analyzeContent();
     }
 }
 
@@ -3292,7 +3272,7 @@ function renderNicknameAnalysis(data, accountInfo) {
     let suggestionsHtml = '';
     if (suggestions.length > 0) {
         suggestionsHtml = `
-            <div class="mt-2 p-2 bg-light rounded">
+            <div class="mt-2 p-2 rounded">
                 <div class="small text-muted mb-1">优化建议</div>
                 <ul class="mb-0 small">
                     ${suggestions.map(s => `<li>${s}</li>`).join('')}
@@ -3302,7 +3282,7 @@ function renderNicknameAnalysis(data, accountInfo) {
     }
 
     return `
-        <div class="p-2 bg-light rounded mb-2">
+        <div class="p-2 rounded mb-2">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <div class="small text-muted">账号昵称</div>
@@ -3391,7 +3371,7 @@ function renderBioAnalysis(data, accountInfo) {
     let suggestionsHtml = '';
     if (suggestions.length > 0) {
         suggestionsHtml = `
-            <div class="mt-2 p-2 bg-light rounded">
+            <div class="mt-2 p-2 rounded">
                 <div class="small text-muted mb-1">优化建议</div>
                 <ul class="mb-0 small">
                     ${suggestions.map(s => `<li>${s}</li>`).join('')}
@@ -3500,7 +3480,7 @@ function renderBioAnalysis(data, accountInfo) {
     }
 
     return `
-        <div class="p-2 bg-light rounded mb-2">
+        <div class="p-2 rounded mb-2">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <div class="small text-muted">账号简介</div>
@@ -3643,7 +3623,7 @@ function renderContentStrategy(strategy) {
     if (!strategy) return '-';
     const items = [];
     for (const [key, value] of Object.entries(strategy)) {
-        items.push(`<span class="badge bg-light text-dark">${key}: ${value}</span>`);
+        items.push(`<span class="badge" style="background: transparent; border: 1px solid #dee2e6; color: #495057;">${key}: ${value}</span>`);
     }
     return items.join(' ');
 }
@@ -3767,25 +3747,25 @@ function renderDimensionCards(data, prefix) {
         'tab-basic': `
             <div class="row g-1">
                 <div class="col-4">
-                    <div class="p-2 bg-light rounded">
+                    <div class="p-2 rounded">
                         <div class="small text-muted">昵称</div>
                         <div class="fw-medium small">${accountInfo.account_name || accountInfo.nickname || accountInfo.name || '-'}</div>
                     </div>
                 </div>
                 <div class="col-4">
-                    <div class="p-2 bg-light rounded">
+                    <div class="p-2 rounded">
                         <div class="small text-muted">粉丝数</div>
                         <div class="fw-medium small">${accountInfo.fans_count || accountInfo.current_data?.followers || accountInfo.current_data?.fans_count || '-'}</div>
                     </div>
                 </div>
                 <div class="col-4">
-                    <div class="p-2 bg-light rounded">
+                    <div class="p-2 rounded">
                         <div class="small text-muted">平台</div>
                         <div class="fw-medium small">${accountInfo.platform || '-'}</div>
                     </div>
                 </div>
                 <div class="col-12">
-                    <div class="p-2 bg-light rounded">
+                    <div class="p-2 rounded">
                         <div class="small text-muted">简介</div>
                         <div class="fw-medium small" style="min-height: 36px;">${accountInfo.bio || accountInfo.current_data?.bio || '-'}</div>
                     </div>
@@ -4078,10 +4058,10 @@ function renderDimensionCards(data, prefix) {
                 } else if (dimensionCode === 'nickname_feature') {
                     contentHtml = `
                         <div class="d-flex flex-wrap gap-1">
-                            ${dimData.body_feature ? `<span class="badge bg-light text-dark">身体特征: ${dimData.body_feature}</span>` : ''}
-                            ${dimData.emotion_feature ? `<span class="badge bg-light text-dark">情绪特征: ${dimData.emotion_feature}</span>` : ''}
-                            ${dimData.professional_feature ? `<span class="badge bg-light text-dark">专业特征: ${dimData.professional_feature}</span>` : ''}
-                            ${dimData.persona_feature ? `<span class="badge bg-light text-dark">人设特征: ${dimData.persona_feature}</span>` : ''}
+                            ${dimData.body_feature ? `<span class="badge" style="background: transparent; border: 1px solid #dee2e6; color: #495057;">身体特征: ${dimData.body_feature}</span>` : ''}
+                            ${dimData.emotion_feature ? `<span class="badge" style="background: transparent; border: 1px solid #dee2e6; color: #495057;">情绪特征: ${dimData.emotion_feature}</span>` : ''}
+                            ${dimData.professional_feature ? `<span class="badge" style="background: transparent; border: 1px solid #dee2e6; color: #495057;">专业特征: ${dimData.professional_feature}</span>` : ''}
+                            ${dimData.persona_feature ? `<span class="badge" style="background: transparent; border: 1px solid #dee2e6; color: #495057;">人设特征: ${dimData.persona_feature}</span>` : ''}
                             ${(!dimData.body_feature && !dimData.emotion_feature && !dimData.professional_feature && !dimData.persona_feature) ? '<span class="text-muted">无明显特征</span>' : ''}
                         </div>
                     `;
@@ -4121,7 +4101,7 @@ function renderDimensionCards(data, prefix) {
                             <div class="col-12">
                                 <div class="text-muted">内容要素</div>
                                 <div class="d-flex flex-wrap gap-1">
-                                    ${(dimData.content_elements || []).map(e => `<span class="badge bg-light text-dark">${e}</span>`).join('') || '-'}
+                                    ${(dimData.content_elements || []).map(e => `<span class="badge" style="background: transparent; border: 1px solid #dee2e6; color: #495057;">${e}</span>`).join('') || '-'}
                                 </div>
                             </div>
                         </div>
@@ -4202,7 +4182,7 @@ function renderDimensionCards(data, prefix) {
             const bioScore = bioAnalysis?.score || 0;
             const overallScoreHtml = (nicknameScore || bioScore) ? `
                 <div class="col-12">
-                    <div class="p-2 bg-light rounded text-center">
+                    <div class="p-2 rounded text-center">
                         <div class="text-muted">昵称评分: ${nicknameScore || '-'}</div>
                         <div class="text-muted">简介评分: ${bioScore || '-'}</div>
                     </div>
@@ -4360,9 +4340,7 @@ function displayAnalysisResult(result) {
         }
     }
 
-    // 恢复表单显示
-    document.getElementById('content-loading').classList.add('d-none');
-    document.getElementById('content-analysis-form').classList.remove('d-none');
+    document.getElementById('content-loading')?.classList.add('d-none');
 }
 
 // 渲染单个维度结果
@@ -4459,7 +4437,7 @@ function renderDimensionResult(dimension, data) {
                 </button>
             </div>
             ${description ? `<div class="small text-muted mb-2" style="font-size: 11px;">${description}</div>` : ''}
-            <div class="p-3 bg-light rounded">
+            <div class="p-3 rounded">
                 ${contentHtml}
             </div>
         </div>
@@ -4727,7 +4705,7 @@ async function showExtractScenesModal() {
                 <label class="form-check-label w-100" for="extract-${idx}">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <span class="badge bg-secondary me-1">${typeLabel}</span>
+                            <span class="badge bg-transparent border border-secondary text-secondary me-1">${typeLabel}</span>
                             <span class="fw-medium">${item.name}</span>
                         </div>
                         <div class="small text-muted">${item.industry || ''}</div>

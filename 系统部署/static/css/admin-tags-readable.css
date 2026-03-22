@@ -1,0 +1,149 @@
+/**
+ * 管理中心：去掉标签实心底色，改为描边 + 同色文字，避免「白字+深色底」对比度差、看不清。
+ * 作用域：.admin-console（继承 base 的后台页 main）、.admin-standalone（独立后台页 body）
+ */
+:is(.admin-console, .admin-standalone) .badge.bg-primary,
+:is(.admin-console, .admin-standalone) .badge.bg-secondary,
+:is(.admin-console, .admin-standalone) .badge.bg-success,
+:is(.admin-console, .admin-standalone) .badge.bg-danger,
+:is(.admin-console, .admin-standalone) .badge.bg-warning,
+:is(.admin-console, .admin-standalone) .badge.bg-info,
+:is(.admin-console, .admin-standalone) .badge.bg-dark {
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 1px solid;
+    font-weight: 500;
+}
+
+:is(.admin-console, .admin-standalone) .badge.bg-primary {
+    color: var(--bs-primary) !important;
+    border-color: var(--bs-primary);
+}
+
+:is(.admin-console, .admin-standalone) .badge.bg-secondary {
+    color: var(--bs-secondary) !important;
+    border-color: var(--bs-secondary);
+}
+
+:is(.admin-console, .admin-standalone) .badge.bg-success {
+    color: var(--bs-success) !important;
+    border-color: var(--bs-success);
+}
+
+:is(.admin-console, .admin-standalone) .badge.bg-danger {
+    color: var(--bs-danger) !important;
+    border-color: var(--bs-danger);
+}
+
+:is(.admin-console, .admin-standalone) .badge.bg-warning {
+    color: #856404 !important;
+    border-color: var(--bs-warning);
+}
+
+:is(.admin-console, .admin-standalone) .badge.bg-info {
+    color: #087990 !important;
+    border-color: var(--bs-info);
+}
+
+:is(.admin-console, .admin-standalone) .badge.bg-dark {
+    color: var(--bs-dark) !important;
+    border-color: var(--bs-dark);
+}
+
+:is(.admin-console, .admin-standalone) .badge.bg-light {
+    background-color: transparent !important;
+    color: var(--bs-gray-800, #343a40) !important;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+/* 部分页面手写 class（非 Bootstrap 标准） */
+:is(.admin-console, .admin-standalone) .badge.badge-success {
+    background: transparent !important;
+    color: var(--bs-success) !important;
+    border: 1px solid var(--bs-success);
+}
+
+:is(.admin-console, .admin-standalone) .badge.badge-danger {
+    background: transparent !important;
+    color: var(--bs-danger) !important;
+    border: 1px solid var(--bs-danger);
+}
+
+/* 旧版/手写：仅有 badge-secondary 无 bg-* */
+:is(.admin-console, .admin-standalone) .badge.badge-secondary {
+    background: transparent !important;
+    color: var(--bs-secondary) !important;
+    border: 1px solid var(--bs-secondary);
+}
+
+/* 待处理行业等：自定义状态类 */
+:is(.admin-console, .admin-standalone) .badge.badge-pending {
+    background: transparent !important;
+    color: #b45309 !important;
+    border: 1px solid #f59e0b;
+}
+
+:is(.admin-console, .admin-standalone) .badge.badge-approved {
+    background: transparent !important;
+    color: #047857 !important;
+    border: 1px solid #10b981;
+}
+
+:is(.admin-console, .admin-standalone) .badge.badge-processing {
+    background: transparent !important;
+    color: #4338ca !important;
+    border: 1px solid #6366f1;
+}
+
+:is(.admin-console, .admin-standalone) .badge.badge-completed {
+    background: transparent !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #3b82f6;
+}
+
+:is(.admin-console, .admin-standalone) .badge.badge-rejected {
+    background: transparent !important;
+    color: #b91c1c !important;
+    border: 1px solid #ef4444;
+}
+
+/* 渠道等页：状态条去掉浅底，仅描边（与表格标签一致） */
+:is(.admin-console, .admin-standalone) .status-badge-active,
+:is(.admin-console, .admin-standalone) .status-badge-inactive,
+:is(.admin-console, .admin-standalone) .status-badge-pending,
+:is(.admin-console, .admin-standalone) .status-badge-primary,
+:is(.admin-console, .admin-standalone) .status-badge-info,
+:is(.admin-console, .admin-standalone) .status-badge-danger {
+    background: transparent !important;
+    border: 1px solid;
+}
+
+:is(.admin-console, .admin-standalone) .status-badge-active {
+    color: var(--success-color, #34c759);
+    border-color: var(--success-color, #34c759);
+}
+
+:is(.admin-console, .admin-standalone) .status-badge-inactive {
+    color: var(--text-tertiary, #6c757d);
+    border-color: var(--text-tertiary, #adb5bd);
+}
+
+:is(.admin-console, .admin-standalone) .status-badge-pending {
+    color: var(--warning-color, #ff9f0a);
+    border-color: var(--warning-color, #ff9f0a);
+}
+
+:is(.admin-console, .admin-standalone) .status-badge-primary {
+    color: var(--primary-color, #0d6efd);
+    border-color: var(--primary-color, #0d6efd);
+}
+
+:is(.admin-console, .admin-standalone) .status-badge-info {
+    color: var(--info-color, #5ac8fa);
+    border-color: var(--info-color, #5ac8fa);
+}
+
+:is(.admin-console, .admin-standalone) .status-badge-danger {
+    color: var(--danger-color, #ff3b30);
+    border-color: var(--danger-color, #ff3b30);
+}

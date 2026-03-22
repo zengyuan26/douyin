@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 棱镜 - AI时代创作者的内容生产引擎</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #6366F1;
+            --primary-dark: #4F46E5;
+            --secondary: #10B981;
+            --bg-light: #F9FAFB;
+            --text-dark: #1F2937;
+            --text-muted: #6B7280;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+        }
+
+        .navbar {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--primary) 0%, #818CF8 50%, var(--primary-dark) 100%);
+            color: white;
+            padding: 100px 0;
+        }
+
+        .hero h1 {
+            font-size: 2.75rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            opacity: 0.95;
+            line-height: 1.8;
+        }
+
+        .bg-primary {
+            background-color: var(--primary) !important;
+        }
+
+        .text-primary {
+            color: var(--primary) !important;
+        }
+
+        .border-primary {
+            border-color: var(--primary) !important;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            height: 100%;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .generator-section {
+            background: white;
+            border-radius: 16px;
+            padding: 2.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            margin-top: -40px;
+        }
+
+        .form-select, .form-control {
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+        }
+
+        .btn-generate {
+            background: var(--primary);
+            border: none;
+            padding: 0.875rem 2rem;
+            font-weight: 600;
+            border-radius: 8px;
+            font-size: 1.1rem;
+        }
+
+        .btn-generate:hover {
+            background: var(--primary-dark);
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e5e7eb;
+        }
+
+        .result-card h5 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .result-content {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .btn-copy {
+            background: var(--secondary);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.875rem;
+        }
+
+        .btn-copy:hover {
+            background: #059669;
+            color: white;
+        }
+
+        .pricing-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+            height: 100%;
+        }
+
+        .pricing-card.featured {
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        .pricing-card .price {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .pricing-card .price span {
+            font-size: 1rem;
+            color: var(--text-muted);
+        }
+
+        .pricing-card ul {
+            list-style: none;
+            padding: 0;
+            margin: 1.5rem 0;
+        }
+
+        .pricing-card li {
+            padding: 0.5rem 0;
+            color: var(--text-muted);
+        }
+
+        .pricing-card li::before {
+            content: "✓";
+            color: var(--secondary);
+            margin-right: 0.5rem;
+        }
+
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 2rem 0;
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 1.75rem;
+            }
+
+            .generator-section {
+                padding: 1.5rem;
+                margin-top: 0;
+            }
+
+            .pricing-card.featured {
+                transform: scale(1);
+            }
+        }
+
+        /* 步骤指示器样式 */
+        .step-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: #f3f4f6;
+            color: #9ca3af;
+            transition: all 0.3s;
+        }
+
+        .step-indicator.active {
+            background: linear-gradient(135deg, var(--primary) 0%, #818CF8 100%);
+            color: white;
+        }
+
+        .step-indicator .step-num {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .step-indicator.active .step-num {
+            background: white;
+            color: var(--primary);
+        }
+
+        .step-indicator .step-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .step-line {
+            width: 40px;
+            height: 2px;
+            background: #e5e7eb;
+        }
+
+        /* 折叠面板样式 */
+        #collapseDeepInfo .accordion-body {
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            background: #fafafa;
+        }
+
+        /* 单选框样式 */
+        .form-check-input:checked {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        /* 目标用户卡片 */
+        .target-customer-card:hover {
+            border-color: #bbf7d0 !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,.08);
+            transform: translateY(-1px);
+        }
+        .target-card-selected {
+            border-color: var(--primary) !important;
+            background-color: #f0f9ff !important;
+            box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+        }
+        .target-card-unselected {
+            border-color: #e9ecef;
+            background-color: #fff;
+        }
+
+        /* 身份选择卡片样式 */
+        .hover-border-primary:hover {
+            border-color: var(--primary) !important;
+            box-shadow: 0 2px 8px rgba(99,102,241,.15);
+        }
+
+        .transition-all {
+            transition: all 0.2s ease;
+        }
+        /* 气泡词云样式 */
+        .identity-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            padding: 30px 20px;
+            min-height: 180px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 16px;
+            border: 2px dashed #e2e8f0;
+        }
+
+        .identity-bubble {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid transparent;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            position: relative;
+            white-space: nowrap;
+            animation: bubbleFloat 0.5s ease-out;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .bubble-text {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .bubble-user {
+            font-size: 0.7rem;
+            opacity: 0.85;
+            font-weight: 400;
+        }
+
+        @keyframes bubbleFloat {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .identity-bubble:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .identity-bubble.selected {
+            transform: translateY(-2px) scale(1.08);
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.3);
+        }
+
+        /* ToB 气泡样式 */
+        .identity-bubble.to-b {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            color: #1e40af;
+            border-color: #93c5fd;
+        }
+        .identity-bubble.to-b:hover {
+            background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
+        }
+        .identity-bubble.to-b.selected {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border-color: #1d4ed8;
+        }
+
+        /* ToC 气泡样式 */
+        .identity-bubble.to-c {
+            background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+            color: #be185d;
+            border-color: #f9a8d4;
+        }
+        .identity-bubble.to-c:hover {
+            background: linear-gradient(135deg, #fbcfe8 0%, #f9a8d4 100%);
+        }
+        .identity-bubble.to-c.selected {
+            background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+            color: white;
+            border-color: #be185d;
+        }
+
+        /* 气泡尺寸变化 */
+        .identity-bubble.size-lg {
+            padding: 16px 32px;
+            font-size: 1.1rem;
+        }
+        .identity-bubble.size-md {
+            padding: 12px 24px;
+            font-size: 0.95rem;
+        }
+        .identity-bubble.size-sm {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+
+        /* 气泡提示框 */
+        .bubble-tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: normal;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            z-index: 100;
+        }
+        .bubble-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: rgba(0,0,0,0.85);
+        }
+        .identity-bubble:hover .bubble-tooltip {
+            display: block;
+        }
+
+        /* 折叠组样式 */
+        .identity-group {
+            transition: all 0.3s ease;
+        }
+        .identity-group.collapsed .identity-bubble {
+            opacity: 0.2;
+            transform: scale(0.8);
+            pointer-events: none;
+        }
+
+        .btn-group-toggle.active {
+            background: var(--primary) !important;
+            color: white !important;
+        }
+
+        .btn-group-toggle:not(.active) {
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/public">
+                <span style="color: var(--primary);">AI</span>棱镜
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/public/#features">功能</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/public/pricing">定价</a></li>
+                    <li class="nav-item" id="nav-login">
+                        <a class="nav-link" href="/public/login">登录</a>
+                    </li>
+                    <li class="nav-item" id="nav-register">
+                        <a class="btn btn-primary ms-2" href="/public/register">免费开始</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container text-center">
+            <div class="badge bg-light text-dark mb-3 px-3 py-2" style="font-size: 0.875rem;">
+                <i class="bi bi-gem me-1"></i> 面向企业家的 AI 内容增长系统
+            </div>
+            <h1>AI 棱镜</h1>
+            <p class="lead mb-3">AI时代创作者的内容生产引擎</p>
+            <p class="mb-4" style="opacity: 0.9; font-size: 1.1rem;">
+                打造被 AI 收录引用的内容资产，实现长期被动获客增长<br>
+                <span class="small">年营收1000万+企业的内容营销标配</span>
+            </p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap mb-4">
+                <span class="badge bg-light text-dark"><i class="bi bi-building me-1"></i>企业家首选</span>
+                <span class="badge bg-light text-dark"><i class="bi bi-graph-up-arrow me-1"></i>长期增长</span>
+                <span class="badge bg-light text-dark"><i class="bi bi-brain me-1"></i>AI 驱动</span>
+            </div>
+            <a href="#generator" class="btn btn-light btn-lg mt-2">免费开始体验</a>
+        </div>
+    </section>
+
+    <!-- 内容生成器 -->
+    <section id="generator" class="py-5">
+        <div class="container">
+            <div class="generator-section">
+                <h3 class="mb-4 text-center">快速生成内容</h3>
+
+                <!-- 登录提示 -->
+                <div id="login-prompt" class="text-center py-5">
+                    <p class="text-muted">登录后即可开始生成内容</p>
+                    <a href="/public/login" class="btn btn-primary">登录 / 注册</a>
+                </div>
+
+                <!-- 生成表单（登录后显示） -->
+                <div id="generator-form" style="display: none;">
+                    <!-- 配额提示 -->
+                    <div id="quota-info" class="alert alert-info d-flex justify-content-between align-items-center mb-4">
+                        <span>今日剩余次数：<strong id="quota-count">2</strong> 次</span>
+                        <a href="/public/pricing" class="alert-link">升级获取更多次数 →</a>
+                    </div>
+
+                    <!-- 步骤指示器 -->
+                    <div class="d-flex justify-content-center mb-4">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="step-indicator active" id="step-1">
+                                <span class="step-num">1</span>
+                                <span class="step-text">超级定位</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step-indicator" id="step-2">
+                                <span class="step-num">2</span>
+                                <span class="step-text">深度了解</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step-indicator" id="step-3">
+                                <span class="step-num">3</span>
+                                <span class="step-text">生成内容</span>
+                            </div>
+                        </div>
+                    </div>
+
+                        <!-- 第一步：描述业务并直接生成画像 -->
+                    <div id="step-1-form">
+                        <h5 class="mb-3">📝 描述您的业务</h5>
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">描述您的业务 <span class="text-danger">*</span> <span class="text-muted small">（帮助AI更准确理解您的需求）</span></label>
+                                <textarea class="form-control" id="business-desc" rows="4"
+                                          placeholder="例如：我经营一家桶装水配送服务，主要客户是写字楼和企业客户，在本地有5家分店..."></textarea>
+                            </div>
+
+                            <!-- 经营信息 + 生成按钮 -->
+                            <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">经营范围 <span class="text-danger">*</span></label>
+                                <div class="d-flex gap-3 flex-wrap">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
+                                        <label class="form-check-label" for="range-local">
+                                            🏠 本地
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region">
+                                        <label class="form-check-label" for="range-cross">
+                                            🌍 跨区域
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">经营类型 <span class="text-danger">*</span></label>
+                                <div class="d-flex gap-3 flex-wrap">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="business-type" id="type-product" value="product">
+                                        <label class="form-check-label" for="type-product">
+                                            📦 消费品
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="business-type" id="type-service" value="local_service">
+                                        <label class="form-check-label" for="type-service">
+                                            🔧 本地服务
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="business-type" id="type-personal" value="personal">
+                                        <label class="form-check-label" for="type-personal">
+                                            👤 个人品牌
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="business-type" id="type-enterprise" value="enterprise">
+                                        <label class="form-check-label" for="type-enterprise">
+                                            🏢 企业服务
+                                        </label>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                            </div>
+
+                            <!-- 第二步：深度了解（可选折叠） -->
+                        <div class="mt-4">
+                            <div class="accordion" id="accordionDeepInfo">
+                                <div class="accordion-item border-0">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button"
+                                                data-bs-toggle="collapse" data-bs-target="#collapseDeepInfo"
+                                                style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px;">
+                                            <span class="me-2">📊</span>
+                                            <strong>深度了解（可选）</strong>
+                                            <span class="badge bg-warning text-dark ms-2">AI辅助，1分钟完成</span>
+                                        </button>
+                                    </h2>
+                                    <div id="collapseDeepInfo" class="accordion-collapse collapse"
+                                         data-bs-parent="#accordionDeepInfo">
+                                        <div class="accordion-body pt-3">
+                                            <div class="alert alert-warning small mb-3">
+                                                <i class="bi bi-lightbulb me-1"></i>
+                                                描述一个典型客户案例，帮助AI更精准定位目标人群和痛点
+                                            </div>
+
+                                            <div class="row g-3">
+                                                <div class="col-12">
+                                                    <label class="form-label">1. 他们是谁？（简单说说）</label>
+                                                    <input type="text" class="form-control" id="customer-who"
+                                                           placeholder="例如：某写字楼行政负责人、某连锁餐厅老板">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">2. 当初为什么会找到您？</label>
+                                                    <input type="text" class="form-control" id="customer-why"
+                                                           placeholder="例如：原来用的水太贵了、朋友推荐的、要开发新客户">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">3. 您帮他解决了什么？</label>
+                                                    <input type="text" class="form-control" id="customer-problem"
+                                                           placeholder="例如：帮他省了30%用水成本、配送及时没投诉过">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">4. 合作体验（可多选）</label>
+                                                    <div class="d-flex gap-3 flex-wrap">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="exp-smooth" value="smooth">
+                                                            <label class="form-check-label" for="exp-smooth">付款爽快</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="exp-easy" value="easy">
+                                                            <label class="form-check-label" for="exp-easy">沟通顺畅</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="exp-refer" value="refer">
+                                                            <label class="form-check-label" for="exp-refer">会介绍朋友</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="exp-picky" value="picky">
+                                                            <label class="form-check-label" for="exp-picky">比较挑剔</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="exp-slow" value="slow">
+                                                            <label class="form-check-label" for="exp-slow">决策周期长</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">5. 有什么印象特别深的事？（选填）</label>
+                                                    <textarea class="form-control" id="customer-story" rows="2"
+                                                              placeholder="讲一个印象深刻的客户故事，比如意外的大订单、感人的感谢等..."></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 一键生成画像按钮（合并后一步到位） -->
+                        <div class="text-center mt-4">
+                            <button class="btn btn-generate btn-lg" id="btn-identify-identities" onclick="generatePersonas()">
+                                🎯 一键生成画像
+                            </button>
+                        </div>
+
+                        <!-- AI增强提示（免费用户） -->
+                        <div id="ai-upgrade-hint" class="alert alert-info mt-3" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-stars me-1"></i>
+                                    <strong>升级解锁AI精准画像</strong>
+                                    <p class="mb-0 small">免费用户使用基础画像，付费用户获得AI深度分析，精准度提升80%</p>
+                                </div>
+                                <a href="#pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
+                            </div>
+                        </div>
+
+                        <!-- 目标用户选择区域 -->
+                        <div id="target-customers-section" class="mt-4" style="display: none;">
+                            <!-- 本批 5 条画像共用的痛点状态 + 目标诉求（仅展示一次） -->
+                            <div id="batch-pain-goal-banner" class="mb-3" style="display:none;">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div style="background:#fff5f5; border-radius:12px; padding:14px 16px; border-left:4px solid #f5576c;">
+                                            <div style="font-size:12px; color:#f5576c; font-weight:600; margin-bottom:6px;">💔 本批共用 · 痛点状态</div>
+                                            <div id="batch-pain-text" style="font-size:14px; color:#333; line-height:1.5;"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div style="background:#f0fff4; border-radius:12px; padding:14px 16px; border-left:4px solid #43e97b;">
+                                            <div style="font-size:12px; color:#43e97b; font-weight:600; margin-bottom:6px;">✨ 本批共用 · 目标诉求</div>
+                                            <div id="batch-goal-text" style="font-size:14px; color:#333; line-height:1.5;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <h5 class="mb-3">👥 请选择目标用户画像</h5>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="small text-muted">已生成 <span id="target-count">0</span> 个目标用户</div>
+                                <button class="btn btn-sm btn-outline-secondary" id="btn-refresh-targets" onclick="refreshTargetCustomers()">
+                                    🔄 换一批
+                                </button>
+                            </div>
+                            <div class="row g-4" id="target-customers-list">
+                                <!-- 目标用户选项将通过JS动态生成 -->
+                            </div>
+                            <div class="text-center mt-4">
+                                <button class="btn btn-generate btn-lg" id="btn-generate-content" onclick="generateContent()" disabled>
+                                    🎨 基于选择生成内容
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 加载状态 -->
+                    <div id="loading" class="text-center py-5" style="display: none;">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-3 text-muted" id="loading-text">正在生成，请稍候...</p>
+                    </div>
+
+                    <!-- 生成结果 -->
+                    <div id="result" class="mt-4" style="display: none;">
+                        <!-- 标题 -->
+                        <div class="result-card">
+                            <h5>📌 标题</h5>
+                            <div class="result-content" id="result-titles"></div>
+                        </div>
+
+                        <!-- 标签 -->
+                        <div class="result-card">
+                            <h5>🏷️ 标签</h5>
+                            <div class="result-content" id="result-tags"></div>
+                        </div>
+
+                        <!-- 图文内容 -->
+                        <div class="result-card">
+                            <h5>📄 图文内容</h5>
+                            <div class="result-content" id="result-content"></div>
+                            <div class="mt-3 text-end">
+                                <button class="btn btn-copy" onclick="copyContent()">📋 复制全部内容</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 定价方案 -->
+    <section id="pricing" class="py-5" style="background: var(--bg-light);">
+        <div class="container py-5">
+            <div class="text-center mb-5">
+                <h2 class="mb-2">适合企业家的定价方案</h2>
+                <p class="text-muted">按需选择，让 AI 为您的企业增长赋能</p>
+            </div>
+            <div class="row g-4 justify-content-center">
+                <div class="col-md-3">
+                    <div class="pricing-card">
+                        <h5>免费体验</h5>
+                        <div class="price">¥0<span>/月</span></div>
+                        <p class="text-muted small mb-3">先体验再决定</p>
+                        <ul>
+                            <li>每日2次 AI 内容优化</li>
+                            <li>基础内容模板</li>
+                            <li>3种内容结构</li>
+                            <li>标准标题生成</li>
+                        </ul>
+                        <button class="btn btn-outline-primary w-100">免费试用</button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="pricing-card featured">
+                        <span class="badge bg-transparent border border-primary text-primary position-absolute" style="top: -12px;">企业家首选</span>
+                        <h5>商业版</h5>
+                        <div class="price">¥999<span>/月</span></div>
+                        <p class="text-muted small mb-3">年营收1000万+企业标配</p>
+                        <ul>
+                            <li>每月200次 AI 内容优化</li>
+                            <li>无限内容模板库</li>
+                            <li>10个标题方案</li>
+                            <li>AI 深度内容增强</li>
+                            <li>竞品内容分析</li>
+                            <li>专属内容策略指导</li>
+                        </ul>
+                        <button class="btn btn-primary w-100">立即开通</button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="pricing-card">
+                        <h5>企业定制</h5>
+                        <div class="price">定制<span>/月</span></div>
+                        <p class="text-muted small mb-3">大型企业专属方案</p>
+                        <ul>
+                            <li>无限 AI 内容生成</li>
+                            <li>私有知识库对接</li>
+                            <li>API 接口开放</li>
+                            <li>专属客户成功经理</li>
+                            <li>上门培训服务</li>
+                            <li>定制开发支持</li>
+                        </ul>
+                        <button class="btn btn-outline-primary w-100">咨询报价</button>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <p class="text-muted small">
+                    <i class="bi bi-shield-check me-1"></i>
+                    支持月付 / 年付（年付8折）| 7天无理由退款 | 技术支持
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="mb-3">关于 AI 棱镜</h6>
+                    <p class="small opacity-75 mb-0">
+                        AI时代创作者的内容生产引擎，基于大语言模型和爆款数据分析，
+                        帮助内容被 AI 收录引用，打造专属内容获客资产。
+                    </p>
+                </div>
+                <div class="col-md-3">
+                    <h6 class="mb-3">快速链接</h6>
+                    <ul class="list-unstyled small opacity-75">
+                        <li><a href="/public/#features" class="text-white text-decoration-none">功能介绍</a></li>
+                        <li><a href="/public/pricing" class="text-white text-decoration-none">定价方案</a></li>
+                        <li><a href="/public/register" class="text-white text-decoration-none">免费注册</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h6 class="mb-3">联系方式</h6>
+                    <p class="small opacity-75 mb-0">商务合作请联系</p>
+                </div>
+            </div>
+            <hr class="my-4 opacity-25">
+            <p class="text-center mb-0 small opacity-75">© 2024 AI 棱镜 - 让内容创作更智能</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentUser = null;
+        let generatedContent = null;
+        let currentAiEnhanced = false;
+
+        // 检查登录状态
+        async function checkAuth() {
+            console.log('[checkAuth] 开始检查登录状态');
+            try {
+                const resp = await fetch('/public/api/quota', { credentials: 'include' });
+                console.log('[checkAuth] 响应状态:', resp.status);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    console.log('[checkAuth] 响应数据:', data);
+                    if (data.success) {
+                        currentUser = data.data;
+                        console.log('[checkAuth] 登录成功，currentUser:', currentUser);
+                        showGenerator();
+                        updateQuotaInfo();
+                    } else {
+                        console.log('[checkAuth] 未登录或登录失效');
+                    }
+                }
+            } catch (e) {
+                console.log('[checkAuth] 检查登录失败:', e);
+            }
+            updateNav();
+        }
+
+        function updateNav() {
+            if (currentUser) {
+                document.getElementById('nav-login').innerHTML =
+                    '<a class="nav-link" href="#" onclick="logout()">退出</a>';
+                var welcomeText = currentUser.quota && currentUser.quota.email ? currentUser.quota.email : '用户';
+                document.getElementById('nav-register').innerHTML =
+                    '<span class="nav-link">欢迎，' + welcomeText + '</span>';
+            }
+        }
+
+        function showGenerator() {
+            document.getElementById('login-prompt').style.display = 'none';
+            document.getElementById('generator-form').style.display = 'block';
+        }
+
+        function updateQuotaInfo() {
+            if (currentUser) {
+                const remaining = currentUser.quota.quota.remaining;
+                document.getElementById('quota-count').textContent =
+                    remaining < 0 ? '∞' : remaining;
+            }
+        }
+
+        // 表单验证 - 实时更新步骤指示器
+        function updateStepIndicators() {
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            const businessRange = document.querySelector('input[name="business-range"]:checked');
+            const businessType = document.querySelector('input[name="business-type"]:checked');
+
+            const step1 = document.getElementById('step-1');
+            const step2 = document.getElementById('step-2');
+            const step3 = document.getElementById('step-3');
+
+            // 第一步完成（描述业务 + 经营范围 + 经营类型）
+            if (businessDesc && businessRange && businessType) {
+                step1.classList.add('active');
+                step2.classList.add('active');
+                step3.classList.add('active');
+            } else {
+                step1.classList.remove('active');
+                step2.classList.remove('active');
+                step3.classList.remove('active');
+            }
+        }
+
+        // 监听表单输入变化
+        document.getElementById('business-desc').addEventListener('input', updateStepIndicators);
+        document.querySelectorAll('input[name="business-range"]').forEach(radio => {
+            radio.addEventListener('change', updateStepIndicators);
+        });
+        document.querySelectorAll('input[name="business-type"]').forEach(radio => {
+            radio.addEventListener('change', updateStepIndicators);
+        });
+
+        // 折叠面板展开/收起时更新步骤指示器
+        document.getElementById('collapseDeepInfo')?.addEventListener('shown.bs.collapse', function() {
+            const step2 = document.getElementById('step-2');
+            if (step2) step2.classList.add('active');
+        });
+
+        // 收集可选字段 - 深度了解信息
+        function collectDeepInfo() {
+            const extraData = {
+                customer_who: document.getElementById('customer-who')?.value?.trim() || '',
+                customer_why: document.getElementById('customer-why')?.value?.trim() || '',
+                customer_problem: document.getElementById('customer-problem')?.value?.trim() || '',
+                customer_experiences: [],
+                customer_story: document.getElementById('customer-story')?.value?.trim() || '',
+            };
+
+            // 获取选中的合作体验
+            document.querySelectorAll('input[id^="exp-"]:checked').forEach(cb => {
+                extraData.customer_experiences.push(cb.value);
+            });
+
+            return extraData;
+        }
+
+        // ================================================================
+        // 生成目标用户画像（直接一步到位）
+        // ================================================================
+
+        let _refreshSeq = 0;  // 防竞态：递增序号，只处理最新一次响应
+
+        // 生成画像（身份 + 痛点 + 目标，全部由 LLM 结合业务场景自由推导）
+        async function generatePersonas() {
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
+            const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
+
+            // 表单验证
+            if (!businessDesc) {
+                alert('请描述您的业务');
+                document.getElementById('business-desc').focus();
+                return;
+            }
+            if (!businessRange) {
+                alert('请选择经营范围');
+                return;
+            }
+            if (!businessType) {
+                alert('请选择经营类型');
+                return;
+            }
+
+            const extraData = collectDeepInfo();
+
+            document.getElementById('btn-identify-identities').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = '正在结合业务场景推导目标用户画像...';
+
+            try {
+                const resp = await fetch('/public/api/targets/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        business_description: businessDesc,
+                        business_range: businessRange,
+                        business_type: businessType,
+                        customer_who: extraData.customer_who,
+                        customer_why: extraData.customer_why,
+                        customer_problem: extraData.customer_problem,
+                        customer_experiences: extraData.customer_experiences,
+                        customer_story: extraData.customer_story,
+                        refresh_nonce: Date.now(),
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (data.success && data.data) {
+                    displayTargetCustomers(
+                        data.data.targets,
+                        data.data.ai_enhanced,
+                        null,  // 不再锁定单一身份，LLM 自由推导
+                        data.data.batch_pain_point_commonality,
+                        data.data.batch_goal
+                    );
+                } else {
+                    alert(data.message || '生成画像失败');
+                }
+            } catch (e) {
+                alert('生成失败，请稍后重试');
+                console.error(e);
+            } finally {
+                document.getElementById('btn-identify-identities').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // 换一批目标用户（每次从表单取最新参数）
+        function refreshTargetCustomers() {
+            const mySeq = ++_refreshSeq;
+            console.log('[换一批] 点击了, seq=' + mySeq);
+            const btn = document.getElementById('btn-refresh-targets');
+            if (!btn) { console.error('[换一批] 按钮不存在'); return; }
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>换一批...';
+
+            const extra = collectDeepInfo();
+            const payload = {
+                business_description: document.getElementById('business-desc').value.trim(),
+                business_range: document.querySelector('input[name="business-range"]:checked')?.value,
+                business_type: document.querySelector('input[name="business-type"]:checked')?.value,
+                customer_who: extra.customer_who,
+                customer_why: extra.customer_why,
+                customer_problem: extra.customer_problem,
+                customer_story: extra.customer_story,
+                customer_experiences: extra.customer_experiences,
+                refresh_nonce: Date.now(),
+            };
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = '正在换一批目标用户画像...';
+
+            fetch('/public/api/targets/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                },
+                credentials: 'include',
+                body: JSON.stringify(payload)
+            })
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                // 只处理最新一次响应的结果，防止旧请求覆盖新结果
+                if (mySeq !== _refreshSeq) {
+                    console.log('[换一批] 跳过过期响应 seq=' + mySeq + '（已有更新请求 seq=' + _refreshSeq + '）');
+                    return;
+                }
+                if (data.success && data.data) {
+                    console.log('[换一批] 显示结果 seq=' + mySeq, data.data.targets.map(function(t){ return targetPersonaTitle(t); }));
+                    displayTargetCustomers(
+                        data.data.targets,
+                        data.data.ai_enhanced,
+                        null,  // 不锁定身份，LLM 每次自由推导
+                        data.data.batch_pain_point_commonality,
+                        data.data.batch_goal
+                    );
+                } else {
+                    console.error('[换一批] 失败 seq=' + mySeq, data.message);
+                    alert(data.message || '重新生成失败');
+                }
+            })
+            .catch(function(e) {
+                if (mySeq !== _refreshSeq) return;
+                console.error('[换一批] 异常 seq=' + mySeq, e);
+                alert('重新生成失败，请稍后重试');
+            })
+            .finally(function() {
+                if (mySeq !== _refreshSeq) return;
+                document.getElementById('loading').style.display = 'none';
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            });
+        }
+
+        /** 卡片标题：优先 name，否则从 description 截取首句 */
+        function targetPersonaTitle(t) {
+            var n = (t && t.name) ? String(t.name).trim() : '';
+            if (n && n !== '未知' && n !== '未知类型') return n;
+            var d = (t && t.description) ? String(t.description).trim() : '';
+            if (!d) return '客户画像';
+            var seps = ['，', ',', '、'];
+            for (var si = 0; si < seps.length; si++) {
+                var ix = d.indexOf(seps[si]);
+                if (ix >= 2 && ix <= 14) return d.slice(0, ix);
+            }
+            return d.length <= 12 ? d : (d.slice(0, 8) + '…');
+        }
+
+        // 显示目标用户选项（C 端：痛点状态+目标诉求整批共用，顶部只展示一次）
+        function displayTargetCustomers(targets, aiEnhanced, lockedIdentity, batchPainPointCommonality, batchGoal) {
+            console.log('[displayTargetCustomers] called, targets count=' + (targets ? targets.length : 0), targets ? targets.map(function(t){return targetPersonaTitle(t);}) : []);
+            const container = document.getElementById('target-customers-list');
+            container.innerHTML = '';
+
+            // 保存状态
+            window.generatedTargets = targets;
+            currentAiEnhanced = aiEnhanced;
+
+            // 本批共用痛点 + 目标（后端 C 端会返回；无则退回每张卡片展示）
+            var bp = (batchPainPointCommonality != null && batchPainPointCommonality !== undefined) ? String(batchPainPointCommonality).trim() : '';
+            var bg = (batchGoal != null && batchGoal !== undefined) ? String(batchGoal).trim() : '';
+            var painGoalBanner = document.getElementById('batch-pain-goal-banner');
+            var batchPainEl = document.getElementById('batch-pain-text');
+            var batchGoalEl = document.getElementById('batch-goal-text');
+            if (painGoalBanner && batchPainEl && batchGoalEl) {
+                if (bp || bg) {
+                    painGoalBanner.style.display = 'block';
+                    batchPainEl.textContent = bp || '—';
+                    batchGoalEl.textContent = bg || '—';
+                } else {
+                    painGoalBanner.style.display = 'none';
+                    batchPainEl.textContent = '';
+                    batchGoalEl.textContent = '';
+                }
+            }
+            var useBatchPainGoal = !!(bp || bg);
+
+            // 更新数量
+            document.getElementById('target-count').textContent = targets.length;
+
+            targets.forEach(function(target, index) {
+                const card = document.createElement('div');
+                card.className = 'col-md-6 col-12 mb-3';
+
+                const idPrefix = 'target-' + index;
+                var displayTitle = targetPersonaTitle(target);
+
+                // 维度标签（年龄/地域/消费阶段/买用关系）
+                var ar = (target.age_range || '').trim();
+                var oc = (target.occupation || '').trim();
+                var buyerRel = (target.buyer_user_relation || '').trim();
+                // 新增维度字段
+                var geoTag = (target.geo_tag || target.region || '').trim();
+                var stageTag = (target.consumption_stage || target.stage || '').trim();
+
+                var dimTags = '';
+                var dimList = [];
+                if (ar && ar !== '不限' && ar !== '不限年龄') dimList.push({label: ar, color: '#e3f2fd', textColor: '#1565c0'});
+                if (geoTag && geoTag !== '不限' && geoTag !== '全国') dimList.push({label: geoTag, color: '#e8f5e9', textColor: '#2e7d32'});
+                if (stageTag && stageTag !== '不限') dimList.push({label: stageTag, color: '#fff3e0', textColor: '#ef6c00'});
+                if (buyerRel && buyerRel !== '不限') dimList.push({label: buyerRel, color: '#fce4ec', textColor: '#c2185b'});
+
+                dimList.forEach(function(tag) {
+                    dimTags += '<span style="font-size:11px; padding:2px 10px; border-radius:99px; background:' + tag.color + '; color:' + tag.textColor + '; font-weight:500; white-space:nowrap;">' + tag.label + '</span>';
+                });
+
+                // 痛点共性 + 目标（整批共用时只在顶部展示，卡片内不再重复）
+                var painCommon = (target.pain_point_commonality || '').trim();
+                var goal = (target.goal || '').trim();
+                var painPoint = (target.pain_point || '').trim();
+
+                // 卡片标题：直接用 LLM 推导的 name
+                var cardHeaderTitle = displayTitle;
+
+                // 颜色方案（5种）
+                var cardColors = [
+                    {border: '#667eea', bg: '#f8f7ff', accent: '#667eea'},
+                    {border: '#f5576c', bg: '#fff5f7', accent: '#f5576c'},
+                    {border: '#4facfe', bg: '#f0fbff', accent: '#4facfe'},
+                    {border: '#43e97b', bg: '#f0fff4', accent: '#43e97b'},
+                    {border: '#fa709a', bg: '#fff0f5', accent: '#fa709a'},
+                ];
+                var color = cardColors[index % 5];
+
+                var painGoalFooter = '';
+                if (!useBatchPainGoal) {
+                    painGoalFooter = '\
+  <div style="padding:12px 20px 18px; display:flex; gap:10px;">\
+    ' + (painCommon ? '<div style="flex:1; background:#fff5f5; border-radius:10px; padding:10px 12px; border-left:3px solid #f5576c; min-width:0;">\
+        <div style="font-size:11px; color:#f5576c; font-weight:600; margin-bottom:4px;">💔 痛点状态</div>\
+        <div style="font-size:12px; color:#333; line-height:1.4;">' + painCommon + '</div>\
+        ' + (painPoint ? '<div style="font-size:11px; color:#888; margin-top:4px;">' + painPoint + '</div>' : '') + '\
+    </div>' : '') + '\
+    ' + (goal ? '<div style="flex:1; background:#f0fff4; border-radius:10px; padding:10px 12px; border-left:3px solid #43e97b; min-width:0;">\
+        <div style="font-size:11px; color:#43e97b; font-weight:600; margin-bottom:4px;">✨ 目标</div>\
+        <div style="font-size:12px; color:#333; line-height:1.4;">' + goal + '</div>\
+    </div>' : '') + '\
+  </div>';
+                }
+
+                var cardHtml = '\
+<div class="target-customer-card" style="cursor:pointer; border-radius:16px; border:2px solid ' + color.border + '; padding:0; background:#fff; transition:all .2s; position:relative; overflow:hidden;" data-index="' + index + '" data-selected="false">\
+  <input type="radio" name="target-customer" id="' + idPrefix + '" value="' + index + '" style="position:absolute; opacity:0; width:0; height:0;">\
+  ' + (aiEnhanced ? '<div style="position:absolute; top:8px; right:8px; font-size:10px; padding:2px 8px; border-radius:99px; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; font-weight:600; z-index:10;">AI增强</div>' : '') + '\
+  \
+  <div style="padding:18px 20px 16px; background:' + color.bg + ';">\
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">\
+      <div style="width:36px; height:36px; border-radius:50%; background:' + color.border + '; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#fff; flex-shrink:0;">' + (index + 1) + '</div>\
+      <div style="font-weight:700; font-size:15px; color:#212529;">' + cardHeaderTitle + '</div>\
+    </div>\
+    ' + (dimTags ? '<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">' + dimTags + '</div>' : '') + '\
+    <p style="font-size:13px; color:#495057; margin:0; line-height:1.6;">' + (target.description || '') + '</p>\
+  </div>\
+  ' + painGoalFooter + '\
+</div>';
+                card.innerHTML = cardHtml;
+
+                const cardDiv = card.querySelector('.target-customer-card');
+                const radioInput = card.querySelector('input[type="radio"]');
+
+                cardDiv.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'INPUT') return;
+                    radioInput.checked = true;
+                    updateTargetSelection();
+                });
+
+                container.appendChild(card);
+            });
+
+            // 监听单选按钮变化
+            document.querySelectorAll('input[name="target-customer"]').forEach(function(radio) {
+                radio.addEventListener('change', updateTargetSelection);
+            });
+
+            // 显示/隐藏升级提示
+            if (!aiEnhanced) {
+                document.getElementById('ai-upgrade-hint').style.display = 'block';
+            } else {
+                document.getElementById('ai-upgrade-hint').style.display = 'none';
+            }
+
+            document.getElementById('target-customers-section').style.display = 'block';
+            document.getElementById('target-customers-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 更新目标用户选中状态（卡片样式）
+        function updateTargetSelection() {
+            const cards = document.querySelectorAll('.target-customer-card');
+            const checkedRadio = document.querySelector('input[name="target-customer"]:checked');
+
+            cards.forEach(function(card) {
+                const radio = card.querySelector('input[type="radio"]');
+                if (radio.checked) {
+                    card.classList.add('target-card-selected');
+                    card.classList.remove('target-card-unselected');
+                } else {
+                    card.classList.remove('target-card-selected');
+                    card.classList.add('target-card-unselected');
+                }
+            });
+
+            // 启用/禁用生成按钮
+            document.getElementById('btn-generate-content').disabled = !checkedRadio;
+        }
+
+        // 切换目标用户选中状态（兼容方法）
+        function toggleTargetSelection(card, index) {
+            const radio = document.getElementById('target-' + index);
+            radio.checked = true;
+            updateTargetSelection();
+        }
+
+        // 生成内容（基于选中的目标用户）
+        async function generateContent() {
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
+            const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
+
+            // 获取选中的目标用户索引（单选）
+            const checkedRadio = document.querySelector('input[name="target-customer"]:checked');
+            if (!checkedRadio) {
+                alert('请选择一个目标用户画像');
+                return;
+            }
+
+            const selectedTargetIndex = parseInt(checkedRadio.value);
+
+            const extraData = collectDeepInfo();
+
+            document.getElementById('btn-generate-content').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = '正在基于您的选择生成内容...';
+            document.getElementById('result').style.display = 'none';
+
+            // 获取选中的目标用户画像信息并发送给后端
+            const selectedTarget = window.generatedTargets ? window.generatedTargets[selectedTargetIndex] : null;
+            const targetCustomer = selectedTarget ? (selectedTarget.name || targetPersonaTitle(selectedTarget)) : '';
+
+            try {
+                const resp = await fetch('/public/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        business_description: businessDesc,
+                        business_range: businessRange,
+                        business_type: businessType,
+                        target_customer: targetCustomer,  // 传递选中的目标客户名称
+                        selected_target_index: selectedTargetIndex,
+                        selected_target_info: selectedTarget,  // 传递完整的目标用户画像信息
+                        customer_who: extraData.customer_who,
+                        customer_why: extraData.customer_why,
+                        customer_problem: extraData.customer_problem,
+                        customer_experiences: extraData.customer_experiences,
+                        customer_story: extraData.customer_story
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (data.success) {
+                    generatedContent = data.data;
+                    displayResult(generatedContent);
+
+                    // 更新配额
+                    if (data.meta) {
+                        checkAuth();
+                    }
+
+                    // 滚动到结果
+                    document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert(data.message || '生成失败');
+                }
+            } catch (e) {
+                alert('生成失败，请稍后重试');
+                console.error(e);
+            } finally {
+                document.getElementById('btn-generate-content').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('loading-text').textContent = '正在生成内容，请稍候...';
+            }
+        }
+
+        function displayResult(data) {
+            document.getElementById('result').style.display = 'block';
+
+            // 显示标题
+            var titlesHtml = '';
+            data.titles.forEach(function(t, i) {
+                var escapedT = t.replace(/'/g, "\\'");
+                titlesHtml += '<div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded">' +
+                    '<span>' + t + '</span>' +
+                    '<button class="btn btn-sm btn-copy" onclick="copyText(\'' + escapedT + '\')">复制</button>' +
+                    '</div>';
+            });
+            document.getElementById('result-titles').innerHTML = titlesHtml;
+
+            // 显示标签
+            var tagsHtml = '<div class="d-flex flex-wrap gap-2">';
+            data.tags.forEach(function(tag) {
+                var escapedTag = tag.replace(/'/g, "\\'");
+                tagsHtml += '<span class="badge bg-transparent border border-secondary text-secondary me-2 mb-2" style="cursor:pointer" onclick="copyText(\'' + escapedTag + '\')">' + tag + '</span>';
+            });
+            tagsHtml += '</div>';
+            document.getElementById('result-tags').innerHTML = tagsHtml;
+
+            // 显示内容
+            document.getElementById('result-content').innerHTML = '<pre style="white-space: pre-wrap; margin: 0;">' + data.content + '</pre>';
+        }
+
+        function copyText(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('已复制到剪贴板');
+            });
+        }
+
+        function copyContent() {
+            if (!generatedContent) return;
+
+            var content = '# ' + (generatedContent.titles[0] || '标题') + '\n\n' +
+                '## 标签\n' +
+                generatedContent.tags.join(' ') + '\n\n' +
+                '## 内容\n' +
+                generatedContent.content;
+
+            navigator.clipboard.writeText(content).then(function() {
+                alert('已复制全部内容到剪贴板');
+            });
+        }
+
+        async function logout() {
+            await fetch('/public/api/logout', {
+                method: 'POST',
+                credentials: 'include'
+            });
+            location.reload();
+        }
+
+        // 页面加载时检查登录
+        checkAuth();
+    </script>
+</body>
+</html>

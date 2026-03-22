@@ -78,17 +78,17 @@
                                 <tr>
                                     <td>
                                         {% if dep.source_template_type == 'market_analysis' %}
-                                            <span class="badge bg-info">市场分析</span>
+                                            <span class="badge bg-transparent border border-info text-info">市场分析</span>
                                         {% elif dep.source_template_type == 'keyword' %}
-                                            <span class="badge bg-success">关键词库</span>
+                                            <span class="badge bg-transparent border border-success text-success">关键词库</span>
                                         {% elif dep.source_template_type == 'topic' %}
-                                            <span class="badge bg-warning">选题库</span>
+                                            <span class="badge bg-transparent border border-warning text-dark">选题库</span>
                                         {% elif dep.source_template_type == 'operation' %}
-                                            <span class="badge bg-primary">运营规划</span>
+                                            <span class="badge bg-transparent border border-primary text-primary">运营规划</span>
                                         {% elif dep.source_template_type == 'knowledge' %}
-                                            <span class="badge bg-secondary">知识库</span>
+                                            <span class="badge bg-transparent border border-secondary text-secondary">知识库</span>
                                         {% else %}
-                                            <span class="badge bg-secondary">{{ dep.source_template_type }}</span>
+                                            <span class="badge bg-transparent border border-secondary text-secondary">{{ dep.source_template_type }}</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -96,29 +96,29 @@
                                     </td>
                                     <td>
                                         {% if dep.target_template_type == 'market_analysis' %}
-                                            <span class="badge bg-info">市场分析</span>
+                                            <span class="badge bg-transparent border border-info text-info">市场分析</span>
                                         {% elif dep.target_template_type == 'keyword' %}
-                                            <span class="badge bg-success">关键词库</span>
+                                            <span class="badge bg-transparent border border-success text-success">关键词库</span>
                                         {% elif dep.target_template_type == 'topic' %}
-                                            <span class="badge bg-warning">选题库</span>
+                                            <span class="badge bg-transparent border border-warning text-dark">选题库</span>
                                         {% elif dep.target_template_type == 'operation' %}
-                                            <span class="badge bg-primary">运营规划</span>
+                                            <span class="badge bg-transparent border border-primary text-primary">运营规划</span>
                                         {% else %}
                                             <span class="badge bg-secondary">{{ dep.target_template_type }}</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if dep.dependency_type == 'full_refresh' %}
-                                            <span class="badge bg-danger">完全刷新</span>
+                                            <span class="badge bg-transparent border border-danger text-danger">完全刷新</span>
                                         {% else %}
-                                            <span class="badge bg-info">部分更新</span>
+                                            <span class="badge bg-transparent border border-info text-info">部分更新</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if dep.is_active %}
-                                            <span class="badge bg-success">启用</span>
+                                            <span class="badge bg-transparent border border-success text-success">启用</span>
                                         {% else %}
-                                            <span class="badge bg-secondary">禁用</span>
+                                            <span class="badge bg-transparent border border-secondary text-secondary">禁用</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -162,27 +162,27 @@
                 </div>
                 <div class="section-body">
                     <div class="d-flex justify-content-center align-items-center flex-wrap" style="gap: 20px;">
-                        <div class="p-3 bg-light rounded text-center" style="min-width: 120px;">
+                        <div class="p-3 rounded text-center" style="min-width: 120px; background: #f9fafb;">
                             <i class="bi bi-book fs-4 text-secondary"></i>
                             <div class="mt-2 small fw-bold">知识库</div>
                         </div>
                         <i class="bi bi-arrow-right fs-4 text-muted"></i>
-                        <div class="p-3 bg-light rounded text-center" style="min-width: 120px;">
+                        <div class="p-3 rounded text-center" style="min-width: 120px; background: #f9fafb;">
                             <i class="bi bi-file-earmark-bar-graph fs-4 text-info"></i>
                             <div class="mt-2 small fw-bold">市场分析</div>
                         </div>
                         <i class="bi bi-arrow-right fs-4 text-muted"></i>
-                        <div class="p-3 bg-light rounded text-center" style="min-width: 120px;">
+                        <div class="p-3 rounded text-center" style="min-width: 120px; background: #f9fafb;">
                             <i class="bi bi-tags fs-4 text-success"></i>
                             <div class="mt-2 small fw-bold">关键词库</div>
                         </div>
                         <i class="bi bi-arrow-right fs-4 text-muted"></i>
-                        <div class="p-3 bg-light rounded text-center" style="min-width: 120px;">
+                        <div class="p-3 rounded text-center" style="min-width: 120px; background: #f9fafb;">
                             <i class="bi bi-lightbulb fs-4 text-warning"></i>
                             <div class="mt-2 small fw-bold">选题库</div>
                         </div>
                         <i class="bi bi-arrow-right fs-4 text-muted"></i>
-                        <div class="p-3 bg-light rounded text-center" style="min-width: 120px;">
+                        <div class="p-3 rounded text-center" style="min-width: 120px; background: #f9fafb;">
                             <i class="bi bi-kanban fs-4 text-primary"></i>
                             <div class="mt-2 small fw-bold">运营规划</div>
                         </div>

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>验证邮箱 - 内容生成平台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-dark: #4338CA;
+            --secondary: #10B981;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .verify-card {
+            background: white;
+            border-radius: 20px;
+            padding: 3rem;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .verify-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem;
+        }
+
+        .verify-icon svg {
+            width: 40px;
+            height: 40px;
+            color: white;
+        }
+
+        .verify-card h2 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .verify-card p {
+            color: #6B7280;
+            margin-bottom: 2rem;
+        }
+
+        .code-inputs {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .code-inputs input {
+            width: 50px;
+            height: 60px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            transition: all 0.2s;
+        }
+
+        .code-inputs input:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+
+        .btn-verify {
+            background: var(--primary);
+            border: none;
+            padding: 1rem 3rem;
+            font-weight: 600;
+            border-radius: 12px;
+            font-size: 1.1rem;
+        }
+
+        .btn-verify:hover {
+            background: var(--primary-dark);
+        }
+
+        .resend-link {
+            margin-top: 1.5rem;
+            color: #6B7280;
+        }
+
+        .resend-link a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .resend-link a:hover {
+            text-decoration: underline;
+        }
+
+        .alert {
+            border-radius: 12px;
+        }
+
+        .success-section {
+            display: none;
+        }
+
+        .error-section {
+            display: none;
+        }
+
+        @media (max-width: 480px) {
+            .verify-card {
+                padding: 2rem;
+                margin: 1rem;
+            }
+
+            .code-inputs input {
+                width: 45px;
+                height: 55px;
+                font-size: 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="verify-card" id="verify-form">
+        <div class="verify-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+        </div>
+
+        <h2>验证您的邮箱</h2>
+        <p>我们已向您的邮箱发送了一封验证码邮件<br>请输入验证码完成验证</p>
+
+        <div id="alert-box" class="alert alert-danger" style="display: none;"></div>
+
+        <form id="code-form">
+            <div class="code-inputs">
+                <input type="text" maxlength="1" class="code-digit" data-index="0" autofocus>
+                <input type="text" maxlength="1" class="code-digit" data-index="1">
+                <input type="text" maxlength="1" class="code-digit" data-index="2">
+                <input type="text" maxlength="1" class="code-digit" data-index="3">
+                <input type="text" maxlength="1" class="code-digit" data-index="4">
+                <input type="text" maxlength="1" class="code-digit" data-index="5">
+            </div>
+
+            <button type="submit" class="btn btn-verify text-white" id="btn-verify" disabled>
+                验证邮箱
+            </button>
+        </form>
+
+        <div class="resend-link">
+            没收到邮件？<a href="#" id="resend-btn">重新发送</a>
+        </div>
+    </div>
+
+    <!-- 验证成功 -->
+    <div class="verify-card success-section text-center" id="success-section">
+        <div class="verify-icon" style="background: var(--secondary);">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+        </div>
+        <h2>验证成功！</h2>
+        <p>您的邮箱已验证成功，现在可以开始使用平台的所有功能了。</p>
+        <a href="/public" class="btn btn-verify text-white mt-3">开始创作</a>
+    </div>
+
+    <!-- 验证失败 -->
+    <div class="verify-card error-section text-center" id="error-section">
+        <div class="verify-icon" style="background: #EF4444;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </div>
+        <h2>验证失败</h2>
+        <p id="error-message">验证码已过期，请重新获取。</p>
+        <a href="/public/login" class="btn btn-verify text-white mt-3">返回登录</a>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const email = urlParams.get('email') || '';
+        let isVerifying = false;
+
+        // 验证码输入处理
+        const codeInputs = document.querySelectorAll('.code-digit');
+        codeInputs.forEach((input, index) => {
+            input.addEventListener('input', function() {
+                if (this.value.length === 1 && index < codeInputs.length - 1) {
+                    codeInputs[index + 1].focus();
+                }
+                checkCodeComplete();
+            });
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Backspace' && this.value === '' && index > 0) {
+                    codeInputs[index - 1].focus();
+                }
+            });
+
+            input.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const paste = (e.clipboardData || window.clipboardData).getData('text');
+                if (paste.length === 6 && /^\d+$/.test(paste)) {
+                    for (let i = 0; i < 6; i++) {
+                        codeInputs[i].value = paste[i];
+                    }
+                    checkCodeComplete();
+                }
+            });
+        });
+
+        function checkCodeComplete() {
+            const code = Array.from(codeInputs).map(i => i.value).join('');
+            document.getElementById('btn-verify').disabled = code.length !== 6;
+        }
+
+        // 表单提交
+        document.getElementById('code-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (isVerifying) return;
+            isVerifying = true;
+
+            const code = Array.from(codeInputs).map(i => i.value).join('');
+            const btn = document.getElementById('btn-verify');
+
+            btn.disabled = true;
+            btn.textContent = '验证中...';
+
+            try {
+                const resp = await fetch('/public/api/verify-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, code })
+                });
+
+                const data = await resp.json();
+
+                if (data.success) {
+                    document.getElementById('verify-form').style.display = 'none';
+                    document.getElementById('success-section').style.display = 'block';
+                } else {
+                    showAlert(data.message || '验证码错误');
+                    btn.disabled = false;
+                    btn.textContent = '验证邮箱';
+                }
+            } catch (e) {
+                showAlert('验证失败，请稍后重试');
+                btn.disabled = false;
+                btn.textContent = '验证邮箱';
+            } finally {
+                isVerifying = false;
+            }
+        });
+
+        // 重新发送
+        document.getElementById('resend-btn').addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            if (!email) {
+                showAlert('邮箱地址无效');
+                return;
+            }
+
+            this.textContent = '发送中...';
+            this.style.pointerEvents = 'none';
+
+            try {
+                const resp = await fetch('/public/api/resend-verification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await resp.json();
+                alert(data.message || (data.success ? '验证邮件已重新发送' : '发送失败'));
+            } catch (e) {
+                alert('发送失败，请稍后重试');
+            }
+
+            this.textContent = '重新发送';
+            this.style.pointerEvents = 'auto';
+        });
+
+        function showAlert(message) {
+            const alertBox = document.getElementById('alert-box');
+            alertBox.textContent = message;
+            alertBox.style.display = 'block';
+            setTimeout(() => {
+                alertBox.style.display = 'none';
+            }, 5000);
+        }
+
+        // 如果 URL 中有 error 参数，直接显示错误
+        if (urlParams.get('error')) {
+            document.getElementById('verify-form').style.display = 'none';
+            document.getElementById('error-section').style.display = 'block';
+            document.getElementById('error-message').textContent = urlParams.get('error');
+        }
+    </script>
+</body>
+</html>

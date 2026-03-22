@@ -4167,10 +4167,91 @@ def get_content_basic_info():
             'code': 500,
             'message': f'获取失败: {str(e)}'
         })
+
+
+
+def analyze_content_with_account_internal(url, content_type, note, account_info, content_info=None):
+    """内部使用：带账号上下文的内容分析（不处理 content_id）"""
+    try:
+        # 获取 LLM 服务
+        llm_service = get_llm_service()
+        if not llm_service:
+            return jsonify({'code': 500, 'message': 'LLM 服务未配置'})
+
+        # 完整分析
+        prompt = build_analysis_prompt_with_account(url, content_type, note, account_info)
+
+        messages = [
+            {"role": "system", "content": "你是一个专业的内容分析专家，擅长分析抖音等短视频平台的爆款内容。请严格按照JSON格式输出分析结果。"},
+            {"role": "user", "content": prompt}
+        ]
+
+        result_text = llm_service.chat(messages, temperature=0.7, max_tokens=4000)
+
+        if not result_text:
+            return jsonify({'code': 500, 'message': 'LLM 调用失败，请检查模型是否正常运行'})
+
+        # 提取 JSON
+        try:
+            result_json = parse_llm_json(result_text)
+
+            # 清理标题中的抖音元数据
+            cleaned_title = ''
+            if 'title' in result_json and result_json['title']:
+                title = result_json['title']
+                cleaned_title = re.sub(r'^[\d.]+\s*BTL:?\s*[\w@.\/]+\s*\d{2}\/\d{2}\s*', '', title)
+                cleaned_title = re.sub(r'^[\d.]+\s*复制打开抖音，看看【[^】]+】', '', cleaned_title)
+                cleaned_title = re.sub(r'\s*https?:\/\/v\.douyin\.com\/[^\s]+.*$', '', cleaned_title)
+                result_json['title'] = cleaned_title
+
+            # 对标题进行关键词分类和评分
+            if cleaned_title:
+                try:
+                    from utils.title_classifier import TitleKeywordClassifier
+                    title_classification = TitleKeywordClassifier.get_keywords_summary(cleaned_title)
+                    title_structure_display = TitleKeywordClassifier.get_title_structure_display(cleaned_title)
+                    title_scores = TitleKeywordClassifier.calculate_scores(cleaned_title)
+
+                    if 'analysis_process' not in result_json:
+                        result_json['analysis_process'] = {}
+                    if 'title' not in result_json['analysis_process']:
+                        result_json['analysis_process']['title'] = {}
+                    result_json['analysis_process']['title']['keyword_classification'] = title_classification
+                    result_json['analysis_process']['title']['title_structure_display'] = title_structure_display
+                    result_json['analysis_process']['title']['title_scores'] = title_scores
+                except Exception as e:
+                    logger.warning(f"标题关键词分类或评分失败: {e}")
+
+            logger.info(f"[analyze_with_account_internal] 分析完成，找到 {len(result_json.get('rules', []))} 条规则")
+
+            return jsonify({
+                'code': 200,
+                'message': '分析成功',
+                'data': result_json
+            })
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON解析失败: {e}, 内容: {result_text[:500]}")
+            return jsonify({
+                'code': 500,
+                'message': '分析结果解析失败，请重试'
+            })
+
+    except Exception as e:
+        logger.error(f"分析失败: {e}", exc_info=True)
+        return jsonify({
+            'code': 500,
+            'message': f'分析失败: {str(e)}'
+        })
+
+
 @login_required
 @knowledge_api.route('/analyze-with-account', methods=['POST'])
 def analyze_content_with_account():
-    """带账号上下文的内容分析接口"""
+    """带账号上下文的内容分析接口（纯 URL 模式，不写库）
+
+    注意：带 content_id 的分析请使用 /api/knowledge/contents/<id>/analyze
+    """
     try:
         data = request.get_json()
         url = data.get('url', '').strip()
@@ -4178,7 +4259,7 @@ def analyze_content_with_account():
         note = data.get('note', '').strip()
         modules = data.get('modules', [])
         account_info = data.get('account_info')
-        content_info = data.get('content_info')  # 爬虫获取的内容信息
+        content_info = data.get('content_info')
 
         if not url:
             return jsonify({'code': 400, 'message': '请输入内容链接'})
@@ -9069,26 +9150,39 @@ def get_analysis_queue_status():
         task_queue = get_task_queue()
         status = task_queue.get_queue_status()
 
-        # 获取账号名称
+        # 获取账号名称和内容标题
         if db is not None:
             try:
                 account_ids = []
+                content_ids = []
                 for task in status.get('queue_preview', []):
-                    account_ids.append(task['account_id'])
+                    if task.get('account_id'):
+                        account_ids.append(task['account_id'])
+                    if task.get('content_id'):
+                        content_ids.append(task['content_id'])
                 for task in status.get('running_preview', []):
-                    account_ids.append(task['account_id'])
+                    if task.get('account_id'):
+                        account_ids.append(task['account_id'])
+                    if task.get('content_id'):
+                        content_ids.append(task['content_id'])
 
                 if account_ids:
                     accounts = KnowledgeAccount.query.filter(KnowledgeAccount.id.in_(account_ids)).all()
                     account_names = {acc.id: acc.name for acc in accounts}
 
                     # 更新任务预览中的账号名称
-                    for task in status.get('queue_preview', []):
-                        task['account_name'] = account_names.get(task['account_id'], f'账号{task["account_id"]}')
-                    for task in status.get('running_preview', []):
-                        task['account_name'] = account_names.get(task['account_id'], f'账号{task["account_id"]}')
+                    for task in status.get('queue_preview', []) + status.get('running_preview', []):
+                        task['account_name'] = account_names.get(task.get('account_id'), f'账号{task.get("account_id", "")}')
+
+                if content_ids:
+                    from models.models import KnowledgeContent
+                    contents = KnowledgeContent.query.filter(KnowledgeContent.id.in_(content_ids)).all()
+                    content_titles = {c.id: c.title for c in contents}
+
+                    for task in status.get('queue_preview', []) + status.get('running_preview', []):
+                        task['content_title'] = content_titles.get(task.get('content_id'), f'内容{task.get("content_id", "")}')
             except Exception as e:
-                logger.warning(f"获取账号名称失败: {e}")
+                logger.warning(f"获取队列任务名称失败: {e}")
 
         return jsonify({
             'code': 200,
@@ -9117,224 +9211,11 @@ def get_account_analysis_status(account_id):
         return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
 
 
-# ========== 内容相关接口 ==========
+# ========== 内容相关接口已迁移到 content_analysis_api.py ==========
+# - GET/POST/PUT/DELETE /contents    -> routes/content_analysis_api.py
+# - POST /contents/<id>/analyze       -> routes/content_analysis_api.py
+# - GET  /contents/<id>/analyze-status -> routes/content_analysis_api.py
 
-@knowledge_api.route('/contents', methods=['GET'])
-@login_required
-def get_contents():
-    """获取内容列表（支持分页、按账号、搜索）"""
-    try:
-        # 获取查询参数
-        account_id = request.args.get('account_id', type=int)
-        content_type = request.args.get('content_type')
-        source_type = request.args.get('source_type')
-        search = request.args.get('search', '').strip()
-        page = request.args.get('page', 1, type=int)
-        page_size = request.args.get('page_size', 4, type=int)
-        page_size = min(max(page_size, 1), 100)
-
-        # 构建查询
-        query = KnowledgeContent.query
-        if account_id:
-            query = query.filter(KnowledgeContent.account_id == account_id)
-        if content_type:
-            query = query.filter(KnowledgeContent.content_type == content_type)
-        if source_type:
-            query = query.filter(KnowledgeContent.source_type == source_type)
-        if search:
-            # 标题模糊 或 content_data 中的 description 模糊（SQLite/MySQL JSON 或应用层）
-            query = query.filter(
-                db.or_(
-                    KnowledgeContent.title.ilike(f'%{search}%'),
-                    db.cast(KnowledgeContent.content_data, db.String).ilike(f'%{search}%')
-                )
-            )
-
-        query = query.order_by(KnowledgeContent.updated_at.desc())
-        total = query.count()
-        pagination = query.paginate(page=page, per_page=page_size, error_out=False)
-        contents = pagination.items
-
-        # 若未传 account_id 且未分页参数，兼容旧版：无 page 时返回全部（不推荐大表使用）
-        if page is None or page < 1:
-            page = 1
-            page_size = max(total, 1)
-            contents = query.limit(1000).all()
-            total_pages = 1
-        else:
-            total_pages = max(1, (total + page_size - 1) // page_size)
-
-        return jsonify({
-            'code': 200,
-            'message': '获取成功',
-            'data': {
-                'items': [{
-                    'id': c.id,
-                    'account_id': c.account_id,
-                    'title': c.title,
-                    'content_url': c.content_url,
-                    'content_type': c.content_type,
-                    'source_type': c.source_type,
-                    'content_data': c.content_data,
-                    'analysis_result': c.analysis_result,
-                    'created_at': c.created_at.isoformat() if c.created_at else None,
-                    'updated_at': c.updated_at.isoformat() if c.updated_at else None
-                } for c in contents],
-                'total': total,
-                'page': page,
-                'page_size': page_size,
-                'total_pages': total_pages
-            }
-        })
-    except Exception as e:
-        logger.error(f"获取内容列表失败: {e}", exc_info=True)
-        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
-
-
-@knowledge_api.route('/contents/<int:content_id>', methods=['GET'])
-@login_required
-def get_content(content_id):
-    """获取单个内容详情"""
-    try:
-        content = KnowledgeContent.query.get(content_id)
-        if not content:
-            return jsonify({'code': 404, 'message': '内容不存在'})
-        
-        return jsonify({
-            'code': 200,
-            'message': '获取成功',
-            'data': {
-                'id': content.id,
-                'account_id': content.account_id,
-                'title': content.title,
-                'content_url': content.content_url,
-                'content_type': content.content_type,
-                'source_type': content.source_type,
-                'content_data': content.content_data,
-                'analysis_result': content.analysis_result,
-                'created_at': content.created_at.isoformat() if content.created_at else None,
-                'updated_at': content.updated_at.isoformat() if content.updated_at else None
-            }
-        })
-    except Exception as e:
-        logger.error(f"获取内容详情失败: {e}", exc_info=True)
-        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
-
-
-@knowledge_api.route('/contents', methods=['POST'])
-@login_required
-def create_content():
-    """创建内容"""
-    try:
-        data = request.get_json()
-        
-        account_id = data.get('account_id')
-        title = data.get('title', '').strip()
-        content_url = data.get('content_url', '').strip()
-        content_type = data.get('content_type', 'manual')
-        source_type = data.get('source_type', 'manual')
-        content_data = data.get('content_data', {})
-        
-        if not title:
-            return jsonify({'code': 400, 'message': '请输入内容标题'})
-        
-        # 创建内容
-        content = KnowledgeContent(
-            account_id=account_id,
-            title=title,
-            content_url=content_url,
-            content_type=content_type,
-            source_type=source_type,
-            content_data=content_data
-        )
-        db.session.add(content)
-        db.session.commit()
-        
-        return jsonify({
-            'code': 200,
-            'message': '创建成功',
-            'data': {
-                'id': content.id,
-                'account_id': content.account_id,
-                'title': content.title,
-                'content_url': content.content_url,
-                'content_type': content.content_type,
-                'source_type': content.source_type
-            }
-        })
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"创建内容失败: {e}", exc_info=True)
-        return jsonify({'code': 500, 'message': f'创建失败: {str(e)}'})
-
-
-@knowledge_api.route('/contents/<int:content_id>', methods=['PUT'])
-@login_required
-def update_content(content_id):
-    """更新内容"""
-    try:
-        data = request.get_json()
-        
-        content = KnowledgeContent.query.get(content_id)
-        if not content:
-            return jsonify({'code': 404, 'message': '内容不存在'})
-        
-        # 更新字段
-        if 'account_id' in data:
-            content.account_id = data['account_id']
-        if 'title' in data:
-            content.title = data['title'].strip()
-        if 'content_url' in data:
-            content.content_url = data['content_url'].strip()
-        if 'content_type' in data:
-            content.content_type = data['content_type']
-        if 'source_type' in data:
-            content.source_type = data['source_type']
-        if 'content_data' in data:
-            content.content_data = data['content_data']
-        if 'analysis_result' in data:
-            content.analysis_result = data['analysis_result']
-        
-        db.session.commit()
-        
-        return jsonify({
-            'code': 200,
-            'message': '更新成功',
-            'data': {
-                'id': content.id,
-                'account_id': content.account_id,
-                'title': content.title,
-                'content_url': content.content_url,
-                'content_type': content.content_type,
-                'source_type': content.source_type
-            }
-        })
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"更新内容失败: {e}", exc_info=True)
-        return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'})
-
-
-@knowledge_api.route('/contents/<int:content_id>', methods=['DELETE'])
-@login_required
-def delete_content(content_id):
-    """删除内容"""
-    try:
-        content = KnowledgeContent.query.get(content_id)
-        if not content:
-            return jsonify({'code': 404, 'message': '内容不存在'})
-        
-        db.session.delete(content)
-        db.session.commit()
-        
-        return jsonify({
-            'code': 200,
-            'message': '删除成功'
-        })
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"删除内容失败: {e}", exc_info=True)
-        return jsonify({'code': 500, 'message': f'删除失败: {str(e)}'})
 
 
 # ========== 图片识别相关接口 ==========

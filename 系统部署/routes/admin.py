@@ -795,6 +795,235 @@ def channel_reset_password(id):
     return redirect(url_for('admin.channels'))
 
 
+# ==================== 公开平台管理 ====================
+
+@admin.route('/public/users')
+@login_required
+@super_admin_required
+def public_users():
+    """公开用户管理"""
+    from models.public_models import PublicUser, PublicGeneration, PublicPricingPlan
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    search = request.args.get('search', '').strip()
+
+    query = PublicUser.query
+    if search:
+        query = query.filter(
+            or_(
+                PublicUser.email.ilike(f'%{search}%'),
+                PublicUser.nickname.ilike(f'%{search}%')
+            )
+        )
+    query = query.order_by(PublicUser.created_at.desc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    users = pagination.items
+
+    stats = {
+        'total': PublicUser.query.count(),
+        'total_verified': PublicUser.query.filter_by(is_verified=True).count(),
+        'total_premium': PublicUser.query.filter_by(is_premium=True).count(),
+    }
+    plans = PublicPricingPlan.query.filter_by(is_visible=True).order_by(PublicPricingPlan.sort_order).all()
+
+    return render_template('admin/public_users.html',
+                         users=users,
+                         pagination=pagination,
+                         stats=stats,
+                         plans=plans,
+                         search=search)
+
+
+@admin.route('/public/pending-industries')
+@login_required
+@super_admin_required
+def public_pending_industries():
+    """待处理行业管理"""
+    return render_template('admin/pending_industries.html')
+
+
+@admin.route('/public/cost-stats')
+@login_required
+@super_admin_required
+def public_cost_stats():
+    """成本统计"""
+    return render_template('admin/cost_stats.html')
+
+
+# ==================== 公开用户管理代理路由（支持 admin_public 蓝图模板）====================
+
+@admin.route('/public-user/list')
+@login_required
+@super_admin_required
+def public_user_list():
+    """公开用户列表（代理 admin_public.list）"""
+    from models.public_models import PublicUser, PublicPricingPlan
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    search = request.args.get('search', '').strip()
+    plan_filter = request.args.get('plan', '')
+    status_filter = request.args.get('status', '')
+
+    query = PublicUser.query
+    if search:
+        query = query.filter(
+            or_(
+                PublicUser.email.ilike(f'%{search}%'),
+                PublicUser.nickname.ilike(f'%{search}%')
+            )
+        )
+    if plan_filter:
+        if plan_filter == 'free':
+            query = query.filter(PublicUser.is_premium == False)
+        elif plan_filter == 'paid':
+            query = query.filter(
+                and_(
+                    PublicUser.is_premium == True,
+                    or_(
+                        PublicUser.premium_expires == None,
+                        PublicUser.premium_expires > datetime.utcnow()
+                    )
+                )
+            )
+    if status_filter == 'active':
+        query = query.filter(PublicUser.is_active == True)
+    elif status_filter == 'inactive':
+        query = query.filter(PublicUser.is_active == False)
+    elif status_filter == 'unverified':
+        query = query.filter(PublicUser.is_verified == False)
+
+    query = query.order_by(PublicUser.created_at.desc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    stats = {
+        'total': PublicUser.query.count(),
+        'total_verified': PublicUser.query.filter_by(is_verified=True).count(),
+        'total_premium': PublicUser.query.filter_by(is_premium=True).count(),
+    }
+    plans = PublicPricingPlan.query.filter_by(is_visible=True).order_by(PublicPricingPlan.sort_order).all()
+
+    return render_template('admin/public_users.html',
+                         users=pagination.items,
+                         pagination=pagination,
+                         stats=stats,
+                         plans=plans,
+                         search=search,
+                         plan_filter=plan_filter,
+                         status_filter=status_filter)
+
+
+@admin.route('/public-user/detail/<int:user_id>')
+@login_required
+@super_admin_required
+def public_user_detail(user_id):
+    """公开用户详情（代理 admin_public.detail）"""
+    from models.public_models import PublicUser, PublicGeneration, PublicLLMCallLog
+    user = PublicUser.query.get_or_404(user_id)
+    generation_stats = {
+        'total': PublicGeneration.query.filter_by(user_id=user_id).count(),
+        'today': PublicGeneration.query.filter_by(user_id=user_id).filter(
+            PublicGeneration.created_at >= datetime.utcnow().date()
+        ).count(),
+        'this_month': PublicGeneration.query.filter_by(user_id=user_id).filter(
+            PublicGeneration.created_at >= datetime.utcnow().replace(day=1, hour=0, minute=0, second=0)
+        ).count(),
+    }
+    llm_stats = db.session.query(
+        db.func.sum(PublicLLMCallLog.input_tokens).label('input_tokens'),
+        db.func.sum(PublicLLMCallLog.output_tokens).label('output_tokens'),
+        db.func.sum(PublicLLMCallLog.total_tokens).label('total_tokens'),
+        db.func.sum(PublicLLMCallLog.cost).label('total_cost'),
+    ).filter_by(user_id=user_id).first()
+    recent_generations = PublicGeneration.query.filter_by(user_id=user_id)\
+        .order_by(PublicGeneration.created_at.desc()).limit(10).all()
+    recent_llm_calls = PublicLLMCallLog.query.filter_by(user_id=user_id)\
+        .order_by(PublicLLMCallLog.created_at.desc()).limit(20).all()
+    return render_template('admin/public_user_detail.html',
+                         user=user,
+                         generation_stats=generation_stats,
+                         llm_stats=llm_stats,
+                         recent_generations=recent_generations,
+                         recent_llm_calls=recent_llm_calls)
+
+
+@admin.route('/public-user/edit/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def public_user_edit(user_id):
+    """编辑公开用户（代理 admin_public.edit）"""
+    from models.public_models import PublicUser, PublicPricingPlan
+    user = PublicUser.query.get_or_404(user_id)
+    if request.method == 'POST':
+        nickname = request.form.get('nickname', '').strip()
+        if nickname:
+            user.nickname = nickname
+        user.is_verified = (request.form.get('is_verified') == '1')
+        user.is_active = (request.form.get('is_active') == '1')
+        plan = request.form.get('plan', 'free')
+        if plan == 'free':
+            user.is_premium = False
+            user.premium_plan = 'free'
+            user.premium_expires = None
+        else:
+            user.is_premium = True
+            user.premium_plan = plan
+            expires_days = request.form.get('expires_days', type=int, default=30)
+            user.premium_expires = datetime.utcnow() + timedelta(days=expires_days)
+        add_tokens = request.form.get('add_tokens', type=int, default=0)
+        if add_tokens > 0:
+            user.token_balance = (user.token_balance or 0) + add_tokens
+        db.session.commit()
+        flash(f'用户 {user.email} 已更新', 'success')
+        return redirect(url_for('admin.public_user_detail', user_id=user_id))
+    plans = PublicPricingPlan.query.filter_by(is_visible=True).order_by(PublicPricingPlan.sort_order).all()
+    return render_template('admin/public_user_edit.html', user=user, plans=plans)
+
+
+@admin.route('/public-user/stats')
+@login_required
+@super_admin_required
+def public_user_stats():
+    """公开用户统计（代理 admin_public.stats）"""
+    from models.public_models import PublicUser, PublicGeneration, PublicLLMCallLog
+    total_users = PublicUser.query.count()
+    verified_users = PublicUser.query.filter_by(is_verified=True).count()
+    premium_users = PublicUser.query.filter_by(is_premium=True).count()
+    expired_users = PublicUser.query.filter(
+        and_(
+            PublicUser.is_premium == True,
+            PublicUser.premium_expires != None,
+            PublicUser.premium_expires < datetime.utcnow()
+        )
+    ).count()
+    total_generations = PublicGeneration.query.count()
+    today_generations = PublicGeneration.query.filter(
+        PublicGeneration.created_at >= datetime.utcnow().date()
+    ).count()
+    cost_stats = db.session.query(
+        db.func.sum(PublicLLMCallLog.cost).label('total_cost'),
+        db.func.sum(PublicLLMCallLog.total_tokens).label('total_tokens'),
+    ).first()
+    return jsonify({
+        'success': True,
+        'data': {
+            'users': {
+                'total': total_users,
+                'verified': verified_users,
+                'premium': premium_users,
+                'expired': expired_users
+            },
+            'generations': {
+                'total': total_generations,
+                'today': today_generations
+            },
+            'cost': {
+                'total': float(cost_stats.total_cost or 0),
+                'total_tokens': cost_stats.total_tokens or 0
+            }
+        }
+    })
+
+
 # ==================== 客户管理 ====================
 
 @admin.route('/clients')
@@ -2950,6 +3179,9 @@ ANALYSIS_DIMENSION_SUB_CATEGORY_NAMES = {
         'applicable_scenario': '适用场景',
         'applicable_audience': '适用人群',
     },
+    'super_positioning': {
+        'persona': '人群画像',
+    },
 }
 
 
@@ -3081,14 +3313,15 @@ def get_analysis_dimension(id):
             'rule_type': dimension.rule_type,
             'prompt_template': dimension.prompt_template,
             'examples': getattr(dimension, 'examples', None) or '',
-            'usage_tips': getattr(dimension, 'usage_tips', None) or ''
+            'usage_tips': getattr(dimension, 'usage_tips', None) or '',
+            'applicable_audience': getattr(dimension, 'applicable_audience', None) or ''
         }
     })
 
 
 def _default_icon_for_category(category: str) -> str:
     """根据一级分类返回默认图标"""
-    return {'account': 'bi-person-badge', 'content': 'bi-file-text', 'methodology': 'bi-book'}.get(category, 'bi-circle')
+    return {'account': 'bi-person-badge', 'content': 'bi-file-text', 'methodology': 'bi-book', 'super_positioning': 'bi-bullseye'}.get(category, 'bi-circle')
 
 
 def _generate_dimension_code(name: str, category: str, sub_category: str = None) -> str:
@@ -3146,7 +3379,8 @@ def create_analysis_dimension():
         rule_type=data.get('rule_type'),
         prompt_template=data.get('prompt_template'),
         examples=data.get('examples', '') or None,
-        usage_tips=data.get('usage_tips', '') or None
+        usage_tips=data.get('usage_tips', '') or None,
+        applicable_audience=data.get('applicable_audience', '') or None
     )
 
     db.session.add(dimension)
@@ -3215,6 +3449,8 @@ def update_analysis_dimension(id):
         dimension.examples = data['examples'] or None
     if 'usage_tips' in data:
         dimension.usage_tips = data['usage_tips'] or None
+    if 'applicable_audience' in data:
+        dimension.applicable_audience = data['applicable_audience'] or None
 
     db.session.commit()
 
@@ -3291,6 +3527,17 @@ DEFAULT_ANALYSIS_DIMENSIONS = [
     {'name': '场景描述', 'category': 'methodology', 'sub_category': 'applicable_scenario', 'description': '适用场景的描述', 'icon': 'bi-scene', 'usage_tips': '识别方法适用场景'},
     # 方法论 - 适用人群
     {'name': '人群画像', 'category': 'methodology', 'sub_category': 'applicable_audience', 'description': '目标人群特征', 'icon': 'bi-people', 'usage_tips': '识别目标人群'},
+    # 超级定位 - 人群画像（10个维度）
+    {'name': '发展阶段', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户当前的发展阶段', 'icon': 'bi-graph-up', 'examples': '刚起步|天使轮|A轮|成熟期|转型期', 'usage_tips': '适用：创业者、企业家', 'applicable_audience': '创业者|企业家'},
+    {'name': '营收规模', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户的营收体量', 'icon': 'bi-currency-dollar', 'examples': '500万以下|3000万-2亿|5亿以上', 'usage_tips': '适用：企业家、B2B服务', 'applicable_audience': '企业家|B2B销售'},
+    {'name': '团队规模', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户的团队/组织规模', 'icon': 'bi-people-fill', 'examples': '10人以下|10-50人|50-400人', 'usage_tips': '适用：企业家、管理者', 'applicable_audience': '企业家|管理者'},
+    {'name': '工作年限', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户的职业/从业年限', 'icon': 'bi-clock-history', 'examples': '3-5年|5-10年|10年以上', 'usage_tips': '适用：职场人、专家', 'applicable_audience': '职场人|专家'},
+    {'name': '行业背景', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户所在行业', 'icon': 'bi-briefcase', 'examples': '传统制造|互联网|金融|教育|医疗健康|零售消费|企业服务|本地生活', 'usage_tips': '适用：所有人群', 'applicable_audience': '通用'},
+    {'name': '地域', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户所在地域', 'icon': 'bi-geo-alt', 'examples': '一线城市|新一线|三四线|海外', 'usage_tips': '适用：本地服务、区域业务', 'applicable_audience': '本地服务商|区域业务'},
+    {'name': '年龄段', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户的年龄段', 'icon': 'bi-calendar3', 'examples': '25-35岁|35-45岁|45岁以上', 'usage_tips': '适用：个人服务', 'applicable_audience': '个人服务'},
+    {'name': '职位角色', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户的职位/身份', 'icon': 'bi-person-badge', 'examples': '创始人|CEO|VP|总监|经理', 'usage_tips': '适用：B2B服务；画像组合展示时固定排在最后', 'applicable_audience': 'B2B服务|企业服务'},
+    {'name': '痛点状态', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户当前面临的痛点/困境', 'icon': 'bi-exclamation-triangle', 'examples': '遇到瓶颈|想要转型|寻求突破', 'usage_tips': '适用：所有人群；同一批画像以此为共性锚点', 'applicable_audience': '通用'},
+    {'name': '目标诉求', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户的核心目标/期望', 'icon': 'bi-bullseye', 'examples': '想要增长|想要转型|想要变现', 'usage_tips': '适用：所有人群；同一批画像以此为共性锚点', 'applicable_audience': '通用'},
 ]
 
 
@@ -3327,7 +3574,9 @@ def init_analysis_dimensions():
                     description=item.get('description', ''),
                     category=item['category'],
                     sub_category=item.get('sub_category'),
+                    examples=item.get('examples', '') or None,
                     usage_tips=item.get('usage_tips', ''),
+                    applicable_audience=item.get('applicable_audience', '') or None,
                     is_active=True,
                     is_default=True
                 )

@@ -46,7 +46,7 @@
                         <div class="row g-2 align-items-end">
                             <div class="col-md-4">
                                 <label class="form-label small mb-0">模板名称</label>
-                                <input type="text" class="form-control form-control-sm bg-light" readonly
+                                <input type="text" class="form-control form-control-sm" readonly
                                        value="{{ template.template_name }}">
                             </div>
                             <div class="col-md-3">
@@ -293,7 +293,7 @@
             if ((it.content || '').length > 200) preview += '…';
             li.innerHTML =
                 '<span class="me-2 text-muted" title="拖拽可调整顺序"><i class="bi bi-grip-vertical"></i></span>' +
-                '<div class="flex-grow-1 min-width-0"><span class="badge bg-secondary me-2">' + (idx + 1) + '</span>' +
+                '<div class="flex-grow-1 min-width-0"><span class="badge bg-transparent border border-secondary text-secondary me-2">' + (idx + 1) + '</span>' +
                 '<div class="item-preview">' + escapeHtml(preview) + '</div></div>' +
                 '<span class="me-1"><button type="button" class="btn btn-sm btn-outline-secondary btn-move-up" data-id="' + it.id + '" title="上移"><i class="bi bi-arrow-up"></i></button>' +
                 '<button type="button" class="btn btn-sm btn-outline-secondary btn-move-down" data-id="' + it.id + '" title="下移"><i class="bi bi-arrow-down"></i></button></span>' +

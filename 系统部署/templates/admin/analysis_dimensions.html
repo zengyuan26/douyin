@@ -43,6 +43,11 @@
                     <i class="bi bi-book me-1"></i>方法论
                 </button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-super_positioning" data-bs-toggle="tab" data-bs-target="#pane-super_positioning" type="button" role="tab" aria-selected="false">
+                    <i class="bi bi-bullseye me-1"></i>超级定位
+                </button>
+            </li>
         </ul>
 
         <!-- Tab 内容 -->
@@ -59,6 +64,11 @@
             </div>
             <div class="tab-pane fade" id="pane-methodology" role="tabpanel">
                 <div class="row dimension-cards-container" data-category="methodology">
+                    <div class="col-12 text-center text-muted py-5"><div class="spinner-border" role="status"></div></div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="pane-super_positioning" role="tabpanel">
+                <div class="row dimension-cards-container" data-category="super_positioning">
                     <div class="col-12 text-center text-muted py-5"><div class="spinner-border" role="status"></div></div>
                 </div>
             </div>
@@ -99,51 +109,61 @@
 
 <!-- 新增/编辑维度弹窗：不再包含排序 -->
 <div class="modal fade" id="dimensionModal" tabindex="-1" aria-labelledby="dimensionModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 700px;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 920px;">
         <div class="modal-content">
             <div class="modal-header d-flex justify-content-between align-items-center">
                 <h5 class="modal-title" id="dimensionModalLabel">新增维度</h5>
                 <button type="button" class="btn btn-primary btn-sm" id="save-dimension-btn">保存</button>
             </div>
-            <div class="modal-body py-4">
+            <div class="modal-body py-3">
                 <form id="dimension-form">
                     <input type="hidden" id="dimension-id">
                     <input type="hidden" id="dimension-code">
 
-                    <div class="mb-3">
-                        <label class="form-label">维度名称 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="dimension-name" required placeholder="如：辨识度、核心关键词、易记性、标题结构">
-                    </div>
-
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <label class="form-label">一级分类</label>
-                            <select class="form-select" id="dimension-category" required>
-                                <option value="">请选择</option>
-                                <option value="account">账号分析</option>
-                                <option value="content">内容分析</option>
-                                <option value="methodology">方法论</option>
-                            </select>
+                    <div class="row g-3">
+                        <!-- 第一行：维度名称（占左） + 一级+二级分类（占右） -->
+                        <div class="col-12">
+                            <div class="row g-3">
+                                <div class="col-4">
+                                    <label class="form-label">维度名称 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="dimension-name" required placeholder="如：辨识度、核心关键词、易记性">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label">一级分类</label>
+                                    <select class="form-select" id="dimension-category" required>
+                                        <option value="">请选择</option>
+                                        <option value="account">账号分析</option>
+                                        <option value="content">内容分析</option>
+                                        <option value="methodology">方法论</option>
+                                        <option value="super_positioning">超级定位</option>
+                                    </select>
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label">二级分类</label>
+                                    <select class="form-select" id="dimension-sub-category">
+                                        <option value="">请选择</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-6 mb-3">
-                            <label class="form-label">二级分类</label>
-                            <select class="form-select" id="dimension-sub-category">
-                                <option value="">请选择</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">描述（定义）</label>
-                        <textarea class="form-control" id="dimension-description" rows="2" placeholder="简短说明这个维度分析什么"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">示例</label>
-                        <textarea class="form-control" id="dimension-examples" rows="2" placeholder="多个示例用 | 分隔，如：关注送一罐|私信咨询|到店试吃"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">识别技巧</label>
-                        <textarea class="form-control" id="dimension-usage-tips" rows="2" placeholder="如：行动号召是让用户做什么，联系方式是留电话/微信/地址"></textarea>
+                        <!-- 第二行：描述、示例、识别技巧、适用人群 -->
+                        <div class="col-6">
+                            <label class="form-label">描述（定义）</label>
+                            <textarea class="form-control" id="dimension-description" rows="3" placeholder="简短说明这个维度分析什么"></textarea>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">示例</label>
+                            <textarea class="form-control" id="dimension-examples" rows="3" placeholder="多个示例用 | 分隔，如：关注送一罐|私信咨询|到店试吃"></textarea>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">识别技巧</label>
+                            <textarea class="form-control" id="dimension-usage-tips" rows="3" placeholder="如：行动号召是让用户做什么，联系方式是留电话/微信/地址"></textarea>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">适用人群</label>
+                            <textarea class="form-control" id="dimension-applicable-audience" rows="3" placeholder="适用该维度的人群，用 | 分隔，如：创业者|企业家|B2B服务"></textarea>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -171,11 +191,18 @@ main.main-content:has(.analysis-dimensions-page) {
 .bg-purple { background-color: #6f42c1 !important; }
 .btn-outline-purple { color: #6f42c1; border-color: #6f42c1; }
 .btn-outline-purple:hover { background-color: #6f42c1; color: white; }
+.bg-danger-custom { background-color: #dc3545 !important; }
 /* 卡片仅显示二级分类名，整卡可点击 */
 .dimension-card-clickable { cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
 .dimension-card-clickable:hover { transform: translateY(-2px); box-shadow: 0 0.5rem 1rem rgba(0,0,0,.1) !important; }
 .detail-dimension-item { transition: background-color 0.15s ease; }
 .detail-dimension-item:hover { background-color: rgba(0,0,0,.03); }
+
+/* 弹窗宽度调大，内容区可滚动 */
+#dimensionModal .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
 
 /* 拖拽排序样式 */
 .dimension-cards-container.sorting { min-height: 100px; }
@@ -211,7 +238,8 @@ main.main-content:has(.analysis-dimensions-page) {
 const CATEGORY_META = {
     'account':   { name: '账号分析',   icon: 'bi-person-badge',  color: 'primary' },
     'content':   { name: '内容分析',   icon: 'bi-file-text',     color: 'success' },
-    'methodology': { name: '方法论', icon: 'bi-book',            color: 'purple' }
+    'methodology': { name: '方法论', icon: 'bi-book',            color: 'purple' },
+    'super_positioning': { name: '超级定位', icon: 'bi-bullseye', color: 'danger' }
 };
 
 // 二级分类选项（用于表单联动）
@@ -242,6 +270,12 @@ const DIMENSION_CATEGORIES = {
         'sub_categories': {
             'applicable_scenario': '适用场景',
             'applicable_audience': '适用人群'
+        }
+    },
+    'super_positioning': {
+        'name': '超级定位',
+        'sub_categories': {
+            'persona': '人群画像'
         }
     }
 };
@@ -385,7 +419,7 @@ function renderCards(groups) {
         return;
     }
     // 按一级分类分组
-    var categories = ['account', 'content', 'methodology'];
+    var categories = ['account', 'content', 'methodology', 'super_positioning'];
     categories.forEach(function(cat) {
         var container = document.querySelector('.dimension-cards-container[data-category="' + cat + '"]');
         if (!container) return;
@@ -559,6 +593,7 @@ function openDimensionModal(dimension, prefillCategory, prefillSubCategory) {
         document.getElementById('dimension-description').value = dimension.description || '';
         document.getElementById('dimension-examples').value = dimension.examples || '';
         document.getElementById('dimension-usage-tips').value = dimension.usage_tips || '';
+        document.getElementById('dimension-applicable-audience').value = dimension.applicable_audience || '';
     } else {
         document.getElementById('dimensionModalLabel').textContent = '新增维度';
         document.getElementById('dimension-id').value = '';
@@ -633,7 +668,8 @@ async function saveDimension() {
         sub_category: document.getElementById('dimension-sub-category').value,
         description: document.getElementById('dimension-description').value,
         examples: document.getElementById('dimension-examples').value,
-        usage_tips: document.getElementById('dimension-usage-tips').value
+        usage_tips: document.getElementById('dimension-usage-tips').value,
+        applicable_audience: document.getElementById('dimension-applicable-audience').value
     };
     if (!data.name || !data.category) {
         alert('请填写必填项');
