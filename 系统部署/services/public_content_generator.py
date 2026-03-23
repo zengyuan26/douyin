@@ -2962,9 +2962,18 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         包含问题类型、使用方问题、付费方顾虑、以及按类型分组的画像
     """
     import re
-    from services.llm import get_llm_service
+    import os
+    from services.llm import LLMService
 
-    llm = get_llm_service()
+    # 获取配置 - 支持硅基流动
+    provider = os.environ.get('LLM_PROVIDER', 'siliconflow')
+    model = os.environ.get('LLM_MODEL', os.environ.get('LLM_MODEL_TURBO', 'Qwen/Qwen2.5-7B-Instruct'))
+    base_url = os.environ.get('LLM_BASE_URL', 'https://api.siliconflow.cn/v1')
+    api_key = os.environ.get('LLM_API_KEY', '')
+
+    llm = LLMService(provider=provider, model=model)
+    llm.base_url = base_url
+    llm.api_key = api_key
 
     # 获取业务参数
     business_desc = params.get('business_description', '')
@@ -3108,6 +3117,16 @@ buyer_user_relation：
         print(f"[mine_problems_and_generate_personas] ===== 发送的 Prompt =====")
         print(prompt)
         print(f"[mine_problems_and_generate_personas] ===== Prompt 结束 =====")
+
+        # 处理 None 响应
+        if not response:
+            print("[mine_problems_and_generate_personas] LLM 返回空响应")
+            return {
+                'success': False,
+                'error': 'empty_response',
+                'message': 'LLM 返回空响应，请重试'
+            }
+
         print(f"[mine_problems_and_generate_personas] LLM 原始响应长度: {len(response)}")
 
         # 尝试解析 JSON
@@ -3126,61 +3145,96 @@ buyer_user_relation：
             original = text
             
             # 尝试多种修复策略
-            for strategy in range(5):
+            for strategy in range(7):
                 test_json = text
                 
                 if strategy == 0:
-                    # 策略0: 找到最后一个完整的数组元素后截断
-                    # 找到 ] 的位置（数组结束）
-                    last_bracket = test_json.rfind(']')
-                    if last_bracket > 0:
-                        test_json = test_json[:last_bracket + 1]
-                        # 确保对象关闭
-                        open_braces = test_json.count('{') - test_json.count('}')
-                        test_json += '}' * max(0, open_braces - test_json.count('}'))
-                        
-                elif strategy == 1:
-                    # 策略1: 找到最后一个完整对象后截断
-                    # 找到 } 的位置
+                    # 策略0: 找到最后一个完整对象（以}结尾）后截断
                     last_brace = test_json.rfind('}')
                     if last_brace > 0:
                         test_json = test_json[:last_brace + 1]
                         
-                elif strategy == 2:
-                    # 策略2: 找到最后一个逗号位置，认为后面是不完整的
-                    last_comma = test_json.rfind(',')
-                    if last_comma > 0:
-                        test_json = test_json[:last_comma]
+                elif strategy == 1:
+                    # 策略1: 找到最后一个完整数组元素后截断
+                    # 找到最后一个 ] 后面跟着 , 或 } 的情况
+                    last_bracket = test_json.rfind(']')
+                    if last_bracket > 0:
+                        test_json = test_json[:last_bracket + 1]
                         # 补全括号
                         open_braces = test_json.count('{') - test_json.count('}')
                         open_brackets = test_json.count('[') - test_json.count(']')
-                        test_json += ']' * open_brackets
-                        test_json += '}' * open_braces
+                        test_json += ']' * max(0, open_brackets)
+                        test_json += '}' * max(0, open_braces)
+                        
+                elif strategy == 2:
+                    # 策略2: 找到最后一个逗号+换行，认为后面是不完整的
+                    last_comma_newline = test_json.rfind(',\n')
+                    if last_comma_newline > 0:
+                        test_json = test_json[:last_comma_newline]
+                        # 补全括号
+                        open_braces = test_json.count('{') - test_json.count('}')
+                        open_brackets = test_json.count('[') - test_json.count(']')
+                        test_json += ']' * max(0, open_brackets)
+                        test_json += '}' * max(0, open_braces)
                         
                 elif strategy == 3:
                     # 策略3: 补全缺失的括号
                     open_braces = test_json.count('{') - test_json.count('}')
                     open_brackets = test_json.count('[') - test_json.count(']')
-                    test_json += ']' * open_brackets
-                    test_json += '}' * open_braces
+                    test_json += ']' * max(0, open_brackets)
+                    test_json += '}' * max(0, open_braces)
                     
                 elif strategy == 4:
-                    # 策略4: 查找关键结构，尝试重组
-                    # 移除末尾不完整的字段
+                    # 策略4: 找到最后一个完整的对象（检查是否以}结尾且前面有正常结构）
+                    # 从后往前找，累积计数找到匹配的 {
+                    depth = 0
+                    end_pos = -1
+                    for i in range(len(test_json) - 1, -1, -1):
+                        if test_json[i] == '}':
+                            depth += 1
+                            if depth == 1:
+                                end_pos = i
+                        elif test_json[i] == '{':
+                            depth -= 1
+                            if depth == 0:
+                                test_json = test_json[:i]
+                                break
+                    
+                elif strategy == 5:
+                    # 策略5: 找到最后一个完整的键值对后截断
+                    # 查找 "}, 或 "}\n 的模式
+                    import re as re_module
+                    matches = list(re_module.finditer(r'"\s*\}\s*[,}\]]', test_json))
+                    if matches:
+                        last_match = matches[-1]
+                        test_json = test_json[:last_match.end()]
+                        # 补全括号
+                        open_braces = test_json.count('{') - test_json.count('}')
+                        open_brackets = test_json.count('[') - test_json.count(']')
+                        test_json += ']' * max(0, open_brackets)
+                        test_json += '}' * max(0, open_braces)
+                        
+                elif strategy == 6:
+                    # 策略6: 移除末尾不完整的字符串（以引号开头但没有正确关闭的）
+                    # 找到最后一个正确的 JSON 闭合
                     lines = test_json.split('\n')
                     fixed_lines = []
                     for line in lines:
-                        # 如果行以引号开头但没有冒号，可能是不完整的
                         stripped = line.strip()
-                        if stripped.endswith('"') and ':' not in stripped:
+                        # 如果行以引号开头但没有冒号，可能是不完整的键
+                        if stripped.startswith('"') and ':' not in stripped and '}' not in stripped:
+                            continue
+                        # 如果行包含未关闭的字符串（奇数个引号）
+                        quote_count = stripped.count('"')
+                        if quote_count % 2 != 0 and not stripped.endswith(','):
                             continue
                         fixed_lines.append(line)
                     test_json = '\n'.join(fixed_lines)
                     # 补全括号
                     open_braces = test_json.count('{') - test_json.count('}')
                     open_brackets = test_json.count('[') - test_json.count(']')
-                    test_json += ']' * open_brackets
-                    test_json += '}' * open_braces
+                    test_json += ']' * max(0, open_brackets)
+                    test_json += '}' * max(0, open_braces)
                 
                 parsed = try_parse(test_json)
                 if parsed:

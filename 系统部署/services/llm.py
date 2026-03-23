@@ -17,7 +17,7 @@ class LLMService:
         初始化 LLM 服务
         
         Args:
-            provider: 模型提供商 ('ollama', 'openai', 'qwen', 'azure')
+            provider: 模型提供商 ('ollama', 'openai', 'qwen', 'azure', 'siliconflow')
             model: 模型名称
         """
         self.provider = provider
@@ -49,6 +49,8 @@ class LLMService:
                 return self._chat_openai(messages, temperature, max_tokens)
             elif self.provider == 'qwen':
                 return self._chat_qwen(messages, temperature, max_tokens)
+            elif self.provider == 'siliconflow':
+                return self._chat_siliconflow(messages, temperature, max_tokens)
             elif self.provider == 'azure':
                 return self._chat_azure(messages, temperature, max_tokens)
             else:
@@ -129,6 +131,33 @@ class LLMService:
         
         result = response.json()
         return result["choices"][0]["message"]["content"]
+
+    def _chat_siliconflow(self, messages, temperature, max_tokens):
+        """硅基流动 API 调用 - 兼容 OpenAI 格式"""
+        import requests
+        
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        url = f"{self.base_url}/chat/completions"
+        payload = {
+            "model": self.model,  # Qwen/Qwen2.5-7B-Instruct 等
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=300)
+        
+        # 检查响应状态
+        if response.status_code != 200:
+            print(f"[LLM] SiliconFlow API 错误: {response.status_code} - {response.text}")
+            return None
+        
+        result = response.json()
+        return result["choices"][0]["message"]["content"]
     
     def _chat_azure(self, messages, temperature, max_tokens):
         """Azure OpenAI API 调用"""
@@ -183,6 +212,8 @@ class LLMService:
                 yield from self._chat_stream_openai(messages, temperature, max_tokens)
             elif self.provider == 'qwen':
                 yield from self._chat_stream_openai(messages, temperature, max_tokens)  # 兼容 OpenAI 格式
+            elif self.provider == 'siliconflow':
+                yield from self._chat_stream_openai(messages, temperature, max_tokens)
             elif self.provider == 'azure':
                 yield from self._chat_stream_azure(messages, temperature, max_tokens)
             else:

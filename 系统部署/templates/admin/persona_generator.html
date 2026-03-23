@@ -257,9 +257,21 @@
     }
 
     .problem-type-name {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 600;
         color: var(--color-text-primary);
+        margin-bottom: 8px;
+    }
+
+    .problem-type-identity {
+        font-size: 12px;
+        color: var(--color-primary);
+        font-weight: 500;
+        margin-bottom: 4px;
+        padding: 2px 8px;
+        background: rgba(0, 122, 255, 0.1);
+        border-radius: 4px;
+        display: inline-block;
     }
 
     .problem-type-severity {
@@ -1053,16 +1065,24 @@
         }
     });
 
-    // ========== 一键完成：问题挖掘 + 画像生成 ==========
+    // ========== 一键完成：问题挖掘 + 画像生成（调用分步生成接口）==========
     async function mineAndGenerate() {
+        // 使用分步生成实现
+        await stepByStepGenerate();
+    }
+
+    // ========== 分步生成（快速响应）==========
+
+    // 分步生成主流程
+    async function stepByStepGenerate() {
         if (!currentSession) return;
 
-        const btn = refreshProblemsBtn;
+        const btn = createSessionBtn;
         btn.disabled = true;
-        btn.innerHTML = '<span class="loading-spinner"></span> 分析中...';
+        btn.innerHTML = '<span class="loading-spinner"></span> 识别问题类型中...';
 
         try {
-            const response = await fetch('/api/persona/mine_and_generate', {
+            const response = await fetch('/api/persona/step1_identify_problem_types', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: currentSession.session_id })
@@ -1070,24 +1090,26 @@
             const result = await response.json();
 
             if (result.code === 200) {
-                problemTypes = result.data.problem_types || [];
-                buyerConcerns = result.data.buyer_concerns || [];
-                portraits = result.data.portraits || [];
-                userProblems = result.data.user_problems || [];
+                const { problem_types, is_buyer_user_same, limits } = result.data;
 
-                userProblems.forEach(p => {
-                    p.portraits = portraits.filter(port => port.type_name === p.type_name);
-                });
-
-                renderProblemTypes();
-                renderBuyerConcerns();
-                showAnalysisResult();
-
-                if (problemTypes.length > 0) {
-                    selectType(problemTypes[0].type_name);
+                // 检查是否是免费用户
+                if (!limits.is_paid) {
+                    showUpgradeModal(limits);
                 }
 
-                showToast(result.message);
+                problemTypes = problem_types;
+                buyerConcerns = [];
+
+                renderProblemTypes();
+                showAnalysisResult();
+
+                // 自动选中第一个类型
+                if (problemTypes.length > 0) {
+                    const firstDisplayName = problemTypes[0].display_name || problemTypes[0].type_name;
+                    selectType(firstDisplayName);
+                }
+
+                showToast(`问题类型识别完成！生成了 ${problemTypes.length} 个类型`);
             } else {
                 showToast(result.message, 'error');
             }
@@ -1095,7 +1117,165 @@
             showToast('分析失败', 'error');
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '重新分析';
+            btn.innerHTML = '<span>🚀 开始一键分析</span>';
+        }
+    }
+
+    // 为指定类型生成画像
+    async function generatePortraitsForType(displayName) {
+        const card = document.querySelector(`.problem-type-card[data-type="${displayName}"]`);
+        if (card) {
+            const btn = card.querySelector('.generate-type-btn') || createGenerateBtn(card);
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> 生成中...';
+        }
+
+        try {
+            const response = await fetch('/api/persona/step2_generate_portraits', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: currentSession.session_id,
+                    problem_type_name: displayName
+                })
+            });
+            const result = await response.json();
+
+            if (result.code === 200) {
+                // 更新该类型的画像
+                const typeIndex = problemTypes.findIndex(t => (t.display_name || t.type_name) === displayName);
+                if (typeIndex >= 0) {
+                    problemTypes[typeIndex].portraits = result.data.portraits;
+                    problemTypes[typeIndex].portrait_count = result.data.portraits.length;
+                }
+
+                // 添加到 portraits 数组
+                result.data.portraits.forEach(p => {
+                    p.type_name = displayName;
+                    portraits.push(p);
+                });
+
+                // 重新渲染
+                renderProblemTypes();
+                renderPortraits();
+
+                showToast(`${displayName} 画像生成完成！`);
+            } else if (result.code === 403) {
+                // 免费用户限制
+                showUpgradeModal(result.data);
+            } else {
+                showToast(result.message, 'error');
+            }
+        } catch (error) {
+            showToast('生成失败', 'error');
+        } finally {
+            if (card) {
+                const btn = card.querySelector('.generate-type-btn');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '生成画像';
+                }
+            }
+        }
+    }
+
+    // 创建生成按钮
+    function createGenerateBtn(card) {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-sm btn-primary generate-type-btn';
+        btn.innerHTML = '生成画像';
+        btn.onclick = () => generatePortraitsForType(card.dataset.type);
+        card.querySelector('.problem-type-header').appendChild(btn);
+        return btn;
+    }
+
+    // 升级引导弹窗
+    function showUpgradeModal(limits) {
+        const modal = document.createElement('div');
+        modal.className = 'upgrade-modal';
+        modal.innerHTML = `
+            <div class="upgrade-modal-content">
+                <div class="upgrade-modal-close" onclick="this.closest('.upgrade-modal').remove()">×</div>
+                <div class="upgrade-modal-icon">🔒</div>
+                <h3>解锁完整功能</h3>
+                <p>当前为免费用户，限制如下：</p>
+                <ul class="upgrade-limit-list">
+                    <li>问题类型：最多 ${limits.max_problem_types} 个</li>
+                    <li>每类型画像：最多 ${limits.portraits_per_type} 个</li>
+                </ul>
+                <p class="upgrade-benefit">升级后可享受：</p>
+                <ul class="upgrade-benefit-list">
+                    <li>✓ 6 个问题类型</li>
+                    <li>✓ 每类型 5 个画像</li>
+                    <li>✓ 一键生成全部</li>
+                </ul>
+                <button class="btn btn-primary" onclick="location.href='/admin/public-pricing'">
+                    立即升级
+                </button>
+                <button class="btn btn-secondary" onclick="this.closest('.upgrade-modal').remove()">
+                    继续免费体验
+                </button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // 添加弹窗样式
+        if (!document.getElementById('upgrade-modal-styles')) {
+            const styles = document.createElement('style');
+            styles.id = 'upgrade-modal-styles';
+            styles.textContent = `
+                .upgrade-modal {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                }
+                .upgrade-modal-content {
+                    background: white;
+                    border-radius: 16px;
+                    padding: 32px;
+                    max-width: 400px;
+                    text-align: center;
+                }
+                .upgrade-modal-close {
+                    position: absolute;
+                    top: 10px;
+                    right: 16px;
+                    font-size: 24px;
+                    cursor: pointer;
+                }
+                .upgrade-modal-icon {
+                    font-size: 48px;
+                    margin-bottom: 16px;
+                }
+                .upgrade-limit-list, .upgrade-benefit-list {
+                    text-align: left;
+                    margin: 16px 0;
+                    padding-left: 24px;
+                }
+                .upgrade-limit-list li {
+                    color: #999;
+                    margin: 8px 0;
+                }
+                .upgrade-benefit-list li {
+                    color: #333;
+                    margin: 8px 0;
+                }
+                .upgrade-benefit {
+                    font-weight: 600;
+                    margin-top: 16px;
+                }
+                .upgrade-modal-content .btn {
+                    margin: 8px;
+                }
+            `;
+            document.head.appendChild(styles);
         }
     }
 
@@ -1107,38 +1287,69 @@
         }
 
         problemTypesGrid.innerHTML = problemTypes.map(type => {
-            const isSelected = selectedTypeName === type.type_name;
+            // display_name 格式为 "身份→问题"
+            const displayName = type.display_name || type.type_name || '未命名';
+            const isSelected = selectedTypeName === displayName;
+            const hasGenerated = type.portrait_count > 0;
+
+            // 拆分身份和问题
+            let identity = '';
+            let problem = displayName;
+            if (displayName.includes('→')) {
+                const parts = displayName.split('→');
+                identity = parts[0].trim();
+                problem = parts.slice(1).join('→').trim();
+            }
+
             return `
-                <div class="problem-type-card ${isSelected ? 'selected' : ''}" data-type="${type.type_name}">
+                <div class="problem-type-card ${isSelected ? 'selected' : ''}" data-type="${displayName}">
                     <div class="problem-type-check">✓</div>
-                    <div class="problem-type-header">
-                        <div class="problem-type-name">${type.type_name}</div>
+                    <div class="problem-type-identity">${identity}</div>
+                    <div class="problem-type-name">${problem}</div>
+                    <div class="problem-type-severity">
+                        <span class="tag tag-${type.severity === '高' ? 'high' : type.severity === '中' ? 'medium' : 'low'}">${type.severity || ''}</span>
                     </div>
-                    <div class="problem-type-severity">${type.type_severity || ''}</div>
-                    <div class="problem-type-stats">
-                        <div class="stat-item">
-                            <div class="stat-value">${type.problem_count || 0}</div>
-                            <div class="stat-label">个问题</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${type.portrait_count || 0}</div>
-                            <div class="stat-label">个画像</div>
-                        </div>
+                    <div class="problem-type-actions">
+                        ${hasGenerated ? `
+                            <span class="problem-generated">✓ 已生成 ${type.portrait_count} 个画像</span>
+                        ` : `
+                            <button class="btn btn-sm btn-primary generate-type-btn">生成画像</button>
+                        `}
                     </div>
                 </div>
             `;
         }).join('');
 
+        // 卡片点击事件
         document.querySelectorAll('.problem-type-card').forEach(card => {
-            card.addEventListener('click', function() {
-                selectType(this.dataset.type);
+            card.addEventListener('click', function(e) {
+                // 如果点击的是生成按钮，不触发选中
+                if (e.target.classList.contains('generate-type-btn')) return;
+
+                const displayName = this.dataset.type;
+                selectType(displayName);
+
+                // 如果还没有生成画像，自动生成
+                const typeData = problemTypes.find(t => (t.display_name || t.type_name) === displayName);
+                if (typeData && !typeData.portrait_count) {
+                    generatePortraitsForType(displayName);
+                }
             });
+
+            // 生成按钮点击
+            const btn = card.querySelector('.generate-type-btn');
+            if (btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    generatePortraitsForType(card.dataset.type);
+                });
+            }
         });
     }
 
     // ========== 选中问题类型 ==========
-    function selectType(typeName) {
-        selectedTypeName = typeName;
+    function selectType(displayName) {
+        selectedTypeName = displayName;
         renderProblemTypes();
         renderPortraits();
     }
@@ -1164,18 +1375,24 @@
         if (!selectedTypeName) {
             portraitsContainer.innerHTML = '';
             portraitsEmpty.style.display = 'block';
-            portraitsEmpty.querySelector('.empty-desc').textContent = '请在上方选择一个「问题类型」查看对应画像';
+            portraitsEmpty.querySelector('.empty-desc').textContent = '点击卡片生成画像';
             portraitsSubtitle.textContent = '';
             return;
         }
 
+        // 点击生成画像
         const typePortraits = portraits.filter(p => p.type_name === selectedTypeName);
 
         if (!typePortraits.length) {
-            portraitsContainer.innerHTML = '';
-            portraitsEmpty.style.display = 'block';
-            portraitsEmpty.querySelector('.empty-desc').textContent = '该问题类型暂无画像';
-            portraitsSubtitle.textContent = '';
+            portraitsContainer.innerHTML = `
+                <div class="empty-state" style="grid-column: 1/-1;">
+                    <div class="empty-icon">👥</div>
+                    <div class="empty-title">暂无画像</div>
+                    <div class="empty-desc">点击上方卡片生成该问题类型的画像</div>
+                </div>
+            `;
+            portraitsEmpty.style.display = 'none';
+            portraitsSubtitle.textContent = `「${selectedTypeName}」`;
             return;
         }
 

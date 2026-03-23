@@ -5,6 +5,7 @@
 1. 问题挖掘：使用方问题 + 付费方顾虑
 2. 人群画像生成：按问题分批生成
 3. 会话管理：保存/加载分析结果
+4. 分级模型支持：免费=turbo(快速)，付费=plus(精准)
 """
 import json
 import logging
@@ -14,7 +15,9 @@ from models.models import (
     db, PersonaSession, PersonaUserProblem,
     PersonaBuyerConcern, PersonaPortrait
 )
+from models.public_models import PublicUser
 from services.llm import get_llm_service
+from services.persona_llm_manager import PersonaLLMManager, GenerationLimits
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -156,105 +159,468 @@ PORTRAIT_GENERATION_PROMPT = """## 角色
 **失败情况**：如果无法生成有效的画像，请返回空的 portraits 数组，不要生成假数据！"""
 
 
+# ========== 分步生成提示词（精简版，快速响应）==========
+
+STEP1_PROBLEM_TYPES_PROMPT = """## 角色
+你是一位用户研究专家。
+
+## 任务
+快速识别该业务的主要问题类型和目标人群身份，组合成卡片标题。
+
+## 业务信息
+- 行业：{industry}
+- 产品/服务：{description}
+- 买用关系：{buyer_relationship}
+
+## 输出要求
+用 JSON 格式输出：
+
+```json
+{{
+  "is_buyer_user_same": true/false,
+  "problem_types": [
+    {{
+      "display_name": "精致白领→担心清洁效果",
+      "severity": "高"
+    }},
+    {{
+      "display_name": "价格敏感用户→怕被宰",
+      "severity": "中"
+    }}
+  ]
+}}
+```
+
+## 格式说明
+- `display_name`: 格式为【身份】→【关心的问题】，简洁好记
+- `severity`: 问题重要程度（高/中/低）
+
+**简洁为王！保持简短！**"""
+
+
+# ========== 分级模板生成提示词 ==========
+
+# 免费用户 - 极简4字段模板
+FREE_PORTRAIT_TEMPLATE = """## 任务
+基于问题类型和目标身份，生成精准人群画像。
+
+## 问题类型
+{problem_type}
+
+## 目标身份
+{target_identity}
+
+## 输出格式（每行一个，用 | 分隔）
+名称|年龄段|核心痛点|目标
+
+示例：
+{target_identity}|25-35岁|担心效果不好|找到靠谱的服务
+
+直接输出 {count} 行，格式正确，不要其他文字。"""
+
+# 付费用户 - 丰富8字段模板
+PAID_PORTRAIT_TEMPLATE = """## 任务
+基于问题类型和目标身份，生成精准人群画像。
+
+## 问题类型
+{problem_type}
+
+## 目标身份
+{target_identity}
+
+## 输出格式（每行一个，用 | 分隔）
+名称|年龄段|职业|核心痛点|购买目标|购买顾虑|使用场景|搜索关键词
+
+示例：
+{target_identity}|28-35岁|都市白领|担心效果|找到放心的服务|怕被坑|工作日下班后|附近洗鞋店推荐
+
+直接输出 {count} 行，格式正确，不要其他文字。"""
+
+STEP2_PORTRAIT_PROMPT = """## 任务
+基于以下问题，生成精准人群画像。
+
+## 业务：{industry}
+
+## 问题类型
+{problem_type}
+
+## 输出格式（每行一个，用 | 分隔）
+{fields}
+
+直接输出 {count} 行，格式正确，不要其他文字。"""
+
+
+# ========== 一键完成：问题挖掘+画像生成 ==========
+
+"""## 任务
+基于以下问题，生成精简画像。
+
+## 业务：{industry}
+
+## 问题类型
+{problem_type}
+
+## 生成要求
+生成 {count} 个画像，每个只需 4 个核心字段：
+
+```json
+{{
+  "portraits": [
+    {{
+      "name": "画像名称",
+      "user_description": "用户特征",
+      "user_core_problem": "核心问题",
+      "search_keywords": ["关键词1", "关键词2"]
+    }}
+  ]
+}}
+```
+
+**简洁为王！每个画像不超过50字！**"""
+
+
+# ========== 分步生成 API（快速响应）==========
+
+@persona_api.route('/persona/step1_identify_problem_types', methods=['POST'])
+@login_required
+def step1_identify_problem_types():
+    """
+    步骤1：快速识别问题类型（轻量级，~10秒）
+    免费用户：最多 2 个问题类型
+    付费用户：最多 6 个问题类型
+    """
+    data = request.get_json()
+    session_id = data.get('session_id')
+
+    public_user = PublicUser.query.filter_by(email=current_user.email).first()
+    limits = PersonaLLMManager.get_user_limits(public_user)
+
+    session_obj = PersonaSession.query.filter_by(
+        id=session_id, user_id=current_user.id
+    ).first()
+
+    if not session_obj:
+        return jsonify({'code': 404, 'message': '会话不存在', 'data': None})
+
+    session_obj.status = 'processing'
+    db.session.commit()
+
+    input_data = session_obj.input_data or {}
+
+    # 判断买用关系
+    business_type = input_data.get('business_type', 'local_service')
+    if business_type == 'product':
+        buyer_relationship = "买的人不用（如宝妈买奶粉给宝宝喝）"
+    elif business_type == 'enterprise':
+        buyer_relationship = "买的人不用（如老板买软件给员工用）"
+    else:
+        buyer_relationship = "自己用自己买（如洗鞋、理发等个人服务）"
+
+    prompt = STEP1_PROBLEM_TYPES_PROMPT.format(
+        industry=session_obj.industry,
+        description=input_data.get('description', ''),
+        buyer_relationship=buyer_relationship
+    )
+
+    try:
+        response, stats = PersonaLLMManager.call_llm(
+            user=public_user,
+            prompt=prompt,
+            call_type='step1_problem_types',
+            temperature=0.5,
+            max_tokens=1000
+        )
+
+        if not response:
+            session_obj.status = 'failed'
+            db.session.commit()
+            return jsonify({'code': 500, 'message': 'LLM 调用失败', 'data': None})
+
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', response)
+        result = json.loads(json_match.group()) if json_match else json.loads(response)
+
+        is_buyer_user_same = result.get('is_buyer_user_same', False)
+        problem_types = result.get('problem_types', [])[:limits.max_problem_types]
+
+        # 标准化字段名：确保有 display_name
+        for pt in problem_types:
+            # 优先用 display_name，如果没有则尝试其他字段组合
+            if not pt.get('display_name'):
+                identity = pt.get('target_identity', '')
+                type_name = pt.get('type_name', '')
+                if identity and type_name:
+                    pt['display_name'] = f"{identity}→{type_name}"
+                elif type_name:
+                    pt['display_name'] = type_name
+
+        session_obj.problem_types_data = problem_types
+        session_obj.buyer_concerns = []  # 简化版不输出 buyer_concerns
+        session_obj.status = 'completed'
+        db.session.commit()
+
+        return jsonify({
+            'code': 200,
+            'message': '问题类型识别完成',
+            'data': {
+                'is_buyer_user_same': is_buyer_user_same,
+                'problem_types': problem_types,
+                'limits': {
+                    'max_problem_types': limits.max_problem_types,
+                    'portraits_per_type': limits.portraits_per_type,
+                    'is_paid': public_user.is_paid_user() if public_user else False
+                },
+                'stats': stats
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"步骤1失败: {e}")
+        session_obj.status = 'failed'
+        db.session.commit()
+        return jsonify({'code': 500, 'message': f'处理失败: {str(e)}', 'data': None})
+
+
+@persona_api.route('/persona/step2_generate_portraits', methods=['POST'])
+@login_required
+def step2_generate_portraits():
+    """
+    步骤2：为指定问题类型生成人群画像
+    免费用户：每类型 2 个画像
+    付费用户：每类型 5 个画像
+    """
+    data = request.get_json()
+    session_id = data.get('session_id')
+    problem_type_name = data.get('problem_type_name', '')
+
+    public_user = PublicUser.query.filter_by(email=current_user.email).first()
+    limits = PersonaLLMManager.get_user_limits(public_user)
+
+    session_obj = PersonaSession.query.filter_by(
+        id=session_id, user_id=current_user.id
+    ).first()
+
+    if not session_obj:
+        return jsonify({'code': 404, 'message': '会话不存在', 'data': None})
+
+    problem_types_data = session_obj.problem_types_data or []
+
+    # display_name 格式为 "身份→问题"，需要拆分
+    identity = ""
+    problem_type = problem_type_name
+    if "→" in problem_type_name:
+        parts = problem_type_name.split("→")
+        identity = parts[0].strip()
+        problem_type = parts[1].strip() if len(parts) > 1 else problem_type_name
+
+    # 根据用户等级选择模板
+    is_paid = public_user and public_user.is_paid_user()
+
+    if is_paid:
+        # 付费用户 - 丰富8字段
+        template = PAID_PORTRAIT_TEMPLATE
+    else:
+        # 免费用户 - 极简4字段
+        template = FREE_PORTRAIT_TEMPLATE
+
+    # 传入问题类型和身份，让 LLM 更精准生成
+    prompt = template.format(
+        problem_type=problem_type,
+        target_identity=identity,
+        count=limits.portraits_per_type
+    )
+
+    try:
+        response, stats = PersonaLLMManager.call_llm(
+            user=public_user,
+            prompt=prompt,
+            call_type='step2_portraits',
+            temperature=0.7,
+            max_tokens=800
+        )
+
+        if not response:
+            return jsonify({'code': 500, 'message': 'LLM 调用失败', 'data': None})
+
+        # 解析模板格式响应
+        portraits = parse_template_response(response, is_paid)
+
+        return jsonify({
+            'code': 200,
+            'message': '画像生成完成',
+            'data': {
+                'problem_type_name': problem_type_name,
+                'identity': identity,
+                'problem_type': problem_type,
+                'portraits': portraits,
+                'is_paid': is_paid,
+                'stats': stats
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"步骤2失败: {e}")
+        return jsonify({'code': 500, 'message': f'处理失败: {str(e)}', 'data': None})
+
+
+def parse_template_response(response: str, is_paid: bool) -> list:
+    """
+    解析模板格式响应
+
+    免费用户格式：名称|年龄段|核心痛点|目标
+    付费用户格式：名称|年龄段|职业|核心痛点|购买目标|购买顾虑|使用场景|搜索关键词
+    """
+    portraits = []
+    lines = response.strip().split('\n')
+
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('#') or line.startswith('{'):
+            continue
+
+        parts = [p.strip() for p in line.split('|')]
+        if len(parts) < 4:
+            continue
+
+        if is_paid:
+            # 付费用户 - 8字段
+            portrait = {
+                "name": parts[0],
+                "age_range": parts[1],
+                "occupation": parts[2] if len(parts) > 2 else "",
+                "pain_point": parts[3] if len(parts) > 3 else "",
+                "goal": parts[4] if len(parts) > 4 else "",
+                "concern": parts[5] if len(parts) > 5 else "",
+                "scenario": parts[6] if len(parts) > 6 else "",
+                "search_keywords": [parts[7]] if len(parts) > 7 else [],
+            }
+        else:
+            # 免费用户 - 4字段
+            portrait = {
+                "name": parts[0],
+                "age_range": parts[1],
+                "pain_point": parts[2] if len(parts) > 2 else "",
+                "goal": parts[3] if len(parts) > 3 else "",
+            }
+
+        portraits.append(portrait)
+
+    return portraits
+
+
+@persona_api.route('/persona/step2_generate_all_portraits', methods=['POST'])
+@login_required
+def step2_generate_all_portraits():
+    """
+    步骤2（批量）：为所有问题类型生成画像
+    仅限付费用户调用
+    """
+    data = request.get_json()
+    session_id = data.get('session_id')
+
+    public_user = PublicUser.query.filter_by(email=current_user.email).first()
+    limits = PersonaLLMManager.get_user_limits(public_user)
+
+    session_obj = PersonaSession.query.filter_by(
+        id=session_id, user_id=current_user.id
+    ).first()
+
+    if not session_obj:
+        return jsonify({'code': 404, 'message': '会话不存在', 'data': None})
+
+    if not public_user or not public_user.is_paid_user():
+        return jsonify({
+            'code': 403,
+            'message': '免费用户请逐个类型生成画像',
+            'data': {'upgrade_required': True, 'limits': {
+                'max_problem_types': limits.max_problem_types,
+                'portraits_per_type': limits.portraits_per_type
+            }}
+        })
+
+    problem_types_data = session_obj.problem_types_data or []
+    all_portraits = {}
+
+    for pt in problem_types_data:
+        problem_type_name = pt.get('type_name', '')
+        problems = pt.get('problems', [])
+        problem_desc = '\n'.join([f"- {p.get('name', '')}: {p.get('description', '')}" for p in problems[:5]])
+
+        # 使用付费模板
+        prompt = PAID_PORTRAIT_TEMPLATE.format(
+            problem_type=problem_desc,
+            count=limits.portraits_per_type
+        )
+
+        try:
+            response, _ = PersonaLLMManager.call_llm(
+                user=public_user,
+                prompt=prompt,
+                call_type='step2_portraits_batch',
+                temperature=0.7,
+                max_tokens=800
+            )
+
+            if response:
+                portraits = parse_template_response(response, is_paid=True)
+                all_portraits[problem_type_name] = portraits
+
+        except Exception as e:
+            logger.error(f"批量生成失败 ({problem_type_name}): {e}")
+            continue
+
+    session_obj.portraits_by_type = all_portraits
+    db.session.commit()
+
+    return jsonify({
+        'code': 200,
+        'message': '全部画像生成完成',
+        'data': {'portraits_by_type': all_portraits, 'is_paid': True}
+    })
+
+
 # ========== 一键完成：问题挖掘+画像生成 ==========
 
 COMBINED_MINING_PROMPT = """## 角色
-你是一位专业的用户研究专家，擅长从业务场景中挖掘用户问题，并直接生成对应的精准人群画像。
+你是一位用户研究专家。
 
 ## 任务
-分析以下业务场景，完成两步工作：
-1. 挖掘使用方问题和付费方顾虑
-2. 基于问题直接生成精准人群画像
+分析业务，挖掘问题并生成人群画像。
 
 ## 业务信息
-- 行业/品类：{industry}
-- 业务类型：{business_type}
-- 产品/服务描述：{description}
+- 行业：{industry}
+- 产品/服务：{description}
 - 经营模式：{business_model}
-- 目标用户画像：{target_users}
-- 购买方与使用方关系：{buyer_relationship}
-
-## 分析要求
-请结合以上业务信息，站在用户（购买方和使用方）的角度思考：
-- 用户在什么场景下会需要这个产品/服务？
-- 用户购买时最担心什么？
-- 用户使用过程中会遇到什么问题？
-- 用户的顾虑和痛点是什么？
 
 ## 输出要求
 
-### 第一部分：问题分类与清单
-
-请按**问题类型**将问题分类（如：肠道问题、过敏问题、发育问题、口味问题、上火问题等），
-每个类型下包含具体问题。
-
-**使用方问题分类示例**（请根据实际行业调整）：
-| 问题类型 | 具体表现 | 严重程度 |
-|----------|----------|----------|
-| 肠道问题 | 拉肚子、腹胀、便秘 | ⭐⭐⭐⭐⭐ |
-| 过敏问题 | 牛奶蛋白过敏、乳糖不耐受 | ⭐⭐⭐⭐⭐ |
-| 发育问题 | 不长肉、不长个、挑食 | ⭐⭐⭐⭐ |
-| 口味问题 | 不爱喝、厌奶 | ⭐⭐⭐⭐ |
-| 上火问题 | 眼屎多、嘴巴臭 | ⭐⭐⭐ |
-
-**问题类型**和**付费方顾虑**请用 JSON 格式输出：
-
+### 问题分类
 ```json
 {{
   "problem_types": [
     {{
-      "type_name": "肠道问题",
-      "severity": "⭐⭐⭐⭐⭐",
+      "type_name": "问题类型名称",
+      "severity": "⭐数量",
       "problems": [
-        {{
-          "name": "具体问题名称",
-          "description": "问题描述",
-          "specific_symptoms": "具体表现",
-          "severity": "高/中/低",
-          "user_awareness": "有意识/无意识",
-          "trigger_scenario": "触发场景"
-        }}
+        {{"name": "问题名称", "description": "问题描述"}}
       ]
     }}
   ],
   "buyer_concerns": [
-    {{
-      "concern_type": "真假/价格/选择/信任",
-      "name": "顾虑名称",
-      "description": "具体描述",
-      "estimated_ratio": "预估占比"
-    }}
-  ],
-  "buyer_user_relationship": {{
-    "buyer_equals_user": true/false,
-    "buyer_description": "购买方特征（如果分开）",
-    "user_description": "使用方特征（如果分开）"
-  }}
+    {{"concern_type": "真假/价格/选择/信任", "name": "顾虑名称"}}
+  ]
 }}
 ```
 
-### 第二部分：人群画像（按问题类型分组）
-
-请为**每个问题类型**生成至少5个精准人群画像：
-
+### 人群画像（精简版，每个问题类型 {portrait_count} 个）
 ```json
 {{
   "portraits_by_type": {{
-    "肠道问题": [
+    "类型名称": [
       {{
         "name": "画像名称",
-        "user_description": "使用方特征描述",
+        "user_description": "用户特征",
         "user_core_problem": "核心问题",
-        "user_specific_symptoms": "具体表现",
-        "user_pain_level": "非常急迫/急迫/一般",
-        "buyer_description": "购买方特征",
-        "buyer_core_problem": "购买方核心问题",
-        "buyer_concerns": {{
-          "真假": "顾虑",
-          "价格": "顾虑",
-          "选择": "顾虑",
-          "信任": "顾虑"
-        }},
         "search_keywords": ["关键词1", "关键词2"]
       }}
     ]
@@ -262,11 +628,7 @@ COMBINED_MINING_PROMPT = """## 角色
 }}
 ```
 
-**重要**：
-1. 画像必须紧密围绕该问题类型的核心痛点
-2. 画像之间要有差异化，聚焦不同细分场景
-3. 如果某个问题类型无法生成有效画像，该类型可以不输出
-4. **不要生成假数据！没有真实画像就不要输出！**"""
+**简洁为王！每个画像不超过50字！**"""
 
 
 # ========== API 路由 ==========

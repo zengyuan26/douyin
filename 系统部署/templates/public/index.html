@@ -1190,9 +1190,11 @@
                 userList.innerHTML = '<div class="col-12 text-center text-muted py-4">暂无使用方问题数据</div>';
             } else {
                 userTypes.forEach((type) => {
-                    const displayName = type.display_name || (type.identity + type.problem_type);
+                    const identity = type.identity || '';
+                    const problemType = type.problem_type || '';
+                    const displayName = identity + problemType;
                     const portraitCount = (portraitsByType[displayName] || []).length;
-                    const card = buildProblemCard(displayName, type.description || '', type.severity || '', portraitCount);
+                    const card = buildProblemCard(identity, problemType, type.description || '', type.severity || '', portraitCount);
                     card.onclick = () => selectProblemCard(displayName);
                     userList.appendChild(card);
                 });
@@ -1203,9 +1205,11 @@
                 buyerList.innerHTML = '<div class="col-12 text-center text-muted py-4">暂无付费方顾虑数据</div>';
             } else {
                 buyerTypes.forEach((type) => {
-                    const displayName = type.display_name || (type.identity + type.concern_type);
+                    const identity = type.identity || '';
+                    const concernType = type.concern_type || '';
+                    const displayName = identity + concernType;
                     const portraitCount = (portraitsByType[displayName] || []).length;
-                    const card = buildProblemCard(displayName, type.description || '', '高', portraitCount);
+                    const card = buildProblemCard(identity, concernType, type.description || '', '高', portraitCount);
                     card.onclick = () => selectProblemCard(displayName);
                     buyerList.appendChild(card);
                 });
@@ -1272,21 +1276,32 @@
             });
         }
 
-        // 构建单张问题卡片
-        function buildProblemCard(displayName, description, severity, portraitCount) {
+        // 构建单张问题卡片（显示身份+问题类型）
+        function buildProblemCard(identity, problemType, description, severity, portraitCount) {
             const col = document.createElement('div');
             col.className = 'col-md-4 col-sm-6';
-            col.dataset.key = displayName;
+            const key = identity + problemType;
+            col.dataset.key = key;
 
             let stars = '';
             if (severity === '高') stars = '⭐⭐⭐⭐⭐';
             else if (severity === '中') stars = '⭐⭐⭐⭐';
             else stars = '⭐⭐⭐';
 
+            const tagIcon = identity.includes('宝') || identity.includes('用户') ? '👶' :
+                           identity.includes('老') ? '👴' :
+                           identity.includes('女') ? '👩' :
+                           identity.includes('男') ? '👨' : '👤';
+
             col.innerHTML = `
                 <div class="problem-card selected" style="cursor:pointer;">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge" style="background:#e3f2fd; color:#1565c0; font-size:11px;">${tagIcon} ${identity}</span>
+                        <span style="color:#999;">+</span>
+                        <span class="badge" style="background:#fce4ec; color:#c2185b; font-size:11px;">${problemType}</span>
+                    </div>
                     <div class="d-flex justify-content-between align-items-start mb-1">
-                        <div class="fw-bold" style="font-size:14px; color:#333;">${displayName}</div>
+                        <div class="fw-bold" style="font-size:13px; color:#333;">${identity}${problemType}</div>
                         <span style="font-size:11px;">${stars}</span>
                     </div>
                     <div style="font-size:12px; color:#666; margin-bottom:6px;">${description || '暂无描述'}</div>
