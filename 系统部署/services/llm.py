@@ -12,17 +12,17 @@ logger = logging.getLogger(__name__)
 class LLMService:
     """LLM 服务类"""
     
-    def __init__(self, provider='ollama', model=None):
+    def __init__(self, provider='qwen', model=None):
         """
         初始化 LLM 服务
         
         Args:
-            provider: 模型提供商 ('ollama', 'openai', 'azure')
+            provider: 模型提供商 ('ollama', 'openai', 'qwen', 'azure')
             model: 模型名称
         """
         self.provider = provider
-        self.model = model or os.environ.get('LLM_MODEL', 'qwen2.5:7b')
-        self.base_url = os.environ.get('LLM_BASE_URL', 'http://localhost:11434')
+        self.model = model or os.environ.get('LLM_MODEL', 'qwen-plus')
+        self.base_url = os.environ.get('LLM_BASE_URL', 'https://dashscope.aliyuncs.com/compatible-mode/v1')
         self.api_key = os.environ.get('LLM_API_KEY', '')
         
     def chat(self, messages, temperature=0.7, max_tokens=2000):
@@ -47,6 +47,8 @@ class LLMService:
                 return self._chat_ollama(messages, temperature, max_tokens)
             elif self.provider == 'openai':
                 return self._chat_openai(messages, temperature, max_tokens)
+            elif self.provider == 'qwen':
+                return self._chat_qwen(messages, temperature, max_tokens)
             elif self.provider == 'azure':
                 return self._chat_azure(messages, temperature, max_tokens)
             else:
@@ -94,6 +96,29 @@ class LLMService:
         url = "https://api.openai.com/v1/chat/completions"
         payload = {
             "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=300)
+        response.raise_for_status()
+        
+        result = response.json()
+        return result["choices"][0]["message"]["content"]
+
+    def _chat_qwen(self, messages, temperature, max_tokens):
+        """阿里云百炼 (Qwen) API 调用 - 兼容 OpenAI 格式"""
+        import requests
+        
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        url = f"{self.base_url}/chat/completions"
+        payload = {
+            "model": self.model,  # qwen-plus, qwen-turbo, qwen-max 等
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens
@@ -156,6 +181,8 @@ class LLMService:
                 yield from self._chat_stream_ollama(messages, temperature, max_tokens)
             elif self.provider == 'openai':
                 yield from self._chat_stream_openai(messages, temperature, max_tokens)
+            elif self.provider == 'qwen':
+                yield from self._chat_stream_openai(messages, temperature, max_tokens)  # 兼容 OpenAI 格式
             elif self.provider == 'azure':
                 yield from self._chat_stream_azure(messages, temperature, max_tokens)
             else:
@@ -274,8 +301,8 @@ def get_llm_service():
     """获取 LLM 服务实例"""
     global llm_service
     if llm_service is None:
-        provider = os.environ.get('LLM_PROVIDER', 'ollama')
-        model = os.environ.get('LLM_MODEL', 'qwen2.5:7b')
+        provider = os.environ.get('LLM_PROVIDER', 'qwen')
+        model = os.environ.get('LLM_MODEL', 'qwen-plus')
         llm_service = LLMService(provider=provider, model=model)
     return llm_service
 
