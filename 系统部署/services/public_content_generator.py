@@ -3014,81 +3014,15 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
     elif business_type == 'enterprise':
         buyer_user_hint = "【买用关系提示】企业服务通常是：使用者≠决策者（如员工用，经理/老板买）"
 
-    prompt = f"""你是用户画像分析专家。请根据以下业务信息，**一次性完成买用关系判断、问题挖掘、画像生成**。
+    prompt = f"""你是用户画像分析专家。请根据业务信息，识别用户问题和生成画像。
 
-=== 业务基本信息 ===
-业务描述：{business_desc}
-经营范围：{business_range_text}
-经营类型：{business_type_text}
+【重要】先仔细阅读以下示例，理解输出格式，然后基于业务信息生成。
 
-辅助信息：
-{aux_section}
-{buyer_user_hint}
+=== 示例1：奶粉行业 ===
+业务：婴幼儿配方奶粉销售
+特点：使用者（宝宝）≠ 付费者（家长）
 
-=== 核心思维 ===
-**买用关系决定一切**：优先判断谁用、谁买，再围绕它挖掘问题和生成画像。
-
-=== 第一步：判断买用关系 ===
-使用者（产品/服务的直接使用者）与付费者（购买决策者）是否分离？
-
-buyer_user_relation：
-- is_separate: true（分离，如宝宝喝奶粉，宝妈买）/ false（合一，如自己修自己用）
-- description: 简短描述（15字内）
-
-=== 第二步：挖掘问题类型 ===
-
-**【关键要求】身份必须多样化！不要只写"用户"！**
-
-根据业务场景，识别所有可能的身份角色：
-- 消费品：孩子/患者/消费者 + 家长/家属/购买者
-- 企业服务：员工/使用者 + 老板/采购/HR
-- 定制产品：使用者 + 决策者（如送礼人、宴会主办方）
-- B端客户：来访者/客户/员工 + 接待方负责人
-
-**A. 使用方问题**（直接使用者遇到了什么问题）
-格式：**身份+问题类型**，如「员工会议口渴」「客户接待用水体验差」
-
-请列出5-6个使用方问题类型（身份必须多样化，至少3种不同身份）：
-- identity：使用者身份（不能只写"用户"，要写具体角色）
-- problem_type：问题类型
-- display_name：显示名称（身份+问题类型）
-- description：具体表现（用顿号分隔）
-- severity：严重程度（高/中/低）
-
-**B. 付费方顾虑**（购买决策者有什么担忧）
-格式：**身份+顾虑类型**，如「老板品牌宣传担忧」「HR采购合规顾虑」
-
-请列出3-4个付费方顾虑类型：
-- identity：付费方身份
-- concern_type：顾虑类型
-- display_name：显示名称（身份+顾虑类型）
-- description：具体表现（用顿号分隔）
-- examples：典型疑问（1-2个）
-
-=== 第三步：按问题类型生成画像 ===
-
-**重要**：为每个问题类型生成5个以上具体画像。
-
-画像要求：
-- 画像要**具体**（不是泛泛的"新手妈妈"而是"宝宝乳糖不耐受的宝妈"）
-- 每个画像有明确的问题导向
-- 画像要体现买用关系
-
-每个画像包含：
-- name：画像名称（体现问题特征）
-- age_range：年龄段
-- occupation：职业/身份
-- description：具体描述
-- pain_point：核心痛点
-- goal：用户目标
-
-**按问题类型分组返回**，格式：
-"portraits_by_type": {{
-    "问题类型显示名1": [画像1, 画像2, ...],
-    "问题类型显示名2": [画像1, 画像2, ...]
-}}
-
-【示例·奶粉行业输出结构】
+输出：
 {{
     "buyer_user_relation": {{
         "is_separate": true,
@@ -3103,19 +3037,16 @@ buyer_user_relation：
     ],
     "portraits_by_type": {{
         "宝宝肠道问题": [
-            {{"name": "拉肚子型宝宝家长", "age_range": "0-2岁宝宝家长", "occupation": "新手爸妈", "description": "宝宝喝奶后拉肚子，怀疑奶粉问题"}},
-            {{"name": "腹胀型宝宝家长", "age_range": "0-1岁宝宝家长", "occupation": "全职宝妈", "description": "宝宝肚子胀气、哭闹不止"}}
-        ],
-        "宝宝过敏问题": [
-            {{"name": "乳糖不耐受宝宝家长", "age_range": "0-3岁宝宝家长", "occupation": "重视健康的家长", "description": "医院诊断乳糖不耐受"}}
-        ],
-        "宝妈真假担忧": [
-            {{"name": "海淘焦虑型宝妈", "age_range": "25-35岁", "occupation": "都市白领", "description": "担心买到假货，只信任官方渠道"}}
+            {{"name": "拉肚子型宝宝家长", "age_range": "0-2岁宝宝家长", "occupation": "新手爸妈", "description": "宝宝喝奶后拉肚子，怀疑奶粉问题"}}
         ]
     }}
 }}
 
-【示例·企业定制水行业输出结构】
+=== 示例2：企业定制水 ===
+业务：瓶装定制水/企业饮用水配送
+特点：使用者（员工/客户）≠ 付费者（老板/HR）
+
+输出：
 {{
     "buyer_user_relation": {{
         "is_separate": true,
@@ -3127,27 +3058,69 @@ buyer_user_relation：
         {{"identity": "送礼对象", "problem_type": "礼品无新意", "display_name": "送礼礼品无新意", "description": "礼品太普通、没记忆点", "severity": "中"}}
     ],
     "buyer_concern_types": [
-        {{"identity": "老板", "concern_type": "品牌宣传担忧", "display_name": "老板品牌宣传担忧", "description": "定制效果不确定、怕花了钱没效果", "examples": ["定制水能带来多少曝光？", "客户会记住我们吗？"]}},
-        {{"identity": "HR行政", "concern_type": "采购合规顾虑", "display_name": "HR采购合规顾虑", "description": "能不能开票、价格合不合理", "examples": ["能开增值税发票吗？", "最低多少箱起订？"]}}
+        {{"identity": "老板", "concern_type": "品牌宣传担忧", "display_name": "老板品牌宣传担忧", "description": "定制效果不确定、怕花了钱没效果", "examples": ["定制水能带来多少曝光？"]}},
+        {{"identity": "HR行政", "concern_type": "采购合规顾虑", "display_name": "HR采购合规顾虑", "description": "能不能开票、价格合不合理", "examples": ["能开票吗？", "最低多少箱起订？"]}}
     ],
     "portraits_by_type": {{
         "员工会议口渴": [
-            {{"name": "会议常客型员工", "age_range": "25-40岁", "occupation": "办公室职员", "description": "每天开会3次以上，经常找不到水"}},
-            {{"name": "嗓子干痒型员工", "age_range": "30-45岁", "occupation": "培训师/讲师", "description": "讲课说话多，需要频繁补水"}}
+            {{"name": "会议常客型员工", "age_range": "25-40岁", "occupation": "办公室职员", "description": "每天开会3次以上，经常找不到水"}}
         ],
         "客户接待体验差": [
-            {{"name": "重要客户来访型", "age_range": "35-50岁", "occupation": "企业高管", "description": "经常接待重要客户，细节体现专业度"}},
-            {{"name": "商务谈判型", "age_range": "30-45岁", "occupation": "销售/BD", "description": "需要给客户留下专业印象"}}
-        ],
-        "老板品牌宣传担忧": [
-            {{"name": "初创公司老板", "age_range": "30-45岁", "occupation": "创业者", "description": "预算有限，追求高性价比宣传"}},
-            {{"name": "品牌负责人", "age_range": "28-40岁", "occupation": "市场部经理", "description": "关注品牌曝光和营销效果"}}
+            {{"name": "重要客户来访型", "age_range": "35-50岁", "occupation": "企业高管", "description": "经常接待重要客户，细节体现专业度"}}
         ]
     }}
 }}
 
-=== 输出格式 ===
-只返回JSON，不要其他文字。"""
+=== 示例3：本地家政服务 ===
+业务：日常保洁/家政服务
+特点：使用者 = 付费者（自己用自己买）
+
+输出：
+{{
+    "buyer_user_relation": {{
+        "is_separate": false,
+        "description": "自己用自己买"
+    }},
+    "user_problem_types": [
+        {{"identity": "上班族", "problem_type": "没时间打扫", "display_name": "上班族没时间打扫", "description": "工作忙、周末想休息", "severity": "高"}},
+        {{"identity": "家庭主妇", "problem_type": "大扫除太累", "display_name": "家庭主妇大扫除太累", "description": "逢年过节大扫除力不从心", "severity": "中"}}
+    ],
+    "buyer_concern_types": [
+        {{"identity": "雇主", "concern_type": "安全信任顾虑", "display_name": "雇主安全信任顾虑", "description": "担心陌生人进门安全", "examples": ["家政员可靠吗？", "贵重物品安全吗？"]}}
+    ],
+    "portraits_by_type": {{
+        "上班族没时间打扫": [
+            {{"name": "996加班型白领", "age_range": "25-35岁", "occupation": "互联网员工", "description": "经常加班，回家只想躺平"}}
+        ]
+    }}
+}}
+
+=== 通用推理框架（适用于所有业务） ===
+
+**核心思维**：买用关系决定一切！
+1. 先判断：使用者 = 付费者？分离还是合一？
+2. 再识别：使用者有哪些？付费者有哪些？
+3. 最后挖掘：各方的问题/顾虑是什么？
+
+**识别身份的通用方法**：
+- 谁会用这个产品/服务？（使用者）
+- 谁会买这个产品/服务？（付费者）
+- 使用者和付费者是同一个人吗？
+
+**身份多样化要求**：
+- 必须列出至少3种不同的使用者身份
+- 不能只写"用户"，要写具体角色（如：员工/客户/送礼对象/会议参与者等）
+
+=== 待分析业务信息 ===
+业务描述：{business_desc}
+经营范围：{business_range_text}
+经营类型：{business_type_text}
+
+辅助信息：{aux_section}
+{buyer_user_hint}
+
+=== 输出要求 ===
+请按照示例格式，输出JSON。只返回JSON，不要其他文字。"""
 
     try:
         # 调用 LLM
