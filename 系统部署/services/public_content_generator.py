@@ -3018,98 +3018,104 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 【重要】先仔细阅读以下示例，理解输出格式，然后基于业务信息生成。
 
-=== 示例1：奶粉行业 ===
+=== 示例1：婚宴定制水 ===
+业务：瓶装定制水（主做婚宴、寿宴、满月宴等宴席场景）
+
+输出：
+{{
+    "scenarios": [
+        {{
+            "name": "婚宴定制",
+            "description": "结婚典礼上的定制水需求",
+            "user_problem_types": [
+                {{"identity": "新郎新娘", "problem_type": "想留独特记忆", "display_name": "新郎新娘想留独特记忆", "description": "想让宾客记住自己的婚礼", "severity": "高"}},
+                {{"identity": "双方父母", "problem_type": "撑面子", "display_name": "双方父母撑面子", "description": "想让婚礼办得体面、有档次", "severity": "高"}},
+                {{"identity": "宾客", "problem_type": "体验一般", "display_name": "宾客体验一般", "description": "普通婚宴没特色、记不住", "severity": "中"}}
+            ],
+            "buyer_concern_types": [
+                {{"identity": "新郎新娘", "concern_type": "价格担忧", "display_name": "新郎新娘价格担忧", "description": "担心定制水太贵、预算不够", "examples": ["定制水多少钱一箱？"]}},
+                {{"identity": "婚庆公司", "concern_type": "采购顾虑", "display_name": "婚庆公司采购顾虑", "description": "担心质量、交期、效果", "examples": ["能按时交货吗？"]}}
+            ],
+            "portraits_by_type": {{
+                "新郎新娘想留独特记忆": [
+                    {{"name": "追求浪漫型新人", "age_range": "25-30岁", "occupation": "都市白领", "description": "希望婚礼与众不同，留下美好回忆"}},
+                    {{"name": "完美主义新娘", "age_range": "26-32岁", "occupation": "设计师/策划", "description": "注重婚礼每个细节，追求完美"}}
+                ],
+                "双方父母撑面子": [
+                    {{"name": "传统家庭型父母", "age_range": "50-60岁", "occupation": "退休/传统行业", "description": "重视传统礼节，要场面"}}
+                ]
+            }}
+        }},
+        {{
+            "name": "寿宴定制",
+            "description": "老年人寿宴上的定制水需求",
+            "user_problem_types": [
+                {{"identity": "寿星", "problem_type": "仪式感不足", "display_name": "寿星仪式感不足", "description": "普通祝寿没氛围", "severity": "中"}},
+                {{"identity": "子女", "problem_type": "表达孝心", "display_name": "子女想表达孝心", "description": "想给老人办得热闹、体面", "severity": "高"}}
+            ],
+            "buyer_concern_types": [
+                {{"identity": "子女", "concern_type": "预算顾虑", "display_name": "子女预算顾虑", "description": "寿宴开销大，担心定制费用", "examples": ["寿宴定制水贵不贵？"]}}
+            ],
+            "portraits_by_type": {{
+                "子女想表达孝心": [
+                    {{"name": "孝心满满型子女", "age_range": "40-55岁", "occupation": "私企老板/企业中层", "description": "父母大寿想好好办一场"}}
+                ]
+            }}
+        }}
+    ],
+    "general_user_problem_types": [
+        {{"identity": "会议主办方", "problem_type": "用水体验差", "display_name": "会议主办方用水体验差", "description": "培训/会议用水没档次", "severity": "中"}},
+        {{"identity": "企业HR", "problem_type": "员工福利单一", "display_name": "企业HR员工福利单一", "description": "节日福利没新意", "severity": "中"}}
+    ],
+    "general_buyer_concern_types": [
+        {{"identity": "企业老板", "concern_type": "品牌宣传效果", "display_name": "企业老板品牌宣传效果担忧", "description": "担心定制水宣传效果不明显", "examples": ["能带来多少曝光？"]}},
+        {{"identity": "采购人员", "concern_type": "采购便利性", "display_name": "采购便利性顾虑", "description": "担心起订量、配送、开票", "examples": ["最低多少箱起订？", "能开票吗？"]}}
+    ]
+}}
+
+=== 示例2：奶粉行业 ===
 业务：婴幼儿配方奶粉销售
-特点：使用者（宝宝）≠ 付费者（家长）
 
 输出：
 {{
-    "buyer_user_relation": {{
-        "is_separate": true,
-        "description": "宝宝喝，家长买"
-    }},
-    "user_problem_types": [
-        {{"identity": "宝宝", "problem_type": "肠道问题", "display_name": "宝宝肠道问题", "description": "拉肚子、腹胀、便秘", "severity": "高"}},
-        {{"identity": "宝宝", "problem_type": "过敏问题", "display_name": "宝宝过敏问题", "description": "牛奶蛋白过敏、乳糖不耐受", "severity": "高"}}
+    "scenarios": [
+        {{
+            "name": "宝宝日常喂养",
+            "description": "宝宝日常喝奶场景",
+            "user_problem_types": [
+                {{"identity": "宝宝", "problem_type": "肠道问题", "display_name": "宝宝肠道问题", "description": "拉肚子、腹胀、便秘", "severity": "高"}},
+                {{"identity": "宝宝", "problem_type": "过敏问题", "display_name": "宝宝过敏问题", "description": "牛奶蛋白过敏、乳糖不耐受", "severity": "高"}}
+            ],
+            "buyer_concern_types": [
+                {{"identity": "宝妈", "concern_type": "真假担忧", "display_name": "宝妈真假担忧", "description": "怕买到假货、怕来源不正", "examples": ["怎么验真伪？"]}}
+            ],
+            "portraits_by_type": {{
+                "宝宝肠道问题": [
+                    {{"name": "拉肚子型宝宝家长", "age_range": "0-2岁宝宝家长", "occupation": "新手爸妈", "description": "宝宝喝奶后拉肚子"}}
+                ]
+            }}
+        }}
     ],
-    "buyer_concern_types": [
-        {{"identity": "宝妈", "concern_type": "真假担忧", "display_name": "宝妈真假担忧", "description": "怕买到假货、怕来源不正", "examples": ["怎么验真伪？", "哪里买靠谱？"]}}
-    ],
-    "portraits_by_type": {{
-        "宝宝肠道问题": [
-            {{"name": "拉肚子型宝宝家长", "age_range": "0-2岁宝宝家长", "occupation": "新手爸妈", "description": "宝宝喝奶后拉肚子，怀疑奶粉问题"}}
-        ]
-    }}
-}}
-
-=== 示例2：企业定制水 ===
-业务：瓶装定制水/企业饮用水配送
-特点：使用者（员工/客户）≠ 付费者（老板/HR）
-
-输出：
-{{
-    "buyer_user_relation": {{
-        "is_separate": true,
-        "description": "员工/客户用，老板/HR买"
-    }},
-    "user_problem_types": [
-        {{"identity": "员工", "problem_type": "会议口渴", "display_name": "员工会议口渴", "description": "瓶装水不够分、找不到水喝", "severity": "中"}},
-        {{"identity": "客户", "problem_type": "接待体验差", "display_name": "客户接待体验差", "description": "用水没档次、显得不专业", "severity": "高"}},
-        {{"identity": "送礼对象", "problem_type": "礼品无新意", "display_name": "送礼礼品无新意", "description": "礼品太普通、没记忆点", "severity": "中"}}
-    ],
-    "buyer_concern_types": [
-        {{"identity": "老板", "concern_type": "品牌宣传担忧", "display_name": "老板品牌宣传担忧", "description": "定制效果不确定、怕花了钱没效果", "examples": ["定制水能带来多少曝光？"]}},
-        {{"identity": "HR行政", "concern_type": "采购合规顾虑", "display_name": "HR采购合规顾虑", "description": "能不能开票、价格合不合理", "examples": ["能开票吗？", "最低多少箱起订？"]}}
-    ],
-    "portraits_by_type": {{
-        "员工会议口渴": [
-            {{"name": "会议常客型员工", "age_range": "25-40岁", "occupation": "办公室职员", "description": "每天开会3次以上，经常找不到水"}}
-        ],
-        "客户接待体验差": [
-            {{"name": "重要客户来访型", "age_range": "35-50岁", "occupation": "企业高管", "description": "经常接待重要客户，细节体现专业度"}}
-        ]
-    }}
-}}
-
-=== 示例3：本地家政服务 ===
-业务：日常保洁/家政服务
-特点：使用者 = 付费者（自己用自己买）
-
-输出：
-{{
-    "buyer_user_relation": {{
-        "is_separate": false,
-        "description": "自己用自己买"
-    }},
-    "user_problem_types": [
-        {{"identity": "上班族", "problem_type": "没时间打扫", "display_name": "上班族没时间打扫", "description": "工作忙、周末想休息", "severity": "高"}},
-        {{"identity": "家庭主妇", "problem_type": "大扫除太累", "display_name": "家庭主妇大扫除太累", "description": "逢年过节大扫除力不从心", "severity": "中"}}
-    ],
-    "buyer_concern_types": [
-        {{"identity": "雇主", "concern_type": "安全信任顾虑", "display_name": "雇主安全信任顾虑", "description": "担心陌生人进门安全", "examples": ["家政员可靠吗？", "贵重物品安全吗？"]}}
-    ],
-    "portraits_by_type": {{
-        "上班族没时间打扫": [
-            {{"name": "996加班型白领", "age_range": "25-35岁", "occupation": "互联网员工", "description": "经常加班，回家只想躺平"}}
-        ]
-    }}
+    "general_user_problem_types": [],
+    "general_buyer_concern_types": []
 }}
 
 === 通用推理框架（适用于所有业务） ===
 
-**核心思维**：买用关系决定一切！
-1. 先判断：使用者 = 付费者？分离还是合一？
-2. 再识别：使用者有哪些？付费者有哪些？
-3. 最后挖掘：各方的问题/顾虑是什么？
+**核心思维**：场景化分析！
+1. 先识别：这个业务有哪些**使用场景**？
+2. 再分析：每个场景下，谁是**使用者**？谁是**付费者**？
+3. 最后挖掘：各方有什么**问题/顾虑**？
 
-**识别身份的通用方法**：
-- 谁会用这个产品/服务？（使用者）
-- 谁会买这个产品/服务？（付费者）
-- 使用者和付费者是同一个人吗？
+**场景识别要点**：
+- 宴席场景：婚宴、寿宴、满月宴、乔迁宴...
+- 商务场景：会议、培训、接待、展会...
+- 日常场景：家庭自用、送礼、福利发放...
+- 每个场景都可能涉及不同身份
 
 **身份多样化要求**：
-- 必须列出至少3种不同的使用者身份
-- 不能只写"用户"，要写具体角色（如：员工/客户/送礼对象/会议参与者等）
+- 每个场景列出至少2-3种不同身份
+- 不能只写"用户"，要写具体角色
 
 === 待分析业务信息 ===
 业务描述：{business_desc}
@@ -3287,50 +3293,113 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             print(f"[mine_problems_and_generate_personas] ===== 响应结束 =====")
 
         if result:
-            # 解析数据
+            # 解析数据 - 支持新结构（场景化）和旧结构（兼容性）
+            scenarios = result.get('scenarios', [])
             user_problem_types = result.get('user_problem_types', [])
             buyer_concern_types = result.get('buyer_concern_types', [])
             buyer_user_relation = result.get('buyer_user_relation', {})
             portraits_by_type = result.get('portraits_by_type', {})
-
-            # 格式化使用方问题类型
-            user_problem_types_formatted = []
+            
+            # 合并场景内的问题和全局问题
+            all_user_problem_types = []
+            all_buyer_concern_types = []
+            all_portraits = dict(portraits_by_type)  # 复制原有的
+            
+            # 处理场景数据
+            for scenario in scenarios:
+                scenario_name = scenario.get('name', '')
+                scenario_user_problems = scenario.get('user_problem_types', [])
+                scenario_buyer_concerns = scenario.get('buyer_concern_types', [])
+                scenario_portraits = scenario.get('portraits_by_type', {})
+                
+                # 合并画像
+                for key, portraits in scenario_portraits.items():
+                    full_key = f"[{scenario_name}]{key}"
+                    if key not in all_portraits:
+                        all_portraits[key] = portraits
+                    else:
+                        # 合并
+                        existing_ids = [p.get('name', '') for p in all_portraits[key]]
+                        for p in portraits:
+                            if p.get('name', '') not in existing_ids:
+                                all_portraits[key].append(p)
+                
+                # 格式化场景内的问题
+                for item in scenario_user_problems:
+                    display_name = item.get('display_name', '') or f"{item.get('identity', '')}{item.get('problem_type', '')}"
+                    all_user_problem_types.append({
+                        'id': item.get('id', f's_{scenario_name}_{len(all_user_problem_types)}'),
+                        'identity': item.get('identity', ''),
+                        'problem_type': item.get('problem_type', ''),
+                        'display_name': display_name,
+                        'description': item.get('description', ''),
+                        'severity': item.get('severity', '中'),
+                        'scenario': scenario_name
+                    })
+                
+                # 格式化场景内的顾虑
+                for item in scenario_buyer_concerns:
+                    display_name = item.get('display_name', '') or f"{item.get('identity', '')}{item.get('concern_type', '')}"
+                    all_buyer_concern_types.append({
+                        'id': item.get('id', f's_{scenario_name}_{len(all_buyer_concern_types)}'),
+                        'identity': item.get('identity', ''),
+                        'concern_type': item.get('concern_type', ''),
+                        'display_name': display_name,
+                        'description': item.get('description', ''),
+                        'examples': item.get('examples', []),
+                        'severity': '高',
+                        'scenario': scenario_name
+                    })
+            
+            # 格式化旧结构的全局问题（保持兼容性）
             for i, item in enumerate(user_problem_types):
                 display_name = item.get('display_name', '')
                 if not display_name and item.get('identity') and item.get('problem_type'):
                     display_name = f"{item.get('identity')}{item.get('problem_type')}"
-                user_problem_types_formatted.append({
+                all_user_problem_types.append({
                     'id': item.get('id', f'up_{i+1}'),
                     'identity': item.get('identity', ''),
                     'problem_type': item.get('problem_type', ''),
                     'display_name': display_name,
                     'description': item.get('description', ''),
-                    'severity': item.get('severity', '中')
+                    'severity': item.get('severity', '中'),
+                    'scenario': '通用'
                 })
 
-            # 格式化付费方顾虑类型
-            buyer_problem_types = []
             for i, item in enumerate(buyer_concern_types):
                 display_name = item.get('display_name', '')
                 if not display_name and item.get('identity') and item.get('concern_type'):
                     display_name = f"{item.get('identity')}{item.get('concern_type')}"
-                buyer_problem_types.append({
+                all_buyer_concern_types.append({
                     'id': item.get('id', f'bc_{i+1}'),
                     'identity': item.get('identity', ''),
                     'concern_type': item.get('concern_type', ''),
                     'display_name': display_name,
                     'description': item.get('description', ''),
                     'examples': item.get('examples', []),
-                    'severity': '高'
+                    'severity': '高',
+                    'scenario': '通用'
                 })
+
+            # 如果没有场景数据，尝试从旧结构推断
+            if not scenarios and all_user_problem_types:
+                # 尝试根据身份推断场景
+                for item in all_user_problem_types:
+                    if '宴' in item.get('identity', '') or '婚礼' in item.get('identity', ''):
+                        item['scenario'] = '宴席场景'
+                    elif '会议' in item.get('identity', '') or '培训' in item.get('identity', ''):
+                        item['scenario'] = '商务场景'
+                    else:
+                        item['scenario'] = '通用'
 
             return {
                 'success': True,
                 'data': {
-                    'user_problem_types': user_problem_types_formatted,
-                    'buyer_problem_types': buyer_problem_types,
+                    'scenarios': [{'name': s.get('name', ''), 'description': s.get('description', '')} for s in scenarios],
+                    'user_problem_types': all_user_problem_types,
+                    'buyer_problem_types': all_buyer_concern_types,
                     'buyer_user_relation': buyer_user_relation,
-                    'portraits_by_type': portraits_by_type
+                    'portraits_by_type': all_portraits
                 }
             }
         else:
