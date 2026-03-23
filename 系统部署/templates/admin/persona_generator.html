@@ -1,0 +1,1411 @@
+{% extends "base.html" %}
+
+{% block title %}人群画像生成 - AI棱镜{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 页面标题 */
+    .page-header {
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        margin-bottom: 4px;
+    }
+
+    .page-subtitle {
+        font-size: 14px;
+        color: var(--color-text-tertiary);
+    }
+
+    /* 创建会话表单 */
+    .create-form {
+        background: var(--color-bg-primary);
+        border: 1px solid var(--color-border-light);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .form-label {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+    }
+
+    .form-input {
+        padding: 10px 14px;
+        border: 1px solid var(--color-border-light);
+        border-radius: 10px;
+        font-size: 14px;
+        transition: all var(--transition-fast);
+        background: var(--color-bg-secondary);
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+    }
+
+    .form-textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
+
+    .form-select {
+        padding: 10px 14px;
+        border: 1px solid var(--color-border-light);
+        border-radius: 10px;
+        font-size: 14px;
+        background: var(--color-bg-secondary);
+        cursor: pointer;
+    }
+
+    /* 业务类型切换 */
+    .business-type-toggle {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .toggle-btn {
+        padding: 10px 20px;
+        border: 1px solid var(--color-border-light);
+        border-radius: 10px;
+        background: var(--color-bg-secondary);
+        cursor: pointer;
+        font-size: 14px;
+        transition: all var(--transition-fast);
+        flex: 1;
+        text-align: center;
+    }
+
+    .toggle-btn.active {
+        border-color: var(--color-primary);
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--color-primary);
+    }
+
+    /* 主按钮 */
+    .btn-primary {
+        padding: 12px 24px;
+        background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 122, 255, 0.3);
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-secondary {
+        padding: 10px 20px;
+        background: var(--color-bg-secondary);
+        color: var(--color-text-primary);
+        border: 1px solid var(--color-border-light);
+        border-radius: 10px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .btn-secondary:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+
+    /* 加载状态 */
+    .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* 内容区域 */
+    .content-section {
+        background: var(--color-bg-primary);
+        border: 1px solid var(--color-border-light);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    .section-subtitle {
+        font-size: 14px;
+        color: var(--color-text-tertiary);
+        margin-left: 12px;
+    }
+
+    /* 问题卡片 */
+    .problem-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+    }
+
+    /* 问题类型分组 */
+    .problem-type-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 16px;
+    }
+
+    .problem-type-card {
+        background: var(--color-bg-secondary);
+        border: 2px solid var(--color-border-light);
+        border-radius: 16px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .problem-type-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+    }
+
+    .problem-type-card:hover {
+        border-color: var(--color-primary);
+        box-shadow: var(--shadow-md);
+    }
+
+    .problem-type-card:hover::before {
+        opacity: 1;
+    }
+
+    .problem-type-card.selected {
+        border-color: var(--color-primary);
+        background: rgba(0, 122, 255, 0.05);
+    }
+
+    .problem-type-card.selected::before {
+        opacity: 1;
+    }
+
+    .problem-type-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+    }
+
+    .problem-type-name {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    .problem-type-severity {
+        font-size: 14px;
+        color: var(--color-text-tertiary);
+    }
+
+    .problem-type-stats {
+        display: flex;
+        gap: 16px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .stat-item {
+        text-align: center;
+        flex: 1;
+    }
+
+    .stat-value {
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--color-primary);
+    }
+
+    .stat-label {
+        font-size: 11px;
+        color: var(--color-text-tertiary);
+        margin-top: 2px;
+    }
+
+    .problem-type-check {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--color-primary);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transform: scale(0.5);
+        transition: all var(--transition-fast);
+    }
+
+    .problem-type-card.selected .problem-type-check {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    .problem-card {
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-light);
+        border-radius: 12px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .problem-card:hover {
+        border-color: var(--color-primary);
+        box-shadow: var(--shadow-md);
+    }
+
+    .problem-card.selected {
+        border-color: var(--color-primary);
+        background: rgba(0, 122, 255, 0.05);
+    }
+
+    /* 复选框 */
+    .problem-checkbox {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 24px;
+        height: 24px;
+        border: 2px solid var(--color-border);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: bold;
+        color: white;
+        transition: all var(--transition-fast);
+    }
+
+    .problem-checkbox.checked {
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+    }
+
+    .problem-card .problem-name {
+        padding-right: 30px;
+    }
+
+    /* 已生成标识 */
+    .problem-generated {
+        margin-top: 8px;
+        padding: 4px 8px;
+        background: rgba(0, 122, 255, 0.1);
+        border-radius: 4px;
+        font-size: 12px;
+        color: var(--color-primary);
+    }
+
+    /* 超级定位栏 */
+    .super-locate-bar {
+        position: sticky;
+        bottom: 20px;
+        margin-top: 20px;
+        padding: 16px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .super-locate-bar .selected-count {
+        color: white;
+        font-size: 14px;
+    }
+
+    .super-locate-bar .selected-count strong {
+        font-size: 18px;
+    }
+
+    .super-locate-bar .btn-primary {
+        background: white;
+        color: #667eea;
+        font-weight: 600;
+    }
+
+    .super-locate-bar .btn-primary:hover {
+        background: #f0f4ff;
+    }
+
+    .problem-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        margin-bottom: 8px;
+    }
+
+    .problem-desc {
+        font-size: 13px;
+        color: var(--color-text-secondary);
+        margin-bottom: 12px;
+        line-height: 1.5;
+    }
+
+    .problem-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .tag {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .tag-high {
+        background: rgba(255, 59, 48, 0.1);
+        color: #ff3b30;
+    }
+
+    .tag-medium {
+        background: rgba(255, 149, 0, 0.1);
+        color: #ff9500;
+    }
+
+    .tag-low {
+        background: rgba(52, 199, 89, 0.1);
+        color: #34c759;
+    }
+
+    .tag-aware {
+        background: rgba(0, 122, 255, 0.1);
+        color: #007aff;
+    }
+
+    .tag-unaware {
+        background: rgba(142, 142, 147, 0.1);
+        color: #8e8e93;
+    }
+
+    .problem-actions {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--color-border-light);
+        display: flex;
+        gap: 8px;
+    }
+
+    /* 顾虑标签 */
+    .concern-section {
+        margin-bottom: 20px;
+    }
+
+    .concern-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .concern-card {
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-light);
+        border-radius: 10px;
+        padding: 12px 16px;
+        min-width: 160px;
+        flex: 1;
+    }
+
+    .concern-type {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+        margin-bottom: 4px;
+    }
+
+    .concern-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--color-text-primary);
+    }
+
+    /* 人群画像卡片 */
+    .portrait-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 20px;
+    }
+
+    .portrait-card {
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-light);
+        border-radius: 16px;
+        padding: 20px;
+        transition: all var(--transition-fast);
+    }
+
+    .portrait-card:hover {
+        box-shadow: var(--shadow-md);
+    }
+
+    .portrait-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .portrait-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .portrait-title {
+        flex: 1;
+    }
+
+    .portrait-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        margin-bottom: 4px;
+    }
+
+    .portrait-problem {
+        font-size: 13px;
+        color: var(--color-text-secondary);
+    }
+
+    .portrait-badge {
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .badge-urgent {
+        background: rgba(255, 59, 48, 0.1);
+        color: #ff3b30;
+    }
+
+    .badge-high {
+        background: rgba(255, 149, 0, 0.1);
+        color: #ff9500;
+    }
+
+    .badge-normal {
+        background: rgba(52, 199, 89, 0.1);
+        color: #34c759;
+    }
+
+    .portrait-section {
+        margin-bottom: 14px;
+    }
+
+    .portrait-section:last-child {
+        margin-bottom: 0;
+    }
+
+    .portrait-section-title {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .portrait-section-content {
+        font-size: 14px;
+        color: var(--color-text-primary);
+        line-height: 1.5;
+    }
+
+    .concern-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .concern-item {
+        padding: 4px 10px;
+        background: var(--color-bg-primary);
+        border-radius: 6px;
+        font-size: 12px;
+        color: var(--color-text-secondary);
+    }
+
+    .concern-item strong {
+        color: var(--color-text-primary);
+    }
+
+    .keyword-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .keyword-tag {
+        padding: 4px 10px;
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--color-primary);
+        border-radius: 6px;
+        font-size: 12px;
+    }
+
+    /* 空状态 */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--color-text-tertiary);
+    }
+
+    .empty-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+
+    .empty-title {
+        font-size: 16px;
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: var(--color-text-secondary);
+    }
+
+    .empty-desc {
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+
+    /* 批次标签 */
+    .batch-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .batch-number {
+        padding: 6px 14px;
+        background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+        color: white;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    .batch-problem {
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--color-text-primary);
+    }
+
+    /* 进度指示 */
+    .progress-bar {
+        height: 4px;
+        background: var(--color-border-light);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 8px;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
+        transition: width 0.3s ease;
+    }
+
+    /* Toast 通知 */
+    .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 14px 20px;
+        border-radius: 10px;
+        font-size: 14px;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+    }
+
+    .toast-success {
+        background: #34c759;
+        color: white;
+    }
+
+    .toast-error {
+        background: #ff3b30;
+        color: white;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    // 竞争度标签
+    .competition-high {
+        background: rgba(255, 59, 48, 0.1);
+        color: #ff3b30;
+    }
+
+    .competition-medium {
+        background: rgba(255, 149, 0, 0.1);
+        color: #ff9500;
+    }
+
+    .competition-low {
+        background: rgba(52, 199, 89, 0.1);
+        color: #34c759;
+    }
+
+    /* Tab 切换 */
+    .tab-container {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--color-border-light);
+        margin-bottom: 16px;
+    }
+
+    .tab-btn {
+        padding: 12px 20px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .tab-btn:hover {
+        color: var(--color-text-primary);
+    }
+
+    .tab-btn.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+    .relationship-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        background: var(--color-bg-secondary);
+        border-radius: 8px;
+        font-size: 13px;
+    }
+
+    .relationship-icon {
+        font-size: 16px;
+    }
+
+    /* 折叠展开 */
+    .expand-btn {
+        background: none;
+        border: none;
+        color: var(--color-primary);
+        cursor: pointer;
+        font-size: 13px;
+        padding: 4px 8px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .expand-btn:hover {
+        text-decoration: underline;
+    }
+
+    /* 批次分组 */
+    .batch-group {
+        margin-bottom: 32px;
+    }
+
+    .batch-group:last-child {
+        margin-bottom: 0;
+    }
+
+    /* 历史会话列表 */
+    .session-list {
+        margin-bottom: 24px;
+    }
+
+    .session-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-light);
+        border-radius: 10px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .session-item:hover {
+        border-color: var(--color-primary);
+    }
+
+    .session-item.active {
+        border-color: var(--color-primary);
+        background: rgba(0, 122, 255, 0.05);
+    }
+
+    .session-info {
+        flex: 1;
+    }
+
+    .session-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--color-text-primary);
+    }
+
+    .session-meta {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- 页面标题 -->
+    <div class="page-header">
+        <h1 class="page-title">人群画像生成</h1>
+        <p class="page-subtitle">问题在先，人群在后 - 精准长尾细分市场</p>
+    </div>
+
+    <!-- 创建会话表单 -->
+    <div class="create-form" id="createForm">
+        <div class="form-grid">
+            <div class="form-group">
+                <label class="form-label">行业/品类 *</label>
+                <input type="text" class="form-input" id="industryInput" placeholder="如：进口奶粉、儿童玩具、装修服务" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">产品/服务描述</label>
+                <input type="text" class="form-input" id="descriptionInput" placeholder="简要描述你的产品或服务">
+            </div>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label class="form-label">经营模式</label>
+                <input type="text" class="form-input" id="businessModelInput" placeholder="如：电商平台、线下门店、私域团购">
+            </div>
+            <div class="form-group">
+                <label class="form-label">目标用户画像</label>
+                <input type="text" class="form-input" id="targetUsersInput" placeholder="如：25-40岁宝妈、注重品质">
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label">业务类型</label>
+            <div class="business-type-toggle">
+                <button type="button" class="toggle-btn active" data-type="toc">TOC - 面向个人消费者</button>
+                <button type="button" class="toggle-btn" data-type="tob">TOB - 面向企业客户</button>
+                <button type="button" class="toggle-btn" data-type="both">两者都有</button>
+            </div>
+        </div>
+
+        <button type="button" class="btn-primary" id="createSessionBtn">
+            <span>🚀 开始一键分析</span>
+        </button>
+        <p style="font-size: 12px; color: var(--color-text-tertiary); margin-top: 8px;">
+            点击后自动完成：问题挖掘 → 按类型分组 → 生成画像
+        </p>
+    </div>
+
+    <!-- 加载已有会话 -->
+    <div class="content-section" id="sessionListSection" style="display: none;">
+        <div class="section-header">
+            <h2 class="section-title">最近的会话</h2>
+            <button class="btn-secondary btn-sm" id="newSessionBtn">新建会话</button>
+        </div>
+        <div class="session-list" id="sessionList"></div>
+    </div>
+
+    <!-- 分析结果区域 -->
+    <div id="analysisResult" style="display: none;">
+        <!-- 问题类型选择区 -->
+        <div class="content-section" id="problemTypesSection">
+            <div class="section-header">
+                <h2 class="section-title">使用方问题</h2>
+                <button class="btn-secondary btn-sm" id="refreshProblemsBtn">重新分析</button>
+            </div>
+            <div class="problem-type-grid" id="problemTypesGrid"></div>
+        </div>
+
+        <!-- 付费方顾虑 -->
+        <div class="content-section" id="buyerConcernsSection" style="display: none;">
+            <div class="section-header">
+                <h2 class="section-title">付费方顾虑</h2>
+            </div>
+            <div class="concern-grid" id="buyerConcernsGrid"></div>
+        </div>
+
+        <!-- 人群画像（根据选择的问题类型动态显示） -->
+        <div class="content-section" id="portraitsSection">
+            <div class="section-header">
+                <h2 class="section-title">人群画像</h2>
+                <span class="section-subtitle" id="portraitsSubtitle"></span>
+            </div>
+            <div class="portrait-grid" id="portraitsContainer"></div>
+            <div class="empty-state" id="portraitsEmpty">
+                <div class="empty-icon">👥</div>
+                <div class="empty-title">暂无人群画像</div>
+                <div class="empty-desc">请在上方选择一个「问题类型」查看对应画像</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast 容器 -->
+<div id="toastContainer"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ========== 状态管理 ==========
+    let currentSession = null;
+    let problemTypes = [];  // 问题类型列表
+    let userProblems = [];  // 所有问题（含类型分组）
+    let buyerConcerns = [];
+    let portraits = [];  // 所有画像
+    let selectedTypeName = null;  // 当前选中的问题类型
+
+    // ========== DOM 元素 ==========
+    const createForm = document.getElementById('createForm');
+    const sessionListSection = document.getElementById('sessionListSection');
+    const analysisResult = document.getElementById('analysisResult');
+    const industryInput = document.getElementById('industryInput');
+    const descriptionInput = document.getElementById('descriptionInput');
+    const createSessionBtn = document.getElementById('createSessionBtn');
+    const sessionList = document.getElementById('sessionList');
+    const newSessionBtn = document.getElementById('newSessionBtn');
+    const problemTypesGrid = document.getElementById('problemTypesGrid');
+    const buyerConcernsSection = document.getElementById('buyerConcernsSection');
+    const buyerConcernsGrid = document.getElementById('buyerConcernsGrid');
+    const portraitsContainer = document.getElementById('portraitsContainer');
+    const portraitsEmpty = document.getElementById('portraitsEmpty');
+    const portraitsSubtitle = document.getElementById('portraitsSubtitle');
+    const refreshProblemsBtn = document.getElementById('refreshProblemsBtn');
+
+    // Toast 通知
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        document.getElementById('toastContainer').appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    // 业务类型切换
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+
+    // 获取业务类型
+    function getBusinessType() {
+        return document.querySelector('.toggle-btn.active').dataset.type;
+    }
+
+    // ========== 创建会话 + 一键分析 ==========
+    createSessionBtn.addEventListener('click', async function() {
+        const industry = industryInput.value.trim();
+        if (!industry) {
+            showToast('请输入行业/品类', 'error');
+            return;
+        }
+
+        const description = descriptionInput.value.trim();
+        const businessType = getBusinessType();
+        const businessModel = document.getElementById('businessModelInput').value.trim();
+        const targetUsers = document.getElementById('targetUsersInput').value.trim();
+
+        createSessionBtn.disabled = true;
+        createSessionBtn.innerHTML = '<span class="loading-spinner"></span> 分析中...';
+
+        try {
+            // 1. 创建会话
+            const response = await fetch('/api/persona/create_session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    industry,
+                    description,
+                    business_type: businessType,
+                    business_model: businessModel,
+                    target_users: targetUsers
+                })
+            });
+            const result = await response.json();
+
+            if (result.code === 200) {
+                currentSession = result.data;
+                showToast('会话创建成功，开始分析...');
+
+                // 2. 一键完成：问题挖掘 + 画像生成
+                await mineAndGenerate();
+            } else {
+                showToast(result.message, 'error');
+            }
+        } catch (error) {
+            showToast('创建会话失败', 'error');
+        } finally {
+            createSessionBtn.disabled = false;
+            createSessionBtn.innerHTML = '<span>🚀 开始一键分析</span>';
+        }
+    });
+
+    // ========== 一键完成：问题挖掘 + 画像生成 ==========
+    async function mineAndGenerate() {
+        if (!currentSession) return;
+
+        const btn = refreshProblemsBtn;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner"></span> 分析中...';
+
+        try {
+            const response = await fetch('/api/persona/mine_and_generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSession.session_id })
+            });
+            const result = await response.json();
+
+            if (result.code === 200) {
+                problemTypes = result.data.problem_types || [];
+                buyerConcerns = result.data.buyer_concerns || [];
+                portraits = result.data.portraits || [];
+                userProblems = result.data.user_problems || [];
+
+                userProblems.forEach(p => {
+                    p.portraits = portraits.filter(port => port.type_name === p.type_name);
+                });
+
+                renderProblemTypes();
+                renderBuyerConcerns();
+                showAnalysisResult();
+
+                if (problemTypes.length > 0) {
+                    selectType(problemTypes[0].type_name);
+                }
+
+                showToast(result.message);
+            } else {
+                showToast(result.message, 'error');
+            }
+        } catch (error) {
+            showToast('分析失败', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '重新分析';
+        }
+    }
+
+    // ========== 渲染问题类型 ==========
+    function renderProblemTypes() {
+        if (!problemTypes.length) {
+            problemTypesGrid.innerHTML = '<div class="empty-state"><div class="empty-title">暂无问题类型</div></div>';
+            return;
+        }
+
+        problemTypesGrid.innerHTML = problemTypes.map(type => {
+            const isSelected = selectedTypeName === type.type_name;
+            return `
+                <div class="problem-type-card ${isSelected ? 'selected' : ''}" data-type="${type.type_name}">
+                    <div class="problem-type-check">✓</div>
+                    <div class="problem-type-header">
+                        <div class="problem-type-name">${type.type_name}</div>
+                    </div>
+                    <div class="problem-type-severity">${type.type_severity || ''}</div>
+                    <div class="problem-type-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">${type.problem_count || 0}</div>
+                            <div class="stat-label">个问题</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${type.portrait_count || 0}</div>
+                            <div class="stat-label">个画像</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        document.querySelectorAll('.problem-type-card').forEach(card => {
+            card.addEventListener('click', function() {
+                selectType(this.dataset.type);
+            });
+        });
+    }
+
+    // ========== 选中问题类型 ==========
+    function selectType(typeName) {
+        selectedTypeName = typeName;
+        renderProblemTypes();
+        renderPortraits();
+    }
+
+    // ========== 渲染付费方顾虑 ==========
+    function renderBuyerConcerns() {
+        if (!buyerConcerns.length) {
+            buyerConcernsSection.style.display = 'none';
+            return;
+        }
+
+        buyerConcernsSection.style.display = 'block';
+        buyerConcernsGrid.innerHTML = buyerConcerns.map(concern => `
+            <div class="concern-card">
+                <div class="concern-type">${concern.concern_type}</div>
+                <div class="concern-name">${concern.name}</div>
+            </div>
+        `).join('');
+    }
+
+    // ========== 渲染人群画像（按选中类型） ==========
+    function renderPortraits() {
+        if (!selectedTypeName) {
+            portraitsContainer.innerHTML = '';
+            portraitsEmpty.style.display = 'block';
+            portraitsEmpty.querySelector('.empty-desc').textContent = '请在上方选择一个「问题类型」查看对应画像';
+            portraitsSubtitle.textContent = '';
+            return;
+        }
+
+        const typePortraits = portraits.filter(p => p.type_name === selectedTypeName);
+
+        if (!typePortraits.length) {
+            portraitsContainer.innerHTML = '';
+            portraitsEmpty.style.display = 'block';
+            portraitsEmpty.querySelector('.empty-desc').textContent = '该问题类型暂无画像';
+            portraitsSubtitle.textContent = '';
+            return;
+        }
+
+        portraitsEmpty.style.display = 'none';
+        portraitsSubtitle.textContent = `「${selectedTypeName}」相关画像`;
+
+        portraitsContainer.innerHTML = typePortraits.map(p => renderPortraitCard(p)).join('');
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const tabId = this.dataset.tab;
+                const card = this.closest('.portrait-card');
+                card.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                card.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                card.querySelector(`#${tabId}`).classList.add('active');
+            });
+        });
+    }
+
+    // ========== 渲染单个画像卡片 ==========
+    function renderPortraitCard(p) {
+        const painLevelClass = {
+            '非常急迫': 'badge-urgent',
+            '急迫': 'badge-high',
+            '一般': 'badge-normal'
+        }[p.user_pain_level] || 'badge-normal';
+
+        const concerns = p.buyer_concerns || {};
+        const concernItems = Object.entries(concerns)
+            .filter(([k, v]) => v)
+            .map(([k, v]) => `<span class="concern-item"><strong>${k}</strong>: ${v}</span>`)
+            .join('');
+
+        const keywords = (p.search_keywords || []).slice(0, 5);
+        const keywordTags = keywords.map(k => `<span class="keyword-tag">${k}</span>`).join('');
+
+        const hasBuyerInfo = p.buyer_description && p.buyer_description.trim() !== '';
+
+        return `
+            <div class="portrait-card">
+                <div class="portrait-header">
+                    <div class="portrait-icon">👤</div>
+                    <div class="portrait-title">
+                        <div class="portrait-name">${p.name}</div>
+                        <div class="portrait-problem">${p.user_core_problem || p.user_description || ''}</div>
+                    </div>
+                    <span class="portrait-badge ${painLevelClass}">${p.user_pain_level || '一般'}</span>
+                </div>
+
+                ${hasBuyerInfo ? `
+                <div class="tab-container">
+                    <button class="tab-btn active" data-tab="user-${p.id}">使用方</button>
+                    <button class="tab-btn" data-tab="buyer-${p.id}">购买方</button>
+                </div>
+                ` : ''}
+
+                <div class="tab-content active" id="user-${p.id}">
+                    <div class="portrait-section">
+                        <div class="portrait-section-title">身份特征</div>
+                        <div class="portrait-section-content">${p.user_description || '暂无'}</div>
+                    </div>
+
+                    <div class="portrait-section">
+                        <div class="portrait-section-title">具体表现</div>
+                        <div class="portrait-section-content">${p.user_specific_symptoms || '暂无'}</div>
+                    </div>
+                </div>
+
+                ${hasBuyerInfo ? `
+                <div class="tab-content" id="buyer-${p.id}">
+                    <div class="portrait-section">
+                        <div class="portrait-section-title">购买方特征</div>
+                        <div class="portrait-section-content">${p.buyer_description || '暂无'}</div>
+                    </div>
+
+                    ${concernItems ? `
+                    <div class="portrait-section">
+                        <div class="portrait-section-title">购买顾虑</div>
+                        <div class="concern-list">${concernItems}</div>
+                    </div>
+                    ` : ''}
+                </div>
+                ` : ''}
+
+                ${keywordTags ? `
+                <div class="portrait-section">
+                    <div class="portrait-section-title">搜索关键词</div>
+                    <div class="keyword-tags">${keywordTags}</div>
+                </div>
+                ` : ''}
+
+                ${p.user_journey ? `
+                <div class="portrait-section">
+                    <div class="portrait-section-title">用户旅程</div>
+                    <div class="portrait-section-content" style="font-size: 12px; color: var(--color-text-tertiary);">
+                        ${p.user_journey}
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    // ========== 显示分析结果 ==========
+    function showAnalysisResult() {
+        createForm.style.display = 'none';
+        sessionListSection.style.display = 'none';
+        analysisResult.style.display = 'block';
+    }
+
+    // ========== 显示创建表单 ==========
+    function showCreateForm() {
+        createForm.style.display = 'block';
+        sessionListSection.style.display = 'none';
+        analysisResult.style.display = 'none';
+        currentSession = null;
+        problemTypes = [];
+        userProblems = [];
+        buyerConcerns = [];
+        portraits = [];
+        selectedTypeName = null;
+        industryInput.value = '';
+        descriptionInput.value = '';
+    }
+
+    // ========== 事件绑定 ==========
+    newSessionBtn.addEventListener('click', showCreateForm);
+    refreshProblemsBtn.addEventListener('click', mineAndGenerate);
+
+    // ========== 加载会话列表 ==========
+    async function loadSessionList() {
+        try {
+            const response = await fetch('/api/persona/sessions');
+            const result = await response.json();
+
+            if (result.code === 200 && result.data.length > 0) {
+                sessionListSection.style.display = 'block';
+                sessionList.innerHTML = result.data.map(s => `
+                    <div class="session-item ${currentSession && currentSession.session_id === s.id ? 'active' : ''}" data-id="${s.id}">
+                        <div class="session-info">
+                            <div class="session-name">${s.name}</div>
+                            <div class="session-meta">${s.portrait_count} 个画像 · ${new Date(s.created_at).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.querySelectorAll('.session-item').forEach(item => {
+                    item.addEventListener('click', async function() {
+                        await loadSession(this.dataset.id);
+                    });
+                });
+            }
+        } catch (error) {
+            console.error('加载会话列表失败', error);
+        }
+    }
+
+    // ========== 加载指定会话 ==========
+    async function loadSession(sessionId) {
+        try {
+            const response = await fetch(`/api/persona/session/${sessionId}`);
+            const result = await response.json();
+
+            if (result.code === 200) {
+                currentSession = {
+                    session_id: result.data.session.id,
+                    industry: result.data.session.industry,
+                    business_type: result.data.session.business_type
+                };
+
+                const problems = result.data.user_problems || [];
+                const typeMap = {};
+
+                problems.forEach(p => {
+                    const typeName = p.type_name || '未分类';
+                    if (!typeMap[typeName]) {
+                        typeMap[typeName] = {
+                            type_name: typeName,
+                            type_severity: p.type_severity || '',
+                            problem_count: 0,
+                            portrait_count: 0
+                        };
+                    }
+                    typeMap[typeName].problem_count++;
+                    p.portraits = [];
+                });
+
+                const portraitsData = result.data.portraits || [];
+                portraitsData.forEach(p => {
+                    const problem = problems.find(up => up.id === p.problem_id);
+                    if (problem) {
+                        p.type_name = problem.type_name || '未分类';
+                        problem.portraits = problem.portraits || [];
+                        problem.portraits.push(p);
+                    }
+                });
+
+                portraitsData.forEach(p => {
+                    const typeName = p.type_name || '未分类';
+                    if (typeMap[typeName]) {
+                        typeMap[typeName].portrait_count++;
+                    }
+                });
+
+                problemTypes = Object.values(typeMap);
+                userProblems = problems;
+                buyerConcerns = result.data.buyer_concerns || [];
+                portraits = portraitsData;
+
+                renderProblemTypes();
+                renderBuyerConcerns();
+                showAnalysisResult();
+
+                if (problemTypes.length > 0) {
+                    selectType(problemTypes[0].type_name);
+                }
+
+                document.querySelectorAll('.session-item').forEach(item => {
+                    item.classList.toggle('active', item.dataset.id === sessionId);
+                });
+            }
+        } catch (error) {
+            showToast('加载会话失败', 'error');
+        }
+    }
+
+    // ========== 页面加载 ==========
+    document.addEventListener('DOMContentLoaded', loadSessionList);
+</script>
+{% endblock %}

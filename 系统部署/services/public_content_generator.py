@@ -666,6 +666,571 @@ class ContentGenerator:
         }
 
     @classmethod
+    def identify_problems_and_initial_personas(cls, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        阶段1：挖掘使用方问题和付费方顾虑，并默认生成第一批人群画像
+
+        Args:
+            params: 包含 business_description, business_range, business_type
+
+        Returns:
+            {
+                'success': True,
+                'data': {
+                    'problems': {
+                        'user_pains': [  // 使用方问题
+                            {
+                                'id': 'up_1',
+                                'name': '问题名称',
+                                'description': '问题描述',
+                                'severity': '高/中/低',
+                                'buyer_relation': '买用关系说明'
+                            }
+                        ],
+                        'buyer_concerns': [  // 付费方顾虑
+                            {
+                                'id': 'bc_1',
+                                'name': '顾虑类型',
+                                'description': '顾虑描述',
+                                'examples': ['具体例子1', '具体例子2']
+                            }
+                        ]
+                    },
+                    'initial_batch': {  // 默认生成的第一批人群
+                        'problem_id': 'up_1',  // 对应的问题ID
+                        'problem_type': 'user_pain',
+                        'targets': [...],  // 5条人群画像
+                        'batch_pain_point_commonality': '...',
+                        'batch_goal': '...'
+                    },
+                    'buyer_user_relation': {
+                        'is_separate': True/False,  // 购买方是否不等于使用方
+                        'description': '买用关系描述'
+                    }
+                }
+            }
+        """
+        business_desc = (params.get('business_description') or '').strip()
+        business_range = params.get('business_range', 'local')
+        business_type = params.get('business_type', 'local_service')
+        customer_who = (params.get('customer_who') or '').strip()
+        customer_why = (params.get('customer_why') or '').strip()
+        customer_problem = (params.get('customer_problem') or '').strip()
+        customer_story = (params.get('customer_story') or '').strip()
+
+        try:
+            # 调用LLM挖掘问题
+            problems = cls._挖掘_使用方_付费方问题(
+                business_desc, business_range, business_type,
+                customer_who, customer_why, customer_problem, customer_story
+            )
+
+            # 默认基于第一个使用方问题生成第一批人群画像
+            initial_batch = None
+            if problems.get('user_pains'):
+                first_problem = problems['user_pains'][0]
+                initial_batch = cls._generate_persona_batch(
+                    params, first_problem, 'user_pain'
+                )
+            elif problems.get('buyer_concerns'):
+                first_problem = problems['buyer_concerns'][0]
+                initial_batch = cls._generate_persona_batch(
+                    params, first_problem, 'buyer_concern'
+                )
+
+            return {
+                'success': True,
+                'data': {
+                    'problems': problems,
+                    'initial_batch': initial_batch,
+                    'buyer_user_relation': problems.get('buyer_user_relation', {
+                        'is_separate': False,
+                        'description': '购买者即使用者'
+                    })
+                }
+            }
+
+        except Exception as e:
+            import traceback
+            print(f"[ContentGenerator] identify_problems_and_initial_personas 异常: {e}")
+            print(f"[ContentGenerator] 堆栈: {traceback.format_exc()}")
+            return {
+                'success': False,
+                'error': 'llm_unavailable',
+                'message': '服务暂时不可用，请稍后重试',
+            }
+
+    @classmethod
+    def generate_persona_batch_by_problem(cls, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        阶段2：基于指定问题生成人群画像批次
+
+        Args:
+            params: 包含 business_description, problem_id, problem_type, 等
+
+        Returns:
+            {
+                'success': True,
+                'data': {
+                    'problem': {...},  // 问题详情
+                    'targets': [...],   // 5条人群画像
+                    'batch_pain_point_commonality': '...',
+                    'batch_goal': '...'
+                }
+            }
+        """
+        problem_id = params.get('problem_id', '')
+        problem_type = params.get('problem_type', '')  # 'user_pain' or 'buyer_concern'
+        business_desc = (params.get('business_description') or '').strip()
+
+        try:
+            # 先重新挖掘问题列表
+            business_range = params.get('business_range', 'local')
+            business_type = params.get('business_type', 'local_service')
+            customer_who = (params.get('customer_who') or '').strip()
+            customer_why = (params.get('customer_why') or '').strip()
+            customer_problem = (params.get('customer_problem') or '').strip()
+            customer_story = (params.get('customer_story') or '').strip()
+
+            problems = cls._挖掘_使用方_付费方问题(
+                business_desc, business_range, business_type,
+                customer_who, customer_why, customer_problem, customer_story
+            )
+
+            # 找到指定的问题
+            target_problem = None
+            if problem_type == 'user_pain':
+                for p in problems.get('user_pains', []):
+                    if p.get('id') == problem_id:
+                        target_problem = p
+                        break
+            elif problem_type == 'buyer_concern':
+                for p in problems.get('buyer_concerns', []):
+                    if p.get('id') == problem_id:
+                        target_problem = p
+                        break
+
+            if not target_problem:
+                return {
+                    'success': False,
+                    'message': '未找到指定的问题'
+                }
+
+            # 生成人群画像批次
+            batch = cls._generate_persona_batch(
+                params, target_problem, problem_type
+            )
+
+            return {
+                'success': True,
+                'data': {
+                    'problem': target_problem,
+                    'targets': batch.get('targets', []),
+                    'batch_pain_point_commonality': batch.get('batch_pain_point_commonality', ''),
+                    'batch_goal': batch.get('batch_goal', '')
+                }
+            }
+
+        except Exception as e:
+            import traceback
+            print(f"[ContentGenerator] generate_persona_batch_by_problem 异常: {e}")
+            print(f"[ContentGenerator] 堆栈: {traceback.format_exc()}")
+            return {
+                'success': False,
+                'error': 'generation_failed',
+                'message': '生成失败，请稍后重试',
+            }
+
+    @classmethod
+    def _挖掘_使用方_付费方问题(
+        cls,
+        business_desc: str,
+        business_range: str,
+        business_type: str,
+        customer_who: str = '',
+        customer_why: str = '',
+        customer_problem: str = '',
+        customer_story: str = ''
+    ) -> Dict[str, Any]:
+        """
+        调用LLM挖掘使用方问题和付费方顾虑
+
+        Returns:
+            {
+                'user_pains': [...],
+                'buyer_concerns': [...],
+                'buyer_user_relation': {
+                    'is_separate': bool,
+                    'description': str
+                }
+            }
+        """
+        # 构建辅助信息
+        aux_parts = []
+        if customer_who:
+            aux_parts.append(f'- 典型客户：{customer_who}')
+        if customer_why:
+            aux_parts.append(f'- 触达动机：{customer_why}')
+        if customer_problem:
+            aux_parts.append(f'- 核心问题：{customer_problem}')
+        if customer_story:
+            aux_parts.append(f'- 客户故事：{customer_story[:200]}')
+        aux_section = '\n'.join(aux_parts) if aux_parts else '（未填写辅助信息）'
+
+        # 根据业务类型判断买用关系
+        is_to_business = business_type == 'enterprise'
+        buyer_user_hint = ""
+
+        if not is_to_business:
+            # C端：需要判断买用是否分离
+            buyer_user_hint = """
+【买用关系判断】
+请在输出中明确说明购买方与使用方是否分离：
+- 买即用：买的人=用的人（如桶装水配送、自用食品、手机维修）
+- 买用分离：买的人≠用的人（如奶粉/纸尿裤是家长买给宝宝、老人用品是子女买给老人、礼品是送礼人买给收礼人）
+
+如果涉及宝宝、老人、孩子、宠物等，**一定是买用分离**。"""
+
+        prompt = f"""你是问题挖掘专家。请根据以下业务信息，挖掘**使用方问题**和**付费方顾虑**。
+
+业务描述：{business_desc}
+经营范围：{'本地/同城' if business_range == 'local' else '跨区域/全国'}
+经营类型：{
+    '本地服务' if business_type == 'local_service'
+    else '消费品/零售' if business_type == 'product'
+    else '个人品牌' if business_type == 'personal'
+    else '企业服务/B2B'
+}
+
+辅助信息：
+{aux_section}
+
+=== 使用方问题（格式参照奶粉行业） ===
+请列出6-8个使用方问题：
+| 问题类型 | 具体表现 | 严重程度 |
+|----------|----------|----------|
+| 肠道问题 | 拉肚子、腹胀、便秘 | ⭐⭐⭐⭐⭐ |
+| 过敏问题 | 牛奶蛋白过敏、乳糖不耐受 | ⭐⭐⭐⭐⭐ |
+| 发育问题 | 不长肉、不长个、挑食 | ⭐⭐⭐⭐ |
+
+=== 付费方顾虑（格式参照奶粉行业） ===
+请列出6-8个付费方顾虑：
+| 顾虑类型 | 具体表现 | 焦虑程度 |
+|----------|----------|----------|
+| 真假担忧 | 怕买到假货、怕来源不正 | ⭐⭐⭐⭐⭐ |
+| 价格担忧 | 怕买贵、怕被宰 | ⭐⭐⭐⭐ |
+| 健康担忧 | 怕宝宝喝出问题、安全第一 | ⭐⭐⭐⭐⭐ |
+
+=== 买用关系 ===
+- 买即用：买的人=用的人（如桶装水、自用食品、餐饮）
+- 买用分离：买的人≠用的人（如奶粉是家长买给宝宝、老人用品是子女买给老人）
+- 涉及宝宝、老人、孩子、宠物等，**一定是买用分离**
+
+=== 输出格式（严格JSON） ===
+{{
+    "user_pains": [
+        {{"id": "up_1", "name": "问题类型", "description": "具体表现", "severity": "高/中/低"}}
+    ],
+    "buyer_concerns": [
+        {{"id": "bc_1", "name": "顾虑类型", "description": "具体表现"}}
+    ],
+    "buyer_user_relation": {{
+        "is_separate": true/false,
+        "description": "买用关系说明"
+    }}
+}}"""
+
+        try:
+            from services.llm import get_llm_service
+            import json
+            import re
+
+            service = get_llm_service()
+            if not service:
+                raise Exception('LLM服务暂不可用')
+
+            response = service.chat(
+                prompt,
+                temperature=0.5,
+                max_tokens=2000,
+            )
+
+            print(f"[_挖掘_使用方_付费方问题] 业务描述: {business_desc}")
+            print(f"[_挖掘_使用方_付费方问题] LLM响应前500字:\n{response[:500] if response else 'None'}")
+
+            if not response:
+                raise Exception('LLM服务暂不可用')
+
+            # 解析JSON响应
+            match = re.search(r'\{.*\}', response, re.DOTALL)
+            if not match:
+                raise Exception('LLM响应格式错误')
+
+            result = json.loads(match.group(0))
+
+            # 确保ID唯一
+            for i, p in enumerate(result.get('user_pains', [])):
+                if not p.get('id'):
+                    p['id'] = f'up_{i+1}'
+                if not p.get('name'):
+                    p['name'] = f'问题{i+1}'
+
+            for i, p in enumerate(result.get('buyer_concerns', [])):
+                if not p.get('id'):
+                    p['id'] = f'bc_{i+1}'
+                if not p.get('name'):
+                    p['name'] = f'顾虑{i+1}'
+
+            return result
+
+        except Exception as e:
+            print(f"[_挖掘_使用方_付费方问题] 异常: {e}")
+            import traceback
+            print(f"[_挖掘_使用方_付费方问题] 堆栈:\n{traceback.format_exc()}")
+            raise Exception('LLM服务暂不可用，请稍后重试')
+
+    @classmethod
+    def _generate_persona_batch(
+        cls,
+        params: Dict[str, Any],
+        problem: Dict[str, Any],
+        problem_type: str  # 'user_pain' or 'buyer_concern'
+    ) -> Dict[str, Any]:
+        """
+        基于指定问题生成一批人群画像（5条）
+
+        Args:
+            params: 业务参数
+            problem: 问题详情
+            problem_type: 'user_pain' 或 'buyer_concern'
+
+        Returns:
+            {
+                'problem_id': '...',
+                'problem_type': '...',
+                'targets': [...],  // 5条人群画像
+                'batch_pain_point_commonality': '...',
+                'batch_goal': '...'
+            }
+        """
+        business_desc = (params.get('business_description') or '').strip()
+        business_range = params.get('business_range', 'local') or 'local'
+        business_type = params.get('business_type', 'local_service') or 'local_service'
+
+        customer_who = (params.get('customer_who') or '').strip()
+        customer_why = (params.get('customer_why') or '').strip()
+        customer_problem = (params.get('customer_problem') or '').strip()
+        customer_story = (params.get('customer_story') or '').strip()
+
+        # 构建辅助信息
+        aux_parts = []
+        if customer_who:
+            aux_parts.append(f'- 典型客户：{customer_who}')
+        if customer_why:
+            aux_parts.append(f'- 触达动机：{customer_why}')
+        if customer_problem:
+            aux_parts.append(f'- 核心问题：{customer_problem}')
+        if customer_story:
+            aux_parts.append(f'- 客户故事：{customer_story[:200]}')
+        aux_section = '\n'.join(aux_parts) if aux_parts else '（未填写辅助信息）'
+
+        # 获取领域预设组合
+        preset_combos = cls._get_domain_preset_combos(business_desc, business_type)
+
+        # 根据问题类型构建不同的prompt约束
+        if problem_type == 'user_pain':
+            # 使用方问题方向
+            pain_point_constraint = f"""【使用方问题聚焦】
+本批次统一聚焦：**{problem.get('name', '使用方问题')}**
+- pain_point_commonality = {problem.get('description', problem.get('name', ''))}
+- 所有画像都围绕这个使用方问题展开
+- goal = 解决这个问题后的期望状态
+
+示例：
+- 问题：乳糖不耐受
+- pain_point_commonality：「宝宝喝普通奶粉拉肚子、大便奶瓣多、哭闹不止」
+- goal：「找到喝了不拉肚子的奶粉、宝宝大便正常、肠胃舒服」
+"""
+            direction_label = 'A方向（使用方问题）'
+        else:
+            # 付费方顾虑方向
+            pain_point_constraint = f"""【付费方顾虑聚焦】
+本批次统一聚焦：**{problem.get('name', '付费方顾虑')}**
+- pain_point_commonality = {problem.get('description', problem.get('name', ''))}
+- 所有画像都围绕这个付费方顾虑展开
+- goal = 消除这个顾虑后的期望状态
+
+示例：
+- 顾虑：真假顾虑
+- pain_point_commonality：「太多评测说法不一、越看越不知道选哪款、怕买到假货」
+- goal：「有明确推荐跟着选不会错、知道怎么验真伪、买得放心」
+"""
+            direction_label = 'B方向（付费方顾虑）'
+
+        prompt = f"""你是用户画像专家。请根据以下业务信息，基于**指定问题**生成5个精准的目标用户画像。
+
+=== 业务基本信息 ===
+业务描述：{business_desc}
+经营范围：{business_range}
+经营类型：{business_type}
+
+=== 【本批问题·强制聚焦】===
+{direction_label}
+
+{pain_point_constraint}
+
+问题详情：{problem.get('description', problem.get('name', ''))}
+严重程度：{problem.get('severity', '中')}
+买用关系：{problem.get('buyer_relation', '买即用')}
+
+=== 预设维度组合 ===
+{preset_combos}
+
+=== 核心原则 ===
+
+**【买用关系·强制判断】**
+
+**买用分离业务（买的人≠用的人）：**
+- 婴儿奶粉/辅食 → 宝宝是使用者 → buyer_user_relation = **「买给1-3岁宝宝」**
+- 纸尿裤/婴儿推车 → 宝宝是使用者 → **「买给0-3岁宝宝」**
+- 老人保健品/老花镜 → 老人是使用者 → **「买给长辈」**
+- 宠物食品/用品 → 宠物是使用者 → **「买给宠物」**
+
+**买即用业务（买的人=用的人）：**
+- 餐饮/维修/理发 → 本人消费本人使用 → 「自用」
+- 桶装水/自用食品 → 本人喝本人吃 → 「自用」
+
+=== 输出格式（只返回JSON数组，5个对象）===
+{{
+    "targets": [
+        {{
+            "name": "细分人群简称（≤6字）",
+            "description": "自然语言描述，包含维度组合",
+            "pain_point_commonality": "来自问题的核心痛点描述",
+            "goal": "解决后的期望状态",
+            "buyer_user_relation": "买给谁/自用",
+            "age_range": "使用者年龄段",
+            "geo_tag": "地域",
+            "consumption_stage": "消费阶段",
+            "occupation": "职业",
+            "pain_point": "痛点→目标 格式",
+            "needs": "2-3条需求",
+            "behaviors": "2-3条决策行为"
+        }}
+    ],
+    "batch_pain_point_commonality": "本批统一的痛点描述",
+    "batch_goal": "本批统一的目标"
+}}
+
+只输出JSON，不要其他文字。"""
+
+        try:
+            from services.llm import get_llm_service
+            import json
+            import re
+
+            service = get_llm_service()
+            if not service:
+                raise Exception('LLM服务暂不可用')
+
+            response = service.chat(
+                prompt,
+                temperature=0.7,
+                max_tokens=3000,
+            )
+
+            print(f"[_generate_persona_batch] 问题: {problem.get('name', '')}")
+            print(f"[_generate_persona_batch] LLM响应前500字:\n{response[:500] if response else 'None'}")
+
+            if not response:
+                raise Exception('LLM服务暂不可用')
+
+            # 解析JSON响应 - 改进鲁棒性
+            result = None
+            # 方法1: 尝试匹配完整的 JSON 对象
+            match = re.search(r'\{[\s\S]*\}', response, re.DOTALL)
+            if match:
+                try:
+                    result = json.loads(match.group(0))
+                    print(f"[_generate_persona_batch] JSON解析成功 (方法1)")
+                except json.JSONDecodeError as je:
+                    print(f"[_generate_persona_batch] JSON解析失败 (方法1): {je}")
+                    result = None
+            
+            # 方法2: 如果方法1失败，尝试匹配数组
+            if not result:
+                match = re.search(r'\[[\s\S]*\]', response, re.DOTALL)
+                if match:
+                    try:
+                        parsed = json.loads(match.group(0))
+                        if isinstance(parsed, list):
+                            result = {'targets': parsed}
+                            print(f"[_generate_persona_batch] JSON解析成功 (方法2 - 数组)")
+                        else:
+                            result = parsed
+                    except json.JSONDecodeError as je:
+                        print(f"[_generate_persona_batch] JSON解析失败 (方法2): {je}")
+            
+            # 方法3: 尝试直接解析整个响应
+            if not result:
+                try:
+                    result = json.loads(response.strip())
+                    print(f"[_generate_persona_batch] JSON解析成功 (方法3 - 直接)")
+                except json.JSONDecodeError as je:
+                    print(f"[_generate_persona_batch] JSON解析失败 (方法3): {je}")
+            
+            if not result:
+                raise Exception('LLM响应格式错误，无法解析JSON')
+
+            targets = result.get('targets', [])
+            if not isinstance(targets, list):
+                targets = [targets] if isinstance(targets, dict) else []
+            
+            print(f"[_generate_persona_batch] 解析到 targets 数量: {len(targets)}")
+
+            # 清理数据
+            cleaned_targets = []
+            for t in targets[:5]:
+                if not isinstance(t, dict):
+                    continue
+                cleaned_targets.append({
+                    'name': (t.get('name') or '').strip()[:12] or '人群',
+                    'description': (t.get('description') or '').strip(),
+                    'pain_point_commonality': (t.get('pain_point_commonality') or '').strip(),
+                    'goal': (t.get('goal') or '').strip(),
+                    'buyer_user_relation': (t.get('buyer_user_relation') or '').strip(),
+                    'age_range': (t.get('age_range') or '').strip() or '不限',
+                    'geo_tag': (t.get('geo_tag') or '').strip(),
+                    'consumption_stage': (t.get('consumption_stage') or '').strip(),
+                    'occupation': (t.get('occupation') or '').strip(),
+                    'pain_point': (t.get('pain_point') or '').strip(),
+                    'needs': str(t.get('needs', '')).strip(),
+                    'behaviors': str(t.get('behaviors', '')).strip(),
+                })
+
+            print(f"[_generate_persona_batch] 清理后 targets 数量: {len(cleaned_targets)}")
+
+            return {
+                'problem_id': problem.get('id', ''),
+                'problem_type': problem_type,
+                'targets': cleaned_targets,
+                'batch_pain_point_commonality': result.get('batch_pain_point_commonality', problem.get('description', '')),
+                'batch_goal': result.get('batch_goal', '解决问题')
+            }
+
+        except Exception as e:
+            import traceback
+            print(f"[_generate_persona_batch] 异常: {e}")
+            print(f"[_generate_persona_batch] 堆栈:\n{traceback.format_exc()}")
+            return {
+                'problem_id': problem.get('id', ''),
+                'problem_type': problem_type,
+                'targets': [],
+                'batch_pain_point_commonality': problem.get('description', ''),
+                'batch_goal': '解决问题'
+            }
+
+    @classmethod
     def _llm_available(cls) -> bool:
         """检查 LLM 服务是否可用（实例存在且非 None）"""
         try:
@@ -759,15 +1324,188 @@ class ContentGenerator:
         return None
 
     @classmethod
+    def _get_domain_preset_combos(cls, business_desc: str, business_type: str) -> str:
+        """
+        根据业务描述返回预设的精准维度组合。
+        每个组合格式：维度1 × 维度2 × 维度3 + 使用者 + 目标 + 焦虑 + 身份
+        """
+        desc = (business_desc or '').lower()
+
+        # ── 奶粉/母婴 ──────────────────────────────────────────────────────────
+        if any(k in desc for k in ('奶粉', '母婴', '婴幼儿', '纸尿裤', '尿不湿', '婴儿', '宝宝辅食', '乳糖')):
+            return """
+【组合1·新手焦虑宝妈】
+- 维度：消费阶段（有1-3岁宝宝）、地域（县城/城区）、职业（职场/全职）
+- 使用者：1-3岁宝宝
+- 目标：宝宝不拉肚子、大便正常
+- 焦虑：信息多不敢信、担心成分不安全
+- 身份：新手宝妈
+
+【组合2·转奶纠结宝妈】
+- 维度：消费阶段（断奶期/转奶期）、地域（二三线/县城）、职业（职场）
+- 使用者：1-3岁宝宝
+- 目标：宝宝顺利转奶、营养跟得上
+- 焦虑：不知道怎么选、多方比较怕选错
+- 身份：纠结的职场宝妈
+
+【组合3·过敏担忧宝妈】
+- 维度：消费阶段（有0-1岁宝宝）、地域（城区）、职业（全职）
+- 使用者：0-1岁宝宝
+- 目标：宝宝不过敏、湿疹好转
+- 焦虑：不知道哪款成分安全、不敢随便换
+- 身份：担忧的宝妈
+
+【组合4·长辈决策者】
+- 维度：消费阶段（有0-3岁孙辈）、地域（县城/乡镇）、职业（退休/务农）
+- 使用者：0-3岁孙辈
+- 目标：孙子孙女吃得好、健康成长
+- 焦虑：不知道怎么选、怕买贵了不值
+- 身份：帮忙带娃的爷爷奶奶
+
+【组合5·备孕/孕早期妈妈】
+- 维度：消费阶段（备孕期/孕早期）、地域（城区）、职业（职场）
+- 使用者：孕妈/胎儿
+- 目标：孕期营养到位、提前准备好
+- 焦虑：不知道该选哪款、怕影响胎儿
+- 身份：备孕/孕早期妈妈
+
+【组合6·精细喂养宝妈】
+- 维度：消费阶段（有1-3岁宝宝）、地域（城区）、职业（全职/职场）
+- 使用者：1-3岁宝宝
+- 目标：宝宝生长发育达标、营养均衡
+- 焦虑：不知道哪款营养更全面、怕踩坑
+- 身份：追求品质的精细喂养宝妈
+
+【组合7·送礼/代购亲友】
+- 维度：消费阶段（送礼需求）、地域（任意）、职业（任意）
+- 使用者：送礼对象（产妇/宝宝）
+- 目标：送得体面、对方用得上
+- 焦虑：不知道怎么选、怕送不好
+- 身份：亲戚/朋友/同事"""
+
+        # ── 老人/健康 ───────────────────────────────────────────────────────────
+        if any(k in desc for k in ('老人', '老年', '爸妈', '长辈', '钙片', '保健', '血压', '血糖', '血脂', '养老')):
+            return """
+【组合1·孝顺子女】
+- 维度：子女年龄（30-45岁）、地域（异地/同城）、收入（中等以上）
+- 使用者：60岁以上父母
+- 目标：老人身体好、少生病
+- 焦虑：不知道怎么补、担心老人不配合
+- 身份：孝顺子女
+
+【组合2·老人自用】
+- 维度：年龄（60-75岁）、地域（县城/社区）、健康状态（三高/腿脚不便）
+- 使用者：老人自己
+- 目标：改善身体状况、用起来方便
+- 焦虑：操作复杂、不敢乱买
+- 身份：关注健康的老人"""
+
+        # ── 宠物 ────────────────────────────────────────────────────────────────
+        if any(k in desc for k in ('宠物', '猫粮', '狗粮', '猫砂', '宠物食品', '宠物用品')):
+            return """
+【组合1·新手宠物主】
+- 维度：宠物年龄（幼猫/幼犬）、地域（城区）、养宠经验（新手）
+- 使用者：宠物
+- 目标：宠物健康成长、不拉肚子
+- 焦虑：不知道哪款粮好、怕选错
+- 身份：新手宠物主
+
+【组合2·过敏/挑食宠物主】
+- 维度：宠物状态（挑食/过敏）、地域（任意）、养宠经验（有一定经验）
+- 使用者：宠物
+- 目标：找到适合的粮、解决挑食/过敏问题
+- 焦虑：换了好多款都不行、不知道怎么办
+- 身份：焦急的宠物主"""
+
+        # ── 手机/数码维修 ─────────────────────────────────────────────────────
+        if cls._desc_has_electronics_service(desc) and not any(k in desc for k in ('奶粉', '母婴', '婴儿', '宝宝')):
+            return """
+【组合1·急用上班族】
+- 维度：职业（上班族）、地域（城区）、时间状态（急用）
+- 使用者：手机/数码产品使用者
+- 目标：当场修好、不丢资料
+- 焦虑：急用但不知道哪家靠谱、怕被坑
+- 身份：着急的上班族
+
+【组合2·担心资料的商务人士】
+- 维度：职业（商务/管理）、地域（城区）、收入（中高）
+- 使用者：手机/数码产品使用者
+- 目标：修好手机、保住资料
+- 焦虑：怕偷换件、怕资料丢失、怕报价不透明
+- 身份：谨慎的商务人士"""
+
+        # ── 桶装水/配送 ───────────────────────────────────────────────────────
+        if any(k in desc for k in ('桶装水', '矿泉水', '水站', '配送', '饮用水')):
+            return """
+【组合1·家庭自用】
+- 维度：家庭结构（有孩/有老）、地域（县城/社区）、消费习惯（注重健康）
+- 使用者：家庭成员
+- 目标：喝到安全可靠的桶装水
+- 焦虑：不知道哪家水质好、怕喝到假水
+- 身份：注重健康的家庭主妇/主夫
+
+【组合2·办公场所】
+- 维度：场所类型（办公室/公司）、人数规模（10-50人）、需求（日常饮用）
+- 使用者：员工/访客
+- 目标：稳定供应、水质安全、价格合理
+- 焦虑：配送不及时、水质没保障
+- 身份：行政/采购负责人"""
+
+        # ── 默认通用组合（无匹配时使用）────────────────────────────────────────
+        return """
+【组合1·价格敏感型】
+- 维度：收入（中等以下）、地域（县城/郊区）、消费习惯（精打细算）
+- 使用者：（根据业务定）
+- 目标：（根据业务定）
+- 焦虑：怕买贵了不值、不知道怎么选
+- 身份：精打细算的消费者
+
+【组合2·品质优先型】
+- 维度：收入（中上）、地域（城区）、消费习惯（注重品质）
+- 使用者：（根据业务定）
+- 目标：（根据业务定）
+- 焦虑：不知道哪款更好、怕买错
+- 身份：追求品质的消费者
+
+【组合3·新手小白型】
+- 维度：消费经验（新手）、地域（任意）、年龄（年轻）
+- 使用者：（根据业务定）
+- 目标：（根据业务定）
+- 焦虑：完全不知道怎么选、怕踩坑
+- 身份：第一次接触的小白
+
+【组合4·理性比较型】
+- 维度：消费经验（有经验）、地域（城区）、年龄（25-40岁）
+- 使用者：（根据业务定）
+- 目标：（根据业务定）
+- 焦虑：信息太多、分不清真假
+- 身份：喜欢研究的理性消费者
+
+【组合5·口碑依赖型】
+- 维度：消费习惯（信口碑）、地域（社区/县城）、年龄（30-50岁）
+- 使用者：（根据业务定）
+- 目标：（根据业务定）
+- 焦虑：广告太多不敢信、不知道信谁
+- 身份：依赖口碑推荐的消费者"""
+
+    @classmethod
     def _generate_targets_pure_llm(cls, params: Dict[str, Any]) -> Optional[List[Dict]]:
         """
         面向 C 端（本地服务/消费品/个人品牌）直接用 LLM 生成 5 条画像，
-        从数据库10维度池中挑选3-4个组合人群描述，而非凭空发挥。
-        身份全部由 LLM 结合业务场景自由推导，不预设固定身份列表。
+        从预设组合中选取5个精准画像，而非凭空发挥。
+        
+        批次方向策略：每次生成时随机选择 A 或 B 方向，同批 5 条共用同一方向
+        - A方向（使用者问题）：痛点聚焦使用者本身的状态/症状，目标是解决使用者问题
+        - B方向（购买者焦虑）：痛点聚焦购买决策时的心理障碍，目标是买得放心
         """
         business_desc = (params.get('business_description') or '').strip()
         business_range = params.get('business_range', '') or '（未填）'
         business_type = params.get('business_type', '') or '（未填）'
+
+        # 随机选择本批的批次方向（A=使用者问题 / B=购买者焦虑）
+        import random
+        batch_direction = random.choice(['A', 'B'])
+        batch_direction_label = 'A方向（宝宝/用户自身问题）' if batch_direction == 'A' else 'B方向（购买者决策焦虑）'
 
         # 深度了解（可选）—— 辅助信息
         customer_who = (params.get('customer_who') or '').strip()
@@ -803,18 +1541,81 @@ class ContentGenerator:
         else:
             region_constraint = '【强制】经营范围为「跨区域/全国」，不在维度库中组合地域维度，默认全国范围。'
 
-        # 构建10维度池（按业务类型过滤），作为 LLM 的可选维度库
-        dim_pool_str = cls._build_llm_dimension_pool(params)
+        # 领域预设精准组合（按业务类型注入）
+        preset_combos = cls._get_domain_preset_combos(business_desc, business_type)
 
-        prompt = f"""你是用户画像专家。请根据业务信息，从维度库中组合生成5个精准目标用户画像。
+        # 根据批次方向构建不同的痛点/目标约束
+        if batch_direction == 'A':
+            # A方向：使用者问题
+            pain_goal_constraint = """=== 【A方向·本批统一】使用者问题聚焦 ===
+
+本批次统一聚焦：**使用者本身当前正处于的问题/症状**
+- pain_point_commonality = 使用者的问题/症状（如「喝奶粉拉肚子」「手机突然黑屏」）
+- goal = 解决后的状态（如「不拉肚子了」「修好了能用了」）
+- 购买者焦虑（决策障碍）**不在本批聚焦**，可弱化或不提
+
+【A方向示例·买用分离奶粉】
+- pain_point_commonality：「2岁宝宝喝普通奶粉天天拉肚子、大便奶瓣多」
+- goal：「找到喝了不拉肚子的奶粉、宝宝大便正常」
+- buyer_user_relation：「买给1-3岁宝宝」
+
+【A方向示例·买即用手机维修】
+- pain_point_commonality：「手机突然黑屏急用，但不知道哪家店能当场修好」
+- goal：「当场修好、报价清楚、手机能用」
+- buyer_user_relation：「自用」"""
+            desc_constraint = """【A方向 description 格式：使用者状态 + 使用者目标（弱化购买者焦虑）】
+
+例（买用分离奶粉）：
+「消费阶段（有1-3岁宝宝）、地域（县城），2岁宝宝喝普通奶粉天天拉肚子、大便奶瓣多，希望能找到喝了不拉肚子的奶粉，着急的宝妈」
+
+例（买即用手机维修）：
+「职业（上班族）、地域（城区），手机突然黑屏急用，不知道哪家店靠谱，想要当场修好、报价透明，着急的上班族」"""
+            pain_point_field_constraint = """【A方向 pain_point_commonality】必须来自「使用者当前的问题/症状」"""
+            goal_field_constraint = """【A方向 goal】必须来自「使用者希望达成的状态」"""
+
+        else:
+            # B方向：购买者焦虑
+            pain_goal_constraint = """=== 【B方向·本批统一】购买者决策焦虑聚焦 ===
+
+本批次统一聚焦：**购买者在做决策时的心理障碍/顾虑**
+- pain_point_commonality = 购买决策时的焦虑（如「怕买到假货」「怕买贵了」「不知道怎么选」）
+- goal = 买得放心/买得值/有明确选择
+- 使用者本身的问题/症状**不在本批聚焦**，可弱化或不提
+
+【B方向示例·买用分离奶粉】
+- pain_point_commonality：「太多奶粉评测、太多牌子，越看越不知道选哪款，怕买错了宝宝受罪」
+- goal：「有明确推荐跟着选不会错，买得放心」
+- buyer_user_relation：「买给1-3岁宝宝」
+
+【B方向示例·买即用手机维修】
+- pain_point_commonality：「不知道哪家店靠谱、怕被偷换零件、怕报价被宰」
+- goal：「找到诚信店铺、报价透明公道」
+- buyer_user_relation：「自用」"""
+            desc_constraint = """【B方向 description 格式：购买者决策焦虑 + 购买者目标（弱化使用者问题）】
+
+例（买用分离奶粉）：
+「消费阶段（有1-3岁宝宝）、地域（城区），太多奶粉评测说法不一、越看越不知道怎么选、担心买错宝宝受罪，想要有明确推荐跟着选不会错，纠结的职场宝妈」
+
+例（买即用手机维修）：
+「职业（上班族）、地域（城区），不知道哪家维修店靠谱、怕偷换零件、怕报价被坑，想要找到诚信店铺、报价透明，谨慎的上班族」"""
+            pain_point_field_constraint = """【B方向 pain_point_commonality】必须来自「购买者的决策焦虑/顾虑」"""
+            goal_field_constraint = """【B方向 goal】必须来自「购买者希望买得怎样」"""
+
+        prompt = f"""你是用户画像专家。请根据业务信息，从预设组合中选取5个精准目标用户画像。
 
 === 业务基本信息 ===
 业务描述：{business_desc}
 经营范围：{business_range}
 经营类型：{business_type}
 {electronics_guard}
-=== 可用维度库 ===
-{dim_pool_str}
+
+=== 【本批批次方向·强制】===
+{batch_direction_label}
+
+{pain_goal_constraint}
+
+=== 预设维度组合（必须从这些组合中选取5个）===
+{preset_combos}
 
 === 核心原则 ===
 
@@ -850,7 +1651,6 @@ class ContentGenerator:
 **【维度填使用者的：】**
 - age_range：使用者的年龄段（宝宝的年龄/老人的年龄）
 - consumption_stage：使用者所处的阶段（「有0-1岁宝宝」「有60岁以上老人」）
-- 痛点/目标：体现使用者的问题特征
 
 === 通用约束 ===
 
@@ -860,34 +1660,24 @@ class ContentGenerator:
    - 地域（如县城居民 vs 城区核心街道 vs 郊区住户）
    - 消费阶段（如备孕期 vs 有0-1岁宝宝 vs 空巢期）
 
-2. 【痛点状态 + 目标·体现使用者特征】
-   - pain_point_commonality = 使用者**当前正处于的问题状态**
-     - 买即用：「急用手机但不知道哪家靠谱，怕被坑」
-     - 买用分离：「2岁宝宝喝奶粉天天拉肚子」「70岁老人视力下降不会用智能机」
-   - goal = **希望达成的结果**
-     - 买即用：「当场修好、用得放心」
-     - 买用分离：「找到安全可靠的奶粉、宝宝健康成长」
+2. 【语义一致】维度组合要语义通顺，禁止矛盾搭配。
 
-3. 【逐字来自维度库】所有维度标签必须**逐字**来自上方「可用维度库」，禁止自造。
-
-4. 【语义一致】维度组合要语义通顺，禁止矛盾搭配。
-
-5. 【C端禁用词】description/痛点/目标中禁止：融资、创始人、CEO、年营收、GMV 等卖家向词汇。
+3. 【C端禁用词】description/痛点/目标中禁止：融资、创始人、CEO、年营收、GMV 等卖家向词汇。
 
 === 输出格式（只返回JSON数组，5个对象，不要其他文字）===
 {{
     "name": "细分人群简称（≤6字），由LLM根据业务推导，禁止空洞概括（如「消费者」「客户」），禁止与 occupation 重复",
     
-    "description": "**【格式：使用者维度 + 使用者问题 + 购买者担忧 + 身份（最后）】**\n\n例（买即用）：\n「25-30岁县城居民，上班族白领，手机突然碎屏又怕资料丢失，想找报价透明、当场能修好的维修店，担心被坑的上班族」\n\n例（买用分离）：\n「有1-3岁宝宝的妈妈，宝宝正处于断奶期、喝普通奶粉容易拉肚子，担心成分不安全，希望找到适合宝宝的奶粉，焦虑的新手宝妈」",
+    "description": "{desc_constraint}",
     
-    "pain_point_commonality": "来自维度库原文。使用者当前正处于的问题/焦虑状态，禁止填终点结果",
-    "goal": "来自维度库原文。终点结果，禁止填过程状态",
-    "buyer_user_relation": "买即用填「自用」；买用分离填「买给长辈」「买给0-3岁宝宝」等",
-    "age_range": "来自维度库 age_group 原文（买用分离时填使用者的年龄段）",
-    "geo_tag": "跨区域业务填写空字符串 \"\"；本地业务来自维度库 region 原文",
-    "consumption_stage": "来自维度库 consumption_stage 原文（买用分离时填使用者所处的阶段）",
-    "occupation": "来自维度库 job_role 原文",
-    "pain_point": "使用者问题 → 达成的结果",
+    "pain_point_commonality": "{pain_point_field_constraint}（根据本批方向选择）",
+    "goal": "{goal_field_constraint}（根据本批方向选择）",
+    "buyer_user_relation": "来自预设组合（如「买给1-3岁宝宝」「自用」）",
+    "age_range": "来自预设组合中的使用者年龄段（如「1-3岁」「60-75岁」）",
+    "geo_tag": "来自预设组合中的地域（如「县城」「城区」）",
+    "consumption_stage": "来自预设组合中的消费阶段（如「有1-3岁宝宝」「有0-1岁宝宝」）",
+    "occupation": "来自预设组合中的维度原文（如「职场」「全职」「上班族」）",
+    "pain_point": "根据本批方向：使用者问题或购买者焦虑 → 目标",
     "needs": "2-3条需求，分号分隔",
     "behaviors": "2-3条决策行为，分号分隔"
 }}
@@ -909,6 +1699,13 @@ class ContentGenerator:
             )
             if not response:
                 return None
+
+            # ========== [调试日志] ==========
+            print(f"[_generate_targets_pure_llm] 批次方向: {batch_direction_label}")
+            print(f"[_generate_targets_pure_llm] 业务描述: {business_desc}")
+            print(f"[_generate_targets_pure_llm] LLM响应前500字:\n{response[:500] if response else 'None'}")
+            # ========== [/调试日志] ==========
+
             match = re.search(r'\[.*\]', response, re.DOTALL)
             if not match:
                 return None
@@ -1306,6 +2103,19 @@ class ContentGenerator:
                 # 领域细分选项优先靠前，通用抽象选项兜底（不去重，因为 base_opts 已去重）
                 return domain_list + base_opts
 
+        # ---- C端禁用B2B维度：development_stage/revenue_scale/team_size ----
+        # C端业务禁止出现「天使轮/A轮/年营收/GMV」等B2B词汇
+        if business_type in ('local_service', 'product', 'personal'):
+            if dim.code in ('development_stage', 'revenue_scale', 'team_size'):
+                # 强制使用C端化选项，禁止B2B词汇
+                c_end_options = {
+                    'development_stage': ['刚起步', '小有规模', '成熟稳定', '转型探索'],
+                    'revenue_scale':     ['小本经营', '年入数十万', '年入百万级', '规模化运营'],
+                    'team_size':         ['个人/夫妻店', '3-10人', '10-50人', '50人以上'],
+                }
+                if dim.code in c_end_options:
+                    return c_end_options[dim.code]
+
         return base_opts
 
     @classmethod
@@ -1594,8 +2404,10 @@ class ContentGenerator:
             selected_char = rng.sample(char_candidates, n_extra) if char_candidates else []
 
             if business_type in ('local_service', 'product', 'personal'):
-                # C 端：痛点共性 + 目标 + 买用关系 + 两个人群属性 + 的 + 角色
-                char_vals = [x for x in [pain_point_commonality_val, goal_val] + extra_fixed + [profile.get(c, '') for c in selected_char] if x]
+                # C 端：买用关系（使用者状态）+ 痛点共性 + 目标 + 两个人群属性 + 的 + 角色
+                # 顺序：先状态/场景（如宝宝情况），再痛点（如信息多不敢信），再目标，最后背景
+                buyer_rel_val = extra_fixed[0] if extra_fixed else ''
+                char_vals = [x for x in [buyer_rel_val, pain_point_commonality_val, goal_val] + [profile.get(c, '') for c in selected_char] if x]
                 description = '、'.join(char_vals) + f'的{job_role}'
             else:
                 # B2B：痛点共性 + 目标 + 阶段/团队/营收 + 行业 + 角色
@@ -1855,8 +2667,15 @@ class ContentGenerator:
                                 image_count: int = 5,
                                 image_ratio: str = '9:16') -> str:
         """生成图文内容Markdown"""
+        
+        # 获取痛点关键词
+        pain_keywords = keywords.get('pain_point', [])
+        pain_text = pain_keywords[0]['keyword'] if pain_keywords else '宝宝健康问题'
+        
         lines = [
             f'# 图文内容模板',
+            '',
+            f'## 【内容结构】先痛后药，不要先讲产品！',
             '',
             f'## 基本信息',
             '',
@@ -1864,20 +2683,21 @@ class ContentGenerator:
             f'- **目标客户**: {topic.get("customer", "通用")}',
             f'- **选题**: {topic.get("title", "通用内容")}',
             f'- **核心卖点**: {", ".join(keywords.get("core", []))}',
+            f'- **痛点切入**: {pain_text}',
             '',
-            f'## 标题',
+            f'## 标题（从用户困境切入）',
             f'{title}',
             '',
-            f'## 图片内容',
+            f'## 图片内容（必须先戳痛点！）',
         ]
 
-        # 生成每张图片
+        # 重构图片结构：从痛点切入
         image_titles = [
-            '封面',
-            '痛点/问题',
-            '原因/分析',
-            '解决方案',
-            '总结引导'
+            '戳痛点：用户困境场景',      # 第1张必须直接呈现用户痛苦
+            '分析原因',                  # 为什么会这样？
+            '揭示误区',                  # 你以为...其实...
+            '解决方案',                  # 终于等到...
+            '总结引导'                   # 快试试/评论区见
         ]
 
         for i in range(min(image_count, len(image_titles))):
@@ -1935,7 +2755,15 @@ class ContentGenerator:
 
         deep_info = '\n'.join(deep_info_parts) if deep_info_parts else '暂无'
 
-        prompt = f"""你是一个专业的短视频文案专家。请为以下信息生成高质量的图文内容：
+        prompt = f"""你是一个专业的短视频文案专家。请为以下信息生成高质量的图文内容。
+
+【核心原则】内容必须先从用户困境（痛点）切入，再引出解决方案，最后才是产品介绍。
+
+【内容结构要求】
+1. 开头必须先戳用户痛点/困境，用共鸣性问题引起注意（如"你是不是也..."、"90%的妈妈都踩过这个坑..."）
+2. 中间分析痛点原因，引发共鸣和思考
+3. 最后才引出解决方案和产品
+4. 绝对不能开头就直接介绍产品！
 
 行业：{industry}
 目标客户：{target_customer}
@@ -1951,19 +2779,22 @@ class ContentGenerator:
 - 长尾词：{", ".join([k["keyword"] for k in keywords.get("long_tail", [])]) if keywords.get("long_tail") else "暂无"}
 
 请生成：
-1. 5个吸引人的标题（爆款风格）
+1. 5个从用户痛点/困境切入的爆款标题（前3条必须用"你是不是也..."、"99%的..."等共鸣式开头）
 2. 6-10个标签
-3. 5张图片的图文内容结构
+3. 5张图片的图文内容结构（第一张必须直接呈现用户困境/痛点场景）
 
 输出格式为JSON：
 {{
-    "titles": ["标题1", "标题2", ...],
+    "titles": ["标题1（共鸣式开头）", "标题2", ...],
     "tags": ["#标签1", "#标签2", ...],
     "content": {{
         "topic": "选题标题",
         "images": [
-            {{"index": 1, "title": "图片标题", "content": "图片内容描述"}},
-            ...
+            {{"index": 1, "title": "【必须】直接戳痛点：呈现用户困境场景", "content": "用共鸣性描述展示用户当前的痛苦状态"}},
+            {{"index": 2, "title": "分析痛点原因", "content": "为什么会这样？"}},
+            {{"index": 3, "title": "大多数人的误区", "content": "你以为...其实..."}},
+            {{"index": 4, "title": "解决方案/产品", "content": "正确的做法是..."}},
+            {{"index": 5, "title": "总结引导/行动号召", "content": "快试试..."}}
         ]
     }}
 }}
@@ -2114,3 +2945,340 @@ class ContentGenerator:
 
 # 全局实例
 content_generator = ContentGenerator()
+
+
+# =============================================================================
+# 问题挖掘 + 画像生成 组合方法
+# =============================================================================
+
+def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
+    """
+    一次性完成问题挖掘 + 所有类型的画像生成
+
+    Args:
+        params: 包含业务描述等信息的参数字典
+
+    Returns:
+        包含问题类型、使用方问题、付费方顾虑、以及按类型分组的画像
+    """
+    import re
+    from services.llm import get_llm_service
+
+    llm = get_llm_service()
+
+    # 获取业务参数
+    business_desc = params.get('business_description', '')
+    business_range = params.get('business_range', '')
+    business_type = params.get('business_type', '')
+    customer_who = params.get('customer_who', '')
+    customer_why = params.get('customer_why', '')
+    customer_problem = params.get('customer_problem', '')
+    customer_story = params.get('customer_story', '')
+
+    # 构建业务上下文
+    business_range_text = '本地/同城' if business_range == 'local' else '跨区域/全国'
+    business_type_text = {
+        'local_service': '本地服务（理发店/餐饮/家政等）',
+        'product': '消费品/零售（奶粉/饮料/食品等）',
+        'personal': '个人品牌/自媒体',
+        'enterprise': '企业服务/B2B（软件/咨询/设备等）'
+    }.get(business_type, business_type)
+
+    # 构建辅助信息
+    aux_parts = []
+    if customer_who:
+        aux_parts.append(f"典型客户：{customer_who}")
+    if customer_why:
+        aux_parts.append(f"找到您的原因：{customer_why}")
+    if customer_problem:
+        aux_parts.append(f"解决的痛点：{customer_problem}")
+    if customer_story:
+        aux_parts.append(f"客户故事：{customer_story}")
+    aux_section = '\n'.join(aux_parts) if aux_parts else "无"
+
+    # 买用关系提示
+    buyer_user_hint = ""
+    if business_type == 'product':
+        buyer_user_hint = "【买用关系提示】消费品通常是：使用者≠付费者（如宝宝喝奶粉，宝妈买）"
+    elif business_type == 'local_service':
+        buyer_user_hint = "【买用关系提示】本地服务通常是：使用者=付费者（自己用自己买）"
+    elif business_type == 'enterprise':
+        buyer_user_hint = "【买用关系提示】企业服务通常是：使用者≠决策者（如员工用，经理/老板买）"
+
+    prompt = f"""你是用户画像分析专家。请根据以下业务信息，**一次性完成买用关系判断、问题挖掘、画像生成**。
+
+=== 业务基本信息 ===
+业务描述：{business_desc}
+经营范围：{business_range_text}
+经营类型：{business_type_text}
+
+辅助信息：
+{aux_section}
+{buyer_user_hint}
+
+=== 核心思维 ===
+**买用关系决定一切**：优先判断谁用、谁买，再围绕它挖掘问题和生成画像。
+
+=== 第一步：判断买用关系 ===
+使用者（产品/服务的直接使用者）与付费者（购买决策者）是否分离？
+
+buyer_user_relation：
+- is_separate: true（分离，如宝宝喝奶粉，宝妈买）/ false（合一，如自己修自己用）
+- description: 简短描述（15字内）
+
+=== 第二步：挖掘问题类型 ===
+
+**A. 使用方问题**（直接使用者遇到了什么问题）
+格式：**身份+问题类型**，如「宝宝肠道问题」「餐具破损问题」
+
+请列出5-6个使用方问题类型：
+- identity：使用者身份
+- problem_type：问题类型
+- display_name：显示名称（身份+问题类型）
+- description：具体表现（用顿号分隔）
+- severity：严重程度（高/中/低）
+
+**B. 付费方顾虑**（购买决策者有什么担忧）
+格式：**身份+顾虑类型**，如「宝妈真假担忧」「客户信任担忧」
+
+请列出3-4个付费方顾虑类型：
+- identity：付费方身份
+- concern_type：顾虑类型
+- display_name：显示名称（身份+顾虑类型）
+- description：具体表现（用顿号分隔）
+- examples：典型疑问（1-2个）
+
+=== 第三步：按问题类型生成画像 ===
+
+**重要**：为每个问题类型生成5个以上具体画像。
+
+画像要求：
+- 画像要**具体**（不是泛泛的"新手妈妈"而是"宝宝乳糖不耐受的宝妈"）
+- 每个画像有明确的问题导向
+- 画像要体现买用关系
+
+每个画像包含：
+- name：画像名称（体现问题特征）
+- age_range：年龄段
+- occupation：职业/身份
+- description：具体描述
+- pain_point：核心痛点
+- goal：用户目标
+
+**按问题类型分组返回**，格式：
+"portraits_by_type": {{
+    "问题类型显示名1": [画像1, 画像2, ...],
+    "问题类型显示名2": [画像1, 画像2, ...]
+}}
+
+【示例·奶粉行业输出结构】
+{{
+    "buyer_user_relation": {{
+        "is_separate": true,
+        "description": "宝宝喝，家长买"
+    }},
+    "user_problem_types": [
+        {{"identity": "宝宝", "problem_type": "肠道问题", "display_name": "宝宝肠道问题", "description": "拉肚子、腹胀、便秘", "severity": "高"}},
+        {{"identity": "宝宝", "problem_type": "过敏问题", "display_name": "宝宝过敏问题", "description": "牛奶蛋白过敏、乳糖不耐受", "severity": "高"}}
+    ],
+    "buyer_concern_types": [
+        {{"identity": "宝妈", "concern_type": "真假担忧", "display_name": "宝妈真假担忧", "description": "怕买到假货、怕来源不正", "examples": ["怎么验真伪？", "哪里买靠谱？"]}}
+    ],
+    "portraits_by_type": {{
+        "宝宝肠道问题": [
+            {{"name": "拉肚子型宝宝家长", "age_range": "0-2岁宝宝家长", "occupation": "新手爸妈", "description": "宝宝喝奶后拉肚子，怀疑奶粉问题"}},
+            {{"name": "腹胀型宝宝家长", "age_range": "0-1岁宝宝家长", "occupation": "全职宝妈", "description": "宝宝肚子胀气、哭闹不止"}}
+        ],
+        "宝宝过敏问题": [
+            {{"name": "乳糖不耐受宝宝家长", "age_range": "0-3岁宝宝家长", "occupation": "重视健康的家长", "description": "医院诊断乳糖不耐受"}}
+        ],
+        "宝妈真假担忧": [
+            {{"name": "海淘焦虑型宝妈", "age_range": "25-35岁", "occupation": "都市白领", "description": "担心买到假货，只信任官方渠道"}}
+        ]
+    }}
+}}
+
+=== 输出格式 ===
+只返回JSON，不要其他文字。"""
+
+    try:
+        # 调用 LLM
+        response = llm.chat(prompt)
+
+        print(f"[mine_problems_and_generate_personas] ===== 发送的 Prompt =====")
+        print(prompt)
+        print(f"[mine_problems_and_generate_personas] ===== Prompt 结束 =====")
+        print(f"[mine_problems_and_generate_personas] LLM 原始响应长度: {len(response)}")
+
+        # 尝试解析 JSON
+        result = None
+
+        # 辅助函数：尝试解析 JSON
+        def try_parse(text):
+            try:
+                return json.loads(text.strip())
+            except json.JSONDecodeError:
+                return None
+
+        # 辅助函数：智能修复不完整的JSON
+        def smart_fix_json(text):
+            """智能修复被截断的JSON"""
+            original = text
+            
+            # 尝试多种修复策略
+            for strategy in range(5):
+                test_json = text
+                
+                if strategy == 0:
+                    # 策略0: 找到最后一个完整的数组元素后截断
+                    # 找到 ] 的位置（数组结束）
+                    last_bracket = test_json.rfind(']')
+                    if last_bracket > 0:
+                        test_json = test_json[:last_bracket + 1]
+                        # 确保对象关闭
+                        open_braces = test_json.count('{') - test_json.count('}')
+                        test_json += '}' * max(0, open_braces - test_json.count('}'))
+                        
+                elif strategy == 1:
+                    # 策略1: 找到最后一个完整对象后截断
+                    # 找到 } 的位置
+                    last_brace = test_json.rfind('}')
+                    if last_brace > 0:
+                        test_json = test_json[:last_brace + 1]
+                        
+                elif strategy == 2:
+                    # 策略2: 找到最后一个逗号位置，认为后面是不完整的
+                    last_comma = test_json.rfind(',')
+                    if last_comma > 0:
+                        test_json = test_json[:last_comma]
+                        # 补全括号
+                        open_braces = test_json.count('{') - test_json.count('}')
+                        open_brackets = test_json.count('[') - test_json.count(']')
+                        test_json += ']' * open_brackets
+                        test_json += '}' * open_braces
+                        
+                elif strategy == 3:
+                    # 策略3: 补全缺失的括号
+                    open_braces = test_json.count('{') - test_json.count('}')
+                    open_brackets = test_json.count('[') - test_json.count(']')
+                    test_json += ']' * open_brackets
+                    test_json += '}' * open_braces
+                    
+                elif strategy == 4:
+                    # 策略4: 查找关键结构，尝试重组
+                    # 移除末尾不完整的字段
+                    lines = test_json.split('\n')
+                    fixed_lines = []
+                    for line in lines:
+                        # 如果行以引号开头但没有冒号，可能是不完整的
+                        stripped = line.strip()
+                        if stripped.endswith('"') and ':' not in stripped:
+                            continue
+                        fixed_lines.append(line)
+                    test_json = '\n'.join(fixed_lines)
+                    # 补全括号
+                    open_braces = test_json.count('{') - test_json.count('}')
+                    open_brackets = test_json.count('[') - test_json.count(']')
+                    test_json += ']' * open_brackets
+                    test_json += '}' * open_braces
+                
+                parsed = try_parse(test_json)
+                if parsed:
+                    print(f"[mine_problems_and_generate_personas] JSON修复成功 (策略{strategy})")
+                    return parsed
+                    
+            return None
+
+        # 方法1: 尝试直接解析
+        result = try_parse(response)
+        if result:
+            print("[mine_problems_and_generate_personas] JSON解析成功（直接）")
+        else:
+            # 方法2: 查找 ```json ... ``` 包裹的内容
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response)
+            if match:
+                json_str = match.group(1).strip()
+                result = try_parse(json_str)
+                if not result:
+                    result = smart_fix_json(json_str)
+                if result:
+                    print("[mine_problems_and_generate_personas] JSON解析成功（代码块内）")
+            else:
+                # 方法3: 查找 { ... } 对象
+                match = re.search(r'\{[\s\S]*\}', response)
+                if match:
+                    json_str = match.group(0)
+                    result = try_parse(json_str)
+                    if not result:
+                        result = smart_fix_json(json_str)
+                    if result:
+                        print("[mine_problems_and_generate_personas] JSON解析成功（对象匹配）")
+
+        # 如果解析失败，打印调试信息
+        if not result:
+            print(f"[mine_problems_and_generate_personas] ===== LLM完整响应 =====")
+            print(response)
+            print(f"[mine_problems_and_generate_personas] ===== 响应结束 =====")
+
+        if result:
+            # 解析数据
+            user_problem_types = result.get('user_problem_types', [])
+            buyer_concern_types = result.get('buyer_concern_types', [])
+            buyer_user_relation = result.get('buyer_user_relation', {})
+            portraits_by_type = result.get('portraits_by_type', {})
+
+            # 格式化使用方问题类型
+            user_problem_types_formatted = []
+            for i, item in enumerate(user_problem_types):
+                display_name = item.get('display_name', '')
+                if not display_name and item.get('identity') and item.get('problem_type'):
+                    display_name = f"{item.get('identity')}{item.get('problem_type')}"
+                user_problem_types_formatted.append({
+                    'id': item.get('id', f'up_{i+1}'),
+                    'identity': item.get('identity', ''),
+                    'problem_type': item.get('problem_type', ''),
+                    'display_name': display_name,
+                    'description': item.get('description', ''),
+                    'severity': item.get('severity', '中')
+                })
+
+            # 格式化付费方顾虑类型
+            buyer_problem_types = []
+            for i, item in enumerate(buyer_concern_types):
+                display_name = item.get('display_name', '')
+                if not display_name and item.get('identity') and item.get('concern_type'):
+                    display_name = f"{item.get('identity')}{item.get('concern_type')}"
+                buyer_problem_types.append({
+                    'id': item.get('id', f'bc_{i+1}'),
+                    'identity': item.get('identity', ''),
+                    'concern_type': item.get('concern_type', ''),
+                    'display_name': display_name,
+                    'description': item.get('description', ''),
+                    'examples': item.get('examples', []),
+                    'severity': '高'
+                })
+
+            return {
+                'success': True,
+                'data': {
+                    'user_problem_types': user_problem_types_formatted,
+                    'buyer_problem_types': buyer_problem_types,
+                    'buyer_user_relation': buyer_user_relation,
+                    'portraits_by_type': portraits_by_type
+                }
+            }
+        else:
+            print(f"[mine_problems_and_generate_personas] LLM响应: {response[:500]}")
+            return {
+                'success': False,
+                'message': 'AI生成失败，未能解析出有效数据'
+            }
+
+    except Exception as e:
+        import traceback
+        print(f"[mine_problems_and_generate_personas] 异常: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            'success': False,
+            'message': f'生成失败: {str(e)}'
+        }

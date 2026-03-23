@@ -72,6 +72,16 @@ def dashboard():
                          recent_clients=recent_clients)
 
 
+# ========== 人群画像生成 ==========
+
+@admin.route('/persona')
+@login_required
+@super_admin_required
+def persona_generator():
+    """人群画像生成页面"""
+    return render_template('admin/persona_generator.html')
+
+
 # ==================== 专家管理（工作台专家列表） ====================
 
 @admin.route('/experts')

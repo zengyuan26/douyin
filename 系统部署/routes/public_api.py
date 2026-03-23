@@ -252,6 +252,144 @@ def api_identify_targets():
     return jsonify(result)
 
 
+@public_bp.route('/api/targets/problems', methods=['POST'])
+def api_identify_problems():
+    """
+    阶段1（可选）：挖掘使用方问题和付费方顾虑
+
+    返回问题列表（使用方问题 + 付费方顾虑），并默认生成第一批人群画像。
+    用户可以点击某个问题，再生成对应的人群画像批次。
+
+    请求格式：
+    {
+        "business_description": "...",
+        "business_range": "local/cross_region",
+        "business_type": "local_service/product/personal/enterprise",
+        "customer_who": "...",  // 可选
+        "customer_why": "...",   // 可选
+        "customer_problem": "...", // 可选
+        "customer_story": "...", // 可选
+    }
+    """
+    params = request.get_json() or {}
+
+    # 必填字段检查
+    if not params.get('business_description'):
+        return jsonify({'success': False, 'message': '请描述您的业务'}), 400
+
+    if not params.get('business_range'):
+        return jsonify({'success': False, 'message': '请选择经营范围'}), 400
+
+    if not params.get('business_type'):
+        return jsonify({'success': False, 'message': '请选择经营类型'}), 400
+
+    result = content_generator.identify_problems_and_initial_personas(params)
+
+    return jsonify(result)
+
+
+@public_bp.route('/api/targets/generate-batch', methods=['POST'])
+def api_generate_persona_batch():
+    """
+    阶段2：基于指定问题生成人群画像批次
+
+    请求格式：
+    {
+        "business_description": "...",
+        "business_range": "...",
+        "business_type": "...",
+        "problem_id": "问题ID（来自阶段1的问题列表）",
+        "problem_type": "user_pain | buyer_concern",  // 问题类型
+        "customer_who": "...",  // 可选
+        "customer_why": "...",  // 可选
+        "customer_problem": "...", // 可选
+        "customer_story": "...", // 可选
+    }
+    """
+    params = request.get_json() or {}
+
+    # 必填字段检查
+    if not params.get('business_description'):
+        return jsonify({'success': False, 'message': '请描述您的业务'}), 400
+
+    if not params.get('business_range'):
+        return jsonify({'success': False, 'message': '请选择经营范围'}), 400
+
+    if not params.get('business_type'):
+        return jsonify({'success': False, 'message': '请选择经营类型'}), 400
+
+    if not params.get('problem_id'):
+        return jsonify({'success': False, 'message': '请选择问题类型'}), 400
+
+    result = content_generator.generate_persona_batch_by_problem(params)
+
+    return jsonify(result)
+
+
+# =============================================================================
+# 问题挖掘 + 画像生成 组合 API
+# =============================================================================
+
+@public_bp.route('/api/targets/mine-and-generate', methods=['POST'])
+def api_mine_and_generate():
+    """
+    一次性完成问题挖掘 + 所有类型的画像生成
+
+    请求格式：
+    {
+        "business_description": "...",
+        "business_range": "local/cross_region",
+        "business_type": "local_service/product/personal/enterprise",
+        "customer_who": "...",  // 可选
+        "customer_why": "...",   // 可选
+        "customer_problem": "...", // 可选
+        "customer_story": "...", // 可选
+    }
+
+    返回格式：
+    {
+        "success": true,
+        "data": {
+            "problem_types": [...],  // 问题类型列表
+            "user_problems": [...],  // 使用方问题
+            "buyer_concerns": [...], // 付费方顾虑
+            "portraits_by_type": {   // 按问题类型分组的画像
+                "肠道问题": [...],
+                "喂养习惯": [...],
+                ...
+            }
+        }
+    }
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    params = request.get_json() or {}
+    logger.info(f"[api_mine_problems] 接收参数: {params}")
+
+    # 必填字段检查
+    if not params.get('business_description'):
+        return jsonify({'success': False, 'message': '请描述您的业务'}), 400
+
+    if not params.get('business_range'):
+        return jsonify({'success': False, 'message': '请选择经营范围'}), 400
+
+    if not params.get('business_type'):
+        return jsonify({'success': False, 'message': '请选择经营类型'}), 400
+
+    # 调用组合服务（带重试机制）
+    from services.public_content_generator import mine_problems_and_generate_personas
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        result = mine_problems_and_generate_personas(params)
+        if result.get('success'):
+            return jsonify(result)
+        if attempt < max_retries:
+            print(f"[api_mine_and_generate] 第 {attempt + 1} 次失败，重试中...")
+
+    return jsonify(result)
+
+
 @public_bp.route('/api/targets/generate', methods=['POST'])
 def api_generate_targets():
     """生成目标用户画像（可选登录，登录后支持AI增强）"""
@@ -277,7 +415,6 @@ def api_generate_targets():
         return jsonify({'success': False, 'message': '请选择经营类型'}), 400
 
     # 生成目标用户画像（user 为 None 时走匿名路径，仍可正常使用LLM直出）
-    from services.public_content_generator import content_generator
     result = content_generator.generate_target_customers(
         user, params, use_ai_enhancement=use_ai_enhancement
     )

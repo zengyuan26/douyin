@@ -1382,3 +1382,142 @@ class RuleExtractionLog(db.Model):
 
     def __repr__(self):
         return f'<RuleExtractionLog {self.id} {self.status}>'
+
+
+# ========== 人群画像生成模块 ==========
+
+class PersonaSession(db.Model):
+    """人群画像会话表 - 存储每次生成的结果"""
+    __tablename__ = 'persona_sessions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # 会话基本信息
+    name = db.Column(db.String(100))  # 会话名称（如：进口奶粉人群分析）
+    industry = db.Column(db.String(50))  # 行业名称
+    business_type = db.Column(db.String(20))  # 业务类型：toc/tob/both
+
+    # 使用方与购买方关系
+    buyer_equals_user = db.Column(db.Boolean, default=True)  # 购买方是否等于使用方
+
+    # 状态
+    status = db.Column(db.String(20), default='draft')  # draft/processing/completed/failed
+
+    # 原始输入
+    input_data = db.Column(db.JSON)  # 存储原始输入数据
+
+    # 生成结果（JSON格式）
+    user_problems_data = db.Column(db.JSON)  # 使用方问题列表（避免与backref冲突）
+    buyer_concerns = db.Column(db.JSON)  # 付费方顾虑列表
+    portraits = db.Column(db.JSON)  # 人群画像列表
+
+    # 使用统计
+    portrait_count = db.Column(db.Integer, default=0)  # 生成的人群画像数量
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = db.relationship('User', backref='persona_sessions')
+
+    def __repr__(self):
+        return f'<PersonaSession {self.id} {self.industry}>'
+
+
+class PersonaUserProblem(db.Model):
+    """使用方问题表 - 产品/服务要解决的核心问题"""
+    __tablename__ = 'persona_user_problems'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('persona_sessions.id'), nullable=False)
+
+    # 问题信息
+    name = db.Column(db.String(100), nullable=False)  # 问题名称（如：乳糖不耐受）
+    description = db.Column(db.Text)  # 问题描述
+    specific_symptoms = db.Column(db.Text)  # 具体表现（如：喝奶后腹泻、胀气）
+    severity = db.Column(db.String(20))  # 严重程度：高/中/低
+    user_awareness = db.Column(db.String(20))  # 用户意识：有意识/无意识
+
+    # 触发场景
+    trigger_scenario = db.Column(db.Text)  # 问题触发场景
+
+    # 排序
+    sort_order = db.Column(db.Integer, default=0)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    session = db.relationship('PersonaSession', backref='user_problems')
+
+    def __repr__(self):
+        return f'<PersonaUserProblem {self.name}>'
+
+
+class PersonaBuyerConcern(db.Model):
+    """付费方顾虑表 - 购买决策时的心理障碍"""
+    __tablename__ = 'persona_buyer_concerns'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('persona_sessions.id'), nullable=False)
+
+    # 顾虑信息
+    concern_type = db.Column(db.String(50), nullable=False)  # 顾虑类型：真假/价格/选择/信任/其他
+    name = db.Column(db.String(100), nullable=False)  # 顾虑名称
+    description = db.Column(db.Text)  # 具体描述
+    estimated_ratio = db.Column(db.String(20))  # 预估占比
+
+    # 排序
+    sort_order = db.Column(db.Integer, default=0)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    session = db.relationship('PersonaSession', backref='buyer_concern_items')  # 避免与JSON字段buyer_concerns冲突
+
+    def __repr__(self):
+        return f'<PersonaBuyerConcern {self.concern_type} {self.name}>'
+
+
+class PersonaPortrait(db.Model):
+    """人群画像表 - 精准长尾细分人群"""
+    __tablename__ = 'persona_portraits'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('persona_sessions.id'), nullable=False)
+    problem_id = db.Column(db.Integer, db.ForeignKey('persona_user_problems.id'))
+
+    # 画像基本信息
+    name = db.Column(db.String(100), nullable=False)  # 画像名称（如：乳糖不耐受宝宝妈妈）
+    batch_number = db.Column(db.Integer, default=1)  # 批次号（按问题分批）
+
+    # 使用方信息
+    user_description = db.Column(db.Text)  # 使用方特征描述
+    user_core_problem = db.Column(db.Text)  # 使用方核心问题
+    user_specific_symptoms = db.Column(db.Text)  # 具体表现
+    user_pain_level = db.Column(db.String(20))  # 痛点程度
+
+    # 购买方信息（如果与使用方分开）
+    buyer_description = db.Column(db.Text)  # 购买方特征描述
+    buyer_core_problem = db.Column(db.Text)  # 购买方核心问题
+    buyer_concerns = db.Column(db.JSON)  # 购买方顾虑详情（JSON数组）
+
+    # 用户旅程
+    user_journey = db.Column(db.Text)  # 用户旅程描述
+
+    # 内容选题
+    content_topics = db.Column(db.JSON)  # 内容选题方向（JSON数组）
+    search_keywords = db.Column(db.JSON)  # 用户会搜索的关键词
+
+    # 排序
+    sort_order = db.Column(db.Integer, default=0)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    session = db.relationship('PersonaSession', backref='portrait_list')
+    problem = db.relationship('PersonaUserProblem', backref='problem_portraits')
+
+    def __repr__(self):
+        return f'<PersonaPortrait {self.name}>'

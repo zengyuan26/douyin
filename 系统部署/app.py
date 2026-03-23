@@ -3,6 +3,11 @@
 """
 import logging
 import os
+
+# 加载 .env 环境变量
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask
 from flask_login import LoginManager
 from config import config
@@ -54,11 +59,11 @@ def create_app(config_name='default'):
     
     # 注册知识库分析 API
     from routes.knowledge_api import knowledge_api as knowledge_api_blueprint
-    # 先注册公式要素 API（必须在 blueprint 注册之前）
-    from routes.knowledge_api import register_formula_elements_routes
-    register_formula_elements_routes(knowledge_api_blueprint)
-    # 再注册 blueprint
     app.register_blueprint(knowledge_api_blueprint)
+
+    # 注册公式要素 blueprint（独立模块，避免 blueprint 重复注册问题）
+    from routes.formula_elements_routes import formula_elements_bp
+    app.register_blueprint(formula_elements_bp)
 
     # 注册内容分析 API（独立模块）
     from routes.content_analysis_api import content_analysis_api as content_analysis_api_blueprint
@@ -90,6 +95,14 @@ def create_app(config_name='default'):
         logging.info("成本统计 API 已注册")
     except Exception as e:
         logging.warning(f"成本统计 API 注册失败: {e}")
+
+    # 注册人群画像生成 API
+    try:
+        from routes.persona_api import persona_api as persona_api_blueprint
+        app.register_blueprint(persona_api_blueprint)
+        logging.info("人群画像生成 API 已注册")
+    except Exception as e:
+        logging.warning(f"人群画像 API 注册失败: {e}")
 
     # 初始化公开平台缓存预热
     try:
