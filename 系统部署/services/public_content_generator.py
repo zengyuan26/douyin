@@ -3037,18 +3037,26 @@ buyer_user_relation：
 
 === 第二步：挖掘问题类型 ===
 
-**A. 使用方问题**（直接使用者遇到了什么问题）
-格式：**身份+问题类型**，如「宝宝肠道问题」「餐具破损问题」
+**【关键要求】身份必须多样化！不要只写"用户"！**
 
-请列出5-6个使用方问题类型：
-- identity：使用者身份
+根据业务场景，识别所有可能的身份角色：
+- 消费品：孩子/患者/消费者 + 家长/家属/购买者
+- 企业服务：员工/使用者 + 老板/采购/HR
+- 定制产品：使用者 + 决策者（如送礼人、宴会主办方）
+- B端客户：来访者/客户/员工 + 接待方负责人
+
+**A. 使用方问题**（直接使用者遇到了什么问题）
+格式：**身份+问题类型**，如「员工会议口渴」「客户接待用水体验差」
+
+请列出5-6个使用方问题类型（身份必须多样化，至少3种不同身份）：
+- identity：使用者身份（不能只写"用户"，要写具体角色）
 - problem_type：问题类型
 - display_name：显示名称（身份+问题类型）
 - description：具体表现（用顿号分隔）
 - severity：严重程度（高/中/低）
 
 **B. 付费方顾虑**（购买决策者有什么担忧）
-格式：**身份+顾虑类型**，如「宝妈真假担忧」「客户信任担忧」
+格式：**身份+顾虑类型**，如「老板品牌宣传担忧」「HR采购合规顾虑」
 
 请列出3-4个付费方顾虑类型：
 - identity：付费方身份
@@ -3103,6 +3111,37 @@ buyer_user_relation：
         ],
         "宝妈真假担忧": [
             {{"name": "海淘焦虑型宝妈", "age_range": "25-35岁", "occupation": "都市白领", "description": "担心买到假货，只信任官方渠道"}}
+        ]
+    }}
+}}
+
+【示例·企业定制水行业输出结构】
+{{
+    "buyer_user_relation": {{
+        "is_separate": true,
+        "description": "员工/客户用，老板/HR买"
+    }},
+    "user_problem_types": [
+        {{"identity": "员工", "problem_type": "会议口渴", "display_name": "员工会议口渴", "description": "瓶装水不够分、找不到水喝", "severity": "中"}},
+        {{"identity": "客户", "problem_type": "接待体验差", "display_name": "客户接待体验差", "description": "用水没档次、显得不专业", "severity": "高"}},
+        {{"identity": "送礼对象", "problem_type": "礼品无新意", "display_name": "送礼礼品无新意", "description": "礼品太普通、没记忆点", "severity": "中"}}
+    ],
+    "buyer_concern_types": [
+        {{"identity": "老板", "concern_type": "品牌宣传担忧", "display_name": "老板品牌宣传担忧", "description": "定制效果不确定、怕花了钱没效果", "examples": ["定制水能带来多少曝光？", "客户会记住我们吗？"]}},
+        {{"identity": "HR行政", "concern_type": "采购合规顾虑", "display_name": "HR采购合规顾虑", "description": "能不能开票、价格合不合理", "examples": ["能开增值税发票吗？", "最低多少箱起订？"]}}
+    ],
+    "portraits_by_type": {{
+        "员工会议口渴": [
+            {{"name": "会议常客型员工", "age_range": "25-40岁", "occupation": "办公室职员", "description": "每天开会3次以上，经常找不到水"}},
+            {{"name": "嗓子干痒型员工", "age_range": "30-45岁", "occupation": "培训师/讲师", "description": "讲课说话多，需要频繁补水"}}
+        ],
+        "客户接待体验差": [
+            {{"name": "重要客户来访型", "age_range": "35-50岁", "occupation": "企业高管", "description": "经常接待重要客户，细节体现专业度"}},
+            {{"name": "商务谈判型", "age_range": "30-45岁", "occupation": "销售/BD", "description": "需要给客户留下专业印象"}}
+        ],
+        "老板品牌宣传担忧": [
+            {{"name": "初创公司老板", "age_range": "30-45岁", "occupation": "创业者", "description": "预算有限，追求高性价比宣传"}},
+            {{"name": "品牌负责人", "age_range": "28-40岁", "occupation": "市场部经理", "description": "关注品牌曝光和营销效果"}}
         ]
     }}
 }}
