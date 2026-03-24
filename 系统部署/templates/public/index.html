@@ -498,10 +498,10 @@
         .problem-card.selected::after {
             content: '✓';
             position: absolute;
-            top: 8px;
+            top: 10px;
             right: 12px;
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             background: var(--primary);
             color: white;
             border-radius: 50%;
@@ -510,6 +510,103 @@
             justify-content: center;
             font-size: 12px;
             font-weight: bold;
+            z-index: 2;
+        }
+
+        /* 市场洞察 · 问题卡片：第1行 = 问题类型 + 身份；第2行 = 严重性（星级） */
+        .pc-top-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding-right: 30px;
+            margin-bottom: 6px;
+            min-width: 0;
+        }
+
+        .pc-type {
+            font-size: 1.0625rem;
+            font-weight: 700;
+            color: #3730a3;
+            line-height: 1.3;
+            letter-spacing: -0.02em;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .pc-severity-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+            padding-right: 30px;
+        }
+
+        .pc-severity-label {
+            font-size: 0.6875rem;
+            color: #a8a29e;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+
+        .pc-star {
+            font-size: 0.875rem;
+            line-height: 1.3;
+            letter-spacing: 0.02em;
+            opacity: 0.92;
+        }
+
+        .pc-id-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 999px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            max-width: 100%;
+        }
+
+        .pc-id-badge.id-user {
+            color: #4338ca;
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+        }
+
+        .pc-id-badge.id-buyer {
+            color: #0f766e;
+            background: #f0fdf4;
+            border: 1px solid #a7f3d0;
+        }
+
+        .pc-desc {
+            font-size: 0.8125rem;
+            color: #57534e;
+            line-height: 1.55;
+            margin-bottom: 12px;
+            padding: 9px 12px;
+            background: #fafaf9;
+            border-radius: 10px;
+            border-left: 3px solid #818cf8;
+        }
+
+        .pc-foot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pc-status {
+            font-size: 0.75rem;
+            color: #78716c;
+        }
+
+        .pc-status.done {
+            color: #15803d;
+            font-weight: 500;
         }
 
         .problem-type-card.selected::after {
@@ -572,10 +669,10 @@
                     <li class="nav-item"><a class="nav-link" href="/public/#features">功能</a></li>
                     <li class="nav-item"><a class="nav-link" href="/public/pricing">定价</a></li>
                     <li class="nav-item" id="nav-login">
-                        <a class="nav-link" href="/public/login">登录</a>
+                        <a class="nav-link" href="/login?type=public" target="_self">登录</a>
                     </li>
                     <li class="nav-item" id="nav-register">
-                        <a class="btn btn-primary ms-2" href="/public/register">免费开始</a>
+                        <a class="btn btn-primary ms-2" href="/login?type=public#register" target="_self">免费开始</a>
                     </li>
                 </ul>
             </div>
@@ -599,7 +696,7 @@
                 <span class="badge bg-light text-dark"><i class="bi bi-graph-up-arrow me-1"></i>长期增长</span>
                 <span class="badge bg-light text-dark"><i class="bi bi-brain me-1"></i>AI 驱动</span>
             </div>
-            <a href="#generator" class="btn btn-light btn-lg mt-2">免费开始体验</a>
+            <a href="/login?type=public" class="btn btn-light btn-lg mt-2" target="_self">免费开始体验</a>
         </div>
     </section>
 
@@ -612,7 +709,7 @@
                 <!-- 登录提示 -->
                 <div id="login-prompt" class="text-center py-5">
                     <p class="text-muted">登录后即可开始生成内容</p>
-                    <a href="/public/login" class="btn btn-primary">登录 / 注册</a>
+                    <a href="/login?type=public" class="btn btn-primary" target="_self">登录 / 注册</a>
                 </div>
 
                 <!-- 生成表单（登录后显示） -->
@@ -702,7 +799,6 @@
                                         </label>
                                     </div>
                                 </div>
-                                </div>
                             </div>
                             </div>
 
@@ -729,23 +825,23 @@
 
                                             <div class="row g-3">
                                                 <div class="col-12">
-                                                    <label class="form-label">1. 他们是谁？（简单说说）</label>
+                                                    <label class="form-label" for="customer-who">1. 他们是谁？（简单说说）</label>
                                                     <input type="text" class="form-control" id="customer-who"
                                                            placeholder="例如：某写字楼行政负责人、某连锁餐厅老板">
                                                 </div>
                                                 <div class="col-12">
-                                                    <label class="form-label">2. 当初为什么会找到您？</label>
+                                                    <label class="form-label" for="customer-why">2. 当初为什么会找到您？</label>
                                                     <input type="text" class="form-control" id="customer-why"
                                                            placeholder="例如：原来用的水太贵了、朋友推荐的、要开发新客户">
                                                 </div>
                                                 <div class="col-12">
-                                                    <label class="form-label">3. 您帮他解决了什么？</label>
+                                                    <label class="form-label" for="customer-problem">3. 您帮他解决了什么？</label>
                                                     <input type="text" class="form-control" id="customer-problem"
                                                            placeholder="例如：帮他省了30%用水成本、配送及时没投诉过">
                                                 </div>
                                                 <div class="col-12">
                                                     <label class="form-label">4. 合作体验（可多选）</label>
-                                                    <div class="d-flex gap-3 flex-wrap">
+                                                    <div class="d-flex gap-3 flex-wrap" role="group" aria-label="合作体验选项">
                                                         <div class="form-check">
                                                             <input class="form-check-input" type="checkbox" id="exp-smooth" value="smooth">
                                                             <label class="form-check-label" for="exp-smooth">付款爽快</label>
@@ -769,7 +865,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="col-12">
-                                                    <label class="form-label">5. 有什么印象特别深的事？（选填）</label>
+                                                    <label class="form-label" for="customer-story">5. 有什么印象特别深的事？（选填）</label>
                                                     <textarea class="form-control" id="customer-story" rows="2"
                                                               placeholder="讲一个印象深刻的客户故事，比如意外的大订单、感人的感谢等..."></textarea>
                                                 </div>
@@ -801,38 +897,21 @@
 
                         <!-- 问题卡片区域（身份+问题类型） -->
                         <div id="problems-section" class="mt-4" style="display: none;">
-                            <!-- 场景标签 -->
-                            <div class="mb-3 p-2 bg-light rounded" id="scenario-tabs" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                <!-- 场景标签将通过JS动态生成 -->
+                            <!-- 换一批按钮 -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">📊 市场洞察</h5>
+                                <button class="btn btn-sm btn-outline-primary" id="btn-refresh-identities" onclick="refreshIdentities()">
+                                    🔄 换一批
+                                </button>
                             </div>
 
-                            <!-- 身份Tab -->
-                            <ul class="nav nav-pills mb-3" id="identity-tabs" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active" id="tab-user-pains" data-bs-toggle="pill" data-bs-target="#pane-user-pains" type="button">
-                                        👶 使用方问题
-                                    </button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="tab-buyer-concerns" data-bs-toggle="pill" data-bs-target="#pane-buyer-concerns" type="button">
-                                        💳 付费方顾虑
-                                    </button>
-                                </li>
-                            </ul>
-
-                            <div class="tab-content" id="problems-tab-content">
-                                <div class="tab-pane fade show active" id="pane-user-pains" role="tabpanel">
-                                    <div class="row g-3" id="user-pains-list"></div>
-                                </div>
-                                <div class="tab-pane fade" id="pane-buyer-concerns" role="tabpanel">
-                                    <div class="row g-3" id="buyer-concerns-list"></div>
-                                </div>
-                            </div>
+                            <!-- 问题卡片区域 -->
+                            <div class="row g-3" id="user-pains-list"></div>
                         </div>
 
                         <!-- 目标用户选择区域 -->
                         <div id="target-customers-section" class="mt-4" style="display: none;">
-                            <h5 class="mb-3">👥 请选择目标用户画像</h5>
+                            <h5 class="mb-3">👥 目标用户画像</h5>
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <div class="small text-muted">已生成 <span id="target-count">0</span> 个目标用户</div>
                                 <button class="btn btn-sm btn-outline-secondary" id="btn-refresh-targets" onclick="refreshTargetCustomers()">
@@ -841,11 +920,6 @@
                             </div>
                             <div class="row g-4" id="target-customers-list">
                                 <!-- 目标用户选项将通过JS动态生成 -->
-                            </div>
-                            <div class="text-center mt-4">
-                                <button class="btn btn-generate btn-lg" id="btn-generate-content" onclick="generateContent()" disabled>
-                                    🎨 基于选择生成内容
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -1012,9 +1086,23 @@
             if (currentUser) {
                 document.getElementById('nav-login').innerHTML =
                     '<a class="nav-link" href="#" onclick="logout()">退出</a>';
+
+                var planName = currentUser.quota && currentUser.quota.plan_name ? currentUser.quota.plan_name : '';
                 var welcomeText = currentUser.quota && currentUser.quota.email ? currentUser.quota.email : '用户';
-                document.getElementById('nav-register').innerHTML =
-                    '<span class="nav-link">欢迎，' + welcomeText + '</span>';
+
+                if (planName === '企业版') {
+                    document.getElementById('nav-register').innerHTML =
+                        '<span class="badge bg-success me-2">企业版（无限）</span><span class="nav-link">欢迎，' + welcomeText + '</span>';
+                } else if (planName === '专业版') {
+                    document.getElementById('nav-register').innerHTML =
+                        '<span class="badge bg-primary me-2">专业版</span><span class="nav-link">欢迎，' + welcomeText + '</span>';
+                } else if (planName === '基础版') {
+                    document.getElementById('nav-register').innerHTML =
+                        '<span class="badge bg-info me-2">基础版</span><span class="nav-link">欢迎，' + welcomeText + '</span>';
+                } else {
+                    document.getElementById('nav-register').innerHTML =
+                        '<span class="nav-link">欢迎，' + welcomeText + '</span>';
+                }
             }
         }
 
@@ -1093,8 +1181,9 @@
         let _currentProblems = null;
         let _allPortraits = {};  // 按问题类型 key 存储的画像
         let _selectedTypeKey = null;  // 当前选中的问题类型 key
-        let _userProblemTypes = [];  // 使用方问题类型（身份+问题类型）
-        let _buyerProblemTypes = [];  // 付费方顾虑类型（身份+问题类型）
+        let _allProblems = [];  // 统一的问题列表（不再分 user/buyer）
+        let _isPremium = false;  // 是否付费用户
+        let _currentBusinessDesc = '';  // 当前业务描述
 
         // ================================================================
         // 一键分析：问题挖掘 + 画像生成
@@ -1123,10 +1212,11 @@
 
             document.getElementById('btn-one-key-analyze').disabled = true;
             document.getElementById('loading').style.display = 'block';
-            document.getElementById('loading-text').textContent = '正在挖掘问题并生成画像，请稍候...';
+            document.getElementById('loading-text').textContent = '正在挖掘市场问题，请稍后...';
 
             try {
-                const resp = await fetch('/public/api/targets/mine-and-generate', {
+                // Step 1: 先挖掘问题（不生成画像）
+                const resp = await fetch('/public/api/targets/problems', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -1142,28 +1232,25 @@
                     })
                 });
 
+                if (!resp.ok) {
+                    const errorText = await resp.text();
+                    showToast('挖掘问题失败，请稍后重试', 'error');
+                    console.error('API error:', resp.status, errorText);
+                    return;
+                }
+
                 const data = await resp.json();
 
-                if (data.success && data.data) {
-                    const result = data.data;
+                if (data.success && data.problems) {
+                    const problems = data.problems.problems || data.problems || [];
 
-                    // 保存数据
-                    _scenarios = result.scenarios || [];
-                    _userProblemTypes = result.user_problem_types || [];
-                    _buyerProblemTypes = result.buyer_problem_types || [];
-                    _allPortraits = result.portraits_by_type || {};
+                    // 保存数据：统一用 problems 数组，不再分 user/buyer
+                    _allProblems = problems;
+                    _allPortraits = {};  // 清空旧画像
+                    _isPremium = data.is_premium || false;
 
-                    // 渲染场景标签
-                    renderScenarioTabs(_scenarios);
-
-                    // 渲染问题卡片（身份+问题类型，点击查看画像）
-                    renderProblemCards(_userProblemTypes, _buyerProblemTypes, _allPortraits);
-
-                    // 默认选中第一个问题类型，显示对应画像
-                    const first = _userProblemTypes[0] || _buyerProblemTypes[0];
-                    if (first) {
-                        selectProblemCard(first.display_name);
-                    }
+                    // 渲染问题卡片（带"生成画像"按钮）
+                    renderProblemCards(_allProblems);
 
                     // 显示区域
                     document.getElementById('problems-section').style.display = 'block';
@@ -1171,9 +1258,15 @@
 
                     document.getElementById('problems-section').scrollIntoView({ behavior: 'smooth' });
 
-                    showToast('分析完成！点击问题类型查看对应画像', 'success');
+                    // 自动选中第一个问题
+                    const first = _allProblems[0];
+                    if (first) {
+                        selectProblemCard(first.display_name, first.identity, first.problem_type || first.concern_type, first);
+                    }
+
+                    showToast('问题挖掘完成！点击"生成画像"查看人群画像', 'success');
                 } else {
-                    alert(data.message || '生成失败');
+                    alert(data.message || '问题挖掘失败');
                 }
             } catch (e) {
                 alert('生成失败，请稍后重试');
@@ -1184,127 +1277,168 @@
             }
         }
 
+        // 换一批：重新调用问题挖掘+画像生成
+        let _refreshIdentitiesSeq = 0;
+        function refreshIdentities() {
+            if (!_isPremium) {
+                showToast('此功能仅限付费用户，<a href="/public/pricing" target="_blank" style="color:#1565c0;text-decoration:underline;">立即升级</a>', 'error');
+                return;
+            }
+            const mySeq = ++_refreshIdentitiesSeq;
+            console.log('[换一批] 点击了, seq=' + mySeq);
+
+            const btn = document.getElementById('btn-refresh-identities');
+            if (!btn) return;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>换一批...';
+
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
+            const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
+            const extraData = collectDeepInfo();
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading-text').textContent = '正在重新识别目标人群，请稍候...';
+
+            fetch('/public/api/targets/problems', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    business_description: businessDesc,
+                    business_range: businessRange,
+                    business_type: businessType,
+                    customer_who: extraData.customer_who,
+                    customer_why: extraData.customer_why,
+                    customer_problem: extraData.customer_problem,
+                    customer_experiences: extraData.customer_experiences,
+                    customer_story: extraData.customer_story,
+                })
+            })
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                // 只处理最新一次响应的结果，防止旧请求覆盖新结果
+                if (mySeq !== _refreshIdentitiesSeq) {
+                    console.log('[换一批] 跳过过期响应 seq=' + mySeq);
+                    return;
+                }
+
+                if (data.success && data.problems) {
+                    const problems = data.problems.problems || data.problems || [];
+
+                    // 保存数据：统一用 problems 数组
+                    _allProblems = problems;
+                    _allPortraits = {};
+                    _isPremium = data.is_premium || false;
+
+                    // 渲染问题卡片
+                    renderProblemCards(_allProblems);
+
+                    // 默认选中第一个问题类型
+                    var first = _allProblems[0];
+                    if (first) {
+                        selectProblemCard(first.display_name, first.identity, first.problem_type || first.concern_type, first);
+                    }
+
+                    showToast('换一批成功！', 'success');
+                } else {
+                    alert(data.message || '重新生成失败');
+                }
+            })
+            .catch(function(e) {
+                if (mySeq !== _refreshIdentitiesSeq) return;
+                console.error('[换一批] 异常', e);
+                alert('重新生成失败，请稍后重试');
+            })
+            .finally(function() {
+                if (mySeq !== _refreshIdentitiesSeq) return;
+                document.getElementById('loading').style.display = 'none';
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            });
+        }
+
         // 当前选中的问题类型key
         var _selectedProblemKey = null;
-        var _scenarios = [];
 
-        // 渲染场景标签
-        function renderScenarioTabs(scenarios) {
-            const container = document.getElementById('scenario-tabs');
-            if (!container) return;
-            
-            container.innerHTML = '';
-            
-            if (!scenarios || scenarios.length === 0) {
-                container.innerHTML = '<span class="badge bg-secondary">通用</span>';
+        // 渲染问题卡片（统一数组，不再分 user/buyer）
+        function renderProblemCards(problems) {
+            const userList = document.getElementById('user-pains-list');
+            userList.innerHTML = '';
+
+            if (!problems || problems.length === 0) {
+                userList.innerHTML = '<div class="col-12 text-center text-muted py-4">暂无问题数据</div>';
                 return;
             }
 
-            scenarios.forEach((scenario, idx) => {
-                const badge = document.createElement('span');
-                badge.className = 'badge ' + (idx === 0 ? 'bg-primary' : 'bg-secondary');
-                badge.style.cssText = 'margin-right: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px;';
-                badge.textContent = scenario.name;
-                badge.title = scenario.description || '';
-                badge.onclick = () => filterByScenario(scenario.name);
-                container.appendChild(badge);
+            problems.forEach((type) => {
+                const identity = type.identity || '';
+                const problemType = type.problem_type || '';
+                const key = identity + problemType;
+                const portraitCount = _allPortraits[key] ? _allPortraits[key].length : 0;
+                const card = buildProblemCard(identity, problemType, type.severity || '', portraitCount, type);
+                userList.appendChild(card);
             });
-
-            // 添加"全部"选项
-            const allBadge = document.createElement('span');
-            allBadge.className = 'badge bg-outline-secondary';
-            allBadge.style.cssText = 'margin-right: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px;';
-            allBadge.textContent = '全部';
-            allBadge.onclick = () => filterByScenario(null);
-            container.appendChild(allBadge);
-        }
-
-        // 根据场景筛选
-        function filterByScenario(scenarioName) {
-            // 更新标签样式
-            document.querySelectorAll('#scenario-tabs .badge').forEach(badge => {
-                badge.className = badge.className.replace('bg-primary', 'bg-secondary').replace('bg-outline-primary', 'bg-outline-secondary');
-            });
-            event.target.className = event.target.className.replace('bg-secondary', 'bg-primary').replace('bg-outline-secondary', 'bg-outline-primary');
-            
-            // 筛选显示
-            const userList = document.getElementById('user-pains-list');
-            const buyerList = document.getElementById('buyer-concerns-list');
-            
-            _userProblemTypes.forEach((type, idx) => {
-                const cards = userList.querySelectorAll('.col-md-4');
-                if (cards[idx]) {
-                    const show = !scenarioName || type.scenario === scenarioName;
-                    cards[idx].style.display = show ? '' : 'none';
-                }
-            });
-            
-            _buyerProblemTypes.forEach((type, idx) => {
-                const cards = buyerList.querySelectorAll('.col-md-4');
-                if (cards[idx]) {
-                    const show = !scenarioName || type.scenario === scenarioName;
-                    cards[idx].style.display = show ? '' : 'none';
-                }
-            });
-        }
-
-        // 渲染问题卡片（身份+问题类型，点击查看画像）
-        function renderProblemCards(userTypes, buyerTypes, portraitsByType) {
-            const userList = document.getElementById('user-pains-list');
-            const buyerList = document.getElementById('buyer-concerns-list');
-            userList.innerHTML = '';
-            buyerList.innerHTML = '';
-
-            // 渲染使用方问题卡片
-            if (!userTypes || userTypes.length === 0) {
-                userList.innerHTML = '<div class="col-12 text-center text-muted py-4">暂无使用方问题数据</div>';
-            } else {
-                userTypes.forEach((type) => {
-                    const identity = type.identity || '';
-                    const problemType = type.problem_type || '';
-                    const displayName = type.display_name || identity + problemType;
-                    const portraitCount = (portraitsByType[displayName] || []).length;
-                    const card = buildProblemCard(identity, problemType, type.description || '', type.severity || '', portraitCount, type.scenario);
-                    card.onclick = () => selectProblemCard(displayName);
-                    userList.appendChild(card);
-                });
-            }
-
-            // 渲染付费方顾虑卡片
-            if (!buyerTypes || buyerTypes.length === 0) {
-                buyerList.innerHTML = '<div class="col-12 text-center text-muted py-4">暂无付费方顾虑数据</div>';
-            } else {
-                buyerTypes.forEach((type) => {
-                    const identity = type.identity || '';
-                    const concernType = type.concern_type || '';
-                    const displayName = type.display_name || identity + concernType;
-                    const portraitCount = (portraitsByType[displayName] || []).length;
-                    const card = buildProblemCard(identity, concernType, type.description || '', '高', portraitCount, type.scenario);
-                    card.onclick = () => selectProblemCard(displayName);
-                    buyerList.appendChild(card);
-                });
-            }
         }
 
         // 选择问题卡片，显示对应画像
-        function selectProblemCard(key) {
-            _selectedProblemKey = key;
+        function selectProblemCard(key, identity, problemType, problemData) {
+            _selectedTypeKey = key;
 
             // 更新选中状态
             document.querySelectorAll('.problem-card').forEach(card => {
                 card.classList.remove('selected');
-                if (card.dataset.key === key) {
+                if (card.closest('.col-md-4').dataset.key === key) {
                     card.classList.add('selected');
                 }
             });
 
-            // 显示该类型的画像
-            renderPortraitsForType(key);
+            // 检查是否有已生成的画像
+            const hasPortraits = _allPortraits[key] && _allPortraits[key].length > 0;
+
+            // 如果有画像则显示，没有则等用户手动点击「生成」
+            if (hasPortraits) {
+                // 显示该类型的画像
+                renderPortraitsForType(key);
+            } else {
+                // 清空画像显示区域，提示用户手动生成
+                const container = document.getElementById('target-customers-list');
+                container.innerHTML = '';
+                document.getElementById('target-count').textContent = '0';
+            }
         }
 
         // 渲染指定问题类型的画像
         function renderPortraitsForType(typeName) {
-            const portraits = _allPortraits[typeName] || [];
+            // 使用模糊匹配查找画像
+            function findPortraits(key) {
+                // 1. 直接匹配
+                if (_allPortraits[key]) {
+                    return _allPortraits[key];
+                }
+                // 2. 模糊匹配
+                const normalizedKey = key.replace(/\s+/g, '').replace(/\[.*?\]/g, '');
+                for (const k of Object.keys(_allPortraits)) {
+                    const normalizedK = k.replace(/\s+/g, '').replace(/\[.*?\]/g, '');
+                    if (normalizedKey === normalizedK) {
+                        return _allPortraits[k];
+                    }
+                }
+                // 3. 包含匹配
+                for (const k of Object.keys(_allPortraits)) {
+                    if (k.includes(key) || key.includes(k)) {
+                        return _allPortraits[k];
+                    }
+                }
+                return [];
+            }
+
+            const portraits = findPortraits(typeName);
             const container = document.getElementById('target-customers-list');
             container.innerHTML = '';
 
@@ -1346,46 +1480,142 @@
             });
         }
 
-        // 构建单张问题卡片（显示身份+问题类型）
-        function buildProblemCard(identity, problemType, description, severity, portraitCount, scenario) {
+        function escHtml(s) {
+            if (s == null || s === undefined) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // 构建单张问题卡片（顶部一行 = 问题类型 + 身份标签们）
+        function buildProblemCard(identity, problemType, severity, portraitCount, problemData) {
             const col = document.createElement('div');
             col.className = 'col-md-4 col-sm-6';
             const key = identity + problemType;
             col.dataset.key = key;
+            col.dataset.problemData = JSON.stringify(problemData);
 
-            let stars = '';
-            if (severity === '高') stars = '⭐⭐⭐⭐⭐';
-            else if (severity === '中') stars = '⭐⭐⭐⭐';
-            else stars = '⭐⭐⭐';
+            let stars = severity === '高' ? '⭐⭐⭐⭐⭐' : severity === '中' ? '⭐⭐⭐⭐' : '⭐';
 
-            const tagIcon = identity.includes('宝') || identity.includes('用户') ? '👶' :
-                           identity.includes('老') || identity.includes('寿') ? '👴' :
+            // 身份图标
+            const tagIcon = identity.includes('宝') || identity.includes('宝宝') ? '👶' :
+                           identity.includes('老') || identity.includes('老人') || identity.includes('爸妈') ? '👴' :
                            identity.includes('女') ? '👩' :
-                           identity.includes('男') || identity.includes('新郎') || identity.includes('新郎') ? '🤵' :
-                           identity.includes('宾') ? '🎉' : '👤';
+                           identity.includes('新郎') ? '🤵' :
+                           identity.includes('宾') ? '🎉' :
+                           identity.includes('企') || identity.includes('公司') || identity.includes('酒店') ? '🏢' : '👤';
 
-            // 场景标签
-            const scenarioTag = scenario && scenario !== '通用' 
-                ? `<span class="badge bg-warning text-dark" style="font-size:10px; margin-left:4px;">${scenario}</span>` 
-                : '';
+            // 区分使用方 / 付费方 badge 样式
+            const isUser = !identity.includes('企业') && !identity.includes('公司') && !identity.includes('采购');
+            const badgeClass = isUser ? 'id-user' : 'id-buyer';
+
+            const hasPortraits = portraitCount > 0;
 
             col.innerHTML = `
-                <div class="problem-card selected" style="cursor:pointer;">
-                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                        <span class="badge" style="background:#e3f2fd; color:#1565c0; font-size:11px;">${tagIcon} ${identity}</span>
-                        <span style="color:#999;">+</span>
-                        <span class="badge" style="background:#fce4ec; color:#c2185b; font-size:11px;">${problemType}</span>
-                        ${scenarioTag}
+                <div class="problem-card" data-key="${escHtml(key)}" style="cursor:pointer;">
+                    <div class="pc-top-row">
+                        <span class="pc-type" title="${escHtml(problemType)}">${escHtml(problemType)}</span>
+                        <span class="pc-id-badge ${badgeClass}"><span aria-hidden="true">${tagIcon}</span><span>${escHtml(identity)}</span></span>
                     </div>
-                    <div class="d-flex justify-content-between align-items-start mb-1">
-                        <div class="fw-bold" style="font-size:13px; color:#333;">${identity}${problemType}</div>
-                        <span style="font-size:11px;">${stars}</span>
+                    <div class="pc-severity-row" aria-label="问题严重性">
+                        <span class="pc-severity-label">严重性</span>
+                        <span class="pc-star" aria-hidden="true">${stars}</span>
                     </div>
-                    <div style="font-size:12px; color:#666; margin-bottom:6px;">${description || '暂无描述'}</div>
-                    <div style="font-size:11px; color:#999;">${portraitCount} 个画像</div>
+                    ${problemData.description ? `<div class="pc-desc">${escHtml(problemData.description)}</div>` : ''}
+                    <div class="pc-foot">
+                        <span class="pc-status ${hasPortraits ? 'done' : ''}">
+                            ${hasPortraits ? '✓ 已生成画像' : '点击下方「生成」查看人群画像'}
+                        </span>
+                        ${!hasPortraits ? `<button type="button" class="btn btn-sm btn-primary" style="font-weight:600;border-radius:8px;padding:0.3rem 0.85rem;" onclick="event.stopPropagation(); generatePortraitsForProblem('${key}', ${JSON.stringify(problemData).replace(/'/g, "\\'")})">生成</button>` : ''}
+                    </div>
                 </div>
             `;
+
+            col.onclick = () => selectProblemCard(key, identity, problemType, problemData);
+
             return col;
+        }
+
+        // 生成指定问题的画像
+        async function generatePortraitsForProblem(key, problemData) {
+            const businessDesc = _currentBusinessDesc || document.getElementById('business-desc').value.trim();
+
+            if (!businessDesc) {
+                showToast('请先填写业务描述', 'error');
+                return;
+            }
+
+            // 找到问题对应的卡片，添加 loading 状态
+            const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-4')).find(function (c) {
+                return c.dataset.key === key;
+            });
+            const btn = card?.querySelector('.pc-foot button');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            }
+
+            try {
+                const resp = await fetch('/public/api/targets/generate-portraits', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        business_description: businessDesc,
+                        problem: problemData
+                    })
+                });
+
+                if (!resp.ok) {
+                    const errorText = await resp.text();
+                    showToast('生成失败，请稍后重试', 'error');
+                    console.error('API error:', resp.status, errorText);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '生成';
+                    }
+                    return;
+                }
+
+                const data = await resp.json();
+
+                if (data.success && data.portraits) {
+                    // 保存画像
+                    _allPortraits[key] = data.portraits;
+
+                    // 更新卡片状态
+                    if (card) {
+                        const statusSpan = card.querySelector('.pc-status');
+                        if (statusSpan) {
+                            statusSpan.classList.add('done');
+                            statusSpan.textContent = `✓ 已生成画像（${data.portraits.length} 个）`;
+                        }
+                        const genBtn = card.querySelector('.pc-foot button');
+                        if (genBtn) genBtn.remove();
+                    }
+
+                    // 如果当前选中的是这个卡片，刷新画像显示
+                    if (_selectedTypeKey === key) {
+                        renderPortraitsForType(key);
+                    }
+
+                    showToast(`生成成功！获得 ${data.portraits.length} 个画像`, 'success');
+                } else {
+                    showToast(data.message || '生成失败', 'error');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '重试';
+                    }
+                }
+            } catch (e) {
+                showToast('生成失败，请稍后重试', 'error');
+                console.error(e);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '重试';
+                }
+            }
         }
 
         // 渲染问题列表（使用方/付费方）
@@ -1411,8 +1641,11 @@
         // 显示Toast通知
         function showToast(message, type = 'info') {
             const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+            let alertClass = 'alert-info';
+            if (type === 'success') alertClass = 'alert-success';
+            else if (type === 'error') alertClass = 'alert-danger';
             const toast = document.createElement('div');
-            toast.className = `alert alert-${type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+            toast.className = `alert ${alertClass} alert-dismissible fade show`;
             toast.style.cssText = 'min-width: 280px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
             toast.innerHTML = `
                 ${message}
@@ -1480,6 +1713,13 @@
                         customer_story: extraData.customer_story,
                     })
                 });
+
+                if (!resp.ok) {
+                    const errorText = await resp.text();
+                    showToast('生成失败，请稍后重试', 'error');
+                    console.error('API error:', resp.status, errorText);
+                    return;
+                }
 
                 const data = await resp.json();
 
@@ -1680,6 +1920,13 @@
                     })
                 });
 
+                if (!resp.ok) {
+                    const errorText = await resp.text();
+                    showToast('生成失败，请稍后重试', 'error');
+                    console.error('API error:', resp.status, errorText);
+                    return;
+                }
+
                 const data = await resp.json();
 
                 if (data.success && data.data) {
@@ -1737,8 +1984,19 @@
                 credentials: 'include',
                 body: JSON.stringify(payload)
             })
-            .then(function(resp) { return resp.json(); })
+            .then(function(resp) {
+                if (!resp.ok) {
+                    if (mySeq !== _refreshSeq) return;
+                    resp.text().then(function(errorText) {
+                        console.error('[换一批] API错误 seq=' + mySeq, resp.status, errorText);
+                        alert('重新生成失败，请稍后重试');
+                    });
+                    return null;
+                }
+                return resp.json();
+            })
             .then(function(data) {
+                if (!data) return;
                 // 只处理最新一次响应的结果，防止旧请求覆盖新结果
                 if (mySeq !== _refreshSeq) {
                     console.log('[换一批] 跳过过期响应 seq=' + mySeq + '（已有更新请求 seq=' + _refreshSeq + '）');
@@ -1938,8 +2196,8 @@
                 }
             });
 
-            // 启用/禁用生成按钮
-            document.getElementById('btn-generate-content').disabled = !checkedRadio;
+            const genBtn = document.getElementById('btn-generate-content');
+            if (genBtn) genBtn.disabled = !checkedRadio;
         }
 
         // 切换目标用户选中状态（兼容方法）
@@ -1966,7 +2224,8 @@
 
             const extraData = collectDeepInfo();
 
-            document.getElementById('btn-generate-content').disabled = true;
+            const genBtnStart = document.getElementById('btn-generate-content');
+            if (genBtnStart) genBtnStart.disabled = true;
             document.getElementById('loading').style.display = 'block';
             document.getElementById('loading-text').textContent = '正在基于您的选择生成内容...';
             document.getElementById('result').style.display = 'none';
@@ -1995,6 +2254,13 @@
                     })
                 });
 
+                if (!resp.ok) {
+                    const errorText = await resp.text();
+                    alert('生成失败，请稍后重试');
+                    console.error('API error:', resp.status, errorText);
+                    return;
+                }
+
                 const data = await resp.json();
 
                 if (data.success) {
@@ -2015,7 +2281,8 @@
                 alert('生成失败，请稍后重试');
                 console.error(e);
             } finally {
-                document.getElementById('btn-generate-content').disabled = false;
+                const genBtnEnd = document.getElementById('btn-generate-content');
+                if (genBtnEnd) genBtnEnd.disabled = false;
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('loading-text').textContent = '正在生成内容，请稍候...';
             }
@@ -2069,11 +2336,16 @@
         }
 
         async function logout() {
-            await fetch('/public/api/logout', {
-                method: 'POST',
-                credentials: 'include'
-            });
-            location.reload();
+            try {
+                await fetch('/public/api/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+            } catch (e) {
+                console.error('Logout error:', e);
+            }
+            // 退出后跳转到登录页
+            window.location.href = '/login?type=public';
         }
 
         // 页面加载时检查登录
