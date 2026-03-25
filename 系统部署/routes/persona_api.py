@@ -6,6 +6,7 @@
 2. 人群画像生成：按问题分批生成
 3. 会话管理：保存/加载分析结果
 4. 分级模型支持：免费=turbo(快速)，付费=plus(精准)
+5. V2版本：集成画像维度上下文，生成更精准的人群画像
 """
 import json
 import logging
@@ -18,6 +19,11 @@ from models.models import (
 from models.public_models import PublicUser
 from services.llm import get_llm_service
 from services.persona_llm_manager import PersonaLLMManager, GenerationLimits
+from services.portrait_dimension_service import (
+    build_portrait_generation_context,
+    get_barrier_mapping_for_ai,
+    generate_portrait_prompt
+)
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -631,7 +637,251 @@ COMBINED_MINING_PROMPT = """## 角色
 **简洁为王！每个画像不超过50字！**"""
 
 
+
+
+# ========== V2 画像生成：集成画像维度上下文 ==========
+
+PORTRAIT_V2_PROMPT = """你是精准营销专家。基于以下业务信息，生成精准人群画像。
+
+=== 业务信息 ===
+{business_info}
+
+=== 问题卡片（识别阶段产出） ===
+- 问题名称：{problem_name}
+- 问题描述：{problem_description}
+- 具体表现：{specific_symptoms}
+- 严重程度：{severity}
+
+=== 画像维度上下文 ===
+从以下维度中选择适用项，生成精准画像：
+
+【矛盾类型】
+{conflict_types}
+说明：缺失型=没有/不足，替代型=有但不好，冲突型=想要但有顾虑
+
+【障碍维度】
+{barrier_dimensions}
+说明：影响用户转变的因素，选择1-2个主要障碍即可
+
+【障碍含义】
+{barrier_descriptions}
+
+【障碍→内容方向映射】
+{barrier_mapping}
+
+【情感维度】
+{emotional_dims}
+
+【社交维度】
+{social_dims}
+
+=== 画像要求 ===
+1. 【矛盾类型】选择一个主要矛盾
+2. 【障碍】选择1-2个主要障碍（过多会让画像模糊）
+3. 【内容方向】根据障碍→内容映射确定内容方向
+4. 【情感/社交】选择匹配的
+
+=== 输出格式 ===
+只输出JSON，不要其他文字：
+```json
+{{
+  "portraits": [
+    {{
+      "name": "【矛盾】使用人状态+障碍+情感特征",
+      "conflict_type": "矛盾类型",
+      "barriers": ["障碍1", "障碍2"],
+      "emotion": "情感类型",
+      "social": "社交类型",
+      "content_directions": ["内容方向1", "内容方向2"],
+      "search_keywords": ["关键词1", "关键词2"]
+    }}
+  ]
+}}
+```"""
+
+
+def build_v2_portrait_context() -> dict:
+    """
+    构建V2画像生成的完整上下文
+    从画像维度服务获取精简维度信息
+    """
+    from services.portrait_dimension_service import (
+        build_portrait_generation_context,
+        get_barrier_mapping_for_ai,
+        get_barrier_descriptions_for_ai
+    )
+    
+    context = build_portrait_generation_context()
+    barrier_mapping = get_barrier_mapping_for_ai()
+    barrier_desc = get_barrier_descriptions_for_ai()
+    
+    # 格式化障碍映射
+    barrier_mapping_str = "\n".join([
+        f"{k}→{v}" for k, v in barrier_mapping.items()
+    ]) if isinstance(barrier_mapping, dict) else str(barrier_mapping)
+    
+    return {
+        'conflict_types': context.get('矛盾类型', ''),
+        'barrier_dimensions': context.get('障碍维度', ''),
+        'barrier_descriptions': barrier_desc,
+        'barrier_mapping': barrier_mapping_str,
+        'emotional_dims': context.get('情感维度', ''),
+        'social_dims': context.get('社交维度', '')
+    }
+
+
+
 # ========== API 路由 ==========
+
+@persona_api.route('/persona/generate_portraits_v2', methods=['POST'])
+@login_required
+def generate_portraits_v2():
+    """
+    V2画像生成：集成画像维度上下文
+    基于问题卡片信息 + 画像维度 → 生成精准人群画像
+    """
+    data = request.get_json()
+    session_id = data.get('session_id')
+    problem_id = data.get('problem_id')
+
+    session_obj = PersonaSession.query.filter_by(
+        id=session_id, user_id=current_user.id
+    ).first()
+
+    if not session_obj:
+        return jsonify({'code': 404, 'message': '会话不存在', 'data': None})
+
+    # 获取问题
+    if problem_id:
+        problems = PersonaUserProblem.query.filter_by(
+            session_id=session_id, id=problem_id
+        ).all()
+    else:
+        problems = PersonaUserProblem.query.filter_by(
+            session_id=session_id
+        ).order_by(PersonaUserProblem.sort_order).all()
+
+    if not problems:
+        return jsonify({'code': 400, 'message': '没有可用的使用方问题', 'data': None})
+
+    # 获取业务信息
+    input_data = session_obj.input_data or {}
+    
+    # 构建业务信息
+    business_info = f"""行业：{session_obj.industry}
+产品/服务：{input_data.get('description', '')}
+业务类型：{session_obj.business_type}
+目标用户：{input_data.get('target_users', '')}"""
+
+    # 获取画像维度上下文
+    portrait_context = build_v2_portrait_context()
+
+    # 获取已有批次号
+    last_batch = db.session.query(db.func.max(PersonaPortrait.batch_number)).filter_by(
+        session_id=session_id
+    ).scalar() or 0
+    new_batch = last_batch + 1
+
+    all_portraits = []
+    failed_count = 0
+
+    # 为每个问题生成画像
+    for problem in problems:
+        prompt = PORTRAIT_V2_PROMPT.format(
+            business_info=business_info,
+            problem_name=problem.name,
+            problem_description=problem.description or '无',
+            specific_symptoms=problem.specific_symptoms or '无',
+            severity=problem.severity or '一般',
+            conflict_types=portrait_context['conflict_types'],
+            barrier_dimensions=portrait_context['barrier_dimensions'],
+            barrier_descriptions=portrait_context['barrier_descriptions'],
+            barrier_mapping=portrait_context['barrier_mapping'],
+            emotional_dims=portrait_context['emotional_dims'],
+            social_dims=portrait_context['social_dims']
+        )
+
+        try:
+            llm_service = get_llm_service()
+            response = llm_service.chat([{"role": "user", "content": prompt}])
+
+            # 解析 JSON 响应
+            try:
+                result_data = json.loads(response)
+                if isinstance(result_data, list):
+                    portraits_data = result_data
+                elif isinstance(result_data, dict):
+                    portraits_data = result_data.get('portraits', [])
+                else:
+                    portraits_data = []
+            except json.JSONDecodeError:
+                import re
+                json_match = re.search(r'\[[\s\S]*\]', response)
+                if json_match:
+                    try:
+                        portraits_data = json.loads(json_match.group())
+                    except:
+                        portraits_data = []
+                else:
+                    json_match = re.search(r'\{[\s\S]*\}', response)
+                    if json_match:
+                        try:
+                            result_data = json.loads(json_match.group())
+                            portraits_data = result_data.get('portraits', []) if isinstance(result_data, dict) else []
+                        except:
+                            portraits_data = []
+                    else:
+                        portraits_data = []
+        except Exception as e:
+            logger.error(f"LLM 调用失败: {e}")
+            portraits_data = []
+            failed_count += 1
+
+        # 保存画像
+        for i, portrait in enumerate(portraits_data):
+            if not isinstance(portrait, dict):
+                continue
+
+            portrait_obj = PersonaPortrait(
+                session_id=session_id,
+                problem_id=problem.id,
+                name=portrait.get('name', ''),
+                batch_number=new_batch,
+                user_description=portrait.get('identity', '') or portrait.get('user_description', ''),
+                user_core_problem=portrait.get('core_problem', '') or portrait.get('user_core_problem', ''),
+                user_specific_symptoms=portrait.get('specific_symptoms', '') or portrait.get('user_specific_symptoms', ''),
+                buyer_concerns=portrait.get('buyer_concerns', {}),
+                content_topics=[{'type': d, 'topic': '', 'keywords': ''} for d in (portrait.get('content_directions', []) or [])],
+                search_keywords=portrait.get('search_keywords', []) or [],
+                sort_order=i
+            )
+            db.session.add(portrait_obj)
+            all_portraits.append({
+                'problem_id': problem.id,
+                'problem_name': problem.name,
+                **portrait
+            })
+
+    # 更新会话统计
+    session_obj.portrait_count = PersonaPortrait.query.filter_by(
+        session_id=session_id
+    ).count()
+    db.session.commit()
+
+    return jsonify({
+        'code': 200,
+        'message': f'成功生成 {len(all_portraits)} 个人群画像' + (f'，{failed_count} 个问题生成失败' if failed_count else ''),
+        'data': {
+            'batch_number': new_batch,
+            'portraits': all_portraits,
+            'total_count': session_obj.portrait_count,
+            'context_used': {
+                'conflict_types_count': len(portrait_context['conflict_types'].split(',')) if portrait_context['conflict_types'] else 0,
+                'barrier_types_count': portrait_context['barrier_dimensions'].count(':') + 1 if portrait_context['barrier_dimensions'] else 0
+            }
+        }
+    })
+
 
 @persona_api.route('/persona/create_session', methods=['POST'])
 @login_required

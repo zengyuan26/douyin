@@ -1301,13 +1301,17 @@
                 problem = parts.slice(1).join('→').trim();
             }
 
+            // 安全转义函数
+            const escapeAttr = (str) => String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            const escapeText = (str) => String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
             return `
-                <div class="problem-type-card ${isSelected ? 'selected' : ''}" data-type="${displayName}">
+                <div class="problem-type-card ${isSelected ? 'selected' : ''}" data-type="${escapeAttr(displayName)}">
                     <div class="problem-type-check">✓</div>
-                    <div class="problem-type-identity">${identity}</div>
-                    <div class="problem-type-name">${problem}</div>
+                    <div class="problem-type-identity">${escapeText(identity)}</div>
+                    <div class="problem-type-name">${escapeText(problem)}</div>
                     <div class="problem-type-severity">
-                        <span class="tag tag-${type.severity === '高' ? 'high' : type.severity === '中' ? 'medium' : 'low'}">${type.severity || ''}</span>
+                        <span class="tag tag-${type.severity === '高' ? 'high' : type.severity === '中' ? 'medium' : 'low'}">${escapeText(type.severity || '')}</span>
                     </div>
                     <div class="problem-type-actions">
                         ${hasGenerated ? `
@@ -1399,24 +1403,31 @@
         portraitsEmpty.style.display = 'none';
         portraitsSubtitle.textContent = `「${selectedTypeName}」相关画像`;
 
+        // 安全转义函数
+        const escapeAttr = (str) => String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
         portraitsContainer.innerHTML = typePortraits.map(p => renderPortraitCard(p)).join('');
 
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                const tabId = this.dataset.tab;
+                const tabId = escapeAttr(this.dataset.tab);
                 const card = this.closest('.portrait-card');
                 card.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 card.querySelectorAll('.tab-content').forEach(content => {
                     content.classList.remove('active');
                 });
-                card.querySelector(`#${tabId}`).classList.add('active');
+                card.querySelector(`[id="${tabId}"]`).classList.add('active');
             });
         });
     }
 
     // ========== 渲染单个画像卡片 ==========
     function renderPortraitCard(p) {
+        // 安全转义函数
+        const escapeText = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const escapeAttr = (str) => String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
         const painLevelClass = {
             '非常急迫': 'badge-urgent',
             '急迫': 'badge-high',
@@ -1426,49 +1437,50 @@
         const concerns = p.buyer_concerns || {};
         const concernItems = Object.entries(concerns)
             .filter(([k, v]) => v)
-            .map(([k, v]) => `<span class="concern-item"><strong>${k}</strong>: ${v}</span>`)
+            .map(([k, v]) => `<span class="concern-item"><strong>${escapeText(k)}</strong>: ${escapeText(v)}</span>`)
             .join('');
 
         const keywords = (p.search_keywords || []).slice(0, 5);
-        const keywordTags = keywords.map(k => `<span class="keyword-tag">${k}</span>`).join('');
+        const keywordTags = keywords.map(k => `<span class="keyword-tag">${escapeText(k)}</span>`).join('');
 
         const hasBuyerInfo = p.buyer_description && p.buyer_description.trim() !== '';
+        const portraitId = `p-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         return `
             <div class="portrait-card">
                 <div class="portrait-header">
                     <div class="portrait-icon">👤</div>
                     <div class="portrait-title">
-                        <div class="portrait-name">${p.name}</div>
-                        <div class="portrait-problem">${p.user_core_problem || p.user_description || ''}</div>
+                        <div class="portrait-name">${escapeText(p.name)}</div>
+                        <div class="portrait-problem">${escapeText(p.user_core_problem || p.user_description || '')}</div>
                     </div>
-                    <span class="portrait-badge ${painLevelClass}">${p.user_pain_level || '一般'}</span>
+                    <span class="portrait-badge ${painLevelClass}">${escapeText(p.user_pain_level || '一般')}</span>
                 </div>
 
                 ${hasBuyerInfo ? `
                 <div class="tab-container">
-                    <button class="tab-btn active" data-tab="user-${p.id}">使用方</button>
-                    <button class="tab-btn" data-tab="buyer-${p.id}">购买方</button>
+                    <button class="tab-btn active" data-tab="user-${portraitId}">使用方</button>
+                    <button class="tab-btn" data-tab="buyer-${portraitId}">购买方</button>
                 </div>
                 ` : ''}
 
-                <div class="tab-content active" id="user-${p.id}">
+                <div class="tab-content active" id="user-${portraitId}">
                     <div class="portrait-section">
                         <div class="portrait-section-title">身份特征</div>
-                        <div class="portrait-section-content">${p.user_description || '暂无'}</div>
+                        <div class="portrait-section-content">${escapeText(p.user_description || '暂无')}</div>
                     </div>
 
                     <div class="portrait-section">
                         <div class="portrait-section-title">具体表现</div>
-                        <div class="portrait-section-content">${p.user_specific_symptoms || '暂无'}</div>
+                        <div class="portrait-section-content">${escapeText(p.user_specific_symptoms || '暂无')}</div>
                     </div>
                 </div>
 
                 ${hasBuyerInfo ? `
-                <div class="tab-content" id="buyer-${p.id}">
+                <div class="tab-content" id="buyer-${portraitId}">
                     <div class="portrait-section">
                         <div class="portrait-section-title">购买方特征</div>
-                        <div class="portrait-section-content">${p.buyer_description || '暂无'}</div>
+                        <div class="portrait-section-content">${escapeText(p.buyer_description || '暂无')}</div>
                     </div>
 
                     ${concernItems ? `
@@ -1491,7 +1503,7 @@
                 <div class="portrait-section">
                     <div class="portrait-section-title">用户旅程</div>
                     <div class="portrait-section-content" style="font-size: 12px; color: var(--color-text-tertiary);">
-                        ${p.user_journey}
+                        ${escapeText(p.user_journey)}
                     </div>
                 </div>
                 ` : ''}

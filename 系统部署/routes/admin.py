@@ -3430,6 +3430,106 @@ def init_analysis_dimensions():
         }), 500
 
 
+@admin.route('/api/portrait-dimensions/init', methods=['POST'])
+@login_required
+@super_admin_required
+def init_portrait_dimensions():
+    """初始化画像维度数据"""
+    import traceback
+    
+    try:
+        from services.portrait_dimension_data import PORTRAIT_DIMENSIONS_DATA
+        
+        created_count = 0
+        for item in PORTRAIT_DIMENSIONS_DATA:
+            # 检查是否已存在
+            exists = AnalysisDimension.query.filter_by(
+                category=item['category'],
+                sub_category=item['sub_category'],
+                name=item['name']
+            ).first()
+            
+            if exists:
+                continue
+            
+            # 自动生成编码
+            code = _generate_dimension_code(
+                name=item['name'],
+                category=item['category'],
+                sub_category=item.get('sub_category')
+            )
+            
+            dimension = AnalysisDimension(
+                name=item['name'],
+                code=code,
+                icon=item.get('icon', 'bi-circle'),
+                description=item.get('description', ''),
+                category=item['category'],
+                sub_category=item.get('sub_category'),
+                examples=item.get('examples', '') or None,
+                usage_tips=item.get('usage_tips', '') or None,
+                applicable_audience=item.get('applicable_audience', '') or None,
+                prompt_template=item.get('prompt_template', '') or None,
+                is_active=True,
+                is_default=True,
+                importance=item.get('importance', 1) or 1
+            )
+            db.session.add(dimension)
+            created_count += 1
+        
+        db.session.commit()
+        
+        # 清除服务缓存
+        from services.portrait_dimension_service import clear_cache
+        clear_cache()
+        
+        return jsonify({
+            'success': True,
+            'created_count': created_count,
+            'message': f'画像维度初始化成功，共创建 {created_count} 个维度'
+        })
+    except Exception as e:
+        db.session.rollback()
+        logging.getLogger(__name__).error(f"初始化画像维度失败: {e}\n{traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'初始化失败: {str(e)}'
+        }), 500
+
+
+@admin.route('/api/portrait-dimensions/preview', methods=['GET'])
+@login_required
+def preview_portrait_dimensions():
+    """预览画像维度（AI精简版）"""
+    from services.portrait_dimension_service import build_portrait_generation_context
+    
+    context = build_portrait_generation_context()
+    
+    # 格式化输出
+    barrier_mapping_str = "\n".join([
+        f"{k}→{v}" for k, v in context['内容方向映射'].items()
+    ])
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            '矛盾类型': context['矛盾类型'],
+            '转变类型': context['转变类型'],
+            '障碍维度': context['障碍维度'],
+            '障碍含义': context['障碍含义'],
+            '障碍→内容映射': barrier_mapping_str,
+            '转变阶段': context['转变阶段'],
+            '买用关系': context['买用关系'],
+            '内容类型': context['内容类型'],
+            '意图阶段': context['意图阶段'],
+            '风险维度': context['风险维度'],
+            '效率维度': context['效率维度'],
+            '情感维度': context['情感维度'],
+            '社交维度': context['社交维度']
+        }
+    })
+
+
 # ==================== 规则自动提取管理 ====================
 
 @admin.route('/rule-extractions')

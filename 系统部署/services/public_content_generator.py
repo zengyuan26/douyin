@@ -3082,7 +3082,37 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 【重要】先仔细阅读以下示例，理解输出格式，然后基于业务信息生成。
 
-=== 示例1：婚宴定制水 ===
+=== 示例1：家政服务 ===
+业务：日常家政服务（保洁、保姆、月嫂、收纳等服务）
+
+输出：
+{{
+    "scenarios": [
+        {{
+            "name": "日常保洁",
+            "description": "家庭日常清洁卫生服务",
+            "user_problem_types": [
+                {{"identity": "双职工家庭", "problem_type": "时间不够", "display_name": "双职工时间不够", "description": "工作繁忙，没时间打扫", "severity": "高"}},
+                {{"identity": "有娃家庭", "problem_type": "家务繁重", "display_name": "有娃家庭家务繁重", "description": "带娃已经够累，没精力再做家务", "severity": "高"}},
+                {{"identity": "老年人", "problem_type": "行动不便", "display_name": "老年人行动不便", "description": "弯腰、爬高困难，清洁力不从心", "severity": "中"}}
+            ],
+            "buyer_concern_types": [
+                {{"identity": "家庭成员", "concern_type": "信任安全", "display_name": "家庭信任安全顾虑", "description": "担心陌生人上门的安全问题", "examples": ["保洁员背景查吗？", "财物丢失怎么办？"]}},
+                {{"identity": "家庭成员", "concern_type": "服务质量", "display_name": "服务质量顾虑", "description": "担心清洁不彻底、服务敷衍", "examples": ["清洁效果怎么保证？"]}},
+                {{"identity": "家庭成员", "concern_type": "价格透明", "display_name": "价格透明顾虑", "description": "担心隐性收费、价格虚高", "examples": ["有没有额外收费？"]}}
+            ],
+            "portraits_by_type": {{
+                "双职工时间不够": [
+                    {{"name": "都市双职工白领", "age_range": "28-40岁", "occupation": "企业员工", "description": "夫妻都在上班，下班回家只想休息"}}
+                ]
+            }}
+        }}
+    ],
+    "general_user_problem_types": [],
+    "general_buyer_concern_types": []
+}}
+
+=== 示例2：婚宴定制水 ===
 业务：瓶装定制水（主做婚宴、寿宴、满月宴等宴席场景）
 
 输出：
@@ -3397,59 +3427,81 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                             if p.get('name', '') not in existing_ids:
                                 all_portraits[key].append(p)
                 
+                # ── 字段名规范化（中文字段名 → 英文字段名）──────────────
+            def normalize_problem_item(item):
+                return {
+                    'id':           item.get('id', ''),
+                    'identity':     item.get('identity', '') or item.get('身份', ''),
+                    'problem_type': item.get('problem_type', '') or item.get('问题类型', ''),
+                    'display_name': item.get('display_name', '') or item.get('显示名称', ''),
+                    'description':  item.get('description', '') or item.get('描述', ''),
+                    'severity':     item.get('severity', '中') or item.get('严重程度', '中'),
+                }
+
+            def normalize_concern_item(item):
+                return {
+                    'id':           item.get('id', ''),
+                    'identity':     item.get('identity', '') or item.get('身份', ''),
+                    'concern_type': item.get('concern_type', '') or item.get('问题类型', ''),
+                    'display_name': item.get('display_name', '') or item.get('显示名称', ''),
+                    'description':  item.get('description', '') or item.get('描述', ''),
+                    'examples':     item.get('examples', []) or item.get('例子', []),
+                }
+            # ─────────────────────────────────────────────────────────
+
                 # 格式化场景内的问题
                 for item in scenario_user_problems:
-                    display_name = item.get('display_name', '') or f"{item.get('identity', '')}{item.get('problem_type', '')}"
+                    norm = normalize_problem_item(item)
+                    display_name = norm['display_name'] or f"{norm['identity']}{norm['problem_type']}"
                     all_user_problem_types.append({
-                        'id': item.get('id', f's_{scenario_name}_{len(all_user_problem_types)}'),
-                        'identity': item.get('identity', ''),
-                        'problem_type': item.get('problem_type', ''),
+                        'id': norm['id'] or f's_{scenario_name}_{len(all_user_problem_types)}',
+                        'identity': norm['identity'],
+                        'problem_type': norm['problem_type'],
                         'display_name': display_name,
-                        'description': item.get('description', ''),
-                        'severity': item.get('severity', '中'),
+                        'description': norm['description'],
+                        'severity': norm['severity'],
                         'scenario': scenario_name
                     })
                 
                 # 格式化场景内的顾虑
                 for item in scenario_buyer_concerns:
-                    display_name = item.get('display_name', '') or f"{item.get('identity', '')}{item.get('concern_type', '')}"
+                    norm = normalize_concern_item(item)
+                    display_name = norm['display_name'] or f"{norm['identity']}{norm['concern_type']}"
                     all_buyer_concern_types.append({
-                        'id': item.get('id', f's_{scenario_name}_{len(all_buyer_concern_types)}'),
-                        'identity': item.get('identity', ''),
-                        'concern_type': item.get('concern_type', ''),
+                        'id': norm['id'] or f's_{scenario_name}_{len(all_buyer_concern_types)}',
+                        'identity': norm['identity'],
+                        'concern_type': norm['concern_type'],
                         'display_name': display_name,
-                        'description': item.get('description', ''),
-                        'examples': item.get('examples', []),
+                        'description': norm['description'],
+                        'examples': norm['examples'],
                         'severity': '高',
                         'scenario': scenario_name
                     })
             
-            # 格式化旧结构的全局问题（保持兼容性）
+            # 格式化旧结构的全局问题（保持兼容性，统一走规范化函数）
             for i, item in enumerate(user_problem_types):
-                display_name = item.get('display_name', '')
-                if not display_name and item.get('identity') and item.get('problem_type'):
-                    display_name = f"{item.get('identity')}{item.get('problem_type')}"
+                norm = normalize_problem_item(item)
+                display_name = norm['display_name'] or f"{norm['identity']}{norm['problem_type']}"
                 all_user_problem_types.append({
-                    'id': item.get('id', f'up_{i+1}'),
-                    'identity': item.get('identity', ''),
-                    'problem_type': item.get('problem_type', ''),
+                    'id': norm['id'] or f'up_{i+1}',
+                    'identity': norm['identity'],
+                    'problem_type': norm['problem_type'],
                     'display_name': display_name,
-                    'description': item.get('description', ''),
-                    'severity': item.get('severity', '中'),
+                    'description': norm['description'],
+                    'severity': norm['severity'],
                     'scenario': '通用'
                 })
 
             for i, item in enumerate(buyer_concern_types):
-                display_name = item.get('display_name', '')
-                if not display_name and item.get('identity') and item.get('concern_type'):
-                    display_name = f"{item.get('identity')}{item.get('concern_type')}"
+                norm = normalize_concern_item(item)
+                display_name = norm['display_name'] or f"{norm['identity']}{norm['concern_type']}"
                 all_buyer_concern_types.append({
-                    'id': item.get('id', f'bc_{i+1}'),
-                    'identity': item.get('identity', ''),
-                    'concern_type': item.get('concern_type', ''),
+                    'id': norm['id'] or f'bc_{i+1}',
+                    'identity': norm['identity'],
+                    'concern_type': norm['concern_type'],
                     'display_name': display_name,
-                    'description': item.get('description', ''),
-                    'examples': item.get('examples', []),
+                    'description': norm['description'],
+                    'examples': norm['examples'],
                     'severity': '高',
                     'scenario': '通用'
                 })
@@ -3539,7 +3591,7 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
         }
 
     # 构建画像生成提示词
-    prompt = f"""你是用户画像分析专家。请根据以下业务信息和指定问题，生成人群画像。
+    prompt = f"""你是用户画像分析专家。请根据业务信息和指定问题，深度分析使用者与付费者的需求，生成精准画像。
 
 === 业务信息 ===
 {business_desc}
@@ -3550,32 +3602,87 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 - 问题类型: {problem.get('problem_type', '')}
 - 问题描述: {problem.get('description', '')}
 - 场景: {problem.get('scenario', '通用')}
+- 买用关系: {problem.get('buyer_user_relation', '自用')}
+
+=== 核心思维 ===
+区分「使用者」和「付费者」：
+- **使用者**：直接体验产品/服务的人
+- **付费者**：出钱购买的人（可能是本人，也可能是他人，如宝妈给宝宝买、子女给父母买）
 
 === 输出格式 ===
-请生成 {portrait_count} 个画像：
+严格按照以下JSON格式输出，不要添加任何额外文字：
 
 {{
     "portraits": [
         {{
-            "name": "画像名称（简洁有特色）",
-            "age_range": "年龄段，如：25-30岁、35-45岁",
-            "occupation": "职业/身份",
-            "income_level": "收入水平（可选）",
-            "location": "地域特征（可选）",
-            "family_status": "家庭状况（可选）",
-            "description": "详细特征描述，包括消费习惯、决策特点、关注点等"
+            "name": "简洁有特色的画像名称",
+            "portrait_summary": "【必填】1～3句口语化自然中文，像用户在跟朋友讲这件事。写清：谁（使用者）碰上什么事；若买用分离再写谁掏钱（付费者）、想怎样却又卡在哪些具体难处。禁止用【】、禁止列模板标签、禁止JSON式字段名。",
+            "identity_tags": {{
+                "buyer": "付费者身份标签，如：新手宝妈、职场白领、30-40岁宝爸",
+                "user": "使用者身份标签，如：1-3岁宝宝、60岁母亲"
+            }},
+            "user_perspective": {{
+                "problem": "使用者遇到的具体问题/症状，如：喝了普通奶粉后拉肚子、大便有奶瓣",
+                "current_state": "当前状态，如：肚子胀、哭闹不止、睡不踏实",
+                "impact": "对生活的影响，如：影响生长发育、晚上睡不好"
+            }},
+            "buyer_perspective": {{
+                "goal": "付费者想解决的问题，如：找到一款喝了不拉肚子的奶粉",
+                "obstacles": "付费者遇到的困境/障碍（用分号分隔），如：不知道如何判断成分是否安全；网上评测太多越看越慌；担心价格太贵买错浪费",
+                "psychology": "付费者当前的心理状态，如：焦虑、纠结、着急、迷茫"
+            }},
+            "description": "综合描述，100-150字，包含两人关系、使用场景、核心矛盾"
         }}
     ]
 }}
 
 === 画像要求 ===
-1. 每个画像要有差异化，不能太相似
-2. 画像要具体、真实，有可操作性
-3. 包含消费习惯、决策特点、关注点等
-4. 不要只写"追求品质"等抽象描述，要具体
+1. **区分使用者vs付费者**：
+   - 使用者视角：关注具体症状、状态、不适
+   - 付费者视角：关注决策障碍、心理焦虑、想解决的问题
 
-=== 输出要求 ===
-只输出JSON，不要其他文字。"""
+2. **具体化描述**：
+   - 用户问题要具体：如「喝奶粉后腹泻、胀气」而非「消化不好」
+   - 付费者困境要真实：如「不知道如何判断成分是否安全」而非「担心质量」
+
+3. **差异化**：
+   - 每个画像要有明显区分
+   - 可以从不同角度切入（有的从使用者症状切入，有的从付费者焦虑切入）
+
+=== 示例 ===
+
+输入：奶粉业务，宝妈给宝宝买
+输出：
+{{
+    "portraits": [
+        {{
+            "name": "乳糖不耐受宝宝",
+            "portrait_summary": "宝宝一喝普通奶粉就拉肚子，小肚子胀、夜里也睡不安稳。宝妈急着想换一款合适的奶，可成分表看不懂，网上说法又互相打架，越看越慌，还怕买贵了白花钱。",
+            "identity_tags": {{
+                "buyer": "25-35岁新手宝妈",
+                "user": "6个月宝宝"
+            }},
+            "user_perspective": {{
+                "problem": "乳糖不耐受，喝普通奶粉后腹泻",
+                "current_state": "大便稀薄有奶瓣、肚子胀气、哭闹不止",
+                "impact": "影响营养吸收、生长发育落后"
+            }},
+            "buyer_perspective": {{
+                "goal": "找到低乳糖或无乳糖配方奶粉",
+                "obstacles": "不知道如何判断成分是否安全；担心价格太贵买错浪费；网上评测说法不一越看越慌",
+                "psychology": "焦虑、着急"
+            }},
+            "description": "6个月宝宝乳糖不耐受，宝妈想找合适的特殊配方奶粉，但信息太多不敢下手，担心选错影响宝宝健康，内心非常焦虑。"
+        }}
+    ]
+}}
+
+=== 强制要求 ===
+- 每个画像都要包含 portrait_summary、user_perspective 和 buyer_perspective
+- portrait_summary 必须像真人说话，与下方结构化字段信息一致，可单独给访客阅读
+- 买用一致时也要写出「想解决却又卡在哪些具体难处」
+- 只输出JSON，不要在JSON前后添加任何文字
+- 不要使用省略号或占位符"""
 
     try:
         response = llm.chat(prompt, temperature=0.8)

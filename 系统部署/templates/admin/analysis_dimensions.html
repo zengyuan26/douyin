@@ -895,8 +895,12 @@ function showToast(message, type) {
 
 // 初始化默认维度
 function handleInitDimensions() {
-    if (!confirm('确定要初始化默认维度吗？已存在的维度不会被重复创建。')) return;
+    if (!confirm('确定要初始化默认维度吗？\n\n这将初始化：\n1. 爆款拆解分析维度\n2. 人群画像维度\n\n已存在的维度不会被重复创建。')) return;
 
+    var totalCreated = 0;
+    var totalErrors = [];
+
+    // 1. 初始化爆款拆解分析维度
     fetch('/admin/api/analysis-dimensions/init', {
         method: 'POST',
         headers: {
@@ -906,21 +910,43 @@ function handleInitDimensions() {
     })
         .then(res => {
             if (!res.ok) {
-                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                throw new Error(`爆款拆解维度初始化失败: HTTP ${res.status}`);
             }
             return res.json();
         })
         .then(data => {
             if (data.success) {
-                alert(data.message);
+                totalCreated += data.created_count || 0;
+                // 2. 初始化画像维度
+                return fetch('/api/portrait-dimensions/init', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+            } else {
+                throw new Error(data.message || '爆款拆解维度初始化失败');
+            }
+        })
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`画像维度初始化失败: HTTP ${res.status}`);
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.success) {
+                totalCreated += data.created_count || 0;
+                alert(`初始化完成！\n\n共创建 ${totalCreated} 个维度\n\n请刷新页面查看最新数据。`);
                 loadGroupedDimensions();
             } else {
-                alert(data.message || '初始化失败');
+                throw new Error(data.message || '画像维度初始化失败');
             }
         })
         .catch(err => {
             console.error('初始化失败:', err);
-            alert('初始化失败，请重试');
+            alert('初始化失败: ' + err.message);
         });
 }
 
