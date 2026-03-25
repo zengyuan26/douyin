@@ -1241,6 +1241,7 @@
         let _allProblems = [];  // 统一的问题列表（不再分 user/buyer）
         let _isPremium = false;  // 是否付费用户
         let _currentBusinessDesc = '';  // 当前业务描述
+        let _isGeneratingPortraits = false;  // 防止多卡片同时点「生成」
 
         // ================================================================
         // 一键分析：问题挖掘 + 画像生成
@@ -1318,7 +1319,7 @@
                     // 自动选中第一个问题
                     const first = _allProblems[0];
                     if (first) {
-                        selectProblemCard(first.display_name, first.identity, first.problem_type || first.concern_type, first);
+                        selectProblemCard(first.id, first.identity, first.problem_type || first.concern_type, first);
                     }
 
                     showToast('问题挖掘完成！点击"生成画像"查看人群画像', 'success');
@@ -1399,7 +1400,7 @@
                     // 默认选中第一个问题类型
                     var first = _allProblems[0];
                     if (first) {
-                        selectProblemCard(first.display_name, first.identity, first.problem_type || first.concern_type, first);
+                        selectProblemCard(first.id, first.identity, first.problem_type || first.concern_type, first);
                     }
 
                     showToast('换一批成功！', 'success');
@@ -1433,24 +1434,46 @@
                 return;
             }
 
-            problems.forEach((type) => {
+            problems.forEach((type, index) => {
                 const identity = type.identity || '';
                 const problemType = type.problem_type || '';
-                const key = identity + problemType;
+                // 统一使用后端 id；若仍缺省则带下标兜底，避免多张卡 data-key 相同被同时选中
+                const rawId = type.id != null ? String(type.id).trim() : '';
+                const key = rawId || ('_p_' + index + '_' + identity + problemType);
                 const portraitCount = _allPortraits[key] ? _allPortraits[key].length : 0;
-                const card = buildProblemCard(identity, problemType, type.severity || '', portraitCount, type);
+                const card = buildProblemCard(key, identity, problemType, type.severity || '', portraitCount, type);
                 userList.appendChild(card);
             });
+
+            // 事件委托：处理生成按钮点击
+            userList.onclick = function(e) {
+                const btn = e.target.closest('.btn-primary[data-key]');
+                if (btn) {
+                    e.stopPropagation();
+                    const key = btn.dataset.key;
+                    const problemJson = btn.dataset.problem;
+                    try {
+                        const problemData = JSON.parse(decodeURIComponent(escape(atob(problemJson))));
+                        generatePortraitsForProblem(key, problemData);
+                    } catch (err) {
+                        console.error('解析问题数据失败:', err);
+                        showToast('数据解析失败', 'error');
+                    }
+                }
+            };
         }
 
         // 选择问题卡片，显示对应画像
         function selectProblemCard(key, identity, problemType, problemData) {
             _selectedTypeKey = key;
+            const keyStr = String(key == null ? '' : key);
 
-            // 更新选中状态
-            document.querySelectorAll('.problem-card').forEach(card => {
+            // 仅市场洞察列表内的卡片，避免与其它区域同类名冲突；用字符串比较避免类型不一致
+            document.querySelectorAll('#user-pains-list .problem-card').forEach(card => {
                 card.classList.remove('selected');
-                if (card.closest('.col-md-4').dataset.key === key) {
+                const col = card.closest('.col-md-4');
+                const k = col ? String(col.dataset.key || '') : '';
+                if (k === keyStr) {
                     card.classList.add('selected');
                 }
             });
@@ -1460,8 +1483,9 @@
 
             // 如果有画像则显示，没有则等用户手动点击「生成」
             if (hasPortraits) {
-                // 显示该类型的画像
-                renderPortraitsForType(key);
+                // 显示该类型的画像（传入 id 作为 key，以及 display_name 作为可读标签）
+                const displayName = (problemData && problemData.display_name) || problemType || identity || '画像';
+                renderPortraitsForType(key, displayName);
             } else {
                 // 清空画像显示区域，提示用户手动生成
                 const container = document.getElementById('target-customers-list');
@@ -1471,31 +1495,9 @@
         }
 
         // 渲染指定问题类型的画像
-        function renderPortraitsForType(typeName) {
-            // 使用模糊匹配查找画像
-            function findPortraits(key) {
-                // 1. 直接匹配
-                if (_allPortraits[key]) {
-                    return _allPortraits[key];
-                }
-                // 2. 模糊匹配
-                const normalizedKey = key.replace(/\s+/g, '').replace(/\[.*?\]/g, '');
-                for (const k of Object.keys(_allPortraits)) {
-                    const normalizedK = k.replace(/\s+/g, '').replace(/\[.*?\]/g, '');
-                    if (normalizedKey === normalizedK) {
-                        return _allPortraits[k];
-                    }
-                }
-                // 3. 包含匹配
-                for (const k of Object.keys(_allPortraits)) {
-                    if (k.includes(key) || key.includes(k)) {
-                        return _allPortraits[k];
-                    }
-                }
-                return [];
-            }
-
-            const portraits = findPortraits(typeName);
+        function renderPortraitsForType(key, displayName) {
+            // 直接用 id 精确查找（现在 key 就是后端返回的唯一 id）
+            const portraits = _allPortraits[key] || [];
             const container = document.getElementById('target-customers-list');
             container.innerHTML = '';
 
@@ -1553,7 +1555,7 @@
                 let cardContent = `
                     <div style="border: 2px solid ${color.border}; background: ${color.bg}; border-radius: 12px; padding: 1.25rem; position: relative;">
                         <div style="position: absolute; top: -10px; left: 16px; background: white; padding: 0 8px;">
-                            <span style="font-size: 12px; color: ${color.accent}; font-weight: 600;">${escHtml(typeName)}</span>
+                            <span style="font-size: 12px; color: ${color.accent}; font-weight: 600;">${escHtml(displayName)}</span>
                         </div>
                         <h6 style="color: ${color.accent}; margin-bottom: 0.5rem; margin-top: 0.25rem;">${escHtml(displayTitle)}</h6>
                 `;
@@ -1639,10 +1641,9 @@
         }
 
         // 构建单张问题卡片（顶部一行 = 问题类型 + 身份标签们）
-        function buildProblemCard(identity, problemType, severity, portraitCount, problemData) {
+        function buildProblemCard(key, identity, problemType, severity, portraitCount, problemData) {
             const col = document.createElement('div');
             col.className = 'col-md-4 col-sm-6';
-            const key = identity + problemType;
             col.dataset.key = key;
             col.dataset.problemData = JSON.stringify(problemData);
 
@@ -1678,29 +1679,78 @@
                         <span class="pc-status ${hasPortraits ? 'done' : ''}">
                             ${hasPortraits ? '✓ 已生成画像' : '点击下方「生成」查看人群画像'}
                         </span>
-                        ${!hasPortraits ? `<button type="button" id="${genBtnId}" class="btn btn-sm btn-primary" style="font-weight:600;border-radius:8px;padding:0.3rem 0.85rem;">生成</button>` : ''}
+                        ${!hasPortraits ? `<button type="button" id="${genBtnId}" class="btn btn-sm btn-primary" style="font-weight:600;border-radius:8px;padding:0.3rem 0.85rem;" data-key="${escHtml(key)}" data-problem="${btoa(unescape(encodeURIComponent(JSON.stringify(problemData))))}">生成</button>` : ''}
                     </div>
                 </div>
             `;
-
-            // 安全绑定生成按钮事件
-            if (!hasPortraits) {
-                const genBtn = document.getElementById(genBtnId);
-                if (genBtn) {
-                    genBtn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        generatePortraitsForProblem(key, problemData);
-                    });
-                }
-            }
 
             col.onclick = () => selectProblemCard(key, identity, problemType, problemData);
 
             return col;
         }
 
-        // 生成指定问题的画像
+        // 调用后端「按问题生成画像」（与卡片「生成」、目标区「换一批」共用）
+        async function requestGeneratePortraits(problemData) {
+            console.log('[requestGeneratePortraits] problemData.id=' + (problemData && problemData.id) + ', identity=' + (problemData && problemData.identity));
+            const businessDesc = _currentBusinessDesc || document.getElementById('business-desc').value.trim();
+            if (!businessDesc) {
+                return { ok: false, kind: 'no_desc', message: '请先填写业务描述' };
+            }
+            const resp = await fetch('/public/api/targets/generate-portraits', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    business_description: businessDesc,
+                    problem: problemData,
+                    refresh_nonce: Date.now(),
+                }),
+            });
+            if (!resp.ok) {
+                const errorText = await resp.text();
+                return { ok: false, kind: 'http', message: '生成失败，请稍后重试', detail: errorText, status: resp.status };
+            }
+            const data = await resp.json();
+            console.log('[requestGeneratePortraits] 响应: success=' + data.success + ', portraits=' + ((data.portraits && data.portraits.length) || 0));
+            if (data.success && data.portraits) {
+                return { ok: true, data: data };
+            }
+            return { ok: false, kind: 'api', message: data.message || '生成失败' };
+        }
+
+        // 写入画像缓存、更新问题卡片状态并刷新右侧列表（与 renderPortraitsForType 一致）
+        function commitPortraitsResult(saveKey, problemData, portraits) {
+            _allPortraits[saveKey] = portraits;
+            const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-4')).find(function (c) {
+                return String(c.dataset.key || '') === String(saveKey || '');
+            });
+            if (card) {
+                const statusSpan = card.querySelector('.pc-status');
+                if (statusSpan) {
+                    statusSpan.classList.add('done');
+                    statusSpan.textContent = '✓ 已生成画像（' + portraits.length + ' 个）';
+                }
+                const genBtn = card.querySelector('.pc-foot button');
+                if (genBtn) genBtn.remove();
+            }
+            selectProblemCard(saveKey,
+                problemData.identity || '',
+                problemData.problem_type || problemData.concern_type || '',
+                problemData
+            );
+        }
+
+        // 生成指定问题的画像（互斥锁：同时只允许一个生成任务）
         async function generatePortraitsForProblem(key, problemData) {
+            console.log('[generatePortraitsForProblem] key=' + key + ', problemData.id=' + (problemData && problemData.id));
+            if (_isGeneratingPortraits) {
+                showToast('画像正在生成中，请稍候…', 'warning');
+                return;
+            }
             const businessDesc = _currentBusinessDesc || document.getElementById('business-desc').value.trim();
 
             if (!businessDesc) {
@@ -1710,7 +1760,7 @@
 
             // 找到问题对应的卡片，添加 loading 状态
             const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-4')).find(function (c) {
-                return c.dataset.key === key;
+                return String(c.dataset.key || '') === String(key || '');
             });
             const btn = card?.querySelector('.pc-foot button');
             if (btn) {
@@ -1718,65 +1768,63 @@
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
             }
 
-            try {
-                const resp = await fetch('/public/api/targets/generate-portraits', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        business_description: businessDesc,
-                        problem: problemData
-                    })
-                });
+            // 禁用所有未生成卡片的「生成」按钮
+            document.querySelectorAll('#user-pains-list .col-md-4').forEach(function (c) {
+                const b = c.querySelector('.pc-foot button');
+                if (b && !b.disabled) b.disabled = true;
+            });
 
-                if (!resp.ok) {
-                    const errorText = await resp.text();
-                    showToast('生成失败，请稍后重试', 'error');
-                    console.error('API error:', resp.status, errorText);
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '生成';
+            _isGeneratingPortraits = true;
+
+            function resetBtn() {
+                _isGeneratingPortraits = false;
+                document.querySelectorAll('#user-pains-list .col-md-4').forEach(function (c) {
+                    const b = c.querySelector('.pc-foot button');
+                    if (b) {
+                        b.disabled = false;
+                        if (b.querySelector('.spinner-border')) b.innerHTML = '生成';
                     }
+                });
+            }
+
+            try {
+                const result = await requestGeneratePortraits(problemData);
+
+                if (!result.ok) {
+                    if (result.kind === 'no_desc') {
+                        showToast(result.message, 'error');
+                    } else {
+                        showToast(result.message || '生成失败，请稍后重试', 'error');
+                        if (result.detail) console.error('API error:', result.status, result.detail);
+                    }
+                    resetBtn();
                     return;
                 }
 
-                const data = await resp.json();
-
-                if (data.success && data.portraits) {
-                    // 保存画像
-                    _allPortraits[key] = data.portraits;
-
-                    // 更新卡片状态
-                    if (card) {
-                        const statusSpan = card.querySelector('.pc-status');
-                        if (statusSpan) {
-                            statusSpan.classList.add('done');
-                            statusSpan.textContent = `✓ 已生成画像（${data.portraits.length} 个）`;
-                        }
-                        const genBtn = card.querySelector('.pc-foot button');
-                        if (genBtn) genBtn.remove();
-                    }
-
-                    // 如果当前选中的是这个卡片，刷新画像显示
-                    if (_selectedTypeKey === key) {
-                        renderPortraitsForType(key);
-                    }
-
-                    showToast(`生成成功！获得 ${data.portraits.length} 个画像`, 'success');
-                } else {
-                    showToast(data.message || '生成失败', 'error');
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '重试';
-                    }
+                const data = result.data;
+                const portraits = data.portraits || [];
+                if (portraits.length === 0) {
+                    showToast('该问题暂无画像数据', 'warning');
+                    resetBtn();
+                    return;
                 }
+                const saveKey = (problemData && problemData.id) ? problemData.id : key;
+                console.log('[generatePortraitsForProblem] 调用 commitPortraitsResult, saveKey=' + saveKey + ', portraits.length=' + portraits.length);
+                try {
+                    commitPortraitsResult(saveKey, problemData, portraits);
+                } catch (e) {
+                    console.error('[generatePortraitsForProblem] commitPortraitsResult 异常:', e);
+                    showToast('显示画像时出错', 'error');
+                    resetBtn();
+                    return;
+                }
+                console.log('[generatePortraitsForProblem] 完成, _allPortraits keys=' + Object.keys(_allPortraits));
+                showToast('生成成功！获得 ' + portraits.length + ' 个画像', 'success');
+                resetBtn();
             } catch (e) {
                 showToast('生成失败，请稍后重试', 'error');
                 console.error(e);
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '重试';
-                }
+                resetBtn();
             }
         }
 
@@ -2112,6 +2160,10 @@
 
         // 换一批目标用户（每次从表单取最新参数）
         function refreshTargetCustomers() {
+            if (_isGeneratingPortraits) {
+                showToast('画像正在生成中，请稍候…', 'warning');
+                return;
+            }
             const mySeq = ++_refreshSeq;
             console.log('[换一批] 点击了, seq=' + mySeq);
             const btn = document.getElementById('btn-refresh-targets');
@@ -2119,6 +2171,64 @@
             const originalText = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>换一批...';
+
+            // 一键分析问题卡片流程：与卡片「生成」相同接口，避免仍走旧版 /generate + displayTargetCustomers
+            if (_allProblems && _allProblems.length > 0) {
+                const sel = _selectedTypeKey;
+                let problemData = sel
+                    ? _allProblems.find(function (p) { return String(p.id || '') === String(sel || ''); })
+                    : null;
+                if (!problemData) {
+                    problemData = _allProblems[0];
+                }
+                const saveKey = (problemData && problemData.id) ? problemData.id : (sel || '');
+
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('loading-text').textContent = '正在换一批画像...';
+
+                (async function () {
+                    _isGeneratingPortraits = true;
+                    try {
+                        const result = await requestGeneratePortraits(problemData);
+                        if (mySeq !== _refreshSeq) return;
+                        if (!result.ok) {
+                            if (result.kind === 'no_desc') {
+                                showToast(result.message, 'error');
+                            } else {
+                                showToast(result.message || '重新生成失败', 'error');
+                                if (result.detail) console.error('[换一批] API', result.status, result.detail);
+                            }
+                            return;
+                        }
+                        const portraits = result.data.portraits || [];
+                        if (portraits.length === 0) {
+                            showToast('该问题暂无画像数据', 'warning');
+                            return;
+                        }
+                        const sk = (problemData && problemData.id) ? problemData.id : saveKey;
+                        commitPortraitsResult(sk, problemData, portraits);
+                        showToast('换一批成功！', 'success');
+                    } catch (e) {
+                        if (mySeq !== _refreshSeq) return;
+                        console.error('[换一批] 异常', e);
+                        alert('重新生成失败，请稍后重试');
+                    } finally {
+                        if (mySeq !== _refreshSeq) return;
+                        _isGeneratingPortraits = false;
+                        document.querySelectorAll('#user-pains-list .col-md-4').forEach(function (c) {
+                            var b = c.querySelector('.pc-foot button');
+                            if (b) {
+                                b.disabled = false;
+                                if (b.querySelector('.spinner-border')) b.innerHTML = '生成';
+                            }
+                        });
+                        document.getElementById('loading').style.display = 'none';
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                    }
+                })();
+                return;
+            }
 
             const extra = collectDeepInfo();
             const payload = {

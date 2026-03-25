@@ -2981,9 +2981,25 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
     user_problems = data.get('user_problem_types', [])
     buyer_problems = data.get('buyer_problem_types', [])
     all_problems = []
+    # 合并列表里 id 必须全局唯一：LLM 常返回空串或重复 id，否则前端 data-key 相同会一次选中多张卡片
+    _used_problem_ids = set()
+
+    def _alloc_problem_id(preferred, fallback: str) -> str:
+        s = '' if preferred is None else str(preferred).strip()
+        base = s or fallback
+        if base not in _used_problem_ids:
+            _used_problem_ids.add(base)
+            return base
+        n = 1
+        while f'{base}__{n}' in _used_problem_ids:
+            n += 1
+        uid = f'{base}__{n}'
+        _used_problem_ids.add(uid)
+        return uid
+
     for i, p in enumerate(user_problems):
         all_problems.append({
-            'id': p.get('id', f'up_{i+1}'),
+            'id': _alloc_problem_id(p.get('id'), f'up_{i+1}'),
             'identity': p.get('identity', ''),
             'problem_type': p.get('problem_type', ''),
             'display_name': p.get('display_name', ''),
@@ -2993,11 +3009,15 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
             '_side': 'user',
         })
     for i, p in enumerate(buyer_problems):
+        # concern_type 可能为空，优先用 description 兜底
+        concern_type = p.get('concern_type', '')
+        if not concern_type:
+            concern_type = p.get('description', '') or p.get('display_name', '') or f'付费方顾虑{i+1}'
         all_problems.append({
-            'id': p.get('id', f'bc_{i+1}'),
+            'id': _alloc_problem_id(p.get('id'), f'bc_{i+1}'),
             'identity': p.get('identity', ''),
-            'problem_type': p.get('concern_type', ''),
-            'display_name': p.get('display_name', ''),
+            'problem_type': concern_type,
+            'display_name': p.get('display_name', '') or f"{p.get('identity', '')}{concern_type}",
             'description': p.get('description', ''),
             'severity': p.get('severity', '高'),
             'scenario': p.get('scenario', '通用'),
@@ -3408,13 +3428,80 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             all_buyer_concern_types = []
             all_portraits = dict(portraits_by_type)  # 复制原有的
             
+            # ── 字段名规范化（中文字段名 → 英文字段名）（定义在循环外，避免 scenarios 为空时未定义）──────────
+            def normalize_problem_item(item):
+                problem_type = (
+                    item.get('problem_type', '') or
+                    item.get('问题类型', '') or
+                    ''
+                )
+                display_name_raw = (
+                    item.get('display_name', '') or
+                    item.get('显示名称', '') or
+                    ''
+                )
+                # 如果 problem_type 仍为空，尝试从 display_name 提取
+                if not problem_type and display_name_raw:
+                    keywords = ['不便', '困扰', '问题', '烦恼', '困难', '担忧', '焦虑', '缺乏', '不足',
+                                '烦恼', '担心', '无奈', '难受', '痛点', '需求', '期望']
+                    for kw in keywords:
+                        idx = display_name_raw.find(kw)
+                        if idx > 0:
+                            problem_type = display_name_raw[idx:]
+                            break
+                    if not problem_type:
+                        problem_type = display_name_raw
+                return {
+                    'id':           item.get('id', ''),
+                    'identity':     item.get('identity', '') or item.get('身份', ''),
+                    'problem_type': problem_type,
+                    'display_name': display_name_raw or f"{item.get('identity', '')}{problem_type}",
+                    'description':  item.get('description', '') or item.get('描述', ''),
+                    'severity':     item.get('severity', '中') or item.get('严重程度', '中'),
+                }
+
+            def normalize_concern_item(item):
+                concern_type = (
+                    item.get('concern_type', '') or
+                    item.get('问题类型', '') or
+                    item.get('顾虑类型', '') or
+                    item.get('购买顾虑', '')
+                )
+                display_name_raw = (
+                    item.get('display_name', '') or
+                    item.get('显示名称', '') or
+                    item.get('描述', '') or
+                    ''
+                )
+                # 如果 concern_type 仍为空，尝试从 display_name 提取（格式：身份+顾虑）
+                if not concern_type and display_name_raw:
+                    # 常见顾虑关键词
+                    keywords = ['价格', '质量', '真假', '安全', '效果', '配送', '售后', '信任', '顾虑', '担忧',
+                                '预算', '担心', '怕', '犹豫', '便利', '交期', '开票', '起订', '采购', '品牌']
+                    for kw in keywords:
+                        idx = display_name_raw.find(kw)
+                        if idx > 0:
+                            concern_type = display_name_raw[idx:]
+                            break
+                    if not concern_type:
+                        concern_type = display_name_raw
+                return {
+                    'id':           item.get('id', ''),
+                    'identity':     item.get('identity', '') or item.get('身份', ''),
+                    'concern_type': concern_type,
+                    'display_name': display_name_raw or f"{item.get('identity', '')}{concern_type}",
+                    'description':  item.get('description', '') or item.get('描述', ''),
+                    'examples':     item.get('examples', []) or item.get('例子', []),
+                }
+            # ───────────────────────────────────────────────────────────────────────────────────────────────────────
+
             # 处理场景数据
             for scenario in scenarios:
                 scenario_name = scenario.get('name', '')
                 scenario_user_problems = scenario.get('user_problem_types', [])
                 scenario_buyer_concerns = scenario.get('buyer_concern_types', [])
                 scenario_portraits = scenario.get('portraits_by_type', {})
-                
+
                 # 合并画像
                 for key, portraits in scenario_portraits.items():
                     full_key = f"[{scenario_name}]{key}"
@@ -3426,28 +3513,6 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                         for p in portraits:
                             if p.get('name', '') not in existing_ids:
                                 all_portraits[key].append(p)
-                
-                # ── 字段名规范化（中文字段名 → 英文字段名）──────────────
-            def normalize_problem_item(item):
-                return {
-                    'id':           item.get('id', ''),
-                    'identity':     item.get('identity', '') or item.get('身份', ''),
-                    'problem_type': item.get('problem_type', '') or item.get('问题类型', ''),
-                    'display_name': item.get('display_name', '') or item.get('显示名称', ''),
-                    'description':  item.get('description', '') or item.get('描述', ''),
-                    'severity':     item.get('severity', '中') or item.get('严重程度', '中'),
-                }
-
-            def normalize_concern_item(item):
-                return {
-                    'id':           item.get('id', ''),
-                    'identity':     item.get('identity', '') or item.get('身份', ''),
-                    'concern_type': item.get('concern_type', '') or item.get('问题类型', ''),
-                    'display_name': item.get('display_name', '') or item.get('显示名称', ''),
-                    'description':  item.get('description', '') or item.get('描述', ''),
-                    'examples':     item.get('examples', []) or item.get('例子', []),
-                }
-            # ─────────────────────────────────────────────────────────
 
                 # 格式化场景内的问题
                 for item in scenario_user_problems:
@@ -3462,7 +3527,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                         'severity': norm['severity'],
                         'scenario': scenario_name
                     })
-                
+
                 # 格式化场景内的顾虑
                 for item in scenario_buyer_concerns:
                     norm = normalize_concern_item(item)
