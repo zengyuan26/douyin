@@ -69,8 +69,8 @@
                         </div>
 
                         <div class="mb-4">
-                            <label class="form-label">联动类型</label>
-                            <select class="form-select" name="dependency_type">
+                            <label class="form-label" for="dependencyTypeSelect">联动类型</label>
+                            <select class="form-select" name="dependency_type" id="dependencyTypeSelect">
                                 <option value="full_refresh" {% if dependency and dependency.dependency_type == 'full_refresh' %}selected{% endif %}>
                                     完全刷新 - 根据源模板重新生成目标模板
                                 </option>
@@ -81,8 +81,8 @@
                         </div>
 
                         <div class="mb-4">
-                            <label class="form-label">更新规则（JSON格式，可选）</label>
-                            <textarea class="form-control font-monospace" name="update_rules" rows="4"
+                            <label class="form-label" for="updateRulesTextarea">更新规则（JSON格式，可选）</label>
+                            <textarea class="form-control font-monospace" name="update_rules" id="updateRulesTextarea" rows="4"
                                       placeholder='{"refresh_fields": ["core_keywords", "topics"]}'>{{ dependency.update_rules if dependency and dependency.update_rules else '' }}</textarea>
                             <div class="form-text">部分更新时指定需要更新的字段</div>
                         </div>

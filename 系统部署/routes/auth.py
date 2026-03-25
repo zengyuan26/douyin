@@ -1,9 +1,11 @@
 """
 认证路由 - 登录、注册、登出
 """
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+import hashlib
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 from models.models import db, User
+from models.public_models import PublicUser
 from flask_bcrypt import Bcrypt
 from datetime import datetime
 
@@ -11,154 +13,139 @@ auth = Blueprint('auth', __name__)
 bcrypt = Bcrypt()
 
 
+def _verify_password_sha256(password: str, password_hash: str) -> bool:
+    """验证 SHA256 哈希的密码（PublicUser 使用）"""
+    return hashlib.sha256(password.encode()).hexdigest() == password_hash
+
+
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
     """登录页面"""
+    import logging
+    logger = logging.getLogger('app')
+    logger.debug(f"=== LOGIN DEBUG ===")
+    logger.debug(f"Method: {request.method}")
+    logger.debug(f"current_user.is_authenticated: {current_user.is_authenticated}")
     if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
+        logger.debug(f"current_user.role: {current_user.role}")
+        logger.debug(f"Redirecting to: main.index")
+        # 已登录用户根据角色跳转
+        if current_user.role in ('super_admin', 'admin'):
+            return redirect(url_for('main.index'))
+        else:
+            return redirect(url_for('public.index'))
+    
+    # URL参数决定默认登录类型
+    url_login_type = request.args.get('type', 'public')
     
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        login_type = request.form.get('login_type', 'public')  # admin 或 public
+        logger.debug(f"POST login_type: {login_type}")
         
-        user = User.query.filter_by(username=username).first()
-        
-        if user and bcrypt.check_password_hash(user.password_hash, password):
-            # 如果用户是渠道用户且渠道已激活，则自动激活用户账号
-            if user.role == 'channel' and not user.is_active:
-                from models.models import Channel
-                channel = Channel.query.filter_by(user_id=user.id).first()
-                if channel and channel.is_active:
-                    user.is_active = True
-                    db.session.commit()
+        if login_type == 'public':
+            # 公开平台用户：使用邮箱登录，查询 PublicUser 表
+            # 兼容两种表单：public/login.html 用 email，login.html 用 username
+            email = request.form.get('email') or request.form.get('username')
+            password = request.form.get('password', '')
+            user = PublicUser.query.filter_by(email=email).first() if email else None
             
-            if user.is_active:
-                login_user(user)
-                user.last_login = datetime.utcnow()
-                db.session.commit()
-                
-                next_page = request.args.get('next')
-                if not next_page:
-                    next_page = url_for('main.index')
-                return redirect(next_page)
-            else:
-                if user.role == 'channel':
-                    flash('您的账号正在审核中，请联系管理员', 'warning')
+            # PublicUser 使用 SHA256 验证密码
+            if user and _verify_password_sha256(password, user.password_hash):
+                if user.is_active:
+                    # 公开用户使用 session 记录，不使用 Flask-Login 的 login_user
+                    session['public_user_id'] = user.id
+                    session.permanent = True
+                    flash('登录成功！', 'success')
+                    return redirect(url_for('public.index'))
                 else:
                     flash('账号已被禁用', 'danger')
+            else:
+                flash('用户名或密码错误', 'danger')
         else:
-            flash('用户名或密码错误', 'danger')
-    
-    return render_template('login.html')
+            # 管理员账号：使用用户名登录，查询 User 表
+            username = request.form.get('username')
+            password = request.form.get('password')
+            user = User.query.filter_by(username=username).first()
+            
+            if user and bcrypt.check_password_hash(user.password_hash, password):
+                if user.is_active:
+                    login_user(user)
+                    user.last_login = datetime.utcnow()
+                    db.session.commit()
+
+                    # type=admin 登录直接跳转到管理中心
+                    return redirect(url_for('admin.dashboard'))
+                else:
+                    flash('账号已被禁用', 'danger')
+            else:
+                flash('用户名或密码错误', 'danger')
+        
+        # 登录失败后保留当前登录模式
+        if login_type not in ('public', 'admin'):
+            login_type = 'public'
+    else:
+        login_type = url_login_type
+
+    # 统一使用 login.html 作为登录入口模板（支持公开用户和管理员两种模式）
+    return render_template('login.html', url_login_type=url_login_type)
 
 
 @auth.route('/logout')
 @login_required
 def logout():
     """登出"""
+    # 如果是公开用户，清除 session 中的 public_user_id
+    session.pop('public_user_id', None)
     logout_user()
-    flash('已成功登出', 'success')
     return redirect(url_for('auth.login'))
 
 
-@auth.route('/register', methods=['GET', 'POST'])
-def register():
-    """注册页面"""
+@auth.route('/public-register', methods=['GET', 'POST'])
+def public_register():
+    """公开用户注册"""
     if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
+        return redirect(url_for('public.index'))
     
     if request.method == 'POST':
-        username = request.form.get('username')
         email = request.form.get('email')
-        password = request.form.get('password')
-        
-        # 检查用户名和邮箱是否已存在
-        if User.query.filter_by(username=username).first():
-            flash('用户名已存在', 'danger')
-            return render_template('register.html')
-        
-        if User.query.filter_by(email=email).first():
-            flash('邮箱已被注册', 'danger')
-            return render_template('register.html')
-        
-        # 创建新用户
-        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        user = User(
-            username=username,
-            email=email,
-            password_hash=hashed_password,
-            role='user'  # 普通用户
-        )
-        
-        db.session.add(user)
-        db.session.commit()
-        
-        flash('注册成功，请登录', 'success')
-        return redirect(url_for('auth.login'))
-    
-    return render_template('register.html')
-
-
-@auth.route('/channel-register', methods=['GET', 'POST'])
-def channel_register():
-    """渠道商注册页面"""
-    if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
-    
-    if request.method == 'POST':
-        username = request.form.get('username')
         nickname = request.form.get('nickname')
-        id_card = request.form.get('id_card')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         
         # 检查密码是否一致
         if password != confirm_password:
             flash('两次输入的密码不一致', 'danger')
-            return render_template('channel_register.html')
+            return redirect(url_for('auth.login'))
         
-        # 检查用户名是否已存在
-        if User.query.filter_by(username=username).first():
-            flash('账号已存在', 'danger')
-            return render_template('channel_register.html')
+        # 检查邮箱是否已存在于 PublicUser 表
+        if PublicUser.query.filter_by(email=email).first():
+            flash('该邮箱已被注册', 'danger')
+            return redirect(url_for('auth.login'))
         
-        # 检查身份证是否已被使用
-        if id_card and User.query.filter_by(id_card=id_card).first():
-            flash('该身份证号已被注册', 'danger')
-            return render_template('channel_register.html')
+        # 检查昵称是否已被使用（PublicUser 表）
+        if nickname and PublicUser.query.filter_by(nickname=nickname).first():
+            flash('该昵称已被使用', 'danger')
+            return redirect(url_for('auth.login'))
         
-        # 创建渠道用户 (需要超级管理员审核通过后才能使用)
-        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        user = User(
-            username=username,
-            email=f'{username}@pending.com',  # 临时邮箱
-            password_hash=hashed_password,
-            id_card=id_card,  # 保存身份证号
-            nickname=nickname,  # 保存昵称
-            role='channel',
-            is_active=False  # 默认禁用，需要审核
+        # 创建公开用户到 PublicUser 表（使用 SHA256 哈希密码）
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        user = PublicUser(
+            email=email,
+            nickname=nickname or email.split('@')[0],
+            password_hash=password_hash,
+            is_active=True  # 公开用户默认激活
         )
         
         db.session.add(user)
-        db.session.flush()
-        
-        # 创建渠道记录
-        from models.models import Channel
-        channel = Channel(
-            user_id=user.id,
-            name=nickname,  # 使用昵称作为渠道名称
-            company='',
-            contact='',
-            description='待审核',
-            is_active=False  # 默认待审核
-        )
-        db.session.add(channel)
         db.session.commit()
         
-        flash('申请提交成功！请等待管理员审核后登录', 'success')
-        return redirect(url_for('auth.login'))
+        # 使用 session 记录公开用户登录
+        session['public_user_id'] = user.id
+        session.permanent = True
+        flash('注册成功！', 'success')
+        return redirect(url_for('public.index'))
     
-    return render_template('channel_register.html')
+    return redirect(url_for('auth.login'))
 
 
 @auth.route('/forgot-password', methods=['GET', 'POST'])

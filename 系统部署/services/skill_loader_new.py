@@ -230,7 +230,7 @@ class SkillLoader:
         Args:
             skill_name: Skill 目录名
             client_info: 客户信息(可选)
-            user_role: 用户角色 (super_admin, channel, user)
+            user_role: 用户角色 (super_admin, admin, public_user, user)
 
         Returns:
             完整的 System Prompt

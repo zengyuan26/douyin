@@ -145,24 +145,24 @@
             <form method="POST" action="{{ url_for('admin.add_industry') }}">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">行业名称</label>
-                        <input type="text" class="form-control" name="name" required>
+                        <label class="form-label" for="industryName">行业名称</label>
+                        <input type="text" class="form-control" name="name" id="industryName" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Slug (标识)</label>
-                        <input type="text" class="form-control" name="slug" placeholder="如: food" required>
+                        <label class="form-label" for="industrySlug">Slug (标识)</label>
+                        <input type="text" class="form-control" name="slug" id="industrySlug" placeholder="如: food" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">图标 (emoji)</label>
-                        <input type="text" class="form-control" name="icon" placeholder="如: 🍎">
+                        <label class="form-label" for="industryIcon">图标 (emoji)</label>
+                        <input type="text" class="form-control" name="icon" id="industryIcon" placeholder="如: 🍎">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">描述</label>
-                        <textarea class="form-control" name="description" rows="2"></textarea>
+                        <label class="form-label" for="industryDesc">描述</label>
+                        <textarea class="form-control" name="description" id="industryDesc" rows="2"></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">排序</label>
-                        <input type="number" class="form-control" name="sort_order" value="10">
+                        <label class="form-label" for="industrySort">排序</label>
+                        <input type="number" class="form-control" name="sort_order" id="industrySort" value="10">
                     </div>
                 </div>
                 <div class="modal-footer">

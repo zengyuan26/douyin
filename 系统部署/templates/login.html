@@ -312,7 +312,7 @@
         }
         
         .form-header {
-            margin-bottom: 40px;
+            margin-bottom: 28px;
         }
         
         .form-header h2 {
@@ -328,31 +328,45 @@
             font-size: 15px;
         }
         
-        /* 消息提示 */
-        .alert {
-            border-radius: 12px;
-            padding: 14px 16px;
-            font-size: 14px;
-            margin-bottom: 24px;
+        /* 消息提示（登录页不展示 success，避免登出等干扰） */
+        .login-alert {
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 13px;
+            margin-bottom: 14px;
+            margin-top: 4px;
             border: none;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
         
-        .alert-danger {
+        .login-alert.alert-danger {
             background: rgba(255, 59, 48, 0.08);
             color: var(--color-danger);
         }
         
-        .alert-success {
-            background: rgba(52, 199, 89, 0.08);
-            color: var(--color-success);
+        .login-alert.alert-warning {
+            background: rgba(255, 149, 0, 0.1);
+            color: #c2410c;
+        }
+        
+        .login-alert.alert-info {
+            background: rgba(0, 122, 255, 0.08);
+            color: var(--color-primary);
         }
         
         /* 输入框 */
         .mb-4 {
             margin-bottom: 20px;
+        }
+        
+        .login-fields .mb-4 {
+            margin-bottom: 16px;
+        }
+        
+        .login-fields .mb-4:last-of-type {
+            margin-bottom: 10px;
         }
         
         .form-control {
@@ -390,19 +404,31 @@
             display: block;
         }
         
-        /* 记住我与忘记密码 */
+        /* 记住我与忘记密码
+           Bootstrap .form-check .form-check-input 使用 float + 负 margin-left，必须覆盖，
+           否则勾选框会跑到输入框左缘外侧（我们之前 padding-left:0 反而加剧了错位）。 */
         .form-options {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 28px;
+            margin-top: 2px;
+            margin-bottom: 18px;
         }
         
-        .form-check {
-            display: flex;
+        .form-options .form-check {
+            display: flex !important;
             align-items: center;
             gap: 10px;
-            cursor: pointer;
+            padding-left: 0 !important;
+            margin: 0 !important;
+            min-height: 0;
+        }
+        
+        .form-options .form-check .form-check-input {
+            float: none !important;
+            margin: 0 !important;
+            position: static;
+            flex-shrink: 0;
         }
         
         .form-check-input {
@@ -446,19 +472,26 @@
             color: var(--color-primary-dark);
         }
         
-        /* 登录按钮 */
+        /* 登录 + 注册 同一行 */
+        .login-primary-row {
+            display: flex;
+            align-items: stretch;
+            gap: 10px;
+        }
+        
         .btn-login {
             background: linear-gradient(135deg, var(--color-primary) 0%, #0066d6 100%);
             border: none;
             border-radius: 12px;
-            padding: 16px 24px;
+            padding: 14px 18px;
             font-weight: 600;
-            font-size: 16px;
-            width: 100%;
+            font-size: 15px;
+            flex: 1;
+            min-width: 0;
             color: white;
             transition: all var(--transition-base);
             box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
@@ -496,22 +529,23 @@
             font-weight: 500;
         }
         
-        /* 注册按钮 */
+        /* 注册按钮（与登录同排） */
         .btn-register {
             border-radius: 12px;
-            padding: 16px 24px;
+            padding: 14px 18px;
             font-weight: 600;
             font-size: 15px;
             border: 1px solid var(--color-border-medium);
             color: var(--color-text-primary);
             transition: all var(--transition-base);
             background: var(--color-bg-primary);
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            width: 100%;
+            gap: 6px;
             text-decoration: none;
+            flex: 1;
+            min-width: 0;
         }
         
         .btn-register:hover {
@@ -519,6 +553,28 @@
             border-color: var(--color-border-strong);
             transform: translateY(-1px);
             box-shadow: var(--shadow-md);
+        }
+        
+        /* 页面右下角：管理员入口 */
+        .login-admin-corner {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            z-index: 50;
+            font-size: 12px;
+            color: var(--color-text-tertiary, #86868b);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            transition: color 0.2s, background 0.2s;
+        }
+        
+        .login-admin-corner:hover {
+            color: var(--color-primary);
+            background: rgba(0, 122, 255, 0.08);
         }
         
         /* =====================================================
@@ -792,6 +848,7 @@
             background: rgba(52, 199, 89, 0.08);
             color: var(--color-success);
         }
+
     </style>
 </head>
 <body>
@@ -858,27 +915,33 @@
                 <p>请登录您的账号继续</p>
             </div>
             
-            {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-            {% for category, message in messages %}
-            <div class="alert alert-{{ category }}" role="alert">
-                <i class="bi bi-{{ 'exclamation-triangle-fill' if category == 'danger' else 'check-circle-fill' if category == 'success' else 'info-circle-fill' }}"></i>
-                {{ message }}
-            </div>
-            {% endfor %}
-            {% endif %}
-            {% endwith %}
-            
-            <form method="POST" action="{{ url_for('auth.login') }}">
-                <div class="mb-4">
-                    <label for="username" class="form-label">账号</label>
-                    <input type="text" class="form-control" id="username" name="username" placeholder="请输入账号" required autocomplete="username">
+            <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
+                <input type="hidden" name="login_type" id="loginTypeInput" value="public">
+                
+                <div class="login-fields">
+                    <div class="mb-4">
+                        <label for="username" class="form-label" id="usernameLabel">邮箱</label>
+                        <input type="email" class="form-control" id="username" name="username" placeholder="请输入邮箱地址" required autocomplete="username">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="password" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="password" name="password" placeholder="请输入密码" required autocomplete="current-password">
+                    </div>
                 </div>
                 
-                <div class="mb-4">
-                    <label for="password" class="form-label">密码</label>
-                    <input type="password" class="form-control" id="password" name="password" placeholder="请输入密码" required autocomplete="current-password">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                {% if category != 'success' %}
+                <div class="login-alert alert-{{ category }}" role="alert">
+                    <i class="bi bi-{{ 'exclamation-triangle-fill' if category == 'danger' else 'info-circle-fill' if category == 'info' else 'exclamation-circle-fill' }}"></i>
+                    {{ message }}
                 </div>
+                {% endif %}
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
                 
                 <div class="form-options">
                     <div class="form-check">
@@ -888,28 +951,37 @@
                     <a href="#" class="btn-link-custom">忘记密码？</a>
                 </div>
                 
-                <button type="submit" class="btn btn-primary btn-login">
-                    <i class="bi bi-arrow-right-circle"></i>
-                    登 录
-                </button>
+                <div class="login-primary-row">
+                    <button type="submit" class="btn btn-primary btn-login">
+                        <i class="bi bi-arrow-right-circle"></i>
+                        登录
+                    </button>
+                    <a href="#" class="btn-register" onclick="openRegisterModal(); return false;">
+                        <i class="bi bi-person-plus"></i>
+                        注册
+                    </a>
+                </div>
             </form>
-            
-            <div class="login-divider">
-                <span>或</span>
-            </div>
-            
-            <a href="#" class="btn-register" onclick="openRegisterModal(); return false;">
-                <i class="bi bi-person-plus"></i>
-                注册
-            </a>
         </div>
     </div>
+    
+    {% if url_login_type | string == 'admin' %}
+    <a href="{{ url_for('auth.login') }}" class="login-admin-corner" title="使用邮箱登录公开平台">
+        <i class="bi bi-person"></i>
+        公开客户登录
+    </a>
+    {% else %}
+    <a href="{{ url_for('auth.login') }}?type=admin" class="login-admin-corner" title="管理员 / 渠道账号登录">
+        <i class="bi bi-shield-lock"></i>
+        管理员登录
+    </a>
+    {% endif %}
 
     <!-- 注册弹窗 -->
     <div class="modal-overlay" id="registerModal">
         <div class="modal-container">
             <div class="modal-header">
-                <h3>申请入驻</h3>
+                <h3>注册账号</h3>
                 <button class="modal-close" onclick="closeRegisterModal()">
                     <i class="bi bi-x-lg"></i>
                 </button>
@@ -917,33 +989,26 @@
             <div class="modal-body">
                 <div id="modalAlert"></div>
                 
-                <form method="POST" action="{{ url_for('auth.channel_register') }}" id="registerForm">
+                <form method="POST" action="{{ url_for('auth.public_register') }}" id="registerForm">
                     <div class="mb-3">
-                        <label class="form-label">账号</label>
-                        <input type="text" name="username" class="form-control" placeholder="请输入账号" required>
+                        <label class="form-label" for="registerEmail">邮箱</label>
+                        <input type="email" name="email" class="form-control" id="registerEmail" placeholder="请输入邮箱地址" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">昵称</label>
-                        <input type="text" name="nickname" class="form-control" placeholder="请输入昵称" required>
+                        <label class="form-label" for="registerNickname">昵称</label>
+                        <input type="text" name="nickname" class="form-control" id="registerNickname" placeholder="请输入昵称" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">身份证号</label>
-                        <input type="text" name="id_card" class="form-control" placeholder="请输入18位身份证号码" maxlength="18" required>
-                        <div class="id-card-tip">
-                            <i class="bi bi-info-circle"></i> 用于忘记密码时验证身份
-                        </div>
+                        <label class="form-label" for="registerPassword">密码</label>
+                        <input type="password" name="password" class="form-control" id="registerPassword" placeholder="请输入密码" required minlength="6">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">密码</label>
-                        <input type="password" name="password" class="form-control" placeholder="请输入密码" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">确认密码</label>
-                        <input type="password" name="confirm_password" class="form-control" placeholder="请再次输入密码" required>
+                        <label class="form-label" for="registerConfirmPassword">确认密码</label>
+                        <input type="password" name="confirm_password" class="form-control" id="registerConfirmPassword" placeholder="请再次输入密码" required minlength="6">
                     </div>
                     <button type="submit" class="btn btn-primary btn-register">
-                        <i class="bi bi-send"></i>
-                        提交申请
+                        <i class="bi bi-check-circle"></i>
+                        注 册
                     </button>
                 </form>
                 
@@ -955,6 +1020,25 @@
     </div>
 
     <script>
+        // 根据URL参数初始化登录类型
+        const urlParams = new URLSearchParams(window.location.search);
+        const loginType = urlParams.get('type') || 'public';
+        document.getElementById('loginTypeInput').value = loginType;
+
+        // 如果是管理员登录，更新输入框为账号模式
+        if (loginType === 'admin') {
+            document.getElementById('usernameLabel').textContent = '账号';
+            document.getElementById('username').placeholder = '请输入账号';
+            document.getElementById('username').type = 'text';
+        }
+
+        // 如果URL有#register锚点，自动打开注册弹窗
+        if (window.location.hash === '#register') {
+            setTimeout(() => {
+                openRegisterModal();
+            }, 100);
+        }
+
         function openRegisterModal() {
             document.getElementById('registerModal').classList.add('active');
             document.body.style.overflow = 'hidden';
@@ -965,14 +1049,14 @@
             document.body.style.overflow = '';
         }
 
-        // 点击遮罩层关闭
+        // 点击遮罩层关闭注册弹窗
         document.getElementById('registerModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeRegisterModal();
             }
         });
 
-        // ESC键关闭
+        // ESC键关闭注册弹窗
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeRegisterModal();

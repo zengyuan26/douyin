@@ -109,7 +109,7 @@
 
 <!-- 新增/编辑维度弹窗：不再包含排序 -->
 <div class="modal fade" id="dimensionModal" tabindex="-1" aria-labelledby="dimensionModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width: 920px;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 1000px;">
         <div class="modal-content">
             <div class="modal-header d-flex justify-content-between align-items-center">
                 <h5 class="modal-title" id="dimensionModalLabel">新增维度</h5>
@@ -125,11 +125,11 @@
                         <div class="col-12">
                             <div class="row g-3">
                                 <div class="col-4">
-                                    <label class="form-label">维度名称 <span class="text-danger">*</span></label>
+                                    <label class="form-label" for="dimension-name">维度名称 <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="dimension-name" required placeholder="如：辨识度、核心关键词、易记性">
                                 </div>
                                 <div class="col-4">
-                                    <label class="form-label">一级分类</label>
+                                    <label class="form-label" for="dimension-category">一级分类</label>
                                     <select class="form-select" id="dimension-category" required>
                                         <option value="">请选择</option>
                                         <option value="account">账号分析</option>
@@ -139,7 +139,7 @@
                                     </select>
                                 </div>
                                 <div class="col-4">
-                                    <label class="form-label">二级分类</label>
+                                    <label class="form-label" for="dimension-sub-category">二级分类</label>
                                     <select class="form-select" id="dimension-sub-category">
                                         <option value="">请选择</option>
                                     </select>
@@ -149,20 +149,106 @@
 
                         <!-- 第二行：描述、示例、识别技巧、适用人群 -->
                         <div class="col-6">
-                            <label class="form-label">描述（定义）</label>
+                            <label class="form-label" for="dimension-description">描述（定义）</label>
                             <textarea class="form-control" id="dimension-description" rows="3" placeholder="简短说明这个维度分析什么"></textarea>
                         </div>
                         <div class="col-6">
-                            <label class="form-label">示例</label>
+                            <label class="form-label" for="dimension-examples">示例</label>
                             <textarea class="form-control" id="dimension-examples" rows="3" placeholder="多个示例用 | 分隔，如：关注送一罐|私信咨询|到店试吃"></textarea>
                         </div>
                         <div class="col-6">
-                            <label class="form-label">识别技巧</label>
+                            <label class="form-label" for="dimension-usage-tips">识别技巧</label>
                             <textarea class="form-control" id="dimension-usage-tips" rows="3" placeholder="如：行动号召是让用户做什么，联系方式是留电话/微信/地址"></textarea>
                         </div>
                         <div class="col-6">
-                            <label class="form-label">适用人群</label>
+                            <label class="form-label" for="dimension-applicable-audience">适用人群</label>
                             <textarea class="form-control" id="dimension-applicable-audience" rows="3" placeholder="适用该维度的人群，用 | 分隔，如：创业者|企业家|B2B服务"></textarea>
+                        </div>
+
+                        <!-- 市场洞察专用区域 -->
+                        <div class="col-12" id="market-insight-section" style="display: none;">
+                            <hr>
+                            <div class="alert alert-info py-2 mb-3">
+                                <i class="bi bi-info-circle me-1"></i>市场洞察专用配置：设置此维度的触发条件和内容模板
+                            </div>
+                            <div class="row g-3">
+                                <!-- 重要性 -->
+                                <div class="col-4">
+                                    <label class="form-label" for="dimension-importance">重要性</label>
+                                    <select class="form-select" id="dimension-importance">
+                                        <option value="1">⭐ 基础 (1)</option>
+                                        <option value="2">⭐⭐ 一般 (2)</option>
+                                        <option value="3">⭐⭐⭐ 重要 (3)</option>
+                                        <option value="4">⭐⭐⭐⭐ 很重要 (4)</option>
+                                        <option value="5">⭐⭐⭐⭐⭐ 核心 (5)</option>
+                                    </select>
+                                </div>
+                                <!-- 触发条件：业务类型 -->
+                                <div class="col-4">
+                                    <label class="form-label" for="trigger-business-types">触发：业务类型</label>
+                                    <select class="form-select" id="trigger-business-types" multiple data-placeholder="不限制">
+                                        <option value="service">服务类</option>
+                                        <option value="product">产品类</option>
+                                        <option value="both">两者都有</option>
+                                    </select>
+                                </div>
+                                <!-- 触发条件：搜前搜后 -->
+                                <div class="col-4">
+                                    <label class="form-label" for="trigger-search-stage">触发：搜索阶段</label>
+                                    <select class="form-select" id="trigger-search-stage">
+                                        <option value="">不限制</option>
+                                        <option value="pre_search">搜前阶段</option>
+                                        <option value="mid_search">搜中阶段</option>
+                                        <option value="post_search">搜后阶段</option>
+                                        <option value="all">全部阶段</option>
+                                    </select>
+                                </div>
+                                <!-- 触发条件：特殊人群 -->
+                                <div class="col-12">
+                                    <label class="form-label">触发：特殊人群</label>
+                                    <div class="row g-2">
+                                        <div class="col-auto">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="trigger-has-baby">
+                                                <label class="form-check-label" for="trigger-has-baby">涉及宝宝（奶粉/纸尿裤等）</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="trigger-has-elderly">
+                                                <label class="form-check-label" for="trigger-has-elderly">涉及老人（保健品/轮椅等）</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="trigger-has-enterprise">
+                                                <label class="form-check-label" for="trigger-has-enterprise">有企业客户（B端）</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="trigger-is-gift">
+                                                <label class="form-check-label" for="trigger-is-gift">礼品场景</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="trigger-is-pets">
+                                                <label class="form-check-label" for="trigger-is-pets">涉及宠物</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 内容模板 -->
+                                <div class="col-12">
+                                    <label class="form-label" for="dimension-content-template">内容模板（发给LLM的内容，支持变量：{examples}、{usage_tips}）</label>
+                                    <textarea class="form-control" id="dimension-content-template" rows="6" placeholder="【维度名称】
+定义说明
+示例：{examples}
+区分技巧：{usage_tips}"></textarea>
+                                    <small class="text-muted">留空则使用默认格式：描述+示例+区分技巧</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -275,7 +361,8 @@ const DIMENSION_CATEGORIES = {
     'super_positioning': {
         'name': '超级定位',
         'sub_categories': {
-            'persona': '人群画像'
+            'persona': '人群画像',
+            'market_insight': '市场洞察'
         }
     }
 };
@@ -581,6 +668,7 @@ function openDimensionModal(dimension, prefillCategory, prefillSubCategory) {
     form.reset();
 
     const categorySelect = document.getElementById('dimension-category');
+    const marketInsightSection = document.getElementById('market-insight-section');
 
     if (dimension) {
         document.getElementById('dimensionModalLabel').textContent = '编辑维度';
@@ -594,14 +682,50 @@ function openDimensionModal(dimension, prefillCategory, prefillSubCategory) {
         document.getElementById('dimension-examples').value = dimension.examples || '';
         document.getElementById('dimension-usage-tips').value = dimension.usage_tips || '';
         document.getElementById('dimension-applicable-audience').value = dimension.applicable_audience || '';
+
+        // 填充市场洞察字段
+        const isMarketInsight = dimension.sub_category === 'market_insight';
+        marketInsightSection.style.display = isMarketInsight ? 'block' : 'none';
+
+        if (isMarketInsight) {
+            // 重要性
+            document.getElementById('dimension-importance').value = dimension.importance || 1;
+
+            // 触发条件
+            const trigger = dimension.trigger_conditions || {};
+            const btSelect = document.getElementById('trigger-business-types');
+            if (btSelect && trigger.business_types) {
+                Array.from(btSelect.options).forEach(opt => {
+                    opt.selected = trigger.business_types.includes(opt.value);
+                });
+            }
+            document.getElementById('trigger-search-stage').value = trigger.search_stage || '';
+
+            // 特殊人群复选框
+            document.getElementById('trigger-has-baby').checked = trigger.has_baby || false;
+            document.getElementById('trigger-has-elderly').checked = trigger.has_elderly || false;
+            document.getElementById('trigger-has-enterprise').checked = trigger.has_enterprise || false;
+            document.getElementById('trigger-is-gift').checked = trigger.is_gift || false;
+            document.getElementById('trigger-is-pets').checked = trigger.is_pets || false;
+
+            // 内容模板
+            document.getElementById('dimension-content-template').value = dimension.content_template || '';
+        }
     } else {
         document.getElementById('dimensionModalLabel').textContent = '新增维度';
         document.getElementById('dimension-id').value = '';
         categorySelect.disabled = false;
+        marketInsightSection.style.display = 'none';
+
         if (prefillCategory) {
             categorySelect.value = prefillCategory;
             categorySelect.disabled = true;
             updateSubCategoryOptions(prefillCategory, prefillSubCategory || '');
+
+            // 如果是市场洞察，显示配置区域
+            if (prefillCategory === 'super_positioning' && prefillSubCategory === 'market_insight') {
+                marketInsightSection.style.display = 'block';
+            }
         } else {
             categorySelect.value = '';
         }
@@ -609,6 +733,30 @@ function openDimensionModal(dimension, prefillCategory, prefillSubCategory) {
 
     modal.show();
 }
+
+// 监听一级分类变化，显示/隐藏市场洞察配置
+document.getElementById('dimension-category').addEventListener('change', function() {
+    const marketInsightSection = document.getElementById('market-insight-section');
+    const subCategorySelect = document.getElementById('dimension-sub-category');
+
+    if (this.value === 'super_positioning' && subCategorySelect.value === 'market_insight') {
+        marketInsightSection.style.display = 'block';
+    } else {
+        marketInsightSection.style.display = 'none';
+    }
+});
+
+// 监听二级分类变化
+document.getElementById('dimension-sub-category').addEventListener('change', function() {
+    const marketInsightSection = document.getElementById('market-insight-section');
+    const categorySelect = document.getElementById('dimension-category');
+
+    if (categorySelect.value === 'super_positioning' && this.value === 'market_insight') {
+        marketInsightSection.style.display = 'block';
+    } else {
+        marketInsightSection.style.display = 'none';
+    }
+});
 
 function updateSubCategoryOptions(category, selectedSubCategory) {
     var select = document.getElementById('dimension-sub-category');
@@ -662,15 +810,42 @@ async function deleteDimension(id) {
 
 async function saveDimension() {
     var id = document.getElementById('dimension-id').value;
+    var category = document.getElementById('dimension-category').value;
+    var subCategory = document.getElementById('dimension-sub-category').value;
+
     var data = {
         name: document.getElementById('dimension-name').value,
-        category: document.getElementById('dimension-category').value,
-        sub_category: document.getElementById('dimension-sub-category').value,
+        category: category,
+        sub_category: subCategory,
         description: document.getElementById('dimension-description').value,
         examples: document.getElementById('dimension-examples').value,
         usage_tips: document.getElementById('dimension-usage-tips').value,
         applicable_audience: document.getElementById('dimension-applicable-audience').value
     };
+
+    // 如果是市场洞察分类，添加市场洞察专用字段
+    if (category === 'super_positioning' && subCategory === 'market_insight') {
+        // 收集触发条件
+        var triggerConditions = {};
+        var businessTypes = Array.from(document.getElementById('trigger-business-types').selectedOptions).map(o => o.value);
+        if (businessTypes.length > 0) {
+            triggerConditions.business_types = businessTypes;
+        }
+        var searchStage = document.getElementById('trigger-search-stage').value;
+        if (searchStage) {
+            triggerConditions.search_stage = searchStage;
+        }
+        if (document.getElementById('trigger-has-baby').checked) triggerConditions.has_baby = true;
+        if (document.getElementById('trigger-has-elderly').checked) triggerConditions.has_elderly = true;
+        if (document.getElementById('trigger-has-enterprise').checked) triggerConditions.has_enterprise = true;
+        if (document.getElementById('trigger-is-gift').checked) triggerConditions.is_gift = true;
+        if (document.getElementById('trigger-is-pets').checked) triggerConditions.is_pets = true;
+
+        data.trigger_conditions = triggerConditions;
+        data.importance = parseInt(document.getElementById('dimension-importance').value) || 1;
+        data.content_template = document.getElementById('dimension-content-template').value;
+    }
+
     if (!data.name || !data.category) {
         alert('请填写必填项');
         return;

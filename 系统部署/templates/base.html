@@ -487,8 +487,8 @@
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><h6 class="dropdown-header">切换客户</h6></li>
-                    {% if current_user.role == 'channel' and current_user.channels.first() %}
-                    {% for client in current_user.channels.first().clients.all() %}
+                    {% if current_user.role in ('super_admin', 'admin') %}
+                    {% for client in current_user.created_clients.limit(10).all() %}
                     <li><a class="dropdown-item" href="{{ url_for('main.client_select', id=client.id) }}"><i class="bi bi-building"></i>{{ client.name }}</a></li>
                     {% endfor %}
                     {% endif %}
@@ -505,22 +505,10 @@
             
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'main.workspace' %}active{% endif %}" href="{{ url_for('main.workspace') }}">
-                            <i class="bi bi-grid-1x2 me-1"></i>工作台
-                        </a>
-                    </li>
                     {% if current_user.role == 'super_admin' %}
                     <li class="nav-item">
                         <a class="nav-link nav-link-admin {% if request.endpoint and 'admin' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.dashboard') }}">
                             <i class="bi bi-gear me-1"></i>管理中心
-                        </a>
-                    </li>
-                    {% endif %}
-                    {% if current_user.is_channel() %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'main.clients' %}active{% endif %}" href="{{ url_for('main.clients') }}">
-                            <i class="bi bi-building me-1"></i>客户管理
                         </a>
                     </li>
                     {% endif %}
@@ -538,8 +526,12 @@
                             <span class="user-role">
                                 {% if current_user.role == 'super_admin' %}
                                 <i class="bi bi-shield-check text-success"></i> 超级管理员
+                                {% elif current_user.role == 'admin' %}
+                                <i class="bi bi-shield text-primary"></i> 管理员
+                                {% elif current_user.role == 'public_user' %}
+                                <i class="bi bi-globe text-info"></i> 公开用户
                                 {% else %}
-                                <i class="bi bi-person-badge text-primary"></i> 渠道商
+                                <i class="bi bi-person text-secondary"></i> 普通用户
                                 {% endif %}
                             </span>
                         </div>
@@ -600,11 +592,11 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">昵称</label>
+                        <label class="form-label" for="profileNickname">昵称</label>
                         <input type="text" class="form-control" id="profileNickname" value="{{ current_user.nickname or '' }}">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">性别</label>
+                        <label class="form-label" for="profileGender">性别</label>
                         <select class="form-select" id="profileGender">
                             <option value="">请选择</option>
                             <option value="male" {% if current_user.gender == 'male' %}selected{% endif %}>男</option>
@@ -636,11 +628,11 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">新密码</label>
+                        <label class="form-label" for="newPassword">新密码</label>
                         <input type="password" class="form-control" id="newPassword" placeholder="请输入新密码">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">确认新密码</label>
+                        <label class="form-label" for="confirmNewPassword">确认新密码</label>
                         <input type="password" class="form-control" id="confirmNewPassword" placeholder="请再次输入新密码">
                     </div>
                 </div>

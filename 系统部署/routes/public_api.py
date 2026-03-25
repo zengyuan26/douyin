@@ -5,6 +5,7 @@
 """
 
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for
+from flask_login import current_user
 from models.public_models import PublicUser, PublicGeneration, PublicPricingPlan
 from models.models import db, AnalysisDimension
 from services.public_auth import auth_service
@@ -18,6 +19,20 @@ from services.rate_limiter import (
 )
 
 public_bp = Blueprint('public', __name__, url_prefix='/public')
+
+
+def get_current_public_user():
+    """统一获取当前登录的 PublicUser，支持两种 session 路径"""
+    # 方式1：从 session['public_user_id'] 获取（PublicUser 直接登录）
+    user_id = session.get('public_user_id')
+    if user_id:
+        user = PublicUser.query.get(user_id)
+        if user:
+            return user
+    # 方式2：从 Flask-Login session['_user_id'] 获取（public_user 角色的 User）
+    if session.get('_user_id') and current_user.is_authenticated and current_user.role == 'public_user':
+        return PublicUser.query.filter_by(email=current_user.email).first()
+    return None
 
 
 # =============================================================================
@@ -40,18 +55,6 @@ def verify_page():
 def pricing():
     """定价页面"""
     return render_template('public/pricing.html')
-
-
-@public_bp.route('/login')
-def login_page():
-    """登录页面"""
-    return render_template('public/login.html')
-
-
-@public_bp.route('/register')
-def register_page():
-    """注册页面"""
-    return render_template('public/register.html')
 
 
 # =============================================================================
@@ -255,10 +258,10 @@ def api_identify_targets():
 @public_bp.route('/api/targets/problems', methods=['POST'])
 def api_identify_problems():
     """
-    阶段1（可选）：挖掘使用方问题和付费方顾虑
+    阶段1：挖掘使用方问题和付费方顾虑
 
-    返回问题列表（使用方问题 + 付费方顾虑），并默认生成第一批人群画像。
-    用户可以点击某个问题，再生成对应的人群画像批次。
+    返回问题列表（使用方问题 + 付费方顾虑）。
+    用户点击某个问题后，再调用 /api/targets/generate-portraits 生成画像。
 
     请求格式：
     {
@@ -271,6 +274,8 @@ def api_identify_problems():
         "customer_story": "...", // 可选
     }
     """
+    from services.public_content_generator import mine_problems as new_mine_problems
+
     params = request.get_json() or {}
 
     # 必填字段检查
@@ -283,7 +288,21 @@ def api_identify_problems():
     if not params.get('business_type'):
         return jsonify({'success': False, 'message': '请选择经营类型'}), 400
 
-    result = content_generator.identify_problems_and_initial_personas(params)
+    # 获取用户是否付费
+    user_id = session.get('public_user_id')
+    is_premium = False
+    if user_id:
+        user = PublicUser.query.get(user_id)
+        if user:
+            is_premium = user.is_premium
+
+    params['_is_premium'] = is_premium
+
+    # 调用新的问题挖掘函数
+    result = new_mine_problems(params)
+
+    # 添加用户标识
+    result['is_premium'] = is_premium
 
     return jsonify(result)
 
@@ -324,6 +343,110 @@ def api_generate_persona_batch():
     result = content_generator.generate_persona_batch_by_problem(params)
 
     return jsonify(result)
+
+
+@public_bp.route('/api/targets/generate-portraits', methods=['POST'])
+def api_generate_portraits():
+    """
+    阶段2：基于指定问题生成人群画像
+
+    请求格式：
+    {
+        "business_description": "...",
+        "problem": {
+            "id": "问题ID",
+            "identity": "客户身份",
+            "problem_type": "问题类型",
+            "display_name": "展示名称",
+            "description": "问题描述",
+            "scenario": "场景"
+        }
+    }
+    """
+    from services.public_content_generator import generate_portraits as new_generate_portraits
+
+    params = request.get_json() or {}
+
+    # 必填字段检查
+    if not params.get('business_description'):
+        return jsonify({'success': False, 'message': '请描述您的业务'}), 400
+
+    if not params.get('problem'):
+        return jsonify({'success': False, 'message': '请选择要生成画像的问题'}), 400
+
+    # 获取用户是否付费
+    user_id = session.get('public_user_id')
+    is_premium = False
+    if user_id:
+        user = PublicUser.query.get(user_id)
+        if user:
+            is_premium = user.is_premium
+
+    params['_is_premium'] = is_premium
+
+    result = new_generate_portraits(params)
+    result['is_premium'] = is_premium
+
+    return jsonify(result)
+
+
+@public_bp.route('/api/targets/generate-all-portraits', methods=['POST'])
+def api_generate_all_portraits():
+    """
+    阶段2（付费专用）：并行生成所有问题的画像
+
+    请求格式：
+    {
+        "business_description": "...",
+        "problems": [
+            {
+                "id": "问题ID",
+                "identity": "客户身份",
+                "problem_type": "问题类型",
+                "display_name": "展示名称",
+                "description": "问题描述",
+                "scenario": "场景"
+            }
+        ]
+    }
+    """
+    from services.public_content_generator import generate_portraits_parallel
+
+    params = request.get_json() or {}
+
+    # 必填字段检查
+    if not params.get('business_description'):
+        return jsonify({'success': False, 'message': '请描述您的业务'}), 400
+
+    if not params.get('problems'):
+        return jsonify({'success': False, 'message': '请选择要生成画像的问题'}), 400
+
+    # 获取用户是否付费
+    user_id = session.get('public_user_id')
+    is_premium = False
+    if user_id:
+        user = PublicUser.query.get(user_id)
+        if user:
+            is_premium = user.is_premium
+
+    # 只有付费用户才能使用并行生成
+    if not is_premium:
+        return jsonify({
+            'success': False,
+            'message': '此功能仅对付费用户开放，请升级到高级版'
+        }), 403
+
+    problems = params.get('problems', [])
+    business_desc = params.get('business_description', '')
+
+    # 并行生成
+    results = generate_portraits_parallel(problems, business_desc, is_premium=True)
+
+    return jsonify({
+        'success': True,
+        'is_premium': True,
+        'results': results
+    })
 
 
 # =============================================================================
@@ -376,6 +499,15 @@ def api_mine_and_generate():
 
     if not params.get('business_type'):
         return jsonify({'success': False, 'message': '请选择经营类型'}), 400
+
+    # 检查用户是否付费，决定使用哪种模型
+    user_id = session.get('public_user_id')
+    is_premium = False
+    if user_id:
+        user = PublicUser.query.get(user_id)
+        if user and user.is_paid_user():
+            is_premium = True
+    params['_is_premium'] = is_premium
 
     # 调用组合服务（带重试机制）
     from services.public_content_generator import mine_problems_and_generate_personas
@@ -539,13 +671,9 @@ def api_get_dimensions():
 @public_bp.route('/api/quota')
 def api_get_quota():
     """获取用户配额信息"""
-    user_id = session.get('public_user_id')
-    if not user_id:
-        return jsonify({'success': False, 'message': '请先登录'}), 401
-
-    user = PublicUser.query.get(user_id)
+    user = get_current_public_user()
     if not user:
-        return jsonify({'success': False, 'message': '用户不存在'}), 404
+        return jsonify({'success': False, 'message': '请先登录'}), 401
 
     quota_info = quota_manager.get_user_quota_info(user)
     feature_access = quota_manager.get_feature_access(user)
@@ -567,16 +695,12 @@ def api_get_quota():
 @public_bp.route('/api/generate', methods=['POST'])
 def api_generate():
     """生成内容"""
-    user_id = session.get('public_user_id')
-    if not user_id:
+    user = get_current_public_user()
+    if not user:
         return jsonify({'success': False, 'message': '请先登录'}), 401
 
-    user = PublicUser.query.get(user_id)
-    if not user:
-        return jsonify({'success': False, 'message': '用户不存在'}), 401
-
     # 检查用户生成频率限制
-    is_allowed, rate_info = check_user_generate(user_id)
+    is_allowed, rate_info = check_user_generate(user.id)
     if not is_allowed:
         return rate_limit_response(rate_info, '内容生成过于频繁，请稍后重试')
 
@@ -663,13 +787,9 @@ def infer_industry_from_description(description: str) -> str:
 @public_bp.route('/api/history')
 def api_get_history():
     """获取生成历史"""
-    user_id = session.get('public_user_id')
-    if not user_id:
-        return jsonify({'success': False, 'message': '请先登录'}), 401
-
-    user = PublicUser.query.get(user_id)
+    user = get_current_public_user()
     if not user:
-        return jsonify({'success': False, 'message': '用户不存在'}), 401
+        return jsonify({'success': False, 'message': '请先登录'}), 401
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
@@ -681,12 +801,12 @@ def api_get_history():
 @public_bp.route('/api/history/<int:generation_id>')
 def api_get_generation_detail(generation_id):
     """获取生成详情"""
-    user_id = session.get('public_user_id')
-    if not user_id:
+    user = get_current_public_user()
+    if not user:
         return jsonify({'success': False, 'message': '请先登录'}), 401
 
     generation = PublicGeneration.query.filter_by(
-        id=generation_id, user_id=user_id
+        id=generation_id, user_id=user.id
     ).first()
 
     if not generation:
@@ -711,11 +831,8 @@ def api_get_generation_detail(generation_id):
 # =============================================================================
 
 def get_current_user():
-    """获取当前登录用户"""
-    user_id = session.get('public_user_id')
-    if not user_id:
-        return None
-    return PublicUser.query.get(user_id)
+    """获取当前登录用户（兼容旧代码）"""
+    return get_current_public_user()
 
 
 def login_required(f):
@@ -723,7 +840,7 @@ def login_required(f):
     from functools import wraps
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not get_current_user():
+        if not get_current_public_user():
             return jsonify({'success': False, 'message': '请先登录'}), 401
         return f(*args, **kwargs)
     return decorated_function

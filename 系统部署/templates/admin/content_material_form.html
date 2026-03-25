@@ -37,8 +37,8 @@
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">标题类型</label>
-                                <select class="form-select" name="title_type">
+                                <label class="form-label" for="titleTypeSelect">标题类型</label>
+                                <select class="form-select" name="title_type" id="titleTypeSelect">
                                     <option value="">请选择</option>
                                     {% for opt in config.type_options %}
                                     <option value="{{ opt }}" {% if item and item.title_type == opt %}selected{% endif %}>{{ opt }}</option>
@@ -46,7 +46,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -56,20 +56,20 @@
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">关键词</label>
-                            <input type="text" class="form-control" name="keywords" value="{{ item.keywords|join(',') if item and item.keywords else '' }}" placeholder="多个关键词用逗号分隔">
+                            <label class="form-label" for="titleKeywords">关键词</label>
+                            <input type="text" class="form-control" name="keywords" id="titleKeywords" value="{{ item.keywords|join(',') if item and item.keywords else '' }}" placeholder="多个关键词用逗号分隔">
                         </div>
 
                         <!-- 钩子库 -->
                         {% elif material_type == 'hook' %}
                         <div class="mb-3">
-                            <label class="form-label">钩子内容 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" name="hook_content" rows="3" required placeholder="请输入钩子内容">{{ item.hook_content if item else '' }}</textarea>
+                            <label class="form-label" for="hookContent">钩子内容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="hook_content" id="hookContent" rows="3" required placeholder="请输入钩子内容">{{ item.hook_content if item else '' }}</textarea>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">钩子类型</label>
-                                <select class="form-select" name="hook_type">
+                                <label class="form-label" for="hookTypeSelect">钩子类型</label>
+                                <select class="form-select" name="hook_type" id="hookTypeSelect">
                                     <option value="">请选择</option>
                                     {% for opt in config.type_options %}
                                     <option value="{{ opt }}" {% if item and item.hook_type == opt %}selected{% endif %}>{{ opt }}</option>
@@ -77,7 +77,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -89,29 +89,29 @@
                         <div class="mb-3">
                             <label class="form-label">适用内容类型</label>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="applicable_content_types" value="video" {% if item and item.applicable_content_types and 'video' in item.applicable_content_types %}checked{% endif %}>
-                                <label class="form-check-label">视频</label>
+                                <input class="form-check-input" type="checkbox" name="applicable_content_types" id="applicableVideo" value="video" {% if item and item.applicable_content_types and 'video' in item.applicable_content_types %}checked{% endif %}>
+                                <label class="form-check-label" for="applicableVideo">视频</label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="applicable_content_types" value="image_text" {% if item and item.applicable_content_types and 'image_text' in item.applicable_content_types %}checked{% endif %}>
-                                <label class="form-check-label">图文</label>
+                                <input class="form-check-input" type="checkbox" name="applicable_content_types" id="applicableImageText" value="image_text" {% if item and item.applicable_content_types and 'image_text' in item.applicable_content_types %}checked{% endif %}>
+                                <label class="form-check-label" for="applicableImageText">图文</label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="applicable_content_types" value="long_text" {% if item and item.applicable_content_types and 'long_text' in item.applicable_content_types %}checked{% endif %}>
-                                <label class="form-check-label">长文字</label>
+                                <input class="form-check-input" type="checkbox" name="applicable_content_types" id="applicableLongText" value="long_text" {% if item and item.applicable_content_types and 'long_text' in item.applicable_content_types %}checked{% endif %}>
+                                <label class="form-check-label" for="applicableLongText">长文字</label>
                             </div>
                         </div>
 
                         <!-- 结构库 -->
                         {% elif material_type == 'structure' %}
                         <div class="mb-3">
-                            <label class="form-label">结构名称 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="structure_name" value="{{ item.structure_name if item else '' }}" required placeholder="请输入结构名称">
+                            <label class="form-label" for="structureName">结构名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="structure_name" id="structureName" value="{{ item.structure_name if item else '' }}" required placeholder="请输入结构名称">
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">内容类型</label>
-                                <select class="form-select" name="content_type">
+                                <label class="form-label" for="structureContentType">内容类型</label>
+                                <select class="form-select" name="content_type" id="structureContentType">
                                     <option value="">请选择</option>
                                     {% for opt in config.type_options %}
                                     <option value="{{ opt }}" {% if item and item.content_type == opt %}selected{% endif %}>{{ opt }}</option>
@@ -119,7 +119,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -129,28 +129,28 @@
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">结构步骤（每行一步）</label>
-                            <textarea class="form-control" name="structure_steps" rows="4" placeholder="请输入结构步骤，每行一步">{{ item.structure_steps|join('\n') if item and item.structure_steps else '' }}</textarea>
+                            <label class="form-label" for="structureSteps">结构步骤（每行一步）</label>
+                            <textarea class="form-control" name="structure_steps" id="structureSteps" rows="4" placeholder="请输入结构步骤，每行一步">{{ item.structure_steps|join('\n') if item and item.structure_steps else '' }}</textarea>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">描述</label>
-                            <textarea class="form-control" name="description" rows="2" placeholder="请输入描述">{{ item.description if item else '' }}</textarea>
+                            <label class="form-label" for="structureDesc">描述</label>
+                            <textarea class="form-control" name="description" id="structureDesc" rows="2" placeholder="请输入描述">{{ item.description if item else '' }}</textarea>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">适用场景</label>
-                            <input type="text" class="form-control" name="applicable_scenarios" value="{{ item.applicable_scenarios|join(',') if item and item.applicable_scenarios else '' }}" placeholder="多个场景用逗号分隔">
+                            <label class="form-label" for="applicableScenarios">适用场景</label>
+                            <input type="text" class="form-control" name="applicable_scenarios" id="applicableScenarios" value="{{ item.applicable_scenarios|join(',') if item and item.applicable_scenarios else '' }}" placeholder="多个场景用逗号分隔">
                         </div>
 
                         <!-- 结尾库 -->
                         {% elif material_type == 'ending' %}
                         <div class="mb-3">
-                            <label class="form-label">结尾内容 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" name="ending_content" rows="3" required placeholder="请输入结尾内容">{{ item.ending_content if item else '' }}</textarea>
+                            <label class="form-label" for="endingContent">结尾内容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="ending_content" id="endingContent" rows="3" required placeholder="请输入结尾内容">{{ item.ending_content if item else '' }}</textarea>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">结尾类型</label>
-                                <select class="form-select" name="ending_type">
+                                <label class="form-label" for="endingTypeSelect">结尾类型</label>
+                                <select class="form-select" name="ending_type" id="endingTypeSelect">
                                     <option value="">请选择</option>
                                     {% for opt in config.type_options %}
                                     <option value="{{ opt }}" {% if item and item.ending_type == opt %}selected{% endif %}>{{ opt }}</option>
@@ -158,7 +158,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -170,29 +170,29 @@
                         <div class="mb-3">
                             <label class="form-label">适用内容类型</label>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="applicable_content_types" value="video" {% if item and item.applicable_content_types and 'video' in item.applicable_content_types %}checked{% endif %}>
-                                <label class="form-check-label">视频</label>
+                                <input class="form-check-input" type="checkbox" name="applicable_content_types" id="endingApplicableVideo" value="video" {% if item and item.applicable_content_types and 'video' in item.applicable_content_types %}checked{% endif %}>
+                                <label class="form-check-label" for="endingApplicableVideo">视频</label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="applicable_content_types" value="image_text" {% if item and item.applicable_content_types and 'image_text' in item.applicable_content_types %}checked{% endif %}>
-                                <label class="form-check-label">图文</label>
+                                <input class="form-check-input" type="checkbox" name="applicable_content_types" id="endingApplicableImageText" value="image_text" {% if item and item.applicable_content_types and 'image_text' in item.applicable_content_types %}checked{% endif %}>
+                                <label class="form-check-label" for="endingApplicableImageText">图文</label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="applicable_content_types" value="long_text" {% if item and item.applicable_content_types and 'long_text' in item.applicable_content_types %}checked{% endif %}>
-                                <label class="form-check-label">长文字</label>
+                                <input class="form-check-input" type="checkbox" name="applicable_content_types" id="endingApplicableLongText" value="long_text" {% if item and item.applicable_content_types and 'long_text' in item.applicable_content_types %}checked{% endif %}>
+                                <label class="form-check-label" for="endingApplicableLongText">长文字</label>
                             </div>
                         </div>
 
                         <!-- 封面库 -->
                         {% elif material_type == 'cover' %}
                         <div class="mb-3">
-                            <label class="form-label">封面内容描述 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" name="cover_content" rows="3" required placeholder="请输入封面内容描述">{{ item.cover_content if item else '' }}</textarea>
+                            <label class="form-label" for="coverContent">封面内容描述 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="cover_content" id="coverContent" rows="3" required placeholder="请输入封面内容描述">{{ item.cover_content if item else '' }}</textarea>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">封面类型</label>
-                                <select class="form-select" name="cover_type">
+                                <label class="form-label" for="coverTypeSelect">封面类型</label>
+                                <select class="form-select" name="cover_type" id="coverTypeSelect">
                                     <option value="">请选择</option>
                                     {% for opt in config.type_options %}
                                     <option value="{{ opt }}" {% if item and item.cover_type == opt %}selected{% endif %}>{{ opt }}</option>
@@ -200,7 +200,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -213,13 +213,13 @@
                         <!-- 选题库 -->
                         {% elif material_type == 'topic' %}
                         <div class="mb-3">
-                            <label class="form-label">选题内容 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" name="topic_content" rows="3" required placeholder="请输入选题内容">{{ item.topic_content if item else '' }}</textarea>
+                            <label class="form-label" for="topicContent">选题内容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="topic_content" id="topicContent" rows="3" required placeholder="请输入选题内容">{{ item.topic_content if item else '' }}</textarea>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">选题类型</label>
-                                <select class="form-select" name="topic_type">
+                                <label class="form-label" for="topicTypeSelect">选题类型</label>
+                                <select class="form-select" name="topic_type" id="topicTypeSelect">
                                     <option value="">请选择</option>
                                     {% for opt in config.type_options %}
                                     <option value="{{ opt }}" {% if item and item.topic_type == opt %}selected{% endif %}>{{ opt }}</option>
@@ -227,7 +227,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -244,13 +244,13 @@
                         <!-- 心理库 -->
                         {% elif material_type == 'psychology' %}
                         <div class="mb-3">
-                            <label class="form-label">心理引导内容 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" name="psychology_content" rows="3" required placeholder="请输入心理引导内容">{{ item.psychology_content if item else '' }}</textarea>
+                            <label class="form-label" for="psychologyContent">心理引导内容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="psychology_content" id="psychologyContent" rows="3" required placeholder="请输入心理引导内容">{{ item.psychology_content if item else '' }}</textarea>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">心理类型</label>
-                                <select class="form-select" name="psychology_type">
+                                <label class="form-label" for="psychologyTypeSelect">心理类型</label>
+                                <select class="form-select" name="psychology_type" id="psychologyTypeSelect">
                                     <option value="">请选择</option>
                                     {% for opt in config.type_options %}
                                     <option value="{{ opt }}" {% if item and item.psychology_type == opt %}selected{% endif %}>{{ opt }}</option>
@@ -258,7 +258,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -271,13 +271,13 @@
                         <!-- 商业库 -->
                         {% elif material_type == 'commercial' %}
                         <div class="mb-3">
-                            <label class="form-label">商业内容 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" name="commercial_content" rows="3" required placeholder="请输入商业内容">{{ item.commercial_content if item else '' }}</textarea>
+                            <label class="form-label" for="commercialContent">商业内容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="commercial_content" id="commercialContent" rows="3" required placeholder="请输入商业内容">{{ item.commercial_content if item else '' }}</textarea>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">商业类型</label>
-                                <select class="form-select" name="commercial_type">
+                                <label class="form-label" for="commercialTypeSelect">商业类型</label>
+                                <select class="form-select" name="commercial_type" id="commercialTypeSelect">
                                     <option value="">请选择</option>
                                     {% for opt in config.type_options %}
                                     <option value="{{ opt }}" {% if item and item.commercial_type == opt %}selected{% endif %}>{{ opt }}</option>
@@ -285,7 +285,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -298,13 +298,13 @@
                         <!-- 爆款库 -->
                         {% elif material_type == 'why_popular' %}
                         <div class="mb-3">
-                            <label class="form-label">爆款原因内容 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" name="reason_content" rows="3" required placeholder="请输入爆款原因内容">{{ item.reason_content if item else '' }}</textarea>
+                            <label class="form-label" for="reasonContent">爆款原因内容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="reason_content" id="reasonContent" rows="3" required placeholder="请输入爆款原因内容">{{ item.reason_content if item else '' }}</textarea>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">原因类型</label>
-                                <select class="form-select" name="reason_type">
+                                <label class="form-label" for="reasonTypeSelect">原因类型</label>
+                                <select class="form-select" name="reason_type" id="reasonTypeSelect">
                                     <option value="">请选择</option>
                                     {% for opt in config.type_options %}
                                     <option value="{{ opt }}" {% if item and item.reason_type == opt %}selected{% endif %}>{{ opt }}</option>
@@ -312,7 +312,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -325,13 +325,13 @@
                         <!-- 标签库 -->
                         {% elif material_type == 'tags' %}
                         <div class="mb-3">
-                            <label class="form-label">标签内容 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" name="tag_content" rows="3" required placeholder="请输入标签内容">{{ item.tag_content if item else '' }}</textarea>
+                            <label class="form-label" for="tagContent">标签内容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" name="tag_content" id="tagContent" rows="3" required placeholder="请输入标签内容">{{ item.tag_content if item else '' }}</textarea>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">标签类型</label>
-                                <select class="form-select" name="tag_type">
+                                <label class="form-label" for="tagTypeSelect">标签类型</label>
+                                <select class="form-select" name="tag_type" id="tagTypeSelect">
                                     <option value="">请选择</option>
                                     {% for opt in config.type_options %}
                                     <option value="{{ opt }}" {% if item and item.tag_type == opt %}selected{% endif %}>{{ opt }}</option>
@@ -339,7 +339,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -366,7 +366,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -393,7 +393,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}
@@ -420,7 +420,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">行业</label>
+                                <label class="form-label" for="titleIndustrySelect">行业</label>
                                 <select class="form-select" name="industry">
                                     <option value="">请选择</option>
                                     {% for ind in industry_options %}

@@ -17,7 +17,7 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(20))  # 手机号
     password_hash = db.Column(db.String(256), nullable=False)
     id_card = db.Column(db.String(20))  # 身份证号（用于忘记密码验证）
-    role = db.Column(db.String(20), default='user')  # super_admin, channel, user
+    role = db.Column(db.String(20), default='user')  # super_admin, admin, public_user, user
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
@@ -31,9 +31,6 @@ class User(UserMixin, db.Model):
     
     def is_super_admin(self):
         return self.role == 'super_admin'
-    
-    def is_channel(self):
-        return self.role == 'channel'
 
 
 class Industry(db.Model):
@@ -1234,6 +1231,21 @@ class AnalysisDimension(db.Model):
     examples = db.Column(db.Text)  # 示例（多个用 | 分隔，如：关注送一罐|私信咨询|到店试吃）
     usage_tips = db.Column(db.Text)  # 识别技巧/注意事项（如：行动号召是让用户做什么，联系方式是留电话/微信/地址）
     applicable_audience = db.Column(db.Text)  # 适用人群（如：创业者、企业家、B2B销售，用 | 分隔）
+
+    # ========== 市场洞察专用字段 ==========
+    # 触发条件 - JSON格式，配置何时启用此维度
+    trigger_conditions = db.Column(db.JSON, default=dict)  # {
+    #     "business_types": ["service", "product"],  # 业务类型触发
+    #     "has_elderly": true,       # 涉及老人
+    #     "has_baby": true,          # 涉及宝宝
+    #     "has_enterprise": true,    # 有企业客户
+    #     "is_gift": true,           # 礼品场景
+    #     "search_stage": "all"      # 搜前/搜中/搜后/全部
+    # }
+    # 内容模板 - 用于渲染后发给LLM的内容
+    content_template = db.Column(db.Text)  # 【维度名称】\n内容...
+    # 重要性 - 数字越大越重要，用于排序
+    importance = db.Column(db.Integer, default=1)  # 1-5星
 
     # 状态
     is_active = db.Column(db.Boolean, default=True)

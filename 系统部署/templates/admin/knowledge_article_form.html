@@ -19,19 +19,19 @@
                             </div>
                             
                             <div class="col-md-8">
-                                <label class="form-label">标题 <span class="text-danger">*</span></label>
-                                <input type="text" name="title" class="form-control" value="{{ article.title if article else '' }}" required>
+                                <label class="form-label" for="articleTitle">标题 <span class="text-danger">*</span></label>
+                                <input type="text" name="title" id="articleTitle" class="form-control" value="{{ article.title if article else '' }}" required>
                             </div>
                             
                             <div class="col-md-4">
-                                <label class="form-label">Slug</label>
-                                <input type="text" name="slug" class="form-control" value="{{ article.slug if article else '' }}" placeholder="auto-generate-if-empty">
+                                <label class="form-label" for="articleSlug">Slug</label>
+                                <input type="text" name="slug" id="articleSlug" class="form-control" value="{{ article.slug if article else '' }}" placeholder="auto-generate-if-empty">
                                 <small class="text-muted">用于URL的唯一标识，留空则自动生成</small>
                             </div>
                             
                             <div class="col-md-6">
-                                <label class="form-label">分类 <span class="text-danger">*</span></label>
-                                <select name="category_id" class="form-select" required>
+                                <label class="form-label" for="articleCategory">分类 <span class="text-danger">*</span></label>
+                                <select name="category_id" id="articleCategory" class="form-select" required>
                                     <option value="">请选择分类</option>
                                     {% for category in categories %}
                                     <option value="{{ category.id }}" {% if article and article.category_id == category.id %}selected{% endif %}>
@@ -42,8 +42,8 @@
                             </div>
                             
                             <div class="col-md-3">
-                                <label class="form-label">内容类型</label>
-                                <select name="content_type" class="form-select">
+                                <label class="form-label" for="articleContentType">内容类型</label>
+                                <select name="content_type" id="articleContentType" class="form-select">
                                     <option value="pure_text" {% if article and article.content_type == 'pure_text' %}selected{% endif %}>纯文字</option>
                                     <option value="graphic" {% if article and article.content_type == 'graphic' %}selected{% endif %}>图文</option>
                                     <option value="video" {% if article and article.content_type == 'video' %}selected{% endif %}>短视频</option>
@@ -70,18 +70,18 @@
                             </div>
                             
                             <div class="col-md-4">
-                                <label class="form-label">作者</label>
-                                <input type="text" name="author" class="form-control" value="{{ article.author if article else '' }}">
+                                <label class="form-label" for="articleAuthor">作者</label>
+                                <input type="text" name="author" id="articleAuthor" class="form-control" value="{{ article.author if article else '' }}">
                             </div>
                             
                             <div class="col-md-4">
-                                <label class="form-label">来源</label>
-                                <input type="text" name="source" class="form-control" value="{{ article.source if article else '' }}" placeholder="原创/转载/采集">
+                                <label class="form-label" for="articleSource">来源</label>
+                                <input type="text" name="source" id="articleSource" class="form-control" value="{{ article.source if article else '' }}" placeholder="原创/转载/采集">
                             </div>
                             
                             <div class="col-md-4">
-                                <label class="form-label">标签</label>
-                                <input type="text" name="tags" class="form-control" value="{{ article.tags|join(',') if article and article.tags else '' }}" placeholder="用逗号分隔，如：干货,教程">
+                                <label class="form-label" for="articleTags">标签</label>
+                                <input type="text" name="tags" id="articleTags" class="form-control" value="{{ article.tags|join(',') if article and article.tags else '' }}" placeholder="用逗号分隔，如：干货,教程">
                                 <small class="text-muted">多个标签用逗号分隔</small>
                             </div>
                             
@@ -91,7 +91,7 @@
                             </div>
                             
                             <div class="col-12">
-                                <label class="form-label">内容</label>
+                                <label class="form-label" for="contentEditor">内容</label>
                                 <textarea name="content" class="form-control" rows="20" id="contentEditor">{{ article.content if article else '' }}</textarea>
                                 <small class="text-muted">支持 Markdown 语法</small>
                             </div>

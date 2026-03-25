@@ -68,8 +68,8 @@
 
                             {% if scenario_type == 'pain' %}
                             <div class="col-md-6 mb-2">
-                                <label class="form-label">严重程度</label>
-                                <select class="form-select" name="severity">
+                                <label class="form-label" for="severitySelect">严重程度</label>
+                                <select class="form-select" name="severity" id="severitySelect">
                                     <option value="">请选择</option>
                                     <option value="高" {% if item and item.severity == '高' %}selected{% endif %}>高</option>
                                     <option value="中" {% if item and item.severity == '中' %}selected{% endif %}>中</option>
@@ -80,15 +80,15 @@
                         </div>
 
                         <div class="mb-2">
-                            <label class="form-label">描述</label>
-                            <textarea class="form-control"
+                            <label class="form-label" for="scenarioDesc">描述</label>
+                            <textarea class="form-control" id="scenarioDesc"
                                       name="{% if scenario_type in ['usage', 'demand'] %}scenario_description{% else %}description{% endif %}"
                                       rows="3">{{ item.scenario_description if item and scenario_type in ['usage', 'demand'] else item.description if item else '' }}</textarea>
                         </div>
 
                         <div class="mb-2">
-                            <label class="form-label">关键词（每行一个）</label>
-                            <textarea class="form-control" name="keywords" rows="2"
+                            <label class="form-label" for="keywordsInput">关键词（每行一个）</label>
+                            <textarea class="form-control" name="keywords" id="keywordsInput" rows="2"
                                       placeholder="请输入关键词，每行一个">{{ item.keywords|join('\n') if item and item.keywords else '' }}</textarea>
                         </div>
 

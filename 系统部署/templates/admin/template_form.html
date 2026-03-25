@@ -135,16 +135,16 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">当前内容</label>
+                        <label class="form-label" for="editCurrentContent">当前内容</label>
                         <textarea class="form-control font-monospace small" id="editCurrentContent" rows="4" readonly></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">用自然语言描述你希望改成什么样</label>
+                        <label class="form-label" for="editNlInput">用自然语言描述你希望改成什么样</label>
                         <textarea class="form-control" id="editNlInput" rows="2" placeholder="例如：增加一段关于竞品分析的说明，使用变量 {{ '{{ industry }}' }}"></textarea>
                         <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="editParseBtn">解析为系统语言</button>
                     </div>
                     <div class="mb-2" id="editParsedWrap" style="display:none;">
-                        <label class="form-label">解析结果（可微调后确认）</label>
+                        <label class="form-label" for="editParsedContent">解析结果（可微调后确认）</label>
                         <textarea class="form-control font-monospace small" id="editParsedContent" rows="6"></textarea>
                         <button type="button" class="btn btn-primary btn-sm mt-2" id="editConfirmBtn">确认更新本条</button>
                     </div>
@@ -163,12 +163,12 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">用自然语言描述要添加的内容</label>
+                        <label class="form-label" for="addNlInput">用自然语言描述要添加的内容</label>
                         <textarea class="form-control" id="addNlInput" rows="3" placeholder="例如：在报告末尾增加“风险与建议”一节，包含行业风险、{{ '{{ customer_name }}' }} 的应对建议"></textarea>
                         <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addParseBtn">解析为系统语言</button>
                     </div>
                     <div class="mb-2" id="addParsedWrap" style="display:none;">
-                        <label class="form-label">解析结果（可微调后确认）</label>
+                        <label class="form-label" for="addParsedContent">解析结果（可微调后确认）</label>
                         <textarea class="form-control font-monospace small" id="addParsedContent" rows="6"></textarea>
                         <button type="button" class="btn btn-primary btn-sm mt-2" id="addConfirmBtn">确认添加</button>
                     </div>

@@ -26,10 +26,10 @@ WORKBENCH_DB_SLUGS = list(set(SKILL_SLUG_TO_DB_SLUG.values()))
 
 
 def super_admin_required(f):
-    """超级管理员权限装饰器"""
+    """超级管理员/管理员权限装饰器"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != 'super_admin':
+        if not current_user.is_authenticated or current_user.role not in ('super_admin', 'admin'):
             # 对 Ajax / API 请求返回 JSON，避免前端 fetch 被 302 + HTML 吃掉
             wants_json = (
                 request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -37,9 +37,9 @@ def super_admin_required(f):
                 or 'application/json' in (request.headers.get('Accept') or '')
             )
             if wants_json:
-                return jsonify({'code': 403, 'message': '需要超级管理员权限', 'success': False}), 403
+                return jsonify({'code': 403, 'message': '需要管理员权限', 'success': False}), 403
 
-            flash('需要超级管理员权限', 'danger')
+            flash('需要管理员权限', 'danger')
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -54,7 +54,6 @@ def dashboard():
     user_count = User.query.count()
     expert_count = Expert.query.count()
     client_count = Client.query.count()
-    channel_count = Channel.query.count()
     industry_count = Industry.query.count()
     article_count = KnowledgeArticle.query.count()
     
@@ -66,7 +65,6 @@ def dashboard():
                          user_count=user_count,
                          expert_count=expert_count,
                          client_count=client_count,
-                         channel_count=channel_count,
                          industry_count=industry_count,
                          article_count=article_count,
                          recent_clients=recent_clients)
@@ -608,203 +606,6 @@ def industry_delete(id):
     return redirect(url_for('admin.industries'))
 
 
-# ==================== 渠道管理 ====================
-
-@admin.route('/channels')
-@login_required
-@super_admin_required
-def channels():
-    """渠道列表"""
-    channels_list = Channel.query.order_by(Channel.created_at.desc()).all()
-    return render_template('admin/channels.html', channels=channels_list)
-
-
-@admin.route('/channels/add', methods=['GET', 'POST'])
-@login_required
-@super_admin_required
-def channel_add():
-    """添加渠道"""
-    if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        channel_name = request.form.get('channel_name')
-        company = request.form.get('company')
-        contact = request.form.get('contact')
-        description = request.form.get('description')
-        
-        # 检查用户名和邮箱
-        if User.query.filter_by(username=username).first():
-            flash('用户名已存在', 'danger')
-            return redirect(url_for('admin.channel_add'))
-        
-        if User.query.filter_by(email=email).first():
-            flash('邮箱已被注册', 'danger')
-            return redirect(url_for('admin.channel_add'))
-        
-        from flask_bcrypt import Bcrypt
-        bcrypt = Bcrypt()
-        
-        # 创建渠道用户
-        user = User(
-            username=username,
-            email=email,
-            password_hash=bcrypt.generate_password_hash(password).decode('utf-8'),
-            role='channel',
-            is_active=True
-        )
-        db.session.add(user)
-        db.session.flush()
-        
-        # 创建渠道
-        channel = Channel(
-            user_id=user.id,
-            name=channel_name,
-            company=company,
-            contact=contact,
-            description=description
-        )
-        db.session.add(channel)
-        db.session.flush()
-        
-        # 默认只分配总控专家
-        master_expert = Expert.query.filter_by(slug='master').first()
-        if master_expert:
-            channel.experts.append(master_expert)
-        
-        db.session.commit()
-        
-        flash('渠道添加成功', 'success')
-        return redirect(url_for('admin.channels'))
-    
-    return render_template('admin/channel_form.html', channel=None)
-
-
-@admin.route('/channels/<int:id>/edit', methods=['GET', 'POST'])
-@login_required
-@super_admin_required
-def channel_edit(id):
-    """编辑渠道"""
-    channel = Channel.query.get_or_404(id)
-    user = channel.owner
-    
-    if request.method == 'POST':
-        channel.name = request.form.get('channel_name')
-        channel.company = request.form.get('company')
-        channel.contact = request.form.get('contact')
-        channel.description = request.form.get('description')
-        channel.is_active = request.form.get('is_active') == 'on'
-        
-        # 如果提供了新密码，则更新密码
-        new_password = request.form.get('password')
-        if new_password:
-            from flask_bcrypt import Bcrypt
-            bcrypt = Bcrypt()
-            user.password_hash = bcrypt.generate_password_hash(new_password).decode('utf-8')
-        
-        db.session.commit()
-        flash('渠道更新成功', 'success')
-        return redirect(url_for('admin.channels'))
-    
-    return render_template('admin/channel_form.html', channel=channel)
-
-
-@admin.route('/channels/<int:id>/delete', methods=['POST'])
-@login_required
-@super_admin_required
-def channel_delete(id):
-    """删除渠道"""
-    channel = Channel.query.get_or_404(id)
-    
-    # 删除渠道下的所有客户
-    for client in channel.clients.all():
-        db.session.delete(client)
-    
-    # 删除用户
-    user = channel.owner
-    db.session.delete(channel)
-    db.session.delete(user)
-    db.session.commit()
-    
-    flash('渠道删除成功', 'success')
-    return redirect(url_for('admin.channels'))
-
-
-@admin.route('/channels/<int:id>/toggle')
-@login_required
-@super_admin_required
-def toggle_channel(id):
-    """切换渠道状态"""
-    channel = Channel.query.get_or_404(id)
-    channel.is_active = not channel.is_active
-    # 同时切换用户账号状态
-    if channel.user:
-        channel.user.is_active = channel.is_active
-    db.session.commit()
-    flash(f'渠道已{"启用" if channel.is_active else "禁用"}', 'success')
-    return redirect(url_for('admin.channels'))
-
-
-@admin.route('/channels/<int:id>/approve', methods=['POST'])
-@login_required
-@super_admin_required
-def approve_channel(id):
-    """审核通过渠道"""
-    channel = Channel.query.get_or_404(id)
-    channel.is_active = True
-    # 同时激活关联的用户账号
-    if channel.user:
-        channel.user.is_active = True
-    db.session.commit()
-    flash(f'渠道 "{channel.name}" 已通过审核', 'success')
-    return redirect(url_for('admin.channels'))
-
-
-@admin.route('/users/<int:id>/activate', methods=['POST'])
-@login_required
-@super_admin_required
-def activate_user(id):
-    """手动激活用户"""
-    user = User.query.get_or_404(id)
-    user.is_active = True
-    db.session.commit()
-    flash(f'用户 "{user.username}" 已激活', 'success')
-    return redirect(request.referrer or url_for('admin.dashboard'))
-
-
-@admin.route('/channels/<int:id>/reject', methods=['POST'])
-@login_required
-@super_admin_required
-def reject_channel(id):
-    """拒绝渠道申请"""
-    channel = Channel.query.get_or_404(id)
-    channel.is_active = False
-    # 同时停用关联的用户账号
-    if channel.user:
-        channel.user.is_active = False
-    db.session.commit()
-    flash(f'渠道 "{channel.name}" 已拒绝', 'warning')
-    return redirect(url_for('admin.channels'))
-
-
-@admin.route('/channels/<int:id>/reset-password', methods=['POST'])
-@login_required
-@super_admin_required
-def channel_reset_password(id):
-    """重置渠道账号密码"""
-    channel = Channel.query.get_or_404(id)
-    user = channel.owner
-    
-    # 重置密码为默认密码
-    from flask_bcrypt import Bcrypt
-    bcrypt = Bcrypt()
-    user.password_hash = bcrypt.generate_password_hash('aaa111').decode('utf-8')
-    db.session.commit()
-    
-    flash(f'密码已重置为: aaa111', 'success')
-    return redirect(url_for('admin.channels'))
-
-
 # ==================== 公开平台管理 ====================
 
 @admin.route('/public/users')
@@ -1047,7 +848,6 @@ def clients():
     per_page = 10
     pagination = Client.query.order_by(Client.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     clients_list = pagination.items
-    channels = Channel.query.all()
     industries = Industry.query.all()
 
     # 为每个客户添加录入者信息
@@ -1055,14 +855,13 @@ def clients():
         if client.creator:
             if client.creator.role == 'super_admin':
                 client.creator_name = '管理员'
-            elif client.channel:
-                client.creator_name = client.channel.name
             else:
                 client.creator_name = client.creator.username
         else:
             client.creator_name = '管理员'
 
-    return render_template('admin/clients.html', clients=clients_list, channels=channels, industries=industries, pagination=pagination)
+    channels = Channel.query.all()
+    return render_template('admin/clients.html', clients=clients_list, industries=industries, channels=channels, pagination=pagination)
 
 
 @admin.route('/clients/<int:id>/edit', methods=['GET', 'POST'])
@@ -1071,7 +870,6 @@ def clients():
 def client_edit(id):
     """编辑客户"""
     client = Client.query.get_or_404(id)
-    channels = Channel.query.all()
     industries = Industry.query.all()
     
     if request.method == 'POST':
@@ -1086,7 +884,7 @@ def client_edit(id):
         flash('客户更新成功', 'success')
         return redirect(url_for('admin.clients'))
     
-    return render_template('admin/client_form.html', client=client, channels=channels, industries=industries)
+    return render_template('admin/client_form.html', client=client, industries=industries)
 
 
 @admin.route('/clients/<int:id>/delete', methods=['POST'])
@@ -1145,29 +943,18 @@ def client_delete(id):
 @super_admin_required
 def client_add():
     """管理员添加客户"""
-    channels = Channel.query.all()
     industries = Industry.query.all()
     
     if request.method == 'POST':
         name = request.form.get('name')
-        channel_id = request.form.get('channel_id')
         industry_id = request.form.get('industry_id')
         business_type = request.form.get('business_type')
         contact = request.form.get('contact')
         description = request.form.get('description')
         
-        # 获取渠道
-        channel = Channel.query.get(channel_id)
-        if not channel:
-            flash('请选择所属渠道', 'warning')
-            return redirect(url_for('admin.client_add'))
-        
-        # 获取渠道对应的用户
-        user_id = channel.user_id
-        
+        # 客户直接归属当前管理员
         client = Client(
-            channel_id=channel_id,
-            user_id=user_id,
+            user_id=current_user.id,
             name=name,
             industry_id=industry_id if industry_id else None,
             business_type=business_type,
@@ -1181,7 +968,7 @@ def client_add():
         flash('客户添加成功', 'success')
         return redirect(url_for('admin.clients'))
     
-    return render_template('admin/client_form.html', client=None, channels=channels, industries=industries)
+    return render_template('admin/client_form.html', client=None, industries=industries)
 
 
 @admin.route('/clients/<int:id>/toggle', methods=['POST'])
@@ -3157,7 +2944,12 @@ def get_analysis_dimensions():
             'rule_type': d.rule_type,
             'prompt_template': d.prompt_template,
             'examples': getattr(d, 'examples', None) or '',
-            'usage_tips': getattr(d, 'usage_tips', None) or ''
+            'usage_tips': getattr(d, 'usage_tips', None) or '',
+            'applicable_audience': getattr(d, 'applicable_audience', None) or '',
+            # 市场洞察专用字段
+            'trigger_conditions': getattr(d, 'trigger_conditions', None) or {},
+            'content_template': getattr(d, 'content_template', None) or '',
+            'importance': getattr(d, 'importance', 1) or 1
         } for d in pagination.items],
         'total': pagination.total,
         'pages': pagination.pages,
@@ -3191,6 +2983,7 @@ ANALYSIS_DIMENSION_SUB_CATEGORY_NAMES = {
     },
     'super_positioning': {
         'persona': '人群画像',
+        'market_insight': '市场洞察',
     },
 }
 
@@ -3324,7 +3117,11 @@ def get_analysis_dimension(id):
             'prompt_template': dimension.prompt_template,
             'examples': getattr(dimension, 'examples', None) or '',
             'usage_tips': getattr(dimension, 'usage_tips', None) or '',
-            'applicable_audience': getattr(dimension, 'applicable_audience', None) or ''
+            'applicable_audience': getattr(dimension, 'applicable_audience', None) or '',
+            # 市场洞察专用字段
+            'trigger_conditions': getattr(dimension, 'trigger_conditions', None) or {},
+            'content_template': getattr(dimension, 'content_template', None) or '',
+            'importance': getattr(dimension, 'importance', 1) or 1
         }
     })
 
@@ -3390,7 +3187,11 @@ def create_analysis_dimension():
         prompt_template=data.get('prompt_template'),
         examples=data.get('examples', '') or None,
         usage_tips=data.get('usage_tips', '') or None,
-        applicable_audience=data.get('applicable_audience', '') or None
+        applicable_audience=data.get('applicable_audience', '') or None,
+        # 市场洞察专用字段
+        trigger_conditions=data.get('trigger_conditions', {}) or {},
+        content_template=data.get('content_template', '') or None,
+        importance=data.get('importance', 1) or 1
     )
 
     db.session.add(dimension)
@@ -3461,6 +3262,13 @@ def update_analysis_dimension(id):
         dimension.usage_tips = data['usage_tips'] or None
     if 'applicable_audience' in data:
         dimension.applicable_audience = data['applicable_audience'] or None
+    # 市场洞察专用字段
+    if 'trigger_conditions' in data:
+        dimension.trigger_conditions = data['trigger_conditions'] or {}
+    if 'content_template' in data:
+        dimension.content_template = data['content_template'] or None
+    if 'importance' in data:
+        dimension.importance = data['importance'] or 1
 
     db.session.commit()
 
@@ -3548,6 +3356,15 @@ DEFAULT_ANALYSIS_DIMENSIONS = [
     {'name': '职位角色', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户的职位/身份', 'icon': 'bi-person-badge', 'examples': '创始人|CEO|VP|总监|经理', 'usage_tips': '适用：B2B服务；画像组合展示时固定排在最后', 'applicable_audience': 'B2B服务|企业服务'},
     {'name': '痛点状态', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户当前面临的痛点/困境', 'icon': 'bi-exclamation-triangle', 'examples': '遇到瓶颈|想要转型|寻求突破', 'usage_tips': '适用：所有人群；同一批画像以此为共性锚点', 'applicable_audience': '通用'},
     {'name': '目标诉求', 'category': 'super_positioning', 'sub_category': 'persona', 'description': '目标客户的核心目标/期望', 'icon': 'bi-bullseye', 'examples': '想要增长|想要转型|想要变现', 'usage_tips': '适用：所有人群；同一批画像以此为共性锚点', 'applicable_audience': '通用'},
+    # 超级定位 - 市场洞察
+    {'name': '买用关系判断', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '判断购买方与使用方是否分离', 'icon': 'bi-arrow-left-right', 'examples': '桶装水（企业付费→员工使用）| 奶粉（家长买→宝宝用）| 礼品（送礼人买→收礼人用）', 'usage_tips': '涉及宝宝/老人/孩子/宠物 → 一定是买用分离', 'trigger_conditions': {}, 'content_template': '【买用关系判断】\n{description}\n- 买即用：买的人=用的人（如桶装水配送、自用食品）\n- 买用分离：买的人≠用的人（如奶粉是家长买给宝宝、礼品是送礼人买给收礼人）\n涉及宝宝、老人、孩子、宠物等 → **一定是买用分离**。', 'importance': 5},
+    {'name': 'B端C端判断', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '判断是否存在企业客户（B端）和个人客户（C端）', 'icon': 'bi-building', 'examples': '矿泉水定制（ToB+ToC）| 企业软件（纯ToB）| 家庭桶装水（纯ToC）', 'usage_tips': '业务描述提到企业客户→B端存在；提到个人消费者→C端存在', 'trigger_conditions': {'has_enterprise': True}, 'content_template': '【B端C端判断】\n{description}\n- 同时存在ToB和ToC：矿泉水定制、餐具修复、礼品定制等\n- 纯ToC：桶装水（家庭自用）、食品（个人购买）\n- 纯ToB：企业软件、办公设备、大宗原材料', 'importance': 4},
+    {'name': '搜前阶段分析', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '用户还不知道用什么产品的阶段', 'icon': 'bi-search', 'examples': '企业宣传用什么有档次？| 婚宴用什么水？| 送礼送什么好？', 'usage_tips': '搜前用户搜的是问题词、痛点词', 'trigger_conditions': {'search_stage': ['pre_search', 'all']}, 'content_template': '【用户搜索阶段：搜前】\n{description}\n用户在有问题但不知道用什么产品时的搜索行为：\n| 场景 | 搜索词类型 | 示例 |\n|------|------------|------|\n| 问题不明确 | 问题词 | "企业宣传用什么有档次？" |\n| 场景不明确 | 痛点词 | "婚宴用水推荐" |\n| 需求不明确 | 模糊需求词 | "送礼送什么好" |', 'importance': 5},
+    {'name': '搜中阶段分析', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '用户知道用什么，但不知道选哪个', 'icon': 'bi-bar-chart', 'examples': '定制水哪家好？| 桶装水哪个牌子好？| 婚宴定制水多少钱？', 'usage_tips': '搜中用户搜的是对比词、评测词', 'trigger_conditions': {'search_stage': ['mid_search', 'all']}, 'content_template': '【用户搜索阶段：搜中】\n{description}\n用户知道用什么产品，但在对比选择的搜索行为：\n| 场景 | 搜索词类型 | 示例 |\n|------|------------|------|\n| 品牌对比 | 对比词 | "定制水哪家好？" |\n| 价格对比 | 价格词 | "定制水多少钱？" |\n| 质量评估 | 评测词 | "定制水质量怎么样？" |', 'importance': 4},
+    {'name': '搜后阶段分析', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '用户确定要买，在找在哪里买', 'icon': 'bi-shop', 'examples': '定制水厂家联系方式 | 桶装水配送电话 | 婚宴定制水批发', 'usage_tips': '搜后用户搜的是渠道词，品牌词', 'trigger_conditions': {'search_stage': ['post_search', 'all']}, 'content_template': '【用户搜索阶段：搜后】\n{description}\n用户确定要买，找购买渠道的搜索行为：\n| 场景 | 搜索词类型 | 示例 |\n|------|------------|------|\n| 找供应商 | 渠道词 | "定制水厂家" |\n| 找服务 | 联系方式 | "桶装水配送电话" |\n| 找价格 | 批发词 | "定制水批发" |', 'importance': 3},
+    {'name': '付费人顾虑', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '购买决策者的心理障碍和顾虑', 'icon': 'bi-shield', 'examples': '价格担忧 | 采购便利性 | 报销问题 | 决策风险', 'usage_tips': '付费人关心：价格、成本、便利、风险', 'trigger_conditions': {'has_enterprise': True}, 'content_template': '【付费方顾虑】\n{examples}\n{usage_tips}\n付费人（企业/老板/决策者）关心的问题：\n- 价格担忧：值不值这个价？太贵了怎么办？\n- 采购便利性：流程复不复杂？好不好协调？\n- 报销/成本：发票能不能报？成本怎么算？', 'importance': 4},
+    {'name': '使用人痛点', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '实际使用者的体验问题和需求', 'icon': 'bi-person', 'examples': '水质口感 | 配送方便 | 品质稳定 | 使用体验', 'usage_tips': '使用人关心：体验、品质、方便', 'trigger_conditions': {}, 'content_template': '【使用人痛点】\n{examples}\n{usage_tips}\n使用人（员工/客户/家庭成员）关心的问题：\n- 体验感受：好不好喝？方不方便？\n- 品质稳定：每次质量一样吗？\n- 健康安全：卫不卫生？健不健康？', 'importance': 4},
+    {'name': '蓝海长尾词', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '细分场景、精准需求、痛点解决方案类的蓝海关键词', 'icon': 'bi-stars', 'examples': '婚宴用水 | 凌晨配送 | 企业团建用水 | 火锅店供货', 'usage_tips': '中国人口基数大，再小的需求也有很多人！', 'trigger_conditions': {}, 'content_template': '【蓝海长尾词挖掘】\n{description}\n核心思路：中国人口基数大，再小的需求也有很多人！围绕问题（不围绕产品）\n关键词结构比例：\n| 分类 | 占比 | 说明 |\n|------|------|------|\n| 付费人关键词 | 25% | 价格担忧、采购便利、配送问题 |\n| 使用人关键词 | 20% | 体验、品质、健康担忧 |\n| 蓝海长尾词 | 25% | 细分场景、精准需求、痛点解决 |', 'importance': 5},
 ]
 
 
@@ -3588,7 +3405,11 @@ def init_analysis_dimensions():
                     usage_tips=item.get('usage_tips', ''),
                     applicable_audience=item.get('applicable_audience', '') or None,
                     is_active=True,
-                    is_default=True
+                    is_default=True,
+                    # 市场洞察专用字段
+                    trigger_conditions=item.get('trigger_conditions', {}) or {},
+                    content_template=item.get('content_template', '') or None,
+                    importance=item.get('importance', 1) or 1
                 )
                 db.session.add(dimension)
                 created_count += 1

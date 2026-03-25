@@ -41,21 +41,14 @@ def create_app(config_name='default'):
     app.register_blueprint(main_blueprint)
     
     from routes.auth import auth as auth_blueprint
-    app.register_blueprint(auth_blueprint, url_prefix='/auth')
+    app.register_blueprint(auth_blueprint)
     
     from routes.admin import admin as admin_blueprint
     app.register_blueprint(admin_blueprint, url_prefix='/admin')
     
-    from routes.api import api as api_blueprint
-    app.register_blueprint(api_blueprint, url_prefix='/api')
-    
     # 注册备份 API
     from routes.backup_api import backup_api as backup_api_blueprint
     app.register_blueprint(backup_api_blueprint, url_prefix='/api')
-    
-    # 注册专家对话 API（基于 Skills 按需加载）
-    from routes.expert_api import expert_api as expert_api_blueprint
-    app.register_blueprint(expert_api_blueprint, url_prefix='/api/expert')
     
     # 注册知识库分析 API
     from routes.knowledge_api import knowledge_api as knowledge_api_blueprint

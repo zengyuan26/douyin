@@ -443,10 +443,10 @@ class ContentGenerator:
 - 买用分离（买的人≠用的人）：奶粉、纸尿裤、老人用品、宠物用品 → 身份是「购买决策者（宝妈/子女/主人）」
 
 【示例】
-- 灌香肠 → 过年置办年货的家庭、办宴席的主家、早餐店/餐馆老板
-- 矿泉水定制 → 企业行政、会议组织者、酒店餐厅、婚庆策划
-- 婴儿奶粉 → 有宝宝的家庭（购买者是宝妈，使用者是宝宝）
-- 手机维修 → 手机用户、上班族、学生（购买者即使用者）
+- 灌香肠 → ToC：过年置办年货的家庭；ToB：早餐店/餐馆老板
+- 矿泉水定制 → ToB：企业行政、酒店餐厅、会议组织者；ToC：个人婚宴主家、搬家自用、户外活动组织者
+- 婴儿奶粉 → ToC：有宝宝的家庭（购买者是宝妈，使用者是宝宝）
+- 手机维修 → ToC：上班族、学生、居民（购买者即使用者）
 
 请按 ToB（企业客户）和 ToC（个人消费者）两类分别列出最可能的身份类型。
 
@@ -457,10 +457,10 @@ class ContentGenerator:
 - 名称简洁，2-8字以内（如「宝妈」「上班族」）
 - buyer.description 一句话说明该身份即可（≤30字），不要写宝宝月龄、转奶、拉肚子等
 - user 字段**必须恒为 null**（本阶段不用）
-- 根据经营类型决定两类比例：
-  * 本地服务/消费品：ToC为主(6-8个)，ToB可忽略或仅1-2个
-  * 企业服务：ToB为主(6-8个)，ToC可忽略或仅1-2个
-  * 个人品牌：ToC为主(6-8个)
+- 根据业务实际情况决定 ToB/ToC 的数量：
+  * 业务描述中明确提到企业客户（酒店/公司/酒店/餐厅/企业/机构等）→ B端客户真实存在，ToB和ToC都要列出
+  * 业务描述中以个人客户为主 → ToC为主
+  * 通用业务（如桶装水、定制产品等）→ 两者都要考虑，根据描述灵活判断
 - 多样化，覆盖不同人群细分
 - 标注 "core": true 表示核心人群（气泡词云中会显示更大），一般2-3个最具代表性
 
@@ -478,9 +478,10 @@ class ContentGenerator:
 }}
 
 【重要】以上只是格式示例。请根据上方的「业务描述」来生成真正适合的身份！
-- 灌香肠/腊肉/腌制品 → 考虑：年节送礼者、置办年货的家庭、餐馆饭店、乡镇居民等
-- 矿泉水定制 → 考虑：企业接待、会议用水、酒店餐厅、婚庆策划等
-- 其他业务 → 根据实际产品和目标客户来推断
+- 灌香肠/腊肉/腌制品 → ToC：年节送礼者、置办年货的家庭；ToB：餐馆饭店
+- 矿泉水定制 → ToB：企业接待、会议用水、酒店餐厅；ToC：个人婚宴主家、户外活动
+- 定制蛋糕 → ToB：企业团购、庆典活动；ToC：生日蛋糕、节日送礼
+- 其他业务 → 根据实际产品和目标客户来推断，**不要假设所有客户都是同一类型**
 }}"""
 
         try:
@@ -1100,6 +1101,10 @@ class ContentGenerator:
 - 餐饮/维修/理发 → 本人消费本人使用 → 「自用」
 - 桶装水/自用食品 → 本人喝本人吃 → 「自用」
 
+**【灵活判断】业务描述中可能同时存在B端和C端客户：**
+- 矿泉水/定制产品：可能企业采购（酒店/公司）+ 个人定制（婚宴/寿宴）都存在
+- 要根据具体业务描述判断，不要假设所有客户都是同一类型
+
 === 输出格式（只返回JSON数组，5个对象）===
 {{
     "targets": [
@@ -1502,9 +1507,18 @@ class ContentGenerator:
         business_range = params.get('business_range', '') or '（未填）'
         business_type = params.get('business_type', '') or '（未填）'
 
-        # 随机选择本批的批次方向（A=使用者问题 / B=购买者焦虑）
+        # 换一批时使用 refresh_nonce 控制随机性
         import random
-        batch_direction = random.choice(['A', 'B'])
+        refresh_nonce = params.get('refresh_nonce')
+        if refresh_nonce is not None:
+            rng = random.Random(hash(str(refresh_nonce)) % (2 ** 32))
+            # 换一批时使用更高温度产生变化
+            llm_temperature = 0.85 + (hash(str(refresh_nonce)) % 15) / 100  # 0.85 ~ 1.0
+        else:
+            rng = random.Random()
+            llm_temperature = 0.85
+        
+        batch_direction = rng.choice(['A', 'B'])
         batch_direction_label = 'A方向（宝宝/用户自身问题）' if batch_direction == 'A' else 'B方向（购买者决策焦虑）'
 
         # 深度了解（可选）—— 辅助信息
@@ -1633,6 +1647,10 @@ class ContentGenerator:
 
 **【重要】业务描述里有「宝宝」「孩子」「老人」「宠物」相关需求 → 必为买用分离！**
 
+**【灵活判断】业务描述中可能同时存在B端和C端客户：**
+- 矿泉水/定制产品：可能企业采购（酒店/公司）+ 个人定制（婚宴/寿宴）都存在
+- 要根据具体业务描述判断，不要假设所有客户都是同一类型
+
 **【禁止·买用分离时维度填使用者的】**
 ```
 ❌ 错误示例：
@@ -1694,7 +1712,7 @@ class ContentGenerator:
                 return None
             response = service.chat(
                 prompt,
-                temperature=0.85,
+                temperature=llm_temperature,
                 max_tokens=3000,
             )
             if not response:
@@ -2951,6 +2969,52 @@ content_generator = ContentGenerator()
 # 问题挖掘 + 画像生成 组合方法
 # =============================================================================
 
+def mine_problems(params: Dict[str, Any]) -> Dict:
+    """
+    纯问题挖掘（不生成画像），供 api_identify_problems 路由调用。
+    返回格式兼容：{ success, problems: { problems: [...] }, is_premium }
+    """
+    result = mine_problems_and_generate_personas(params)
+    if not result.get('success'):
+        return result
+    data = result.get('data') or {}
+    user_problems = data.get('user_problem_types', [])
+    buyer_problems = data.get('buyer_problem_types', [])
+    all_problems = []
+    for i, p in enumerate(user_problems):
+        all_problems.append({
+            'id': p.get('id', f'up_{i+1}'),
+            'identity': p.get('identity', ''),
+            'problem_type': p.get('problem_type', ''),
+            'display_name': p.get('display_name', ''),
+            'description': p.get('description', ''),
+            'severity': p.get('severity', '中'),
+            'scenario': p.get('scenario', '通用'),
+            '_side': 'user',
+        })
+    for i, p in enumerate(buyer_problems):
+        all_problems.append({
+            'id': p.get('id', f'bc_{i+1}'),
+            'identity': p.get('identity', ''),
+            'problem_type': p.get('concern_type', ''),
+            'display_name': p.get('display_name', ''),
+            'description': p.get('description', ''),
+            'severity': p.get('severity', '高'),
+            'scenario': p.get('scenario', '通用'),
+            '_side': 'buyer',
+        })
+    return {
+        'success': True,
+        'problems': {'problems': all_problems},
+        'is_premium': result.get('data', {}).get('is_premium', False),
+        'data': {
+            'user_problem_types': user_problems,
+            'buyer_problem_types': buyer_problems,
+            'buyer_user_relation': data.get('buyer_user_relation', {}),
+        }
+    }
+
+
 def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
     """
     一次性完成问题挖掘 + 所有类型的画像生成
@@ -3265,6 +3329,9 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         result = try_parse(response)
         if result:
             print("[mine_problems_and_generate_personas] JSON解析成功（直接）")
+            print("[mine_problems_and_generate_personas] ===== LLM 解析结果 =====")
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            print("[mine_problems_and_generate_personas] ===== 解析结果结束 =====")
         else:
             # 方法2: 查找 ```json ... ``` 包裹的内容
             match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response)
@@ -3275,6 +3342,9 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     result = smart_fix_json(json_str)
                 if result:
                     print("[mine_problems_and_generate_personas] JSON解析成功（代码块内）")
+                    print("[mine_problems_and_generate_personas] ===== LLM 解析结果 =====")
+                    print(json.dumps(result, ensure_ascii=False, indent=2))
+                    print("[mine_problems_and_generate_personas] ===== 解析结果结束 =====")
             else:
                 # 方法3: 查找 { ... } 对象
                 match = re.search(r'\{[\s\S]*\}', response)
@@ -3285,6 +3355,9 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                         result = smart_fix_json(json_str)
                     if result:
                         print("[mine_problems_and_generate_personas] JSON解析成功（对象匹配）")
+                        print("[mine_problems_and_generate_personas] ===== LLM 解析结果 =====")
+                        print(json.dumps(result, ensure_ascii=False, indent=2))
+                        print("[mine_problems_and_generate_personas] ===== 解析结果结束 =====")
 
         # 如果解析失败，打印调试信息
         if not result:
@@ -3417,3 +3490,205 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             'success': False,
             'message': f'生成失败: {str(e)}'
         }
+
+def generate_portraits(params: Dict[str, Any]) -> Dict:
+    """
+    基于指定问题生成人群画像
+
+    Args:
+        params: {
+            'business_description': str,
+            'problem': Dict,  # 包含 id, identity, problem_type, display_name, description, scenario
+            'portrait_count': int,  # 画像数量（免费默认2，付费默认5）
+            '_is_premium': bool,
+        }
+
+    Returns:
+        包含画像列表
+    """
+    import re
+    import os
+    from services.llm import LLMService
+
+    is_premium = params.get('_is_premium', False)
+
+    # 模型选择：免费用 PLUS(14B)，付费用 DeepSeek-V3（硅基流动）
+    provider = 'siliconflow'
+    base_url = 'https://api.siliconflow.cn/v1'
+    api_key = os.environ.get('LLM_API_KEY', '')
+
+    if is_premium:
+        model = os.environ.get('LLM_MODEL_PREMIUM', 'deepseek-ai/DeepSeek-V3')
+    else:
+        model = os.environ.get('LLM_MODEL_PLUS', 'Qwen/Qwen2.5-14B-Instruct')
+
+    llm = LLMService(provider=provider, model=model)
+    llm.base_url = base_url
+    llm.api_key = api_key
+
+    print(f"[generate_portraits] 使用配置: provider={provider}, model={model}")
+
+    business_desc = params.get('business_description', '')
+    problem = params.get('problem', {})
+    portrait_count = params.get('portrait_count', 5 if is_premium else 2)
+
+    if not business_desc or not problem:
+        return {
+            'success': False,
+            'message': '缺少业务描述或问题信息'
+        }
+
+    # 构建画像生成提示词
+    prompt = f"""你是用户画像分析专家。请根据以下业务信息和指定问题，生成人群画像。
+
+=== 业务信息 ===
+{business_desc}
+
+=== 指定问题 ===
+- 问题ID: {problem.get('id', '')}
+- 目标客户: {problem.get('identity', '')}
+- 问题类型: {problem.get('problem_type', '')}
+- 问题描述: {problem.get('description', '')}
+- 场景: {problem.get('scenario', '通用')}
+
+=== 输出格式 ===
+请生成 {portrait_count} 个画像：
+
+{{
+    "portraits": [
+        {{
+            "name": "画像名称（简洁有特色）",
+            "age_range": "年龄段，如：25-30岁、35-45岁",
+            "occupation": "职业/身份",
+            "income_level": "收入水平（可选）",
+            "location": "地域特征（可选）",
+            "family_status": "家庭状况（可选）",
+            "description": "详细特征描述，包括消费习惯、决策特点、关注点等"
+        }}
+    ]
+}}
+
+=== 画像要求 ===
+1. 每个画像要有差异化，不能太相似
+2. 画像要具体、真实，有可操作性
+3. 包含消费习惯、决策特点、关注点等
+4. 不要只写"追求品质"等抽象描述，要具体
+
+=== 输出要求 ===
+只输出JSON，不要其他文字。"""
+
+    try:
+        response = llm.chat(prompt, temperature=0.8)
+
+        if not response:
+            return {
+                'success': False,
+                'error': 'empty_response',
+                'message': 'LLM 返回空响应'
+            }
+
+        print(f"[generate_portraits] LLM 原始响应长度: {len(response)}")
+
+        # 解析 JSON
+        result = None
+
+        def try_parse(text):
+            try:
+                return json.loads(text.strip())
+            except json.JSONDecodeError:
+                return None
+
+        # 尝试多种解析方式
+        result = try_parse(response)
+        if not result:
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response)
+            if match:
+                result = try_parse(match.group(1).strip())
+            if not result:
+                match = re.search(r'\{[\s\S]*\}', response)
+                if match:
+                    result = try_parse(match.group(0))
+
+        if result:
+            portraits = result.get('portraits', [])
+            return {
+                'success': True,
+                'problem_id': problem.get('id', ''),
+                'portraits': portraits,
+                'is_premium': is_premium
+            }
+        else:
+            print(f"[generate_portraits] JSON解析失败，响应: {response[:500]}")
+            return {
+                'success': False,
+                'message': 'AI生成失败，未能解析出有效数据'
+            }
+
+    except Exception as e:
+        import traceback
+        print(f"[generate_portraits] 异常: {str(e)}")
+        print(traceback.format_exc())
+        return {
+            'success': False,
+            'message': f'生成失败: {str(e)}'
+        }
+
+
+# =============================================================================
+# 并发画像生成（付费用户专用）
+# =============================================================================
+
+def generate_portraits_parallel(problems: List[Dict], business_desc: str, is_premium: bool = True) -> List[Dict]:
+    """
+    并行生成多个问题的画像（付费用户专用）
+
+    Args:
+        problems: 问题列表
+        business_desc: 业务描述
+        is_premium: 是否付费用户
+
+    Returns:
+        每个问题的画像列表
+    """
+    import concurrent.futures
+
+    results = []
+
+    def generate_single(problem: Dict) -> Dict:
+        """生成单个问题的画像"""
+        params = {
+            'business_description': business_desc,
+            'problem': problem,
+            'portrait_count': 5,
+            '_is_premium': is_premium
+        }
+        return generate_portraits(params)
+
+    # 使用线程池并行执行（最多3个并发）
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        future_to_problem = {
+            executor.submit(generate_single, problem): problem
+            for problem in problems
+        }
+
+        for future in concurrent.futures.as_completed(future_to_problem):
+            problem = future_to_problem[future]
+            try:
+                result = future.result()
+                results.append({
+                    'problem_id': problem.get('id', ''),
+                    'problem_display': problem.get('display_name', ''),
+                    'portraits': result.get('portraits', []) if result.get('success') else [],
+                    'success': result.get('success', False)
+                })
+            except Exception as e:
+                print(f"[generate_portraits_parallel] 生成失败: {e}")
+                results.append({
+                    'problem_id': problem.get('id', ''),
+                    'problem_display': problem.get('display_name', ''),
+                    'portraits': [],
+                    'success': False,
+                    'error': str(e)
+                })
+
+    return results

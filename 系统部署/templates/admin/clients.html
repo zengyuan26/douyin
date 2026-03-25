@@ -141,7 +141,7 @@
                                 <td>{{ client.created_at.strftime('%Y-%m-%d') }}</td>
                                 <td>
                                     <div class="table-actions">
-                                        <a href="{{ url_for('main.client_detail', id=client.id) }}" class="btn btn-sm btn-outline-primary" title="查看"><i class="bi bi-eye"></i></a>
+                                        <a href="{{ url_for('admin.client_edit', id=client.id) }}" class="btn btn-sm btn-outline-primary" title="编辑"><i class="bi bi-pencil"></i></a>
                                         <button type="button" class="btn btn-sm btn-outline-danger btn-delete-client" title="删除" data-client-id="{{ client.id }}" data-client-name="{{ client.name|e }}"><i class="bi bi-trash"></i></button>
                                     </div>
                                 </td>

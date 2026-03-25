@@ -30,9 +30,9 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     
     # LLM Configuration
-    LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'qwen')  # ollama, openai, qwen, azure
-    LLM_MODEL = os.environ.get('LLM_MODEL', 'qwen-plus')
-    LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://dashscope.aliyuncs.com/compatible-mode/v1')
+    LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'siliconflow')  # ollama, openai, qwen, azure, siliconflow
+    LLM_MODEL = os.environ.get('LLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
+    LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.siliconflow.cn/v1')
     LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
 
     # Mail Configuration (SMTP)
