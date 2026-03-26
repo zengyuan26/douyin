@@ -3523,6 +3523,7 @@ def preview_portrait_dimensions():
             '内容类型': context['内容类型'],
             '意图阶段': context['意图阶段'],
             '风险维度': context['风险维度'],
+            '成本维度': context['成本维度'],
             '效率维度': context['效率维度'],
             '情感维度': context['情感维度'],
             '社交维度': context['社交维度']

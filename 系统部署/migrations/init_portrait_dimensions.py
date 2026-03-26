@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import app
 from models.models import db, AnalysisDimension
-from services.portrait_dimension_data import PORTRAIT_DIMENSIONS_DATA
+from services.portrait_dimension_data import PORTRAIT_DIMENSIONS_DATA, SUB_CATEGORY_WEIGHTS
 
 
 # 画像维度默认数据
@@ -120,20 +120,25 @@ def migrate():
                 sub_category=item.get('sub_category')
             )
             
+            # 获取权重：优先使用数据中指定的权重，否则使用子分类默认权重
+            sub_category = item.get('sub_category')
+            weight = item.get('weight') or SUB_CATEGORY_WEIGHTS.get(sub_category, 1.0)
+            
             dimension = AnalysisDimension(
                 name=item['name'],
                 code=code,
                 icon=item.get('icon', 'bi-circle'),
                 description=item.get('description', ''),
                 category=item['category'],
-                sub_category=item.get('sub_category'),
+                sub_category=sub_category,
                 examples=item.get('examples', '') or None,
                 usage_tips=item.get('usage_tips', '') or None,
                 applicable_audience=item.get('applicable_audience', '') or None,
                 prompt_template=item.get('prompt_template', '') or None,
                 is_active=True,
                 is_default=True,
-                importance=item.get('importance', 1) or 1
+                importance=item.get('importance', 1) or 1,
+                weight=weight
             )
             db.session.add(dimension)
             created_count += 1

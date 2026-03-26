@@ -11,11 +11,29 @@
 - sub_category: 子分类，对应不同的维度类型
 - prompt_template: 对应内容方向（AI用于映射）
 - applicable_audience: 障碍来源（内在/他人/环境）
+- weight: LLM权重（满分10分），用于画像分析时各维度的权重配置
 """
+
+# 子分类默认权重（LLM画像分析时使用）
+SUB_CATEGORY_WEIGHTS = {
+    'conflict_type': 8.0,        # 矛盾类型：8分
+    'transformation_type': 7.0, # 转变类型：7分
+    'transformation_barrier': 9.0,  # 转变障碍：9分
+    'change_stage': 6.0,        # 转变阶段：6分
+    'buyer_user_relationship': 7.0,  # 买用关系：7分
+    'content_type': 7.0,        # 内容类型：7分
+    'intent_stage': 6.0,        # 意图阶段：6分
+    'risk_dimension': 9.0,      # 风险维度：9分
+    'cost_dimension': 7.0,       # 成本维度：7分
+    'efficiency_dimension': 8.0, # 效率维度：8分
+    'emotional_dimension': 10.0,  # 情感维度：10分
+    'social_dimension': 8.0,    # 社交维度：8分
+}
 
 # 画像维度数据
 PORTRAIT_DIMENSIONS_DATA = [
     # ========== 矛盾类型（核心元维度）==========
+    # 权重说明：矛盾类型整体8分
     {
         'name': '缺失型',
         'category': 'super_positioning',
@@ -24,7 +42,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-dash-circle',
         'examples': '没粉丝、没预算、没知识、没渠道',
         'usage_tips': '描述用户缺少什么 → 获得后能怎样',
-        'prompt_template': '解决方案/获取路径'
+        'prompt_template': '解决方案/获取路径',
+        'weight': 8.0
     },
     {
         'name': '拥有型',
@@ -34,7 +53,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-lightning-charge',
         'examples': '1000万粉丝不知道怎么变现、有钱不知道怎么投资、有产品不知道怎么卖',
         'usage_tips': '描述用户拥有什么资源 → 激活/变现方法',
-        'prompt_template': '激活路径/变现方法'
+        'prompt_template': '激活路径/变现方法',
+        'weight': 8.0
     },
     {
         'name': '冲突型',
@@ -44,7 +64,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-arrow-left-right',
         'examples': '想要健康但管不住嘴、想要省钱但忍不住花、想要学习但拖延',
         'usage_tips': '描述用户想要什么 + 障碍是什么',
-        'prompt_template': '消除障碍/降低门槛'
+        'prompt_template': '消除障碍/降低门槛',
+        'weight': 8.0
     },
     {
         'name': '替代型',
@@ -54,7 +75,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-arrow-repeat',
         'examples': '用旧奶粉但宝宝不长肉、用旧手机但太卡、换护肤品但没效果',
         'usage_tips': '描述现有方案的问题 + 更好的选择',
-        'prompt_template': '升级替代/效果对比'
+        'prompt_template': '升级替代/效果对比',
+        'weight': 8.0
     },
     {
         'name': '减少型',
@@ -64,10 +86,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-dash-lg',
         'examples': '太复杂想简化、太多想精简、太贵想降低、太高想减少',
         'usage_tips': '描述用户想减少什么 + 简化方案',
-        'prompt_template': '简化方案/精简路径'
+        'prompt_template': '简化方案/精简路径',
+        'weight': 8.0
     },
 
-    # ========== 转变类型 ==========
+    # ========== 转变类型（整体权重7分）==========
     {
         'name': '坏→好',
         'category': 'super_positioning',
@@ -75,7 +98,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '从问题状态到正常状态',
         'icon': 'bi-arrow-up-circle',
         'examples': '宝宝腹泻→肠胃健康、生病→康复',
-        'prompt_template': '问题解决'
+        'prompt_template': '问题解决',
+        'weight': 7.0
     },
     {
         'name': '无→有',
@@ -84,7 +108,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '从缺失到拥有',
         'icon': 'bi-plus-circle',
         'examples': '不会说话→开口说话、没粉丝→有粉丝',
-        'prompt_template': '获取路径'
+        'prompt_template': '获取路径',
+        'weight': 7.0
     },
     {
         'name': '差→好',
@@ -93,7 +118,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '从较差到较好',
         'icon': 'bi-graph-up-arrow',
         'examples': '普通奶粉→优质奶粉、低配→高配',
-        'prompt_template': '升级方案'
+        'prompt_template': '升级方案',
+        'weight': 7.0
     },
     {
         'name': '旧→新',
@@ -102,7 +128,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '从旧状态到新状态',
         'icon': 'bi-arrow-right-circle',
         'examples': '旧奶粉→新奶粉、旧手机→新手机',
-        'prompt_template': '切换引导'
+        'prompt_template': '切换引导',
+        'weight': 7.0
     },
     {
         'name': '少→多',
@@ -111,7 +138,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '从少到多',
         'icon': 'bi-plus-lg',
         'examples': '奶量不足→奶量充足、粉丝少→粉丝多',
-        'prompt_template': '增量方案'
+        'prompt_template': '增量方案',
+        'weight': 7.0
     },
     {
         'name': '高→低',
@@ -120,7 +148,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '从高到低（减少）',
         'icon': 'bi-arrow-down-circle',
         'examples': '过敏严重→脱敏成功、血压高→降低',
-        'prompt_template': '降低方案'
+        'prompt_template': '降低方案',
+        'weight': 7.0
     },
     {
         'name': '闲置→激活',
@@ -129,7 +158,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '有资源但不会用 → 有资源且会用',
         'icon': 'bi-lightning',
         'examples': '1000万粉丝不知道怎么变现、有钱不知道怎么投资',
-        'prompt_template': '激活路径'
+        'prompt_template': '激活路径',
+        'weight': 7.0
     },
     {
         'name': '模糊→清晰',
@@ -138,10 +168,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '有但不知道怎么用 → 知道怎么用',
         'icon': 'bi-question-circle',
         'examples': '有资源但迷茫、有能力但不会展示',
-        'prompt_template': '方法指导'
+        'prompt_template': '方法指导',
+        'weight': 7.0
     },
 
-    # ========== 转变障碍 - 内在 ==========
+    # ========== 转变障碍 - 内在（认知权重最高9分）==========
     {
         'name': '认知',
         'category': 'super_positioning',
@@ -150,7 +181,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-brain',
         'examples': '不知道怎么转奶、不知道选哪个',
         'applicable_audience': '内在',
-        'prompt_template': '科普/教程'
+        'prompt_template': '科普/教程',
+        'weight': 9.0
     },
     {
         'name': '资源',
@@ -160,7 +192,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-wallet2',
         'examples': '预算不够、太忙没时间',
         'applicable_audience': '内在',
-        'prompt_template': '性价比/便捷方案'
+        'prompt_template': '性价比/便捷方案',
+        'weight': 8.0
     },
     {
         'name': '决策',
@@ -170,7 +203,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-list-check',
         'examples': '牌子太多、不知道哪个好',
         'applicable_audience': '内在',
-        'prompt_template': '对比/推荐'
+        'prompt_template': '对比/推荐',
+        'weight': 8.0
     },
     {
         'name': '心理',
@@ -180,7 +214,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-emoji-frown',
         'examples': '担心失败、怕换错了',
         'applicable_audience': '内在',
-        'prompt_template': '案例/安慰'
+        'prompt_template': '案例/安慰',
+        'weight': 9.0
     },
     {
         'name': '代理焦虑',
@@ -190,7 +225,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-shield-exclamation',
         'examples': '不知道我的选择对不对、担心伤害宝宝',
         'applicable_audience': '内在',
-        'prompt_template': '专家背书/安全性'
+        'prompt_template': '专家背书/安全性',
+        'weight': 9.0
     },
     {
         'name': '拥有型',
@@ -200,10 +236,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-lightning-charge',
         'examples': '粉丝多不知道怎么变现、有钱不知道怎么投资',
         'applicable_audience': '内在',
-        'prompt_template': '变现方法/激活路径'
+        'prompt_template': '变现方法/激活路径',
+        'weight': 8.0
     },
 
-    # ========== 转变障碍 - 他人 ==========
+    # ========== 转变障碍 - 他人（整体权重8分）==========
     {
         'name': '反对',
         'category': 'super_positioning',
@@ -212,7 +249,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-person-x',
         'examples': '老公说不用、婆婆说浪费',
         'applicable_audience': '他人',
-        'prompt_template': '权威背书/共识建立'
+        'prompt_template': '权威背书/共识建立',
+        'weight': 8.0
     },
     {
         'name': '口碑',
@@ -222,7 +260,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-megaphone',
         'examples': '朋友说不好用、网上有差评',
         'applicable_audience': '他人',
-        'prompt_template': '真实案例/数据'
+        'prompt_template': '真实案例/数据',
+        'weight': 8.0
     },
     {
         'name': '分歧',
@@ -232,7 +271,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-people',
         'examples': '老婆要买老公不让、父母意见不合',
         'applicable_audience': '他人',
-        'prompt_template': '共识建立/沟通技巧'
+        'prompt_template': '共识建立/沟通技巧',
+        'weight': 8.0
     },
     {
         'name': '社交压力',
@@ -242,7 +282,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-chat-left-dots',
         'examples': '不好意思、怕被邻居说',
         'applicable_audience': '他人',
-        'prompt_template': '社群归属/正面引导'
+        'prompt_template': '社群归属/正面引导',
+        'weight': 7.0
     },
     {
         'name': '权威影响',
@@ -252,10 +293,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-bandaid',
         'examples': '医生说不用补、专家说没效果',
         'applicable_audience': '他人',
-        'prompt_template': '专业内容/认证'
+        'prompt_template': '专业内容/认证',
+        'weight': 9.0
     },
 
-    # ========== 转变障碍 - 环境 ==========
+    # ========== 转变障碍 - 环境（整体权重7分）==========
     {
         'name': '渠道',
         'category': 'super_positioning',
@@ -264,7 +306,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-shop',
         'examples': '当地没有、不知道哪里买',
         'applicable_audience': '环境',
-        'prompt_template': '购买指南/正品渠道'
+        'prompt_template': '购买指南/正品渠道',
+        'weight': 7.0
     },
     {
         'name': '时间',
@@ -274,7 +317,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-clock',
         'examples': '工作太忙、没时间研究',
         'applicable_audience': '环境',
-        'prompt_template': '便捷方案/省时'
+        'prompt_template': '便捷方案/省时',
+        'weight': 8.0
     },
     {
         'name': '条件',
@@ -284,7 +328,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-slash-circle',
         'examples': '选择少、有门槛限制',
         'applicable_audience': '环境',
-        'prompt_template': '替代方案说明'
+        'prompt_template': '替代方案说明',
+        'weight': 7.0
     },
     {
         'name': '沉没成本',
@@ -294,10 +339,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'icon': 'bi-hourglass-split',
         'examples': '旧的还剩很多、不想浪费',
         'applicable_audience': '环境',
-        'prompt_template': '切换引导/优惠'
+        'prompt_template': '切换引导/优惠',
+        'weight': 7.0
     },
 
-    # ========== 转变阶段 ==========
+    # ========== 转变阶段（整体权重6分）==========
     {
         'name': '转变前',
         'category': 'super_positioning',
@@ -305,7 +351,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '还没开始，考虑要不要做',
         'icon': 'bi-compass',
         'examples': '时机焦虑、选择焦虑',
-        'prompt_template': '时机选择/方案对比'
+        'prompt_template': '时机选择/方案对比',
+        'weight': 6.0
     },
     {
         'name': '转变中',
@@ -314,7 +361,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '正在执行，需要指导',
         'icon': 'bi-arrow-right',
         'examples': '操作焦虑、效果焦虑',
-        'prompt_template': '操作指导/效果跟踪'
+        'prompt_template': '操作指导/效果跟踪',
+        'weight': 6.0
     },
     {
         'name': '转变后',
@@ -323,10 +371,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '已经完成，需要确认/持续',
         'icon': 'bi-check-circle',
         'examples': '效果焦虑、调整焦虑',
-        'prompt_template': '效果确认/持续方案'
+        'prompt_template': '效果确认/持续方案',
+        'weight': 6.0
     },
 
-    # ========== 买用关系 ==========
+    # ========== 买用关系（整体权重7分）==========
     {
         'name': '买用一体',
         'category': 'super_positioning',
@@ -334,7 +383,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '付费人和使用人是同一人',
         'icon': 'bi-person',
         'examples': '我给自己买、我自己用',
-        'prompt_template': '个人利益导向'
+        'prompt_template': '个人利益导向',
+        'weight': 7.0
     },
     {
         'name': '保护型',
@@ -343,7 +393,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '付费人想保护使用人（买用分离）',
         'icon': 'bi-heart',
         'examples': '宝妈买给宝宝、家长买给孩子',
-        'prompt_template': '安全性/关爱'
+        'prompt_template': '安全性/关爱',
+        'weight': 9.0
     },
     {
         'name': '孝心型',
@@ -352,7 +403,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '晚辈给长辈买',
         'icon': 'bi-people-fill',
         'examples': '子女给父母买、孙子给爷爷奶奶买',
-        'prompt_template': '孝心表达/健康'
+        'prompt_template': '孝心表达/健康',
+        'weight': 8.0
     },
     {
         'name': '责任型',
@@ -361,10 +413,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '因责任而购买',
         'icon': 'bi-briefcase',
         'examples': '公司给员工买福利、老板给客户买礼品',
-        'prompt_template': '责任/便利'
+        'prompt_template': '责任/便利',
+        'weight': 7.0
     },
 
-    # ========== 内容类型 ==========
+    # ========== 内容类型（整体权重7分）==========
     {
         'name': '科普',
         'category': 'super_positioning',
@@ -372,7 +425,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '告诉你为什么/是什么',
         'icon': 'bi-book',
         'examples': '为什么会这样、是什么原理',
-        'prompt_template': '原因/原理'
+        'prompt_template': '原因/原理',
+        'weight': 7.0
     },
     {
         'name': '教程',
@@ -381,7 +435,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '告诉你怎么做',
         'icon': 'bi-list-ol',
         'examples': '步骤1、步骤2、步骤3',
-        'prompt_template': '方法/步骤'
+        'prompt_template': '方法/步骤',
+        'weight': 7.0
     },
     {
         'name': '对比',
@@ -390,7 +445,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '告诉你选哪个',
         'icon': 'bi-bar-chart',
         'examples': 'A和B哪个好、有什么区别',
-        'prompt_template': '对比分析'
+        'prompt_template': '对比分析',
+        'weight': 8.0
     },
     {
         'name': '推荐',
@@ -399,7 +455,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '帮你做决定',
         'icon': 'bi-hand-thumbs-up',
         'examples': '推荐这个、直接选这个',
-        'prompt_template': '决策支持'
+        'prompt_template': '决策支持',
+        'weight': 8.0
     },
     {
         'name': '背书',
@@ -408,7 +465,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '告诉你信谁',
         'icon': 'bi-award',
         'examples': '专家说好、明星都在用',
-        'prompt_template': '权威认证'
+        'prompt_template': '权威认证',
+        'weight': 9.0
     },
     {
         'name': '案例',
@@ -417,7 +475,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '告诉你别人也这么做',
         'icon': 'bi-chat-quote',
         'examples': '某某也是这么做的、真实案例分享',
-        'prompt_template': '真实故事'
+        'prompt_template': '真实故事',
+        'weight': 8.0
     },
     {
         'name': '安慰',
@@ -426,7 +485,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '消除你的顾虑',
         'icon': 'bi-emoji-smile',
         'examples': '别担心、这是正常的',
-        'prompt_template': '情感支持'
+        'prompt_template': '情感支持',
+        'weight': 7.0
     },
     {
         'name': '促销',
@@ -435,10 +495,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '告诉你现在买划算',
         'icon': 'bi-tag',
         'examples': '限时优惠、先买有赠品',
-        'prompt_template': '优惠信息'
+        'prompt_template': '优惠信息',
+        'weight': 6.0
     },
 
-    # ========== 意图阶段 ==========
+    # ========== 意图阶段（整体权重6分）==========
     {
         'name': '问题感知',
         'category': 'super_positioning',
@@ -446,7 +507,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '发现问题，但不明确',
         'icon': 'bi-exclamation-circle',
         'examples': '宝宝转奶、腹泻怎么办',
-        'prompt_template': '问题识别'
+        'prompt_template': '问题识别',
+        'weight': 6.0
     },
     {
         'name': '信息搜索',
@@ -455,7 +517,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '寻找解决方案',
         'icon': 'bi-search',
         'examples': '转奶方法、奶粉推荐',
-        'prompt_template': '方案寻找'
+        'prompt_template': '方案寻找',
+        'weight': 7.0
     },
     {
         'name': '方案评估',
@@ -464,7 +527,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '对比多个方案',
         'icon': 'bi-scale',
         'examples': '哪款好、对比',
-        'prompt_template': '方案对比'
+        'prompt_template': '方案对比',
+        'weight': 8.0
     },
     {
         'name': '购买决策',
@@ -473,7 +537,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '决定购买',
         'icon': 'bi-cart-check',
         'examples': '哪里买、正品',
-        'prompt_template': '购买引导'
+        'prompt_template': '购买引导',
+        'weight': 8.0
     },
     {
         'name': '购买后',
@@ -482,10 +547,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '使用后的问题',
         'icon': 'bi-bag-check',
         'examples': '转奶成功、效果',
-        'prompt_template': '使用指导'
+        'prompt_template': '使用指导',
+        'weight': 6.0
     },
 
-    # ========== 风险维度 ==========
+    # ========== 风险维度（整体权重9分）==========
     {
         'name': '风险厌恶',
         'category': 'super_positioning',
@@ -493,7 +559,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '对风险的厌恶程度',
         'icon': 'bi-shield',
         'examples': '高风险厌恶=一定要保障、低风险厌恶=愿意尝试',
-        'prompt_template': '保障/退路'
+        'prompt_template': '保障/退路',
+        'weight': 9.0
     },
     {
         'name': '财务风险',
@@ -502,7 +569,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '担心钱打水漂',
         'icon': 'bi-currency-dollar',
         'examples': '太贵了不敢买、怕买了没效果',
-        'prompt_template': '性价比/省钱'
+        'prompt_template': '性价比/省钱',
+        'weight': 9.0
     },
     {
         'name': '健康风险',
@@ -511,7 +579,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '担心身体受伤害',
         'icon': 'bi-heart-pulse',
         'examples': '怕有副作用、怕不安全',
-        'prompt_template': '安全性/成分'
+        'prompt_template': '安全性/成分',
+        'weight': 10.0
     },
     {
         'name': '机会风险',
@@ -520,10 +589,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '担心错过更好的',
         'icon': 'bi-clock-history',
         'examples': '买了这个错过那个、选错了怎么办',
-        'prompt_template': '对比/最优推荐'
+        'prompt_template': '对比/最优推荐',
+        'weight': 8.0
     },
 
-    # ========== 效率维度 ==========
+    # ========== 效率维度（整体权重8分）==========
     {
         'name': '极高时间敏感',
         'category': 'super_positioning',
@@ -531,7 +601,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '没时间，要最快方案',
         'icon': 'bi-lightning-charge',
         'examples': '职场妈妈、工作太忙',
-        'prompt_template': '速成/便捷'
+        'prompt_template': '速成/便捷',
+        'weight': 8.0
     },
     {
         'name': '高时间敏感',
@@ -540,7 +611,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '时间比较紧张',
         'icon': 'bi-clock',
         'examples': '有点忙但还能抽时间',
-        'prompt_template': '效率方案'
+        'prompt_template': '效率方案',
+        'weight': 8.0
     },
     {
         'name': '愿意投入时间',
@@ -549,10 +621,63 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '愿意花时间研究/学习',
         'icon': 'bi-book',
         'examples': '学习型用户、愿意深入了解',
-        'prompt_template': '详细教程/深度内容'
+        'prompt_template': '详细教程/深度内容',
+        'weight': 7.0
     },
 
-    # ========== 情感维度 ==========
+    # ========== 成本维度（整体权重7分）==========
+    {
+        'name': '极度价格敏感',
+        'category': 'super_positioning',
+        'sub_category': 'cost_dimension',
+        'description': '预算非常有限，只买最便宜的',
+        'icon': 'bi-currency-dollar',
+        'examples': '学生党、低收入群体、只买特价',
+        'prompt_template': '极致性价比/最低价推荐',
+        'weight': 7.0
+    },
+    {
+        'name': '性价比导向',
+        'category': 'super_positioning',
+        'sub_category': 'cost_dimension',
+        'description': '不求最便宜，但要值',
+        'icon': 'bi-graph-up',
+        'examples': '精打细算、货比三家、买对不买贵',
+        'prompt_template': '性价比分析/值不值',
+        'weight': 7.0
+    },
+    {
+        'name': '首次购买谨慎',
+        'category': 'super_positioning',
+        'sub_category': 'cost_dimension',
+        'description': '第一次买怕吃亏、怕被坑',
+        'icon': 'bi-shield-check',
+        'examples': '新客怕被宰、怕买亏了',
+        'prompt_template': '首购保障/不满意退/真实评测',
+        'weight': 8.0
+    },
+    {
+        'name': '促销驱动型',
+        'category': 'super_positioning',
+        'sub_category': 'cost_dimension',
+        'description': '看到优惠才买，没有优惠不买',
+        'icon': 'bi-tag',
+        'examples': '等双11、蹲直播间、领券购买',
+        'prompt_template': '限时优惠/专属折扣/活动预告',
+        'weight': 6.0
+    },
+    {
+        'name': '沉没成本敏感',
+        'category': 'super_positioning',
+        'sub_category': 'cost_dimension',
+        'description': '舍不得放弃已投入的，怕浪费',
+        'icon': 'bi-hourglass-split',
+        'examples': '用了一半不舍得换、积分不能浪费',
+        'prompt_template': '损失规避/划算切换/不浪费',
+        'weight': 7.0
+    },
+
+    # ========== 情感维度（整体权重10分）==========
     {
         'name': '焦虑型',
         'category': 'super_positioning',
@@ -560,7 +685,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '担心、害怕、不确定',
         'icon': 'bi-emoji-frown',
         'examples': '新手妈妈各种担心、怕做错',
-        'prompt_template': '安慰/保证'
+        'prompt_template': '安慰/保证',
+        'weight': 10.0
     },
     {
         'name': '内疚型',
@@ -569,7 +695,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '觉得亏欠、想补偿',
         'icon': 'bi-heartbreak',
         'examples': '没陪孩子想补偿、亏欠家人',
-        'prompt_template': '情感共鸣/解决方案'
+        'prompt_template': '情感共鸣/解决方案',
+        'weight': 9.0
     },
     {
         'name': '成就型',
@@ -578,7 +705,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '想要更好、证明自己',
         'icon': 'bi-trophy',
         'examples': '想要做个好妈妈、想要被认可',
-        'prompt_template': '鼓励/成就展示'
+        'prompt_template': '鼓励/成就展示',
+        'weight': 8.0
     },
     {
         'name': '归属型',
@@ -587,7 +715,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '想要被认可、被接纳',
         'icon': 'bi-people',
         'examples': '想融入某个圈子、想被认同',
-        'prompt_template': '社群/归属感'
+        'prompt_template': '社群/归属感',
+        'weight': 8.0
     },
     {
         'name': '安全感型',
@@ -596,10 +725,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '想要稳定、可靠',
         'icon': 'bi-shield-check',
         'examples': '不敢尝试新东西、喜欢熟悉的感觉',
-        'prompt_template': '品牌背书/口碑'
+        'prompt_template': '品牌背书/口碑',
+        'weight': 9.0
     },
 
-    # ========== 社交维度 ==========
+    # ========== 社交维度（整体权重8分）==========
     {
         'name': '需要同类人背书',
         'category': 'super_positioning',
@@ -607,7 +737,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '和我一样的人说好才信',
         'icon': 'bi-person-hearts',
         'examples': '看真实用户评价、看妈妈群推荐',
-        'prompt_template': '用户案例/UGC'
+        'prompt_template': '用户案例/UGC',
+        'weight': 8.0
     },
     {
         'name': '需要专家背书',
@@ -616,7 +747,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '权威人士说好才信',
         'icon': 'bi-award',
         'examples': '医生/专家推荐、权威认证',
-        'prompt_template': '专家内容/KOL'
+        'prompt_template': '专家内容/KOL',
+        'weight': 9.0
     },
     {
         'name': '需要大众背书',
@@ -625,7 +757,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '大家都用我才放心',
         'icon': 'bi-megaphone',
         'examples': '看销量、看排名',
-        'prompt_template': '销量数据/排名'
+        'prompt_template': '销量数据/排名',
+        'weight': 7.0
     },
     {
         'name': '需要熟人背书',
@@ -634,7 +767,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '朋友推荐才信',
         'icon': 'bi-person-check',
         'examples': '朋友推荐、熟人介绍',
-        'prompt_template': '口碑推荐/熟人介绍'
+        'prompt_template': '口碑推荐/熟人介绍',
+        'weight': 8.0
     },
     {
         'name': '受圈层影响',
@@ -643,7 +777,8 @@ PORTRAIT_DIMENSIONS_DATA = [
         'description': '受特定圈子影响大',
         'icon': 'bi-circle-square',
         'examples': '妈妈群、职场圈、同城圈',
-        'prompt_template': '社群营销/圈层渗透'
+        'prompt_template': '社群营销/圈层渗透',
+        'weight': 8.0
     },
 ]
 
@@ -658,6 +793,7 @@ SUB_CATEGORY_LABELS = {
     'content_type': '内容类型',
     'intent_stage': '意图阶段',
     'risk_dimension': '风险维度',
+    'cost_dimension': '成本维度',
     'efficiency_dimension': '效率维度',
     'emotional_dimension': '情感维度',
     'social_dimension': '社交维度'

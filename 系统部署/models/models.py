@@ -1247,6 +1247,9 @@ class AnalysisDimension(db.Model):
     # 重要性 - 数字越大越重要，用于排序
     importance = db.Column(db.Integer, default=1)  # 1-5星
 
+    # LLM权重 - 用于画像分析时各维度的权重（满分10分），不影响前台显示
+    weight = db.Column(db.Float, default=1.0)  # 1.0-10.0
+
     # 状态
     is_active = db.Column(db.Boolean, default=True)
     is_default = db.Column(db.Boolean, default=False)  # 是否为默认维度

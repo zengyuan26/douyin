@@ -136,6 +136,11 @@ def get_all_risk_dims_for_ai() -> str:
     return get_dimensions_for_ai('risk_dimension')
 
 
+def get_all_cost_dims_for_ai() -> str:
+    """获取成本维度（AI用）"""
+    return get_dimensions_for_ai('cost_dimension')
+
+
 def get_all_efficiency_dims_for_ai() -> str:
     """获取效率维度（AI用）"""
     return get_dimensions_for_ai('efficiency_dimension')
@@ -151,11 +156,48 @@ def get_all_social_dims_for_ai() -> str:
     return get_dimensions_for_ai('social_dimension')
 
 
+def get_dimension_weights_for_ai() -> str:
+    """
+    获取维度权重配置（AI用）
+    返回格式：情感:10,效率:8,成本:7,风险:9,社交:8,认知:9,矛盾:8,障碍:9
+    """
+    from services.portrait_dimension_data import SUB_CATEGORY_WEIGHTS
+    lines = [f"{SUB_CATEGORY_LABELS.get(k, k)}:{v}" for k, v in SUB_CATEGORY_WEIGHTS.items()]
+    return ",".join(lines)
+
+
+def get_dimension_weights_by_name(name: str) -> float:
+    """
+    根据维度名称获取权重（从数据库或默认配置）
+    
+    Args:
+        name: 维度名称，如 '焦虑型', '认知'
+    
+    Returns:
+        权重值（1.0-10.0），默认 1.0
+    """
+    # 先从缓存中查找
+    for sub_cat, dims in _dimension_cache.items():
+        for d in dims:
+            if d.name == name and hasattr(d, 'weight') and d.weight:
+                return float(d.weight)
+    
+    # 如果数据库中没有，返回子分类默认权重
+    from services.portrait_dimension_data import SUB_CATEGORY_WEIGHTS
+    # 遍历子分类尝试匹配
+    for sub_cat, dims in _dimension_cache.items():
+        for d in dims:
+            if d.name == name:
+                return SUB_CATEGORY_WEIGHTS.get(sub_cat, 1.0)
+    
+    return 1.0
+
+
 def get_barrier_mapping_for_ai() -> Dict[str, str]:
     """
     获取障碍→内容方向映射（AI用）
     返回格式：{'认知': '科普/教程', '资源': '性价比/便捷方案', ...}
-    
+
     prompt_template 字段存储内容方向
     """
     dims = get_cached_dimensions('transformation_barrier')
@@ -190,8 +232,8 @@ def get_full_dimension_context() -> Dict:
     sub_categories = [
         'conflict_type', 'transformation_type', 'transformation_barrier',
         'change_stage', 'buyer_user_relationship', 'content_type',
-        'intent_stage', 'risk_dimension', 'efficiency_dimension',
-        'emotional_dimension', 'social_dimension'
+        'intent_stage', 'risk_dimension', 'cost_dimension',
+        'efficiency_dimension', 'emotional_dimension', 'social_dimension'
     ]
     
     for sub_cat in sub_categories:
@@ -255,9 +297,11 @@ def build_portrait_generation_context() -> Dict[str, str]:
         '转变阶段': get_all_change_stages_for_ai(),
         '买用关系': get_all_buyer_relations_for_ai(),
         '风险维度': get_all_risk_dims_for_ai(),
+        '成本维度': get_all_cost_dims_for_ai(),
         '效率维度': get_all_efficiency_dims_for_ai(),
         '情感维度': get_all_emotional_dims_for_ai(),
         '社交维度': get_all_social_dims_for_ai(),
+        '内容类型': get_all_content_types_for_ai(),
         '内容方向映射': get_barrier_mapping_for_ai()
     }
 
@@ -317,6 +361,10 @@ PORTRAIT_GENERATION_PROMPT_TEMPLATE = """你是精准营销专家。基于业务
 ### 风险维度
 {risk_dims}
 风险厌恶程度,财务/健康/机会风险类型
+
+### 成本维度
+{cost_dims}
+极度价格敏感=只买最便宜,性价比导向=买对不买贵,首次购买谨慎=怕被坑
 
 ### 效率维度
 {efficiency_dims}
@@ -388,6 +436,7 @@ def generate_portrait_prompt(
         emotional_dims=context['情感维度'],
         social_dims=context['社交维度'],
         risk_dims=context['风险维度'],
+        cost_dims=context['成本维度'],
         efficiency_dims=context['效率维度']
     )
 
