@@ -3239,12 +3239,17 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 辅助信息：{aux_section}
 {buyer_user_hint}
 
+=== 严重程度评判标准 ===
+severity 高：涉及身体健康（过敏、致病、中毒）或财产损失（被骗、被盗、重大浪费）
+severity 中：决策困难（真假难辨、选择困难、价格纠结）或情感压力（面子、信任、关系维护）
+severity 低：体验不佳（服务态度、便利性、外观包装）或个性化需求（个性化、定制化）
+
 === 输出要求 ===
 请按照示例格式，输出JSON。只返回JSON，不要其他文字。"""
 
     try:
-        # 调用 LLM
-        response = llm.chat(prompt)
+        # 调用 LLM（temperature=0.3 减少随机性，max_tokens=8000 适配长 prompt + 多画像输出）
+        response = llm.chat(prompt, temperature=0.3, max_tokens=8000)
 
         print(f"[mine_problems_and_generate_personas] ===== 发送的 Prompt =====")
         print(prompt)
