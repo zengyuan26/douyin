@@ -57,6 +57,12 @@ def pricing():
     return render_template('public/pricing.html')
 
 
+@public_bp.route('/register')
+def register_page():
+    """页脚、定价页等使用的 /public/register，统一到现有注册页"""
+    return redirect(url_for('auth.public_register'))
+
+
 # =============================================================================
 # 认证相关 API
 # =============================================================================
@@ -253,6 +259,39 @@ def api_identify_targets():
     result = content_generator.identify_customer_identities(params)
 
     return jsonify(result)
+
+
+# ── 已废弃：Stage 0 问题渠道识别已合并到 mine_problems 内部 ──
+# @public_bp.route('/api/targets/problem-channels', methods=['POST'])
+# def api_identify_problem_channels():
+#     """
+#     Stage 0：问题渠道识别
+#
+#     在问题类型之前运行，挖掘「用户带着什么问题来搜索」。
+#     输出用户真实搜索意图/问题句式。
+#
+#     请求格式：
+#     {
+#         "business_description": "...",
+#         "business_range": "local/cross_region",
+#         "business_type": "...",
+#     }
+#     """
+#     from services.public_content_generator import mine_problem_channels
+#
+#     params = request.get_json() or {}
+#
+#     if not params.get('business_description'):
+#         return jsonify({'success': False, 'message': '请描述您的业务'}), 400
+#
+#     if not params.get('business_range'):
+#         return jsonify({'success': False, 'message': '请选择经营范围'}), 400
+#
+#     if not params.get('business_type'):
+#         return jsonify({'success': False, 'message': '请选择经营类型'}), 400
+#
+#     result = mine_problem_channels(params)
+#     return jsonify(result)
 
 
 @public_bp.route('/api/targets/problems', methods=['POST'])

@@ -171,7 +171,7 @@ STEP1_PROBLEM_TYPES_PROMPT = """## 角色
 你是一位用户研究专家。
 
 ## 任务
-快速识别该业务的主要问题类型和目标人群身份，组合成卡片标题。
+快速识别该业务的主要问题类型，组合成【场景+身份+问题】一体化卡片。
 
 ## 业务信息
 - 行业：{industry}
@@ -186,11 +186,17 @@ STEP1_PROBLEM_TYPES_PROMPT = """## 角色
   "is_buyer_user_same": true/false,
   "problem_types": [
     {{
-      "display_name": "精致白领→担心清洁效果",
+      "display_name": "早餐_怕胖白领_甜食与健康的纠结",
+      "scene": "早餐",
+      "identity": "怕胖白领",
+      "problem": "甜食与健康的纠结",
       "severity": "高"
     }},
     {{
-      "display_name": "价格敏感用户→怕被宰",
+      "display_name": "聚餐_请客主人_怕菜品不够体面",
+      "scene": "聚餐",
+      "identity": "请客主人",
+      "problem": "怕菜品不够体面",
       "severity": "中"
     }}
   ]
@@ -198,8 +204,14 @@ STEP1_PROBLEM_TYPES_PROMPT = """## 角色
 ```
 
 ## 格式说明
-- `display_name`: 格式为【身份】→【关心的问题】，简洁好记
+- `display_name`: 格式为【场景_身份_问题】，用下划线连接，简洁好记
+- `scene`: 问题发生的具体场景（如：早餐、加班、聚会、送礼等）
+- `identity`: 人群身份特征（如：怕胖白领、宝妈、学生党、餐厅老板等）
+- `problem`: 核心问题/诉求（如：甜食与健康的纠结、担心效果等）
 - `severity`: 问题重要程度（高/中/低）
+
+## 核心原则
+场景+身份+问题 三位一体，共同构建用户痛点。不要单独推导场景，要在具体场景下理解身份的问题。
 
 **简洁为王！保持简短！**"""
 
@@ -208,37 +220,43 @@ STEP1_PROBLEM_TYPES_PROMPT = """## 角色
 
 # 免费用户 - 极简4字段模板
 FREE_PORTRAIT_TEMPLATE = """## 任务
-基于问题类型和目标身份，生成精准人群画像。
+基于【场景+身份+问题】，生成精准人群画像。
 
-## 问题类型
-{problem_type}
+## 场景
+{scene}
 
-## 目标身份
-{target_identity}
+## 身份
+{identity}
+
+## 问题
+{problem}
 
 ## 输出格式（每行一个，用 | 分隔）
 名称|年龄段|核心痛点|目标
 
 示例：
-{target_identity}|25-35岁|担心效果不好|找到靠谱的服务
+{identity}|25-35岁|担心效果不好|找到靠谱的服务
 
 直接输出 {count} 行，格式正确，不要其他文字。"""
 
 # 付费用户 - 丰富8字段模板
 PAID_PORTRAIT_TEMPLATE = """## 任务
-基于问题类型和目标身份，生成精准人群画像。
+基于【场景+身份+问题】，生成精准人群画像。
 
-## 问题类型
-{problem_type}
+## 场景
+{scene}
 
-## 目标身份
-{target_identity}
+## 身份
+{identity}
+
+## 问题
+{problem}
 
 ## 输出格式（每行一个，用 | 分隔）
 名称|年龄段|职业|核心痛点|购买目标|购买顾虑|使用场景|搜索关键词
 
 示例：
-{target_identity}|28-35岁|都市白领|担心效果|找到放心的服务|怕被坑|工作日下班后|附近洗鞋店推荐
+{identity}|28-35岁|都市白领|担心效果|找到放心的服务|怕被坑|{scene}|附近洗鞋店推荐
 
 直接输出 {count} 行，格式正确，不要其他文字。"""
 
@@ -353,12 +371,22 @@ def step1_identify_problem_types():
         for pt in problem_types:
             # 优先用 display_name，如果没有则尝试其他字段组合
             if not pt.get('display_name'):
-                identity = pt.get('target_identity', '')
-                type_name = pt.get('type_name', '')
-                if identity and type_name:
-                    pt['display_name'] = f"{identity}→{type_name}"
-                elif type_name:
-                    pt['display_name'] = type_name
+                scene = pt.get('scene', '')
+                identity = pt.get('identity', '') or pt.get('target_identity', '')
+                problem = pt.get('problem', '') or pt.get('type_name', '')
+                if scene and identity and problem:
+                    pt['display_name'] = f"{scene}_{identity}_{problem}"
+                elif identity and problem:
+                    pt['display_name'] = f"{identity}_{problem}"
+                elif problem:
+                    pt['display_name'] = problem
+            # 确保 scene、identity、problem 字段存在
+            if not pt.get('scene'):
+                pt['scene'] = ''
+            if not pt.get('identity'):
+                pt['identity'] = ''
+            if not pt.get('problem'):
+                pt['problem'] = ''
 
         session_obj.problem_types_data = problem_types
         session_obj.buyer_concerns = []  # 简化版不输出 buyer_concerns
@@ -411,13 +439,42 @@ def step2_generate_portraits():
 
     problem_types_data = session_obj.problem_types_data or []
 
-    # display_name 格式为 "身份→问题"，需要拆分
+    # display_name 格式为 "场景_身份_问题"，需要拆分
+    scene = ""
     identity = ""
-    problem_type = problem_type_name
-    if "→" in problem_type_name:
-        parts = problem_type_name.split("→")
-        identity = parts[0].strip()
-        problem_type = parts[1].strip() if len(parts) > 1 else problem_type_name
+    problem = ""
+    
+    # 查找对应的 problem_type 数据
+    matched_pt = None
+    for pt in problem_types_data:
+        if pt.get('display_name') == problem_type_name or pt.get('type_name') == problem_type_name:
+            matched_pt = pt
+            break
+    
+    if matched_pt:
+        # 优先使用解析后的字段
+        scene = matched_pt.get('scene', '')
+        identity = matched_pt.get('identity', '') or matched_pt.get('target_identity', '')
+        problem = matched_pt.get('problem', '') or matched_pt.get('type_name', '')
+    else:
+        # 回退：尝试从 display_name 解析（兼容旧格式）
+        if "_" in problem_type_name:
+            parts = problem_type_name.split("_")
+            if len(parts) >= 3:
+                scene = parts[0]
+                identity = parts[1]
+                problem = "_".join(parts[2:])
+            elif len(parts) == 2:
+                identity = parts[0]
+                problem = parts[1]
+        elif "→" in problem_type_name:
+            parts = problem_type_name.split("→")
+            identity = parts[0].strip()
+            problem = parts[1].strip() if len(parts) > 1 else problem_type_name
+    
+    # 如果 scene 为空，使用默认场景
+    if not scene:
+        scene = "日常场景"
 
     # 根据用户等级选择模板
     is_paid = public_user and public_user.is_paid_user()
@@ -429,10 +486,11 @@ def step2_generate_portraits():
         # 免费用户 - 极简4字段
         template = FREE_PORTRAIT_TEMPLATE
 
-    # 传入问题类型和身份，让 LLM 更精准生成
+    # 传入 scene、identity、problem，让 LLM 更精准生成
     prompt = template.format(
-        problem_type=problem_type,
-        target_identity=identity,
+        scene=scene,
+        identity=identity,
+        problem=problem,
         count=limits.portraits_per_type
     )
 
@@ -456,8 +514,9 @@ def step2_generate_portraits():
             'message': '画像生成完成',
             'data': {
                 'problem_type_name': problem_type_name,
+                'scene': scene,
                 'identity': identity,
-                'problem_type': problem_type,
+                'problem': problem,
                 'portraits': portraits,
                 'is_paid': is_paid,
                 'stats': stats

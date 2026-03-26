@@ -14,6 +14,7 @@ from services.skill_loader import get_skill_loader
 
 admin = Blueprint('admin', __name__)
 
+
 # 工作台专家：skill_slug -> DB Expert slug（init_db 使用旧 slug）
 SKILL_SLUG_TO_DB_SLUG = {
     'chief-operating-officer': 'master',
