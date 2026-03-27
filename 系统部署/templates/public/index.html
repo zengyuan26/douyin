@@ -954,9 +954,62 @@
 
                         <!-- 问题卡片区域（身份+问题类型） -->
                         <div id="problems-section" class="mt-4" style="display: none;">
+                            <!-- 市场分析卡片（红海/蓝海判断） -->
+                            <div id="market-analysis-card" class="mb-4" style="display: none;">
+                                <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
+                                    <div class="card-header bg-gradient text-white" id="market-analysis-header" style="background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div id="market-type-icon" style="font-size: 2rem;">🌊</div>
+                                            <div>
+                                                <div class="fw-bold" id="market-type-display">市场分析</div>
+                                                <div class="small opacity-75" id="competition-level-display">竞争程度：待评估</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body" style="background: #f8fafc;">
+                                        <!-- 竞争程度进度条 -->
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between small mb-1">
+                                                <span class="text-muted">竞争激烈度</span>
+                                                <span class="fw-bold" id="competition-value">5/10</span>
+                                            </div>
+                                            <div class="progress" style="height: 8px; border-radius: 4px;">
+                                                <div class="progress-bar" id="competition-bar" role="progressbar" style="width: 50%;"></div>
+                                            </div>
+                                        </div>
+                                        <!-- 蓝海机会 -->
+                                        <div id="blue-ocean-section" class="mb-3">
+                                            <div class="d-flex align-items-center gap-2 mb-2">
+                                                <span style="font-size: 1.2rem;">🎯</span>
+                                                <span class="fw-bold text-success">蓝海机会</span>
+                                            </div>
+                                            <p class="mb-0 text-muted small" id="blue-ocean-opportunity">待分析...</p>
+                                        </div>
+                                        <!-- 红海特征 -->
+                                        <div id="red-ocean-section" class="mb-3" style="display: none;">
+                                            <div class="d-flex align-items-center gap-2 mb-2">
+                                                <span style="font-size: 1.2rem;">🔥</span>
+                                                <span class="fw-bold text-danger">红海特征</span>
+                                            </div>
+                                            <ul class="mb-0 text-muted small" id="red-ocean-features" style="padding-left: 1.5rem;"></ul>
+                                        </div>
+                                        <!-- 问题导向词卡片 -->
+                                        <div id="problem-keywords-section" class="mt-3" style="display: none;">
+                                            <div class="d-flex align-items-center gap-2 mb-2">
+                                                <span style="font-size: 1.2rem;">🔍</span>
+                                                <span class="fw-bold text-primary">问题导向词</span>
+                                                <span class="badge bg-primary rounded-pill" id="keyword-count">0</span>
+                                            </div>
+                                            <p class="mb-2 text-muted small">用户搜索时会用这些问题词，精准覆盖目标客户</p>
+                                            <div class="d-flex flex-wrap gap-2" id="problem-keywords-list"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- 换一批按钮 -->
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h5 class="mb-0">📊 市场洞察</h5>
+                                <h5 class="mb-0">📊 问题洞察</h5>
                                 <button class="btn btn-sm btn-outline-primary" id="btn-refresh-identities" onclick="refreshIdentities()">
                                     🔄 换一批
                                 </button>
@@ -977,6 +1030,97 @@
                             </div>
                             <div class="row g-4" id="target-customers-list">
                                 <!-- 目标用户选项将通过JS动态生成 -->
+                            </div>
+                        </div>
+
+                        <!-- 市场机会分析 🆕 -->
+                        <div id="market-opportunity-section" class="mt-4" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">🚀 市场机会分析</h5>
+                                <div>
+                                    <span class="badge bg-info me-2" id="opportunity-status">待分析</span>
+                                    <button class="btn btn-sm btn-primary" id="btn-generate-opportunity" onclick="generateMarketOpportunity()">
+                                        🔍 挖掘蓝海机会
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-muted small mb-3">基于您的用户画像，自动挖掘差异化市场机会</p>
+
+                            <!-- 步骤指示器 -->
+                            <div class="d-flex align-items-center gap-2 mb-3" id="opportunity-steps">
+                                <div class="step-indicator active" id="opp-step-1">
+                                    <span class="step-num">1</span>
+                                    <span class="step-text">发现问题</span>
+                                </div>
+                                <div class="step-line"></div>
+                                <div class="step-indicator" id="opp-step-2">
+                                    <span class="step-num">2</span>
+                                    <span class="step-text">精准画像</span>
+                                </div>
+                                <div class="step-line"></div>
+                                <div class="step-indicator" id="opp-step-3">
+                                    <span class="step-num">3</span>
+                                    <span class="step-text">蓝海机会</span>
+                                </div>
+                            </div>
+
+                            <!-- 机会维度展示 -->
+                            <div class="row g-2 mb-3" id="opportunity-dimensions">
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <div class="text-center p-2 bg-light rounded">
+                                        <div class="mb-1">📦</div>
+                                        <div class="small fw-bold">产品</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <div class="text-center p-2 bg-light rounded">
+                                        <div class="mb-1">💡</div>
+                                        <div class="small fw-bold">方法</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <div class="text-center p-2 bg-light rounded">
+                                        <div class="mb-1">🎯</div>
+                                        <div class="small fw-bold">场景</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <div class="text-center p-2 bg-light rounded">
+                                        <div class="mb-1">🔄</div>
+                                        <div class="small fw-bold">流程</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <div class="text-center p-2 bg-light rounded">
+                                        <div class="mb-1">💎</div>
+                                        <div class="small fw-bold">理念</div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <div class="text-center p-2 bg-light rounded">
+                                        <div class="mb-1">🤝</div>
+                                        <div class="small fw-bold">服务</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 机会分析结果 -->
+                            <div id="opportunity-result" style="display: none;">
+                                <div class="result-card">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">📊 蓝海机会分析结果</h6>
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="copyOpportunityResult()">
+                                            📋 复制
+                                        </button>
+                                    </div>
+                                    <div class="result-content" id="opportunity-content" style="max-height: 600px;"></div>
+                                </div>
+                            </div>
+
+                            <!-- 机会加载状态 -->
+                            <div id="opportunity-loading" class="text-center py-4" style="display: none;">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2 text-muted small">正在挖掘蓝海机会，请稍候...</p>
                             </div>
                         </div>
                     </div>
@@ -1301,11 +1445,15 @@
 
                 if (data.success && data.problems) {
                     const problems = data.problems.problems || data.problems || [];
+                    const marketAnalysis = data.problems.market_analysis || {};
 
                     // 保存数据：统一用 problems 数组，不再分 user/buyer
                     _allProblems = problems;
                     _allPortraits = {};  // 清空旧画像
                     _isPremium = data.is_premium || false;
+
+                    // 显示市场分析（红海/蓝海判断）
+                    displayMarketAnalysis(marketAnalysis);
 
                     // 渲染问题卡片（带"生成画像"按钮）
                     renderProblemCards(_allProblems);
@@ -1424,6 +1572,92 @@
         // 当前选中的问题类型key
         var _selectedProblemKey = null;
 
+        // 显示市场分析（红海/蓝海判断）
+        function displayMarketAnalysis(marketAnalysis) {
+            const card = document.getElementById('market-analysis-card');
+            if (!card) return;
+
+            // 如果没有市场分析数据，隐藏卡片
+            if (!marketAnalysis || Object.keys(marketAnalysis).length === 0) {
+                card.style.display = 'none';
+                return;
+            }
+
+            card.style.display = 'block';
+
+            const {
+                market_type = 'mixed',
+                market_type_display = '待分析',
+                competition_level = 5,
+                competition_level_display = '待评估',
+                blue_ocean_opportunity = '',
+                red_ocean_features = [],
+                problem_oriented_keywords = []
+            } = marketAnalysis;
+
+            // 设置市场类型图标和颜色
+            const typeConfig = {
+                'red_ocean': { icon: '🔥', color: 'linear-gradient(135deg, #ef4444 0%, #f87171 100%)', label: '红海市场' },
+                'blue_ocean': { icon: '🌊', color: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)', label: '蓝海市场' },
+                'mixed': { icon: '🌊🔥', color: 'linear-gradient(135deg, #6366F1 0%, #818CF8 100%)', label: '红海中的蓝海' }
+            };
+            const config = typeConfig[market_type] || typeConfig['mixed'];
+
+            // 更新卡片头部
+            document.getElementById('market-analysis-header').style.background = config.color;
+            document.getElementById('market-type-icon').textContent = config.icon;
+            document.getElementById('market-type-display').textContent = config.label;
+            document.getElementById('competition-level-display').textContent = `竞争程度：${competition_level_display}`;
+
+            // 更新竞争程度进度条
+            const compValue = Math.min(10, Math.max(1, parseInt(competition_level) || 5));
+            document.getElementById('competition-value').textContent = `${compValue}/10`;
+            const bar = document.getElementById('competition-bar');
+            bar.style.width = `${compValue * 10}%`;
+            // 颜色：1-3绿，4-6黄，7-10红
+            if (compValue <= 3) {
+                bar.className = 'progress-bar bg-success';
+            } else if (compValue <= 6) {
+                bar.className = 'progress-bar bg-warning';
+            } else {
+                bar.className = 'progress-bar bg-danger';
+            }
+
+            // 更新蓝海机会
+            document.getElementById('blue-ocean-opportunity').textContent = blue_ocean_opportunity || '暂无蓝海机会数据';
+
+            // 更新红海特征
+            const redOceanSection = document.getElementById('red-ocean-section');
+            const redOceanFeatures = document.getElementById('red-ocean-features');
+            if (red_ocean_features && red_ocean_features.length > 0) {
+                redOceanSection.style.display = 'block';
+                redOceanFeatures.innerHTML = red_ocean_features.map(f => `<li>${f}</li>`).join('');
+            } else {
+                redOceanSection.style.display = 'none';
+            }
+
+            // 更新问题导向词
+            const keywordsSection = document.getElementById('problem-keywords-section');
+            const keywordsList = document.getElementById('problem-keywords-list');
+            const keywordCount = document.getElementById('keyword-count');
+            
+            console.log('[displayMarketAnalysis] marketAnalysis:', marketAnalysis);
+            console.log('[displayMarketAnalysis] problem_oriented_keywords:', marketAnalysis.problem_oriented_keywords);
+            
+            if (problem_oriented_keywords && problem_oriented_keywords.length > 0) {
+                keywordsSection.style.display = 'block';
+                keywordCount.textContent = problem_oriented_keywords.length;
+                keywordsList.innerHTML = problem_oriented_keywords.map(kw => {
+                    // 根据关键词长度选择不同颜色样式
+                    const isLong = kw.length > 12;
+                    const colorClass = isLong ? 'bg-info' : 'bg-primary';
+                    return `<span class="badge ${colorClass} px-3 py-2" style="font-size: 0.85rem; font-weight: 500;">${kw}</span>`;
+                }).join('');
+            } else {
+                keywordsSection.style.display = 'none';
+            }
+        }
+
         // 渲染问题卡片（统一数组，不再分 user/buyer）
         function renderProblemCards(problems) {
             const userList = document.getElementById('user-pains-list');
@@ -1496,6 +1730,8 @@
 
         // 渲染指定问题类型的画像
         function renderPortraitsForType(key, displayName) {
+            // 保存当前 key，供单画像分析使用
+            _currentPortraitKey = key;
             // 直接用 id 精确查找（现在 key 就是后端返回的唯一 id）
             const portraits = _allPortraits[key] || [];
             const container = document.getElementById('target-customers-list');
@@ -1625,6 +1861,15 @@
                 if (description) {
                     cardContent += `<div style="font-size: 13px; color: #555; line-height: 1.6; padding-top: 0.5rem; border-top: 1px dashed #ddd;">${escHtml(description)}</div>`;
                 }
+
+                // 针对此画像挖掘蓝海机会按钮
+                cardContent += `
+                    <div style="margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px dashed #eee;">
+                        <button class="btn btn-sm btn-outline-primary w-100" onclick="generateOpportunityForPortrait(${index}, '${escHtml(displayTitle)}')">
+                            🔍 针对此画像挖掘蓝海机会
+                        </button>
+                    </div>
+                `;
 
                 cardContent += `</div>`;
                 card.innerHTML = cardContent;
@@ -1988,17 +2233,46 @@
         // 创建问题按钮（参照奶粉行业格式）
         function createProblemButton(problem, problemType) {
             // 问题名称和描述
-            const name = problem.name || '问题';
+            const name = problem.name || problem.display_name || '问题';
             const description = problem.description || '';
             
-            // 严重程度转星星
+            // 严重程度转星星（正确映射）
+            // 极高=5星, 高=4星, 中=3星, 低=2星
             let severityStars = '';
-            if (problem.severity === '高') {
+            let severityClass = '';
+            if (problem.severity === '极高') {
                 severityStars = '⭐⭐⭐⭐⭐';
-            } else if (problem.severity === '中') {
+                severityClass = 'severity-extreme';
+            } else if (problem.severity === '高') {
                 severityStars = '⭐⭐⭐⭐';
+                severityClass = 'severity-high';
+            } else if (problem.severity === '中') {
+                severityStars = '⭐⭐⭐';
+                severityClass = 'severity-medium';
             } else if (problem.severity === '低') {
                 severityStars = '⭐⭐';
+                severityClass = 'severity-low';
+            }
+            
+            // 严重程度标签样式
+            let severityBadge = '';
+            if (problem.severity) {
+                const severityColors = {
+                    '极高': { bg: '#fee2e2', color: '#dc2626' },
+                    '高': { bg: '#fef3c7', color: '#d97706' },
+                    '中': { bg: '#dbeafe', color: '#2563eb' },
+                    '低': { bg: '#e5e7eb', color: '#6b7280' }
+                };
+                const colors = severityColors[problem.severity] || severityColors['中'];
+                severityBadge = `<span style="
+                    background: ${colors.bg};
+                    color: ${colors.color};
+                    font-size: 11px;
+                    padding: 2px 8px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    margin-right: 4px;
+                ">${problem.severity}</span>`;
             }
             
             // 使用方问题/付费方顾虑标签
@@ -2007,7 +2281,7 @@
             const tagTextColor = problemType === 'user_pain' ? '#1565c0' : '#c2185b';
 
             return `
-                <div class="problem-btn"
+                <div class="problem-btn ${severityClass}"
                      data-problem-id="${problem.id}"
                      data-problem-type="${problemType}"
                      data-problem-name="${name}"
@@ -2028,10 +2302,11 @@
                         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
                         margin-bottom: 10px;
                      ">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
                         <span style="font-size: 11px; padding: 2px 8px; border-radius: 12px; background: ${tagColor}; color: ${tagTextColor}; font-weight: 600;">${tagLabel}</span>
+                        ${severityBadge}
                         <span style="font-weight: 600; color: #212529;">${name}</span>
-                        ${severityStars ? '<span style="margin-left: auto; font-size: 12px; letter-spacing: 1px;">' + severityStars + '</span>' : ''}
+                        ${severityStars ? '<span style="margin-left: auto; font-size: 12px; letter-spacing: 1px; color: #f59e0b;">' + severityStars + '</span>' : ''}
                     </div>
                     <div style="font-size: 13px; color: #6c757d;">${description}</div>
                 </div>
@@ -2622,6 +2897,268 @@
 
         // 页面加载时检查登录
         checkAuth();
+
+        // ================================================================
+        // 市场机会分析功能
+        // ================================================================
+
+        let _currentOpportunityData = null;  // 当前市场机会数据
+
+        // 显示市场机会分析区域
+        function showMarketOpportunitySection() {
+            const section = document.getElementById('market-opportunity-section');
+            if (section) {
+                section.style.display = 'block';
+                // 滚动到该区域
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // 更新市场机会步骤指示器
+        function updateOpportunitySteps(step) {
+            // step: 1=发现问题, 2=精准画像, 3=蓝海机会
+            const steps = ['opp-step-1', 'opp-step-2', 'opp-step-3'];
+            steps.forEach((id, index) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (index < step) {
+                        el.classList.add('active');
+                    } else if (index === step - 1) {
+                        el.classList.add('active');
+                    } else {
+                        el.classList.remove('active');
+                    }
+                }
+            });
+        }
+
+        // 针对单个画像挖掘蓝海机会
+        let _currentOpportunityKey = null;
+        async function generateOpportunityForPortrait(index, portraitName) {
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            if (!businessDesc) {
+                alert('请先填写业务描述');
+                return;
+            }
+
+            // 获取当前查看的问题类型
+            const container = document.getElementById('target-customers-list');
+            const cards = container.querySelectorAll('.col-md-6');
+            if (!cards[index]) {
+                alert('未找到该画像');
+                return;
+            }
+
+            // 获取当前问题类型 key
+            const currentKey = _currentPortraitKey || Object.keys(_allPortraits)[0];
+            const portrait = _allPortraits[currentKey]?.[index];
+            if (!portrait) {
+                alert('未找到该画像数据');
+                return;
+            }
+
+            // 显示加载
+            document.getElementById('opportunity-loading').style.display = 'block';
+            document.getElementById('opportunity-result').style.display = 'none';
+            document.getElementById('opportunity-status').textContent = '分析中...';
+
+            try {
+                const response = await fetch('/public/api/market-opportunity/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        business_description: businessDesc,
+                        portraits: [portrait]  // 只传单个画像
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    _currentOpportunityData = result.data;
+                    document.getElementById('opportunity-content').innerHTML = parseMarkdown(result.markdown || '');
+                    document.getElementById('opportunity-result').style.display = 'block';
+                    document.getElementById('opportunity-status').textContent = `✓ ${portraitName}`;
+                    document.getElementById('opportunity-status').className = 'badge bg-success me-2';
+                    showToast('蓝海机会分析完成！', 'success');
+                } else {
+                    alert(result.message || '生成失败');
+                }
+            } catch (e) {
+                console.error('生成市场机会失败:', e);
+                alert('网络请求失败，请检查网络连接后重试');
+            } finally {
+                document.getElementById('opportunity-loading').style.display = 'none';
+            }
+        }
+
+        // 生成市场机会
+        async function generateMarketOpportunity() {
+            // 收集业务信息
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            if (!businessDesc) {
+                alert('请先填写业务描述');
+                return;
+            }
+
+            // 收集用户画像数据
+            const portraits = [];
+            if (typeof _allPortraits === 'object' && _allPortraits) {
+                for (const key in _allPortraits) {
+                    if (_allPortraits[key] && Array.isArray(_allPortraits[key])) {
+                        portraits.push(..._allPortraits[key]);
+                    }
+                }
+            }
+
+            if (portraits.length === 0) {
+                alert('请先生成用户画像');
+                return;
+            }
+
+            // 获取业务类型
+            const businessTypeEl = document.querySelector('input[name="business-type"]:checked');
+            const businessType = businessTypeEl ? businessTypeEl.value : '';
+
+            // 获取经营范围
+            const businessRangeEl = document.querySelector('input[name="business-range"]:checked');
+            const businessRange = businessRangeEl ? businessRangeEl.value : '';
+
+            // 显示加载状态
+            document.getElementById('opportunity-loading').style.display = 'block';
+            document.getElementById('opportunity-result').style.display = 'none';
+            document.getElementById('btn-generate-opportunity').disabled = true;
+            document.getElementById('opportunity-status').textContent = '分析中...';
+
+            try {
+                const response = await fetch('/public/api/market-opportunity/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        business_description: businessDesc,
+                        business_range: businessRange,
+                        business_type: businessType,
+                        portraits: portraits
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    _currentOpportunityData = result.data;
+                    document.getElementById('opportunity-content').innerHTML = parseMarkdown(result.markdown || '');
+                    document.getElementById('opportunity-result').style.display = 'block';
+                    document.getElementById('opportunity-status').textContent = '✓ 已完成';
+                    document.getElementById('opportunity-status').className = 'badge bg-success me-2';
+                    updateOpportunitySteps(3);
+                    showToast('市场机会分析完成！', 'success');
+                } else {
+                    alert(result.message || '生成失败');
+                    document.getElementById('opportunity-status').textContent = '生成失败';
+                }
+            } catch (e) {
+                console.error('生成市场机会失败:', e);
+                alert('网络请求失败，请检查网络连接后重试');
+            } finally {
+                document.getElementById('opportunity-loading').style.display = 'none';
+                document.getElementById('btn-generate-opportunity').disabled = false;
+            }
+        }
+
+        // 复制市场机会结果
+        function copyOpportunityResult() {
+            if (!_currentOpportunityData) return;
+
+            // 生成纯文本格式
+            let text = '🆕 市场机会分析\n\n';
+
+            const basis = _currentOpportunityData.opportunity_basis || {};
+            text += '【机会发现依据】\n';
+            text += '行业痛点：' + (basis.industry_pain_point || 'N/A') + '\n';
+            text += '用户画像：' + (basis.persona_match || 'N/A') + '\n';
+            text += '竞品空缺：' + (basis.competitor_gap || 'N/A') + '\n\n';
+
+            const opportunities = _currentOpportunityData.opportunities || {};
+            const dimOrder = ['产品', '方法', '场景', '流程', '理念', '服务', '工具'];
+
+            dimOrder.forEach(dim => {
+                const opps = opportunities[dim];
+                if (opps && opps.length > 0) {
+                    text += '【' + dim + '机会】\n';
+                    opps.forEach((opp, i) => {
+                        text += (i + 1) + '. ' + opp.opportunity + '\n';
+                        text += '   差异化：' + opp.differentiation + '\n';
+                        text += '   落地：' + opp.implementation + '\n\n';
+                    });
+                }
+            });
+
+            const priority = _currentOpportunityData.priority_recommendations || [];
+            if (priority.length > 0) {
+                text += '【优先推荐】\n';
+                priority.forEach(rec => {
+                    text += '⭐' + rec.rank + ' ' + rec.dimension + '：' + rec.opportunity + '\n';
+                });
+                text += '\n';
+            }
+
+            if (_currentOpportunityData.core_positioning) {
+                text += '【核心定位】' + _currentOpportunityData.core_positioning + '\n';
+            }
+
+            navigator.clipboard.writeText(text).then(function() {
+                showToast('已复制到剪贴板', 'success');
+            });
+        }
+
+        // 简单的Markdown解析
+        function parseMarkdown(text) {
+            if (!text) return '';
+
+            let html = text
+                // 标题
+                .replace(/^### (.+)$/gm, '<h4 class="mt-3 mb-2">$1</h4>')
+                .replace(/^## (.+)$/gm, '<h3 class="mt-4 mb-2">$1</h3>')
+                .replace(/^# (.+)$/gm, '<h2 class="mt-4 mb-3">$1</h2>')
+                // 表格
+                .replace(/\|(.+)\|/g, function(match) {
+                    const cells = match.split('|').filter(c => c.trim());
+                    if (cells.some(c => c.trim().match(/^-+$/))) {
+                        return '';
+                    }
+                    const tag = 'td';
+                    return '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+                })
+                // 列表
+                .replace(/^- (.+)$/gm, '<li>$1</li>')
+                // 引用
+                .replace(/^> (.+)$/gm, '<blockquote class="blockquote">$1</blockquote>')
+                // 换行
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n/g, '<br>');
+
+            // 包裹表格
+            html = html.replace(/(<tr>.*<\/tr>)+/g, '<table class="table table-sm table-bordered">$&</table>');
+            // 包裹列表
+            html = html.replace(/(<li>.*<\/li>)+/g, '<ul>$&</ul>');
+
+            return '<p>' + html + '</p>';
+        }
+
+        // 在画像生成后，显示市场机会区域
+        const originalSelectProblemCard = window.selectProblemCard;
+        if (originalSelectProblemCard) {
+            window.selectProblemCard = function(key, identity, problemType, problemData) {
+                originalSelectProblemCard(key, identity, problemType, problemData);
+                // 如果有画像了，显示市场机会区域
+                setTimeout(function() {
+                    if (_allPortraits && Object.keys(_allPortraits).length > 0) {
+                        showMarketOpportunitySection();
+                        updateOpportunitySteps(2);
+                    }
+                }, 100);
+            };
+        }
     </script>
 </body>
 </html>

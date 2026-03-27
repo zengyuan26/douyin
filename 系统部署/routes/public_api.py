@@ -883,3 +883,94 @@ def login_required(f):
             return jsonify({'success': False, 'message': '请先登录'}), 401
         return f(*args, **kwargs)
     return decorated_function
+
+
+# =============================================================================
+# 市场机会分析 API
+# =============================================================================
+
+@public_bp.route('/api/market-opportunity/generate', methods=['POST'])
+def api_generate_market_opportunity():
+    """
+    生成市场机会分析
+
+    基于用户画像数据，挖掘差异化蓝海市场机会
+
+    请求格式：
+    {
+        "business_description": "...",    // 业务描述
+        "business_range": "...",        // 经营范围
+        "business_type": "...",        // 业务类型
+        "portraits": [...]              // 用户画像列表
+    }
+    """
+    from services.public_market_opportunity import get_public_market_opportunity_service
+
+    params = request.get_json() or {}
+
+    # 必填字段检查
+    if not params.get('business_description'):
+        return jsonify({'success': False, 'message': '请先填写业务描述'}), 400
+
+    if not params.get('portraits') or len(params.get('portraits', [])) == 0:
+        return jsonify({'success': False, 'message': '请先生成用户画像'}), 400
+
+    # 构建业务信息
+    business_info = {
+        'business_description': params.get('business_description', ''),
+        'business_range': params.get('business_range', ''),
+        'business_type': params.get('business_type', ''),
+    }
+
+    # 获取画像数据
+    portraits_data = params.get('portraits', [])
+
+    # 调用服务生成市场机会
+    try:
+        service = get_public_market_opportunity_service()
+        result = service.generate_opportunity(business_info, portraits_data)
+
+        if result.get('success'):
+            # 返回Markdown格式方便前端展示
+            markdown = service.format_markdown(result)
+            return jsonify({
+                'success': True,
+                'data': result.get('data', {}),
+                'markdown': markdown
+            })
+        else:
+            error_msg = result.get('error', '生成失败')
+            # 如果有原始响应，也返回方便调试
+            if result.get('raw_response'):
+                return jsonify({
+                    'success': False,
+                    'message': f'{error_msg}，原始响应：{result.get("raw_response")[:200]}'
+                }), 500
+            return jsonify({
+                'success': False,
+                'message': error_msg
+            }), 500
+    except Exception as e:
+        import traceback
+        import sys
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        tb_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        print(f"[MarketOpportunity Error] {e}\n{tb_str}", file=sys.stderr)
+        return jsonify({
+            'success': False,
+            'message': f'服务器错误: {str(e)}'
+        }), 500
+
+
+@public_bp.route('/api/market-opportunity/dimensions', methods=['GET'])
+def api_get_market_opportunity_dimensions():
+    """获取市场机会分析维度配置"""
+    from services.public_market_opportunity import get_public_market_opportunity_service
+
+    service = get_public_market_opportunity_service()
+    dimensions = service.get_differentiation_dimensions()
+
+    return jsonify({
+        'success': True,
+        'data': dimensions
+    })

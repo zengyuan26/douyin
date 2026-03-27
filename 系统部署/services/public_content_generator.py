@@ -3298,14 +3298,20 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
     for i, p in enumerate(buyer_problems):
         all_problems.append(_enrich(p, i, 'buyer'))
 
+    # 获取市场分析数据
+    market_analysis = data.get('market_analysis', {}) or {}
+    
+    print(f"[mine_problems] market_analysis: {market_analysis}")
+
     return {
         'success': True,
-        'problems': {'problems': all_problems},
+        'problems': {'problems': all_problems, 'market_analysis': market_analysis},
         'is_premium': result.get('data', {}).get('is_premium', False),
         'data': {
             'user_problem_types': user_problems,
             'buyer_concern_types': buyer_problems,
             'buyer_user_relation': data.get('buyer_user_relation', {}),
+            'market_analysis': market_analysis,
         }
     }
 
@@ -3373,7 +3379,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
     elif business_type == 'enterprise':
         buyer_user_hint = "【买用关系提示】企业服务：使用者≠决策者（如员工用，经理/老板买）"
 
-    prompt = f"""你是用户问题分析专家。请根据业务信息，识别使用者/付费者的问题类型和严重程度。
+    prompt = f"""你是用户问题分析专家。请根据业务信息，识别使用者/付费者的问题类型和严重程度，并分析市场机会。
 
 【重要】先仔细阅读以下示例，理解输出格式，然后基于业务信息生成。
 
@@ -3382,6 +3388,22 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 输出（评分分布：极高1个、高2个、中2个、低1个）：
 {{
+    "market_analysis": {{
+        "market_type": "mixed",
+        "market_type_display": "红海中的蓝海",
+        "competition_level": 7,
+        "competition_level_display": "竞争激烈",
+        "blue_ocean_opportunity": "差异化服务：专业甲醛治理/老人陪护/过敏家庭专护",
+        "red_ocean_features": ["传统保洁竞争白热化", "价格战激烈", "大型家政平台垄断流量"],
+        "problem_oriented_keywords": [
+            "甲醛治理哪家靠谱",
+            "新房怎么去甲醛最快",
+            "家政保洁多少钱一小时",
+            "过敏宝宝家里怎么清洁",
+            "老人陪护服务哪里找",
+            "专业除螨服务"
+        ]
+    }},
     "user_problem_types": [
         {{"identity": "独居老人子女", "problem_type": "怕老人出事无人知", "display_name": "怕老人被保姆欺负", "description": "【恐惧】看新闻保姆虐待老人、偷东西，担心自家老人也遭殃", "severity": "极高", "scenarios": ["老人洗澡时摔倒", "保姆态度变差", "老人被保姆欺负"]}},
         {{"identity": "有娃家庭", "problem_type": "怕细菌病毒带回家", "display_name": "怕家政把病源带回家", "description": "【恐惧】怕家政人员把外面细菌病毒带进来，孩子小抵抗力差", "severity": "极高", "scenarios": ["流感季节", "手足口高发", "新冠疫情期间"]}},
@@ -3405,6 +3427,28 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - 如果列出5个问题：极高1-2个、高1-2个、中1个、低0-1个
 - 如果列出6个问题：极高1-2个、高2个、中1-2个、低1个
 - 警惕：不要把什么问题都写成「极高」或「高」，真正的高痛点很少
+
+=== 市场分析框架 ===
+判断这个业务的市场类型：
+
+**market_type 可选值**：
+- "red_ocean"（红海）：大品牌垄断、竞争激烈、价格战、利润微薄
+- "blue_ocean"（蓝海）：细分市场、差异化机会、竞争少、利润高
+- "mixed"（红海中的蓝海）：整体红海，但存在细分蓝海机会
+
+**competition_level（1-10）**：
+- 1-3：竞争少，蓝海市场
+- 4-6：有一定竞争，需要差异化
+- 7-10：竞争激烈，红海市场
+
+**blue_ocean_opportunity**：用一句话说明蓝海机会/差异化方向
+
+**red_ocean_features**：列出2-3个红海特征
+
+**problem_oriented_keywords**：**【必填，必须在market_analysis内部】**问题导向词列表（至少5个），用户搜索时会用这些问题词：
+- **必须包含在 market_analysis 对象内！**
+- 格式：["关键词1", "关键词2", "关键词3", ...]
+- 示例：["宝宝拉肚子怎么办", "奶粉怎么选不踩坑", "进口奶粉在哪买靠谱"]
 
 === 待分析业务信息 ===
 业务描述：{business_desc}
@@ -3480,6 +3524,8 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             }
 
         print(f"[mine_problems_and_generate_personas] LLM 原始响应长度: {len(response)}")
+        print(f"[mine_problems_and_generate_personas] LLM 原始响应:\n{response}")
+        print(f"[mine_problems_and_generate_personas] LLM 原始响应末尾500字符:\n{response[-500:]}")
 
         # 尝试解析 JSON
         result = None
@@ -3734,9 +3780,28 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'severity': '高',
                 })
 
+            # 提取市场分析数据
+            market_analysis = result.get('market_analysis', {}) or {}
+            
+            print(f"[mine_problems_and_generate_personas] LLM返回的market_analysis: {market_analysis}")
+            print(f"[mine_problems_and_generate_personas] result中所有顶层key: {list(result.keys())}")
+            print(f"[mine_problems_and_generate_personas] result中problem_oriented_keywords: {result.get('problem_oriented_keywords', '字段不存在')}")
+            
+            # 规范化市场分析字段
+            normalized_market_analysis = {
+                'market_type': market_analysis.get('market_type', 'mixed'),
+                'market_type_display': market_analysis.get('market_type_display', '待分析'),
+                'competition_level': market_analysis.get('competition_level', 5),
+                'competition_level_display': market_analysis.get('competition_level_display', '待评估'),
+                'blue_ocean_opportunity': market_analysis.get('blue_ocean_opportunity', ''),
+                'red_ocean_features': market_analysis.get('red_ocean_features', []),
+                'problem_oriented_keywords': market_analysis.get('problem_oriented_keywords', []),
+            }
+
             return {
                 'success': True,
                 'data': {
+                    'market_analysis': normalized_market_analysis,
                     'user_problem_types': all_user_problem_types,
                     'buyer_concern_types': all_buyer_concern_types,
                     'buyer_user_relation': buyer_user_relation,
@@ -3941,7 +4006,8 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 - 不要使用省略号或占位符"""
 
     try:
-        response = llm.chat(prompt, temperature=0.8)
+        # 增大max_tokens防止JSON被截断
+        response = llm.chat(prompt, temperature=0.8, max_tokens=8000)
 
         if not response:
             return {
@@ -3965,58 +4031,140 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
         def smart_fix_json(text):
             """智能修复被截断的JSON"""
             original = text
+            print(f"[generate_portraits] 尝试修复JSON，长度={len(text)}")
 
-            for strategy in range(7):
+            for strategy in range(12):
                 test_json = text
 
-                if strategy == 0:
-                    last_brace = test_json.rfind('}')
-                    if last_brace > 0:
-                        test_json = test_json[:last_brace + 1]
+                try:
+                    if strategy == 0:
+                        # 策略0：找到最后一个完整的 }
+                        last_brace = test_json.rfind('}')
+                        if last_brace > 0:
+                            test_json = test_json[:last_brace + 1]
+                            # 检查括号是否平衡
+                            if test_json.count('{') == test_json.count('}'):
+                                result = try_parse(test_json)
+                                if result:
+                                    print(f"[generate_portraits] JSON修复成功 (策略{strategy})")
+                                    return result
 
-                elif strategy == 1:
-                    last_bracket = test_json.rfind(']')
-                    if last_bracket > 0:
-                        test_json = test_json[:last_bracket + 1]
-
-                elif strategy == 2:
-                    test_json = test_json.strip()
-                    if test_json.startswith('```'):
-                        lines = test_json.split('\n')
-                        if len(lines) > 1:
-                            test_json = '\n'.join(lines[1:-1])
-                        else:
-                            test_json = test_json[3:-3].strip()
-
-                elif strategy == 3:
-                    for ext in ['}}}', '}}', '}', ']', ')"']:
-                        if test_json.rstrip().endswith(ext):
-                            test_json = test_json.rstrip()[:-len(ext)]
-
-                elif strategy == 4:
-                    open_braces = test_json.count('{')
-                    close_braces = test_json.count('}')
-                    if open_braces > close_braces:
-                        test_json = test_json.rstrip() + '}' * (open_braces - close_braces)
-
-                elif strategy == 5:
-                    open_brackets = test_json.count('[')
-                    close_brackets = test_json.count(']')
-                    if open_brackets > close_brackets:
-                        test_json = test_json.rstrip() + ']' * (open_brackets - close_brackets)
-
-                elif strategy == 6:
-                    if '"portraits":' in test_json:
-                        idx = test_json.find('"portraits":')
-                        test_json = '{"portraits":' + test_json[idx + len('"portraits":'):]
+                    elif strategy == 1:
+                        # 策略1：找到最后一个完整的 ]
                         last_bracket = test_json.rfind(']')
                         if last_bracket > 0:
                             test_json = test_json[:last_bracket + 1]
 
-                result = try_parse(test_json)
-                if result is not None:
-                    print(f"[generate_portraits] JSON修复成功 (策略{strategy})")
-                    return result
+                    elif strategy == 2:
+                        # 策略2：去除代码块标记
+                        test_json = test_json.strip()
+                        if test_json.startswith('```'):
+                            lines = test_json.split('\n')
+                            if len(lines) > 1:
+                                test_json = '\n'.join(lines[1:-1])
+                            else:
+                                test_json = test_json[3:-3].strip()
+
+                    elif strategy == 3:
+                        # 策略3：去除常见的结尾垃圾字符
+                        for ext in ['}}}', '}}', '}', ']', ')"', '\n\n', '```', ',"']:
+                            if test_json.rstrip().endswith(ext):
+                                test_json = test_json.rstrip()[:-len(ext)].rstrip()
+
+                    elif strategy == 4:
+                        # 策略4：补充缺少的 }
+                        open_braces = test_json.count('{')
+                        close_braces = test_json.count('}')
+                        if open_braces > close_braces:
+                            test_json = test_json.rstrip() + '}' * (open_braces - close_braces)
+
+                    elif strategy == 5:
+                        # 策略5：补充缺少的 ]
+                        open_brackets = test_json.count('[')
+                        close_brackets = test_json.count(']')
+                        if open_brackets > close_brackets:
+                            test_json = test_json.rstrip() + ']' * (open_brackets - close_brackets)
+
+                    elif strategy == 6:
+                        # 策略6：从 portraits 字段重新构建
+                        if '"portraits":' in test_json:
+                            idx = test_json.find('"portraits":')
+                            test_json = '{"portraits":' + test_json[idx + len('"portraits":'):]
+                            # 找到最后一个完整的数组元素
+                            last_comma = test_json.rfind('},')
+                            if last_comma > 0:
+                                test_json = '{"portraits":[' + test_json[len('"portraits":['):last_comma + 1] + ']}'
+                            else:
+                                last_bracket = test_json.rfind(']')
+                                if last_bracket > 0:
+                                    test_json = '{"portraits":[' + test_json[len('"portraits":['):last_bracket] + ']}'
+
+                    elif strategy == 7:
+                        # 策略7：查找最后一个完整的 portrait 对象
+                        if '"name":' in test_json and '"portrait_summary":' in test_json:
+                            # 找到最后一个完整的 }（在 closing_bracket 之前）
+                            parts = test_json.rsplit('}', 2)
+                            if len(parts) >= 2:
+                                test_json = parts[0] + '}' + parts[1] + ']}}'
+
+                    elif strategy == 8:
+                        # 策略8：去除不完整的字符串值（最后一个引号后的内容）
+                        if test_json.rstrip().endswith('"') or test_json.rstrip().endswith(',"'):
+                            # 找到最后一个完整的属性
+                            last_valid = test_json.rfind('",')
+                            if last_valid > 0:
+                                test_json = test_json[:last_valid + 1] + ']}'
+
+                    elif strategy == 9:
+                        # 策略9：找到 JSON 开头，截取到最后一个完整对象
+                        json_start = test_json.find('{"portraits"')
+                        if json_start < 0:
+                            json_start = test_json.find('"portraits"')
+                        if json_start >= 0:
+                            test_json = test_json[json_start:]
+                            if not test_json.startswith('{'):
+                                test_json = '{"portraits":' + test_json.split('"portraits":', 1)[1] if '"portraits":' in test_json else test_json
+
+                    elif strategy == 10:
+                        # 策略10：尝试只取 portraits 数组
+                        if '"portraits":' in test_json:
+                            arr_start = test_json.find('"portraits":')
+                            arr_content = test_json[arr_start + len('"portraits":'):]
+                            # 找到数组边界
+                            bracket_count = 0
+                            end_idx = 0
+                            for i, c in enumerate(arr_content):
+                                if c == '[':
+                                    bracket_count += 1
+                                elif c == ']':
+                                    bracket_count -= 1
+                                    if bracket_count == 0:
+                                        end_idx = i
+                                        break
+                            if end_idx > 0:
+                                arr = arr_content[1:end_idx]
+                                # 重新构建对象数组
+                                result = try_parse('{"portraits":[' + arr + ']}')
+                                if result:
+                                    print(f"[generate_portraits] JSON修复成功 (策略{strategy})")
+                                    return result
+
+                    elif strategy == 11:
+                        # 策略11：尝试补充字符串并闭合
+                        test_json = test_json.rstrip()
+                        # 如果最后一个字符是逗号，去掉
+                        if test_json.endswith(','):
+                            test_json = test_json[:-1]
+                        # 补充闭合符号
+                        test_json += ']}}'
+
+                    result = try_parse(test_json)
+                    if result is not None:
+                        print(f"[generate_portraits] JSON修复成功 (策略{strategy})")
+                        return result
+                except Exception as e:
+                    print(f"[generate_portraits] 策略{strategy}失败: {e}")
+                    continue
 
             print(f"[generate_portraits] JSON修复失败，尝试原始解析")
             return try_parse(original)

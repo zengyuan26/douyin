@@ -4,12 +4,15 @@
   "industry": "食品行业",
   "sub_industry": "桶装水",
   "created_at": "2026-02-25",
-  "updated_at": "2026-02-28",
-  "product_type": "mixed",
-    "product_type_detail": {
-      "standard": ["桶装水配送"],
-      "non_standard": ["瓶装定制水"]
-    },
+  "updated_at": "2026-03-25",
+  "product_type": "一次性桶装水",
+  "product_type_detail": {
+    "core_focus": "一次性桶装水（泡茶/茶饮/健身专用）",
+    "features": ["智能灌装", "水源地直供", "富锶低钠弱酸", "溯源", "合规", "AI质检"],
+    "local_water_source": ["綦江区"],
+    "water_quality": ["富锶", "低钠", "弱酸"],
+    "packaging": ["可降解", "小桶", "定制化"]
+  },
   "owner_info": {
     "name": "小周",
     "gender": "女",
@@ -22,7 +25,7 @@
     "client_type": "product/service",
     "geographic_scope": "local",
     "brand_type": "personal/company",
-    "description": "重庆桶装水配送+瓶装定制水服务，5箱起订即可定制",
+    "description": "重庆本地一次性桶装水专家，主打泡茶/茶饮/健身专用水，水源来自綦江区，富锶低钠弱酸，智能灌装，无菌合规",
     "target_cities": [
       "重庆"
     ],
@@ -35,8 +38,8 @@
   },
   "brand": {
     "brand_name": "龙眼山矿泉水",
-    "slogan": "源自天然山泉，定制从5箱起",
-    "core_advantage": "5-10箱起订即可定制瓶装水",
+    "slogan": "綦江好水，一次性桶更放心",
+    "core_advantage": "綦江水源地+一次性桶+富锶低钠弱酸+泡茶/茶饮/健身专用",
     "logo": {
       "has": true,
       "path": "品牌资料/logo.png",
@@ -51,21 +54,28 @@
   },
   "products": [
     {
-      "name": "产品名称",
-      "sku": "SKU-001",
-      "price": "价格",
+      "name": "一次性桶装水（泡茶专用）",
+      "sku": "SKU-一次性桶",
+      "price": "待定",
       "features": [
-        "特点1",
-        "特点2"
+        "智能灌装",
+        "水源地直供（綦江区）",
+        "富锶低钠弱酸",
+        "溯源可查",
+        "合规资质",
+        "AI质检",
+        "可降解包装",
+        "小桶设计"
       ],
       "images": [
-        "产品资料/产品1.jpg"
+        "产品资料/一次性桶.jpg"
       ],
       "packaging": {
-        "type": "包装类型",
-        "size": "规格",
+        "type": "一次性桶",
+        "size": "多种规格",
         "materials": [
-          "包装设计/包装.jpg"
+          "可降解材质",
+          "食品级安全"
         ]
       }
     }
@@ -124,7 +134,63 @@
         "videos": [
           "人物形象/视频.mp4"
         ]
-      }
+      },
+      "target_personas": [
+        {
+          "id": "persona_tea_lover",
+          "name": "茶艺爱好者老李",
+          "demographics": {
+            "age": "40岁左右",
+            "occupation": "自由职业/企业中层",
+            "income": "中等偏上",
+            "location": "重庆主城区"
+          },
+          "behavior": {
+            "daily_habit": "每天都要泡茶，把品茶作为生活一部分",
+            "pain_point": "水质不好导致茶味苦涩、香气不足",
+            "buying_behavior": "愿意为好产品付费，但担心买贵了效果不好"
+          },
+          "psychology": {
+            "frustration": "超市矿泉水种类太多，分不清哪种适合泡茶",
+            "anxiety": "担心买到贵的反而效果不好",
+            "emotion": "烦躁又无奈"
+          },
+          "content_preference": [
+            "泡茶水质科普",
+            "茶叶口感对比",
+            "矿泉水选择指南",
+            "水质对茶味的影响"
+          ],
+          "conversion_hook": "用对水，茶味香一倍"
+        },
+        {
+          "id": "persona_gym_member",
+          "name": "健身私教会员小张",
+          "demographics": {
+            "age": "25-35岁",
+            "occupation": "年轻职场人",
+            "income": "中高收入",
+            "location": "重庆各大商圈健身房"
+          },
+          "behavior": {
+            "daily_habit": "定期去健身房，有私教课程，注重健身效果",
+            "pain_point": "教练说饮水质量影响增肌效果",
+            "buying_behavior": "愿意为品质买单，但不想被套路"
+          },
+          "psychology": {
+            "frustration": "健身房合作的商家价格虚高，感觉被套路",
+            "anxiety": "不甘心喝普通水，又不想花冤枉钱",
+            "emotion": "心里不爽但无奈接受"
+          },
+          "content_preference": [
+            "健身饮水科普",
+            "低钠水对健身的好处",
+            "桶装水选购避坑",
+            "健身房用水指南"
+          ],
+          "conversion_hook": "高品质水，健身效果更好"
+        }
+      ]
     },
     "scene_images": {
       "shop": [
@@ -143,12 +209,13 @@
   },
   "content_needs": {
     "primary_keywords": [
-      "桶装水",
-      "矿泉水",
-      "瓶装定制",
-      "重庆桶装水配送",
-      "企业定制水",
-      "5箱起定制"
+      "一次性桶装水",
+      "泡茶专用水",
+      "茶饮店用水",
+      "健身房饮用水",
+      "重庆桶装水",
+      "富锶矿泉水",
+      "綦江水"
     ],
     "content_types": [
       "图文",
@@ -160,5 +227,33 @@
       "小红书"
     ]
   },
-  "notes": "备注信息"
+  "market_focus": {
+    "niche": "一次性桶装水（替代传统循环桶）",
+    "target_customer": "泡茶客户 + 茶饮客户 + 健身房（注重品质）",
+    "target_customer_detail": {
+      "泡茶客户": "茶艺爱好者、茶馆、企业办公泡茶",
+      "茶饮客户": "奶茶店、茶饮店、咖啡馆",
+      "健身房": "健身房、瑜伽馆、运动场所"
+    },
+    "customer_trait": "注重品质",
+    "water_source": "綦江区",
+    "water_quality": ["富锶", "低钠", "弱酸"],
+    "market_trend": {
+      "一次性桶占比": "2026年占比50%+",
+      "增速": "15%+",
+      "替代": "传统循环桶"
+    },
+    "differentiation": [
+      "智能产线",
+      "AI质检",
+      "无菌灌装",
+      "合规+品质+成本三赢"
+    ],
+    "packaging_upgrade": [
+      "可降解",
+      "小桶",
+      "定制化"
+    ]
+  },
+  "notes": "2026-03-25 转型：主打一次性桶装水细分市场，聚焦泡茶+茶饮+健身房客户（注重品质），水源地綦江区，富锶低钠弱酸"
 }
