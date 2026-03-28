@@ -239,14 +239,22 @@
                                         </div>
                                     </div>
                                 </div>
-                                <!-- 内容模板 -->
-                                <div class="col-12">
-                                    <label class="form-label" for="dimension-content-template">内容模板（发给LLM的内容，支持变量：{examples}、{usage_tips}）</label>
-                                    <textarea class="form-control" id="dimension-content-template" rows="6" placeholder="【维度名称】
+                            </div>
+                        </div>
+
+                        <!-- 市场洞察 / 关键词筛选 / 问题引导词：发给 LLM 的内容模板 -->
+                        <div class="col-12" id="dimension-llm-template-section" style="display: none;">
+                            <hr>
+                            <label class="form-label" for="dimension-content-template">内容模板（发给LLM，支持变量：{examples}、{usage_tips}、{description}）</label>
+                            <textarea class="form-control" id="dimension-content-template" rows="6" placeholder="【维度名称】
 定义说明
 示例：{examples}
 区分技巧：{usage_tips}"></textarea>
-                                    <small class="text-muted">留空则使用默认格式：描述+示例+区分技巧</small>
+                            <small class="text-muted">市场洞察、关键词筛选、问题引导词均依赖此字段；留空则部分流程会回退为描述+示例</small>
+                            <div class="row g-3 mt-1 align-items-end" id="dimension-weight-row" style="display: none;">
+                                <div class="col-md-4">
+                                    <label class="form-label" for="dimension-weight">权重（排序与占比参考，数字越大越靠前）</label>
+                                    <input type="number" class="form-control" id="dimension-weight" step="0.1" min="0" placeholder="如 10">
                                 </div>
                             </div>
                         </div>
@@ -362,10 +370,16 @@ const DIMENSION_CATEGORIES = {
         'name': '超级定位',
         'sub_categories': {
             'persona': '人群画像',
-            'market_insight': '市场洞察'
+            'market_insight': '市场洞察',
+            'keyword_filter': '关键词筛选',
+            'question_guide': '问题引导词'
         }
     }
 };
+
+function subCategoryUsesLlmTemplate(sub) {
+    return sub === 'market_insight' || sub === 'keyword_filter' || sub === 'question_guide';
+}
 
 // 当前分组数据与详情视图所在分组（用于详情页刷新）
 var groupedDataCache = [];
@@ -662,6 +676,24 @@ function escapeHtml(s) {
     return div.innerHTML;
 }
 
+function updateSuperPositioningSubUi() {
+    const marketInsightSection = document.getElementById('market-insight-section');
+    const llmSection = document.getElementById('dimension-llm-template-section');
+    const weightRow = document.getElementById('dimension-weight-row');
+    const categorySelect = document.getElementById('dimension-category');
+    const subCategorySelect = document.getElementById('dimension-sub-category');
+    const cat = categorySelect.value;
+    const sub = subCategorySelect.value;
+    const isSp = cat === 'super_positioning';
+    const isMarketInsight = isSp && sub === 'market_insight';
+    const needsLlm = isSp && subCategoryUsesLlmTemplate(sub);
+    const showWeight = isSp && (sub === 'keyword_filter' || sub === 'question_guide');
+
+    if (marketInsightSection) marketInsightSection.style.display = isMarketInsight ? 'block' : 'none';
+    if (llmSection) llmSection.style.display = needsLlm ? 'block' : 'none';
+    if (weightRow) weightRow.style.display = showWeight ? 'flex' : 'none';
+}
+
 function openDimensionModal(dimension, prefillCategory, prefillSubCategory) {
     const modal = new bootstrap.Modal(document.getElementById('dimensionModal'));
     const form = document.getElementById('dimension-form');
@@ -683,15 +715,12 @@ function openDimensionModal(dimension, prefillCategory, prefillSubCategory) {
         document.getElementById('dimension-usage-tips').value = dimension.usage_tips || '';
         document.getElementById('dimension-applicable-audience').value = dimension.applicable_audience || '';
 
-        // 填充市场洞察字段
         const isMarketInsight = dimension.sub_category === 'market_insight';
         marketInsightSection.style.display = isMarketInsight ? 'block' : 'none';
 
         if (isMarketInsight) {
-            // 重要性
             document.getElementById('dimension-importance').value = dimension.importance || 1;
 
-            // 触发条件
             const trigger = dimension.trigger_conditions || {};
             const btSelect = document.getElementById('trigger-business-types');
             if (btSelect && trigger.business_types) {
@@ -701,16 +730,24 @@ function openDimensionModal(dimension, prefillCategory, prefillSubCategory) {
             }
             document.getElementById('trigger-search-stage').value = trigger.search_stage || '';
 
-            // 特殊人群复选框
             document.getElementById('trigger-has-baby').checked = trigger.has_baby || false;
             document.getElementById('trigger-has-elderly').checked = trigger.has_elderly || false;
             document.getElementById('trigger-has-enterprise').checked = trigger.has_enterprise || false;
             document.getElementById('trigger-is-gift').checked = trigger.is_gift || false;
             document.getElementById('trigger-is-pets').checked = trigger.is_pets || false;
+        }
 
-            // 内容模板
+        if (subCategoryUsesLlmTemplate(dimension.sub_category)) {
             document.getElementById('dimension-content-template').value = dimension.content_template || '';
         }
+        const wEl = document.getElementById('dimension-weight');
+        if (wEl && typeof dimension.weight === 'number') {
+            wEl.value = dimension.weight;
+        } else if (wEl && dimension.weight != null) {
+            wEl.value = dimension.weight;
+        }
+
+        updateSuperPositioningSubUi();
     } else {
         document.getElementById('dimensionModalLabel').textContent = '新增维度';
         document.getElementById('dimension-id').value = '';
@@ -722,40 +759,26 @@ function openDimensionModal(dimension, prefillCategory, prefillSubCategory) {
             categorySelect.disabled = true;
             updateSubCategoryOptions(prefillCategory, prefillSubCategory || '');
 
-            // 如果是市场洞察，显示配置区域
             if (prefillCategory === 'super_positioning' && prefillSubCategory === 'market_insight') {
                 marketInsightSection.style.display = 'block';
             }
         } else {
             categorySelect.value = '';
         }
+        updateSuperPositioningSubUi();
     }
 
     modal.show();
 }
 
-// 监听一级分类变化，显示/隐藏市场洞察配置
+// 监听一级分类变化，显示/隐藏市场洞察与 LLM 模板区
 document.getElementById('dimension-category').addEventListener('change', function() {
-    const marketInsightSection = document.getElementById('market-insight-section');
-    const subCategorySelect = document.getElementById('dimension-sub-category');
-
-    if (this.value === 'super_positioning' && subCategorySelect.value === 'market_insight') {
-        marketInsightSection.style.display = 'block';
-    } else {
-        marketInsightSection.style.display = 'none';
-    }
+    updateSuperPositioningSubUi();
 });
 
 // 监听二级分类变化
 document.getElementById('dimension-sub-category').addEventListener('change', function() {
-    const marketInsightSection = document.getElementById('market-insight-section');
-    const categorySelect = document.getElementById('dimension-category');
-
-    if (categorySelect.value === 'super_positioning' && this.value === 'market_insight') {
-        marketInsightSection.style.display = 'block';
-    } else {
-        marketInsightSection.style.display = 'none';
-    }
+    updateSuperPositioningSubUi();
 });
 
 function updateSubCategoryOptions(category, selectedSubCategory) {
@@ -823,9 +846,7 @@ async function saveDimension() {
         applicable_audience: document.getElementById('dimension-applicable-audience').value
     };
 
-    // 如果是市场洞察分类，添加市场洞察专用字段
     if (category === 'super_positioning' && subCategory === 'market_insight') {
-        // 收集触发条件
         var triggerConditions = {};
         var businessTypes = Array.from(document.getElementById('trigger-business-types').selectedOptions).map(o => o.value);
         if (businessTypes.length > 0) {
@@ -844,6 +865,14 @@ async function saveDimension() {
         data.trigger_conditions = triggerConditions;
         data.importance = parseInt(document.getElementById('dimension-importance').value) || 1;
         data.content_template = document.getElementById('dimension-content-template').value;
+    }
+
+    if (category === 'super_positioning' && (subCategory === 'keyword_filter' || subCategory === 'question_guide')) {
+        data.content_template = document.getElementById('dimension-content-template').value;
+        var wv = document.getElementById('dimension-weight').value;
+        if (wv !== '' && wv != null) {
+            data.weight = parseFloat(wv);
+        }
     }
 
     if (!data.name || !data.category) {

@@ -2985,6 +2985,8 @@ ANALYSIS_DIMENSION_SUB_CATEGORY_NAMES = {
     'super_positioning': {
         'persona': '人群画像',
         'market_insight': '市场洞察',
+        'keyword_filter': '关键词筛选',
+        'question_guide': '问题引导词',
     },
 }
 
@@ -3122,7 +3124,8 @@ def get_analysis_dimension(id):
             # 市场洞察专用字段
             'trigger_conditions': getattr(dimension, 'trigger_conditions', None) or {},
             'content_template': getattr(dimension, 'content_template', None) or '',
-            'importance': getattr(dimension, 'importance', 1) or 1
+            'importance': getattr(dimension, 'importance', 1) or 1,
+            'weight': float(getattr(dimension, 'weight', 1) or 1),
         }
     })
 
@@ -3192,7 +3195,8 @@ def create_analysis_dimension():
         # 市场洞察专用字段
         trigger_conditions=data.get('trigger_conditions', {}) or {},
         content_template=data.get('content_template', '') or None,
-        importance=data.get('importance', 1) or 1
+        importance=data.get('importance', 1) or 1,
+        weight=float(data.get('weight', 1) or 1),
     )
 
     db.session.add(dimension)
@@ -3270,6 +3274,11 @@ def update_analysis_dimension(id):
         dimension.content_template = data['content_template'] or None
     if 'importance' in data:
         dimension.importance = data['importance'] or 1
+    if 'weight' in data:
+        try:
+            dimension.weight = float(data['weight'])
+        except (TypeError, ValueError):
+            pass
 
     db.session.commit()
 
@@ -3366,6 +3375,24 @@ DEFAULT_ANALYSIS_DIMENSIONS = [
     {'name': '付费人顾虑', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '购买决策者的心理障碍和顾虑', 'icon': 'bi-shield', 'examples': '价格担忧 | 采购便利性 | 报销问题 | 决策风险', 'usage_tips': '付费人关心：价格、成本、便利、风险', 'trigger_conditions': {'has_enterprise': True}, 'content_template': '【付费方顾虑】\n{examples}\n{usage_tips}\n付费人（企业/老板/决策者）关心的问题：\n- 价格担忧：值不值这个价？太贵了怎么办？\n- 采购便利性：流程复不复杂？好不好协调？\n- 报销/成本：发票能不能报？成本怎么算？', 'importance': 4},
     {'name': '使用人痛点', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '实际使用者的体验问题和需求', 'icon': 'bi-person', 'examples': '水质口感 | 配送方便 | 品质稳定 | 使用体验', 'usage_tips': '使用人关心：体验、品质、方便', 'trigger_conditions': {}, 'content_template': '【使用人痛点】\n{examples}\n{usage_tips}\n使用人（员工/客户/家庭成员）关心的问题：\n- 体验感受：好不好喝？方不方便？\n- 品质稳定：每次质量一样吗？\n- 健康安全：卫不卫生？健不健康？', 'importance': 4},
     {'name': '蓝海长尾词', 'category': 'super_positioning', 'sub_category': 'market_insight', 'description': '细分场景、精准需求、痛点解决方案类的蓝海关键词', 'icon': 'bi-stars', 'examples': '婚宴用水 | 凌晨配送 | 企业团建用水 | 火锅店供货', 'usage_tips': '中国人口基数大，再小的需求也有很多人！', 'trigger_conditions': {}, 'content_template': '【蓝海长尾词挖掘】\n{description}\n核心思路：中国人口基数大，再小的需求也有很多人！围绕问题（不围绕产品）\n关键词结构比例：\n| 分类 | 占比 | 说明 |\n|------|------|------|\n| 付费人关键词 | 25% | 价格担忧、采购便利、配送问题 |\n| 使用人关键词 | 20% | 体验、品质、健康担忧 |\n| 蓝海长尾词 | 25% | 细分场景、精准需求、痛点解决 |', 'importance': 5},
+
+    # 超级定位 - 关键词筛选（新增，前台不显示，用于问题导向词生成）
+    # 注意：content_template 中的 {EXAMPLE} 占位符由 KeywordFilterService.get_weighted_context()
+    # 根据 business_desc 动态替换，不要在 DB 中写死任何产品示例
+    {'name': '品牌核心词', 'category': 'super_positioning', 'sub_category': 'keyword_filter', 'description': '守住自有流量', 'icon': 'bi-bookmark-star', 'weight': 10, 'is_active': True, 'content_template': '【关键词筛选 L1：品牌核心词】守住自有流量\n\n锁定搜索你品牌名称的精准用户，避免竞品截流。\n\n包括：品牌全称、品牌简称、品牌+业务、品牌+口碑等。\n\n典型格式：\n- "XX{EXAMPLE_PRODUCT}质量怎么样"\n- "XX{EXAMPLE_PRODUCT}靠谱吗"\n- "XX{EXAMPLE_PRODUCT}正宗吗"\n\n这类词转化率极高，是品牌的自有流量护城河。'},
+
+    {'name': '用户需求词', 'category': 'super_positioning', 'sub_category': 'keyword_filter', 'description': '直击核心痛点', 'icon': 'bi-lightning', 'weight': 10, 'is_active': True, 'content_template': '【关键词筛选 L2：用户需求词】直击核心痛点\n\n围绕用户核心需求，多用"怎么选""哪家好""靠谱推荐"等表达。\n\n典型格式：\n- "{EXAMPLE_PRODUCT}哪个牌子好"\n- "{EXAMPLE_PRODUCT}怎么选"\n- "{EXAMPLE_PRODUCT}多少钱"\n\n这类词完全贴合AI对话式搜索，是获客的核心关键词。'},
+
+    {'name': '场景痛点词', 'category': 'super_positioning', 'sub_category': 'keyword_filter', 'description': '抢占细分场景', 'icon': 'bi-geo-alt', 'weight': 30, 'is_active': True, 'content_template': '【关键词筛选 L3：场景痛点词】抢占细分场景\n\n结合用户的使用场景、核心痛点、避坑需求，让关键词更有温度。\n\n典型格式：\n- "{EXAMPLE_SCENE_PAIN}"\n- "{EXAMPLE_SCENE_PROBLEM}"\n\nAI会优先推荐能解决具体痛点的内容，这类词竞争小、精准度高。'},
+
+    {'name': '长尾转化词', 'category': 'super_positioning', 'sub_category': 'keyword_filter', 'description': '低竞争高转化', 'icon': 'bi-filter-square', 'weight': 30, 'is_active': True, 'content_template': '【关键词筛选 L4：长尾转化词】低竞争高转化\n\n由"核心业务+地域+场景+优势+需求"等组合而成。\n\n典型格式：\n- "{EXAMPLE_REGION_SERVICE}"\n- "{EXAMPLE_LONGTAIL}"\n\n这类词搜索用户几乎都是意向客户，竞争压力小，转化效果远超泛词。'},
+
+    {'name': '地域精准词', 'category': 'super_positioning', 'sub_category': 'keyword_filter', 'description': '锁定本地客户', 'icon': 'bi-pin-map', 'weight': 20, 'is_active': True, 'content_template': '【关键词筛选 L5：地域精准词】锁定本地客户\n\n对于做本地生意的企业，地域词是重中之重，按"省+市+区县+商圈"分层布局。\n\n典型格式：\n- "{EXAMPLE_REGION}"\n\nAI搜索对地域匹配度要求极高，精准地域词能快速锁定周边客户。'},
+
+    # 超级定位 - 问题引导词（LLM 基于种子词推测搜索意图时的问句形态）
+    {'name': '纯关键词提问', 'category': 'super_positioning', 'sub_category': 'question_guide', 'description': '以品类/品牌/参数为主的短问句，返回面宽，常需多轮追问才能锁定真实需求', 'icon': 'bi-hash', 'weight': 52, 'is_active': True, 'examples': '有机奶粉推荐哪个牌子 | 6～12个月有机奶粉怎么选 | 300元以内奶粉哪个牌子好', 'usage_tips': '典型用户占比约 45%～60%；适合作为种子词的「宽入口」形态，后续需补场景与约束。', 'content_template': '【问题引导词：纯关键词提问】\n使用频率（参考）：约 45%～60%\n特征：多为「品牌/品类/价格带/年龄段」等关键词组合，回答覆盖面广，往往需要多轮追问才能精准对齐用户真实诉求。\n生成问题导向词时：约一半左右可落在本形态。\n示例：\n- 「有机奶粉推荐哪个牌子」\n- 「6～12个月宝宝有机奶粉怎么选」\n- 「300元以内哪个奶粉牌子好」'},
+    {'name': '混合型关键词提问', 'category': 'super_positioning', 'sub_category': 'question_guide', 'description': '在关键词基础上附带部分场景或条件，结果相关度中等', 'icon': 'bi-intersect', 'weight': 33, 'is_active': True, 'examples': '380元价位段哪些奶粉品牌同时含OPO和益生菌配方', 'usage_tips': '典型用户占比约 25%～40%；比纯关键词多一层筛选条件，但仍可能缺少明确场景或行动约束。', 'content_template': '【问题引导词：混合型关键词提问】\n使用频率（参考）：约 25%～40%\n特征：在关键词基础上加入了部分场景、价位、成分或人群描述，结果相关度中等，介于「泛问」与「结构化问」之间。\n生成问题导向词时：约三分之一左右可落在本形态。\n示例：\n- 「380元价位段哪些奶粉品牌同时含OPO和益生菌配方」'},
+    {'name': '结构化关键词提问', 'category': 'super_positioning', 'sub_category': 'question_guide', 'description': '场景 + 诉求 + 约束清晰，可直接导向高精度、可执行的回答', 'icon': 'bi-diagram-3-fill', 'weight': 15, 'is_active': True, 'examples': '换奶粉后宝宝绿便但不哭闹，要不要立刻停？请列出3个关键观察指标。', 'usage_tips': '典型用户占比约 10%～15%；结构常为「场景 + 核心诉求 + 明确约束（如必须列出几步/几个指标）」。', 'content_template': '【问题引导词：结构化关键词提问】\n使用频率（参考）：约 10%～15%\n特征：场景、诉求与约束一体，往往能直接产出高精度、可执行的建议（如分步、列指标、给决策条件）。\n生成问题导向词时：约占一成多，用于覆盖高意向、强约束的长问句。\n典型结构：场景 + 诉求 + 约束。\n示例：\n- 「换奶粉后宝宝绿便但不哭闹，要不要立刻停？请列出3个关键观察指标。」'},
 ]
 
 
@@ -3405,12 +3432,13 @@ def init_analysis_dimensions():
                     examples=item.get('examples', '') or None,
                     usage_tips=item.get('usage_tips', ''),
                     applicable_audience=item.get('applicable_audience', '') or None,
-                    is_active=True,
+                    is_active=item.get('is_active', True),
                     is_default=True,
                     # 市场洞察专用字段
                     trigger_conditions=item.get('trigger_conditions', {}) or {},
                     content_template=item.get('content_template', '') or None,
-                    importance=item.get('importance', 1) or 1
+                    importance=item.get('importance', 1) or 1,
+                    weight=item.get('weight', 1.0) or 1.0
                 )
                 db.session.add(dimension)
                 created_count += 1

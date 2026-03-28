@@ -395,6 +395,31 @@
         color: var(--color-primary);
     }
 
+    /* 问题关键词标签 */
+    .problem-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 8px;
+    }
+
+    .problem-keyword-tag {
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        white-space: nowrap;
+    }
+
+    .problem-keyword-tag.blue_ocean {
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--color-primary);
+    }
+
+    .problem-keyword-tag.red_ocean {
+        background: rgba(108, 117, 125, 0.1);
+        color: #6c757d;
+    }
+
     /* 超级定位栏 */
     .super-locate-bar {
         position: sticky;
@@ -1338,6 +1363,21 @@
             const escapeAttr = (str) => String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
             const escapeText = (str) => String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+            // 获取问题关键词
+            const problemKeywords = type.problem_keywords || [];
+            const displayKeywords = problemKeywords.slice(0, 3);
+            const keywordTagsHtml = displayKeywords.length > 0 ? `
+                <div class="problem-keywords">
+                    ${displayKeywords.map(kw => {
+                        const keyword = typeof kw === 'object' ? (kw.keyword || '') : (kw || '');
+                        const kwType = typeof kw === 'object' ? (kw.type || 'red_ocean') : 'red_ocean';
+                        const badgeClass = kwType === 'blue_ocean' ? 'blue_ocean' : 'red_ocean';
+                        return `<span class="problem-keyword-tag ${badgeClass}" title="${escapeAttr(keyword)}">${escapeText(keyword).substring(0, 20)}${keyword.length > 20 ? '...' : ''}</span>`;
+                    }).join('')}
+                    ${problemKeywords.length > 3 ? `<span class="problem-keyword-tag" style="background: transparent; color: #999;">+${problemKeywords.length - 3}</span>` : ''}
+                </div>
+            ` : '';
+
             return `
                 <div class="problem-type-card ${isSelected ? 'selected' : ''}" data-type="${escapeAttr(displayName)}">
                     <div class="problem-type-check">✓</div>
@@ -1347,6 +1387,7 @@
                     <div class="problem-type-severity">
                         <span class="tag tag-${type.severity === '高' ? 'high' : type.severity === '中' ? 'medium' : 'low'}">${escapeText(type.severity || '')}</span>
                     </div>
+                    ${keywordTagsHtml}
                     <div class="problem-type-actions">
                         ${hasGenerated ? `
                             <span class="problem-generated">✓ 已生成 ${type.portrait_count} 个画像</span>
@@ -1612,44 +1653,72 @@
                     business_type: result.data.session.business_type
                 };
 
-                const problems = result.data.user_problems || [];
-                const typeMap = {};
+                // 优先使用 problem_types（包含完整数据），否则从 user_problems 构建
+                const apiProblemTypes = result.data.problem_types || [];
 
-                problems.forEach(p => {
-                    const typeName = p.type_name || '未分类';
-                    if (!typeMap[typeName]) {
-                        typeMap[typeName] = {
-                            type_name: typeName,
-                            type_severity: p.type_severity || '',
-                            problem_count: 0,
-                            portrait_count: 0
-                        };
-                    }
-                    typeMap[typeName].problem_count++;
-                    p.portraits = [];
-                });
+                if (apiProblemTypes.length > 0) {
+                    // 使用 API 返回的 problem_types
+                    problemTypes = apiProblemTypes.map(pt => ({
+                        type_name: pt.display_name || pt.type_name || '未命名',
+                        display_name: pt.display_name || pt.type_name || '未命名',
+                        type_severity: pt.severity || '',
+                        severity: pt.severity || '',
+                        scene: pt.scene || '',
+                        identity: pt.identity || '',
+                        problem: pt.problem || '',
+                        portrait_count: 0,
+                        problem_keywords: pt.problem_keywords || [],
+                        market_type: pt.market_type || 'red_ocean'
+                    }));
+                } else {
+                    // 兼容旧数据：从 user_problems 构建
+                    const problems = result.data.user_problems || [];
+                    const typeMap = {};
 
-                const portraitsData = result.data.portraits || [];
-                portraitsData.forEach(p => {
-                    const problem = problems.find(up => up.id === p.problem_id);
-                    if (problem) {
-                        p.type_name = problem.type_name || '未分类';
-                        problem.portraits = problem.portraits || [];
-                        problem.portraits.push(p);
-                    }
-                });
+                    problems.forEach(p => {
+                        const typeName = p.type_name || p.problem_type || '未分类';
+                        if (!typeMap[typeName]) {
+                            typeMap[typeName] = {
+                                type_name: typeName,
+                                display_name: p.display_name || typeName,
+                                type_severity: p.type_severity || '',
+                                severity: p.type_severity || p.severity || '',
+                                scene: p.scene || '',
+                                identity: p.identity || '',
+                                problem: p.problem || p.problem_type || '',
+                                problem_count: 0,
+                                portrait_count: 0,
+                                problem_keywords: p.problem_keywords || []
+                            };
+                        }
+                        typeMap[typeName].problem_count++;
+                        p.portraits = [];
+                    });
 
-                portraitsData.forEach(p => {
-                    const typeName = p.type_name || '未分类';
-                    if (typeMap[typeName]) {
-                        typeMap[typeName].portrait_count++;
-                    }
-                });
+                    // 更新画像数量
+                    const portraitsData = result.data.portraits || [];
+                    portraitsData.forEach(p => {
+                        const problem = problems.find(up => up.id === p.problem_id);
+                        if (problem) {
+                            p.type_name = problem.type_name || '未分类';
+                            problem.portraits = problem.portraits || [];
+                            problem.portraits.push(p);
+                        }
+                    });
 
-                problemTypes = Object.values(typeMap);
-                userProblems = problems;
+                    portraitsData.forEach(p => {
+                        const typeName = p.type_name || '未分类';
+                        if (typeMap[typeName]) {
+                            typeMap[typeName].portrait_count++;
+                        }
+                    });
+
+                    problemTypes = Object.values(typeMap);
+                    userProblems = problems;
+                    portraits = portraitsData;
+                }
+
                 buyerConcerns = result.data.buyer_concerns || [];
-                portraits = portraitsData;
 
                 renderProblemTypes();
                 renderBuyerConcerns();

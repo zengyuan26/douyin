@@ -3630,7 +3630,138 @@ function renderContentStrategy(strategy) {
 
 // 渲染市场分析
 function renderMarketAnalysis(data) {
-    return `<div class="row g-2">${renderDimensionCards(data, 'market')}</div>`;
+    if (!data || Object.keys(data).length === 0) {
+        return '<div class="col-12"><div class="text-muted small p-2">暂无市场分析数据</div></div>';
+    }
+
+    // 基础信息
+    const marketType = data.market_type || data.market_type_display || '待分析';
+    const competitionLevel = data.competition_level_display || data.competition_level || '待评估';
+    const blueOceanOpp = data.blue_ocean_opportunity || '';
+    const redOceanFeatures = data.red_ocean_features || [];
+
+    // 蓝海/红海关键词
+    const blueOceanKws = data.blue_ocean_keywords || [];
+    const redOceanKws = data.red_ocean_keywords || [];
+    const rawKws = data.problem_oriented_keywords || [];
+
+    // 判断市场类型样式
+    const isBlueOcean = (marketType || '').includes('蓝');
+    const typeBadgeClass = isBlueOcean ? 'bg-primary' : 'bg-danger';
+    const typeText = marketType.includes('_') ? marketType.replace('_ocean', '海').replace('_', '') : marketType;
+
+    let html = `
+        <div class="row g-2 mb-3">
+            <div class="col-4">
+                <div class="p-3 border rounded h-100">
+                    <div class="small text-muted mb-1">市场类型</div>
+                    <span class="badge ${typeBadgeClass}">${typeText}</span>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="p-3 border rounded h-100">
+                    <div class="small text-muted mb-1">竞争程度</div>
+                    <div class="fw-bold">${competitionLevel}</div>
+                    ${data.competition_level ? `<div class="progress mt-1" style="height:6px"><div class="progress-bar bg-warning" style="width:${(data.competition_level / 10) * 100}%"></div></div>` : ''}
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="p-3 border rounded h-100">
+                    <div class="small text-muted mb-1">蓝/红海词数量</div>
+                    <div><span class="badge bg-primary">${blueOceanKws.length} 蓝海</span> <span class="badge bg-danger">${redOceanKws.length} 红海</span></div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 蓝海机会
+    if (blueOceanOpp) {
+        html += `
+            <div class="p-3 bg-primary-subtle border border-primary rounded mb-3">
+                <div class="small text-primary fw-bold mb-1">❄️ 蓝海机会</div>
+                <div class="small">${blueOceanOpp}</div>
+            </div>
+        `;
+    }
+
+    // 蓝海关键词
+    if (blueOceanKws.length > 0) {
+        html += `
+            <div class="mb-3">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-primary me-2">❄️ 蓝海关键词</span>
+                    <span class="small text-muted">（场景痛点词 / 长尾转化词 — 有细分人群/场景/症状）</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    ${blueOceanKws.map(kw => {
+                        const keyword = typeof kw === 'object' ? (kw.keyword || kw.kw || '') : (kw || '');
+                        const source = typeof kw === 'object' ? (kw.source || '') : '';
+                        return `
+                            <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-3 py-2" style="font-size:13px; font-weight:400;">
+                                ${keyword}
+                                ${source ? `<span class="ms-1 opacity-75" style="font-size:11px;">(${source})</span>` : ''}
+                            </span>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // 红海关键词
+    if (redOceanKws.length > 0) {
+        html += `
+            <div class="mb-3">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-danger me-2">🔴 红海关键词</span>
+                    <span class="small text-muted">（品牌核心词 / 用户需求词 / 地域精准词 — 泛需求无场景）</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    ${redOceanKws.map(kw => {
+                        const keyword = typeof kw === 'object' ? (kw.keyword || kw.kw || '') : (kw || '');
+                        const source = typeof kw === 'object' ? (kw.source || '') : '';
+                        return `
+                            <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-3 py-2" style="font-size:13px; font-weight:400;">
+                                ${keyword}
+                                ${source ? `<span class="ms-1 opacity-75" style="font-size:11px;">(${source})</span>` : ''}
+                            </span>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // 红海特征
+    if (redOceanFeatures.length > 0) {
+        html += `
+            <div class="mb-2">
+                <div class="small text-muted mb-2">红海特征</div>
+                <ul class="list-unstyled mb-0 small">
+                    ${redOceanFeatures.map(f => `<li class="text-secondary">• ${f}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+
+    // 原始 keywords（兜底）
+    if (rawKws.length > 0 && blueOceanKws.length === 0 && redOceanKws.length === 0) {
+        html += `
+            <div class="mb-2">
+                <div class="small text-muted mb-2">问题导向关键词</div>
+                <div class="d-flex flex-wrap gap-1">
+                    ${rawKws.map(kw => {
+                        const keyword = typeof kw === 'object' ? (kw.keyword || kw.kw || '') : (kw || '');
+                        const kwType = typeof kw === 'object' ? (kw.type || '') : '';
+                        const badgeClass = kwType === 'blue_ocean' ? 'bg-primary' : 'bg-secondary';
+                        return `<span class="badge ${badgeClass}">${keyword}</span>`;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    return html;
 }
 
 // 渲染关键词库（纯文本显示，无色块）

@@ -171,7 +171,7 @@ STEP1_PROBLEM_TYPES_PROMPT = """## 角色
 你是一位用户研究专家。
 
 ## 任务
-快速识别该业务的主要问题类型，组合成【场景+身份+问题】一体化卡片。
+快速识别该业务的主要问题类型，组合成【场景+身份+问题】一体化卡片，并为每个问题类型生成关键词。
 
 ## 业务信息
 - 行业：{industry}
@@ -190,14 +190,25 @@ STEP1_PROBLEM_TYPES_PROMPT = """## 角色
       "scene": "早餐",
       "identity": "怕胖白领",
       "problem": "甜食与健康的纠结",
-      "severity": "高"
+      "severity": "高",
+      "market_type": "blue_ocean",
+      "market_reason": "细分人群+高痛点",
+      "problem_keywords": [
+        {{"keyword": "怕胖早餐吃什么最健康", "type": "blue_ocean", "source": "场景痛点词"}},
+        {{"keyword": "无糖甜食真的不含糖吗", "type": "red_ocean", "source": "用户需求词"}}
+      ]
     }},
     {{
       "display_name": "聚餐_请客主人_怕菜品不够体面",
       "scene": "聚餐",
       "identity": "请客主人",
       "problem": "怕菜品不够体面",
-      "severity": "中"
+      "severity": "中",
+      "market_type": "red_ocean",
+      "market_reason": "大众需求",
+      "problem_keywords": [
+        {{"keyword": "商务宴请用什么酒有面子", "type": "red_ocean", "source": "用户需求词"}}
+      ]
     }}
   ]
 }}
@@ -209,11 +220,17 @@ STEP1_PROBLEM_TYPES_PROMPT = """## 角色
 - `identity`: 人群身份特征（如：怕胖白领、宝妈、学生党、餐厅老板等）
 - `problem`: 核心问题/诉求（如：甜食与健康的纠结、担心效果等）
 - `severity`: 问题重要程度（高/中/低）
+- `market_type`: 市场类型（blue_ocean 或 red_ocean）
+- `market_reason`: 市场判断理由
+- `problem_keywords`: 问题导向关键词数组（每个问题至少1-2个），格式为：
+  - `keyword`: 完整问句（如"孩子喝了桶装水拉肚子怎么办"）
+  - `type`: "blue_ocean"（场景痛点词/长尾转化词）或 "red_ocean"（用户需求词/品牌核心词）
+  - `source`: 来源维度（如"场景痛点词"、"用户需求词"、"长尾转化词"）
 
 ## 核心原则
 场景+身份+问题 三位一体，共同构建用户痛点。不要单独推导场景，要在具体场景下理解身份的问题。
 
-**简洁为王！保持简短！**"""
+**简洁为王！保持简短！每个问题至少1个关键词，最多3个。**"""
 
 
 # ========== 分级模板生成提示词 ==========
@@ -387,6 +404,13 @@ def step1_identify_problem_types():
                 pt['identity'] = ''
             if not pt.get('problem'):
                 pt['problem'] = ''
+            # 确保新字段存在（兼容旧数据）
+            if not pt.get('market_type'):
+                pt['market_type'] = 'red_ocean'
+            if not pt.get('market_reason'):
+                pt['market_reason'] = ''
+            if not pt.get('problem_keywords'):
+                pt['problem_keywords'] = []
 
         session_obj.problem_types_data = problem_types
         session_obj.buyer_concerns = []  # 简化版不输出 buyer_concerns
@@ -1034,6 +1058,8 @@ def get_session(session_id):
                 'portrait_count': session_obj.portrait_count,
                 'created_at': session_obj.created_at.isoformat()
             },
+            # 返回问题类型完整数据（包括 problem_keywords）
+            'problem_types': session_obj.problem_types_data or [],
             'user_problems': [
                 {
                     'id': p.id,
