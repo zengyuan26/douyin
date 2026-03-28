@@ -313,7 +313,7 @@ def api_identify_problems():
         "customer_story": "...", // 可选
     }
     """
-    from services.public_content_generator import mine_problems as new_mine_problems
+    from services.public_content_generator import mine_problems
 
     params = request.get_json() or {}
 
@@ -337,8 +337,8 @@ def api_identify_problems():
 
     params['_is_premium'] = is_premium
 
-    # 调用新的问题挖掘函数
-    result = new_mine_problems(params)
+    # 调用问题挖掘函数
+    result = mine_problems(params)
 
     # 添加用户标识
     result['is_premium'] = is_premium

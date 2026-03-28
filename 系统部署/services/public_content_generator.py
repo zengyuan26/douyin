@@ -3405,18 +3405,45 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         ]
     }},
     "user_problem_types": [
-        {{"identity": "独居老人子女", "problem_type": "怕老人出事无人知", "display_name": "怕老人被保姆欺负", "description": "【恐惧】看新闻保姆虐待老人、偷东西，担心自家老人也遭殃", "severity": "极高", "scenarios": ["老人洗澡时摔倒", "保姆态度变差", "老人被保姆欺负"]}},
-        {{"identity": "有娃家庭", "problem_type": "怕细菌病毒带回家", "display_name": "怕家政把病源带回家", "description": "【恐惧】怕家政人员把外面细菌病毒带进来，孩子小抵抗力差", "severity": "极高", "scenarios": ["流感季节", "手足口高发", "新冠疫情期间"]}},
-        {{"identity": "过敏体质家庭", "problem_type": "过敏发作难受", "display_name": "家人过敏发作", "description": "【已有】家人过敏体质，清洁不干净就起疹子/鼻炎发作", "severity": "高", "scenarios": ["床品除螨", "沙发清洁", "窗帘清洗"]}},
-        {{"identity": "双职工家庭", "problem_type": "没时间顾家", "display_name": "双职工顾不上家", "description": "【已有】工作太忙，家务堆积没人管，有点焦虑", "severity": "中", "scenarios": ["早上赶着上班", "加班到很晚", "周末想陪孩子"]}},
-        {{"identity": "新装修家庭", "problem_type": "甲醛超标担心", "display_name": "新装修怕甲醛", "description": "【恐惧】新房装修后甲醛超标，怕影响家人健康", "severity": "高", "scenarios": ["新房入住前", "儿童房清洁", "甲醛治理"]}}
+        {{"identity": "有老人的家庭", "problem_type": "老人独居风险", "display_name": "老人独自在家风险", "description": "摔倒没人发现、晚上无人陪伴、突发疾病", "severity": "极高", "scenarios": ["老人洗澡时摔倒", "晚上独自在家", "子女上班不在家"], "market_type": "blue_ocean", "market_reason": "细分人群（独居老人）+ 极高严重性 + 症状驱动"}},
+        {{"identity": "有娃家庭", "problem_type": "家居卫生问题", "display_name": "家里清洁不到位", "description": "孩子反复生病、过敏起疹子、螨虫困扰", "severity": "高", "scenarios": ["流感季节孩子生病", "床品螨虫过敏", "沙发清洁不彻底"], "market_type": "blue_ocean", "market_reason": "细分人群（有娃家庭）+ 高严重性 + 症状驱动"}},
+        {{"identity": "过敏体质家庭", "problem_type": "过敏问题", "display_name": "家人过敏发作", "description": "起疹子、鼻炎发作、皮肤瘙痒", "severity": "高", "scenarios": ["床品除螨", "沙发清洁", "窗帘清洗"], "market_type": "blue_ocean", "market_reason": "细分人群（过敏体质）+ 高严重性 + 症状驱动"}},
+        {{"identity": "双职工家庭", "problem_type": "家务堆积", "display_name": "工作忙没时间打扫", "description": "家务太多做不完、没时间收拾", "severity": "中", "scenarios": ["早上赶着上班", "加班到很晚", "周末想休息"], "market_type": "red_ocean", "market_reason": "大众人群 + 中等严重性"}}
     ],
     "buyer_concern_types": [
-        {{"identity": "雇主", "concern_type": "怕遇到黑心保姆", "display_name": "怕保姆不靠谱", "description": "怕保姆虐童/虐待老人/偷东西", "examples": ["新闻里那种保姆", "网上搜到的负面案例"]}},
-        {{"identity": "雇主", "concern_type": "怕花钱没效果", "display_name": "怕白花钱", "description": "花了钱清洁不到位，钱打水漂", "examples": ["阿姨走了还是脏的", "说好的深度清洁就擦擦灰"]}},
-        {{"identity": "雇主", "concern_type": "怕陌生人上门", "display_name": "怕人身财产风险", "description": "陌生人进家怕偷东西/人身安全", "examples": ["万一呢", "新闻看多了"]}}
+        {{"identity": "雇主", "concern_type": "服务信任问题", "display_name": "怕服务人员不靠谱", "description": "怕遇到偷东西/虐童/虐待老人", "examples": ["新闻里的负面案例", "网上搜到的投诉"], "market_type": "blue_ocean", "market_reason": "信任痛点 + 细分人群"}},
+        {{"identity": "雇主", "concern_type": "服务效果问题", "display_name": "怕花了钱没效果", "description": "阿姨走了还是脏的、说好的深度清洁就擦擦灰", "examples": ["清洁不到位", "敷衍了事"], "market_type": "red_ocean", "market_reason": "普遍顾虑 + 大众需求"}},
+        {{"identity": "雇主", "concern_type": "人身安全问题", "display_name": "怕陌生人上门风险", "description": "陌生人进家怕偷东西/人身安全", "examples": ["万一被入室盗窃", "人身安全隐患"], "market_type": "red_ocean", "market_reason": "普遍顾虑"}}
     ]
 }}
+
+=== 问题类型格式要求（重要） ===
+**problem_type（问题类型）**：必须具备总结性，是抽象归纳的类别名
+- ✅ 正确："肠道问题"、"过敏问题"、"发育问题"、"老人独居风险"
+- ❌ 错误："宝宝喝奶粉拉肚子"（太具体，不是类型）
+- ❌ 错误："孩子反复生病"（可以更抽象为"健康问题"）
+
+**description（具体表现）**：列举该类型下的具体症状/表现，用顿号分隔
+- ✅ 正确："拉肚子、腹胀、便秘、大便奶瓣"
+- ✅ 正确："摔倒没人发现、晚上无人陪伴、突发疾病"
+- ❌ 错误："宝宝肠道不好，喝完奶就拉肚子"（这是句子，不是列举）
+
+**display_name（展示名称）**：简短版本，供前端展示用，可以比 problem_type 更具体
+
+=== 蓝海/红海判断标准 ===
+**market_type 判断规则**（每个问题必须填写）：
+
+**蓝海特征**（满足任一即判定为蓝海）：
+1. **细分人群**：身份中包含特定人群标签（婴幼儿/老人/孕妇/患者/过敏体质等）
+2. **高严重性 + 长尾**：severity为"极高"或"高"，且问题是特定场景/人群
+3. **专业需求**：涉及医疗/健康/安全/法律等专业领域
+
+**红海特征**（不满足蓝海则为红海）：
+1. **大众人群**：身份为通用人群（上班族/家庭/年轻人等）
+2. **中低严重性**：severity为"中"或"低"
+3. **普遍问题**：价格/便利/服务态度等大众痛点
+
+**market_reason**：简述判断理由（10字内）
 
 === 推理框架 ===
 身份多样化：列出至少2-3种不同身份（不能只写"用户"），每种身份下思考其核心问题。
@@ -3498,10 +3525,18 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 === 识别框架 ===
 拿到一个业务，按这个顺序思考：
-1. 用户现在正在受什么苦？→ 【已有】
-2. 用户现在最怕什么？→ 【恐惧】
+1. 用户现在正在受什么苦？→ 【已有】⭐（优先，占比75%）
+2. 用户现在最怕什么？→ 【恐惧】（占比25%）
 3. 这个问题没解决，最坏的结果是什么？
 4. 用户愿意花多少钱/牺牲什么来解决？（愿意牺牲 = 痛点深）
+
+=== 【重要】问题类型比例（3:1） ===
+蓝海机会应聚焦「已有症状」，而非「恐惧型」
+- 症状类【已有】：占比 75%（3/4）
+- 恐惧类【恐惧】：占比 25%（1/4）
+- **判断标准**：用户当前是否正在经历这个问题/症状？
+  - 正在经历 → 【已有】
+  - 担心未来会发生 → 【恐惧】
 
 === 反例（这些不算高/极高）===
 - ✗ "担心质量问题" → 改为："已经用出问题/怕用出问题危及健康"
@@ -3517,7 +3552,12 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 === 输出要求 ===
 1. user_problem_types / buyer_concern_types 至少各3条。
 2. user_problem_types 每条必须包含 scenarios 字段（2-3个具体使用场景）。
-3. 只返回 JSON，不要其他文字。"""
+3. **【重要】每个问题必须包含 market_type 字段（blue_ocean 或 red_ocean）和 market_reason 字段（判断理由）**。
+4. **【必填】market_analysis.problem_oriented_keywords 必须返回至少8个问题导向词**，格式要求：
+   - 基于"已有症状"框架生成
+   - 以人货场问句形式
+   - 示例："桶装水有塑料味能喝吗"、"孩子喝了桶装水拉肚子怎么办"
+5. 只返回 JSON，不要其他文字。"""
 
     try:
         # 调用 LLM（temperature=0.3 减少随机性，max_tokens=8000 适配长 prompt + 多画像输出）
@@ -3725,6 +3765,9 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                             break
                     if not problem_type:
                         problem_type = display_name_raw
+                # 判断市场类型：默认红海，如果LLM返回了则使用
+                market_type = item.get('market_type', 'red_ocean')
+                market_reason = item.get('market_reason', '')
                 return {
                     'id':           item.get('id', ''),
                     'identity':     item.get('identity', '') or item.get('身份', ''),
@@ -3733,6 +3776,8 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'description':  item.get('description', '') or item.get('描述', ''),
                     'severity':     item.get('severity', '中') or item.get('严重程度', '中'),
                     'scenarios':    item.get('scenarios', []) or item.get('场景', []),
+                    'market_type':  market_type,
+                    'market_reason': market_reason,
                 }
 
             def normalize_concern_item(item):
@@ -3758,6 +3803,9 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                             break
                     if not concern_type:
                         concern_type = display_name_raw
+                # 判断市场类型：默认红海，如果LLM返回了则使用
+                market_type = item.get('market_type', 'red_ocean')
+                market_reason = item.get('market_reason', '')
                 return {
                     'id':           item.get('id', ''),
                     'identity':     item.get('identity', '') or item.get('身份', ''),
@@ -3765,6 +3813,8 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'display_name': display_name_raw or f"{item.get('identity', '')}{concern_type}",
                     'description':  item.get('description', '') or item.get('描述', ''),
                     'examples':     item.get('examples', []) or item.get('例子', []),
+                    'market_type':  market_type,
+                    'market_reason': market_reason,
                 }
 
             for i, item in enumerate(user_problem_types):
@@ -3778,6 +3828,8 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'description': norm['description'],
                     'severity': norm['severity'],
                     'scenarios': norm['scenarios'],
+                    'market_type': norm.get('market_type', 'red_ocean'),
+                    'market_reason': norm.get('market_reason', ''),
                 })
 
             for i, item in enumerate(buyer_concern_types):
@@ -3791,6 +3843,8 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'description': norm['description'],
                     'examples': norm['examples'],
                     'severity': '高',
+                    'market_type': norm.get('market_type', 'red_ocean'),
+                    'market_reason': norm.get('market_reason', ''),
                 })
 
             # 提取市场分析数据
@@ -3800,6 +3854,13 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             print(f"[mine_problems_and_generate_personas] result中所有顶层key: {list(result.keys())}")
             print(f"[mine_problems_and_generate_personas] result中problem_oriented_keywords: {result.get('problem_oriented_keywords', '字段不存在')}")
             
+            # 提取问题导向词：优先从market_analysis获取，如果没有则从顶层获取，否则使用空列表
+            problem_oriented_keywords = (
+                market_analysis.get('problem_oriented_keywords') or
+                result.get('problem_oriented_keywords') or
+                []
+            )
+            
             # 规范化市场分析字段
             normalized_market_analysis = {
                 'market_type': market_analysis.get('market_type', 'mixed'),
@@ -3808,7 +3869,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 'competition_level_display': market_analysis.get('competition_level_display', '待评估'),
                 'blue_ocean_opportunity': market_analysis.get('blue_ocean_opportunity', ''),
                 'red_ocean_features': market_analysis.get('red_ocean_features', []),
-                'problem_oriented_keywords': market_analysis.get('problem_oriented_keywords', []),
+                'problem_oriented_keywords': problem_oriented_keywords,
             }
 
             return {
