@@ -6,6 +6,7 @@
     <title>AI 棱镜 - AI时代创作者的内容生产引擎</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="/static/public/js/portrait-manager.js"></script>
     <style>
         :root {
             --primary: #6366F1;
@@ -280,6 +281,97 @@
         .target-card-unselected {
             border-color: #e9ecef;
             background-color: #fff;
+        }
+        
+        /* 已保存画像列表样式 */
+        .saved-portrait-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9ecef;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .saved-portrait-item:last-child {
+            border-bottom: none;
+        }
+        .saved-portrait-item:hover {
+            background-color: #f8f9fa;
+        }
+        .saved-portrait-item.active {
+            background-color: #e8f4ff;
+            border-left: 3px solid var(--primary);
+        }
+        .saved-portrait-item .portrait-name {
+            font-weight: 500;
+        }
+
+        /* 画像卡片 - 移动端适配 */
+        @media (max-width: 768px) {
+            #portrait-section .card {
+                border-radius: 8px;
+            }
+            #portrait-section .card-header {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+            .portrait-card {
+                border-radius: 6px;
+            }
+            .portrait-card .card-body {
+                padding: 8px 10px;
+            }
+            .portrait-card-name {
+                max-width: 100px !important;
+                font-size: 13px;
+            }
+            /* 画像专区标题截断 */
+            #portrait-section .card-header .bi-person-badge {
+                font-size: 14px;
+            }
+            /* 专属库弹窗移动端 */
+            #portraitLibraryModal .modal-xl {
+                max-width: 98vw;
+                margin: 4px;
+            }
+            #portraitLibraryModal .tab-content {
+                font-size: 13px;
+            }
+            #portraitLibraryModal .card {
+                border-radius: 6px;
+            }
+            #portraitLibraryModal .card-body {
+                padding: 8px 10px;
+            }
+        }
+        @media (max-width: 480px) {
+            #portrait-section .card-body {
+                padding: 6px 8px !important;
+            }
+            .portrait-card-name {
+                max-width: 80px !important;
+                font-size: 12px;
+            }
+            /* 库状态徽章缩小 */
+            .portrait-card .badge {
+                font-size: 9px !important;
+                padding: 1px 4px;
+            }
+            /* 专属库弹窗 Tab */
+            #portraitLibraryModal .nav-link {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+            /* 选题库列表单列 */
+            #topic-list .col-md-6 {
+                padding: 0 4px;
+            }
+        }
+        
+        /* 内容类型推荐样式 */
+        .content-type-recommendation .badge {
+            font-weight: normal;
+        }
+        .content-type-recommendation .progress {
+            background-color: #e9ecef;
         }
 
         /* 身份选择卡片样式 */
@@ -832,6 +924,69 @@
             border: 1px solid #fca5a5;
         }
 
+        /* 选题卡片样式 */
+        .topic-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            height: 100%;
+        }
+        .topic-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+            transform: translateY(-2px);
+        }
+        .topic-card.selected {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(129, 140, 248, 0.05) 100%);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+        .topic-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        .topic-number {
+            width: 28px;
+            height: 28px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .topic-type-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 20px;
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        .topic-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+            line-height: 1.4;
+        }
+        .topic-reason {
+            font-size: 0.8rem;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+        .topic-target {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 0.5rem;
+        }
+
         /* Toast 通知 */
         .toast-container {
             position: fixed;
@@ -923,6 +1078,34 @@
                             <div class="step-indicator" id="step-3">
                                 <span class="step-num">3</span>
                                 <span class="step-text">生成内容</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 画像专区（付费用户可见） -->
+                    <!-- 首次登录引导提示 -->
+                    <div id="portrait-onboarding-tip" class="alert alert-primary py-2 mb-2" style="display:none; font-size:13px; border-radius:8px;">
+                        <i class="bi bi-lightbulb me-1"></i>
+                        <strong>提示：</strong>点击任意画像卡片，可查看专属关键词库/选题库，点击「生成专属库」可一键生成！生成后可直接用于选题和内容创作。
+                    </div>
+
+                    <div id="portrait-section" class="mb-4" style="display: none;">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <span><i class="bi bi-person-badge me-1"></i>已保存画像</span>
+                                <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    <!-- 库配额提示 -->
+                                    <span id="library-quota-hint" class="badge bg-light text-dark" style="font-size: 11px;"></span>
+                                    <button class="btn btn-sm btn-light" onclick="PortraitManager.showLibraryModal()" id="btn-create-library" title="为选中画像生成专属关键词库/选题库">
+                                        <i class="bi bi-magic me-1"></i>生成专属库
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body py-2" id="portrait-cards-container">
+                                <div id="portrait-cards-loading" class="text-center py-3">
+                                    <div class="spinner-border spinner-border-sm text-primary me-1"></div><span style="font-size:13px;">加载画像...</span>
+                                </div>
+                                <div id="portrait-cards-list" class="row g-2"></div>
                             </div>
                         </div>
                     </div>
@@ -1133,14 +1316,80 @@
                         <!-- 目标用户选择区域 -->
                         <div id="target-customers-section" class="mt-4" style="display: none;">
                             <h5 class="mb-3">👥 目标用户画像</h5>
-                            <div class="d-flex justify-content-between align-items-center mb-3">
+                            
+                            <!-- 画像配额和保存区域 -->
+                            <div id="portrait-quota-display" class="mb-3">
+                                <!-- 由JS动态填充 -->
+                            </div>
+                            
+                            <!-- 已保存的画像列表（新版）已移至步骤指示器下方，此处旧版隐藏 -->
+                            <div id="saved-portraits-section" class="mb-3" style="display: none;">
+                                <div class="card">
+                                    <div class="card-header bg-light py-2">
+                                        <span><i class="bi bi-bookmark me-1"></i>已保存的画像</span>
+                                    </div>
+                                    <div class="card-body py-2" id="saved-portraits-list">
+                                        <!-- 由JS动态填充（新系统已移至顶部画像专区） -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3" id="portrait-actions-bar">
                                 <div class="small text-muted">已生成 <span id="target-count">0</span> 个目标用户</div>
-                                <button class="btn btn-sm btn-outline-secondary" id="btn-refresh-targets" onclick="refreshTargetCustomers()">
-                                    🔄 换一批
-                                </button>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-secondary" id="btn-refresh-targets" onclick="refreshTargetCustomers()">
+                                        🔄 换一批
+                                    </button>
+                                </div>
                             </div>
                             <div class="row g-4" id="target-customers-list">
                                 <!-- 目标用户选项将通过JS动态生成 -->
+                            </div>
+                        </div>
+
+                        <!-- 选题展示区域 -->
+                        <div id="topics-section" class="mt-4" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">📋 推荐选题</h5>
+                                <button class="btn btn-sm btn-outline-primary" id="btn-refresh-topics" onclick="refreshTopics()">
+                                    🔄 换一批
+                                </button>
+                            </div>
+                            <div class="row g-3" id="topics-list">
+                                <!-- 选题卡片将通过JS动态生成 -->
+                            </div>
+                            <!-- 付费用户专属提示 -->
+                            <div id="premium-topics-hint" class="alert alert-warning mt-3" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-star-fill me-1"></i>
+                                        <strong>付费用户专享</strong>
+                                        <p class="mb-0 small">升级后可换一批选题，获得更多精准选题推荐</p>
+                                    </div>
+                                    <a href="#pricing" class="btn btn-sm btn-outline-warning">了解套餐</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 内容生成区域 -->
+                        <div id="topic-content-section" class="mt-4" style="display: none;">
+                            <div class="result-card">
+                                <h5>📝 选题内容预览</h5>
+                                <div class="selected-topic-info mb-3 p-3 bg-light rounded">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <span class="badge bg-primary me-2" id="selected-topic-type"></span>
+                                            <span class="selected-topic-title" id="selected-topic-title"></span>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="changeTopic()">更换选题</button>
+                                    </div>
+                                </div>
+                                <div id="topic-content-result">
+                                    <!-- 内容将通过JS动态生成 -->
+                                </div>
+                                <div class="mt-3 text-end">
+                                    <button class="btn btn-copy" onclick="copyTopicContent()">📋 复制全部内容</button>
+                                </div>
                             </div>
                         </div>
 
@@ -1294,6 +1543,12 @@
                         console.log('[checkAuth] 登录成功，currentUser:', currentUser);
                         showGenerator();
                         updateQuotaInfo();
+                        
+                        // 登录成功后初始化画像管理模块
+                        if (PortraitManager) {
+                            await PortraitManager.init();
+                            showSavedPortraitsSection();
+                        }
                     } else {
                         console.log('[checkAuth] 未登录或登录失效');
                     }
@@ -1325,6 +1580,9 @@
                     document.getElementById('nav-register').innerHTML =
                         '<span class="nav-link">欢迎，' + welcomeText + '</span>';
                 }
+                
+                // 登录后显示保存按钮
+                showSavedPortraitsSection();
             }
         }
 
@@ -1332,12 +1590,33 @@
             document.getElementById('login-prompt').style.display = 'none';
             document.getElementById('generator-form').style.display = 'block';
         }
+        
+        // 显示已保存画像区域和保存按钮（登录后）
+        function showSavedPortraitsSection() {
+            const section = document.getElementById('saved-portraits-section');
+            if (section) {
+                section.style.display = 'block';
+            }
+            // 根据套餐显示保存按钮
+            const planName = currentUser?.quota?.plan_name || '';
+            const btn = document.getElementById('btn-save-portrait');
+            if (btn) {
+                if (planName === '基础版' || planName === '专业版' || planName === '企业版') {
+                    btn.style.display = 'inline-block';
+                    btn.title = '保存当前画像到我的列表';
+                } else {
+                    btn.style.display = 'inline-block';
+                    btn.title = '保存画像需要基础版或更高版本';
+                }
+            }
+        }
 
         function updateQuotaInfo() {
-            if (currentUser) {
+            const el = document.getElementById('quota-count');
+            if (!el) return;
+            if (currentUser && currentUser.quota && currentUser.quota.quota) {
                 const remaining = currentUser.quota.quota.remaining;
-                document.getElementById('quota-count').textContent =
-                    remaining < 0 ? '∞' : remaining;
+                el.textContent = remaining < 0 ? '∞' : remaining;
             }
         }
 
@@ -1686,6 +1965,9 @@
             const container = document.getElementById('target-customers-list');
             container.innerHTML = '';
 
+            // 同步到 window.generatedTargets，兼容 generateContent 的 radio 索引路径
+            window.generatedTargets = portraits;
+
             document.getElementById('target-count').textContent = portraits.length;
 
             if (portraits.length === 0) {
@@ -1736,13 +2018,20 @@
                 // 综合描述
                 const description = target.description || '';
 
+                // 安全序列化 key 供 onclick 使用（避免引号冲突）
+                const safeKey = String(key).replace(/"/g, '&quot;');
+
                 // 构建卡片内容
                 let cardContent = `
-                    <div style="border: 2px solid ${color.border}; background: ${color.bg}; border-radius: 12px; padding: 1.25rem; position: relative;">
+                    <div class="target-customer-card" style="border: 2px solid ${color.border}; background: ${color.bg}; border-radius: 12px; padding: 1.25rem; position: relative;">
+                        <input type="radio" name="target-customer" id="new-target-${index}" value="${index}" style="position:absolute; opacity:0; width:0; height:0;">
                         <div style="position: absolute; top: -10px; left: 16px; background: white; padding: 0 8px;">
                             <span style="font-size: 12px; color: ${color.accent}; font-weight: 600;">${escHtml(displayName)}</span>
                         </div>
-                        <h6 style="color: ${color.accent}; margin-bottom: 0.5rem; margin-top: 0.25rem;">${escHtml(displayTitle)}</h6>
+                        <div style="position:absolute; top:8px; right:12px; display:flex; gap:4px; z-index:20;">
+                            <button class="btn btn-primary btn-sm shadow-sm" style="font-size:11px; padding:3px 10px; border-radius:20px;" onclick="event.stopPropagation(); saveGeneratedPortrait(&quot;${safeKey}&quot;, ${index})" title="保存此画像"><i class="bi bi-bookmark-plus me-1"></i>保存</button>
+                        </div>
+                        <h6 style="color: ${color.accent}; margin-bottom: 0.5rem; margin-top: 0.25rem; padding-right: 80px;">${escHtml(displayTitle)}</h6>
                 `;
 
                 // 身份标签
@@ -1811,11 +2100,30 @@
                     cardContent += `<div style="font-size: 13px; color: #555; line-height: 1.6; padding-top: 0.5rem; border-top: 1px dashed #ddd;">${escHtml(description)}</div>`;
                 }
 
-
                 cardContent += `</div>`;
                 card.innerHTML = cardContent;
+
+                // 卡片点击选中 radio
+                const cardDiv = card.querySelector('div[style*="border: 2px"]');
+                const radioInput = card.querySelector('input[type="radio"]');
+                cardDiv.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
+                    radioInput.checked = true;
+                    updateTargetSelection();
+                });
+
                 container.appendChild(card);
             });
+
+            // 监听 radio 变化
+            document.querySelectorAll('input[name="target-customer"]').forEach(function(radio) {
+                radio.addEventListener('change', updateTargetSelection);
+            });
+
+            // 触发选中状态 + 生成选题
+            updateTargetSelection();
+            document.getElementById('target-customers-section').style.display = 'block';
+            setTimeout(function() { generateTopics(); }, 500);
         }
 
         function escHtml(s) {
@@ -2039,367 +2347,6 @@
             }
         }
 
-        // 渲染问题列表（使用方/付费方）
-        function renderProblems(userProblems, buyerConcerns) {
-            const userPainsList = document.getElementById('user-pains-list');
-            const buyerConcernsList = document.getElementById('buyer-concerns-list');
-
-            // 显示使用方问题
-            if (userProblems.length > 0) {
-                userPainsList.innerHTML = userProblems.map(p => createProblemButton(p, 'user_pain')).join('');
-            } else {
-                userPainsList.innerHTML = '<p class="text-muted small">暂无使用方问题</p>';
-            }
-
-            // 显示付费方顾虑
-            if (buyerConcerns.length > 0) {
-                buyerConcernsList.innerHTML = buyerConcerns.map(p => createProblemButton(p, 'buyer_concern')).join('');
-            } else {
-                buyerConcernsList.innerHTML = '<p class="text-muted small">暂无付费方顾虑</p>';
-            }
-        }
-
-        // 显示Toast通知
-        function showToast(message, type = 'info') {
-            const toastContainer = document.querySelector('.toast-container') || createToastContainer();
-            let alertClass = 'alert-info';
-            if (type === 'success') alertClass = 'alert-success';
-            else if (type === 'error') alertClass = 'alert-danger';
-            const toast = document.createElement('div');
-            toast.className = `alert ${alertClass} alert-dismissible fade show`;
-            toast.style.cssText = 'min-width: 280px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
-            toast.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            `;
-            toastContainer.appendChild(toast);
-
-            // 3秒后自动移除
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
-        }
-
-        function createToastContainer() {
-            const container = document.createElement('div');
-            container.className = 'toast-container';
-            document.body.appendChild(container);
-            return container;
-        }
-
-        // ================================================================
-        // 以下是旧的函数（保留兼容）
-        // ================================================================
-
-        // 生成画像（先挖掘问题，再生成第一批人群）
-        async function generatePersonas() {
-            const businessDesc = document.getElementById('business-desc').value.trim();
-            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
-            const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
-
-            // 表单验证
-            if (!businessDesc) {
-                alert('请描述您的业务');
-                document.getElementById('business-desc').focus();
-                return;
-            }
-            if (!businessRange) {
-                alert('请选择经营范围');
-                return;
-            }
-            if (!businessType) {
-                alert('请选择经营类型');
-                return;
-            }
-
-            const extraData = collectDeepInfo();
-
-            document.getElementById('btn-identify-identities').disabled = true;
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('loading-text').textContent = '正在挖掘问题...';
-
-            try {
-                const resp = await fetch('/public/api/targets/problems', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        business_description: businessDesc,
-                        business_range: businessRange,
-                        business_type: businessType,
-                        customer_who: extraData.customer_who,
-                        customer_why: extraData.customer_why,
-                        customer_problem: extraData.customer_problem,
-                        customer_experiences: extraData.customer_experiences,
-                        customer_story: extraData.customer_story,
-                        refresh_nonce: Date.now(),
-                    })
-                });
-
-                if (!resp.ok) {
-                    const errorText = await resp.text();
-                    showToast('生成失败，请稍后重试', 'error');
-                    console.error('API error:', resp.status, errorText);
-                    return;
-                }
-
-                const data = await resp.json();
-
-                if (data.success && data.data) {
-                    _currentProblems = data.data.problems;
-
-                    // 1. 显示问题列表
-                    displayProblems(data.data.problems, data.data.buyer_user_relation);
-
-                    // 2. 禁用超级定位按钮，等待用户选择问题
-                    document.getElementById('btn-super-positioning').disabled = true;
-                    window._selectedProblem = null;
-
-                    // 3. 隐藏目标用户区域（等用户点击超级定位）
-                    document.getElementById('target-customers-section').style.display = 'none';
-                } else {
-                    alert(data.message || '生成画像失败');
-                }
-            } catch (e) {
-                alert('生成失败，请稍后重试');
-                console.error(e);
-            } finally {
-                document.getElementById('btn-identify-identities').disabled = false;
-                document.getElementById('loading').style.display = 'none';
-            }
-        }
-
-        // 显示问题列表（使用方/付费方 Tab）
-        function displayProblems(problems, buyerUserRelation) {
-            const section = document.getElementById('problems-section');
-            const userPainsList = document.getElementById('user-pains-list');
-            const buyerConcernsList = document.getElementById('buyer-concerns-list');
-
-            section.style.display = 'block';
-
-            // 显示使用方问题（用户/宝宝）
-            const userPains = problems?.user_pains || [];
-            if (userPains.length > 0) {
-                userPainsList.innerHTML = userPains.map(p => createProblemButton(p, 'user_pain')).join('');
-            } else {
-                userPainsList.innerHTML = '<p class="text-muted small">暂无使用方问题</p>';
-            }
-
-            // 显示付费方顾虑（家长/决策者）
-            const buyerConcerns = problems?.buyer_concerns || [];
-            if (buyerConcerns.length > 0) {
-                buyerConcernsList.innerHTML = buyerConcerns.map(p => createProblemButton(p, 'buyer_concern')).join('');
-            } else {
-                buyerConcernsList.innerHTML = '<p class="text-muted small">暂无付费方顾虑</p>';
-            }
-
-            // 滚动到问题区域
-            section.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // 创建问题按钮（参照奶粉行业格式）
-        function createProblemButton(problem, problemType) {
-            // 问题名称和描述
-            const name = problem.name || problem.display_name || '问题';
-            const description = problem.description || '';
-            
-            // 严重程度转星星（正确映射）
-            // 极高=5星, 高=4星, 中=3星, 低=2星
-            let severityStars = '';
-            let severityClass = '';
-            if (problem.severity === '极高') {
-                severityStars = '⭐⭐⭐⭐⭐';
-                severityClass = 'severity-extreme';
-            } else if (problem.severity === '高') {
-                severityStars = '⭐⭐⭐⭐';
-                severityClass = 'severity-high';
-            } else if (problem.severity === '中') {
-                severityStars = '⭐⭐⭐';
-                severityClass = 'severity-medium';
-            } else if (problem.severity === '低') {
-                severityStars = '⭐⭐';
-                severityClass = 'severity-low';
-            }
-            
-            // 严重程度标签样式
-            let severityBadge = '';
-            if (problem.severity) {
-                const severityColors = {
-                    '极高': { bg: '#fee2e2', color: '#dc2626' },
-                    '高': { bg: '#fef3c7', color: '#d97706' },
-                    '中': { bg: '#dbeafe', color: '#2563eb' },
-                    '低': { bg: '#e5e7eb', color: '#6b7280' }
-                };
-                const colors = severityColors[problem.severity] || severityColors['中'];
-                severityBadge = `<span style="
-                    background: ${colors.bg};
-                    color: ${colors.color};
-                    font-size: 11px;
-                    padding: 2px 8px;
-                    border-radius: 10px;
-                    font-weight: 600;
-                    margin-right: 4px;
-                ">${problem.severity}</span>`;
-            }
-            
-            // 使用方问题/付费方顾虑标签
-            const tagLabel = problemType === 'user_pain' ? '👶 使用方' : '💳 付费方';
-            const tagColor = problemType === 'user_pain' ? '#e3f2fd' : '#fce4ec';
-            const tagTextColor = problemType === 'user_pain' ? '#1565c0' : '#c2185b';
-
-            return `
-                <div class="problem-btn ${severityClass}"
-                     data-problem-id="${problem.id}"
-                     data-problem-type="${problemType}"
-                     data-problem-name="${name}"
-                     data-problem-desc="${description}"
-                     data-problem-severity="${problem.severity || ''}"
-                     onclick="onProblemClick(this)"
-                     style="
-                        display: block;
-                        padding: 12px 16px;
-                        border-radius: 12px;
-                        background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-                        border: 2px solid #e9ecef;
-                        color: #495057;
-                        font-weight: 500;
-                        font-size: 14px;
-                        cursor: pointer;
-                        transition: all 0.3s;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-                        margin-bottom: 10px;
-                     ">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
-                        <span style="font-size: 11px; padding: 2px 8px; border-radius: 12px; background: ${tagColor}; color: ${tagTextColor}; font-weight: 600;">${tagLabel}</span>
-                        ${severityBadge}
-                        <span style="font-weight: 600; color: #212529;">${name}</span>
-                        ${severityStars ? '<span style="margin-left: auto; font-size: 12px; letter-spacing: 1px; color: #f59e0b;">' + severityStars + '</span>' : ''}
-                    </div>
-                    <div style="font-size: 13px; color: #6c757d;">${description}</div>
-                </div>
-            `;
-        }
-
-        // 高亮问题按钮（简化样式）
-        function highlightProblemButton(problemId, problemType) {
-            document.querySelectorAll('.problem-btn').forEach(btn => {
-                btn.style.transform = '';
-                btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
-                btn.style.borderColor = '#e9ecef';
-                btn.style.opacity = '1';
-            });
-
-            const activeBtn = document.querySelector(
-                `.problem-btn[data-problem-id="${problemId}"][data-problem-type="${problemType}"]`
-            );
-            if (activeBtn) {
-                activeBtn.style.transform = 'scale(1.05)';
-                activeBtn.style.boxShadow = '0 6px 20px rgba(99,102,241,0.25)';
-                activeBtn.style.borderColor = '#6366F1';
-                activeBtn.style.opacity = '1';
-            }
-
-            // 降低其他按钮的透明度
-            document.querySelectorAll('.problem-btn').forEach(btn => {
-                if (!(btn.dataset.problemId === problemId && btn.dataset.problemType === problemType)) {
-                    btn.style.opacity = '0.6';
-                }
-            });
-        }
-
-        // 点击问题按钮 - 只是选中，不直接生成
-        async function onProblemClick(btn) {
-            const problemId = btn.dataset.problemId;
-            const problemType = btn.dataset.problemType;
-            const problemName = btn.dataset.problemName;
-
-            // 高亮当前按钮
-            highlightProblemButton(problemId, problemType);
-
-            // 保存选中的问题
-            window._selectedProblem = {
-                id: problemId,
-                type: problemType,
-                name: problemName
-            };
-
-            // 启用超级定位按钮
-            document.getElementById('btn-super-positioning').disabled = false;
-
-            // 显示目标用户选择区域（空的，等待生成）
-            document.getElementById('target-customers-section').style.display = 'block';
-            document.getElementById('target-customers-list').innerHTML = '<div class="col-12 text-center text-muted py-4">点击「超级定位」按钮生成详细画像</div>';
-            document.getElementById('target-count').textContent = '0';
-        }
-
-        // 超级定位按钮点击 - 生成详细画像
-        async function onSuperPositioningClick() {
-            const selected = window._selectedProblem;
-            if (!selected) {
-                alert('请先选择一个用户痛点');
-                return;
-            }
-
-            const problemId = selected.id;
-            const problemType = selected.type;
-            const problemName = selected.name;
-
-            const businessDesc = document.getElementById('business-desc').value.trim();
-            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
-            const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
-            const extraData = collectDeepInfo();
-
-            const loading = document.getElementById('loading');
-            const loadingText = document.getElementById('loading-text');
-            loading.style.display = 'block';
-            loadingText.textContent = `正在生成「${problemName}」人群画像...`;
-
-            try {
-                const resp = await fetch('/public/api/targets/generate-batch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        business_description: businessDesc,
-                        business_range: businessRange,
-                        business_type: businessType,
-                        problem_id: problemId,
-                        problem_type: problemType,
-                        customer_who: extraData.customer_who,
-                        customer_why: extraData.customer_why,
-                        customer_problem: extraData.customer_problem,
-                        customer_story: extraData.customer_story,
-                    })
-                });
-
-                if (!resp.ok) {
-                    const errorText = await resp.text();
-                    showToast('生成失败，请稍后重试', 'error');
-                    console.error('API error:', resp.status, errorText);
-                    return;
-                }
-
-                const data = await resp.json();
-
-                if (data.success && data.data) {
-                    displayTargetCustomers(
-                        data.data.targets,
-                        true,
-                        null,
-                        data.data.batch_pain_point_commonality,
-                        data.data.batch_goal
-                    );
-                } else {
-                    alert(data.message || '生成人群画像失败');
-                }
-            } catch (e) {
-                alert('生成失败，请稍后重试');
-                console.error(e);
-            } finally {
-                loading.style.display = 'none';
-            }
-        }
-
         // 换一批目标用户（每次从表单取最新参数）
         function refreshTargetCustomers() {
             if (_isGeneratingPortraits) {
@@ -2414,7 +2361,6 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>换一批...';
 
-            // 一键分析问题卡片流程：与卡片「生成」相同接口，避免仍走旧版 /generate + displayTargetCustomers
             if (_allProblems && _allProblems.length > 0) {
                 const sel = _selectedTypeKey;
                 let problemData = sel
@@ -2471,76 +2417,54 @@
                 })();
                 return;
             }
+        }
 
-            const extra = collectDeepInfo();
-            const payload = {
-                business_description: document.getElementById('business-desc').value.trim(),
-                business_range: document.querySelector('input[name="business-range"]:checked')?.value,
-                business_type: document.querySelector('input[name="business-type"]:checked')?.value,
-                customer_who: extra.customer_who,
-                customer_why: extra.customer_why,
-                customer_problem: extra.customer_problem,
-                customer_story: extra.customer_story,
-                customer_experiences: extra.customer_experiences,
-                refresh_nonce: Date.now(),
-            };
+        // 渲染问题列表（使用方/付费方）
+        function renderProblems(userProblems, buyerConcerns) {
+            const userPainsList = document.getElementById('user-pains-list');
+            const buyerConcernsList = document.getElementById('buyer-concerns-list');
 
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('loading-text').textContent = '正在换一批目标用户画像...';
+            // 显示使用方问题
+            if (userProblems.length > 0) {
+                userPainsList.innerHTML = userProblems.map(p => createProblemButton(p, 'user_pain')).join('');
+            } else {
+                userPainsList.innerHTML = '<p class="text-muted small">暂无使用方问题</p>';
+            }
 
-            fetch('/public/api/targets/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache',
-                },
-                credentials: 'include',
-                body: JSON.stringify(payload)
-            })
-            .then(function(resp) {
-                if (!resp.ok) {
-                    if (mySeq !== _refreshSeq) return;
-                    resp.text().then(function(errorText) {
-                        console.error('[换一批] API错误 seq=' + mySeq, resp.status, errorText);
-                        alert('重新生成失败，请稍后重试');
-                    });
-                    return null;
-                }
-                return resp.json();
-            })
-            .then(function(data) {
-                if (!data) return;
-                // 只处理最新一次响应的结果，防止旧请求覆盖新结果
-                if (mySeq !== _refreshSeq) {
-                    console.log('[换一批] 跳过过期响应 seq=' + mySeq + '（已有更新请求 seq=' + _refreshSeq + '）');
-                    return;
-                }
-                if (data.success && data.data) {
-                    console.log('[换一批] 显示结果 seq=' + mySeq, data.data.targets.map(function(t){ return targetPersonaTitle(t); }));
-                    displayTargetCustomers(
-                        data.data.targets,
-                        data.data.ai_enhanced,
-                        null,  // 不锁定身份，LLM 每次自由推导
-                        data.data.batch_pain_point_commonality,
-                        data.data.batch_goal
-                    );
-                } else {
-                    console.error('[换一批] 失败 seq=' + mySeq, data.message);
-                    alert(data.message || '重新生成失败');
-                }
-            })
-            .catch(function(e) {
-                if (mySeq !== _refreshSeq) return;
-                console.error('[换一批] 异常 seq=' + mySeq, e);
-                alert('重新生成失败，请稍后重试');
-            })
-            .finally(function() {
-                if (mySeq !== _refreshSeq) return;
-                document.getElementById('loading').style.display = 'none';
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            });
+            // 显示付费方顾虑
+            if (buyerConcerns.length > 0) {
+                buyerConcernsList.innerHTML = buyerConcerns.map(p => createProblemButton(p, 'buyer_concern')).join('');
+            } else {
+                buyerConcernsList.innerHTML = '<p class="text-muted small">暂无付费方顾虑</p>';
+            }
+        }
+
+        // 显示Toast通知
+        function showToast(message, type = 'info') {
+            const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+            let alertClass = 'alert-info';
+            if (type === 'success') alertClass = 'alert-success';
+            else if (type === 'error') alertClass = 'alert-danger';
+            const toast = document.createElement('div');
+            toast.className = `alert ${alertClass} alert-dismissible fade show`;
+            toast.style.cssText = 'min-width: 280px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+            toast.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            toastContainer.appendChild(toast);
+
+            // 3秒后自动移除
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+            return container;
         }
 
         /** 卡片标题：优先 name，否则从 description 截取首句 */
@@ -2557,143 +2481,6 @@
             return d.length <= 12 ? d : (d.slice(0, 8) + '…');
         }
 
-        // 显示目标用户选项（C 端：痛点状态+目标诉求整批共用，顶部只展示一次）
-        function displayTargetCustomers(targets, aiEnhanced, lockedIdentity, batchPainPointCommonality, batchGoal) {
-            console.log('[displayTargetCustomers] called, targets count=' + (targets ? targets.length : 0), targets ? targets.map(function(t){return targetPersonaTitle(t);}) : []);
-            const container = document.getElementById('target-customers-list');
-            container.innerHTML = '';
-
-            // 保存状态
-            window.generatedTargets = targets;
-            currentAiEnhanced = aiEnhanced;
-
-            // 本批共用痛点 + 目标（后端 C 端会返回；无则退回每张卡片展示）
-            var bp = (batchPainPointCommonality != null && batchPainPointCommonality !== undefined) ? String(batchPainPointCommonality).trim() : '';
-            var bg = (batchGoal != null && batchGoal !== undefined) ? String(batchGoal).trim() : '';
-            var painGoalBanner = document.getElementById('batch-pain-goal-banner');
-            var batchPainEl = document.getElementById('batch-pain-text');
-            var batchGoalEl = document.getElementById('batch-goal-text');
-            if (painGoalBanner && batchPainEl && batchGoalEl) {
-                if (bp || bg) {
-                    painGoalBanner.style.display = 'block';
-                    batchPainEl.textContent = bp || '—';
-                    batchGoalEl.textContent = bg || '—';
-                } else {
-                    painGoalBanner.style.display = 'none';
-                    batchPainEl.textContent = '';
-                    batchGoalEl.textContent = '';
-                }
-            }
-            var useBatchPainGoal = !!(bp || bg);
-
-            // 更新数量
-            document.getElementById('target-count').textContent = targets.length;
-
-            targets.forEach(function(target, index) {
-                const card = document.createElement('div');
-                card.className = 'col-md-6 col-12 mb-3';
-
-                const idPrefix = 'target-' + index;
-                var displayTitle = targetPersonaTitle(target);
-
-                // 维度标签（年龄/地域/消费阶段/买用关系）
-                var ar = (target.age_range || '').trim();
-                var oc = (target.occupation || '').trim();
-                var buyerRel = (target.buyer_user_relation || '').trim();
-                // 新增维度字段
-                var geoTag = (target.geo_tag || target.region || '').trim();
-                var stageTag = (target.consumption_stage || target.stage || '').trim();
-
-                var dimTags = '';
-                var dimList = [];
-                if (ar && ar !== '不限' && ar !== '不限年龄') dimList.push({label: ar, color: '#e3f2fd', textColor: '#1565c0'});
-                if (geoTag && geoTag !== '不限' && geoTag !== '全国') dimList.push({label: geoTag, color: '#e8f5e9', textColor: '#2e7d32'});
-                if (stageTag && stageTag !== '不限') dimList.push({label: stageTag, color: '#fff3e0', textColor: '#ef6c00'});
-                if (buyerRel && buyerRel !== '不限') dimList.push({label: buyerRel, color: '#fce4ec', textColor: '#c2185b'});
-
-                dimList.forEach(function(tag) {
-                    dimTags += '<span style="font-size:11px; padding:2px 10px; border-radius:99px; background:' + tag.color + '; color:' + tag.textColor + '; font-weight:500; white-space:nowrap;">' + tag.label + '</span>';
-                });
-
-                // 痛点共性 + 目标（整批共用时只在顶部展示，卡片内不再重复）
-                var painCommon = (target.pain_point_commonality || '').trim();
-                var goal = (target.goal || '').trim();
-                var painPoint = (target.pain_point || '').trim();
-
-                // 卡片标题：直接用 LLM 推导的 name
-                var cardHeaderTitle = displayTitle;
-
-                // 颜色方案（5种）
-                var cardColors = [
-                    {border: '#667eea', bg: '#f8f7ff', accent: '#667eea'},
-                    {border: '#f5576c', bg: '#fff5f7', accent: '#f5576c'},
-                    {border: '#4facfe', bg: '#f0fbff', accent: '#4facfe'},
-                    {border: '#43e97b', bg: '#f0fff4', accent: '#43e97b'},
-                    {border: '#fa709a', bg: '#fff0f5', accent: '#fa709a'},
-                ];
-                var color = cardColors[index % 5];
-
-                var painGoalFooter = '';
-                if (!useBatchPainGoal) {
-                    painGoalFooter = '\
-  <div style="padding:12px 20px 18px; display:flex; gap:10px;">\
-    ' + (painCommon ? '<div style="flex:1; background:#fff5f5; border-radius:10px; padding:10px 12px; border-left:3px solid #f5576c; min-width:0;">\
-        <div style="font-size:11px; color:#f5576c; font-weight:600; margin-bottom:4px;">💔 痛点状态</div>\
-        <div style="font-size:12px; color:#333; line-height:1.4;">' + painCommon + '</div>\
-        ' + (painPoint ? '<div style="font-size:11px; color:#888; margin-top:4px;">' + painPoint + '</div>' : '') + '\
-    </div>' : '') + '\
-    ' + (goal ? '<div style="flex:1; background:#f0fff4; border-radius:10px; padding:10px 12px; border-left:3px solid #43e97b; min-width:0;">\
-        <div style="font-size:11px; color:#43e97b; font-weight:600; margin-bottom:4px;">✨ 目标</div>\
-        <div style="font-size:12px; color:#333; line-height:1.4;">' + goal + '</div>\
-    </div>' : '') + '\
-  </div>';
-                }
-
-                var cardHtml = '\
-<div class="target-customer-card" style="cursor:pointer; border-radius:16px; border:2px solid ' + color.border + '; padding:0; background:#fff; transition:all .2s; position:relative; overflow:hidden;" data-index="' + index + '" data-selected="false">\
-  <input type="radio" name="target-customer" id="' + idPrefix + '" value="' + index + '" style="position:absolute; opacity:0; width:0; height:0;">\
-  ' + (aiEnhanced ? '<div style="position:absolute; top:8px; right:8px; font-size:10px; padding:2px 8px; border-radius:99px; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; font-weight:600; z-index:10;">AI增强</div>' : '') + '\
-  \
-  <div style="padding:18px 20px 16px; background:' + color.bg + ';">\
-    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">\
-      <div style="width:36px; height:36px; border-radius:50%; background:' + color.border + '; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#fff; flex-shrink:0;">' + (index + 1) + '</div>\
-      <div style="font-weight:700; font-size:15px; color:#212529;">' + cardHeaderTitle + '</div>\
-    </div>\
-    ' + (dimTags ? '<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">' + dimTags + '</div>' : '') + '\
-    <p style="font-size:13px; color:#495057; margin:0; line-height:1.6;">' + (target.description || '') + '</p>\
-  </div>\
-  ' + painGoalFooter + '\
-</div>';
-                card.innerHTML = cardHtml;
-
-                const cardDiv = card.querySelector('.target-customer-card');
-                const radioInput = card.querySelector('input[type="radio"]');
-
-                cardDiv.addEventListener('click', function(e) {
-                    if (e.target.tagName === 'INPUT') return;
-                    radioInput.checked = true;
-                    updateTargetSelection();
-                });
-
-                container.appendChild(card);
-            });
-
-            // 监听单选按钮变化
-            document.querySelectorAll('input[name="target-customer"]').forEach(function(radio) {
-                radio.addEventListener('change', updateTargetSelection);
-            });
-
-            // 显示/隐藏升级提示
-            if (!aiEnhanced) {
-                document.getElementById('ai-upgrade-hint').style.display = 'block';
-            } else {
-                document.getElementById('ai-upgrade-hint').style.display = 'none';
-            }
-
-            document.getElementById('target-customers-section').style.display = 'block';
-            document.getElementById('target-customers-section').scrollIntoView({ behavior: 'smooth' });
-        }
-
         // 更新目标用户选中状态（卡片样式）
         function updateTargetSelection() {
             const cards = document.querySelectorAll('.target-customer-card');
@@ -2702,23 +2489,16 @@
             cards.forEach(function(card) {
                 const radio = card.querySelector('input[type="radio"]');
                 if (radio.checked) {
-                    card.classList.add('target-card-selected');
+                    card.classList.add('selected', 'target-card-selected');
                     card.classList.remove('target-card-unselected');
                 } else {
-                    card.classList.remove('target-card-selected');
+                    card.classList.remove('selected', 'target-card-selected');
                     card.classList.add('target-card-unselected');
                 }
             });
 
             const genBtn = document.getElementById('btn-generate-content');
             if (genBtn) genBtn.disabled = !checkedRadio;
-        }
-
-        // 切换目标用户选中状态（兼容方法）
-        function toggleTargetSelection(card, index) {
-            const radio = document.getElementById('target-' + index);
-            radio.checked = true;
-            updateTargetSelection();
         }
 
         // 生成内容（基于选中的目标用户）
@@ -2849,6 +2629,322 @@
             });
         }
 
+        // ================================================
+        // 选题相关函数
+        // ================================================
+
+        var _currentTopics = [];
+        var _selectedTopic = null;
+        var _isPremiumUser = false;
+
+        // 生成选题
+        async function generateTopics() {
+            // 获取业务信息
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
+            const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
+
+            if (!businessDesc) {
+                showToast('请先填写业务描述', 'warning');
+                return;
+            }
+
+            // 获取问题关键词（从问题洞察区域）
+            const problemKeywords = [];
+            document.querySelectorAll('.problem-keyword-chip').forEach(chip => {
+                const kw = chip.textContent.trim();
+                if (kw && kw !== '—') {
+                    problemKeywords.push(kw);
+                }
+            });
+
+            // 显示加载状态
+            document.getElementById('topics-section').style.display = 'block';
+            document.getElementById('topics-list').innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">正在生成选题...</p></div>';
+
+            try {
+                const response = await fetch('/public/api/topics/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        business_description: businessDesc,
+                        business_range: businessRange || 'local',
+                        business_type: businessType || 'product',
+                        portraits: _allPortraits[_currentPortraitKey] || [],
+                        problem_keywords: problemKeywords
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.topics) {
+                    _currentTopics = result.topics;
+                    _isPremiumUser = result.is_premium || false;
+                    renderTopicCards(result.topics);
+
+                    // 付费用户显示换一批按钮
+                    if (_isPremiumUser) {
+                        document.getElementById('premium-topics-hint').style.display = 'block';
+                    } else {
+                        document.getElementById('premium-topics-hint').style.display = 'none';
+                    }
+
+                    showToast('选题生成完成！', 'success');
+                } else {
+                    document.getElementById('topics-list').innerHTML = '<div class="col-12 text-center py-4 text-muted">选题生成失败，请重试</div>';
+                }
+            } catch (e) {
+                console.error('[generateTopics] Error:', e);
+                document.getElementById('topics-list').innerHTML = '<div class="col-12 text-center py-4 text-muted">选题生成失败，请重试</div>';
+            }
+        }
+
+        // 渲染选题卡片
+        function renderTopicCards(topics) {
+            const container = document.getElementById('topics-list');
+            container.innerHTML = '';
+
+            if (!topics || topics.length === 0) {
+                container.innerHTML = '<div class="col-12 text-center py-4 text-muted">暂无选题，请先生成用户画像</div>';
+                return;
+            }
+
+            topics.forEach((topic, index) => {
+                const topicId = topic.id || (index + 1);
+                const card = document.createElement('div');
+                card.className = 'col-md-6 col-lg-4';
+                card.innerHTML = `
+                    <div class="topic-card" onclick="selectTopic('${topicId}', '${encodeURIComponent(topic.title)}', '${encodeURIComponent(topic.type)}')">
+                        <div class="topic-card-header">
+                            <span class="topic-number">${index + 1}</span>
+                            <span class="topic-type-badge">${topic.type || '通用'}</span>
+                        </div>
+                        <div class="topic-title">${topic.title}</div>
+                        <div class="topic-reason">${topic.reason || ''}</div>
+                        ${topic.target ? '<div class="topic-target">目标: ${topic.target}</div>' : ''}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // 选择选题并生成内容
+        async function selectTopic(topicId, encodedTitle, encodedType) {
+            const topic = _currentTopics.find(t => String(t.id) === String(topicId));
+            if (!topic) {
+                showToast('选题信息不存在', 'error');
+                return;
+            }
+
+            _selectedTopic = topic;
+
+            // 更新UI
+            document.querySelectorAll('.topic-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+
+            // 显示内容区域
+            document.getElementById('topic-content-section').style.display = 'block';
+            document.getElementById('selected-topic-type').textContent = topic.type || '';
+            document.getElementById('selected-topic-title').textContent = topic.title;
+
+            // 显示加载状态
+            document.getElementById('topic-content-result').innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">正在生成内容...</p></div>';
+
+            // 滚动到内容区域
+            document.getElementById('topic-content-section').scrollIntoView({ behavior: 'smooth' });
+
+            // 获取业务信息
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
+            const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
+
+            // 获取当前选中的画像
+            const portrait = window.currentPortrait || {};
+
+            try {
+                const response = await fetch('/public/api/content/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        topic_id: topicId,
+                        topic_title: topic.title,
+                        topic_type: topic.type || '',
+                        business_description: businessDesc,
+                        business_range: businessRange || 'local',
+                        business_type: businessType || 'product',
+                        portrait: portrait
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.content) {
+                    displayTopicContent(result.content);
+                } else {
+                    document.getElementById('topic-content-result').innerHTML = '<div class="alert alert-danger">内容生成失败，请重试</div>';
+                }
+            } catch (e) {
+                console.error('[selectTopic] Error:', e);
+                document.getElementById('topic-content-result').innerHTML = '<div class="alert alert-danger">内容生成失败，请重试</div>';
+            }
+        }
+
+        // 显示选题内容
+        function displayTopicContent(content) {
+            const container = document.getElementById('topic-content-result');
+
+            let html = '';
+
+            // 结构信息（付费用户可见）
+            if (content.structure) {
+                html += `<div class="mb-2"><span class="badge bg-success me-1">${content.structure}</span>${content.slides_count ? `<span class="badge bg-secondary">${content.slides_count}张图</span>` : ''}</div>`;
+            }
+
+            // 标题
+            if (content.title) {
+                html += `<h4 class="mb-2">${content.title}</h4>`;
+            }
+            if (content.subtitle) {
+                html += `<p class="text-muted mb-3">${content.subtitle}</p>`;
+            }
+
+            // 标签
+            if (content.tags && content.tags.length > 0) {
+                html += '<div class="mb-3">';
+                html += '<h6 class="text-muted mb-2">标签</h6>';
+                html += '<div class="d-flex flex-wrap gap-2">';
+                content.tags.forEach(tag => {
+                    html += `<span class="badge bg-secondary">${tag}</span>`;
+                });
+                html += '</div></div>';
+            }
+
+            // 图文详情（slides 结构）
+            if (content.slides && content.slides.length > 0) {
+                html += '<div class="mb-3">';
+                html += '<h6 class="text-muted mb-2">图文详情</h6>';
+                content.slides.forEach(slide => {
+                    html += `<div class="card mb-2">
+                        <div class="card-header py-1 px-2 bg-light d-flex justify-content-between align-items-center">
+                            <span><span class="badge bg-primary me-1">图${slide.index}</span><strong>${slide.role}</strong></span>
+                            ${slide.keywords && slide.keywords.length ? `<small class="text-muted">关键词: ${slide.keywords.join(', ')}</small>` : ''}
+                        </div>
+                        <div class="card-body py-2 px-2">
+                            ${slide.main_title ? `<div class="mb-1"><strong>标题：</strong>${slide.main_title}</div>` : ''}
+                            ${slide.sub_content ? `<div class="mb-1"><strong>内容：</strong>${slide.sub_content}</div>` : ''}
+                            ${slide.visual_style ? `<div class="small text-muted"><strong>画面：</strong>${slide.visual_style}</div>` : ''}
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            // 话题标签
+            if (content.hashtags && content.hashtags.length > 0) {
+                html += '<div class="mb-3">';
+                html += '<h6 class="text-muted mb-2">话题标签</h6>';
+                html += '<div class="d-flex flex-wrap gap-2">';
+                content.hashtags.forEach(tag => {
+                    html += `<span class="badge bg-primary">${tag}</span>`;
+                });
+                html += '</div></div>';
+            }
+
+            // 首评引导
+            if (content.first_comment) {
+                html += '<div class="mb-3">';
+                html += '<h6 class="text-muted mb-2">首评引导</h6>';
+                html += `<div class="p-2 bg-warning bg-opacity-10 border border-warning rounded" style="white-space: pre-wrap;">${content.first_comment}</div>`;
+                html += '</div>';
+            }
+
+            // 发布建议
+            if (content.tips) {
+                html += '<div class="alert alert-info">';
+                html += `<strong>发布建议：</strong>${content.tips}`;
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        // 复制选题内容
+        function copyTopicContent() {
+            if (!_selectedTopic) return;
+
+            const container = document.getElementById('topic-content-result');
+            const content = container.innerText;
+
+            navigator.clipboard.writeText(content).then(() => {
+                alert('已复制到剪贴板');
+            });
+        }
+
+        // 换一批选题
+        async function refreshTopics() {
+            if (!_isPremiumUser) {
+                showToast('此功能仅对付费用户开放', 'warning');
+                return;
+            }
+
+            document.getElementById('topics-list').innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">正在换一批选题...</p></div>';
+
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
+            const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
+
+            const problemKeywords = [];
+            document.querySelectorAll('.problem-keyword-chip').forEach(chip => {
+                const kw = chip.textContent.trim();
+                if (kw && kw !== '—') {
+                    problemKeywords.push(kw);
+                }
+            });
+
+            try {
+                const response = await fetch('/public/api/topics/regenerate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        business_description: businessDesc,
+                        business_range: businessRange || 'local',
+                        business_type: businessType || 'product',
+                        portraits: _allPortraits[_currentPortraitKey] || [],
+                        problem_keywords: problemKeywords
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.topics) {
+                    _currentTopics = result.topics;
+                    renderTopicCards(result.topics);
+                    // 隐藏内容区域
+                    document.getElementById('topic-content-section').style.display = 'none';
+                    showToast('换一批成功！', 'success');
+                } else {
+                    document.getElementById('topics-list').innerHTML = '<div class="col-12 text-center py-4 text-muted">选题生成失败，请重试</div>';
+                }
+            } catch (e) {
+                console.error('[refreshTopics] Error:', e);
+                document.getElementById('topics-list').innerHTML = '<div class="col-12 text-center py-4 text-muted">选题生成失败，请重试</div>';
+            }
+        }
+
+        // 更换选题
+        function changeTopic() {
+            document.getElementById('topic-content-section').style.display = 'none';
+            _selectedTopic = null;
+            document.querySelectorAll('.topic-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+        }
+
         async function logout() {
             try {
                 await fetch('/public/api/logout', {
@@ -2862,9 +2958,529 @@
             window.location.href = '/login?type=public';
         }
 
+        // 已保存画像「生成内容」→ 选题 → 内容
+        window._generateContentForTopic = async function(topic, portrait) {
+            const businessDesc = document.getElementById('business-desc')?.value?.trim() || portrait?.business_description || '';
+            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value || 'local';
+            const businessType = document.querySelector('input[name="business-type"]:checked')?.value || 'product';
+
+            // 兼容两种选题格式（专属库 type_name / 实时生成 type）
+            const topicType = topic.type || topic.type_name || '';
+            const topicTitle = topic.title || '';
+            const topicId = topic.id || '';
+
+            document.getElementById('topic-content-section').style.display = 'block';
+            document.getElementById('selected-topic-type').textContent = topicType;
+            document.getElementById('selected-topic-title').textContent = topicTitle;
+            document.getElementById('topic-content-result').innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">正在生成内容...</p></div>';
+            document.getElementById('topic-content-section').scrollIntoView({ behavior: 'smooth' });
+
+            try {
+                const resp = await fetch('/public/api/content/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        topic_id: topicId,
+                        topic_title: topicTitle,
+                        topic_type: topicType,
+                        business_description: businessDesc,
+                        business_range: businessRange,
+                        business_type: businessType,
+                        portrait: portrait
+                    })
+                });
+                const data = await resp.json();
+
+                if (data.success && data.content) {
+                    displayTopicContent(data.content);
+                    showToast('内容生成完成！', 'success');
+                } else {
+                    document.getElementById('topic-content-result').innerHTML = '<div class="alert alert-danger">内容生成失败，请重试</div>';
+                }
+            } catch (e) {
+                console.error('[_generateContentForTopic] Error:', e);
+                document.getElementById('topic-content-result').innerHTML = '<div class="alert alert-danger">内容生成失败，请重试</div>';
+            }
+        };
+        
+        // ============================================
+        // 画像保存相关函数
+        // ============================================
+        
+        let _currentPortraitData = null;  // 当前选中的画像数据
+        
+        function showSavePortraitModal() {
+            // 获取当前选中的画像
+            const selectedCard = document.querySelector('.target-customer-card.selected');
+            if (selectedCard) {
+                const cardData = selectedCard.dataset.targetData;
+                if (cardData) {
+                    _currentPortraitData = JSON.parse(cardData);
+                }
+            }
+            
+            // 如果没有选中，使用第一个
+            if (!_currentPortraitData) {
+                const firstCard = document.querySelector('.target-customer-card');
+                if (firstCard && firstCard.dataset.targetData) {
+                    _currentPortraitData = JSON.parse(firstCard.dataset.targetData);
+                }
+            }
+            
+            if (!_currentPortraitData) {
+                showToast('请先生成用户画像', 'warning');
+                return;
+            }
+            
+            // 检查是否已登录
+            if (!currentUser) {
+                showToast('请先登录后再保存画像', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/login?type=public';
+                }, 1500);
+                return;
+            }
+            
+            // 检查保存权限（基础版及以上可用）
+            const planName = currentUser?.quota?.plan_name || '';
+            if (planName === '免费版' || planName === '') {
+                showToast('保存画像需要基础版或更高版本，请升级套餐', 'warning');
+                // 显示升级提示
+                const upgradeLink = document.querySelector('a[href="#pricing"]');
+                if (upgradeLink) {
+                    setTimeout(() => upgradeLink.click(), 1500);
+                }
+                return;
+            }
+            
+            // 显示模态框
+            const modal = new bootstrap.Modal(document.getElementById('savePortraitModal'));
+            modal.show();
+        }
+        
+        async function confirmSavePortrait() {
+            const name = document.getElementById('portrait-name-input').value.trim();
+            const business = document.getElementById('portrait-business-input').value.trim();
+            const setDefault = document.getElementById('portrait-default-check').checked;
+            
+            if (!_currentPortraitData) {
+                showToast('没有可保存的画像数据', 'error');
+                return;
+            }
+            
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            const industry = getSelectedIndustry();
+            
+            const saved = await PortraitManager.saveCurrentPortrait(
+                _currentPortraitData,
+                {
+                    portraitName: name,
+                    businessDescription: business || businessDesc,
+                    industry: industry,
+                    targetCustomer: _currentPortraitData.name || '',
+                    setAsDefault: setDefault
+                }
+            );
+            
+            if (saved) {
+                // 关闭模态框
+                const modal = bootstrap.Modal.getInstance(document.getElementById('savePortraitModal'));
+                modal.hide();
+                
+                // 清空输入
+                document.getElementById('portrait-name-input').value = '';
+                document.getElementById('portrait-business-input').value = '';
+                document.getElementById('portrait-default-check').checked = false;
+            }
+        }
+        
+        // 保存指定索引的画像（卡片上的保存按钮）
+        function saveThisPortrait(index) {
+            const card = document.querySelector(`.target-customer-card[data-index="${index}"]`);
+            if (!card) {
+                showToast('未找到该画像', 'error');
+                return;
+            }
+
+            const targetData = card.dataset.targetData;
+            if (!targetData) {
+                showToast('该画像数据不完整', 'error');
+                return;
+            }
+
+            _currentPortraitData = JSON.parse(targetData);
+
+            // 检查是否已登录
+            if (!currentUser) {
+                showToast('请先登录后再保存画像', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/public/login';
+                }, 1500);
+                return;
+            }
+
+            // 检查保存权限（基础版及以上可用）
+            const planName = currentUser?.quota?.plan_name || '';
+            if (planName === '免费版' || planName === '') {
+                showToast('保存画像需要基础版或更高版本，请升级套餐', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/public/pricing';
+                }, 1500);
+                return;
+            }
+
+            // 直接保存，无需弹窗（使用卡片名称）
+            const portraitName = _currentPortraitData.name || '画像' + (index + 1);
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            const industry = getSelectedIndustry();
+
+            PortraitManager.saveCurrentPortrait(
+                _currentPortraitData,
+                {
+                    portraitName: portraitName,
+                    businessDescription: businessDesc,
+                    industry: industry,
+                    targetCustomer: _currentPortraitData.name || '',
+                    setAsDefault: false
+                }
+            );
+        }
+
+        // 保存由 renderPortraitsForType 生成的画像（从 _allPortraits 取数）
+        function saveGeneratedPortrait(key, index) {
+            const portraits = _allPortraits[key];
+            if (!portraits || !portraits[index]) {
+                showToast('未找到该画像', 'error');
+                return;
+            }
+
+            const targetData = portraits[index];
+            _currentPortraitData = targetData;
+
+            if (!currentUser) {
+                showToast('请先登录后再保存画像', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/public/login';
+                }, 1500);
+                return;
+            }
+
+            const planName = currentUser?.quota?.plan_name || '';
+            if (planName === '免费版' || planName === '') {
+                showToast('保存画像需要基础版或更高版本，请升级套餐', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/public/pricing';
+                }, 1500);
+                return;
+            }
+
+            const portraitName = targetData.name || '画像' + (index + 1);
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            const industry = getSelectedIndustry();
+
+            PortraitManager.saveCurrentPortrait(
+                targetData,
+                {
+                    portraitName: portraitName,
+                    businessDescription: businessDesc,
+                    industry: industry,
+                    targetCustomer: targetData.name || '',
+                    setAsDefault: false
+                }
+            );
+        }
+        
+        function getSelectedIndustry() {
+            const industrySelect = document.getElementById('industry-select');
+            if (industrySelect) {
+                return industrySelect.value;
+            }
+            return '';
+        }
+        
+        // 画像切换事件处理
+        window.onPortraitChanged = function(portraitData) {
+            if (portraitData && portraitData.portrait_data) {
+                _currentPortraitData = portraitData.portrait_data;
+                // 可以触发选题重新生成等操作
+                showToast('已切换到已保存的画像', 'success');
+            }
+        };
+        
+        // ============================================
+        // 内容类型推荐
+        // ============================================
+        
+        async function showContentTypeRecommendation(topic) {
+            const container = document.getElementById('topic-content-result');
+            if (!container) return;
+            
+            // 获取业务信息
+            const businessDesc = document.getElementById('business-desc').value.trim();
+            
+            // 获取当前选中的画像
+            let portrait = null;
+            const selectedCard = document.querySelector('.target-customer-card.selected');
+            if (selectedCard && selectedCard.dataset.targetData) {
+                portrait = JSON.parse(selectedCard.dataset.targetData);
+            }
+            
+            // 获取推荐
+            const recommendation = ContentTypeRecommender.getRecommendation(
+                topic,
+                portrait,
+                { business_description: businessDesc }
+            );
+            
+            // 在选题内容区域添加推荐显示
+            const recHtml = `
+                <div class="content-type-section mt-3 p-3 rounded" style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border: 1px solid #667eea30;">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-lightbulb-fill text-warning me-2"></i>
+                        <strong>内容类型推荐</strong>
+                        <span class="badge bg-primary ms-2">${recommendation.primary.name}</span>
+                        <span class="badge bg-outline-primary ms-1">匹配度 ${recommendation.primary.score}%</span>
+                    </div>
+                    <p class="small text-muted mb-2">${recommendation.primary.description}</p>
+                    <div class="d-flex gap-2 mb-2">
+                        <button class="btn btn-sm ${recommendation.primary.type === 'graphic' ? 'btn-success' : 'btn-outline-success'}" onclick="selectContentType('graphic')">
+                            📷 图文 ${recommendation.all_scores.graphic}%
+                        </button>
+                        <button class="btn btn-sm ${recommendation.primary.type === 'long_text' ? 'btn-info' : 'btn-outline-info'}" onclick="selectContentType('long_text')">
+                            📄 长文 ${recommendation.all_scores.long_text}%
+                        </button>
+                        <button class="btn btn-sm ${recommendation.primary.type === 'short_video' ? 'btn-warning' : 'btn-outline-warning'}" onclick="selectContentType('short_video')">
+                            🎬 短视频 ${recommendation.all_scores.short_video}%
+                        </button>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" style="width: ${recommendation.all_scores.graphic}%"></div>
+                        <div class="progress-bar bg-info" style="width: ${recommendation.all_scores.long_text}%"></div>
+                        <div class="progress-bar bg-warning" style="width: ${recommendation.all_scores.short_video}%"></div>
+                    </div>
+                </div>
+            `;
+            
+            // 插入到内容区域
+            const existingRec = container.querySelector('.content-type-section');
+            if (existingRec) {
+                existingRec.remove();
+            }
+            container.insertAdjacentHTML('afterbegin', recHtml);
+        }
+        
+        function selectContentType(type) {
+            // TODO: 根据选择的类型生成不同格式的内容
+            showToast(`已选择「${type === 'graphic' ? '图文' : type === 'long_text' ? '长文' : '短视频'}」格式`, 'info');
+        }
+        
+        // 覆盖原有的选题选择函数，添加推荐功能
+        const _originalSelectTopic = window.selectTopic;
+        if (typeof _originalSelectTopic === 'function') {
+            window.selectTopic = async function(topicId, encodedTitle, encodedType) {
+                // 先调用原有逻辑
+                await _originalSelectTopic(topicId, encodedTitle, encodedType);
+                
+                // 获取选题信息
+                const topic = _currentTopics.find(t => String(t.id) === String(topicId));
+                if (topic) {
+                    // 显示内容类型推荐
+                    await showContentTypeRecommendation(topic);
+                }
+            };
+        }
+        
+        // 初始化时检查登录状态并显示相关UI
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 检查登录状态
+            await checkAuth();
+        });
+
         // 页面加载时检查登录
         checkAuth();
 
     </script>
+    
+    <!-- 保存画像模态框 -->
+    <div class="modal fade" id="savePortraitModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-bookmark-plus me-2"></i>保存画像</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">画像名称</label>
+                        <input type="text" class="form-control" id="portrait-name-input" placeholder="给这个画像起个名字，方便以后查找">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">关联业务</label>
+                        <input type="text" class="form-control" id="portrait-business-input" placeholder="简要描述这个画像对应的业务场景">
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="portrait-default-check">
+                        <label class="form-check-label" for="portrait-default-check">
+                            设为默认画像
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmSavePortrait()">
+                        <i class="bi bi-check-lg"></i> 保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 选题选择弹窗 -->
+    <div class="modal fade" id="topicsSelectModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-list-ul me-2"></i>选择选题</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                    <div id="topics-select-loading" class="text-center py-4">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted">正在生成选题...</p>
+                    </div>
+                    <div id="topics-select-list"></div>
+                    <div id="topics-select-empty" class="text-center py-4 text-muted" style="display: none;"></div>
+                </div>
+                <div class="modal-footer" id="topics-select-footer" style="display: none;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="PortraitManager.confirmTopicSelect()">
+                        <i class="bi bi-check-lg me-1"></i>生成内容
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 画像专属库详情弹窗 -->
+    <div class="modal fade" id="portraitLibraryModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-bookmark-star me-2"></i>画像专属库</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <!-- 画像信息头部 -->
+                    <div class="p-3 border-bottom bg-light" id="library-portrait-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong id="library-portrait-name"></strong>
+                                <span class="badge bg-secondary ms-2" id="library-portrait-industry"></span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <span class="badge bg-info" id="library-keyword-status"></span>
+                                <span class="badge bg-success" id="library-topic-status"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Tab导航 -->
+                    <ul class="nav nav-tabs" id="libraryTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab-kw-btn" data-bs-toggle="tab" data-bs-target="#tab-kw" type="button">
+                                <i class="bi bi-key me-1"></i>关键词库
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-topic-btn" data-bs-toggle="tab" data-bs-target="#tab-topic" type="button">
+                                <i class="bi bi-lightbulb me-1"></i>选题库
+                            </button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="libraryTabContent">
+                        <!-- 关键词库 Tab -->
+                        <div class="tab-pane fade show active" id="tab-kw" role="tabpanel">
+                            <div class="p-3" id="kw-content">
+                                <div id="kw-loading" class="text-center py-4">
+                                    <div class="spinner-border text-primary"></div>
+                                    <p class="mt-2 text-muted small">加载中...</p>
+                                </div>
+                                <div id="kw-empty" class="text-center py-4" style="display:none;">
+                                    <i class="bi bi-inbox" style="font-size:2rem;color:#ccc;"></i>
+                                    <p class="text-muted mt-2 small">暂无专属关键词库</p>
+                                    <button class="btn btn-sm btn-primary" id="btn-gen-kw">
+                                        <i class="bi bi-magic me-1"></i>生成专属关键词库
+                                    </button>
+                                </div>
+                                <div id="kw-detail" style="display:none;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="small text-muted">
+                                            <span id="kw-updated-at"></span>
+                                            <span class="ms-2" id="kw-update-count"></span>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary" id="btn-regen-kw">
+                                            <i class="bi bi-arrow-clockwise me-1"></i>更新
+                                        </button>
+                                    </div>
+                                    <div id="kw-categories"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 选题库 Tab -->
+                        <div class="tab-pane fade" id="tab-topic" role="tabpanel">
+                            <div class="p-3" id="topic-content">
+                                <div id="topic-loading" class="text-center py-4">
+                                    <div class="spinner-border text-primary"></div>
+                                    <p class="mt-2 text-muted small">加载中...</p>
+                                </div>
+                                <div id="topic-empty" class="text-center py-4" style="display:none;">
+                                    <i class="bi bi-inbox" style="font-size:2rem;color:#ccc;"></i>
+                                    <p class="text-muted mt-2 small">暂无专属选题库</p>
+                                    <button class="btn btn-sm btn-success" id="btn-gen-topic">
+                                        <i class="bi bi-magic me-1"></i>生成专属选题库
+                                    </button>
+                                </div>
+                                <div id="topic-detail" style="display:none;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="small text-muted">
+                                            <span id="topic-updated-at"></span>
+                                            <span class="ms-2" id="topic-update-count"></span>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-success" id="btn-regen-topic">
+                                            <i class="bi bi-arrow-clockwise me-1"></i>更新
+                                        </button>
+                                    </div>
+                                    <div id="topic-summary" class="mb-2"></div>
+                                    <div id="topic-list" class="row g-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" id="btn-use-portrait-from-library">
+                        <i class="bi bi-lightning-charge me-1"></i>使用此画像生成内容
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 内容类型推荐展示区域（将在选题生成后显示） -->
+    <template id="content-type-recommendation-template">
+        <div class="content-type-section mt-3 p-3 bg-light rounded">
+            <div class="d-flex align-items-center mb-2">
+                <i class="bi bi-lightbulb-fill text-warning me-2"></i>
+                <strong>内容类型推荐</strong>
+            </div>
+            <div id="content-type-recommendation-display"></div>
+        </div>
+    </template>
+    
+    <!-- Toast容器 -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050;">
+        <div id="toast-container"></div>
+    </div>
 </body>
 </html>
