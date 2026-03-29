@@ -30,7 +30,7 @@ class RateLimitConfig:
     EMAIL_REGISTER = {'limit': 3, 'window': 86400}       # 每天最多注册3个账号
 
     # 用户级别限制（生成）
-    USER_GENERATE = {'limit': 5, 'window': 60}          # 每分钟最多生成5次
+    USER_GENERATE = {'limit': 1, 'window': 86400}         # 每天最多生成1次
 
     # 滑动窗口配置
     WINDOW_TYPE = 'sliding'  # 'fixed' or 'sliding'

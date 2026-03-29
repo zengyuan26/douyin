@@ -25,6 +25,9 @@ class QuotaManager:
             'overage_price': 0,      # 免费用户不支持超量
             'ai_enhancement': False,  # 不支持AI增强内容
             'ai_target_enhancement': False,  # 不支持AI增强目标用户画像
+            'save_portraits': False,  # 不支持保存画像
+            'max_saved_portraits': 0,
+            'weekly_portrait_changes': 0,
         },
         'basic': {
             'daily_limit': None,
@@ -34,6 +37,9 @@ class QuotaManager:
             'ai_target_enhancement': True,   # 支持AI目标用户画像
             'structure_options': 10,  # 10种内容结构
             'title_options': 5,       # 5个标题方案
+            'save_portraits': True,   # 支持保存画像
+            'max_saved_portraits': 5,  # 最多保存5个
+            'weekly_portrait_changes': 2,  # 每周可更换2次
         },
         'professional': {
             'daily_limit': None,
@@ -46,6 +52,9 @@ class QuotaManager:
             'mixed_topics': True,    # 支持混合选题
             'precise_tags': True,    # 精准埋词方案
             'image_ratios': ['9:16', '4:3', '1:1'],  # 可选图片比例
+            'save_portraits': True,
+            'max_saved_portraits': 20,  # 最多保存20个
+            'weekly_portrait_changes': 5,
         },
         'enterprise': {
             'daily_limit': None,
@@ -58,9 +67,12 @@ class QuotaManager:
             'mixed_topics': True,
             'precise_tags': True,
             'image_ratios': ['9:16', '4:3', '1:1', '16:9'],
+            'save_portraits': True,
+            'max_saved_portraits': 100,  # 最多保存100个
+            'weekly_portrait_changes': 0,  # 不限更换
             'api_access': True,
             'priority_support': True,
-        }
+        },
     }
 
     @classmethod
@@ -233,6 +245,10 @@ class QuotaManager:
             'image_ratios': plan_config.get('image_ratios', ['9:16']),
             'api_access': plan_config.get('api_access', False),
             'priority_support': plan_config.get('priority_support', False),
+            # 画像保存功能
+            'save_portraits': plan_config.get('save_portraits', False),
+            'max_saved_portraits': plan_config.get('max_saved_portraits', 0),
+            'weekly_portrait_changes': plan_config.get('weekly_portrait_changes', 0),
         }
 
 

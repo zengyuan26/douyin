@@ -139,6 +139,78 @@ class PublicGeneration(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class SavedPortrait(db.Model):
+    """用户保存的画像表"""
+    __tablename__ = 'saved_portraits'
+    __table_args__ = (
+        db.Index('idx_portrait_user', 'user_id'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('public_users.id'), nullable=False)
+
+    # Relationships
+    user = db.relationship('PublicUser', backref='saved_portraits')
+
+    # 画像数据（JSON格式存储）
+    portrait_data = db.Column(db.JSON, nullable=False)
+
+    # 画像信息
+    portrait_name = db.Column(db.String(100), default='未命名')
+    business_description = db.Column(db.String(500))
+    industry = db.Column(db.String(50))
+    target_customer = db.Column(db.String(100))
+
+    # 使用统计
+    used_count = db.Column(db.Integer, default=0)
+
+    # 默认设置
+    is_default = db.Column(db.Boolean, default=False)
+
+    # 画像专属关键词库（JSON）
+    keyword_library = db.Column(db.JSON)
+    # 画像专属选题库（JSON）
+    topic_library = db.Column(db.JSON)
+    # 关键词库更新时间/次数
+    keyword_updated_at = db.Column(db.DateTime)
+    keyword_update_count = db.Column(db.Integer, default=0)
+    keyword_cache_expires_at = db.Column(db.DateTime)
+    # 选题库更新时间/次数
+    topic_updated_at = db.Column(db.DateTime)
+    topic_update_count = db.Column(db.Integer, default=0)
+    topic_cache_expires_at = db.Column(db.DateTime)
+    # 来源会话ID（关联问题识别）
+    session_id = db.Column(db.Integer)
+
+    # 时间戳
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def has_keyword_library(self):
+        """是否有专属关键词库"""
+        return bool(self.keyword_library)
+
+    @property
+    def has_topic_library(self):
+        """是否有专属选题库"""
+        return bool(self.topic_library)
+
+    @property
+    def keyword_library_expired(self):
+        """关键词库是否过期"""
+        if not self.keyword_cache_expires_at:
+            return True
+        return self.keyword_cache_expires_at < datetime.utcnow()
+
+    @property
+    def topic_library_expired(self):
+        """选题库是否过期"""
+        if not self.topic_cache_expires_at:
+            return True
+        return self.topic_cache_expires_at < datetime.utcnow()
+
+
 class PublicPricingPlan(db.Model):
     """定价方案表"""
     __tablename__ = 'public_pricing_plans'
@@ -349,3 +421,49 @@ class PublicLLMCallLog(db.Model):
 
     error_message = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# =============================================================================
+# 四、模板版本控制
+# =============================================================================
+
+class TemplateVersionHistory(db.Model):
+    """模板版本历史表"""
+    __tablename__ = 'template_version_history'
+    __table_args__ = (
+        db.Index('idx_version_template', 'template_type', 'template_id'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    template_type = db.Column(db.String(50), nullable=False)
+    template_id = db.Column(db.Integer, nullable=False)
+    version = db.Column(db.String(20), nullable=False)
+    content_snapshot = db.Column(db.Text)
+    variables_snapshot = db.Column(db.JSON)
+    change_summary = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    creator = db.relationship('User', backref='template_versions')
+
+
+class TemplateVariable(db.Model):
+    """模板变量配置表"""
+    __tablename__ = 'template_variable'
+    __table_args__ = (
+        db.Index('idx_variable_type', 'template_type'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    template_type = db.Column(db.String(50), nullable=False)
+    variable_name = db.Column(db.String(100), nullable=False)
+    variable_label = db.Column(db.String(200))
+    variable_type = db.Column(db.String(20), default='text')  # text/select/number/date
+    default_value = db.Column(db.Text)
+    description = db.Column(db.Text)
+    is_required = db.Column(db.Boolean, default=False)
+    options = db.Column(db.JSON)  # 下拉选项 [{"value": "x", "label": "y"}]
+    display_order = db.Column(db.Integer, default=0)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
