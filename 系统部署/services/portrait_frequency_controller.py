@@ -120,14 +120,14 @@ class PortraitFrequencyController:
             weekly_changes_used = 0
 
         # 检查月配额是否需要重置
-        quota_month_start = parse_date(result[5])
-        monthly_changes_used = result[6]
+        quota_month_start = parse_date(result[6])
+        monthly_changes_used = result[5]
         if quota_month_start and (today - quota_month_start).days >= 30:
             monthly_changes_used = 0
 
         # 库配额日期
-        keyword_quota_start = parse_date(result[11])
-        topic_quota_start = parse_date(result[14])
+        keyword_quota_start = parse_date(result[10])
+        topic_quota_start = parse_date(result[13])
 
         return {
             'plan_type': result[0],
@@ -164,9 +164,12 @@ class PortraitFrequencyController:
             text("""
                 INSERT OR IGNORE INTO user_portrait_quota
                 (user_id, plan_type, weekly_change_limit, monthly_change_limit,
-                 quota_week_start, quota_month_start)
+                 quota_week_start, quota_month_start,
+                 keyword_update_limit, topic_update_limit,
+                 keyword_quota_start, topic_quota_start)
                 VALUES (:user_id, :plan_type, :weekly_limit, :monthly_limit,
-                        :week_start, :month_start)
+                        :week_start, :month_start,
+                        :kw_limit, :topic_limit, :today, :today)
             """),
             {
                 'user_id': user_id,
@@ -174,7 +177,10 @@ class PortraitFrequencyController:
                 'weekly_limit': plan_config['weekly_change_limit'],
                 'monthly_limit': plan_config['monthly_change_limit'],
                 'week_start': today,
-                'month_start': today
+                'month_start': today,
+                'kw_limit': plan_config.get('keyword_update_limit', 0),
+                'topic_limit': plan_config.get('topic_update_limit', 0),
+                'today': today,
             }
         )
         db.session.commit()

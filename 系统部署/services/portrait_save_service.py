@@ -98,6 +98,28 @@ class PortraitSaveService:
                 from services.topic_library_generator import topic_library_generator
                 from models.public_models import PublicUser
                 from models.models import db as app_db
+                from services.portrait_frequency_controller import portrait_frequency_controller
+
+                user_id = portrait.get('user_id', 0)
+                print(f"[_trigger_library_generation_async] 开始生成画像 {portrait_id}, user_id={user_id}")
+
+                # 检查付费状态
+                user = PublicUser.query.get(user_id)
+                if not user:
+                    print(f"[_trigger_library_generation_async] 用户 {user_id} 不存在，跳过")
+                    return
+                if not user.is_paid_user():
+                    print(f"[_trigger_library_generation_async] 用户 {user_id} 为免费用户，跳过专属库生成")
+                    return
+
+                plan_type = user.premium_plan or 'basic'
+                print(f"[_trigger_library_generation_async] 用户 {user_id} plan={plan_type}")
+
+                # 检查配额
+                allowed, reason, quota = portrait_frequency_controller.check_library_update_permission(
+                    user_id, 'keyword'
+                )
+                print(f"[_trigger_library_generation_async] 配额检查: allowed={allowed}, reason={reason}")
 
                 portrait_data = portrait.get('portrait_data', {})
                 business_info = {
@@ -112,15 +134,17 @@ class PortraitSaveService:
                 kw_result = keyword_library_generator.generate(
                     portrait_data=portrait_data,
                     business_info=business_info,
-                    plan_type='basic',
+                    plan_type=plan_type,
                 )
+                print(f"[_trigger_library_generation_async] 关键词库生成: {kw_result.get('success')}")
                 if kw_result.get('success'):
                     keyword_library_generator.save_to_portrait(
                         portrait_id=portrait_id,
                         keyword_library=kw_result['keyword_library'],
-                        user_id=portrait.get('user_id', 0),
-                        plan_type='basic',
+                        user_id=user_id,
+                        plan_type=plan_type,
                     )
+                    portrait_frequency_controller.record_library_update(user_id, 'keyword')
 
                 # 2. 生成选题库（依赖关键词库）
                 kw_library = keyword_library_generator.get_from_portrait(portrait_id)
@@ -128,15 +152,17 @@ class PortraitSaveService:
                     portrait_data=portrait_data,
                     business_info=business_info,
                     keyword_library=kw_library,
-                    plan_type='basic',
+                    plan_type=plan_type,
                 )
+                print(f"[_trigger_library_generation_async] 选题库生成: {topic_result.get('success')}")
                 if topic_result.get('success'):
                     topic_library_generator.save_to_portrait(
                         portrait_id=portrait_id,
                         topic_library=topic_result['topic_library'],
-                        user_id=portrait.get('user_id', 0),
-                        plan_type='basic',
+                        user_id=user_id,
+                        plan_type=plan_type,
                     )
+                    portrait_frequency_controller.record_library_update(user_id, 'topic')
                 print(f"[_trigger_library_generation_async] 画像 {portrait_id} 关键词库+选题库生成完成")
             except Exception as e:
                 print(f"[_trigger_library_generation_async] 画像 {portrait_id} 生成失败: {e}")
