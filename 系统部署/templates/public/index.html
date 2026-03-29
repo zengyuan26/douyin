@@ -1062,25 +1062,70 @@
                         <a href="/public/pricing" class="alert-link">升级获取更多次数 →</a>
                     </div>
 
-                    <!-- 步骤指示器 -->
-                    <div class="d-flex justify-content-center mb-4">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="step-indicator active" id="step-1">
-                                <span class="step-num">1</span>
-                                <span class="step-text">超级定位</span>
-                            </div>
-                            <div class="step-line"></div>
-                            <div class="step-indicator" id="step-2">
-                                <span class="step-num">2</span>
-                                <span class="step-text">深度了解</span>
-                            </div>
-                            <div class="step-line"></div>
-                            <div class="step-indicator" id="step-3">
-                                <span class="step-num">3</span>
-                                <span class="step-text">生成内容</span>
-                            </div>
+                    <!-- 快速生成内容两大Tab -->
+                    <div class="generator-tabs mb-4">
+                        <div class="generator-tab active" id="tab-super" onclick="switchGeneratorTab('super')">
+                            <i class="bi bi-crosshair"></i>
+                            <span>超级定位</span>
+                        </div>
+                        <div class="generator-tab" id="tab-content" onclick="switchGeneratorTab('content')">
+                            <i class="bi bi-file-text"></i>
+                            <span>生成内容</span>
                         </div>
                     </div>
+
+                    <style>
+                    .generator-tabs {
+                        display: flex;
+                        gap: 8px;
+                    }
+                    .generator-tab {
+                        flex: 1;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        padding: 14px 20px;
+                        background: var(--color-bg-secondary, #f8f9fa);
+                        border: 2px solid var(--color-border, #dee2e6);
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 16px;
+                        color: var(--color-text-secondary, #6c757d);
+                        transition: all 0.2s ease;
+                        user-select: none;
+                    }
+                    .generator-tab:hover {
+                        border-color: var(--color-primary, #0d6efd);
+                        color: var(--color-primary, #0d6efd);
+                    }
+                    .generator-tab.active {
+                        background: linear-gradient(135deg, var(--color-primary, #0d6efd), #5a7fff);
+                        border-color: var(--color-primary, #0d6efd);
+                        color: white;
+                        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+                    }
+                    .generator-tab i {
+                        font-size: 20px;
+                    }
+                    .step-badge {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        background: var(--color-primary, #0d6efd);
+                        color: white;
+                        font-size: 12px;
+                        font-weight: 700;
+                    }
+                    .accordion-button:not(.collapsed) .step-badge {
+                        background: white;
+                        color: var(--color-primary, #0d6efd);
+                    }
+                    </style>
 
                     <!-- 画像专区（付费用户可见） -->
                     <!-- 首次登录引导提示 -->
@@ -1093,13 +1138,7 @@
                         <div class="card border-primary">
                             <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <span><i class="bi bi-person-badge me-1"></i>已保存画像</span>
-                                <div class="d-flex gap-2 align-items-center flex-wrap">
-                                    <!-- 库配额提示 -->
-                                    <span id="library-quota-hint" class="badge bg-light text-dark" style="font-size: 11px;"></span>
-                                    <button class="btn btn-sm btn-light" onclick="PortraitManager.showLibraryModal()" id="btn-create-library" title="为选中画像生成专属关键词库/选题库">
-                                        <i class="bi bi-magic me-1"></i>生成专属库
-                                    </button>
-                                </div>
+                                <span></span>
                             </div>
                             <div class="card-body py-2" id="portrait-cards-container">
                                 <div id="portrait-cards-loading" class="text-center py-3">
@@ -1107,324 +1146,322 @@
                                 </div>
                                 <div id="portrait-cards-list" class="row g-2"></div>
                             </div>
+                            <div class="card-footer bg-white py-2 border-top">
+                                <button class="btn btn-outline-primary btn-sm w-100" onclick="showSuperSteps()" title="重新生成用户画像">
+                                    <i class="bi bi-arrow-repeat me-1"></i>重新生成画像
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                        <!-- 第一步：描述业务并直接生成画像 -->
-                    <div id="step-1-form">
-                        <h5 class="mb-3">📝 描述您的业务</h5>
+                        <!-- 超级定位 Tab 内容 -->
+                    <div id="tab-super-content">
+                        <!-- 超级定位流程（可折叠步骤） -->
+                        <div class="accordion super-steps-accordion" id="super-steps-accordion">
 
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label class="form-label">描述您的业务 <span class="text-danger">*</span> <span class="text-muted small">（帮助AI更准确理解您的需求）</span></label>
-                                <textarea class="form-control" id="business-desc" rows="4"
-                                          placeholder="例如：我经营一家桶装水配送服务，主要客户是写字楼和企业客户，在本地有5家分店..."></textarea>
-                            </div>
-
-                            <!-- 经营信息 + 生成按钮 -->
-                            <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">经营范围 <span class="text-danger">*</span></label>
-                                <div class="d-flex gap-3 flex-wrap">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
-                                        <label class="form-check-label" for="range-local">
-                                            🏠 本地
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region">
-                                        <label class="form-check-label" for="range-cross">
-                                            🌍 跨区域
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <label class="form-label">经营类型 <span class="text-danger">*</span></label>
-                                <div class="d-flex gap-3 flex-wrap">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="business-type" id="type-product" value="product">
-                                        <label class="form-check-label" for="type-product">
-                                            📦 消费品
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="business-type" id="type-service" value="local_service">
-                                        <label class="form-check-label" for="type-service">
-                                            🔧 本地服务
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="business-type" id="type-personal" value="personal">
-                                        <label class="form-check-label" for="type-personal">
-                                            👤 个人品牌
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="business-type" id="type-enterprise" value="enterprise">
-                                        <label class="form-check-label" for="type-enterprise">
-                                            🏢 企业服务
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                            </div>
-
-                            <!-- 第二步：深度了解（可选折叠） -->
-                        <div class="mt-4">
-                            <div class="accordion" id="accordionDeepInfo">
-                                <div class="accordion-item border-0">
-                                    <h2 class="accordion-header">
-                                        <button class="accordion-button collapsed" type="button"
-                                                data-bs-toggle="collapse" data-bs-target="#collapseDeepInfo"
-                                                style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px;">
-                                            <span class="me-2">📊</span>
-                                            <strong>深度了解（可选）</strong>
-                                            <span class="badge bg-warning text-dark ms-2">AI辅助，1分钟完成</span>
-                                        </button>
-                                    </h2>
-                                    <div id="collapseDeepInfo" class="accordion-collapse collapse"
-                                         data-bs-parent="#accordionDeepInfo">
-                                        <div class="accordion-body pt-3">
-                                            <div class="alert alert-warning small mb-3">
-                                                <i class="bi bi-lightbulb me-1"></i>
-                                                描述一个典型客户案例，帮助AI更精准定位目标人群和痛点
+                            <!-- 步骤1：描述业务 -->
+                            <div class="accordion-item border-0 super-step-item" id="super-step-form">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#step-form-body" id="step-form-btn">
+                                        <span class="step-badge me-2">1</span>
+                                        <strong>描述业务</strong>
+                                    </button>
+                                </h2>
+                                <div id="step-form-body" class="accordion-collapse collapse show" data-bs-parent="#super-steps-accordion">
+                                    <div class="accordion-body pt-3">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label">描述您的业务 <span class="text-danger">*</span></label>
+                                                <textarea class="form-control" id="business-desc" rows="4"
+                                                          placeholder="例如：我经营一家桶装水配送服务，主要客户是写字楼和企业客户..."></textarea>
                                             </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">经营范围 <span class="text-danger">*</span></label>
+                                                <div class="d-flex gap-3 flex-wrap">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
+                                                        <label class="form-check-label" for="range-local">🏠 本地</label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region">
+                                                        <label class="form-check-label" for="range-cross">🌍 跨区域</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">经营类型 <span class="text-danger">*</span></label>
+                                                <div class="d-flex gap-3 flex-wrap">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="business-type" id="type-product" value="product">
+                                                        <label class="form-check-label" for="type-product">📦 消费品</label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="business-type" id="type-service" value="local_service">
+                                                        <label class="form-check-label" for="type-service">🔧 本地服务</label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="business-type" id="type-personal" value="personal">
+                                                        <label class="form-check-label" for="type-personal">👤 个人品牌</label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="business-type" id="type-enterprise" value="enterprise">
+                                                        <label class="form-check-label" for="type-enterprise">🏢 企业服务</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                            <div class="row g-3">
-                                                <div class="col-12">
-                                                    <label class="form-label" for="customer-who">1. 他们是谁？（简单说说）</label>
-                                                    <input type="text" class="form-control" id="customer-who"
-                                                           placeholder="例如：某写字楼行政负责人、某连锁餐厅老板">
-                                                </div>
-                                                <div class="col-12">
-                                                    <label class="form-label" for="customer-why">2. 当初为什么会找到您？</label>
-                                                    <input type="text" class="form-control" id="customer-why"
-                                                           placeholder="例如：原来用的水太贵了、朋友推荐的、要开发新客户">
-                                                </div>
-                                                <div class="col-12">
-                                                    <label class="form-label" for="customer-problem">3. 您帮他解决了什么？</label>
-                                                    <input type="text" class="form-control" id="customer-problem"
-                                                           placeholder="例如：帮他省了30%用水成本、配送及时没投诉过">
-                                                </div>
-                                                <div class="col-12">
-                                                    <label class="form-label">4. 合作体验（可多选）</label>
-                                                    <div class="d-flex gap-3 flex-wrap" role="group" aria-label="合作体验选项">
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="checkbox" id="exp-smooth" value="smooth">
-                                                            <label class="form-check-label" for="exp-smooth">付款爽快</label>
-                                                        </div>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="checkbox" id="exp-easy" value="easy">
-                                                            <label class="form-check-label" for="exp-easy">沟通顺畅</label>
-                                                        </div>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="checkbox" id="exp-refer" value="refer">
-                                                            <label class="form-check-label" for="exp-refer">会介绍朋友</label>
-                                                        </div>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="checkbox" id="exp-picky" value="picky">
-                                                            <label class="form-check-label" for="exp-picky">比较挑剔</label>
-                                                        </div>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="checkbox" id="exp-slow" value="slow">
-                                                            <label class="form-check-label" for="exp-slow">决策周期长</label>
+                                        <!-- 深度了解（可选折叠） -->
+                                        <div class="mt-3">
+                                            <div class="accordion" id="accordionDeepInfo">
+                                                <div class="accordion-item border-0">
+                                                    <h2 class="accordion-header">
+                                                        <button class="accordion-button collapsed small" type="button"
+                                                                data-bs-toggle="collapse" data-bs-target="#collapseDeepInfo"
+                                                                style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px;">
+                                                            <span class="me-2">📊</span>
+                                                            <strong>深度了解（可选）</strong>
+                                                            <span class="badge bg-warning text-dark ms-2">AI辅助</span>
+                                                        </button>
+                                                    </h2>
+                                                    <div id="collapseDeepInfo" class="accordion-collapse collapse"
+                                                         data-bs-parent="#accordionDeepInfo">
+                                                        <div class="accordion-body pt-3">
+                                                            <div class="alert alert-warning small mb-3">
+                                                                <i class="bi bi-lightbulb me-1"></i>
+                                                                描述一个典型客户案例，帮助AI更精准定位目标人群和痛点
+                                                            </div>
+                                                            <div class="row g-3">
+                                                                <div class="col-12">
+                                                                    <label class="form-label" for="customer-who">1. 他们是谁？</label>
+                                                                    <input type="text" class="form-control" id="customer-who" placeholder="例如：某写字楼行政负责人">
+                                                                </div>
+                                                                <div class="col-12">
+                                                                    <label class="form-label" for="customer-why">2. 当初为什么会找到您？</label>
+                                                                    <input type="text" class="form-control" id="customer-why" placeholder="例如：原来用的水太贵了">
+                                                                </div>
+                                                                <div class="col-12">
+                                                                    <label class="form-label" for="customer-problem">3. 您帮他解决了什么？</label>
+                                                                    <input type="text" class="form-control" id="customer-problem" placeholder="例如：省了30%用水成本">
+                                                                </div>
+                                                                <div class="col-12">
+                                                                    <label class="form-label">4. 合作体验（可多选）</label>
+                                                                    <div class="d-flex gap-3 flex-wrap">
+                                                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="exp-smooth" value="smooth"><label class="form-check-label" for="exp-smooth">付款爽快</label></div>
+                                                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="exp-easy" value="easy"><label class="form-check-label" for="exp-easy">沟通顺畅</label></div>
+                                                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="exp-refer" value="refer"><label class="form-check-label" for="exp-refer">会介绍朋友</label></div>
+                                                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="exp-picky" value="picky"><label class="form-check-label" for="exp-picky">比较挑剔</label></div>
+                                                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="exp-slow" value="slow"><label class="form-check-label" for="exp-slow">决策周期长</label></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-12">
+                                                                    <label class="form-label" for="customer-story">5. 印象特别深的事（选填）</label>
+                                                                    <textarea class="form-control" id="customer-story" rows="2" placeholder="讲一个印象深刻的客户故事..."></textarea>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="col-12">
-                                                    <label class="form-label" for="customer-story">5. 有什么印象特别深的事？（选填）</label>
-                                                    <textarea class="form-control" id="customer-story" rows="2"
-                                                              placeholder="讲一个印象深刻的客户故事，比如意外的大订单、感人的感谢等..."></textarea>
+                                            </div>
+                                        </div>
+
+                                        <div id="ai-upgrade-hint" class="alert alert-info mt-3" style="display: none;">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <i class="bi bi-stars me-1"></i>
+                                                    <strong>升级解锁AI精准画像</strong>
+                                                    <p class="mb-0 small">免费用户使用基础画像，付费用户获得AI深度分析</p>
+                                                </div>
+                                                <a href="#pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
+                                            </div>
+                                        </div>
+
+                                        <div class="text-center mt-4 d-flex justify-content-center gap-3 flex-wrap">
+                                            <button class="btn btn-generate btn-lg" id="btn-one-key-analyze" onclick="mineAndGenerate()">
+                                                🚀 开始一键分析
+                                            </button>
+                                            <button class="btn btn-outline-secondary btn-lg" id="btn-reset-super" onclick="resetSuperSnapshot()">
+                                                🔄 重置
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 步骤2：问题识别 -->
+                            <div class="accordion-item border-0 super-step-item" id="super-step-problems">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#step-problems-body" id="step-problems-btn">
+                                        <span class="step-badge me-2">2</span>
+                                        <strong>问题识别</strong>
+                                    </button>
+                                </h2>
+                                <div id="step-problems-body" class="accordion-collapse collapse" data-bs-parent="#super-steps-accordion">
+                                    <div class="accordion-body pt-3">
+                                        <!-- 局部加载状态：问题识别中 -->
+                                        <div id="problem-mining-loading" class="text-center py-5" style="display: none;">
+                                            <div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;" role="status"></div>
+                                            <h5 class="text-primary mb-2">🔍 正在深入分析市场问题</h5>
+                                            <p class="text-muted small mb-0">AI 正在从海量数据中挖掘目标用户的核心痛点...</p>
+                                        </div>
+                                        <div id="problems-section">
+                                            <div id="market-analysis-card" class="mb-3" style="display: none;">
+                                                <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
+                                                    <div class="card-header d-flex align-items-center py-2 px-3" style="background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);">
+                                                        <span style="font-size:1.1rem;">📊</span>
+                                                        <span class="fw-bold text-white ms-2">市场机会分析</span>
+                                                    </div>
+                                                    <div class="card-body p-2" style="background:#f8fafc;">
+                                                        <div id="market-tags-row" class="d-flex flex-wrap gap-1 mb-2 align-items-start">
+                                                            <div id="blue-ocean-tag" class="market-tag blue-tag" style="display:none;">
+                                                                <span class="tag-icon">🎯</span>
+                                                                <span class="tag-text" id="blue-ocean-opportunity">—</span>
+                                                            </div>
+                                                            <div id="red-ocean-tags"></div>
+                                                        </div>
+                                                        <div id="problem-keywords-section" style="display:none;">
+                                                            <div class="kw-section-title">
+                                                                <span class="kw-icon">🔍</span>
+                                                                <span class="kw-label">问题导向词</span>
+                                                                <span class="badge bg-primary kw-count" id="keyword-count">0 个</span>
+                                                            </div>
+                                                            <p class="kw-subtitle">用户搜索时使用的问题词，可直接用于标题创作</p>
+                                                            <div class="problem-keywords-wrap" id="problem-keywords-list"></div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- 一键分析按钮（一次完成问题挖掘+画像生成） -->
-                        <div class="text-center mt-4">
-                            <button class="btn btn-generate btn-lg" id="btn-one-key-analyze" onclick="mineAndGenerate()">
-                                🚀 开始一键分析
-                            </button>
-                        </div>
-
-                        <!-- AI增强提示（免费用户） -->
-                        <div id="ai-upgrade-hint" class="alert alert-info mt-3" style="display: none;">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="bi bi-stars me-1"></i>
-                                    <strong>升级解锁AI精准画像</strong>
-                                    <p class="mb-0 small">免费用户使用基础画像，付费用户获得AI深度分析，精准度提升80%</p>
-                                </div>
-                                <a href="#pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
-                            </div>
-                        </div>
-
-                        <!-- 问题卡片区域（身份+问题类型） -->
-                        <div id="problems-section" class="mt-4" style="display: none;">
-                            <!-- 市场分析卡片 -->
-                            <div id="market-analysis-card" class="mb-3" style="display: none;">
-                                <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
-                                    <!-- 头部：简洁标题 -->
-                                    <div class="card-header d-flex align-items-center py-2 px-3" style="background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);">
-                                        <span style="font-size: 1.1rem;">📊</span>
-                                        <span class="fw-bold text-white ms-2">市场机会分析</span>
-                                    </div>
-                                    <!-- 内容区 -->
-                                    <div class="card-body p-2" style="background: #f8fafc;">
-                                        <!-- 蓝海/红海特征标签区 -->
-                                        <div id="market-tags-row" class="d-flex flex-wrap gap-1 mb-2 align-items-start">
-                                            <!-- 蓝海机会标签 -->
-                                            <div id="blue-ocean-tag" class="market-tag blue-tag" style="display:none;">
-                                                <span class="tag-icon">🎯</span>
-                                                <span class="tag-text" id="blue-ocean-opportunity">—</span>
+                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <h5 class="mb-0">📊 问题洞察</h5>
+                                                <button class="btn btn-sm btn-outline-primary" id="btn-refresh-identities" onclick="refreshIdentities()">
+                                                    🔄 换一批
+                                                </button>
                                             </div>
-                                            <!-- 红海特征标签（动态生成） -->
-                                            <div id="red-ocean-tags"></div>
+                                            <div class="row g-3" id="user-pains-list"></div>
                                         </div>
-                                        <!-- 问题导向词（重点区域） -->
-                                        <div id="problem-keywords-section" style="display: none;">
-                                            <div class="kw-section-title">
-                                                <span class="kw-icon">🔍</span>
-                                                <span class="kw-label">问题导向词</span>
-                                                <span class="badge bg-primary kw-count" id="keyword-count">0 个</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 步骤3：生成画像 -->
+                            <div class="accordion-item border-0 super-step-item" id="super-step-portraits">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#step-portraits-body" id="step-portraits-btn">
+                                        <span class="step-badge me-2">3</span>
+                                        <strong>生成画像</strong>
+                                    </button>
+                                </h2>
+                                <div id="step-portraits-body" class="accordion-collapse collapse" data-bs-parent="#super-steps-accordion">
+                                    <div class="accordion-body pt-3">
+                                        <!-- 局部加载状态：生成画像中 -->
+                                        <div id="portrait-generating-loading" class="text-center py-5" style="display: none;">
+                                            <div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;" role="status"></div>
+                                            <h5 class="text-primary mb-2">🎯 正在为您生成精准人群画像</h5>
+                                            <p class="text-muted small mb-0">AI 正在基于问题洞察构建目标用户画像...</p>
+                                        </div>
+                                        <div id="target-customers-section">
+                                            <h5 class="mb-3">👥 目标用户画像</h5>
+                                            <div id="portrait-quota-display" class="mb-3"></div>
+                                            <div class="d-flex justify-content-between align-items-center mb-3" id="portrait-actions-bar">
+                                                <div class="small text-muted">已生成 <span id="target-count">0</span> 个目标用户</div>
+                                                <div>
+                                                    <button class="btn btn-sm btn-outline-secondary" id="btn-refresh-targets" onclick="refreshTargetCustomers()">
+                                                        🔄 换一批
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <p class="kw-subtitle">用户搜索时使用的问题词，可直接用于标题创作</p>
-                                            <div class="problem-keywords-wrap" id="problem-keywords-list"></div>
+                                            <div class="row g-4" id="target-customers-list"></div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- 换一批按钮 -->
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h5 class="mb-0">📊 问题洞察</h5>
-                                <button class="btn btn-sm btn-outline-primary" id="btn-refresh-identities" onclick="refreshIdentities()">
-                                    🔄 换一批
-                                </button>
-                            </div>
+                        </div><!-- /.accordion#super-steps-accordion -->
+                    </div><!-- /#tab-super-content -->
 
-                            <!-- 问题卡片区域 -->
-                            <div class="row g-3" id="user-pains-list"></div>
-                        </div>
-
-                        <!-- 目标用户选择区域 -->
-                        <div id="target-customers-section" class="mt-4" style="display: none;">
-                            <h5 class="mb-3">👥 目标用户画像</h5>
-                            
-                            <!-- 画像配额和保存区域 -->
-                            <div id="portrait-quota-display" class="mb-3">
-                                <!-- 由JS动态填充 -->
-                            </div>
-                            
-                            <!-- 已保存的画像列表（新版）已移至步骤指示器下方，此处旧版隐藏 -->
-                            <div id="saved-portraits-section" class="mb-3" style="display: none;">
-                                <div class="card">
-                                    <div class="card-header bg-light py-2">
-                                        <span><i class="bi bi-bookmark me-1"></i>已保存的画像</span>
-                                    </div>
-                                    <div class="card-body py-2" id="saved-portraits-list">
-                                        <!-- 由JS动态填充（新系统已移至顶部画像专区） -->
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="d-flex justify-content-between align-items-center mb-3" id="portrait-actions-bar">
-                                <div class="small text-muted">已生成 <span id="target-count">0</span> 个目标用户</div>
-                                <div>
-                                    <button class="btn btn-sm btn-outline-secondary" id="btn-refresh-targets" onclick="refreshTargetCustomers()">
+                        <!-- 生成内容 Tab 内容 -->
+                        <div id="tab-content-content" style="display: none;">
+                            <!-- 选题展示区域 -->
+                            <div id="topics-section" class="mt-4" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="mb-0">📋 推荐选题</h5>
+                                    <button class="btn btn-sm btn-outline-primary" id="btn-refresh-topics" onclick="refreshTopics()">
                                         🔄 换一批
                                     </button>
                                 </div>
-                            </div>
-                            <div class="row g-4" id="target-customers-list">
-                                <!-- 目标用户选项将通过JS动态生成 -->
-                            </div>
-                        </div>
-
-                        <!-- 选题展示区域 -->
-                        <div id="topics-section" class="mt-4" style="display: none;">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h5 class="mb-0">📋 推荐选题</h5>
-                                <button class="btn btn-sm btn-outline-primary" id="btn-refresh-topics" onclick="refreshTopics()">
-                                    🔄 换一批
-                                </button>
-                            </div>
-                            <div class="row g-3" id="topics-list">
-                                <!-- 选题卡片将通过JS动态生成 -->
-                            </div>
-                            <!-- 付费用户专属提示 -->
-                            <div id="premium-topics-hint" class="alert alert-warning mt-3" style="display: none;">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <i class="bi bi-star-fill me-1"></i>
-                                        <strong>付费用户专享</strong>
-                                        <p class="mb-0 small">升级后可换一批选题，获得更多精准选题推荐</p>
-                                    </div>
-                                    <a href="#pricing" class="btn btn-sm btn-outline-warning">了解套餐</a>
+                                <div class="row g-3" id="topics-list">
+                                    <!-- 选题卡片将通过JS动态生成 -->
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- 内容生成区域 -->
-                        <div id="topic-content-section" class="mt-4" style="display: none;">
-                            <div class="result-card">
-                                <h5>📝 选题内容预览</h5>
-                                <div class="selected-topic-info mb-3 p-3 bg-light rounded">
-                                    <div class="d-flex justify-content-between align-items-start">
+                                <!-- 付费用户专属提示 -->
+                                <div id="premium-topics-hint" class="alert alert-warning mt-3" style="display: none;">
+                                    <div class="d-flex justify-content-between align-items-center">
                                         <div>
-                                            <span class="badge bg-primary me-2" id="selected-topic-type"></span>
-                                            <span class="selected-topic-title" id="selected-topic-title"></span>
+                                            <i class="bi bi-star-fill me-1"></i>
+                                            <strong>付费用户专享</strong>
+                                            <p class="mb-0 small">升级后可换一批选题，获得更多精准选题推荐</p>
                                         </div>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="changeTopic()">更换选题</button>
+                                        <a href="#pricing" class="btn btn-sm btn-outline-warning">了解套餐</a>
                                     </div>
                                 </div>
-                                <div id="topic-content-result">
-                                    <!-- 内容将通过JS动态生成 -->
-                                </div>
-                                <div class="mt-3 text-end">
-                                    <button class="btn btn-copy" onclick="copyTopicContent()">📋 复制全部内容</button>
+                            </div>
+
+                            <!-- 内容生成区域 -->
+                            <div id="topic-content-section" class="mt-4" style="display: none;">
+                                <div class="result-card">
+                                    <h5>📝 选题内容预览</h5>
+                                    <div class="selected-topic-info mb-3 p-3 bg-light rounded">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <span class="badge bg-primary me-2" id="selected-topic-type"></span>
+                                                <span class="selected-topic-title" id="selected-topic-title"></span>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="changeTopic()">更换选题</button>
+                                        </div>
+                                    </div>
+                                    <div id="topic-content-result">
+                                        <!-- 内容将通过JS动态生成 -->
+                                    </div>
+                                    <div class="mt-3 text-end">
+                                        <button class="btn btn-copy" onclick="copyTopicContent()">📋 复制全部内容</button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                    </div>
+                            <!-- 生成结果 -->
+                            <div id="result" class="mt-4" style="display: none;">
+                                <!-- 标题 -->
+                                <div class="result-card">
+                                    <h5>📌 标题</h5>
+                                    <div class="result-content" id="result-titles"></div>
+                                </div>
 
-                    <!-- 加载状态 -->
-                    <div id="loading" class="text-center py-5" style="display: none;">
-                        <div class="spinner-border text-primary" role="status"></div>
-                        <p class="mt-3 text-muted" id="loading-text">正在生成，请稍候...</p>
-                    </div>
+                                <!-- 标签 -->
+                                <div class="result-card">
+                                    <h5>🏷️ 标签</h5>
+                                    <div class="result-content" id="result-tags"></div>
+                                </div>
 
-                    <!-- 生成结果 -->
-                    <div id="result" class="mt-4" style="display: none;">
-                        <!-- 标题 -->
-                        <div class="result-card">
-                            <h5>📌 标题</h5>
-                            <div class="result-content" id="result-titles"></div>
-                        </div>
-
-                        <!-- 标签 -->
-                        <div class="result-card">
-                            <h5>🏷️ 标签</h5>
-                            <div class="result-content" id="result-tags"></div>
-                        </div>
-
-                        <!-- 图文内容 -->
-                        <div class="result-card">
-                            <h5>📄 图文内容</h5>
-                            <div class="result-content" id="result-content"></div>
-                            <div class="mt-3 text-end">
-                                <button class="btn btn-copy" onclick="copyContent()">📋 复制全部内容</button>
+                                <!-- 图文内容 -->
+                                <div class="result-card">
+                                    <h5>📄 图文内容</h5>
+                                    <div class="result-content" id="result-content"></div>
+                                    <div class="mt-3 text-end">
+                                        <button class="btn btn-copy" onclick="copyContent()">📋 复制全部内容</button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+
+                            <!-- 加载状态 -->
+                            <div id="loading" class="text-center py-5" style="display: none;">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-3 text-muted" id="loading-text">正在生成，请稍候...</p>
+                            </div>
+                        </div><!-- /#tab-content-content -->
                     </div>
-                </div>
             </div>
         </div>
     </section>
@@ -1529,6 +1566,171 @@
         let generatedContent = null;
         let currentAiEnhanced = false;
 
+        // ================================================================
+        // 超级定位 Tab 快照（localStorage）
+        // ================================================================
+        const SNAPSHOT_KEY = 'super_snapshot_v1';
+
+        function saveSuperSnapshot() {
+            const data = {
+                business_desc: document.getElementById('business-desc')?.value || '',
+                business_range: document.querySelector('input[name="business-range"]:checked')?.value || '',
+                business_type: document.querySelector('input[name="business-type"]:checked')?.value || '',
+                customer_who: document.getElementById('customer-who')?.value || '',
+                customer_why: document.getElementById('customer-why')?.value || '',
+                customer_problem: document.getElementById('customer-problem')?.value || '',
+                customer_story: document.getElementById('customer-story')?.value || '',
+                customer_experiences: Array.from(document.querySelectorAll('input[name^="exp-"]:checked')).map(el => el.value),
+                _saved_at: Date.now()
+            };
+            try {
+                localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(data));
+            } catch(e) {}
+        }
+
+        function loadSuperSnapshot() {
+            try {
+                const raw = localStorage.getItem(SNAPSHOT_KEY);
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch(e) { return null; }
+        }
+
+        function resetSuperSnapshot() {
+            if (!confirm('确定要重置超级定位吗？当前输入的所有信息将被清除。')) return;
+            try { localStorage.removeItem(SNAPSHOT_KEY); } catch(e) {}
+            // 清空表单
+            const fields = ['business-desc','customer-who','customer-why','customer-problem','customer-story'];
+            fields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            document.querySelectorAll('input[name="business-range"]').forEach(r => r.checked = false);
+            document.querySelectorAll('input[name="business-type"]').forEach(r => r.checked = false);
+            document.querySelectorAll('input[name^="exp-"]').forEach(c => c.checked = false);
+            // 隐藏超级定位结果区
+            const sections = ['problems-section','target-customers-section','market-analysis-card','problem-mining-loading','portrait-generating-loading'];
+            sections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            // 重置折叠状态：全部恢复折叠
+            document.getElementById('user-pains-list').innerHTML = '';
+            document.getElementById('target-customers-list').innerHTML = '';
+            _allProblems = [];
+            _allPortraits = {};
+            // 折叠所有步骤，打开第一步
+            const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-form-body'), {toggle: false});
+            bsCollapse1.show();
+            const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
+            bsCollapse2.hide();
+            const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
+            bsCollapse3.hide();
+            showToast('已重置，可以重新开始', 'success');
+        }
+
+        // 显示超级定位步骤区域（点击"新建画像"按钮时调用）
+        function showSuperSteps() {
+            const superSection = document.getElementById('tab-super-content');
+            if (superSection) {
+                superSection.style.display = 'block';
+            }
+            // 折叠第二、三步，打开第一步
+            const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-form-body'), {toggle: false});
+            bsCollapse1.show();
+            const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
+            bsCollapse2.hide();
+            const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
+            bsCollapse3.hide();
+            // 滚动到步骤区域
+            superSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // 控制超级定位步骤显示（根据是否有已保存画像）
+        function updateSuperStepsVisibility() {
+            // 如果 PortraitManager 有已保存画像，隐藏步骤区域
+            if (window.PortraitManager && window.PortraitManager._savedPortraits && window.PortraitManager._savedPortraits.length > 0) {
+                const superSection = document.getElementById('tab-super-content');
+                if (superSection) {
+                    superSection.style.display = 'none';
+                }
+            }
+        }
+
+        function applySnapshotToForm(snapshot) {
+            if (!snapshot) return;
+            const fields = ['business-desc','customer-who','customer-why','customer-problem','customer-story'];
+            fields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && snapshot[id.replace(/-/g, '_')] !== undefined) {
+                    el.value = snapshot[id.replace(/-/g, '_')] || '';
+                }
+            });
+            if (snapshot.business_range) {
+                const r = document.querySelector(`input[name="business-range"][value="${snapshot.business_range}"]`);
+                if (r) r.checked = true;
+            }
+            if (snapshot.business_type) {
+                const r = document.querySelector(`input[name="business-type"][value="${snapshot.business_type}"]`);
+                if (r) r.checked = true;
+            }
+            if (snapshot.customer_experiences && Array.isArray(snapshot.customer_experiences)) {
+                snapshot.customer_experiences.forEach(v => {
+                    const c = document.getElementById('exp-' + v);
+                    if (c) c.checked = true;
+                });
+            }
+        }
+
+        // ================================================================
+        // Tab 切换
+        // ================================================================
+        function switchGeneratorTab(tab) {
+            const tabSuper = document.getElementById('tab-super');
+            const tabContent = document.getElementById('tab-content');
+            const superContent = document.getElementById('tab-super-content');
+            const contentContent = document.getElementById('tab-content-content');
+
+            if (tab === 'super') {
+                tabSuper?.classList.add('active');
+                tabContent?.classList.remove('active');
+                superContent && (superContent.style.display = '');
+                contentContent && (contentContent.style.display = 'none');
+            } else {
+                tabContent?.classList.add('active');
+                tabSuper?.classList.remove('active');
+                contentContent && (contentContent.style.display = '');
+                superContent && (superContent.style.display = 'none');
+            }
+        }
+
+        // ================================================================
+        // 启动时恢复快照
+        // ================================================================
+        function initSnapshotRestore() {
+            const snap = loadSuperSnapshot();
+            if (snap) {
+                applySnapshotToForm(snap);
+            }
+        }
+
+        // 在所有表单输入时自动保存快照
+        function bindSnapshotAutoSave() {
+            const fields = [
+                '#business-desc',
+                '#customer-who', '#customer-why', '#customer-problem', '#customer-story',
+                'input[name="business-range"]', 'input[name="business-type"]',
+                'input[name^="exp-"]'
+            ];
+            const save = () => saveSuperSnapshot();
+            fields.forEach(sel => {
+                document.querySelectorAll(sel).forEach(el => {
+                    el.addEventListener('change', save);
+                    el.addEventListener('input', save);
+                });
+            });
+        }
+
         // 检查登录状态
         async function checkAuth() {
             console.log('[checkAuth] 开始检查登录状态');
@@ -1543,7 +1745,10 @@
                         console.log('[checkAuth] 登录成功，currentUser:', currentUser);
                         showGenerator();
                         updateQuotaInfo();
-                        
+                        // 恢复超级定位快照 + 绑定自动保存
+                        initSnapshotRestore();
+                        bindSnapshotAutoSave();
+
                         // 登录成功后初始化画像管理模块
                         if (PortraitManager) {
                             await PortraitManager.init();
@@ -1589,6 +1794,8 @@
         function showGenerator() {
             document.getElementById('login-prompt').style.display = 'none';
             document.getElementById('generator-form').style.display = 'block';
+            // 默认显示超级定位 Tab
+            switchGeneratorTab('super');
         }
         
         // 显示已保存画像区域和保存按钮（登录后）
@@ -1619,43 +1826,6 @@
                 el.textContent = remaining < 0 ? '∞' : remaining;
             }
         }
-
-        // 表单验证 - 实时更新步骤指示器
-        function updateStepIndicators() {
-            const businessDesc = document.getElementById('business-desc').value.trim();
-            const businessRange = document.querySelector('input[name="business-range"]:checked');
-            const businessType = document.querySelector('input[name="business-type"]:checked');
-
-            const step1 = document.getElementById('step-1');
-            const step2 = document.getElementById('step-2');
-            const step3 = document.getElementById('step-3');
-
-            // 第一步完成（描述业务 + 经营范围 + 经营类型）
-            if (businessDesc && businessRange && businessType) {
-                step1.classList.add('active');
-                step2.classList.add('active');
-                step3.classList.add('active');
-            } else {
-                step1.classList.remove('active');
-                step2.classList.remove('active');
-                step3.classList.remove('active');
-            }
-        }
-
-        // 监听表单输入变化
-        document.getElementById('business-desc').addEventListener('input', updateStepIndicators);
-        document.querySelectorAll('input[name="business-range"]').forEach(radio => {
-            radio.addEventListener('change', updateStepIndicators);
-        });
-        document.querySelectorAll('input[name="business-type"]').forEach(radio => {
-            radio.addEventListener('change', updateStepIndicators);
-        });
-
-        // 折叠面板展开/收起时更新步骤指示器
-        document.getElementById('collapseDeepInfo')?.addEventListener('shown.bs.collapse', function() {
-            const step2 = document.getElementById('step-2');
-            if (step2) step2.classList.add('active');
-        });
 
         // 收集可选字段 - 深度了解信息
         function collectDeepInfo() {
@@ -1692,6 +1862,9 @@
         // ================================================================
 
         async function mineAndGenerate() {
+            // 保存快照
+            saveSuperSnapshot();
+
             const businessDesc = document.getElementById('business-desc').value.trim();
             const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
             const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
@@ -1712,9 +1885,14 @@
 
             const extraData = collectDeepInfo();
 
+            // 先折叠第一步，展开第二步，显示局部加载状态
+            const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-form-body'), {toggle: false});
+            bsCollapse1.hide();
+            const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
+            bsCollapse2.show();
+            document.getElementById('problem-mining-loading').style.display = 'block';
+            document.getElementById('problems-section').style.display = 'none';
             document.getElementById('btn-one-key-analyze').disabled = true;
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('loading-text').textContent = '正在挖掘市场问题，请稍后...';
 
             try {
                 // Step 1: 先挖掘问题（不生成画像）
@@ -1739,6 +1917,8 @@
                     const errorText = await resp.text();
                     showToast('挖掘问题失败，请稍后重试', 'error');
                     console.error('API error:', resp.status, errorText);
+                    document.getElementById('problem-mining-loading').style.display = 'none';
+                    document.getElementById('problems-section').style.display = 'block';
                     return;
                 }
 
@@ -1755,17 +1935,20 @@
                     _allPortraits = {};  // 清空旧画像
                     _isPremium = data.is_premium || false;
 
+                    // 隐藏局部加载状态，显示问题内容
+                    document.getElementById('problem-mining-loading').style.display = 'none';
+                    document.getElementById('problems-section').style.display = 'block';
+
                     // 显示市场分析（红海/蓝海判断）
                     displayMarketAnalysis(marketAnalysis);
 
                     // 渲染问题卡片（带"生成画像"按钮）
                     renderProblemCards(_allProblems);
 
-                    // 显示区域
-                    document.getElementById('problems-section').style.display = 'block';
-                    document.getElementById('target-customers-section').style.display = 'block';
-
-                    document.getElementById('problems-section').scrollIntoView({ behavior: 'smooth' });
+                    // 展开问题识别区域（带滚动）
+                    document.getElementById('step-problems-body').addEventListener('shown.bs.collapse', () => {
+                        document.getElementById('problems-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, { once: true });
 
                     // 自动选中第一个问题
                     const first = _allProblems[0];
@@ -1775,14 +1958,17 @@
 
                     showToast('问题挖掘完成！点击"生成画像"查看人群画像', 'success');
                 } else {
+                    document.getElementById('problem-mining-loading').style.display = 'none';
+                    document.getElementById('problems-section').style.display = 'block';
                     alert(data.message || '问题挖掘失败');
                 }
             } catch (e) {
+                document.getElementById('problem-mining-loading').style.display = 'none';
+                document.getElementById('problems-section').style.display = 'block';
                 alert('生成失败，请稍后重试');
                 console.error(e);
             } finally {
                 document.getElementById('btn-one-key-analyze').disabled = false;
-                document.getElementById('loading').style.display = 'none';
             }
         }
 
@@ -1948,6 +2134,14 @@
                 // 显示该类型的画像（传入 id 作为 key，以及 display_name 作为可读标签）
                 const displayName = (problemData && problemData.display_name) || problemType || identity || '画像';
                 renderPortraitsForType(key, displayName);
+                // 折叠第二步，打开第三步
+                const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
+                bsCollapse2.hide();
+                const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
+                bsCollapse3.show();
+                document.getElementById('step-portraits-body').addEventListener('shown.bs.collapse', () => {
+                    document.getElementById('target-customers-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, { once: true });
             } else {
                 // 清空画像显示区域，提示用户手动生成
                 const container = document.getElementById('target-customers-list');
@@ -2123,6 +2317,11 @@
             // 触发选中状态 + 生成选题
             updateTargetSelection();
             document.getElementById('target-customers-section').style.display = 'block';
+            // 折叠第二步，打开第三步
+            const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
+            bsCollapse2.hide();
+            const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
+            bsCollapse3.show();
             setTimeout(function() { generateTopics(); }, 500);
         }
 
@@ -2277,6 +2476,14 @@
                 return;
             }
 
+            // 折叠问题识别步骤，展开画像生成步骤，显示局部加载状态
+            const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
+            bsCollapse2.hide();
+            const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
+            bsCollapse3.show();
+            document.getElementById('portrait-generating-loading').style.display = 'block';
+            document.getElementById('target-customers-section').style.display = 'none';
+
             // 找到问题对应的卡片，添加 loading 状态
             const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-4')).find(function (c) {
                 return String(c.dataset.key || '') === String(key || '');
@@ -2306,10 +2513,16 @@
                 });
             }
 
+            function showPortraitSection() {
+                document.getElementById('portrait-generating-loading').style.display = 'none';
+                document.getElementById('target-customers-section').style.display = 'block';
+            }
+
             try {
                 const result = await requestGeneratePortraits(problemData);
 
                 if (!result.ok) {
+                    showPortraitSection();
                     if (result.kind === 'no_desc') {
                         showToast(result.message, 'error');
                     } else {
@@ -2323,6 +2536,7 @@
                 const data = result.data;
                 const portraits = data.portraits || [];
                 if (portraits.length === 0) {
+                    showPortraitSection();
                     showToast('该问题暂无画像数据', 'warning');
                     resetBtn();
                     return;
@@ -2331,8 +2545,15 @@
                 console.log('[generatePortraitsForProblem] 调用 commitPortraitsResult, saveKey=' + saveKey + ', portraits.length=' + portraits.length);
                 try {
                     commitPortraitsResult(saveKey, problemData, portraits);
+                    // 显示画像内容区域
+                    showPortraitSection();
+                    // 滚动到画像区域
+                    document.getElementById('step-portraits-body').addEventListener('shown.bs.collapse', () => {
+                        document.getElementById('target-customers-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, { once: true });
                 } catch (e) {
                     console.error('[generatePortraitsForProblem] commitPortraitsResult 异常:', e);
+                    showPortraitSection();
                     showToast('显示画像时出错', 'error');
                     resetBtn();
                     return;
@@ -2341,6 +2562,7 @@
                 showToast('生成成功！获得 ' + portraits.length + ' 个画像', 'success');
                 resetBtn();
             } catch (e) {
+                showPortraitSection();
                 showToast('生成失败，请稍后重试', 'error');
                 console.error(e);
                 resetBtn();
@@ -2371,8 +2593,9 @@
                 }
                 const saveKey = (problemData && problemData.id) ? problemData.id : (sel || '');
 
-                document.getElementById('loading').style.display = 'block';
-                document.getElementById('loading-text').textContent = '正在换一批画像...';
+                // 显示局部加载状态
+                document.getElementById('portrait-generating-loading').style.display = 'block';
+                document.getElementById('target-customers-section').style.display = 'none';
 
                 (async function () {
                     _isGeneratingPortraits = true;
@@ -2380,6 +2603,8 @@
                         const result = await requestGeneratePortraits(problemData);
                         if (mySeq !== _refreshSeq) return;
                         if (!result.ok) {
+                            document.getElementById('portrait-generating-loading').style.display = 'none';
+                            document.getElementById('target-customers-section').style.display = 'block';
                             if (result.kind === 'no_desc') {
                                 showToast(result.message, 'error');
                             } else {
@@ -2390,14 +2615,20 @@
                         }
                         const portraits = result.data.portraits || [];
                         if (portraits.length === 0) {
+                            document.getElementById('portrait-generating-loading').style.display = 'none';
+                            document.getElementById('target-customers-section').style.display = 'block';
                             showToast('该问题暂无画像数据', 'warning');
                             return;
                         }
                         const sk = (problemData && problemData.id) ? problemData.id : saveKey;
                         commitPortraitsResult(sk, problemData, portraits);
+                        document.getElementById('portrait-generating-loading').style.display = 'none';
+                        document.getElementById('target-customers-section').style.display = 'block';
                         showToast('换一批成功！', 'success');
                     } catch (e) {
                         if (mySeq !== _refreshSeq) return;
+                        document.getElementById('portrait-generating-loading').style.display = 'none';
+                        document.getElementById('target-customers-section').style.display = 'block';
                         console.error('[换一批] 异常', e);
                         alert('重新生成失败，请稍后重试');
                     } finally {
@@ -2410,7 +2641,6 @@
                                 if (b.querySelector('.spinner-border')) b.innerHTML = '生成';
                             }
                         });
-                        document.getElementById('loading').style.display = 'none';
                         btn.disabled = false;
                         btn.innerHTML = originalText;
                     }
@@ -2658,8 +2888,9 @@
                 }
             });
 
-            // 显示加载状态
+            // 显示选题区域并切换到内容Tab
             document.getElementById('topics-section').style.display = 'block';
+            switchGeneratorTab('content');
             document.getElementById('topics-list').innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">正在生成选题...</p></div>';
 
             try {
@@ -3379,55 +3610,21 @@
                                 <span class="badge bg-secondary ms-2" id="library-portrait-industry"></span>
                             </div>
                             <div class="d-flex gap-2">
-                                <span class="badge bg-info" id="library-keyword-status"></span>
                                 <span class="badge bg-success" id="library-topic-status"></span>
                             </div>
                         </div>
                     </div>
-                    <!-- Tab导航 -->
+                    <!-- Tab导航（仅选题库） -->
                     <ul class="nav nav-tabs" id="libraryTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="tab-kw-btn" data-bs-toggle="tab" data-bs-target="#tab-kw" type="button">
-                                <i class="bi bi-key me-1"></i>关键词库
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="tab-topic-btn" data-bs-toggle="tab" data-bs-target="#tab-topic" type="button">
+                            <button class="nav-link active" id="tab-topic-btn" data-bs-toggle="tab" data-bs-target="#tab-topic" type="button">
                                 <i class="bi bi-lightbulb me-1"></i>选题库
                             </button>
                         </li>
                     </ul>
                     <div class="tab-content" id="libraryTabContent">
-                        <!-- 关键词库 Tab -->
-                        <div class="tab-pane fade show active" id="tab-kw" role="tabpanel">
-                            <div class="p-3" id="kw-content">
-                                <div id="kw-loading" class="text-center py-4">
-                                    <div class="spinner-border text-primary"></div>
-                                    <p class="mt-2 text-muted small">加载中...</p>
-                                </div>
-                                <div id="kw-empty" class="text-center py-4" style="display:none;">
-                                    <i class="bi bi-inbox" style="font-size:2rem;color:#ccc;"></i>
-                                    <p class="text-muted mt-2 small">暂无专属关键词库</p>
-                                    <button class="btn btn-sm btn-primary" id="btn-gen-kw">
-                                        <i class="bi bi-magic me-1"></i>生成专属关键词库
-                                    </button>
-                                </div>
-                                <div id="kw-detail" style="display:none;">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <div class="small text-muted">
-                                            <span id="kw-updated-at"></span>
-                                            <span class="ms-2" id="kw-update-count"></span>
-                                        </div>
-                                        <button class="btn btn-sm btn-outline-primary" id="btn-regen-kw">
-                                            <i class="bi bi-arrow-clockwise me-1"></i>更新
-                                        </button>
-                                    </div>
-                                    <div id="kw-categories"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- 选题库 Tab -->
-                        <div class="tab-pane fade" id="tab-topic" role="tabpanel">
+                        <!-- 选题库 Tab（唯一内容） -->
+                        <div class="tab-pane fade show active" id="tab-topic" role="tabpanel">
                             <div class="p-3" id="topic-content">
                                 <div id="topic-loading" class="text-center py-4">
                                     <div class="spinner-border text-primary"></div>
@@ -3441,17 +3638,35 @@
                                     </button>
                                 </div>
                                 <div id="topic-detail" style="display:none;">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <div class="small text-muted">
-                                            <span id="topic-updated-at"></span>
-                                            <span class="ms-2" id="topic-update-count"></span>
+                                    <!-- 选题筛选与滑条控制 -->
+                                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                            <span class="small text-muted">显示数量：</span>
+                                            <input type="range" id="topic-count-slider" min="5" max="50" value="20" step="5" style="width:120px;">
+                                            <span class="badge bg-primary" id="topic-count-label">20</span>
+                                            <span class="small text-muted ms-1" id="topic-total-hint"></span>
                                         </div>
-                                        <button class="btn btn-sm btn-outline-success" id="btn-regen-topic">
-                                            <i class="bi bi-arrow-clockwise me-1"></i>更新
-                                        </button>
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                            <span class="small text-muted">类型：</span>
+                                            <div class="btn-group btn-group-sm" id="topic-type-filter" role="group">
+                                                <input type="radio" class="btn-check" name="topic-type" id="topic-type-all" value="all" checked>
+                                                <label class="btn btn-outline-secondary" for="topic-type-all">全部</label>
+                                                <input type="radio" class="btn-check" name="topic-type" id="topic-type-knowledge" value="干货知识">
+                                                <label class="btn btn-outline-secondary" for="topic-type-knowledge">干货</label>
+                                                <input type="radio" class="btn-check" name="topic-type" id="topic-type-product" value="产品种草">
+                                                <label class="btn btn-outline-secondary" for="topic-type-product">种草</label>
+                                                <input type="radio" class="btn-check" name="topic-type" id="topic-type-trace" value="追热点">
+                                                <label class="btn btn-outline-secondary" for="topic-type-trace">追热</label>
+                                                <input type="radio" class="btn-check" name="topic-type" id="topic-type-interact" value="互动引留">
+                                                <label class="btn btn-outline-secondary" for="topic-type-interact">互动</label>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-success" id="btn-regen-topic">
+                                                <i class="bi bi-arrow-clockwise me-1"></i>更新
+                                            </button>
+                                        </div>
                                     </div>
                                     <div id="topic-summary" class="mb-2"></div>
-                                    <div id="topic-list" class="row g-2"></div>
+                                    <div id="topic-list" class="row g-2" style="max-height: 420px; overflow-y: auto;"></div>
                                 </div>
                             </div>
                         </div>

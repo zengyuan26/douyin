@@ -45,12 +45,16 @@ class PortraitSaveService:
         if not allowed:
             return False, reason, {}
         
-        # 如果设为默认，先取消其他默认
+        # 每个客户只保留一个画像：删除旧的
+        db.session.execute(
+            text("DELETE FROM saved_portraits WHERE user_id = :user_id"),
+            {'user_id': user_id}
+        )
+        
+        # 如果设为默认，先取消其他默认（已删除，这里保持一致）
         if set_as_default:
-            db.session.execute(
-                text("UPDATE saved_portraits SET is_default = FALSE WHERE user_id = :user_id"),
-                {'user_id': user_id}
-            )
+            # 旧数据已删除，无需取消
+            pass
         
         # 生成画像名称
         if not portrait_name:
