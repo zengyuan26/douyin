@@ -4,7 +4,9 @@
 蓝图前缀：/public
 """
 
-from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for
+import json
+import datetime
+from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, current_app
 from flask_login import current_user
 from models.public_models import PublicUser, PublicGeneration, PublicPricingPlan
 from models.models import db, AnalysisDimension
@@ -716,13 +718,279 @@ def api_get_quota():
 
     quota_info = quota_manager.get_user_quota_info(user)
     feature_access = quota_manager.get_feature_access(user)
+    
+    # 获取保存的画像数量
+    from models.public_models import SavedPortrait
+    saved_count = SavedPortrait.query.filter_by(user_id=user.id).count()
 
     return jsonify({
         'success': True,
         'data': {
             'email': user.email,
+            'plan_type': user.premium_plan or 'free',
+            'plan_name': quota_info.get('plan_name', '免费版'),
+            'is_premium': user.is_premium,
+            'can_save': feature_access.get('save_portraits', False),
+            'max_saved': feature_access.get('max_saved_portraits', 0),
+            'weekly_change_limit': feature_access.get('weekly_portrait_changes', 0),
+            'weekly_changes_used': 0,  # TODO: 需要跟踪实际使用次数
+            'saved_count': saved_count,
             'quota': quota_info,
             'features': feature_access
+        }
+    })
+
+
+# =============================================================================
+# 画像管理 API
+# =============================================================================
+
+@public_bp.route('/api/portraits/saved', methods=['GET'])
+def api_get_saved_portraits():
+    """获取已保存的画像列表"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+    
+    include_data = request.args.get('include_data', 'false').lower() == 'true'
+    
+    from models.public_models import SavedPortrait
+    query = SavedPortrait.query.filter_by(user_id=user.id).order_by(SavedPortrait.created_at.desc())
+    portraits = query.all()
+    
+    result = []
+    for p in portraits:
+        item = {
+            'id': p.id,
+            'portrait_name': p.portrait_name,
+            'is_default': p.is_default,
+            'used_count': p.used_count,
+            'created_at': p.created_at.isoformat() if p.created_at else None,
+            'updated_at': p.updated_at.isoformat() if p.updated_at else None
+        }
+        if include_data:
+            item['portrait_data'] = p.portrait_data
+            item['business_description'] = p.business_description
+            item['industry'] = p.industry
+        result.append(item)
+    
+    return jsonify({'success': True, 'data': result})
+
+
+@public_bp.route('/api/portraits/save', methods=['POST'])
+def api_save_portrait():
+    """保存当前画像"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+    
+    params = request.get_json() or {}
+    portrait_data = params.get('portrait_data')
+    portrait_name = params.get('portrait_name', '未命名')
+    business_description = params.get('business_description', '')
+    industry = params.get('industry', '')
+    target_customer = params.get('target_customer', '')
+    set_as_default = params.get('set_as_default', False)
+    
+    if not portrait_data:
+        return jsonify({'success': False, 'message': '画像数据不能为空'}), 400
+    
+    from models.public_models import SavedPortrait
+    
+    # 检查保存数量限制
+    current_count = SavedPortrait.query.filter_by(user_id=user.id).count()
+    quota_info = quota_manager.get_user_quota_info(user)
+    max_saved = quota_info.get('max_saved_portraits', 0)
+    
+    if max_saved > 0 and current_count >= max_saved:
+        return jsonify({'success': False, 'message': f'已达保存上限（{max_saved}个），请删除后再保存'}), 400
+    
+    # 如果设为默认，先取消其他默认
+    if set_as_default:
+        SavedPortrait.query.filter_by(user_id=user.id, is_default=True).update({'is_default': False})
+    
+    new_portrait = SavedPortrait(
+        user_id=user.id,
+        portrait_data=portrait_data,
+        portrait_name=portrait_name,
+        business_description=business_description,
+        industry=industry,
+        target_customer=target_customer,
+        is_default=set_as_default
+    )
+    db.session.add(new_portrait)
+    db.session.commit()
+    
+    # 保存成功后立即获取 ID（避免后续操作导致对象过期）
+    portrait_id = new_portrait.id
+    
+    # 启动后台任务生成关键词库和选题库
+    if user.is_paid_user():
+        import threading
+        app = current_app._get_current_object()
+        user_id = user.id
+        
+        def background_generate():
+            from services.keyword_library_generator import keyword_library_generator
+            from services.topic_library_generator import topic_library_generator
+            
+            try:
+                with app.app_context():
+                    portrait = SavedPortrait.query.get(portrait_id)
+                    if not portrait:
+                        return
+                    
+                    business_info = {
+                        'business_description': business_description or '',
+                        'industry': industry or '',
+                        'products': [],
+                        'region': '',
+                        'target_customer': target_customer or '',
+                    }
+                    plan_type = user_id and PublicUser.query.get(user_id) and (PublicUser.query.get(user_id).premium_plan or 'basic') or 'basic'
+                    print(f"[api_save_portrait] 开始后台生成关键词库，portrait_id={portrait_id}")
+                    
+                    kw_result = keyword_library_generator.generate(
+                        portrait_data=portrait_data,
+                        business_info=business_info,
+                        plan_type=plan_type,
+                    )
+                    print(f"[api_save_portrait] 关键词库生成结果: {kw_result.get('success')}")
+                    if kw_result.get('success'):
+                        keyword_library_generator.save_to_portrait(
+                            portrait_id=portrait_id,
+                            keyword_library=kw_result['keyword_library'],
+                            user_id=user_id,
+                            plan_type=plan_type,
+                        )
+                    
+                    kw_library = kw_result.get('keyword_library')
+                    topic_result = topic_library_generator.generate(
+                        portrait_data=portrait_data,
+                        business_info=business_info,
+                        keyword_library=kw_library,
+                        plan_type=plan_type,
+                    )
+                    print(f"[api_save_portrait] 选题库生成结果: {topic_result.get('success')}")
+                    if topic_result.get('success'):
+                        topic_library_generator.save_to_portrait(
+                            portrait_id=portrait_id,
+                            topic_library=topic_result['topic_library'],
+                            user_id=user_id,
+                            plan_type=plan_type,
+                        )
+                    print(f"[api_save_portrait] 后台生成完成")
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+        
+        threading.Thread(target=background_generate, daemon=True).start()
+    
+    # 先立即返回成功，不阻塞响应
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': portrait_id,
+            'portrait_name': portrait_name,
+            'is_default': set_as_default
+        },
+        'auto_generated': None
+    })
+
+
+@public_bp.route('/api/portraits/<int:portrait_id>', methods=['DELETE'])
+def api_delete_portrait(portrait_id):
+    """删除画像"""
+    print(f"[DELETE] 请求删除画像 ID: {portrait_id}")
+    user = get_current_public_user()
+    if not user:
+        print(f"[DELETE] 用户未登录")
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+    
+    from models.public_models import SavedPortrait
+    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
+    
+    if not portrait:
+        print(f"[DELETE] 画像不存在 ID={portrait_id}, user_id={user.id}")
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+    
+    db.session.delete(portrait)
+    db.session.commit()
+    print(f"[DELETE] 画像已删除 ID={portrait_id}")
+    
+    return jsonify({'success': True, 'message': '已删除'})
+
+
+@public_bp.route('/api/portraits/<int:portrait_id>/set-default', methods=['POST'])
+def api_set_default_portrait(portrait_id):
+    """设为默认画像"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+    
+    from models.public_models import SavedPortrait
+    
+    # 取消其他默认
+    SavedPortrait.query.filter_by(user_id=user.id, is_default=True).update({'is_default': False})
+    
+    # 设置新的默认
+    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+    
+    portrait.is_default = True
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+
+@public_bp.route('/api/portraits/default', methods=['GET'])
+def api_get_default_portrait():
+    """获取默认画像"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+    
+    from models.public_models import SavedPortrait
+    portrait = SavedPortrait.query.filter_by(user_id=user.id, is_default=True).first()
+    
+    if not portrait:
+        return jsonify({'success': False, 'message': '没有默认画像'}), 404
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': portrait.id,
+            'portrait_name': portrait.portrait_name,
+            'portrait_data': portrait.portrait_data,
+            'business_description': portrait.business_description,
+            'industry': portrait.industry,
+            'used_count': portrait.used_count
+        }
+    })
+
+
+@public_bp.route('/api/portraits/stats', methods=['GET'])
+def api_get_portrait_stats():
+    """获取画像统计"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+    
+    from models.public_models import SavedPortrait
+    total = SavedPortrait.query.filter_by(user_id=user.id).count()
+    default_count = SavedPortrait.query.filter_by(user_id=user.id, is_default=True).count()
+    
+    # 使用次数统计
+    from sqlalchemy import func
+    total_uses = db.session.query(func.sum(SavedPortrait.used_count)).filter_by(user_id=user.id).scalar() or 0
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'total_portraits': total,
+            'default_portraits': default_count,
+            'total_uses': total_uses
         }
     })
 
@@ -973,4 +1241,431 @@ def api_get_market_opportunity_dimensions():
     return jsonify({
         'success': True,
         'data': dimensions
+    })
+
+
+# =============================================================================
+# 选题生成 API
+# =============================================================================
+
+@public_bp.route('/api/topics/generate', methods=['POST'])
+def api_generate_topics():
+    """
+    基于用户画像和问题关键词生成选题
+
+    请求格式：
+    {
+        "business_description": "...",
+        "business_range": "local/cross_region",
+        "business_type": "local_service/product/personal/enterprise",
+        "portraits": [...],  // 用户画像列表
+        "problem_keywords": [...]  // 问题关键词列表
+    }
+
+    返回格式：
+    {
+        "success": true,
+        "topics": [
+            {"id": "1", "title": "选题标题", "type": "问题诊断", "target": "目标人群", "reason": "推荐理由"},
+            ...
+        ]
+    }
+    """
+    from services.topic_generator import TopicGenerator
+
+    params = request.get_json() or {}
+
+    # 必填字段检查
+    if not params.get('business_description'):
+        return jsonify({'success': False, 'message': '请描述您的业务'}), 400
+
+    if not params.get('portraits') or len(params.get('portraits', [])) == 0:
+        return jsonify({'success': False, 'message': '请先生成用户画像'}), 400
+
+    # 获取用户是否付费
+    user_id = session.get('public_user_id')
+    is_premium = False
+    if user_id:
+        user = PublicUser.query.get(user_id)
+        if user and user.is_paid_user():
+            is_premium = True
+
+    try:
+        generator = TopicGenerator()
+        result = generator.generate_topics(
+            business_description=params.get('business_description', ''),
+            business_range=params.get('business_range', ''),
+            business_type=params.get('business_type', ''),
+            portraits=params.get('portraits', []),
+            problem_keywords=params.get('problem_keywords', []),
+            is_premium=is_premium
+        )
+
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'is_premium': is_premium,
+                'topics': result.get('topics', [])
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result.get('error', '选题生成失败')
+            }), 500
+    except Exception as e:
+        import traceback
+        import sys
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        tb_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        print(f"[TopicGenerator Error] {e}\n{tb_str}", file=sys.stderr)
+        return jsonify({
+            'success': False,
+            'message': f'选题生成失败: {str(e)}'
+        }), 500
+
+
+@public_bp.route('/api/topics/regenerate', methods=['POST'])
+def api_regenerate_topics():
+    """
+    换一批选题（付费用户专用）
+
+    请求格式：
+    {
+        "business_description": "...",
+        "portraits": [...],
+        "problem_keywords": [...]
+    }
+    """
+    user_id = session.get('public_user_id')
+    user = PublicUser.query.get(user_id) if user_id else None
+
+    # 检查付费状态
+    if not user or not user.is_paid_user():
+        return jsonify({
+            'success': False,
+            'message': '此功能仅对付费用户开放'
+        }), 403
+
+    params = request.get_json() or {}
+
+    try:
+        from services.topic_generator import TopicGenerator
+        generator = TopicGenerator()
+        result = generator.generate_topics(
+            business_description=params.get('business_description', ''),
+            business_range=params.get('business_range', ''),
+            business_type=params.get('business_type', ''),
+            portraits=params.get('portraits', []),
+            problem_keywords=params.get('problem_keywords', []),
+            is_premium=True
+        )
+
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'topics': result.get('topics', [])
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result.get('error', '选题生成失败')
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'选题生成失败: {str(e)}'
+        }), 500
+
+
+# =============================================================================
+# 内容生成 API（基于选题）
+# =============================================================================
+
+@public_bp.route('/api/content/generate', methods=['POST'])
+def api_generate_content_from_topic():
+    """
+    基于选题生成图文内容
+
+    请求格式：
+    {
+        "topic_id": "1",
+        "topic_title": "选题标题",
+        "topic_type": "问题诊断",
+        "business_description": "...",
+        "business_range": "local/cross_region",
+        "business_type": "...",
+        "portrait": {...}  // 选中的用户画像
+    }
+    """
+    from services.content_generator import TopicContentGenerator
+    from models.public_models import PublicGeneration
+
+    params = request.get_json() or {}
+
+    # 必填字段检查
+    if not params.get('topic_title'):
+        return jsonify({'success': False, 'message': '请选择选题'}), 400
+
+    if not params.get('business_description'):
+        return jsonify({'success': False, 'message': '请描述您的业务'}), 400
+
+    # 获取用户
+    user_id = session.get('public_user_id')
+    user = PublicUser.query.get(user_id) if user_id else None
+    is_premium = user and user.is_paid_user()
+
+    # 检查配额
+    can_generate, reason, quota_info = quota_manager.check_quota(user) if user else (True, 'anonymous', {})
+    if not can_generate:
+        return jsonify({
+            'success': False,
+            'message': quota_manager.get_user_quota_info(user).get('reason', '已达生成上限'),
+            'quota_info': quota_info,
+            'upgrade_url': '/pricing'
+        }), 403
+
+    try:
+        generator = TopicContentGenerator()
+        result = generator.generate_content(
+            topic_id=params.get('topic_id', ''),
+            topic_title=params.get('topic_title', ''),
+            topic_type=params.get('topic_type', ''),
+            business_description=params.get('business_description', ''),
+            business_range=params.get('business_range', ''),
+            business_type=params.get('business_type', ''),
+            portrait=params.get('portrait', {}),
+            is_premium=is_premium,
+            premium_plan=user.premium_plan if user else 'free'
+        )
+
+        if result.get('success'):
+            # 保存生成记录（所有用户都记录）
+            if user:
+                generation = PublicGeneration(
+                    user_id=user.id,
+                    industry=params.get('business_type', ''),
+                    target_customer=params.get('portrait', {}).get('identity', ''),
+                    content_type='graphic',
+                    titles=result['content'].get('title', ''),
+                    tags=','.join(result['content'].get('tags', [])),
+                    content=result['content'].get('body', ''),
+                    used_tokens=result.get('tokens_used', 0),
+                )
+                db.session.add(generation)
+                # 扣减配额
+                quota_manager.use_quota(user, result.get('tokens_used', 0))
+                db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'content': result.get('content', {})
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result.get('error', '内容生成失败')
+            }), 500
+    except Exception as e:
+        import traceback
+        import sys
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        tb_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        print(f"[ContentGenerator Error] {e}\n{tb_str}", file=sys.stderr)
+        return jsonify({
+            'success': False,
+            'message': f'内容生成失败: {str(e)}'
+        }), 500
+
+
+# =============================================================================
+# 内容类型推荐 API
+# =============================================================================
+
+@public_bp.route('/api/topics/recommend-type', methods=['POST'])
+def api_recommend_content_type():
+    """
+    基于选题推荐内容类型（图文/长文/短视频）
+
+    请求格式：
+    {
+        "topic": {
+            "title": "选题标题",
+            "type": "避坑指南"
+        },
+        "portrait": {
+            "age_range": "25-35岁"
+        },
+        "business_info": {
+            "is_hot_topic": false,
+            "is_professional": true
+        }
+    }
+    """
+    from services.content_type_recommender import content_type_recommender
+
+    params = request.get_json() or {}
+
+    topic = params.get('topic', {})
+    portrait = params.get('portrait', {})
+    business_info = params.get('business_info', {})
+
+    recommendation = content_type_recommender.recommend(topic, portrait, business_info)
+
+    return jsonify({
+        'success': True,
+        'recommendation': recommendation
+    })
+
+
+@public_bp.route('/api/feedback/content-type', methods=['POST'])
+def api_feedback_content_type():
+    """
+    用户对内容类型选择的反馈
+    """
+    params = request.get_json() or {}
+
+    # TODO: 保存反馈到数据库用于优化推荐算法
+
+    return jsonify({
+        'success': True,
+        'message': '感谢反馈'
+    })
+
+
+# =============================================================================
+# 超级定位快照 API
+# =============================================================================
+
+@public_bp.route('/api/snapshots/current', methods=['GET'])
+def api_get_current_snapshot():
+    """
+    获取当前用户的最新超级定位快照
+
+    GET /public/api/snapshots/current
+    返回: { success, snapshot }
+    """
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    # 获取该用户最新的快照
+    row = db.session.execute(
+        db.text("""
+            SELECT id, session_id, version, form_data, problems_data, portraits_data,
+                   selected_problem_id, selected_portrait_index, created_at, updated_at
+            FROM super_snapshots
+            WHERE user_id = :user_id
+            ORDER BY updated_at DESC
+            LIMIT 1
+        """),
+        {'user_id': user.id}
+    ).fetchone()
+
+    if not row:
+        return jsonify({'success': True, 'snapshot': None})
+
+    # 解析 JSON 字段
+    row_dict = dict(row._mapping)
+    for field in ['form_data', 'problems_data', 'portraits_data']:
+        if row_dict.get(field):
+            try:
+                row_dict[field] = json.loads(row_dict[field])
+            except Exception:
+                pass
+
+    return jsonify({'success': True, 'snapshot': row_dict})
+
+
+@public_bp.route('/api/snapshots/save', methods=['POST'])
+def api_save_snapshot():
+    """
+    保存超级定位快照（每次问题挖掘+画像生成后调用）
+
+    POST /public/api/snapshots/save
+    Body: {
+        session_id: str,
+        form_data: object,    # 表单数据
+        problems_data: array,  # 问题列表
+        portraits_data: object,# 画像字典 {typeKey: [...]}
+        selected_problem_id: int,
+        selected_portrait_index: int
+    }
+    """
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    params = request.get_json() or {}
+    session_id = params.get('session_id', 'default')
+    form_data = params.get('form_data', {})
+    problems_data = params.get('problems_data', [])
+    portraits_data = params.get('portraits_data', {})
+    selected_problem_id = params.get('selected_problem_id')
+    selected_portrait_index = params.get('selected_portrait_index')
+
+    # 检查是否已存在同 session 的快照，有则更新，无则插入
+    existing = db.session.execute(
+        db.text("SELECT id, version FROM super_snapshots WHERE user_id = :uid AND session_id = :sid"),
+        {'uid': user.id, 'sid': session_id}
+    ).fetchone()
+
+    now = datetime.datetime.utcnow()
+
+    if existing:
+        # 更新
+        db.session.execute(
+            db.text("""
+                UPDATE super_snapshots
+                SET version = version + 1,
+                    form_data = :form_data,
+                    problems_data = :problems_data,
+                    portraits_data = :portraits_data,
+                    selected_problem_id = :selected_problem_id,
+                    selected_portrait_index = :selected_portrait_index,
+                    updated_at = :now
+                WHERE id = :id
+            """),
+            {
+                'id': existing.id,
+                'form_data': json.dumps(form_data, ensure_ascii=False),
+                'problems_data': json.dumps(problems_data, ensure_ascii=False),
+                'portraits_data': json.dumps(portraits_data, ensure_ascii=False),
+                'selected_problem_id': selected_problem_id,
+                'selected_portrait_index': selected_portrait_index,
+                'now': now
+            }
+        )
+        snapshot_id = existing.id
+        version = existing.version + 1
+    else:
+        # 新建
+        result = db.session.execute(
+            db.text("""
+                INSERT INTO super_snapshots
+                    (user_id, session_id, version, form_data, problems_data, portraits_data,
+                     selected_problem_id, selected_portrait_index, created_at, updated_at)
+                VALUES
+                    (:uid, :sid, 1, :form_data, :problems_data, :portraits_data,
+                     :selected_problem_id, :selected_portrait_index, :now, :now)
+            """),
+            {
+                'uid': user.id,
+                'sid': session_id,
+                'form_data': json.dumps(form_data, ensure_ascii=False),
+                'problems_data': json.dumps(problems_data, ensure_ascii=False),
+                'portraits_data': json.dumps(portraits_data, ensure_ascii=False),
+                'selected_problem_id': selected_problem_id,
+                'selected_portrait_index': selected_portrait_index,
+                'now': now
+            }
+        )
+        snapshot_id = result.lastrowid
+        version = 1
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'snapshot_id': snapshot_id,
+        'version': version
     })
