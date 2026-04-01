@@ -479,9 +479,12 @@ def api_generate_all_portraits():
 
     problems = params.get('problems', [])
     business_desc = params.get('business_description', '')
+    service_scenario = params.get('service_scenario', 'other')
+    business_type = params.get('business_type', 'local_service')
 
     # 并行生成
-    results = generate_portraits_parallel(problems, business_desc, is_premium=True)
+    results = generate_portraits_parallel(problems, business_desc, is_premium=True,
+                                          service_scenario=service_scenario, business_type=business_type)
 
     return jsonify({
         'success': True,

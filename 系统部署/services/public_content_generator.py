@@ -22,6 +22,214 @@ from services.public_template_matcher import template_matcher
 from services.public_quota_manager import quota_manager
 
 
+# =============================================================================
+# 经营类型枚举映射（前后端通用）
+# =============================================================================
+BUSINESS_TYPE_MAP = {
+    "product": "消费品",
+    "local_service": "本地服务",
+    "personal": "个人账号/IP",
+    "enterprise": "企业服务"
+}
+
+BUSINESS_TYPE_REVERSE = {
+    "消费品": "product",
+    "本地服务": "local_service",
+    "个人账号/IP": "personal",
+    "企业服务": "enterprise"
+}
+
+
+# =============================================================================
+# 场景 → 基础人群固定映射
+# =============================================================================
+SCENE_BASE_PERSONAS = {
+    # 酒店/餐饮/茶楼/高端会所
+    "hotel_restaurant": {
+        "决策层": [
+            {"name": "酒店总经理", "desc": "负责酒店整体运营，关注品牌形象和客户体验", "buyer": "酒店总经理", "user": "酒店运营"},
+            {"name": "餐饮总监", "desc": "负责餐厅/宴会运营，关注食材品质和成本控制", "buyer": "餐饮总监", "user": "餐饮管理"},
+            {"name": "会所负责人", "desc": "高端会所运营者，关注会员服务品质", "buyer": "会所负责人", "user": "会所运营"},
+        ],
+        "采购层": [
+            {"name": "行政总厨", "desc": "负责厨房采购，关注食材质量和供应稳定性", "buyer": "行政总厨", "user": "厨房团队"},
+            {"name": "采购经理", "desc": "酒店采购部门负责人，关注性价比和供应链", "buyer": "采购经理", "user": "采购部门"},
+            {"name": "宴会销售", "desc": "负责婚宴/会议接待，关注定制化需求", "buyer": "宴会销售", "user": "宴会运营"},
+        ],
+        "执行层": [
+            {"name": "茶楼老板", "desc": "茶楼经营者，关注茶叶品质和客单价", "buyer": "茶楼老板", "user": "茶楼老板"},
+            {"name": "餐厅经理", "desc": "餐厅日常运营，关注翻台率和客诉处理", "buyer": "餐厅经理", "user": "餐厅运营"},
+        ]
+    },
+    # 家用/住宅/小区业主
+    "residential": {
+        "C端": [
+            {"name": "业主", "desc": "自住业主，关注居住品质和生活便利", "buyer": "业主", "user": "业主"},
+            {"name": "自住家庭", "desc": "有孩/有老家庭，关注安全和健康", "buyer": "自住家庭", "user": "家庭成员"},
+            {"name": "宝妈", "desc": "有0-12岁孩子，关注孩子健康和安全", "buyer": "宝妈", "user": "孩子"},
+            {"name": "银发族", "desc": "60岁以上老人，关注健康和便利", "buyer": "银发族", "user": "老人"},
+            {"name": "租房族", "desc": "租房居住，关注性价比和便捷服务", "buyer": "租房族", "user": "租房族"},
+        ]
+    },
+    # 写字楼/企业/工厂/园区
+    "office_enterprise": {
+        "决策层": [
+            {"name": "企业老板", "desc": "企业负责人，关注品牌形象和员工福利", "buyer": "企业老板", "user": "企业管理"},
+            {"name": "行政总监", "desc": "负责企业行政，关注采购效率和成本", "buyer": "行政总监", "user": "行政部门"},
+            {"name": "HR负责人", "desc": "负责人力资源，关注员工关怀和企业文化", "buyer": "HR负责人", "user": "HR部门"},
+        ],
+        "采购层": [
+            {"name": "行政专员", "desc": "负责日常行政采购，关注性价比", "buyer": "行政专员", "user": "行政执行"},
+            {"name": "后勤主管", "desc": "负责后勤保障，关注服务稳定性", "buyer": "后勤主管", "user": "后勤团队"},
+            {"name": "采购专员", "desc": "执行采购流程，关注供应商资质", "buyer": "采购专员", "user": "采购执行"},
+        ],
+        "执行层": [
+            {"name": "办公室员工", "desc": "日常办公人群，关注便利性", "buyer": "办公室员工", "user": "办公室员工"},
+            {"name": "工厂工人", "desc": "生产一线工人，关注实用性和效率", "buyer": "工厂工人", "user": "生产工人"},
+        ]
+    },
+    # 学校/医院/食堂/政企单位
+    "institutional": {
+        "决策层": [
+            {"name": "单位领导", "desc": "学校/医院/政企单位负责人", "buyer": "单位领导", "user": "单位管理"},
+            {"name": "后勤主任", "desc": "负责后勤采购，关注合规和品质", "buyer": "后勤主任", "user": "后勤管理"},
+            {"name": "食堂负责人", "desc": "负责食堂运营，关注成本和满意度", "buyer": "食堂负责人", "user": "食堂运营"},
+        ],
+        "采购层": [
+            {"name": "采购负责人", "desc": "单位采购负责人，关注资质和履约", "buyer": "采购负责人", "user": "采购执行"},
+            {"name": "营养师", "desc": "食堂营养搭配，关注食品安全", "buyer": "营养师", "user": "营养管理"},
+        ],
+        "执行层": [
+            {"name": "教师", "desc": "学校教师，关注学生健康", "buyer": "教师", "user": "教学"},
+            {"name": "医护人员", "desc": "医院工作人员，关注工作便利", "buyer": "医护人员", "user": "医疗工作"},
+        ]
+    },
+    # 实体店/连锁门店/加盟品牌
+    "retail_chain": {
+        "决策层": [
+            {"name": "品牌创始人", "desc": "品牌方负责人，关注品牌势能", "buyer": "品牌创始人", "user": "品牌管理"},
+            {"name": "连锁加盟商", "desc": "加盟品牌门店老板，关注盈利", "buyer": "加盟商", "user": "门店运营"},
+        ],
+        "执行层": [
+            {"name": "门店店主", "desc": "单店老板，关注获客和复购", "buyer": "门店店主", "user": "门店运营"},
+            {"name": "店员", "desc": "门店员工，关注销售便利性", "buyer": "店员", "user": "销售执行"},
+            {"name": "督导", "desc": "连锁门店督导，关注标准化执行", "buyer": "督导", "user": "门店管理"},
+        ]
+    },
+    # 装修/工装/工程定制
+    "renovation": {
+        "决策层": [
+            {"name": "业主/甲方", "desc": "装修甲方，关注预算和质量", "buyer": "业主", "user": "业主"},
+            {"name": "项目经理", "desc": "装修项目经理，关注工期和协调", "buyer": "项目经理", "user": "项目协调"},
+        ],
+        "执行层": [
+            {"name": "工长", "desc": "装修工长，关注材料和工艺", "buyer": "工长", "user": "施工执行"},
+            {"name": "设计师", "desc": "室内设计师，关注效果落地", "buyer": "设计师", "user": "设计执行"},
+            {"name": "采购员", "desc": "项目采购，关注性价比", "buyer": "采购员", "user": "采购执行"},
+        ]
+    },
+    # 其他小众场景
+    "other": {
+        "通用": [
+            {"name": "行业对接人", "desc": "行业相关对接人员", "buyer": "行业对接人", "user": "业务执行"},
+            {"name": "采购", "desc": "一般采购人员", "buyer": "采购人员", "user": "采购执行"},
+            {"name": "执行人员", "desc": "项目执行人员", "buyer": "执行人员", "user": "任务执行"},
+        ]
+    }
+}
+
+
+# =============================================================================
+# 经营类型人群过滤函数
+# =============================================================================
+def filter_personas_by_business_type(base_personas: Dict, business_type: str) -> Dict:
+    """
+    根据经营类型，自动裁剪系统底层人群，防止乱生成C/B混合
+
+    Args:
+        base_personas: 场景基础人群（来自SCENE_BASE_PERSONAS）
+        business_type: 经营类型枚举值
+
+    Returns:
+        过滤后的人群字典
+    """
+    if business_type == "product":
+        # 消费品：只保留纯C端，剔除所有企业/行政/采购
+        filtered = {}
+        for layer, personas in base_personas.items():
+            if layer in ["C端", "通用"]:
+                filtered[layer] = personas
+        return filtered if filtered else {"C端": SCENE_BASE_PERSONAS.get("residential", {}).get("C端", [])}
+
+    elif business_type == "local_service":
+        # 本地服务：保留居民+小微门店，剔除大厂/政企
+        filtered = {}
+        for layer, personas in base_personas.items():
+            if layer in ["C端", "执行层", "同城居民", "通用"]:
+                filtered[layer] = personas
+        # 默认补充同城居民
+        if not filtered:
+            filtered = {"同城居民": SCENE_BASE_PERSONAS.get("residential", {}).get("C端", [])}
+        return filtered
+
+    elif business_type == "personal":
+        # 个人IP：只保留个人/粉丝/博主
+        return {
+            "个人IP用户": [
+                {"name": "个人用户", "desc": "普通个人消费者", "buyer": "个人用户", "user": "个人用户"},
+                {"name": "粉丝", "desc": "账号粉丝/追随者", "buyer": "粉丝", "user": "粉丝"},
+                {"name": "博主", "desc": "自媒体博主/KOL", "buyer": "博主", "user": "博主"},
+                {"name": "内容创作者", "desc": "内容创作者同行", "buyer": "创作者", "user": "创作者"},
+            ]
+        }
+
+    elif business_type == "enterprise":
+        # 企业服务：完整保留三层（决策/采购/执行）
+        return base_personas
+
+    else:
+        return base_personas
+
+
+def get_system_base_personas(service_scenario: str, business_type: str) -> str:
+    """
+    获取系统固定底座人群JSON字符串，用于注入Prompt
+
+    Args:
+        service_scenario: 服务场景枚举值
+        business_type: 经营类型枚举值
+
+    Returns:
+        过滤后的人群JSON字符串
+    """
+    # 获取场景基础人群
+    base = SCENE_BASE_PERSONAS.get(service_scenario, SCENE_BASE_PERSONAS.get("other", {}))
+
+    # 按经营类型过滤
+    filtered = filter_personas_by_business_type(base, business_type)
+
+    # 转换为易读的JSON字符串
+    return json.dumps(filtered, ensure_ascii=False, indent=2)
+
+
+# =============================================================================
+# Prompt底座约束模板（全局共用）
+# =============================================================================
+PROMPT_BASE_CONSTRAINT = """【系统强制底座规则】
+1.底层固定人群：{system_base_personas}
+2.禁止自己创造顶层大类、禁止随意新增人群；
+3.只能在底层人群之下，做细分/小众/长尾延伸画像；
+4.严格遵守经营类型限制：
+   - 消费品=只做C端个人
+   - 本地服务=同城居民+小微商家
+   - 个人IP=博主/粉丝/个人用户
+   - 企业服务=决策/采购/执行三层
+5.严禁生成与经营类型不匹配的人群（如消费品场景下生成"企业老板"）
+违规生成直接作废重写。
+
+"""
+
+
 class ContentGenerator:
     """
     内容生成器
@@ -414,6 +622,11 @@ class ContentGenerator:
         business_desc = (params.get('business_description') or '').strip()
         business_range = params.get('business_range', 'local')
         business_type = params.get('business_type', 'local_service')
+        service_scenario = params.get('service_scenario', 'other')
+        other_scenario = params.get('other_scenario', '')
+
+        # 获取系统固定底座人群
+        system_base_personas = get_system_base_personas(service_scenario, business_type)
 
         if not business_desc:
             return {
@@ -422,17 +635,16 @@ class ContentGenerator:
                 'message': '请描述您的业务',
             }
 
+        # 获取经营类型中文名
+        business_type_name = BUSINESS_TYPE_MAP.get(business_type, '本地服务')
+
         # 构建轻量级 prompt
-        prompt = f"""你是一个用户画像专家。根据以下业务信息，快速识别出最可能的目标客户身份类型。
+        prompt = f"""{PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas)}
+你是一个用户画像专家。根据以下业务信息，快速识别出最可能的目标客户身份类型。
 
 业务描述：{business_desc}
 经营范围：{'本地/同城' if business_range == 'local' else '跨区域'}
-经营类型：{
-    '本地服务（理发店/餐饮/家政等）' if business_type == 'local_service'
-    else '消费品/零售（奶粉/饮料/食品等）' if business_type == 'product'
-    else '个人品牌/自媒体' if business_type == 'personal'
-    else '企业服务/B2B（软件/咨询/设备等）'
-}
+经营类型：{business_type_name}
 
 === 身份推导 ===
 
@@ -905,6 +1117,9 @@ class ContentGenerator:
         
         aux_section = '\n'.join(aux_parts) if aux_parts else '（未填写辅助信息）'
 
+        # 获取系统固定底座人群
+        system_base_personas = get_system_base_personas(service_scenario, business_type)
+
         # 根据业务类型判断买用关系
         is_to_business = business_type == 'enterprise'
         buyer_user_hint = ""
@@ -919,19 +1134,20 @@ class ContentGenerator:
 
 如果涉及宝宝、老人、孩子、宠物等，**一定是买用分离**。"""
 
-        prompt = f"""你是问题挖掘专家。请根据以下业务信息，挖掘**使用方问题**和**付费方顾虑**。
+        # 获取经营类型中文名
+        business_type_name = BUSINESS_TYPE_MAP.get(business_type, '本地服务')
+
+        prompt = f"""{PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas)}
+你是问题挖掘专家。请根据以下业务信息，挖掘**使用方问题**和**付费方顾虑**。
 
 业务描述：{business_desc}
 经营范围：{'本地/同城' if business_range == 'local' else '跨区域/全国'}
-经营类型：{
-    '本地服务' if business_type == 'local_service'
-    else '消费品/零售' if business_type == 'product'
-    else '个人品牌' if business_type == 'personal'
-    else '企业服务/B2B'
-}
+经营类型：{business_type_name}
 
 辅助信息：
 {aux_section}
+
+{buyer_user_hint}
 
 === 使用方问题（格式参照奶粉行业） ===
 请列出6-8个使用方问题：
@@ -1049,6 +1265,10 @@ class ContentGenerator:
         customer_why = (params.get('customer_why') or '').strip()
         customer_problem = (params.get('customer_problem') or '').strip()
         customer_story = (params.get('customer_story') or '').strip()
+        service_scenario = params.get('service_scenario', 'other')
+
+        # 获取系统固定底座人群
+        system_base_personas = get_system_base_personas(service_scenario, business_type)
 
         # 构建辅助信息
         aux_parts = []
@@ -1064,6 +1284,9 @@ class ContentGenerator:
 
         # 获取领域预设组合
         preset_combos = cls._get_domain_preset_combos(business_desc, business_type)
+
+        # 获取经营类型中文名
+        business_type_name = BUSINESS_TYPE_MAP.get(business_type, '本地服务')
 
         # 根据问题类型构建不同的prompt约束
         if problem_type == 'user_pain':
@@ -1095,12 +1318,13 @@ class ContentGenerator:
 """
             direction_label = 'B方向（付费方顾虑）'
 
-        prompt = f"""你是用户画像专家。请根据以下业务信息，基于**指定问题**生成5个精准的目标用户画像。
+        prompt = f"""{PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas)}
+你是用户画像专家。请根据以下业务信息，基于**指定问题**生成5个精准的目标用户画像。
 
 === 业务基本信息 ===
 业务描述：{business_desc}
 经营范围：{business_range}
-经营类型：{business_type}
+经营类型：{business_type_name}
 
 === 【本批问题·强制聚焦】===
 {direction_label}
@@ -1280,18 +1504,21 @@ class ContentGenerator:
         customer_why = params.get('customer_why', '')
         customer_problem = params.get('customer_problem', '')
         customer_story = params.get('customer_story', '')
-        service_scenario = params.get('service_scenario', '')
+        service_scenario = params.get('service_scenario', 'other')
         local_city = params.get('local_city', '')
 
         business_range = params.get('business_range', '')
         business_type = params.get('business_type', '')
 
+        # 获取系统固定底座人群
+        system_base_personas = get_system_base_personas(service_scenario, business_type)
+
         # 构建prompt
-        prompt = """你是一个用户画像分析专家。根据以下信息，生成5个精准的目标用户画像。
+        prompt = PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas) + f"""你是一个用户画像分析专家。根据以下信息，生成5个精准的目标用户画像。
 
 业务描述：{business_desc}
-经营范围：{business_range}
-经营类型：{business_type}
+经营范围：{business_range or '（未填）'}
+经营类型：{BUSINESS_TYPE_MAP.get(business_type, '本地服务')}
 
 {filled_info}
 
@@ -1324,9 +1551,6 @@ class ContentGenerator:
 ]
 
 只返回JSON数组，不要其他文字。""".format(
-            business_desc=business_desc,
-            business_range=business_range or '（未填）',
-            business_type=business_type or '（未填）',
             filled_info=cls._build_filled_info(customer_who, customer_why, customer_problem, customer_story, service_scenario, local_city)
         )
 
@@ -1535,6 +1759,10 @@ class ContentGenerator:
         business_desc = (params.get('business_description') or '').strip()
         business_range = params.get('business_range', '') or '（未填）'
         business_type = params.get('business_type', '') or '（未填）'
+        service_scenario = params.get('service_scenario', 'other')
+
+        # 获取系统固定底座人群
+        system_base_personas = get_system_base_personas(service_scenario, business_type)
 
         # 换一批时使用 refresh_nonce 控制随机性
         import random
@@ -1644,12 +1872,16 @@ class ContentGenerator:
             pain_point_field_constraint = """【B方向 pain_point_commonality】必须来自「购买者的决策焦虑/顾虑」"""
             goal_field_constraint = """【B方向 goal】必须来自「购买者希望买得怎样」"""
 
-        prompt = f"""你是用户画像专家。请根据业务信息，从预设组合中选取5个精准目标用户画像。
+        # 获取经营类型中文名
+        business_type_name = BUSINESS_TYPE_MAP.get(business_type, '本地服务')
+
+        prompt = f"""{PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas)}
+你是用户画像专家。请根据业务信息，从预设组合中选取5个精准目标用户画像。
 
 === 业务基本信息 ===
 业务描述：{business_desc}
 经营范围：{business_range}
-经营类型：{business_type}
+经营类型：{business_type_name}
 {electronics_guard}
 
 === 【本批批次方向·强制】===
@@ -2797,8 +3029,12 @@ class ContentGenerator:
         customer_problem = params.get('customer_problem', '')
         customer_story = params.get('customer_story', '')
         customer_experiences = params.get('customer_experiences', [])
-        service_scenario = params.get('service_scenario', '')
+        service_scenario = params.get('service_scenario', 'other')
         local_city = params.get('local_city', '')
+        business_type = params.get('business_type', '')
+
+        # 获取系统固定底座人群（用于内容生成时参考目标人群）
+        system_base_personas = get_system_base_personas(service_scenario, business_type)
 
         keywords = resources.get('keywords', {})
         topics = resources.get('topics', [])
@@ -2831,7 +3067,8 @@ class ContentGenerator:
 
         extra_info = '\n'.join(extra_info_parts) if extra_info_parts else '暂无'
 
-        prompt = f"""你是一个专业的短视频文案专家。请为以下信息生成高质量的图文内容。
+        prompt = f"""{PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas)}
+你是一个专业的短视频文案专家。请为以下信息生成高质量的图文内容。
 
 【核心原则】内容必须先从用户困境（痛点）切入，再引出解决方案，最后才是产品介绍。
 
@@ -3179,9 +3416,13 @@ def mine_problem_channels(params: Dict[str, Any]) -> Dict:
     business_desc = (params.get('business_description') or '').strip()
     business_range = params.get('business_range', 'local')
     business_type = params.get('business_type', 'local_service')
+    service_scenario = params.get('service_scenario', 'other')
 
     if not business_desc:
         return {'success': False, 'message': '请描述您的业务'}
+
+    # 获取系统固定底座人群
+    system_base_personas = get_system_base_personas(service_scenario, business_type)
 
     # 模型选择
     provider = os.environ.get('LLM_PROVIDER', 'siliconflow')
@@ -3194,14 +3435,10 @@ def mine_problem_channels(params: Dict[str, Any]) -> Dict:
     llm.api_key = api_key
 
     business_range_text = '本地/同城' if business_range == 'local' else '跨区域/全国'
-    business_type_text = {
-        'local_service': '本地服务（维修/家政/餐饮等）',
-        'product': '消费品/零售',
-        'personal': '个人品牌/自媒体',
-        'enterprise': '企业服务/B2B（软件/咨询/设备等）'
-    }.get(business_type, business_type)
+    business_type_name = BUSINESS_TYPE_MAP.get(business_type, '本地服务')
 
-    prompt = f"""你是用户搜索行为专家。请**只针对下方「业务」**分析：用户遇到与**该业务相关**的问题时，会如何搜索、从哪些渠道找答案。
+    prompt = f"""{PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas)}
+你是用户搜索行为专家。请**只针对下方「业务」**分析：用户遇到与**该业务相关**的问题时，会如何搜索、从哪些渠道找答案。
 
 【绝对约束 — 禁止数据污染】
 - 每一条 problem_channels 的 search_intent、trigger_scenario、alternative_solutions、identity 必须**全部**与「业务描述」直接相关。
@@ -3212,7 +3449,7 @@ def mine_problem_channels(params: Dict[str, Any]) -> Dict:
 业务信息（唯一事实来源）：
 - 业务：{business_desc}
 - 范围：{business_range_text}
-- 类型：{business_type_text}
+- 类型：{business_type_name}
 
 === 核心任务 ===
 挖掘「用户带着什么问题来搜索」：用户在**与本业务相关的**场景下，因**具体问题**去搜索（不是搜品牌名本身，而是搜「怎么办/哪里能/靠谱吗」类问题句）。
@@ -3440,12 +3677,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
     # 构建业务上下文
     business_range_text = '本地/同城' if business_range == 'local' else '跨区域/全国'
-    business_type_text = {
-        'local_service': '本地服务（理发店/餐饮/家政等）',
-        'product': '消费品/零售（奶粉/饮料/食品等）',
-        'personal': '个人品牌/自媒体',
-        'enterprise': '企业服务/B2B（软件/咨询/设备等）'
-    }.get(business_type, business_type)
+    business_type_name = BUSINESS_TYPE_MAP.get(business_type, '本地服务')
 
     # ── 产品类型检测：用于动态生成示例和关键词维度 ──────────────────────────
     # 通用提取：直接从 business_desc 提取产品名，无需维护分类列表
@@ -3506,8 +3738,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
     kw_example = _get_mine_kw_example(business_desc)
 
     # 获取服务场景信息
-    service_scenario = params.get('service_scenario', '')
+    service_scenario = params.get('service_scenario', 'other')
     local_city = params.get('local_city', '')
+
+    # 获取系统固定底座人群
+    system_base_personas = get_system_base_personas(service_scenario, business_type)
 
     # 构建辅助信息
     aux_parts = []
@@ -3630,10 +3865,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 }}
 """
 
-    prompt = f"""你是用户问题分析专家。请根据业务信息，识别使用者/付费者的问题类型和严重程度，并分析市场机会。
+    prompt = f"""{PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas)}
+你是用户问题分析专家。请根据业务信息，识别使用者/付费者的问题类型和严重程度，并分析市场机会。
 
 【重要】下方示例**只用于对齐 JSON 字段名与嵌套结构**；所有 identity、description、problem_keywords、market_analysis 里的具体措辞必须严格来自「待分析业务信息」中的业务描述与经营类型。
-【禁止照抄错行业】当前经营类型为「{business_type_text}」。若非家政保洁类业务，输出中**严禁**出现与业务无关的家政词：家政、保洁、保姆、月嫂、雇主、虐童、虐待老人、深度清洁、阿姨、除螨（除非业务描述明确提供该类服务）。
+【禁止照抄错行业】当前经营类型为「{business_type_name}」。若非家政保洁类业务，输出中**严禁**出现与业务无关的家政词：家政、保洁、保姆、月嫂、雇主、虐童、虐待老人、深度清洁、阿姨、除螨（除非业务描述明确提供该类服务）。
 
 === 【绝对必填字段，缺少任意一项本次输出作废】 ===
 1. **market_analysis** 必须包含：
@@ -3742,7 +3978,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 请求ID：{_nonce}（每次请求唯一，请务必生成与历史结果不同的问题和关键词）
 业务描述：{business_desc}
 经营范围：{business_range_text}
-经营类型：{business_type_text}
+经营类型：{business_type_name}
 辅助信息：{aux_section}
 {buyer_user_hint}
 
@@ -4193,6 +4429,8 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
     business_desc = params.get('business_description', '')
     problem = params.get('problem', {})
     portrait_count = params.get('portrait_count', 5 if is_premium else 2)
+    service_scenario = params.get('service_scenario', 'other')
+    business_type = params.get('business_type', 'local_service')
 
     if not business_desc or not problem:
         return {
@@ -4200,8 +4438,12 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
             'message': '缺少业务描述或问题信息'
         }
 
+    # 获取系统固定底座人群
+    system_base_personas = get_system_base_personas(service_scenario, business_type)
+
     # 构建画像生成提示词
-    prompt = f"""你是用户画像分析专家。请根据业务信息和指定问题，深度分析使用者与付费者的需求，生成精准画像。
+    prompt = f"""{PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas)}
+你是用户画像分析专家。请根据业务信息和指定问题，深度分析使用者与付费者的需求，生成精准画像。
 
 === 业务信息 ===
 {business_desc}
@@ -4543,7 +4785,8 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 # 并发画像生成（付费用户专用）
 # =============================================================================
 
-def generate_portraits_parallel(problems: List[Dict], business_desc: str, is_premium: bool = True) -> List[Dict]:
+def generate_portraits_parallel(problems: List[Dict], business_desc: str, is_premium: bool = True,
+                                   service_scenario: str = 'other', business_type: str = 'local_service') -> List[Dict]:
     """
     并行生成多个问题的画像（付费用户专用）
 
@@ -4551,6 +4794,8 @@ def generate_portraits_parallel(problems: List[Dict], business_desc: str, is_pre
         problems: 问题列表
         business_desc: 业务描述
         is_premium: 是否付费用户
+        service_scenario: 服务场景
+        business_type: 经营类型
 
     Returns:
         每个问题的画像列表
@@ -4565,7 +4810,9 @@ def generate_portraits_parallel(problems: List[Dict], business_desc: str, is_pre
             'business_description': business_desc,
             'problem': problem,
             'portrait_count': 5,
-            '_is_premium': is_premium
+            '_is_premium': is_premium,
+            'service_scenario': service_scenario,
+            'business_type': business_type
         }
         return generate_portraits(params)
 
