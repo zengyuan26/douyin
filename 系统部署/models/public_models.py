@@ -144,6 +144,7 @@ class SavedPortrait(db.Model):
     __tablename__ = 'saved_portraits'
     __table_args__ = (
         db.Index('idx_portrait_user', 'user_id'),
+        db.Index('idx_portrait_user_created', 'user_id', 'created_at'),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -275,7 +276,7 @@ class PublicIndustryKeyword(db.Model):
     """行业关键词库"""
     __tablename__ = 'public_industry_keywords'
     __table_args__ = (
-        db.Index('idx_keyword_industry_type', 'industry', 'keyword_type'),
+        db.Index('idx_keyword_industry_type', 'industry', 'keyword_type', 'is_active'),
         db.Index('idx_keyword_priority', 'priority'),
     )
 
@@ -299,7 +300,7 @@ class PublicIndustryTopic(db.Model):
     """行业选题库"""
     __tablename__ = 'public_industry_topics'
     __table_args__ = (
-        db.Index('idx_topic_industry', 'industry'),
+        db.Index('idx_topic_industry', 'industry', 'is_active'),
         db.Index('idx_topic_priority', 'priority'),
     )
 

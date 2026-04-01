@@ -97,8 +97,9 @@ class PortraitSaveService:
 
     @classmethod
     def _trigger_library_generation_async(cls, portrait_id: int, portrait: Dict):
-        """后台异步生成关键词库和选题库"""
+        """后台异步生成关键词库和选题库（带缓存检查+超时控制）"""
         import threading
+
         def _generate():
             try:
                 from services.keyword_library_generator import keyword_library_generator
@@ -107,22 +108,17 @@ class PortraitSaveService:
                 from services.portrait_frequency_controller import portrait_frequency_controller
 
                 user_id = portrait.get('user_id', 0)
-                logger.info(f"[后台生成] 开始生成画像 {portrait_id}, user_id={user_id}")
+                logger.info("[后台生成] 开始生成画像 %s, user_id=%s", portrait_id, user_id)
                 user = PublicUser.query.get(user_id)
                 if not user:
-                    logger.warning(f"[后台生成] 用户 {user_id} 不存在，跳过")
+                    logger.warning("[后台生成] 用户 %s 不存在，跳过", user_id)
                     return
                 if not user.is_paid_user():
-                    logger.info(f"[后台生成] 用户 {user_id} 为免费用户，跳过专属库生成")
+                    logger.info("[后台生成] 用户 %s 为免费用户，跳过专属库生成", user_id)
                     return
 
                 plan_type = user.premium_plan or 'basic'
-                logger.info(f"[后台生成] 用户 {user_id} plan={plan_type}")
-
-                allowed, reason, quota = portrait_frequency_controller.check_library_update_permission(
-                    user_id, 'keyword'
-                )
-                logger.debug(f"[后台生成] 配额检查: allowed={allowed}, reason={reason}")
+                logger.info("[后台生成] 用户 %s plan=%s", user_id, plan_type)
 
                 portrait_data = portrait.get('portrait_data', {})
                 business_info = {
@@ -133,13 +129,16 @@ class PortraitSaveService:
                     'target_customer': portrait.get('target_customer', ''),
                 }
 
+                # 关键词库（传 portrait_id 启用缓存检查）
                 kw_result = keyword_library_generator.generate(
                     portrait_data=portrait_data,
                     business_info=business_info,
                     plan_type=plan_type,
+                    portrait_id=portrait_id,
                 )
-                logger.info(f"[后台生成] 关键词库生成: {kw_result.get('success')}")
-                if kw_result.get('success'):
+                logger.info("[后台生成] 关键词库: success=%s, from_cache=%s",
+                            kw_result.get('success'), kw_result.get('_meta', {}).get('from_cache'))
+                if kw_result.get('success') and not kw_result.get('_meta', {}).get('from_cache'):
                     keyword_library_generator.save_to_portrait(
                         portrait_id=portrait_id,
                         keyword_library=kw_result['keyword_library'],
@@ -148,15 +147,18 @@ class PortraitSaveService:
                     )
                     portrait_frequency_controller.record_library_update(user_id, 'keyword')
 
+                # 选题库（传 portrait_id 启用缓存检查）
                 kw_library = keyword_library_generator.get_from_portrait(portrait_id)
                 topic_result = topic_library_generator.generate(
                     portrait_data=portrait_data,
                     business_info=business_info,
                     keyword_library=kw_library,
                     plan_type=plan_type,
+                    portrait_id=portrait_id,
                 )
-                logger.info(f"[后台生成] 选题库生成: {topic_result.get('success')}")
-                if topic_result.get('success'):
+                logger.info("[后台生成] 选题库: success=%s, from_cache=%s",
+                            topic_result.get('success'), topic_result.get('_meta', {}).get('from_cache'))
+                if topic_result.get('success') and not topic_result.get('_meta', {}).get('from_cache'):
                     topic_library_generator.save_to_portrait(
                         portrait_id=portrait_id,
                         topic_library=topic_result['topic_library'],
@@ -164,9 +166,9 @@ class PortraitSaveService:
                         plan_type=plan_type,
                     )
                     portrait_frequency_controller.record_library_update(user_id, 'topic')
-                logger.info(f"[后台生成] 画像 {portrait_id} 关键词库+选题库生成完成")
+                logger.info("[后台生成] 画像 %s 关键词库+选题库生成完成", portrait_id)
             except Exception:
-                logger.exception(f"[后台生成] 画像 {portrait_id} 生成失败")
+                logger.exception("[后台生成] 画像 %s 生成失败", portrait_id)
 
         thread = threading.Thread(target=_generate, daemon=True)
         thread.start()

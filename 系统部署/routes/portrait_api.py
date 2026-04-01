@@ -93,32 +93,36 @@ def save_portrait(user):
                     plan_type = user.premium_plan or 'basic'
                     logger.info("[save_portrait] 开始生成关键词库，plan_type=%s", plan_type)
                     
-                    # 生成关键词库
+                    # 生成关键词库（带缓存检查）
                     kw_result = keyword_library_generator.generate(
                         portrait_data=portrait_data_dict,
                         business_info=business_info,
                         plan_type=plan_type,
+                        portrait_id=portrait_id,
                     )
-                    logger.debug("[save_portrait] 结果: %s", kw_result.get('success'))
-                    if kw_result.get('success'):
+                    logger.debug("[save_portrait] 结果: %s, from_cache=%s",
+                                 kw_result.get('success'), kw_result.get('_meta', {}).get('from_cache'))
+                    if kw_result.get('success') and not kw_result.get('_meta', {}).get('from_cache'):
                         keyword_library_generator.save_to_portrait(
                             portrait_id=portrait_id,
                             keyword_library=kw_result['keyword_library'],
                             user_id=user.id,
                             plan_type=plan_type,
                         )
-                    
-                    # 生成选题库
+
+                    # 生成选题库（带缓存检查）
                     kw_library = kw_result.get('keyword_library')
-logger.debug("[save_portrait] 开始生成选题库")
+                    logger.debug("[save_portrait] 开始生成选题库")
                     topic_result = topic_library_generator.generate(
                         portrait_data=portrait_data_dict,
                         business_info=business_info,
                         keyword_library=kw_library,
                         plan_type=plan_type,
+                        portrait_id=portrait_id,
                     )
-                    logger.debug("[save_portrait] 结果: %s", topic_result.get('success'))
-                    if topic_result.get('success'):
+                    logger.debug("[save_portrait] 选题库结果: success=%s, from_cache=%s",
+                                topic_result.get('success'), topic_result.get('_meta', {}).get('from_cache'))
+                    if topic_result.get('success') and not topic_result.get('_meta', {}).get('from_cache'):
                         topic_library_generator.save_to_portrait(
                             portrait_id=portrait_id,
                             topic_library=topic_result['topic_library'],
@@ -399,15 +403,16 @@ def generate_portrait_library(user, portrait_id):
     }
 
     try:
-        # 生成关键词库
+        # 生成关键词库（带缓存检查）
         if library_type in ('keyword', 'all'):
             from services.keyword_library_generator import keyword_library_generator
             kw_result = keyword_library_generator.generate(
                 portrait_data=portrait_data,
                 business_info=business_info,
                 plan_type=plan_type,
+                portrait_id=portrait_id,
             )
-            if kw_result.get('success'):
+            if kw_result.get('success') and not kw_result.get('_meta', {}).get('from_cache'):
                 keyword_library_generator.save_to_portrait(
                     portrait_id=portrait_id,
                     keyword_library=kw_result['keyword_library'],
@@ -416,19 +421,20 @@ def generate_portrait_library(user, portrait_id):
                 )
                 # 合并模式：关键词库和选题库只扣一次关键词库配额
                 portrait_frequency_controller.record_library_update(user.id, 'keyword')
-                results['keyword'] = kw_result['keyword_library']
+            results['keyword'] = kw_result.get('keyword_library') or {}
 
-        # 生成选题库（合并模式：依赖关键词库，一次生成）
+        # 生成选题库（带缓存检查）
         if library_type in ('topic', 'all'):
             from services.topic_library_generator import topic_library_generator
-            kw_library = results['keyword'] or keyword_library_generator.get_from_portrait(portrait_id)
+            kw_library = results.get('keyword') or (keyword_library_generator.get_from_portrait(portrait_id) if library_type == 'topic' else {})
             topic_result = topic_library_generator.generate(
                 portrait_data=portrait_data,
                 business_info=business_info,
                 keyword_library=kw_library,
                 plan_type=plan_type,
+                portrait_id=portrait_id,
             )
-            if topic_result.get('success'):
+            if topic_result.get('success') and not topic_result.get('_meta', {}).get('from_cache'):
                 topic_library_generator.save_to_portrait(
                     portrait_id=portrait_id,
                     topic_library=topic_result['topic_library'],

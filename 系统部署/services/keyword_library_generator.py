@@ -63,37 +63,33 @@ class KeywordLibraryGenerator:
         plan_type: str = 'professional',
         use_template: bool = True,
         max_keywords: int = 200,
+        portrait_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        生成关键词库
+        生成关键词库（缓存优先）
 
         Args:
             portrait_data: 画像数据（身份/痛点/顾虑/场景）
-            business_info: 业务信息 {
-                'business_description': str,  # 业务描述
-                'industry': str,              # 行业
-                'products': list,            # 产品列表
-                'region': str,               # 地域
-                'target_customer': str,      # 目标客户
-            }
+            business_info: 业务信息
             plan_type: 套餐类型（影响配比策略）
             use_template: 是否使用模板配置（False=简单模式）
             max_keywords: 最大关键词数量
-
-        Returns:
-            {
-                'success': bool,
-                'keyword_library': {
-                    'categories': [...],  # 分类关键词
-                    'blue_ocean': [...], # 蓝海长尾词
-                    'ratio_strategy': {...},  # 配比策略
-                    'hot_keywords': [...],   # 近期热点词（实时）
-                },
-                'tokens_used': int,
-            }
+            portrait_id: 画像ID（用于缓存检查）
         """
         try:
-            # 防御性检查：确保所有输入都是字典
+            # 缓存检查：如果画像有关键词库且未过期，直接返回
+            if portrait_id:
+                portrait = SavedPortrait.query.get(portrait_id)
+                if portrait and not portrait.keyword_library_expired:
+                    logger.info("[KeywordLibraryGenerator] 命中缓存，跳过生成 portrait_id=%s", portrait_id)
+                    return {
+                        'success': True,
+                        'keyword_library': portrait.keyword_library,
+                        'tokens_used': 0,
+                        '_meta': {'from_cache': True},
+                    }
+
+            # 防御性检查
             if not isinstance(portrait_data, dict):
                 portrait_data = {}
             if not isinstance(business_info, dict):

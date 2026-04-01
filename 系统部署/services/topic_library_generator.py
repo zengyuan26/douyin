@@ -66,9 +66,10 @@ class TopicLibraryGenerator:
         plan_type: str = 'professional',
         use_template: bool = True,
         topic_count: int = 20,
+        portrait_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        生成选题库
+        生成选题库（缓存优先）
 
         Args:
             portrait_data: 画像数据
@@ -77,20 +78,22 @@ class TopicLibraryGenerator:
             plan_type: 套餐类型
             use_template: 是否使用模板配置
             topic_count: 选题数量
-
-        Returns:
-            {
-                'success': bool,
-                'topic_library': {
-                    'topics': [...],  # 选题列表
-                    'by_type': {...},  # 按类型分组
-                    'priorities': {...},  # 优先级分布
-                },
-                'tokens_used': int,
-            }
+            portrait_id: 画像ID（用于缓存检查）
         """
         try:
-            # 防御性检查：确保所有输入都是字典
+            # 缓存检查：如果画像有选题库且未过期，直接返回
+            if portrait_id:
+                portrait = SavedPortrait.query.get(portrait_id)
+                if portrait and not portrait.topic_library_expired:
+                    logger.info("[TopicLibraryGenerator] 命中缓存，跳过生成 portrait_id=%s", portrait_id)
+                    return {
+                        'success': True,
+                        'topic_library': portrait.topic_library,
+                        'tokens_used': 0,
+                        '_meta': {'from_cache': True},
+                    }
+
+            # 防御性检查
             if not isinstance(portrait_data, dict):
                 portrait_data = {}
             if not isinstance(business_info, dict):
