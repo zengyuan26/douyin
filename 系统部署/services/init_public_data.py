@@ -19,6 +19,10 @@ from models.public_models import (
 )
 from models.models import db
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 def init_pricing_plans():
     """初始化定价方案"""
@@ -118,7 +122,7 @@ def init_pricing_plans():
             db.session.add(plan)
 
     db.session.commit()
-    print(f"[Init] 定价方案初始化完成")
+logger.debug("[Init] 定价方案初始化完成")
 
 
 def init_target_customers():
@@ -303,7 +307,7 @@ def init_target_customers():
                     setattr(existing, key, value)
 
     db.session.commit()
-    print(f"[Init] 目标客户模板初始化完成（桶装水分批分组）")
+logger.debug("[Init] 目标客户模板初始化完成（桶装水分批分组）")
 
 
 def init_industry_keywords():
@@ -355,7 +359,7 @@ def init_industry_keywords():
             db.session.add(keyword)
 
     db.session.commit()
-    print(f"[Init] 行业关键词库初始化完成")
+logger.debug("[Init] 行业关键词库初始化完成")
 
 
 def init_industry_topics():
@@ -433,7 +437,7 @@ def init_industry_topics():
             db.session.add(topic)
 
     db.session.commit()
-    print(f"[Init] 行业选题库初始化完成")
+logger.debug("[Init] 行业选题库初始化完成")
 
 
 def init_content_templates():
@@ -536,7 +540,7 @@ def init_content_templates():
             db.session.add(template)
 
     db.session.commit()
-    print(f"[Init] 内容模板初始化完成")
+logger.debug("[Init] 内容模板初始化完成")
 
 
 def init_title_templates():
@@ -567,7 +571,7 @@ def init_title_templates():
             db.session.add(title)
 
     db.session.commit()
-    print(f"[Init] 标题模板初始化完成")
+logger.debug("[Init] 标题模板初始化完成")
 
 
 def init_tag_templates():
@@ -595,12 +599,12 @@ def init_tag_templates():
             db.session.add(tag)
 
     db.session.commit()
-    print(f"[Init] 标签模板初始化完成")
+logger.debug("[Init] 标签模板初始化完成")
 
 
 def init_preset_data():
     """初始化所有预设数据"""
-    print("[Init] 开始初始化预设数据...")
+logger.debug("[Init] 开始初始化预设数据...")
     with app.app_context():
         init_pricing_plans()
         init_target_customers()
@@ -617,11 +621,11 @@ def init_preset_data():
             from migrations.init_public_template_data import import_geo_seo_templates, init_default_variables
             import_geo_seo_templates()
             init_default_variables()
-            print("[Init] 公开平台模板初始化完成")
+logger.debug("[Init] 公开平台模板初始化完成")
         except Exception as e:
-            print(f"[Init] 公开平台模板初始化跳过: {e}")
+            logger.warning("[Init] 公开平台模板初始化跳过: %s", e)
 
-    print("[Init] 预设数据初始化完成！")
+logger.debug("[Init] 预设数据初始化完成！")
 
 
 if __name__ == '__main__':

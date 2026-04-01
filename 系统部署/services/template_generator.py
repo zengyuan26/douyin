@@ -7,6 +7,10 @@
 import json
 from typing import List, Dict, Any
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 # 预定义模板结构（固定不变）
 PORTRAIT_TEMPLATE = {
@@ -102,6 +106,6 @@ if __name__ == "__main__":
     generator = TemplateGenerator()
     portraits = generator.parse_minimal_response(llm_response)
 
-    print("解析结果：")
-    for p in portraits:
-        print(f"  - {p['name']}: {p['pain_point']} → {p['goal']}")
+logger.debug("解析结果：")
+for p in portraits:
+    logger.debug("  - %s: %s → %s", p['name'], p['pain_point'], p['goal'])

@@ -13,11 +13,15 @@ import secrets
 import random
 import hashlib
 import smtplib
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
 from flask import current_app
+from flask_bcrypt import generate_password_hash, check_password_hash
+
+logger = logging.getLogger(__name__)
 from models.public_models import PublicUser, PublicUserProfile
 from models.models import db
 from services.public_cache import public_cache
@@ -59,8 +63,8 @@ class EmailService:
 
             # 如果没有配置 SMTP，跳过发送（开发模式）
             if not config['smtp_user'] or not config['smtp_password']:
-                print(f"[EmailService] SMTP 未配置，跳过发送邮件到 {to_email}")
-                print(f"[EmailService] 主题: {subject}")
+                logger.info("[EmailService] SMTP 未配置，跳过发送邮件到 %s", to_email)
+                logger.debug("[EmailService] 主题: %s", subject)
                 return False
 
             msg = MIMEMultipart('alternative')
@@ -90,11 +94,11 @@ class EmailService:
             server.sendmail(config['default_sender'], [to_email], msg.as_string())
             server.quit()
 
-            print(f"[EmailService] 邮件已发送到 {to_email}")
+            logger.info("[EmailService] 邮件已发送到 %s", to_email)
             return True
 
         except Exception as e:
-            print(f"[EmailService] 发送邮件失败: {e}")
+            logger.warning("[EmailService] 发送邮件失败: %s", e)
             return False
 
 
@@ -149,7 +153,7 @@ class AuthService:
         try:
             cls._send_verification_email(user)
         except Exception as e:
-            print(f"[AuthService] 发送验证邮件失败: {e}")
+            logger.warning("[AuthService] 发送验证邮件失败: %s", e)
 
         return True, '注册成功，请查收验证邮件', user
 
@@ -268,7 +272,7 @@ class AuthService:
         try:
             cls._send_password_reset_email(user, reset_token)
         except Exception as e:
-            print(f"[AuthService] 发送重置邮件失败: {e}")
+            logger.warning("[AuthService] 发送重置邮件失败: %s", e)
 
         return True, '如果邮箱存在，重置邮件已发送'
 
@@ -327,20 +331,24 @@ class AuthService:
         try:
             cls._send_verification_email(user)
         except Exception as e:
-            print(f"[AuthService] 发送验证邮件失败: {e}")
+            logger.warning("[AuthService] 发送验证邮件失败: %s", e)
             return False, '发送失败，请稍后重试'
 
         return True, '验证邮件已发送'
 
     @classmethod
     def _hash_password(cls, password: str) -> str:
-        """密码hash"""
-        return hashlib.sha256(password.encode()).hexdigest()
+        """密码hash（bcrypt，自动加salt）"""
+        return generate_password_hash(password).decode('utf-8')
 
     @classmethod
     def _verify_password(cls, password: str, password_hash: str) -> bool:
-        """验证密码"""
-        return cls._hash_password(password) == password_hash
+        """验证密码（bcrypt + 兼容旧SHA256）"""
+        # 优先用 bcrypt 验证（新格式）
+        if password_hash and len(password_hash) == 60:
+            return check_password_hash(password_hash, password)
+        # 兼容旧 SHA256 格式（迁移时一次性验证成功后会重新hash）
+        return hashlib.sha256(password.encode()).hexdigest() == password_hash
 
     @classmethod
     def _generate_code(cls) -> str:

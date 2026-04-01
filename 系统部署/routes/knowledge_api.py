@@ -6956,7 +6956,7 @@ def _补充遗漏的要素_简介(validated_parts, bio):
             elem_content = match.group('content') or match.group('content2')
             existing_map[elem_content.strip()] = elem_type
     
-    print(f"[DEBUG _补充遗漏的要素_简介] 已有要素: {existing_map}")
+            logger.debug("[DEBUG _补充遗漏的要素_简介] 已有要素: %s", existing_map)
     
     added = []
     
@@ -7037,7 +7037,7 @@ def _补充遗漏的要素_简介(validated_parts, bio):
                 added.append(f"{matched_type}【{matched_content}】")
     
     if added:
-        print(f"[DEBUG _补充遗漏的要素_简介] 补充的要素: {added}")
+            logger.debug("[DEBUG _补充遗漏的要素_简介] 补充的要素: %s", added)
     
     return validated_parts
 
@@ -7138,7 +7138,7 @@ def _补充遗漏的要素(validated_parts, nickname):
                 elem_type = name_normalize_map[elem_type]
             existing_map[elem_content] = elem_type
     
-    print(f"[DEBUG _补充遗漏的要素] 已有要素: {existing_map}")
+            logger.debug("[DEBUG _补充遗漏的要素] 已有要素: %s", existing_map)
     
     added = []
     

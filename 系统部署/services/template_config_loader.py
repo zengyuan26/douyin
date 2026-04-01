@@ -9,8 +9,11 @@
 
 import json
 import os
+import logging
 from typing import Dict, List, Optional, Any
 from functools import lru_cache
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateConfigLoader:
@@ -46,7 +49,7 @@ class TemplateConfigLoader:
         except FileNotFoundError:
             return ""
         except Exception as e:
-            print(f"[TemplateConfig] 加载文件失败 {filename}: {e}")
+            logger.warning("[TemplateConfig] 加载文件失败 %s: %s", filename, e)
             return ""
 
     def load_json_file(self, filename: str) -> Dict:
@@ -58,10 +61,10 @@ class TemplateConfigLoader:
         except FileNotFoundError:
             return {}
         except json.JSONDecodeError as e:
-            print(f"[TemplateConfig] JSON 解析失败 {filename}: {e}")
+            logger.warning("[TemplateConfig] JSON 解析失败 %s: %s", filename, e)
             return {}
         except Exception as e:
-            print(f"[TemplateConfig] 加载文件失败 {filename}: {e}")
+            logger.warning("[TemplateConfig] 加载文件失败 %s: %s", filename, e)
             return {}
 
     @lru_cache(maxsize=1)
@@ -163,7 +166,7 @@ class TemplateConfigLoader:
             # 尝试加载通用模板
             return self.get_content_template('图文模板_通用.md')
         except Exception as e:
-            print(f"[TemplateConfig] 加载内容模板失败 {template_name}: {e}")
+            logger.warning("[TemplateConfig] 加载内容模板失败 %s: %s", template_name, e)
             return ""
 
     def get_content_template_names(self) -> List[str]:

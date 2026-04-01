@@ -150,7 +150,7 @@ class TopicContentGenerator:
             }
 
         except Exception as e:
-            print(f"[TopicContentGenerator] Error: {e}")
+            logger.error("[TopicContentGenerator] Error: %s", e)
             return {
                 'success': False,
                 'error': str(e)
@@ -324,7 +324,7 @@ class TopicContentGenerator:
             return self._get_default_content()
 
         except Exception as e:
-            print(f"[TopicContentGenerator] Parse error: {e}")
+            logger.debug("[TopicContentGenerator] Parse error: %s", e)
             return self._get_default_content()
 
     def _validate_content(self, content: dict) -> dict:

@@ -9,11 +9,14 @@
 """
 
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from models.public_models import SavedPortrait, db
 from services.template_config_service import template_config_service, TemplateConfigService
 from services.llm import get_llm_service
+
+logger = logging.getLogger(__name__)
 
 
 class KeywordLibraryGenerator:
@@ -140,7 +143,7 @@ class KeywordLibraryGenerator:
             }
 
         except Exception as e:
-            print(f"[KeywordLibraryGenerator] Error: {e}")
+            logger.error("[KeywordLibraryGenerator] Error: %s", e)
             return {'success': False, 'error': str(e)}
 
     def save_to_portrait(
@@ -332,7 +335,7 @@ class KeywordLibraryGenerator:
                 return self._validate_and_fill(result)
             return self._get_default_library(realtime)
         except Exception as e:
-            print(f"[KeywordLibraryGenerator] Parse error: {e}")
+            logger.debug("[KeywordLibraryGenerator] Parse error: %s", e)
             return self._get_default_library(realtime)
 
     def _validate_and_fill(self, result: Dict) -> Dict:

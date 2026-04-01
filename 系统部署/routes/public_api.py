@@ -6,6 +6,7 @@
 
 import json
 import datetime
+import logging
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, current_app
 from flask_login import current_user
 from models.public_models import PublicUser, PublicGeneration, PublicPricingPlan
@@ -19,6 +20,8 @@ from services.rate_limiter import (
     check_ip_register, check_ip_login, check_email_verify,
     check_user_generate, check_general
 )
+
+logger = logging.getLogger(__name__)
 
 public_bp = Blueprint('public', __name__, url_prefix='/public')
 
@@ -561,7 +564,7 @@ def api_mine_and_generate():
         if result.get('success'):
             return jsonify(result)
         if attempt < max_retries:
-            print(f"[api_mine_and_generate] 第 {attempt + 1} 次失败，重试中...")
+            logger.info("[api_mine_and_generate] 第 %d 次失败，重试中...", attempt + 1)
 
     return jsonify(result)
 
@@ -827,67 +830,7 @@ def api_save_portrait():
     # 保存成功后立即获取 ID（避免后续操作导致对象过期）
     portrait_id = new_portrait.id
     
-    # 启动后台任务生成关键词库和选题库
-    if user.is_paid_user():
-        import threading
-        app = current_app._get_current_object()
-        user_id = user.id
-        
-        def background_generate():
-            from services.keyword_library_generator import keyword_library_generator
-            from services.topic_library_generator import topic_library_generator
-            
-            try:
-                with app.app_context():
-                    portrait = SavedPortrait.query.get(portrait_id)
-                    if not portrait:
-                        return
-                    
-                    business_info = {
-                        'business_description': business_description or '',
-                        'industry': industry or '',
-                        'products': [],
-                        'region': '',
-                        'target_customer': target_customer or '',
-                    }
-                    plan_type = user_id and PublicUser.query.get(user_id) and (PublicUser.query.get(user_id).premium_plan or 'basic') or 'basic'
-                    print(f"[api_save_portrait] 开始后台生成关键词库，portrait_id={portrait_id}")
-                    
-                    kw_result = keyword_library_generator.generate(
-                        portrait_data=portrait_data,
-                        business_info=business_info,
-                        plan_type=plan_type,
-                    )
-                    print(f"[api_save_portrait] 关键词库生成结果: {kw_result.get('success')}")
-                    if kw_result.get('success'):
-                        keyword_library_generator.save_to_portrait(
-                            portrait_id=portrait_id,
-                            keyword_library=kw_result['keyword_library'],
-                            user_id=user_id,
-                            plan_type=plan_type,
-                        )
-                    
-                    kw_library = kw_result.get('keyword_library')
-                    topic_result = topic_library_generator.generate(
-                        portrait_data=portrait_data,
-                        business_info=business_info,
-                        keyword_library=kw_library,
-                        plan_type=plan_type,
-                    )
-                    print(f"[api_save_portrait] 选题库生成结果: {topic_result.get('success')}")
-                    if topic_result.get('success'):
-                        topic_library_generator.save_to_portrait(
-                            portrait_id=portrait_id,
-                            topic_library=topic_result['topic_library'],
-                            user_id=user_id,
-                            plan_type=plan_type,
-                        )
-                    print(f"[api_save_portrait] 后台生成完成")
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-        
-        threading.Thread(target=background_generate, daemon=True).start()
+    # 画像保存服务内部已包含后台生成逻辑，此处不再重复启动线程
     
     # 先立即返回成功，不阻塞响应
     return jsonify({
@@ -904,23 +847,23 @@ def api_save_portrait():
 @public_bp.route('/api/portraits/<int:portrait_id>', methods=['DELETE'])
 def api_delete_portrait(portrait_id):
     """删除画像"""
-    print(f"[DELETE] 请求删除画像 ID: {portrait_id}")
+    logger.info("[DELETE] 请求删除画像 ID: %s", portrait_id)
     user = get_current_public_user()
     if not user:
-        print(f"[DELETE] 用户未登录")
+        logger.debug("[DELETE] 用户未登录")
         return jsonify({'success': False, 'message': '请先登录'}), 401
-    
+
     from models.public_models import SavedPortrait
     portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
-    
+
     if not portrait:
-        print(f"[DELETE] 画像不存在 ID={portrait_id}, user_id={user.id}")
+        logger.debug("[DELETE] 画像不存在 ID=%s, user_id=%s", portrait_id, user.id)
         return jsonify({'success': False, 'message': '画像不存在'}), 404
-    
+
     db.session.delete(portrait)
     db.session.commit()
-    print(f"[DELETE] 画像已删除 ID={portrait_id}")
-    
+    logger.info("[DELETE] 画像已删除 ID: %s", portrait_id)
+
     return jsonify({'success': True, 'message': '已删除'})
 
 
@@ -1222,11 +1165,7 @@ def api_generate_market_opportunity():
                 'message': error_msg
             }), 500
     except Exception as e:
-        import traceback
-        import sys
-        exc_type, exc_value, exc_tb = sys.exc_info()
-        tb_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
-        print(f"[MarketOpportunity Error] {e}\n{tb_str}", file=sys.stderr)
+        logger.exception("[MarketOpportunity Error] %s", e)
         return jsonify({
             'success': False,
             'message': f'服务器错误: {str(e)}'
@@ -1316,11 +1255,7 @@ def api_generate_topics():
                 'message': result.get('error', '选题生成失败')
             }), 500
     except Exception as e:
-        import traceback
-        import sys
-        exc_type, exc_value, exc_tb = sys.exc_info()
-        tb_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
-        print(f"[TopicGenerator Error] {e}\n{tb_str}", file=sys.stderr)
+        logger.exception("[TopicGenerator Error] %s", e)
         return jsonify({
             'success': False,
             'message': f'选题生成失败: {str(e)}'
@@ -1469,11 +1404,7 @@ def api_generate_content_from_topic():
                 'message': result.get('error', '内容生成失败')
             }), 500
     except Exception as e:
-        import traceback
-        import sys
-        exc_type, exc_value, exc_tb = sys.exc_info()
-        tb_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
-        print(f"[ContentGenerator Error] {e}\n{tb_str}", file=sys.stderr)
+        logger.exception("[ContentGenerator Error] %s", e)
         return jsonify({
             'success': False,
             'message': f'内容生成失败: {str(e)}'

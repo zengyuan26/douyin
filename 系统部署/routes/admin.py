@@ -3,6 +3,7 @@
 """
 import os
 import re
+import logging
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
 from models.models import db, User, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, Industry, KnowledgeAccount, KnowledgeContent, ReportTemplate, ContentTemplate, TemplateDependency, TemplateRefreshLog, TemplateContentItem, TemplateEditHistory, PersonaRole, UsageScenario, DemandScenario, PainPoint, HotTopic, SeasonalTopic, ContentTitle, ContentHook, ContentStructure, ContentEnding, ContentCover, ContentTopic, ContentPsychology, ContentCommercial, ContentWhyPopular, ContentTag, ContentCharacter, ContentForm, ContentInteraction, AnalysisDimension, AnalysisDimensionCategoryOrder
@@ -10,6 +11,8 @@ from sqlalchemy import or_, and_
 from constants import ANALYSIS_DIMENSIONS, DIMENSION_TO_MATERIAL_TYPE, MATERIAL_TYPES, INDUSTRY_OPTIONS, ANALYSIS_DIMENSION_CATEGORIES
 from functools import wraps
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 admin = Blueprint('admin', __name__)
 
@@ -700,7 +703,7 @@ def save_knowledge_rules():
         try:
             update_knowledge_template_files(rules)
         except Exception as e:
-            print(f"更新模板文件失败: {e}")
+            logger.error("更新模板文件失败: %s", e)
 
         return jsonify({
             'success': True,

@@ -19,6 +19,9 @@ from models.public_models import (
     PublicTagTemplate
 )
 from services.public_cache import public_cache, cached
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateMatcher:
@@ -88,7 +91,7 @@ class TemplateMatcher:
                 }
                 customers.append(customer_data)
         except Exception as e:
-            print(f"[TemplateMatcher] 获取目标客户失败: {e}")
+            logger.warning("[TemplateMatcher] 获取目标客户失败: %s", e)
 
         return customers
 

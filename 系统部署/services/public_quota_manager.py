@@ -7,11 +7,14 @@
 3. 计费计算
 """
 
+import logging
 from datetime import datetime, date
 from typing import Tuple, Optional
 from flask import current_app
 from models.public_models import PublicUser, PublicGeneration, PublicLLMCallLog
 from services.public_cache import public_cache
+
+logger = logging.getLogger(__name__)
 
 
 class QuotaManager:
@@ -316,7 +319,7 @@ class QuotaManager:
             app_db.session.commit()
             return True
         except Exception as e:
-            print(f"[QuotaManager] 更新画像配额失败: {e}")
+            logger.error("[QuotaManager] 更新画像配额失败: %s", e)
             return False
 
 

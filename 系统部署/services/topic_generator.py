@@ -7,8 +7,11 @@
 import json
 import re
 import random
+import logging
 from datetime import datetime
 from services.llm import get_llm_service
+
+logger = logging.getLogger(__name__)
 
 
 class TopicGenerator:
@@ -98,7 +101,7 @@ class TopicGenerator:
             }
 
         except Exception as e:
-            print(f"[TopicGenerator] Error: {e}")
+            logger.error("[TopicGenerator] Error: %s", e)
             return {
                 'success': False,
                 'error': str(e)
@@ -224,7 +227,7 @@ class TopicGenerator:
             return self._get_default_topics()
 
         except Exception as e:
-            print(f"[TopicGenerator] Parse error: {e}")
+            logger.debug("[TopicGenerator] Parse error: %s", e)
             return self._get_default_topics()
 
     def _get_default_topics(self) -> list:

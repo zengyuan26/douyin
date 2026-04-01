@@ -14,6 +14,10 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Callable
 from enum import Enum
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 class TaskStatus(Enum):
     """任务状态"""
@@ -127,7 +131,7 @@ class TaskQueue:
                         try:
                             task.callback(task)
                         except Exception as e:
-                            print(f"[TaskQueue] 回调执行失败: {e}")
+                            logger.error("[TaskQueue] 回调执行失败: %s", e)
 
     def cancel_task(self, task_id: str) -> bool:
         """取消任务"""
@@ -157,14 +161,14 @@ class TaskQueue:
         self._running = True
         self._worker_thread = threading.Thread(target=self._worker_loop, args=(max_workers,), daemon=True)
         self._worker_thread.start()
-        print("[TaskQueue] 工作线程已启动")
+logger.debug("[TaskQueue] 工作线程已启动")
 
     def stop_worker(self):
         """停止工作线程"""
         self._running = False
         if self._worker_thread:
             self._worker_thread.join(timeout=5)
-        print("[TaskQueue] 工作线程已停止")
+logger.debug("[TaskQueue] 工作线程已停止")
 
     def _worker_loop(self, max_workers: int):
         """工作线程主循环"""
@@ -200,10 +204,10 @@ class TaskQueue:
             if task.retry_count < task.max_retries:
                 task.retry_count += 1
                 task.status = TaskStatus.PENDING
-                print(f"[TaskQueue] 任务失败，将在 {task.max_retries - task.retry_count} 次后重试")
+                logger.warning("[TaskQueue] 任务失败，将在 %s 次后重试", task.max_retries - task.retry_count)
             else:
                 self.update_task_status(task.task_id, TaskStatus.FAILED, error=error_msg)
-                print(f"[TaskQueue] {error_msg}")
+                logger.error("[TaskQueue] %s", error_msg)
 
     def _execute_industry_analysis(self, params: Dict) -> Dict:
         """执行行业分析任务"""
@@ -308,12 +312,12 @@ class BackgroundTaskService:
     def start(self):
         """启动服务"""
         self._queue.start_worker(max_workers=2)
-        print("[BackgroundTaskService] 服务已启动")
+logger.debug("[BackgroundTaskService] 服务已启动")
 
     def stop(self):
         """停止服务"""
         self._queue.stop_worker()
-        print("[BackgroundTaskService] 服务已停止")
+logger.debug("[BackgroundTaskService] 服务已停止")
 
     def get_stats(self) -> Dict:
         """获取统计信息"""

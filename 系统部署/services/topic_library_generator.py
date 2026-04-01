@@ -10,9 +10,13 @@
 
 import json
 import random
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from models.public_models import SavedPortrait, db
+
+logger = logging.getLogger(__name__)
+
 from services.template_config_service import template_config_service
 from services.llm import get_llm_service
 
@@ -137,7 +141,7 @@ class TopicLibraryGenerator:
             }
 
         except Exception as e:
-            print(f"[TopicLibraryGenerator] Error: {e}")
+            logger.error("[TopicLibraryGenerator] Error: %s", e)
             return {'success': False, 'error': str(e)}
 
     def save_to_portrait(
@@ -389,7 +393,7 @@ class TopicLibraryGenerator:
                 try:
                     result = json.loads(json_str)
                 except json.JSONDecodeError as e:
-                    print(f"[TopicLibraryGenerator] 正则匹配JSON解析失败: {e}")
+                    logger.debug("[TopicLibraryGenerator] 正则匹配JSON解析失败: %s", e)
             
             # 方法2：直接解析
             if result is None:
@@ -405,7 +409,7 @@ class TopicLibraryGenerator:
                     try:
                         result = json.loads(fixed)
                     except json.JSONDecodeError as e:
-                        print(f"[TopicLibraryGenerator] 修复后仍解析失败: {e}")
+                        logger.debug("[TopicLibraryGenerator] 修复后仍解析失败: %s", e)
             
             if result is None:
                 raise ValueError("所有JSON解析方式均失败")
@@ -416,11 +420,11 @@ class TopicLibraryGenerator:
             return self._validate_and_fill(result)
             
         except json.JSONDecodeError as e:
-            print(f"[TopicLibraryGenerator] JSON解析失败: {e}")
-            print(f"[TopicLibraryGenerator] 原始响应前200字符: {response[:200]}")
+            logger.debug("[TopicLibraryGenerator] JSON解析失败: %s", e)
+            logger.debug("[TopicLibraryGenerator] 原始响应前200字符: %s", response[:200])
             return self._get_default_library()
         except Exception as e:
-            print(f"[TopicLibraryGenerator] Parse error: {e}")
+            logger.debug("[TopicLibraryGenerator] Parse error: %s", e)
             return self._get_default_library()
 
     def _fix_json_errors(self, json_str: str) -> str:

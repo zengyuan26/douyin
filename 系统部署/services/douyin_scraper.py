@@ -94,7 +94,7 @@ def get_douyin_with_browser(url):
             if is_verification_page(page):
                 logger.info("[douyin_scraper] 检测到验证码，请手动完成验证...")
                 print("\n" + "="*50)
-                print("请在浏览器中完成验证后，回到终端按回车继续...")
+logger.debug("请在浏览器中完成验证后，回到终端按回车继续...")
                 print("="*50 + "\n")
 
                 # 等待用户手动验证完成
@@ -792,7 +792,7 @@ def get_douyin_video_with_browser(url):
             if is_verification_page(page):
                 logger.info("[douyin_scraper] 检测到验证码，请手动完成验证...")
                 print("\n" + "="*50)
-                print("请在浏览器中完成验证后，回到终端按回车继续...")
+logger.debug("请在浏览器中完成验证后，回到终端按回车继续...")
                 print("="*50 + "\n")
                 input("完成后按回车继续...")
                 page.wait_for_timeout(2000)
@@ -959,9 +959,9 @@ if __name__ == '__main__':
     if test_url:
         info = get_douyin_account_info(test_url)
         if info:
-            print("\n=== 账号信息 ===")
+logger.debug("\n=== 账号信息 ===")
             print(json.dumps(info, ensure_ascii=False, indent=2))
         else:
-            print("获取账号信息失败")
+logger.debug("获取账号信息失败")
     else:
-        print("未输入链接")
+logger.debug("未输入链接")

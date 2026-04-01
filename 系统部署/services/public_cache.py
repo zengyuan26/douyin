@@ -10,9 +10,12 @@
 
 import time
 import threading
+import logging
 from functools import wraps
 from typing import Any, Optional, Callable
 from collections import OrderedDict
+
+logger = logging.getLogger(__name__)
 
 
 class LRUCache:
@@ -263,10 +266,10 @@ class PublicCache:
                 ])
 
                 self._warmed = True
-                print(f"[Cache] 缓存预热完成：{len(customer_groups)} 个行业，{len(templates_query)} 个模板")
+                logger.info("[Cache] 缓存预热完成：%s 个行业，%s 个模板", len(customer_groups), len(templates_query))
 
             except Exception as e:
-                print(f"[Cache] 缓存预热失败: {e}")
+                logger.error("[Cache] 缓存预热失败: %s", e)
 
     def refresh_cache(self, cache_name: str) -> None:
         """手动刷新指定缓存"""

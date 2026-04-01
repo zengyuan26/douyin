@@ -23,6 +23,10 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from services.llm import get_llm_service
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 # C端经营类型
 C端_TYPES = {'product', 'personal'}
@@ -278,7 +282,7 @@ class UnifiedLibraryGenerator:
         if cache_key in self._cache:
             result, expire_at = self._cache[cache_key]
             if datetime.now() < expire_at:
-                print(f"[UnifiedLibraryGenerator] 命中缓存: {cache_key}")
+                logger.debug("[UnifiedLibraryGenerator] 命中缓存: %s", cache_key)
                 return result
             else:
                 del self._cache[cache_key]
@@ -288,7 +292,7 @@ class UnifiedLibraryGenerator:
         """保存缓存（1小时TTL）"""
         expire_at = datetime.now() + timedelta(hours=1)
         self._cache[cache_key] = (result, expire_at)
-        print(f"[UnifiedLibraryGenerator] 已缓存: {cache_key}")
+        logger.debug("[UnifiedLibraryGenerator] 已缓存: %s", cache_key)
 
     def _cleanup_cache(self):
         """清理过期缓存"""
@@ -405,7 +409,7 @@ class UnifiedLibraryGenerator:
                         if result and self._validate_result(result):
                             break
                 except Exception as e:
-                    print(f"[UnifiedLibraryGenerator] LLM调用异常(第{attempt+1}次): {e}")
+                    logger.warning("[UnifiedLibraryGenerator] LLM调用异常(第%d次): %s", attempt + 1, e)
 
             if not result:
                 return {
@@ -439,8 +443,8 @@ class UnifiedLibraryGenerator:
 
         except Exception as e:
             import traceback
-            print(f"[UnifiedLibraryGenerator] 异常: {e}")
-            print(traceback.format_exc())
+            logger.error("[UnifiedLibraryGenerator] 异常: %s", e)
+            logger.debug("[UnifiedLibraryGenerator] 堆栈: %s", traceback.format_exc())
             return {
                 'success': False,
                 'error': 'exception',
@@ -598,7 +602,7 @@ class UnifiedLibraryGenerator:
             return result
 
         except json.JSONDecodeError as e:
-            print(f"[UnifiedLibraryGenerator] JSON解析失败: {e}")
+            logger.debug("[UnifiedLibraryGenerator] JSON解析失败: %s", e)
             # 尝试修复常见问题
             try:
                 # 移除 markdown 代码块
@@ -611,7 +615,7 @@ class UnifiedLibraryGenerator:
             except:
                 pass
         except Exception as e:
-            print(f"[UnifiedLibraryGenerator] 解析异常: {e}")
+            logger.debug("[UnifiedLibraryGenerator] 解析异常: %s", e)
 
         return None
 
@@ -620,26 +624,26 @@ class UnifiedLibraryGenerator:
         # 检查关键词库
         kw_lib = result.get('keyword_library', [])
         if not isinstance(kw_lib, list) or len(kw_lib) < 80:
-            print(f"[UnifiedLibraryGenerator] 关键词库数量不足: {len(kw_lib)}")
+            logger.debug("[UnifiedLibraryGenerator] 关键词库数量不足: %s", len(kw_lib))
             return False
 
         # 检查选题库
         topic_lib = result.get('topic_library', [])
         if not isinstance(topic_lib, list) or len(topic_lib) < 80:
-            print(f"[UnifiedLibraryGenerator] 选题库数量不足: {len(topic_lib)}")
+            logger.debug("[UnifiedLibraryGenerator] 选题库数量不足: %s", len(topic_lib))
             return False
 
         # 检查必含字段
         required_kw_fields = {'category', 'keyword', 'type', 'search_intent', 'competition', 'industry_tag', 'priority'}
         for item in kw_lib[:5]:
             if not required_kw_fields.issubset(set(item.keys())):
-                print(f"[UnifiedLibraryGenerator] 关键词字段缺失: {item.keys()}")
+                logger.debug("[UnifiedLibraryGenerator] 关键词字段缺失: %s", list(item.keys()))
                 return False
 
         required_topic_fields = {'series', 'topic', 'type', 'related_keyword', 'priority', 'content_purpose', 'industry_tag'}
         for item in topic_lib[:5]:
             if not required_topic_fields.issubset(set(item.keys())):
-                print(f"[UnifiedLibraryGenerator] 选题字段缺失: {item.keys()}")
+                logger.debug("[UnifiedLibraryGenerator] 选题字段缺失: %s", list(item.keys()))
                 return False
 
         return True

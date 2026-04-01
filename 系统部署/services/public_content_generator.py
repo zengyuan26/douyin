@@ -21,6 +21,10 @@ from models.models import db, AnalysisDimension
 from services.public_template_matcher import template_matcher
 from services.public_quota_manager import quota_manager
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 # =============================================================================
 # 经营类型枚举映射（前后端通用）
@@ -796,10 +800,10 @@ class ContentGenerator:
             )
 
             # ========== [调试日志] ==========
-            print(f"[identify_customer_identities] === 调试信息 ===")
-            print(f"[identify_customer_identities] 业务描述: {business_desc}")
-            print(f"[identify_customer_identities] 经营范围: {business_range}, 经营类型: {business_type}")
-            print(f"[identify_customer_identities] LLM原始响应:\n{response[:2000] if response else 'None'}")
+            logger.debug("[identify_customer_identities] 开始识别客户身份")
+            logger.debug("[identify_customer_identities] 业务描述: %s", business_desc)
+            logger.debug("[identify_customer_identities] 经营范围: %s, 经营类型: %s", business_range, business_type)
+            logger.debug("[identify_customer_identities] LLM原始响应: %s", response[:500] if response else None)
             # ========== [/调试日志] ==========
 
             if not response:
@@ -864,9 +868,9 @@ class ContentGenerator:
             to_c = dedupe_by_buyer_name(to_c)[:8]
 
             # ========== [调试日志] ==========
-            print(f"[identify_customer_identities] ToB身份: {[x.get('buyer', {}).get('name', '') for x in to_b]}")
-            print(f"[identify_customer_identities] ToC身份: {[x.get('buyer', {}).get('name', '') for x in to_c]}")
-            print(f"[identify_customer_identities] === 调试结束 ===\n")
+            logger.debug("[identify_customer_identities] ToB身份: %s", [x.get("buyer", {}).get("name", "") for x in to_b])
+            logger.debug("[identify_customer_identities] ToC身份: %s", [x.get("buyer", {}).get("name", "") for x in to_c])
+            logger.debug("[identify_customer_identities] 识别完成")
             # ========== [/调试日志] ==========
 
             return {
@@ -879,8 +883,8 @@ class ContentGenerator:
 
         except Exception as e:
             import traceback
-            print(f"[ContentGenerator] identify_customer_identities 异常: {e}")
-            print(f"[ContentGenerator] 堆栈: {traceback.format_exc()}")
+            logger.error("[identify_customer_identities] 异常: %s", e)
+            logger.exception("[identify_customer_identities] 堆栈")
             return {
                 'success': False,
                 'error': 'llm_unavailable',
@@ -924,7 +928,7 @@ class ContentGenerator:
                     targets = llm_targets[:5]
                     used_llm_primary = True
             except Exception as e:
-                print(f"[ContentGenerator] LLM 画像直出失败，回退规则: {e}")
+                logger.warning("[ContentGenerator] LLM画像直出失败，回退规则: %s", e)
 
         if not targets:
             targets = cls._generate_targets_by_rules(params)
@@ -936,7 +940,7 @@ class ContentGenerator:
                 if enhanced_targets:
                     targets = enhanced_targets
             except Exception as e:
-                print(f"[ContentGenerator] AI增强失败，使用规则结果: {e}")
+                logger.warning("[ContentGenerator] AI增强失败，使用规则结果: %s", e)
 
         # C 端：整批统一痛点状态 + 目标，供前端顶部一次展示
         batch_pain = ''
@@ -1052,8 +1056,8 @@ class ContentGenerator:
 
         except Exception as e:
             import traceback
-            print(f"[ContentGenerator] identify_problems_and_initial_personas 异常: {e}")
-            print(f"[ContentGenerator] 堆栈: {traceback.format_exc()}")
+            logger.error("[identify_problems_and_initial_personas] 异常: %s", e)
+            logger.exception("[identify_customer_identities] 堆栈")
             return {
                 'success': False,
                 'error': 'llm_unavailable',
@@ -1136,8 +1140,8 @@ class ContentGenerator:
 
         except Exception as e:
             import traceback
-            print(f"[ContentGenerator] generate_persona_batch_by_problem 异常: {e}")
-            print(f"[ContentGenerator] 堆栈: {traceback.format_exc()}")
+            logger.error("[generate_persona_batch_by_problem] 异常: %s", e)
+            logger.exception("[identify_customer_identities] 堆栈")
             return {
                 'success': False,
                 'error': 'generation_failed',
@@ -1290,8 +1294,8 @@ class ContentGenerator:
                 max_tokens=2000,
             )
 
-            print(f"[_挖掘_使用方_付费方问题] 业务描述: {business_desc}")
-            print(f"[_挖掘_使用方_付费方问题] LLM响应前500字:\n{response[:500] if response else 'None'}")
+            logger.debug("[_挖掘_使用方_付费方问题] 业务描述: %s", business_desc)
+            logger.debug("[_挖掘_使用方_付费方问题] LLM响应前500字: %s", response[:500] if response else None)
 
             if not response:
                 raise Exception('LLM服务暂不可用')
@@ -1319,9 +1323,9 @@ class ContentGenerator:
             return result
 
         except Exception as e:
-            print(f"[_挖掘_使用方_付费方问题] 异常: {e}")
+            logger.error("[_挖掘_使用方_付费方问题] 异常: %s", e)
             import traceback
-            print(f"[_挖掘_使用方_付费方问题] 堆栈:\n{traceback.format_exc()}")
+            logger.exception("[_挖掘_使用方_付费方问题] 堆栈")
             raise Exception('LLM服务暂不可用，请稍后重试')
 
     @classmethod
@@ -1507,8 +1511,8 @@ class ContentGenerator:
                 max_tokens=3000,
             )
 
-            print(f"[_generate_persona_batch] 问题: {problem.get('name', '')}")
-            print(f"[_generate_persona_batch] LLM响应前500字:\n{response[:500] if response else 'None'}")
+            logger.debug("[_generate_persona_batch] 问题: %s", problem.get("name", ""))
+            logger.debug("[_generate_persona_batch] LLM响应前500字: %s", response[:500] if response else None)
 
             if not response:
                 raise Exception('LLM服务暂不可用')
@@ -1520,9 +1524,9 @@ class ContentGenerator:
             if match:
                 try:
                     result = json.loads(match.group(0))
-                    print(f"[_generate_persona_batch] JSON解析成功 (方法1)")
+                    logger.debug("[_generate_persona_batch] JSON解析成功(方法1)")
                 except json.JSONDecodeError as je:
-                    print(f"[_generate_persona_batch] JSON解析失败 (方法1): {je}")
+                    logger.debug("[_generate_persona_batch] JSON解析失败(方法1): %s", je)
                     result = None
             
             # 方法2: 如果方法1失败，尝试匹配数组
@@ -1533,19 +1537,19 @@ class ContentGenerator:
                         parsed = json.loads(match.group(0))
                         if isinstance(parsed, list):
                             result = {'targets': parsed}
-                            print(f"[_generate_persona_batch] JSON解析成功 (方法2 - 数组)")
+                            logger.debug("[_generate_persona_batch] JSON解析成功(方法2-数组)")
                         else:
                             result = parsed
                     except json.JSONDecodeError as je:
-                        print(f"[_generate_persona_batch] JSON解析失败 (方法2): {je}")
+                        logger.debug("[_generate_persona_batch] JSON解析失败(方法2): %s", je)
             
             # 方法3: 尝试直接解析整个响应
             if not result:
                 try:
                     result = json.loads(response.strip())
-                    print(f"[_generate_persona_batch] JSON解析成功 (方法3 - 直接)")
+                    logger.debug("[_generate_persona_batch] JSON解析成功(方法3-直接)")
                 except json.JSONDecodeError as je:
-                    print(f"[_generate_persona_batch] JSON解析失败 (方法3): {je}")
+                    logger.debug("[_generate_persona_batch] JSON解析失败(方法3): %s", je)
             
             if not result:
                 raise Exception('LLM响应格式错误，无法解析JSON')
@@ -1554,7 +1558,7 @@ class ContentGenerator:
             if not isinstance(targets, list):
                 targets = [targets] if isinstance(targets, dict) else []
             
-            print(f"[_generate_persona_batch] 解析到 targets 数量: {len(targets)}")
+            logger.debug("[_generate_persona_batch] 解析到targets数量: %s", len(targets))
 
             # 清理数据
             cleaned_targets = []
@@ -1576,7 +1580,7 @@ class ContentGenerator:
                     'behaviors': str(t.get('behaviors', '')).strip(),
                 })
 
-            print(f"[_generate_persona_batch] 清理后 targets 数量: {len(cleaned_targets)}")
+            logger.debug("[_generate_persona_batch] 清理后targets数量: %s", len(cleaned_targets))
 
             return {
                 'problem_id': problem.get('id', ''),
@@ -1588,8 +1592,8 @@ class ContentGenerator:
 
         except Exception as e:
             import traceback
-            print(f"[_generate_persona_batch] 异常: {e}")
-            print(f"[_generate_persona_batch] 堆栈:\n{traceback.format_exc()}")
+            logger.error("[_generate_persona_batch] 异常: %s", e)
+            logger.debug("[_generate_persona_batch] 堆栈: %s", traceback.format_exc())
             return {
                 'problem_id': problem.get('id', ''),
                 'problem_type': problem_type,
@@ -1689,7 +1693,7 @@ class ContentGenerator:
                     return enhanced[:5]
 
         except Exception as e:
-            print(f"[ContentGenerator] AI增强解析失败: {e}")
+            logger.warning("[ContentGenerator] AI增强解析失败: %s", e)
 
         return None
 
@@ -2113,9 +2117,9 @@ class ContentGenerator:
                 return None
 
             # ========== [调试日志] ==========
-            print(f"[_generate_targets_pure_llm] 批次方向: {batch_direction_label}")
-            print(f"[_generate_targets_pure_llm] 业务描述: {business_desc}")
-            print(f"[_generate_targets_pure_llm] LLM响应前500字:\n{response[:500] if response else 'None'}")
+            logger.debug("[_generate_targets_pure_llm] 批次方向: %s", batch_direction_label)
+            logger.debug("[_generate_targets_pure_llm] 业务描述: %s", business_desc)
+            logger.debug("[_generate_targets_pure_llm] LLM响应前500字: %s", response[:500] if response else None)
             # ========== [/调试日志] ==========
 
             match = re.search(r'\[.*\]', response, re.DOTALL)
@@ -2161,7 +2165,7 @@ class ContentGenerator:
                 })
             return out if len(out) >= 5 else None
         except Exception as e:
-            print(f"[ContentGenerator] _generate_targets_pure_llm: {e}")
+            logger.error("[ContentGenerator] _generate_targets_pure_llm 异常: %s", e)
             return None
 
     @classmethod
@@ -3042,7 +3046,7 @@ class ContentGenerator:
             result = cls._parse_ai_response(response, resources)
         except Exception as e:
             # AI调用失败，降级到模板模式
-            print(f"[ContentGenerator] AI调用失败，降级到模板模式: {e}")
+            logger.warning("[ContentGenerator] AI调用失败，降级到模板模式: %s", e)
             result = cls._generate_from_template(params, resources)
             result['ai_fallback'] = True
 
@@ -3484,7 +3488,7 @@ def _filter_problem_channels_off_topic(business_desc: str, channels: List[Dict[s
         # ── 规则1：硬过滤 ──
         # 渠道文案必须命中行业关键词（或「买新的」类替代方案），才算与本行业相关
         if keywords and not _is_channel_industry_related(bd, keywords, ch):
-            print(f'[_filter] 丢弃（行业无关）: intent={str(ch.get("search_intent",""))[:40]}')
+            logger.debug('[_filter] 丢弃（行业无关）: intent=%s', str(ch.get("search_intent",""))[:40])
             continue
 
         # ── 规则2：婴幼儿噪声过滤（仅当业务不在婴幼儿域时生效）──
@@ -3497,7 +3501,7 @@ def _filter_problem_channels_off_topic(business_desc: str, channels: List[Dict[s
                 return False
 
             if baby_noise.search(blob) and not hits_business():
-                print(f'[_filter] 丢弃（婴幼儿噪声）: intent={str(ch.get("search_intent",""))[:40]}')
+                logger.debug('[_filter] 丢弃（婴幼儿噪声）: intent=%s', str(ch.get("search_intent",""))[:40])
                 continue
 
         kept.append(ch)
@@ -3505,7 +3509,7 @@ def _filter_problem_channels_off_topic(business_desc: str, channels: List[Dict[s
     # 过滤过猛则回退（保留至少 3 条）
     min_keep = min(3, len(channels))
     if len(kept) < min_keep:
-        print(f'[_filter] 过滤过猛({len(kept)}/{len(channels)})，回退原数据')
+        logger.warning('[_filter] 过滤过猛(%s/%s)，回退原数据', len(kept), len(channels))
         return channels
     return kept
 
@@ -3618,7 +3622,7 @@ def mine_problem_channels(params: Dict[str, Any]) -> Dict:
 
     try:
         response = llm.chat(prompt, temperature=0.45, max_tokens=2000)
-        print(f"[mine_problem_channels] LLM响应前500字:\n{response[:500] if response else 'None'}")
+        logger.debug("[mine_problem_channels] LLM响应前500字: %s", response[:500] if response else None)
 
         if not response:
             return {'success': False, 'message': 'AI服务暂不可用'}
@@ -3655,8 +3659,8 @@ def mine_problem_channels(params: Dict[str, Any]) -> Dict:
 
     except Exception as e:
         import traceback
-        print(f"[mine_problem_channels] 异常: {e}")
-        print(traceback.format_exc())
+        logger.error("[mine_problem_channels] 异常: %s", e)
+        logger.debug("[mine_problem_channels] 堆栈: %s", traceback.format_exc())
         return {'success': False, 'message': f'识别失败: {str(e)}'}
 
 
@@ -3697,10 +3701,8 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         before_n = len(buyer_problems)
         buyer_problems = [p for p in buyer_problems if _problem_axis_key(p) not in user_keys]
         if before_n != len(buyer_problems):
-            print(
-                f"[mine_problems] 买即用去重：剔除与使用方同维度的付费方条数 "
-                f"{before_n - len(buyer_problems)}，剩余 buyer={len(buyer_problems)}"
-            )
+            logger.info("[mine_problems] 买即用去重：剔除与使用方同维度的付费方条数 %s，剩余 buyer=%s",
+                        before_n - len(buyer_problems), len(buyer_problems))
 
     all_problems = []
     _used_problem_ids = set()
@@ -3750,13 +3752,13 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
 
     # 获取市场分析数据
     market_analysis = data.get('market_analysis', {}) or {}
-    
-    print(f"[mine_problems] market_analysis: {market_analysis}")
+
+    logger.debug("[mine_problems] market_analysis: %s", market_analysis)
 
     # 调试：检查 all_problems 中的 market_type 和 problem_keywords
-    print(f"[mine_problems] all_problems[0]: {all_problems[0] if all_problems else '无'}")
-    print(f"[mine_problems] all_problems[0].get('market_type'): {all_problems[0].get('market_type', '无') if all_problems else '无'}")
-    print(f"[mine_problems] all_problems[0].get('problem_keywords'): {all_problems[0].get('problem_keywords', '无') if all_problems else '无'}")
+    logger.debug("[mine_problems] all_problems[0]: %s", all_problems[0] if all_problems else '无')
+    logger.debug("[mine_problems] all_problems[0].get('market_type'): %s", all_problems[0].get('market_type', '无') if all_problems else '无')
+    logger.debug("[mine_problems] all_problems[0].get('problem_keywords'): %s", all_problems[0].get('problem_keywords', '无') if all_problems else '无')
 
     return {
         'success': True,
@@ -3945,7 +3947,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         keyword_filter_context = KeywordFilterService.get_weighted_context(business_desc=business_desc)
         question_guide_context = QuestionGuideService.get_weighted_context()
     except Exception as e:
-        print(f"[mine_problems_and_generate_personas] 获取关键词筛选上下文失败: {e}")
+        logger.warning("[mine_problems_and_generate_personas] 获取关键词筛选上下文失败: %s", e)
         keyword_filter_context = ""
         question_guide_context = ""
 
@@ -4324,7 +4326,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     test_json += '}' * max(0, open_braces)
                 parsed = _try_parse(test_json)
                 if parsed:
-                    print(f"[mine_problems_and_generate_personas] JSON修复成功 (策略{strategy})")
+                    logger.debug("[mine_problems_and_generate_personas] JSON修复成功(策略%s)", strategy)
                     return parsed
             return None
 
@@ -4357,19 +4359,19 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
             response = llm.chat(prompt + attempt_suffix, temperature=0.3, max_tokens=8000)
             if not response:
-                print("[mine_problems_and_generate_personas] LLM 返回空响应")
+                logger.debug("[mine_problems_and_generate_personas] LLM 返回空响应")
                 return {'success': False, 'error': 'empty_response', 'message': 'LLM 返回空响应，请重试'}
 
-            print(f"[mine_problems_and_generate_personas] LLM 原始响应长度: {len(response)}")
-            print(f"[mine_problems_and_generate_personas] LLM 原始响应末尾500字符:\n{response[-500:]}")
+            logger.debug("[mine_problems_and_generate_personas] 响应长度: %s", len(response))
+            logger.debug("[mine_problems_and_generate_personas] LLM 原始响应末尾500字符: %s", response[-500:] if response else None)
 
             result = None
             result = _try_parse(response)
             if result:
-                print("[mine_problems_and_generate_personas] JSON解析成功（直接）")
-                print("[mine_problems_and_generate_personas] ===== LLM 解析结果 =====")
-                print(json.dumps(result, ensure_ascii=False, indent=2))
-                print("[mine_problems_and_generate_personas] ===== 解析结果结束 =====")
+                logger.debug("[mine_problems_and_generate_personas] JSON解析成功(直接)")
+                logger.debug("[mine_problems_and_generate_personas] ===== LLM 解析结果 =====")
+                logger.debug("%s", json.dumps(result, ensure_ascii=False)[:500])
+                logger.debug("[mine_problems_and_generate_personas] ===== 解析结果结束 =====")
             else:
                 match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response)
                 if match:
@@ -4378,10 +4380,10 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     if not result:
                         result = _smart_fix_json(json_str)
                     if result:
-                        print("[mine_problems_and_generate_personas] JSON解析成功（代码块内）")
-                        print("[mine_problems_and_generate_personas] ===== LLM 解析结果 =====")
-                        print(json.dumps(result, ensure_ascii=False, indent=2))
-                        print("[mine_problems_and_generate_personas] ===== 解析结果结束 =====")
+                        logger.debug("[mine_problems_and_generate_personas] JSON解析成功(代码块内)")
+                        logger.debug("[mine_problems_and_generate_personas] ===== LLM 解析结果 =====")
+                        logger.debug("%s", json.dumps(result, ensure_ascii=False)[:500])
+                        logger.debug("[mine_problems_and_generate_personas] ===== 解析结果结束 =====")
                 else:
                     match = re.search(r'\{[\s\S]*\}', response)
                     if match:
@@ -4390,17 +4392,17 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                         if not result:
                             result = _smart_fix_json(json_str)
                         if result:
-                            print("[mine_problems_and_generate_personas] JSON解析成功（对象匹配）")
-                            print("[mine_problems_and_generate_personas] ===== LLM 解析结果 =====")
-                            print(json.dumps(result, ensure_ascii=False, indent=2))
-                            print("[mine_problems_and_generate_personas] ===== 解析结果结束 =====")
+                            logger.debug("[mine_problems_and_generate_personas] JSON解析成功(对象匹配)")
+                            logger.debug("[mine_problems_and_generate_personas] ===== LLM 解析结果 =====")
+                            logger.debug("%s", json.dumps(result, ensure_ascii=False)[:500])
+                            logger.debug("[mine_problems_and_generate_personas] ===== 解析结果结束 =====")
 
             if not result:
-                print(f"[mine_problems_and_generate_personas] ===== LLM完整响应 =====")
-                print(response)
-                print(f"[mine_problems_and_generate_personas] ===== 响应结束 =====")
+                logger.debug("[mine_problems_and_generate_personas] ===== LLM完整响应 =====")
+                logger.debug("%s", response[:500] if response else None)
+                logger.debug("[mine_problems_and_generate_personas] ===== 响应结束 =====")
                 if attempt < MAX_RETRIES - 1:
-                    print(f"[mine_problems_and_generate_personas] 【解析失败，将重试（第{attempt+1}次）】")
+                    logger.info("[mine_problems_and_generate_personas] 解析失败，将重试(第%d次)", attempt + 1)
                     continue
                 else:
                     return {'success': False, 'message': 'AI生成失败，未能解析出有效数据'}
@@ -4483,11 +4485,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             all_problem_keywords = [kw for item in all_user_problem_types for kw in item['problem_keywords']]
             all_problem_keywords += [kw for item in all_buyer_concern_types for kw in item['problem_keywords']]
 
-            print(f"[mine_problems_and_generate_personas] LLM返回的market_analysis: {market_analysis}")
-            print(f"[mine_problems_and_generate_personas] result中problem_oriented_keywords: {result.get('problem_oriented_keywords', '字段不存在')}")
-            print(f"[mine_problems_and_generate_personas] user_problem_types[0]: {user_problem_types[0] if user_problem_types else '无'}")
-            print(f"[mine_problems_and_generate_personas] user_problem_types[0]的market_type: {user_problem_types[0].get('market_type', '无') if user_problem_types else '无'}")
-            print(f"[mine_problems_and_generate_personas] user_problem_types[0]的problem_keywords: {user_problem_types[0].get('problem_keywords', '无') if user_problem_types else '无'}")
+            logger.debug("[mine_problems_and_generate_personas] LLM返回的market_analysis: %s", market_analysis)
+            logger.debug("[mine_problems_and_generate_personas] result中problem_oriented_keywords: %s", result.get('problem_oriented_keywords', '字段不存在'))
+            logger.debug("[mine_problems_and_generate_personas] user_problem_types[0]: %s", user_problem_types[0] if user_problem_types else '无')
+            logger.debug("[mine_problems_and_generate_personas] user_problem_types[0]的market_type: %s", user_problem_types[0].get('market_type', '无') if user_problem_types else '无')
+            logger.debug("[mine_problems_and_generate_personas] user_problem_types[0]的problem_keywords: %s", user_problem_types[0].get('problem_keywords', '无') if user_problem_types else '无')
 
             raw_keywords = market_analysis.get('problem_oriented_keywords') or result.get('problem_oriented_keywords') or []
             seen = set()
@@ -4595,10 +4597,10 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 if missing_analysis:
                     missing_info.append("market_analysis.problem_oriented_keywords 缺失")
                 if attempt < MAX_RETRIES - 1:
-                    print(f"[mine_problems_and_generate_personas] 【校验失败，将重试】{'；'.join(missing_info)}")
+                    logger.info("[mine_problems_and_generate_personas] 校验失败，将重试: %s", '；'.join(missing_info))
                     continue
                 else:
-                    print(f"[mine_problems_and_generate_personas] 【校验失败，已达最大重试次数，使用兜底数据】{'；'.join(missing_info)}")
+                    logger.warning("[mine_problems_and_generate_personas] 校验失败，已达最大重试次数，使用兜底数据: %s", '；'.join(missing_info))
 
             final_result = {
                 'success': True,
@@ -4616,8 +4618,8 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
     except Exception as e:
         import traceback
-        print(f"[mine_problems_and_generate_personas] 异常: {str(e)}")
-        print(traceback.format_exc())
+        logger.error("[mine_problems_and_generate_personas] 异常: %s", str(e))
+        logger.debug("[mine_problems_and_generate_personas] 堆栈: %s", traceback.format_exc())
         return {'success': False, 'message': f'生成失败: {str(e)}'}
 
 
@@ -4656,7 +4658,7 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
     llm.base_url = base_url
     llm.api_key = api_key
 
-    print(f"[generate_portraits] 使用配置: provider={provider}, model={model}")
+    logger.info("[generate_portraits] 使用配置: provider=%s, model=%s", provider, model)
 
     business_desc = params.get('business_description', '')
     problem = params.get('problem', {})
@@ -4830,7 +4832,7 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
                 'message': 'LLM 返回空响应'
             }
 
-        print(f"[generate_portraits] LLM 原始响应长度: {len(response)}")
+        logger.debug("[generate_portraits] 长度: %s", len(response))
 
         # 解析 JSON
         result = None
@@ -4845,7 +4847,7 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
         def smart_fix_json(text):
             """智能修复被截断的JSON"""
             original = text
-            print(f"[generate_portraits] 尝试修复JSON，长度={len(text)}")
+            logger.debug("[generate_portraits] 尝试修复JSON，长度=%s", len(text))
 
             for strategy in range(12):
                 test_json = text
@@ -4860,7 +4862,7 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
                             if test_json.count('{') == test_json.count('}'):
                                 result = try_parse(test_json)
                                 if result:
-                                    print(f"[generate_portraits] JSON修复成功 (策略{strategy})")
+                                    logger.debug("[generate_portraits] JSON修复成功(策略%s)", strategy)
                                     return result
 
                     elif strategy == 1:
@@ -4960,7 +4962,7 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
                                 # 重新构建对象数组
                                 result = try_parse('{"portraits":[' + arr + ']}')
                                 if result:
-                                    print(f"[generate_portraits] JSON修复成功 (策略{strategy})")
+                                    logger.debug("[generate_portraits] JSON修复成功(策略%s)", strategy)
                                     return result
 
                     elif strategy == 11:
@@ -4974,14 +4976,14 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 
                     result = try_parse(test_json)
                     if result is not None:
-                        print(f"[generate_portraits] JSON修复成功 (策略{strategy})")
+                        logger.debug("[generate_portraits] JSON修复成功(策略%s)", strategy)
                         return result
                 except Exception as e:
-                    print(f"[generate_portraits] 策略{strategy}失败: {e}")
+                    logger.debug("[generate_portraits] 策略%s失败: %s", strategy, e)
                     continue
 
-            print(f"[generate_portraits] JSON修复失败，尝试原始解析")
-            return try_parse(original)
+        logger.debug("[generate_portraits] JSON修复失败，尝试原始解析")
+        return try_parse(original)
 
         # 尝试多种解析方式
         result = try_parse(response)
@@ -5008,7 +5010,7 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
                 'is_premium': is_premium
             }
         else:
-            print(f"[generate_portraits] JSON解析失败，响应: {response[:500]}")
+            logger.debug("[generate_portraits] JSON解析失败，响应: %s", response[:500])
             return {
                 'success': False,
                 'message': 'AI生成失败，未能解析出有效数据'
@@ -5016,8 +5018,8 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 
     except Exception as e:
         import traceback
-        print(f"[generate_portraits] 异常: {str(e)}")
-        print(traceback.format_exc())
+        logger.error("[generate_portraits] 异常: %s", str(e))
+        logger.debug("[generate_portraits] 堆栈: %s", traceback.format_exc())
         return {
             'success': False,
             'message': f'生成失败: {str(e)}'
@@ -5077,7 +5079,7 @@ def generate_portraits_parallel(problems: List[Dict], business_desc: str, is_pre
                     'success': result.get('success', False)
                 })
             except Exception as e:
-                print(f"[generate_portraits_parallel] 生成失败: {e}")
+                logger.error("[generate_portraits_parallel] 生成失败: %s", e)
                 results.append({
                     'problem_id': problem.get('id', ''),
                     'problem_display': problem.get('display_name', ''),

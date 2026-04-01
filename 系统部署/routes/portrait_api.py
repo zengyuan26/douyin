@@ -16,6 +16,10 @@ from models.public_models import PublicUser
 from models.models import db
 from sqlalchemy import text
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 portrait_bp = Blueprint('portrait', __name__, url_prefix='/public/api/portraits')
 
@@ -67,8 +71,8 @@ def save_portrait(user):
     if success:
         # 自动生成关键词库和选题库（仅对付费用户）
         auto_generate_result = None
-        print(f"[save_portrait] user.is_premium={user.is_premium}, premium_plan={user.premium_plan}, premium_expires={user.premium_expires}")
-        print(f"[save_portrait] user.is_paid_user()={user.is_paid_user()}")
+        logger.debug("[save_portrait] user.is_premium=%s, premium_plan=%s, premium_expires=%s", user.is_premium, user.premium_plan, user.premium_expires)
+        logger.debug("[save_portrait] user.is_paid_user()=%s", user.is_paid_user())
         
         if user.is_paid_user() and saved and saved.get('id'):
             try:
@@ -87,7 +91,7 @@ def save_portrait(user):
                         'target_customer': portrait.get('target_customer', ''),
                     }
                     plan_type = user.premium_plan or 'basic'
-                    print(f"[save_portrait] 开始生成关键词库，plan_type={plan_type}")
+                    logger.info("[save_portrait] 开始生成关键词库，plan_type=%s", plan_type)
                     
                     # 生成关键词库
                     kw_result = keyword_library_generator.generate(
@@ -95,7 +99,7 @@ def save_portrait(user):
                         business_info=business_info,
                         plan_type=plan_type,
                     )
-                    print(f"[save_portrait] 关键词库生成结果: {kw_result.get('success')}")
+                    logger.debug("[save_portrait] 结果: %s", kw_result.get('success'))
                     if kw_result.get('success'):
                         keyword_library_generator.save_to_portrait(
                             portrait_id=portrait_id,
@@ -106,14 +110,14 @@ def save_portrait(user):
                     
                     # 生成选题库
                     kw_library = kw_result.get('keyword_library')
-                    print(f"[save_portrait] 开始生成选题库")
+logger.debug("[save_portrait] 开始生成选题库")
                     topic_result = topic_library_generator.generate(
                         portrait_data=portrait_data_dict,
                         business_info=business_info,
                         keyword_library=kw_library,
                         plan_type=plan_type,
                     )
-                    print(f"[save_portrait] 选题库生成结果: {topic_result.get('success')}")
+                    logger.debug("[save_portrait] 结果: %s", topic_result.get('success'))
                     if topic_result.get('success'):
                         topic_library_generator.save_to_portrait(
                             portrait_id=portrait_id,
@@ -131,7 +135,8 @@ def save_portrait(user):
                     saved = portrait_save_service.get_saved_portrait(portrait_id)
             except Exception as e:
                 import traceback
-                traceback.print_exc()
+                logger.error("[portrait_save] 异常: %s", e)
+                logger.debug("[portrait_save] 堆栈: %s", traceback.format_exc())
         
         return jsonify({
             'success': True,
@@ -448,7 +453,8 @@ def generate_portrait_library(user, portrait_id):
 
     except Exception as e:
         import traceback
-        traceback.print_exc()
+        logger.error("[portrait_api] 生成失败: %s", e)
+        logger.debug("[portrait_api] 堆栈: %s", traceback.format_exc())
         return jsonify({
             'success': False,
             'message': f'生成失败: {str(e)}'
