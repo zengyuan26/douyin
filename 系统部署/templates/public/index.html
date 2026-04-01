@@ -28,25 +28,6 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
-        .hero {
-            background: linear-gradient(135deg, var(--primary) 0%, #818CF8 50%, var(--primary-dark) 100%);
-            color: white;
-            padding: 100px 0;
-        }
-
-        .hero h1 {
-            font-size: 2.75rem;
-            font-weight: 800;
-            margin-bottom: 1rem;
-            letter-spacing: -0.02em;
-        }
-
-        .hero p {
-            font-size: 1.25rem;
-            opacity: 0.95;
-            line-height: 1.8;
-        }
-
         .bg-primary {
             background-color: var(--primary) !important;
         }
@@ -84,7 +65,7 @@
             border-radius: 16px;
             padding: 2.5rem;
             box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            margin-top: -40px;
+            margin-top: 1.5rem;
         }
 
         .form-select, .form-control {
@@ -194,10 +175,6 @@
         }
 
         @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 1.75rem;
-            }
-
             .generator-section {
                 padding: 1.5rem;
                 margin-top: 0;
@@ -1021,27 +998,6 @@
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="container text-center">
-            <div class="badge bg-light text-dark mb-3 px-3 py-2" style="font-size: 0.875rem;">
-                <i class="bi bi-gem me-1"></i> 面向企业家的 AI 内容增长系统
-            </div>
-            <h1>AI 棱镜</h1>
-            <p class="lead mb-3">AI时代创作者的内容生产引擎</p>
-            <p class="mb-4" style="opacity: 0.9; font-size: 1.1rem;">
-                打造被 AI 收录引用的内容资产，实现长期被动获客增长<br>
-                <span class="small">年营收1000万+企业的内容营销标配</span>
-            </p>
-            <div class="d-flex gap-3 justify-content-center flex-wrap mb-4">
-                <span class="badge bg-light text-dark"><i class="bi bi-building me-1"></i>企业家首选</span>
-                <span class="badge bg-light text-dark"><i class="bi bi-graph-up-arrow me-1"></i>长期增长</span>
-                <span class="badge bg-light text-dark"><i class="bi bi-brain me-1"></i>AI 驱动</span>
-            </div>
-            <a href="/login?type=public" class="btn btn-light btn-lg mt-2" target="_self">免费开始体验</a>
-        </div>
-    </section>
-
     <!-- 内容生成器 -->
     <section id="generator" class="py-5">
         <div class="container">
@@ -1136,20 +1092,14 @@
 
                     <div id="portrait-section" class="mb-4" style="display: none;">
                         <div class="card border-primary">
-                            <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="card-header bg-primary text-white py-2">
                                 <span><i class="bi bi-person-badge me-1"></i>已保存画像</span>
-                                <span></span>
                             </div>
                             <div class="card-body py-2" id="portrait-cards-container">
                                 <div id="portrait-cards-loading" class="text-center py-3">
                                     <div class="spinner-border spinner-border-sm text-primary me-1"></div><span style="font-size:13px;">加载画像...</span>
                                 </div>
                                 <div id="portrait-cards-list" class="row g-2"></div>
-                            </div>
-                            <div class="card-footer bg-white py-2 border-top">
-                                <button class="btn btn-outline-primary btn-sm w-100" onclick="showSuperSteps()" title="重新生成用户画像">
-                                    <i class="bi bi-arrow-repeat me-1"></i>重新生成画像
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -1565,11 +1515,83 @@
         let currentUser = null;
         let generatedContent = null;
         let currentAiEnhanced = false;
+        let _currentMarketAnalysis = {};  // 当前市场分析数据（用于快照）
 
         // ================================================================
-        // 超级定位 Tab 快照（localStorage）
+        // 超级定位 Tab 快照（localStorage + 服务端）
         // ================================================================
         const SNAPSHOT_KEY = 'super_snapshot_v1';
+        let _snapshotSessionId = null;  // 本次会话的快照 ID
+
+        // 生成会话 ID（用于快照版本控制）
+        function getSnapshotSessionId() {
+            if (!_snapshotSessionId) {
+                _snapshotSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+            }
+            return _snapshotSessionId;
+        }
+
+        // 从服务端获取最新快照
+        async function loadSnapshotFromServer() {
+            try {
+                const resp = await fetch('/public/api/snapshots/current', { credentials: 'include' });
+                const data = await resp.json();
+                if (data.success && data.snapshot) {
+                    return data.snapshot;
+                }
+            } catch (e) {
+                console.error('[loadSnapshotFromServer] 加载失败:', e);
+            }
+            return null;
+        }
+
+        // 保存快照到服务端
+        async function saveSnapshotToServer() {
+            const formData = collectFormData();
+            const payload = {
+                session_id: getSnapshotSessionId(),
+                form_data: formData,
+                problems_data: _allProblems.map(p => {
+                    // 快照中附加 market_analysis 到每个问题
+                    if (!_currentMarketAnalysis.problem_oriented_keywords &&
+                        !_currentMarketAnalysis.market_type) {
+                        return p;
+                    }
+                    return { ...p, _market_analysis: _currentMarketAnalysis };
+                }),
+                portraits_data: _allPortraits,
+                selected_problem_id: _selectedTypeKey ? parseInt(_selectedTypeKey) : null,
+                selected_portrait_index: null
+            };
+            try {
+                const resp = await fetch('/public/api/snapshots/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    console.log('[saveSnapshotToServer] 快照已保存, version=' + data.version);
+                }
+            } catch (e) {
+                console.error('[saveSnapshotToServer] 保存失败:', e);
+            }
+        }
+
+        // 收集当前表单数据（用于快照）
+        function collectFormData() {
+            return {
+                business_desc: document.getElementById('business-desc')?.value || '',
+                business_range: document.querySelector('input[name="business-range"]:checked')?.value || '',
+                business_type: document.querySelector('input[name="business-type"]:checked')?.value || '',
+                customer_who: document.getElementById('customer-who')?.value || '',
+                customer_why: document.getElementById('customer-why')?.value || '',
+                customer_problem: document.getElementById('customer-problem')?.value || '',
+                customer_story: document.getElementById('customer-story')?.value || '',
+                customer_experiences: Array.from(document.querySelectorAll('input[name^="exp-"]:checked')).map(el => el.value),
+            };
+        }
 
         function saveSuperSnapshot() {
             const data = {
@@ -1707,10 +1729,51 @@
         // ================================================================
         // 启动时恢复快照
         // ================================================================
-        function initSnapshotRestore() {
-            const snap = loadSuperSnapshot();
-            if (snap) {
-                applySnapshotToForm(snap);
+        // 启动时恢复快照（优先服务端，其次 localStorage）
+        async function initSnapshotRestore() {
+            const serverSnap = await loadSnapshotFromServer();
+            if (serverSnap) {
+                // 优先用服务端快照恢复
+                _snapshotSessionId = serverSnap.session_id;
+                applySnapshotToForm(serverSnap.form_data);
+                if (serverSnap.problems_data && serverSnap.problems_data.length > 0) {
+                    // 恢复问题和画像数据
+                    _allProblems = serverSnap.problems_data;
+                    _allPortraits = serverSnap.portraits_data || {};
+                    // 从第一个问题中提取 market_analysis（保存时附加的）
+                    if (_allProblems[0] && _allProblems[0]._market_analysis) {
+                        _currentMarketAnalysis = _allProblems[0]._market_analysis;
+                        // 从问题中清除，避免污染原始数据
+                        _allProblems = _allProblems.map(p => {
+                            const { _market_analysis, ...rest } = p;
+                            return rest;
+                        });
+                        displayMarketAnalysis(_currentMarketAnalysis);
+                    }
+                    // 渲染问题卡片（带"生成画像"按钮）
+                    renderProblemCards(_allProblems);
+                    // 展开步骤区域
+                    const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-form-body'), {toggle: false});
+                    const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
+                    const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
+                    bsCollapse1.hide();
+                    bsCollapse2.show();
+                    bsCollapse3.show();
+                    // 自动选中之前选中的问题
+                    if (serverSnap.selected_problem_id) {
+                        const p = _allProblems.find(x => String(x.id) === String(serverSnap.selected_problem_id));
+                        if (p) {
+                            selectProblemCard(p.id, p.identity, p.problem_type || p.concern_type, p);
+                        }
+                    }
+                    console.log('[initSnapshotRestore] 已从服务端恢复快照, version=' + serverSnap.version);
+                    return;
+                }
+            }
+            // 回退到 localStorage
+            const localSnap = loadSuperSnapshot();
+            if (localSnap) {
+                applySnapshotToForm(localSnap);
             }
         }
 
@@ -1746,7 +1809,7 @@
                         showGenerator();
                         updateQuotaInfo();
                         // 恢复超级定位快照 + 绑定自动保存
-                        initSnapshotRestore();
+                        await initSnapshotRestore();
                         bindSnapshotAutoSave();
 
                         // 登录成功后初始化画像管理模块
@@ -1927,6 +1990,7 @@
                 if (data.success && data.problems) {
                     const problems = data.problems.problems || data.problems || [];
                     const marketAnalysis = data.problems.market_analysis || {};
+                    _currentMarketAnalysis = marketAnalysis;  // 缓存用于快照
                     // 注意：禁止把 market_analysis.problem_oriented_keywords 均分到各卡片，
                     // 会造成「问题类型」与「关键词」张冠李戴；仅展示每条问题自带的 problem_keywords。
 
@@ -1954,6 +2018,11 @@
                     const first = _allProblems[0];
                     if (first) {
                         selectProblemCard(first.id, first.identity, first.problem_type || first.concern_type, first);
+                    }
+
+                    // 保存服务端快照
+                    if (currentUser) {
+                        saveSnapshotToServer();
                     }
 
                     showToast('问题挖掘完成！点击"生成画像"查看人群画像', 'success');
@@ -2027,6 +2096,7 @@
                 if (data.success && data.problems) {
                     const problems = data.problems.problems || data.problems || [];
                     // 与一键分析一致：不将汇总词表切块分配到各卡，避免类型与关键词不匹配
+                    _currentMarketAnalysis = data.problems.market_analysis || {};
 
                     // 保存数据：统一用 problems 数组
                     _allProblems = problems;
@@ -2040,6 +2110,11 @@
                     var first = _allProblems[0];
                     if (first) {
                         selectProblemCard(first.id, first.identity, first.problem_type || first.concern_type, first);
+                    }
+
+                    // 更新服务端快照（换一批更新问题+画像）
+                    if (currentUser) {
+                        saveSnapshotToServer();
                     }
 
                     showToast('换一批成功！', 'success');
@@ -2223,7 +2298,7 @@
                             <span style="font-size: 12px; color: ${color.accent}; font-weight: 600;">${escHtml(displayName)}</span>
                         </div>
                         <div style="position:absolute; top:8px; right:12px; display:flex; gap:4px; z-index:20;">
-                            <button class="btn btn-primary btn-sm shadow-sm" style="font-size:11px; padding:3px 10px; border-radius:20px;" onclick="event.stopPropagation(); saveGeneratedPortrait(&quot;${safeKey}&quot;, ${index})" title="保存此画像"><i class="bi bi-bookmark-plus me-1"></i>保存</button>
+                            <button class="btn btn-primary btn-sm shadow-sm" style="font-size:11px; padding:3px 10px; border-radius:20px;" onclick="saveGeneratedPortrait(&quot;${safeKey}&quot;, ${index})" title="保存此画像"><i class="bi bi-bookmark-plus me-1"></i>保存</button>
                         </div>
                         <h6 style="color: ${color.accent}; margin-bottom: 0.5rem; margin-top: 0.25rem; padding-right: 80px;">${escHtml(displayTitle)}</h6>
                 `;
@@ -2314,7 +2389,7 @@
                 radio.addEventListener('change', updateTargetSelection);
             });
 
-            // 触发选中状态 + 生成选题
+            // 触发选中状态
             updateTargetSelection();
             document.getElementById('target-customers-section').style.display = 'block';
             // 折叠第二步，打开第三步
@@ -2322,7 +2397,6 @@
             bsCollapse2.hide();
             const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
             bsCollapse3.show();
-            setTimeout(function() { generateTopics(); }, 500);
         }
 
         function escHtml(s) {
@@ -2561,6 +2635,10 @@
                 console.log('[generatePortraitsForProblem] 完成, _allPortraits keys=' + Object.keys(_allPortraits));
                 showToast('生成成功！获得 ' + portraits.length + ' 个画像', 'success');
                 resetBtn();
+                // 更新服务端快照
+                if (currentUser) {
+                    saveSnapshotToServer();
+                }
             } catch (e) {
                 showPortraitSection();
                 showToast('生成失败，请稍后重试', 'error');
@@ -2624,6 +2702,10 @@
                         commitPortraitsResult(sk, problemData, portraits);
                         document.getElementById('portrait-generating-loading').style.display = 'none';
                         document.getElementById('target-customers-section').style.display = 'block';
+                        // 更新服务端快照（换一批更新画像数据）
+                        if (currentUser) {
+                            saveSnapshotToServer();
+                        }
                         showToast('换一批成功！', 'success');
                     } catch (e) {
                         if (mySeq !== _refreshSeq) return;
@@ -3240,8 +3322,9 @@
         // ============================================
         
         let _currentPortraitData = null;  // 当前选中的画像数据
+        let _isSavingPortrait = false;    // 全局保存锁定，防止多个卡片同时保存
         
-        function showSavePortraitModal() {
+        async function showSavePortraitModal() {
             // 获取当前选中的画像
             const selectedCard = document.querySelector('.target-customer-card.selected');
             if (selectedCard) {
@@ -3268,19 +3351,23 @@
             if (!currentUser) {
                 showToast('请先登录后再保存画像', 'warning');
                 setTimeout(() => {
-                    window.location.href = '/login?type=public';
+                    window.location.href = '/public/login';
                 }, 1500);
                 return;
             }
             
-            // 检查保存权限（基础版及以上可用）
-            const planName = currentUser?.quota?.plan_name || '';
-            if (planName === '免费版' || planName === '') {
-                showToast('保存画像需要基础版或更高版本，请升级套餐', 'warning');
-                // 显示升级提示
-                const upgradeLink = document.querySelector('a[href="#pricing"]');
-                if (upgradeLink) {
-                    setTimeout(() => upgradeLink.click(), 1500);
+            // 检查保存权限
+            if (!PortraitManager._quota) {
+                showToast('正在加载用户信息…', 'info');
+                await PortraitManager.loadQuota();
+            }
+            const checkResult = PortraitManager.canSavePortrait();
+            if (!checkResult.allowed) {
+                showToast(checkResult.reason, 'warning');
+                if (checkResult.reason.includes('升级')) {
+                    setTimeout(() => {
+                        window.location.href = '/public/pricing';
+                    }, 1500);
                 }
                 return;
             }
@@ -3291,52 +3378,109 @@
         }
         
         async function confirmSavePortrait() {
+            // 全局防重复点击
+            if (_isSavingPortrait) {
+                showToast('正在保存中，请稍候...', 'warning');
+                return;
+            }
+            _isSavingPortrait = true;
+            
+            const btn = event?.target?.closest?.('button') || event?.target;
+            const originalText = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中...';
+            }
+            
             const name = document.getElementById('portrait-name-input').value.trim();
             const business = document.getElementById('portrait-business-input').value.trim();
             const setDefault = document.getElementById('portrait-default-check').checked;
             
             if (!_currentPortraitData) {
                 showToast('没有可保存的画像数据', 'error');
+                resetSaveButtons();
                 return;
             }
             
             const businessDesc = document.getElementById('business-desc').value.trim();
             const industry = getSelectedIndustry();
-            
-            const saved = await PortraitManager.saveCurrentPortrait(
-                _currentPortraitData,
-                {
-                    portraitName: name,
-                    businessDescription: business || businessDesc,
-                    industry: industry,
-                    targetCustomer: _currentPortraitData.name || '',
-                    setAsDefault: setDefault
-                }
-            );
-            
-            if (saved) {
-                // 关闭模态框
-                const modal = bootstrap.Modal.getInstance(document.getElementById('savePortraitModal'));
-                modal.hide();
+
+            // 确保配额已加载后再保存
+            if (!PortraitManager._quota) {
+                showToast('正在加载用户信息…', 'info');
+                await PortraitManager.loadQuota();
+            }
+
+            // 显示保存中状态
+            showToast('正在保存画像...', 'info');
+
+            try {
+                const saved = await PortraitManager.saveCurrentPortrait(
+                    _currentPortraitData,
+                    {
+                        portraitName: name,
+                        businessDescription: business || businessDesc,
+                        industry: industry,
+                        targetCustomer: _currentPortraitData.name || '',
+                        setAsDefault: setDefault
+                    }
+                );
                 
-                // 清空输入
-                document.getElementById('portrait-name-input').value = '';
-                document.getElementById('portrait-business-input').value = '';
-                document.getElementById('portrait-default-check').checked = false;
+                if (saved && saved.id) {
+                    // 关闭模态框
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('savePortraitModal'));
+                    modal.hide();
+                    
+                    // 清空输入
+                    document.getElementById('portrait-name-input').value = '';
+                    document.getElementById('portrait-business-input').value = '';
+                    document.getElementById('portrait-default-check').checked = false;
+                    
+                    showToast('✓ 画像保存成功！', 'success');
+                    
+                    // 刷新页面
+                    setTimeout(() => {
+                        window.location.reload(true);
+                    }, 300);
+                } else {
+                    showToast('保存失败，请重试', 'error');
+                    resetSaveButtons();
+                }
+            } catch (e) {
+                showToast('保存出错', 'error');
+                resetSaveButtons();
             }
         }
         
         // 保存指定索引的画像（卡片上的保存按钮）
-        function saveThisPortrait(index) {
+        async function saveThisPortrait(index) {
+            // 全局防重复点击
+            if (_isSavingPortrait) {
+                showToast('正在保存中，请稍候...', 'warning');
+                return;
+            }
+            _isSavingPortrait = true;
+            
+            const btn = event?.target?.closest?.('button') || event?.target;
+            const originalText = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中...';
+            }
+            // 禁用所有保存按钮
+            document.querySelectorAll('button[onclick*="saveThisPortrait"]').forEach(b => b.disabled = true);
+            
             const card = document.querySelector(`.target-customer-card[data-index="${index}"]`);
             if (!card) {
                 showToast('未找到该画像', 'error');
+                resetSaveButtons();
                 return;
             }
 
             const targetData = card.dataset.targetData;
             if (!targetData) {
                 showToast('该画像数据不完整', 'error');
+                resetSaveButtons();
                 return;
             }
 
@@ -3348,41 +3492,80 @@
                 setTimeout(() => {
                     window.location.href = '/public/login';
                 }, 1500);
+                resetSaveButtons();
                 return;
             }
 
-            // 检查保存权限（基础版及以上可用）
-            const planName = currentUser?.quota?.plan_name || '';
-            if (planName === '免费版' || planName === '') {
-                showToast('保存画像需要基础版或更高版本，请升级套餐', 'warning');
-                setTimeout(() => {
-                    window.location.href = '/public/pricing';
-                }, 1500);
+            // 检查保存权限
+            if (!PortraitManager._quota) {
+                showToast('正在加载用户信息…', 'info');
+                await PortraitManager.loadQuota();
+            }
+            const checkResult = PortraitManager.canSavePortrait();
+            if (!checkResult.allowed) {
+                showToast(checkResult.reason, 'warning');
+                if (checkResult.reason.includes('升级')) {
+                    setTimeout(() => {
+                        window.location.href = '/public/pricing';
+                    }, 1500);
+                }
+                resetSaveButtons();
                 return;
             }
+
+            // 显示保存中状态
+            showToast('正在保存画像...', 'info');
 
             // 直接保存，无需弹窗（使用卡片名称）
             const portraitName = _currentPortraitData.name || '画像' + (index + 1);
             const businessDesc = document.getElementById('business-desc').value.trim();
             const industry = getSelectedIndustry();
 
-            PortraitManager.saveCurrentPortrait(
-                _currentPortraitData,
-                {
-                    portraitName: portraitName,
-                    businessDescription: businessDesc,
-                    industry: industry,
-                    targetCustomer: _currentPortraitData.name || '',
-                    setAsDefault: false
+            try {
+                const saved = await PortraitManager.saveCurrentPortrait(
+                    _currentPortraitData,
+                    {
+                        portraitName: portraitName,
+                        businessDescription: businessDesc,
+                        industry: industry,
+                        targetCustomer: _currentPortraitData.name || '',
+                        setAsDefault: false
+                    }
+                );
+
+                if (saved && saved.id) {
+                    showToast('✓ 画像保存成功！', 'success');
+                    
+                    // 刷新页面
+                    setTimeout(() => {
+                        window.location.reload(true);
+                    }, 300);
+                } else {
+                    showToast('保存失败，请重试', 'error');
+                    resetSaveButtons();
                 }
-            );
+            } catch (e) {
+                showToast('保存出错', 'error');
+                resetSaveButtons();
+            }
         }
 
         // 保存由 renderPortraitsForType 生成的画像（从 _allPortraits 取数）
-        function saveGeneratedPortrait(key, index) {
+        async function saveGeneratedPortrait(key, index) {
+            // 全局防重复点击 - 任何保存进行中都阻止新的保存
+            if (_isSavingPortrait) {
+                showToast('正在保存中，请稍候...', 'warning');
+                return;
+            }
+            _isSavingPortrait = true;
+            
+            // 禁用所有保存按钮
+            document.querySelectorAll('button[onclick*="saveGeneratedPortrait"]').forEach(b => b.disabled = true);
+            
             const portraits = _allPortraits[key];
             if (!portraits || !portraits[index]) {
                 showToast('未找到该画像', 'error');
+                resetSaveButtons();
                 return;
             }
 
@@ -3394,15 +3577,24 @@
                 setTimeout(() => {
                     window.location.href = '/public/login';
                 }, 1500);
+                resetSaveButtons();
                 return;
             }
 
-            const planName = currentUser?.quota?.plan_name || '';
-            if (planName === '免费版' || planName === '') {
-                showToast('保存画像需要基础版或更高版本，请升级套餐', 'warning');
-                setTimeout(() => {
-                    window.location.href = '/public/pricing';
-                }, 1500);
+            // 检查保存权限
+            if (!PortraitManager._quota) {
+                showToast('正在加载用户信息…', 'info');
+                await PortraitManager.loadQuota();
+            }
+            const checkResult = PortraitManager.canSavePortrait();
+            if (!checkResult.allowed) {
+                showToast(checkResult.reason, 'warning');
+                if (checkResult.reason.includes('升级')) {
+                    setTimeout(() => {
+                        window.location.href = '/public/pricing';
+                    }, 1500);
+                }
+                resetSaveButtons();
                 return;
             }
 
@@ -3410,16 +3602,51 @@
             const businessDesc = document.getElementById('business-desc').value.trim();
             const industry = getSelectedIndustry();
 
-            PortraitManager.saveCurrentPortrait(
-                targetData,
-                {
-                    portraitName: portraitName,
-                    businessDescription: businessDesc,
-                    industry: industry,
-                    targetCustomer: targetData.name || '',
-                    setAsDefault: false
+            // 显示保存中状态
+            showToast('正在保存画像...', 'info');
+
+            try {
+                console.log('[saveGeneratedPortrait] 开始调用 PortraitManager.saveCurrentPortrait');
+                const saved = await PortraitManager.saveCurrentPortrait(
+                    targetData,
+                    {
+                        portraitName: portraitName,
+                        businessDescription: businessDesc,
+                        industry: industry,
+                        targetCustomer: targetData.name || '',
+                        setAsDefault: false
+                    }
+                );
+                console.log('[saveGeneratedPortrait] PortraitManager 返回:', saved);
+
+                if (saved && saved.id) {
+                    showToast('✓ 画像保存成功！', 'success');
+                    
+                    // 多方案确保刷新
+                    console.log('[saveGeneratedPortrait] 准备刷新页面...');
+                    
+                    // 方案1: setTimeout 延迟刷新
+                    setTimeout(() => {
+                        console.log('[saveGeneratedPortrait] 执行方案1: window.location.reload(true)');
+                        window.location.reload(true);
+                    }, 300);
+                    
+                } else {
+                    console.error('[saveGeneratedPortrait] saved 为空或没有 id');
+                    showToast('保存失败，请重试', 'error');
+                    resetSaveButtons();
                 }
-            );
+            } catch (e) {
+                console.error('[saveGeneratedPortrait] 异常:', e);
+                showToast('保存出错', 'error');
+                resetSaveButtons();
+            }
+        }
+        
+        // 重置所有保存按钮状态
+        function resetSaveButtons() {
+            _isSavingPortrait = false;
+            document.querySelectorAll('button[onclick*="saveGeneratedPortrait"]').forEach(b => b.disabled = false);
         }
         
         function getSelectedIndustry() {
@@ -3677,6 +3904,72 @@
                     <button type="button" class="btn btn-primary" id="btn-use-portrait-from-library">
                         <i class="bi bi-lightning-charge me-1"></i>使用此画像生成内容
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 关键词库 Markdown 查看弹窗 -->
+    <div class="modal fade" id="keywordLibraryMdModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-book me-2"></i>关键词库详情</h5>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-success btn-sm" id="btn-copy-kw-md" title="复制 Markdown">
+                            <i class="bi bi-clipboard me-1"></i>复制 MD
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div id="kw-md-loading" class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted small">正在加载关键词库...</p>
+                    </div>
+                    <div id="kw-md-error" class="text-center py-5" style="display:none;">
+                        <i class="bi bi-exclamation-triangle text-warning" style="font-size:2rem;"></i>
+                        <p class="mt-2 text-muted" id="kw-md-error-msg"></p>
+                    </div>
+                    <div id="kw-md-content" style="display:none;">
+                        <pre id="kw-md-text" style="white-space: pre-wrap; word-break: break-all; font-size: 13px; line-height: 1.6; background: #f9f9f9; padding: 16px; border-radius: 8px; max-height: 70vh; overflow-y: auto;"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 选题库 Markdown 查看弹窗 -->
+    <div class="modal fade" id="topicLibraryMdModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-card-text me-2"></i>选题库详情</h5>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-success btn-sm" id="btn-copy-topic-md" title="复制 Markdown">
+                            <i class="bi bi-clipboard me-1"></i>复制 MD
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div id="topic-md-loading" class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted small">正在加载选题库...</p>
+                    </div>
+                    <div id="topic-md-error" class="text-center py-5" style="display:none;">
+                        <i class="bi bi-exclamation-triangle text-warning" style="font-size:2rem;"></i>
+                        <p class="mt-2 text-muted" id="topic-md-error-msg"></p>
+                    </div>
+                    <div id="topic-md-content" style="display:none;">
+                        <pre id="topic-md-text" style="white-space: pre-wrap; word-break: break-all; font-size: 13px; line-height: 1.6; background: #f9f9f9; padding: 16px; border-radius: 8px; max-height: 70vh; overflow-y: auto;"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
                 </div>
             </div>
         </div>

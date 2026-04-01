@@ -174,10 +174,18 @@ const PortraitManager = {
                 topicCount = p.topic_library.topics.length;
             }
             
+            // 关键词库状态提示
+            let kwBadge = '';
+            if (kwCount > 0) {
+                kwBadge = `<span class="badge bg-info me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})" title="点击查看关键词库">📚 关键词库 ${kwCount} 个</span>`;
+            } else {
+                kwBadge = `<span class="badge bg-secondary me-1">📚 关键词库 生成中...</span>`;
+            }
+
             // 选题库状态提示
             let topicBadge = '';
             if (topicCount > 0) {
-                topicBadge = `<span class="badge bg-success me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showTopicListModal(${p.id})" title="点击查看选题列表">📋 选题库 ${topicCount} 个</span>`;
+                topicBadge = `<span class="badge bg-success me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})" title="点击查看选题库 Markdown">📋 选题库 ${topicCount} 个</span>`;
             } else {
                 topicBadge = `<span class="badge bg-secondary me-1">📋 选题库 生成中...</span>`;
             }
@@ -192,7 +200,10 @@ const PortraitManager = {
                         <div class="min-w-0">
                             <div class="fw-bold text-dark">${this.escapeHtml(p.portrait_name || '用户画像')}</div>
                             <div class="small text-muted">${this.escapeHtml(p.industry || '')}</div>
-                            <div class="mt-1">${topicBadge}</div>
+                            <div class="mt-1">
+                                ${kwBadge}
+                                ${topicBadge}
+                            </div>
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-shrink-0 flex-wrap justify-content-end ms-auto">
@@ -1107,7 +1118,108 @@ const PortraitManager = {
             .replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     },
-    
+
+    // 显示关键词库 Markdown 弹窗
+    async showKeywordLibraryMd(portraitId) {
+        // 显示弹窗
+        const modal = new bootstrap.Modal(document.getElementById('keywordLibraryMdModal'));
+        modal.show();
+
+        // 重置状态
+        document.getElementById('kw-md-loading').style.display = 'block';
+        document.getElementById('kw-md-error').style.display = 'none';
+        document.getElementById('kw-md-content').style.display = 'none';
+        document.getElementById('kw-md-text').textContent = '';
+
+        try {
+            const resp = await fetch(`/public/api/portraits/${portraitId}/keyword-library/markdown`, {
+                credentials: 'include'
+            });
+            const data = await resp.json();
+
+            document.getElementById('kw-md-loading').style.display = 'none';
+
+            if (data.success && data.data && data.data.markdown) {
+                document.getElementById('kw-md-content').style.display = 'block';
+                document.getElementById('kw-md-text').textContent = data.data.markdown;
+
+                // 绑定复制按钮
+                document.getElementById('btn-copy-kw-md').onclick = async () => {
+                    await this._copyToClipboard(data.data.markdown, '关键词库');
+                };
+            } else {
+                document.getElementById('kw-md-error').style.display = 'block';
+                document.getElementById('kw-md-error-msg').textContent = data.message || '关键词库为空，请先生成';
+            }
+        } catch (e) {
+            document.getElementById('kw-md-loading').style.display = 'none';
+            document.getElementById('kw-md-error').style.display = 'block';
+            document.getElementById('kw-md-error-msg').textContent = '加载失败：' + e.message;
+        }
+    },
+
+    // 显示选题库 Markdown 弹窗
+    async showTopicLibraryMd(portraitId) {
+        // 显示弹窗
+        const modal = new bootstrap.Modal(document.getElementById('topicLibraryMdModal'));
+        modal.show();
+
+        // 重置状态
+        document.getElementById('topic-md-loading').style.display = 'block';
+        document.getElementById('topic-md-error').style.display = 'none';
+        document.getElementById('topic-md-content').style.display = 'none';
+        document.getElementById('topic-md-text').textContent = '';
+
+        try {
+            const resp = await fetch(`/public/api/portraits/${portraitId}/topic-library/markdown`, {
+                credentials: 'include'
+            });
+            const data = await resp.json();
+
+            document.getElementById('topic-md-loading').style.display = 'none';
+
+            if (data.success && data.data && data.data.markdown) {
+                document.getElementById('topic-md-content').style.display = 'block';
+                document.getElementById('topic-md-text').textContent = data.data.markdown;
+
+                // 绑定复制按钮
+                document.getElementById('btn-copy-topic-md').onclick = async () => {
+                    await this._copyToClipboard(data.data.markdown, '选题库');
+                };
+            } else {
+                document.getElementById('topic-md-error').style.display = 'block';
+                document.getElementById('topic-md-error-msg').textContent = data.message || '选题库为空，请先生成';
+            }
+        } catch (e) {
+            document.getElementById('topic-md-loading').style.display = 'none';
+            document.getElementById('topic-md-error').style.display = 'block';
+            document.getElementById('topic-md-error-msg').textContent = '加载失败：' + e.message;
+        }
+    },
+
+    // 复制文本到剪贴板
+    async _copyToClipboard(text, label = '') {
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast((label || '') + ' Markdown 已复制到剪贴板', 'success');
+        } catch (e) {
+            // 降级方案
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast((label || '') + ' Markdown 已复制到剪贴板', 'success');
+            } catch (e2) {
+                showToast('复制失败，请手动选择文本复制', 'error');
+            }
+            document.body.removeChild(textarea);
+        }
+    },
+
     // 显示选题库列表弹窗
     showTopicListModal(portraitId) {
         const portrait = this._savedPortraits.find(p => p.id === portraitId);

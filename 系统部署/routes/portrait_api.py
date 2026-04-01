@@ -65,10 +65,79 @@ def save_portrait(user):
     )
     
     if success:
+        # 自动生成关键词库和选题库（仅对付费用户）
+        auto_generate_result = None
+        print(f"[save_portrait] user.is_premium={user.is_premium}, premium_plan={user.premium_plan}, premium_expires={user.premium_expires}")
+        print(f"[save_portrait] user.is_paid_user()={user.is_paid_user()}")
+        
+        if user.is_paid_user() and saved and saved.get('id'):
+            try:
+                from services.keyword_library_generator import keyword_library_generator
+                from services.topic_library_generator import topic_library_generator
+                
+                portrait_id = saved['id']
+                portrait = portrait_save_service.get_saved_portrait(portrait_id)
+                if portrait:
+                    portrait_data_dict = portrait.get('portrait_data', {})
+                    business_info = {
+                        'business_description': portrait.get('business_description', ''),
+                        'industry': portrait.get('industry', ''),
+                        'products': [],
+                        'region': '',
+                        'target_customer': portrait.get('target_customer', ''),
+                    }
+                    plan_type = user.premium_plan or 'basic'
+                    print(f"[save_portrait] 开始生成关键词库，plan_type={plan_type}")
+                    
+                    # 生成关键词库
+                    kw_result = keyword_library_generator.generate(
+                        portrait_data=portrait_data_dict,
+                        business_info=business_info,
+                        plan_type=plan_type,
+                    )
+                    print(f"[save_portrait] 关键词库生成结果: {kw_result.get('success')}")
+                    if kw_result.get('success'):
+                        keyword_library_generator.save_to_portrait(
+                            portrait_id=portrait_id,
+                            keyword_library=kw_result['keyword_library'],
+                            user_id=user.id,
+                            plan_type=plan_type,
+                        )
+                    
+                    # 生成选题库
+                    kw_library = kw_result.get('keyword_library')
+                    print(f"[save_portrait] 开始生成选题库")
+                    topic_result = topic_library_generator.generate(
+                        portrait_data=portrait_data_dict,
+                        business_info=business_info,
+                        keyword_library=kw_library,
+                        plan_type=plan_type,
+                    )
+                    print(f"[save_portrait] 选题库生成结果: {topic_result.get('success')}")
+                    if topic_result.get('success'):
+                        topic_library_generator.save_to_portrait(
+                            portrait_id=portrait_id,
+                            topic_library=topic_result['topic_library'],
+                            user_id=user.id,
+                            plan_type=plan_type,
+                        )
+                    
+                    auto_generate_result = {
+                        'keyword': kw_result.get('success', False),
+                        'topic': topic_result.get('success', False)
+                    }
+                    
+                    # 重新获取更新后的画像数据
+                    saved = portrait_save_service.get_saved_portrait(portrait_id)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+        
         return jsonify({
             'success': True,
             'message': message,
-            'data': saved
+            'data': saved,
+            'auto_generated': auto_generate_result
         })
     else:
         return jsonify({
@@ -488,3 +557,217 @@ def _is_expired(expires_at) -> bool:
         except:
             return True
     return expires_at < datetime.utcnow()
+
+
+# =============================================================================
+# 画像库 Markdown 查看 API
+# =============================================================================
+
+@portrait_bp.route('/<int:portrait_id>/keyword-library/markdown', methods=['GET'])
+@login_required
+def get_keyword_library_markdown(user, portrait_id):
+    """
+    获取画像关键词库的 Markdown 格式（用于预览和检查结果）
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '无权访问'}), 403
+
+    kw_lib = portrait.get('keyword_library')
+    if not kw_lib:
+        return jsonify({'success': False, 'message': '关键词库为空，请先生成'}), 404
+
+    portrait_name = portrait.get('portrait_name', '未命名')
+    industry = portrait.get('industry', '')
+    business_desc = portrait.get('business_description', '')
+    updated_at = portrait.get('keyword_updated_at')
+    updated_str = updated_at.strftime('%Y-%m-%d %H:%M') if updated_at else '未知'
+
+    md = _build_keyword_library_markdown(
+        kw_lib, portrait_name, industry, business_desc, updated_str
+    )
+    return jsonify({'success': True, 'data': {'markdown': md}})
+
+
+def _build_keyword_library_markdown(kw_lib: dict, portrait_name: str,
+                                     industry: str, business_desc: str,
+                                     updated_at: str) -> str:
+    """将关键词库字典渲染为 Markdown 文本"""
+    lines = [
+        f"# 📚 {portrait_name} - 关键词库",
+        "",
+        f"| 项目 | 内容 |",
+        f"|------|------|",
+        f"| 行业 | {industry} |",
+        f"| 业务描述 | {business_desc} |",
+        f"| 生成时间 | {updated_at} |",
+        "",
+    ]
+
+    categories = kw_lib.get('categories', [])
+    if categories:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 关键词分类")
+        lines.append("")
+
+        for cat in categories:
+            cat_name = cat.get('name', cat.get('key', '未知分类'))
+            keywords = cat.get('keywords', [])
+            count = cat.get('count', len(keywords))
+            lines.append(f"### {cat_name}（{count}个）")
+            if keywords:
+                # 每行显示4个，用 | 分隔
+                for i in range(0, len(keywords), 4):
+                    row = keywords[i:i+4]
+                    lines.append("| " + " | ".join(str(k) for k in row) + " |")
+            else:
+                lines.append("*（暂无关键词）*")
+            lines.append("")
+
+    # 蓝海长尾词
+    blue_ocean = kw_lib.get('blue_ocean', [])
+    if blue_ocean:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 🔱 蓝海长尾词")
+        lines.append("")
+        lines.append("| 核心词 | 修饰词 | 完整关键词 | 类型 |")
+        lines.append("|--------|--------|-----------|------|")
+        for item in blue_ocean:
+            if isinstance(item, dict):
+                core = item.get('core_word', '')
+                modifier = item.get('modifier', '')
+                full_kw = item.get('full_keyword', '')
+                kw_type = item.get('type', '')
+                lines.append(f"| {core} | {modifier} | {full_kw} | {kw_type} |")
+            else:
+                lines.append(f"| - | - | {item} | - |")
+        lines.append("")
+
+    # 热点词
+    hot_keywords = kw_lib.get('hot_keywords', [])
+    if hot_keywords:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 🔥 近期热点关键词")
+        lines.append("")
+        lines.append("| " + " | ".join(str(k) for k in hot_keywords) + " |")
+        lines.append("")
+
+    # 配比策略
+    ratio = kw_lib.get('ratio_strategy', {})
+    if ratio:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 📊 关键词配比策略")
+        lines.append("")
+        stage = ratio.get('stage', '')
+        long_tail = ratio.get('long_tail_ratio', 0)
+        region = ratio.get('region_ratio', 0)
+        core = ratio.get('core_ratio', 0)
+        lines.append(f"**账号阶段**：{stage}")
+        lines.append("")
+        lines.append(f"- 🔹 长尾词占比：{int(long_tail*100)}%")
+        lines.append(f"- 🔹 地域词占比：{int(region*100)}%")
+        lines.append(f"- 🔹 核心词占比：{int(core*100)}%")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+@portrait_bp.route('/<int:portrait_id>/topic-library/markdown', methods=['GET'])
+@login_required
+def get_topic_library_markdown(user, portrait_id):
+    """
+    获取画像选题库的 Markdown 格式（用于预览和检查结果）
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '无权访问'}), 403
+
+    topic_lib = portrait.get('topic_library')
+    if not topic_lib:
+        return jsonify({'success': False, 'message': '选题库为空，请先生成'}), 404
+
+    portrait_name = portrait.get('portrait_name', '未命名')
+    industry = portrait.get('industry', '')
+    updated_at = portrait.get('topic_updated_at')
+    updated_str = updated_at.strftime('%Y-%m-%d %H:%M') if updated_at else '未知'
+
+    md = _build_topic_library_markdown(topic_lib, portrait_name, industry, updated_str)
+    return jsonify({'success': True, 'data': {'markdown': md}})
+
+
+def _build_topic_library_markdown(topic_lib: dict, portrait_name: str,
+                                    industry: str, updated_at: str) -> str:
+    """将选题库字典渲染为 Markdown 文本"""
+    lines = [
+        f"# 📋 {portrait_name} - 选题库",
+        "",
+        f"| 项目 | 内容 |",
+        f"|------|------|",
+        f"| 行业 | {industry} |",
+        f"| 生成时间 | {updated_at} |",
+        "",
+    ]
+
+    topics = topic_lib.get('topics', [])
+    if topics:
+        lines.append("---")
+        lines.append("")
+        lines.append(f"## 选题列表（共 {len(topics)} 条）")
+        lines.append("")
+        lines.append("| # | 标题 | 类型 | 优先级 | 来源 | 推荐理由 |")
+        lines.append("|---|------|------|--------|------|----------|")
+
+        for i, topic in enumerate(topics, 1):
+            if not isinstance(topic, dict):
+                continue
+            title = topic.get('title', '')[:30]
+            type_name = topic.get('type_name', topic.get('type', ''))
+            priority = topic.get('priority', 'P2')
+            source = topic.get('source', '')
+            reason = topic.get('reason', '')[:40]
+            lines.append(
+                f"| {i} | {title} | {type_name} | {priority} | {source} | {reason} |"
+            )
+        lines.append("")
+
+    # 按类型统计
+    by_type = topic_lib.get('by_type', {})
+    if by_type:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 按类型分布")
+        lines.append("")
+        for type_key, cnt in by_type.items():
+            lines.append(f"- **{type_key}**：{cnt} 条")
+        lines.append("")
+
+    # 按优先级统计
+    priorities = topic_lib.get('priorities', {})
+    if priorities:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 按优先级分布")
+        lines.append("")
+        for p in ['P0', 'P1', 'P2', 'P3']:
+            cnt = priorities.get(p, 0)
+            emoji = '🔴' if p == 'P0' else '🟠' if p == 'P1' else '🟡' if p == 'P2' else '⚪'
+            lines.append(f"{emoji} **{p}**：{cnt} 条")
+        lines.append("")
+
+    return "\n".join(lines)

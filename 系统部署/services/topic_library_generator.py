@@ -86,6 +86,12 @@ class TopicLibraryGenerator:
             }
         """
         try:
+            # 防御性检查：确保所有输入都是字典
+            if not isinstance(portrait_data, dict):
+                portrait_data = {}
+            if not isinstance(business_info, dict):
+                business_info = {}
+
             # 获取实时上下文
             realtime = template_config_service.get_realtime_context()
 
@@ -227,7 +233,14 @@ class TopicLibraryGenerator:
         realtime: Dict = None,
     ) -> Dict:
         """构建模板变量上下文"""
-        if realtime is None:
+        # 防御性检查：确保所有输入都是字典
+        if not isinstance(portrait_data, dict):
+            portrait_data = {}
+        if not isinstance(business_info, dict):
+            business_info = {}
+        if not isinstance(keyword_library, dict):
+            keyword_library = None
+        if not isinstance(realtime, dict):
             realtime = {}
 
         # 从关键词库提取关键词
@@ -235,7 +248,10 @@ class TopicLibraryGenerator:
         if keyword_library:
             all_kw = []
             for cat in keyword_library.get('categories', []):
-                all_kw.extend(cat.get('keywords', [])[:5])
+                if isinstance(cat, dict):
+                    kws = cat.get('keywords', [])
+                    if isinstance(kws, list):
+                        all_kw.extend(kws[:5])
             keywords_text = ', '.join(all_kw[:50])
 
         context = {
@@ -352,8 +368,7 @@ class TopicLibraryGenerator:
         import json
         
         try:
-            # 尝试多种方式提取 JSON
-            # 1. 尝试直接解析（去除 markdown 代码块）
+            # 预处理：去除 markdown 代码块
             clean_response = response.strip()
             if clean_response.startswith('```json'):
                 clean_response = clean_response[7:]
@@ -363,17 +378,41 @@ class TopicLibraryGenerator:
                 clean_response = clean_response[:-3]
             clean_response = clean_response.strip()
             
-            # 2. 尝试用双大括号匹配（因为 prompt 中用的是 {{}}）
+            # 尝试多种解析方式
+            result = None
+            
+            # 方法1：正则匹配 JSON 对象
             json_match = re.search(r'\{[\s\S]*\}', clean_response)
             if json_match:
                 json_str = json_match.group(0)
-                # 替换双大括号为单大括号
                 json_str = json_str.replace('{{', '{').replace('}}', '}')
-                result = json.loads(json_str)
-                return self._validate_and_fill(result)
+                try:
+                    result = json.loads(json_str)
+                except json.JSONDecodeError as e:
+                    print(f"[TopicLibraryGenerator] 正则匹配JSON解析失败: {e}")
             
-            # 3. 尝试直接解析清理后的字符串
-            result = json.loads(clean_response)
+            # 方法2：直接解析
+            if result is None:
+                try:
+                    result = json.loads(clean_response)
+                except json.JSONDecodeError:
+                    pass
+            
+            # 方法3：修复常见 JSON 错误后重试
+            if result is None:
+                fixed = self._fix_json_errors(clean_response)
+                if fixed:
+                    try:
+                        result = json.loads(fixed)
+                    except json.JSONDecodeError as e:
+                        print(f"[TopicLibraryGenerator] 修复后仍解析失败: {e}")
+            
+            if result is None:
+                raise ValueError("所有JSON解析方式均失败")
+            
+            # 处理 emoji key（如 "📚选题库" -> "topic_library"）
+            result = self._normalize_keys(result)
+            
             return self._validate_and_fill(result)
             
         except json.JSONDecodeError as e:
@@ -384,19 +423,120 @@ class TopicLibraryGenerator:
             print(f"[TopicLibraryGenerator] Parse error: {e}")
             return self._get_default_library()
 
+    def _fix_json_errors(self, json_str: str) -> str:
+        """修复常见 JSON 格式错误"""
+        import re
+        
+        # 移除注释（// 开头的行）
+        lines = json_str.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            # 保留字符串中的 //，只移除代码注释
+            if '//' in line:
+                in_string = False
+                escape = False
+                for i, c in enumerate(line):
+                    if escape:
+                        escape = False
+                        continue
+                    if c == '\\':
+                        escape = True
+                        continue
+                    if c == '"':
+                        in_string = not in_string
+                if not in_string:
+                    line = line[:line.index('//')]
+            cleaned_lines.append(line)
+        json_str = '\n'.join(cleaned_lines)
+        
+        # 修复末尾多余逗号（如 "key": "value", } -> "key": "value" }）
+        json_str = re.sub(r',(\s*[\]}])', r'\1', json_str)
+        
+        # 修复单引号为双引号（在 JSON 值中）
+        # 注意：这是宽松解析，不处理 key
+        
+        # 移除多余空白和换行（可能导致问题）
+        # 但保留必要的格式
+        
+        return json_str
+
+    def _normalize_keys(self, obj: Any) -> Any:
+        """规范化 JSON key，处理 emoji 等特殊字符"""
+        if isinstance(obj, dict):
+            new_obj = {}
+            for key, value in obj.items():
+                # 标准化 key：移除 emoji、统一为下划线格式
+                normalized_key = self._normalize_key(key)
+                new_obj[normalized_key] = self._normalize_keys(value)
+            return new_obj
+        elif isinstance(obj, list):
+            return [self._normalize_keys(item) for item in obj]
+        else:
+            return obj
+
+    def _normalize_key(self, key: str) -> str:
+        """将中文或 emoji key 转换为标准 key"""
+        import re
+        
+        # 移除 emoji
+        emoji_pattern = re.compile("["
+            u"\U0001F600-\U0001F64F"  # emoticons
+            u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+            u"\U0001F680-\U0001F6FF"  # transport & map symbols
+            u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+            u"\U00002702-\U000027B0"
+            u"\U000024C2-\U0001F251"
+            "]+", flags=re.UNICODE)
+        cleaned = emoji_pattern.sub('', key)
+        
+        # 保留中文、英文、数字、下划线
+        # 如果清理后是空的或只剩中文，使用预设映射
+        if not cleaned.strip() or cleaned == key:
+            # 常见 emoji key 映射
+            key_map = {
+                '📚选题库': 'topic_library',
+                '📊数据': 'data',
+                '📈统计': 'statistics',
+                '🔢计数': 'count',
+                '✅成功': 'success',
+                '❌失败': 'failed',
+            }
+            if key in key_map:
+                return key_map[key]
+            # 移除所有非ASCII字符
+            cleaned = key.encode('ascii', 'ignore').decode('ascii')
+        
+        return cleaned.strip() if cleaned else key
+
     def _validate_and_fill(self, result: Dict) -> Dict:
         """验证并补充选题库"""
         default = self._get_default_library()
 
+        # 处理可能的 key 变化
+        if 'topics' not in result:
+            # 可能用其他 key 名（如 normalized 后的）
+            for key in ['topics', '选题库', 'topic_list', 'items']:
+                if key in result:
+                    result['topics'] = result.pop(key)
+                    break
+        
         if 'topics' not in result or not result['topics']:
+            result['topics'] = default['topics']
+
+        # 确保 topics 是列表
+        if not isinstance(result['topics'], list):
             result['topics'] = default['topics']
 
         # 补充缺失字段
         for topic in result['topics']:
+            if not isinstance(topic, dict):
+                continue
             if 'type_key' not in topic:
-                topic['type_key'] = topic.get('type', 'unknown')
+                topic['type_key'] = topic.get('type', topic.get('分类', 'unknown'))
             if 'priority' not in topic:
-                topic['priority'] = 'P2'
+                topic['priority'] = topic.get('优先级', 'P2')
+            if 'type_name' not in topic:
+                topic['type_name'] = topic.get('type_name', topic.get('类型', ''))
 
         if 'by_type' not in result:
             result['by_type'] = self._count_by_type(result['topics'])
@@ -409,6 +549,8 @@ class TopicLibraryGenerator:
     def _count_by_type(self, topics: List[Dict]) -> Dict:
         counts = {}
         for t in topics:
+            if not isinstance(t, dict):
+                continue
             key = t.get('type_key', 'unknown')
             counts[key] = counts.get(key, 0) + 1
         return counts
@@ -416,6 +558,8 @@ class TopicLibraryGenerator:
     def _count_by_priority(self, topics: List[Dict]) -> Dict:
         counts = {'P0': 0, 'P1': 0, 'P2': 0, 'P3': 0}
         for t in topics:
+            if not isinstance(t, dict):
+                continue
             p = t.get('priority', 'P2')
             if p in counts:
                 counts[p] += 1
