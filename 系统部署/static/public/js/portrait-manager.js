@@ -198,9 +198,9 @@ const PortraitManager = {
                             <i class="bi bi-person text-white fs-4"></i>
                         </div>
                         <div class="min-w-0">
-                            <div class="fw-bold text-dark">${this.escapeHtml(p.portrait_name || '用户画像')}</div>
-                            <div class="small text-muted">${this.escapeHtml(p.industry || '')}</div>
-                            <div class="mt-1">
+                            <div class="fw-bold text-dark" id="pm-badge-name-${p.id}">${this.escapeHtml(p.portrait_name || '用户画像')}</div>
+                            <div class="small text-muted" id="pm-badge-industry-${p.id}">${this.escapeHtml(p.industry || '')}</div>
+                            <div class="mt-1" id="pm-badge-container-${p.id}">
                                 ${kwBadge}
                                 ${topicBadge}
                             </div>
@@ -1045,53 +1045,95 @@ const PortraitManager = {
         const d = new Date(expiresAt);
         return d < new Date();
     },
+
+    // 增量更新单个画像的 badge（避免整页重新渲染）
+    _updatePortraitBadges(portraitId) {
+        const p = this._savedPortraits.find(x => x.id === portraitId);
+        if (!p) return;
+
+        const container = document.getElementById(`pm-badge-container-${portraitId}`);
+        if (!container) return;
+
+        let kwCount = 0;
+        if (p.keyword_library && p.keyword_library.categories) {
+            p.keyword_library.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            if (p.keyword_library.blue_ocean) kwCount += p.keyword_library.blue_ocean.length;
+        }
+
+        let topicCount = 0;
+        if (p.topic_library && p.topic_library.topics) {
+            topicCount = p.topic_library.topics.length;
+        }
+
+        let kwBadge = '';
+        if (kwCount > 0) {
+            kwBadge = `<span class="badge bg-info me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})" title="点击查看关键词库">📚 关键词库 ${kwCount} 个</span>`;
+        } else {
+            kwBadge = `<span class="badge bg-secondary me-1">📚 关键词库 生成中...</span>`;
+        }
+
+        let topicBadge = '';
+        if (topicCount > 0) {
+            topicBadge = `<span class="badge bg-success me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})" title="点击查看选题库 Markdown">📋 选题库 ${topicCount} 个</span>`;
+        } else {
+            topicBadge = `<span class="badge bg-secondary me-1">📋 选题库 生成中...</span>`;
+        }
+
+        container.innerHTML = kwBadge + ' ' + topicBadge;
+    },
     
-    // 轮询检查选题库生成状态
+    // 轮询检查选题库生成状态（使用轻量化状态端点）
     _startTopicPolling(portraitId) {
         let attempts = 0;
         const maxAttempts = 30; // 最多30次，每次3秒 = 90秒
-        
+
         const poll = async () => {
             if (attempts >= maxAttempts) {
                 console.log('[PortraitManager] 选题库轮询超时');
                 return;
             }
-            
+
             attempts++;
             console.log(`[PortraitManager] 检查选题库生成状态... (${attempts}/${maxAttempts})`);
-            
-            // 重新加载画像数据
+
             try {
-                const resp = await fetch('/public/api/portraits/saved?include_data=true', { credentials: 'include' });
-                const data = await resp.json();
-                
-                if (data.success) {
-                    const portraits = data.data || [];
-                    const portrait = portraits.find(p => p.id === portraitId);
-                    
-                    if (portrait && portrait.topic_library && portrait.topic_library.topics && portrait.topic_library.topics.length > 0) {
-                        console.log('[PortraitManager] 选题库已生成:', portrait.topic_library.topics.length, '个');
-                        
-                        // 更新本地缓存
+                // 轻量化端点：只返回状态字段，避免加载全部数据
+                const resp = await fetch(`/public/api/portraits/${portraitId}/status`, { credentials: 'include' });
+                const result = await resp.json();
+
+                if (result.success) {
+                    const status = result.data;
+
+                    // 选题库已生成
+                    if (status.topic_library && status.topic_library.topics && status.topic_library.topics.length > 0) {
+                        console.log('[PortraitManager] 选题库已生成:', status.topic_library.topics.length, '个');
+
+                        // 增量更新本地缓存
                         const localPortrait = this._savedPortraits.find(p => p.id === portraitId);
                         if (localPortrait) {
-                            localPortrait.topic_library = portrait.topic_library;
+                            localPortrait.topic_library = status.topic_library;
+                            localPortrait.topic_updated_at = status.topic_updated_at;
                         }
-                        
-                        // 重新渲染卡片
-                        this.renderPortraitCards();
+
+                        // 增量更新 badge（不重新渲染整个页面）
+                        this._updatePortraitBadges(portraitId);
                         showToast('选题库生成完成', 'success');
                         return;
+                    }
+
+                    // 关键词库先生成也可通知用户
+                    if (status.keyword_library && !status.topic_library) {
+                        console.log('[PortraitManager] 关键词库已生成，等待选题库...');
                     }
                 }
             } catch (e) {
                 console.error('[PortraitManager] 轮询失败:', e);
             }
-            
+
             // 继续轮询
             setTimeout(poll, 3000);
         };
-        
+
         // 延迟3秒开始第一次检查
         setTimeout(poll, 3000);
     },

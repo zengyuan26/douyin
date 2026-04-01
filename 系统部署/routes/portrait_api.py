@@ -185,6 +185,30 @@ def get_portrait_detail(user, portrait_id):
     return jsonify({'success': True, 'data': portrait})
 
 
+@portrait_bp.route('/<int:portrait_id>/status', methods=['GET'])
+@login_required
+def get_portrait_status(user, portrait_id):
+    """轻量化状态端点（轮询专用，仅返回生成状态字段）"""
+    owned, portrait = _check_portrait_ownership(portrait_id, user)
+    if not owned:
+        if not portrait:
+            return jsonify({'success': False, 'message': '画像不存在'}), 404
+        return jsonify({'success': False, 'message': '无权访问该画像'}), 403
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': portrait['id'],
+            'keyword_library': portrait.get('keyword_library'),
+            'keyword_updated_at': portrait.get('keyword_updated_at'),
+            'keyword_cache_expires_at': portrait.get('keyword_cache_expires_at'),
+            'topic_library': portrait.get('topic_library'),
+            'topic_updated_at': portrait.get('topic_updated_at'),
+            'topic_cache_expires_at': portrait.get('topic_cache_expires_at'),
+        }
+    })
+
+
 def _check_portrait_ownership(portrait_id, user):
     """检查画像归属，返回 (owned: bool, portrait: dict or None)"""
     portrait = portrait_save_service.get_saved_portrait(portrait_id)
