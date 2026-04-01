@@ -3900,6 +3900,16 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         }
         scenario_text = scenario_map.get(service_scenario, service_scenario)
         aux_parts.append(f"主要服务场景：{scenario_text}")
+
+    # ── 问题挖掘阶段场景约束 ─────────────────────────────────────────────────
+    # 构建纯场景标签（不带数字/体量/规模）
+    scenario_tag = ""
+    if service_scenario and service_scenario != 'other':
+        scenario_tag = f"""
+**主服务场景标签：{scenario_text}**
+- 问题必须绑定此场景，不脱离场景生成
+- 保持普适性，不写具体数字（不说"100桌婚宴""500人食堂"）
+- 详细现状/症状/规模 → 延后到画像环节落地"""
     # 本地城市信息
     if business_range == 'local' and local_city:
         aux_parts.append(f"服务城市：{local_city}")
@@ -4087,6 +4097,13 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 场景细分：每个问题下列出2-3种具体使用场景，帮助后续画像细分。
 
+=== 【问题挖掘阶段场景约束 - 必须遵守】===
+**本阶段只做纯场景标签绑定，不做数字/体量/规模锁定：**
+1. 问题必须绑定传入的「主服务场景」（service_scenario），不能脱离场景乱生成
+2. 问题描述保持普适性，不写具体数字（不说"100桌婚宴""500人食堂"）
+3. 详细现状/症状/细节/规模 → 全部延后到「画像环节」落地
+4. 问题层只输出「这个场景下普遍会遇到什么问题」
+
 === 评分分布参考 ===
 - 如果列出5个问题：极高1-2个、高1-2个、中1个、低0-1个
 - 如果列出6个问题：极高1-2个、高2个、中1-2个、低1个
@@ -4146,6 +4163,8 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 === 待分析业务信息 ===
 请求ID：{_nonce}（每次请求唯一，请务必生成与历史结果不同的问题和关键词）
 业务描述：{business_desc}
+**主服务场景：{service_scenario}（问题必须绑定此场景，不脱离场景生成）**
+{scenario_tag}
 经营范围：{business_range_text}
 经营类型：{business_type_name}
 辅助信息：{aux_section}
