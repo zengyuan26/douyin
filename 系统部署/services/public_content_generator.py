@@ -4501,7 +4501,6 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 if kw and kw not in seen:
                     seen.add(kw)
                     fallback_keywords.append(kw_item)
-            merged_keywords = raw_keywords + fallback_keywords if raw_keywords else fallback_keywords
 
             blue_ocean_keywords = []
             red_ocean_keywords = []
@@ -4542,7 +4541,51 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             ]
             missing_analysis = not market_analysis.get('problem_oriented_keywords')
 
-            if missing_keywords_problems or missing_keywords_concerns or missing_analysis:
+            # 只有当所有字段都完整时才跳过重试
+            validation_passed = not (missing_keywords_problems or missing_keywords_concerns or missing_analysis)
+
+            # 构建 merged_keywords（从各条问题的 problem_keywords 汇总）
+            merged_keywords = market_analysis.get('problem_oriented_keywords') or []
+            for kw_item in all_problem_keywords:
+                kw = kw_item.get('keyword', '') or ''
+                if kw:
+                    # 检查是否已存在
+                    exists = any(
+                        (isinstance(x, dict) and x.get('keyword') == kw) or
+                        (isinstance(x, str) and x == kw)
+                        for x in merged_keywords
+                    )
+                    if not exists:
+                        merged_keywords.append(kw_item)
+
+            # 分离蓝海/红海关键词
+            blue_ocean_keywords = []
+            red_ocean_keywords = []
+            for item in merged_keywords:
+                if isinstance(item, dict):
+                    kw = item.get('keyword') or item.get('kw') or ''
+                    kw_type = item.get('type', '')
+                    if kw and kw_type:
+                        if kw_type == 'blue_ocean':
+                            blue_ocean_keywords.append({'keyword': kw, 'source': item.get('source', kw_type)})
+                        elif kw_type == 'red_ocean':
+                            red_ocean_keywords.append({'keyword': kw, 'source': item.get('source', kw_type)})
+                elif isinstance(item, str) and item:
+                    blue_ocean_keywords.append({'keyword': item, 'source': '未知'})
+
+            normalized_market_analysis = {
+                'market_type': market_analysis.get('market_type', 'mixed'),
+                'market_type_display': market_analysis.get('market_type_display', '待分析'),
+                'competition_level': market_analysis.get('competition_level', 5),
+                'competition_level_display': market_analysis.get('competition_level_display', '待评估'),
+                'blue_ocean_opportunity': market_analysis.get('blue_ocean_opportunity', ''),
+                'red_ocean_features': market_analysis.get('red_ocean_features', []),
+                'problem_oriented_keywords': merged_keywords,
+                'blue_ocean_keywords': blue_ocean_keywords,
+                'red_ocean_keywords': red_ocean_keywords,
+            }
+
+            if not validation_passed:
                 missing_info = []
                 if missing_keywords_problems:
                     missing_info.append(f"user_problem_types缺少problem_keywords: {missing_keywords_problems}")
@@ -4554,7 +4597,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     print(f"[mine_problems_and_generate_personas] 【校验失败，将重试】{'；'.join(missing_info)}")
                     continue
                 else:
-                    print(f"[mine_problems_and_generate_personas] 【校验失败，已达最大重试次数】{'；'.join(missing_info)}")
+                    print(f"[mine_problems_and_generate_personas] 【校验失败，已达最大重试次数，使用兜底数据】{'；'.join(missing_info)}")
 
             final_result = {
                 'success': True,
