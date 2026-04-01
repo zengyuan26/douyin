@@ -1672,3 +1672,63 @@ def api_save_snapshot():
         'snapshot_id': snapshot_id,
         'version': version
     })
+
+
+# =============================================================================
+# 统一关键词库+选题库生成 API
+# =============================================================================
+
+@public_bp.route('/api/library/generate', methods=['POST'])
+def generate_unified_library():
+    """
+    统一生成关键词库 + 选题库
+
+    POST /public/api/library/generate
+    Body: {
+        business_desc: str,        # 核心业务描述
+        service_scenario: str,     # 7大标准场景
+        business_type: str,        # 经营类型（product/personal/local_service/enterprise）
+        problem_list: Dict,        # {user_problem_types, buyer_concern_types}
+        portraits: List,          # 5个精准画像
+        scenario_base_personas: Dict,  # 三层主干人群
+        force_refresh: bool,       # 是否强制刷新（跳过缓存）
+    }
+    """
+    from services.unified_library_generator import unified_library_generator
+    from services.rate_limiter import check_user_generate
+
+    # 获取用户
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    # 检查生成频率限制
+    is_allowed, rate_info = check_user_generate(user.id)
+    if not is_allowed:
+        return jsonify({
+            'success': False,
+            'error': 'rate_limit',
+            'message': f'今日生成次数已用完（{rate_info.get("limit", 0)}次/天）',
+            'quota_info': rate_info,
+        }), 429
+
+    # 获取参数
+    data = request.get_json() or {}
+    params = {
+        'business_desc': data.get('business_desc', ''),
+        'service_scenario': data.get('service_scenario', ''),
+        'business_type': data.get('business_type', 'local_service'),
+        'problem_list': data.get('problem_list', {}),
+        'portraits': data.get('portraits', []),
+        'scenario_base_personas': data.get('scenario_base_personas', {}),
+    }
+    force_refresh = data.get('force_refresh', False)
+
+    # 调用生成器
+    result = unified_library_generator.generate(params, force_refresh)
+
+    if result.get('success'):
+        return jsonify(result)
+    else:
+        return jsonify(result), 500
+
