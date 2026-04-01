@@ -1122,9 +1122,14 @@
                                     <div class="accordion-body pt-3">
                                         <div class="row g-3">
                                             <div class="col-12">
-                                                <label class="form-label">描述您的业务 <span class="text-danger">*</span></label>
-                                                <textarea class="form-control" id="business-desc" rows="4"
-                                                          placeholder="例如：我经营一家桶装水配送服务，主要客户是写字楼和企业客户..."></textarea>
+                                                <label class="form-label">核心业务 <span class="text-danger">*</span></label>
+                                                <input type="text" 
+                                                       class="form-control" 
+                                                       id="business-desc" 
+                                                       maxlength="25"
+                                                       placeholder="请输入你的1个核心业务，例如：餐盘无痕修复、家具翻新、门窗维修">
+                                                <div class="form-text text-muted">仅填写1个主营服务，不写城市、不写广告语、不写多个业务</div>
+                                                <div class="invalid-feedback" id="business-desc-error"></div>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">经营范围 <span class="text-danger">*</span></label>
@@ -1868,7 +1873,93 @@
                 });
             });
         }
+
+        // 核心业务校验
+        const FORBIDDEN_CITIES = ["昆明","北京","上海","广州","深圳","成都","重庆","杭州","西安","武汉","长沙","青岛","郑州","南京","济南","合肥","福州","厦门","天津","沈阳","大连","哈尔滨","长春","南昌","南宁","贵阳","昆明","拉萨","兰州","西宁","银川","乌鲁木齐","呼和浩特","石家庄","唐山","保定","邯郸","苏州","无锡","常州","南通","徐州","宁波","温州","嘉兴","绍兴","金华","台州","泉州","九江","赣州","威海","烟台","潍坊","淄博","临沂","洛阳","开封","新乡","焦作","襄阳","荆州","宜昌","岳阳","衡阳","珠海","中山","东莞","佛山","汕头","湛江","海口","三亚","三亚"];
+        const FORBIDDEN_ADS = ["专业","靠谱","高效","最好","顶级","低价","便宜","上门","同城","本地","优质","全新","正规","实惠","金牌","领先","卓越","放心","诚信","专业团队","经验丰富","价格合理","服务周到","品质保证"];
+        const FORBIDDEN_SPLITS = ["+","/","&","和","与","及","一起"];
+
+        function validateCoreBusiness(value) {
+            const trimmed = value.trim();
+            const errors = [];
+
+            if (trimmed.length === 0) {
+                return { valid: false, message: '请输入核心业务' };
+            }
+            if (trimmed.length < 6) {
+                return { valid: false, message: '业务描述太短，请输入6字以上，清晰说明你的服务' };
+            }
+            if (trimmed.length > 20) {
+                return { valid: false, message: '业务描述不能超过20字，简洁写1个主营项目即可' };
+            }
+            // 检查城市名
+            for (const city of FORBIDDEN_CITIES) {
+                if (trimmed.includes(city)) {
+                    return { valid: false, message: '此处不要写城市，城市有专门填写位置' };
+                }
+            }
+            // 检查广告词
+            for (const ad of FORBIDDEN_ADS) {
+                if (trimmed.includes(ad)) {
+                    return { valid: false, message: '请勿填写宣传词（专业/靠谱/高效等），只写业务本身' };
+                }
+            }
+            // 检查多业务分隔符
+            for (const split of FORBIDDEN_SPLITS) {
+                if (trimmed.includes(split)) {
+                    return { valid: false, message: '请只填写1个核心业务，不要填写多个服务' };
+                }
+            }
+            return { valid: true, message: '' };
+        }
+
+        function showBusinessDescError(msg) {
+            const input = document.getElementById('business-desc');
+            const errorEl = document.getElementById('business-desc-error');
+            if (input) {
+                input.classList.add('is-invalid');
+                input.classList.remove('is-valid');
+            }
+            if (errorEl) {
+                errorEl.textContent = msg;
+            }
+        }
+
+        function clearBusinessDescError() {
+            const input = document.getElementById('business-desc');
+            const errorEl = document.getElementById('business-desc-error');
+            if (input) {
+                input.classList.remove('is-invalid');
+            }
+            if (errorEl) {
+                errorEl.textContent = '';
+            }
+        }
+
+        function initCoreBusinessValidation() {
+            const input = document.getElementById('business-desc');
+            if (!input) return;
+
+            // 实时校验（输入时）
+            input.addEventListener('input', function() {
+                const result = validateCoreBusiness(this.value);
+                if (this.value.trim().length > 0 && !result.valid) {
+                    showBusinessDescError(result.message);
+                } else {
+                    clearBusinessDescError();
+                }
+            });
+
+            // 失焦校验
+            input.addEventListener('blur', function() {
+                const result = validateCoreBusiness(this.value);
+                if (!result.valid && this.value.trim().length > 0) {
+                    showBusinessDescError(result.message);
+                }
+            });
+        }
         document.addEventListener('DOMContentLoaded', initBusinessRangeToggle);
+        document.addEventListener('DOMContentLoaded', initCoreBusinessValidation);
 
         // 服务场景切换：选择"其他"时显示补充输入框，选固定项时锁定人群库提示
         function handleServiceScenarioChange() {
@@ -1944,8 +2035,10 @@
             const otherScenario = document.getElementById('other-scenario-input')?.value?.trim() || '';
             const localCity = document.getElementById('local-city')?.value?.trim() || '';
 
-            if (!businessDesc) {
-                alert('请描述您的业务');
+            // 核心业务校验
+            const validation = validateCoreBusiness(businessDesc);
+            if (!validation.valid) {
+                showBusinessDescError(validation.message);
                 document.getElementById('business-desc').focus();
                 return;
             }
