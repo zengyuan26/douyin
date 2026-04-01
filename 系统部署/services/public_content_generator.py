@@ -3478,9 +3478,84 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         keyword_filter_context = ""
         question_guide_context = ""
 
+    # Few-shot 分行业：非「本地服务」时若仍用家政长示例，模型极易照抄「保姆/保洁/雇主」等词到奶粉等业务里
+    if business_type == 'local_service':
+        few_shot_section = """
+=== 示例：家政服务（仅当经营类型为本地服务时参考此套措辞）===
+业务：日常家政服务（保洁、保姆、月嫂、收纳等服务）
+
+输出示例（极高1个、高1个、中1个、付费方2个）：
+{
+    "market_analysis": {
+        "market_type": "mixed",
+        "market_type_display": "红海中的蓝海",
+        "competition_level": 7,
+        "competition_level_display": "竞争激烈",
+        "blue_ocean_opportunity": "差异化服务：专业甲醛治理/老人陪护/过敏家庭专护",
+        "red_ocean_features": ["传统保洁竞争白热化", "价格战激烈", "大型家政平台垄断流量"],
+        "problem_oriented_keywords": [
+            {"keyword": "甲醛治理哪家靠谱", "type": "blue_ocean", "source": "场景痛点词"},
+            {"keyword": "新房怎么去甲醛最快", "type": "blue_ocean", "source": "长尾转化词"},
+            {"keyword": "家政保洁多少钱一小时", "type": "red_ocean", "source": "用户需求词"},
+            {"keyword": "过敏宝宝家里怎么清洁", "type": "blue_ocean", "source": "场景痛点词"},
+            {"keyword": "老人陪护服务哪里找", "type": "blue_ocean", "source": "长尾转化词"},
+            {"keyword": "成都武侯区专业家政保洁推荐", "type": "red_ocean", "source": "地域精准词"},
+            {"keyword": "专业除螨服务一次多少钱", "type": "red_ocean", "source": "用户需求词"},
+            {"keyword": "XX保洁公司正规吗", "type": "red_ocean", "source": "品牌核心词"}
+        ]
+    },
+    "user_problem_types": [
+        {"identity": "有老人的家庭", "problem_type": "老人独居风险", "display_name": "老人独自在家风险", "description": "摔倒没人发现、晚上无人陪伴、突发疾病", "severity": "极高", "scenarios": ["老人洗澡时摔倒", "晚上独自在家", "子女上班不在家"], "market_type": "blue_ocean", "market_reason": "细分人群+极高严重性", "problem_keywords": [{"keyword": "独居老人在家摔倒了没人发现怎么办", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "老人独自在家突发疾病怎么急救", "type": "blue_ocean", "source": "长尾转化词"}]},
+        {"identity": "有娃家庭", "problem_type": "家居卫生问题", "display_name": "家里清洁不到位", "description": "孩子反复生病、过敏起疹子、螨虫困扰", "severity": "高", "scenarios": ["流感季节孩子生病", "床品螨虫过敏", "沙发清洁不彻底"], "market_type": "blue_ocean", "market_reason": "细分人群+高严重性", "problem_keywords": [{"keyword": "过敏宝宝家里怎么除螨最有效", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "孩子反复生病是不是家里不干净", "type": "blue_ocean", "source": "长尾转化词"}]},
+        {"identity": "双职工家庭", "problem_type": "家务堆积", "display_name": "工作忙没时间打扫", "description": "家务太多做不完、没时间收拾", "severity": "中", "scenarios": ["早上赶着上班", "加班到很晚", "周末想休息"], "market_type": "red_ocean", "market_reason": "大众人群+中等严重性", "problem_keywords": [{"keyword": "家政保洁多少钱一小时", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "成都武侯区家政保洁推荐", "type": "red_ocean", "source": "地域精准词"}]}
+    ],
+    "buyer_concern_types": [
+        {"identity": "雇主", "concern_type": "服务信任问题", "display_name": "怕服务人员不靠谱", "description": "怕遇到偷东西/虐童/虐待老人", "examples": ["新闻里的负面案例", "网上搜到的投诉"], "market_type": "blue_ocean", "market_reason": "信任痛点+细分人群", "problem_keywords": [{"keyword": "保姆虐童事件频发怎么筛选靠谱", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "家政公司有资质审查吗", "type": "blue_ocean", "source": "长尾转化词"}]},
+        {"identity": "雇主", "concern_type": "服务效果问题", "display_name": "怕花了钱没效果", "description": "阿姨走了还是脏的、说好的深度清洁就擦擦灰", "examples": ["清洁不到位", "敷衍了事"], "market_type": "red_ocean", "market_reason": "普遍顾虑+大众需求", "problem_keywords": [{"keyword": "深度清洁和普通保洁有什么区别", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "XX保洁公司正规吗", "type": "red_ocean", "source": "品牌核心词"}]}
+    ]
+}
+"""
+    else:
+        few_shot_section = f"""
+=== 示例：消费品/非本地服务（结构与字段必填项参考；问句须围绕「{product_name}」与上方业务描述）===
+业务：经营与销售「{product_name}」（对照真实业务描述，勿套用家政行业）
+
+输出示例（极高1个、高1个、中1个、购买者顾虑2个）：
+{{
+    "market_analysis": {{
+        "market_type": "mixed",
+        "market_type_display": "红海中的蓝海",
+        "competition_level": 7,
+        "competition_level_display": "竞争激烈",
+        "blue_ocean_opportunity": "（一句话写当前业务的差异化机会，勿写保洁家政）",
+        "red_ocean_features": ["（2-3条与当前行业相关的红海特征）"],
+        "problem_oriented_keywords": [
+            {{"keyword": "第一次买{product_name}怎么避坑", "type": "blue_ocean", "source": "场景痛点词"}},
+            {{"keyword": "{product_name}质量好不好怎么看", "type": "blue_ocean", "source": "长尾转化词"}},
+            {{"keyword": "{product_name}哪个牌子性价比高", "type": "red_ocean", "source": "用户需求词"}},
+            {{"keyword": "线上买{product_name}会买到假货吗", "type": "blue_ocean", "source": "场景痛点词"}},
+            {{"keyword": "换季选{product_name}要注意什么", "type": "blue_ocean", "source": "长尾转化词"}},
+            {{"keyword": "{product_name}一般多少钱算正常", "type": "red_ocean", "source": "用户需求词"}},
+            {{"keyword": "同城{product_name}配送哪家好", "type": "red_ocean", "source": "地域精准词"}},
+            {{"keyword": "XX品牌{product_name}正规吗", "type": "red_ocean", "source": "品牌核心词"}}
+        ]
+    }},
+    "user_problem_types": [
+        {{"identity": "核心人群A", "problem_type": "体验与效果", "display_name": "使用体验不理想", "description": "效果慢、不适、反复、与预期不符", "severity": "高", "scenarios": ["初次使用", "换新款", "季节变化"], "market_type": "blue_ocean", "market_reason": "细分人群", "problem_keywords": [{{"keyword": "用{product_name}没效果怎么办", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "{product_name}用了不舒服要停吗", "type": "blue_ocean", "source": "长尾转化词"}}]}},
+        {{"identity": "核心人群B", "problem_type": "选择与决策", "display_name": "不知道选哪款", "description": "参数多、预算有限、怕买错", "severity": "中", "scenarios": ["大促比价", "送礼", "给家人选购"], "market_type": "blue_ocean", "market_reason": "长尾", "problem_keywords": [{{"keyword": "{product_name}怎么选适合自己", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "预算有限{product_name}怎么选", "type": "blue_ocean", "source": "长尾转化词"}}]}},
+        {{"identity": "忙碌型用户", "problem_type": "时间与便利", "display_name": "没空研究没空买", "description": "没时间做功课、怕麻烦、想省事", "severity": "中", "scenarios": ["加班", "出差", "带娃"], "market_type": "red_ocean", "market_reason": "普遍痛点", "problem_keywords": [{{"keyword": "{product_name}有没有送货上门", "type": "red_ocean", "source": "用户需求词"}}, {{"keyword": "附近哪里买{product_name}方便", "type": "red_ocean", "source": "地域精准词"}}]}}
+    ],
+    "buyer_concern_types": [
+        {{"identity": "购买者", "concern_type": "信任与渠道", "display_name": "怕假货怕买错渠道", "description": "怕假、怕串货、怕售后无保障", "examples": ["网购不放心", "小店不敢买"], "market_type": "blue_ocean", "market_reason": "信任成本", "problem_keywords": [{{"keyword": "怎么验{product_name}真假", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "{product_name}官方授权怎么查", "type": "blue_ocean", "source": "长尾转化词"}}]}},
+        {{"identity": "购买者", "concern_type": "性价比", "display_name": "怕买贵怕踩雷", "description": "活动价混乱、同款不同价", "examples": ["大促规则复杂"], "market_type": "red_ocean", "market_reason": "比价", "problem_keywords": [{{"keyword": "{product_name}正常价位多少", "type": "red_ocean", "source": "用户需求词"}}, {{"keyword": "{product_name}和大牌差别在哪", "type": "red_ocean", "source": "用户需求词"}}]}}
+    ]
+}}
+"""
+
     prompt = f"""你是用户问题分析专家。请根据业务信息，识别使用者/付费者的问题类型和严重程度，并分析市场机会。
 
-【重要】先仔细阅读以下示例，理解输出格式，然后基于业务信息生成。
+【重要】下方示例**只用于对齐 JSON 字段名与嵌套结构**；所有 identity、description、problem_keywords、market_analysis 里的具体措辞必须严格来自「待分析业务信息」中的业务描述与经营类型。
+【禁止照抄错行业】当前经营类型为「{business_type_text}」。若非家政保洁类业务，输出中**严禁**出现与业务无关的家政词：家政、保洁、保姆、月嫂、雇主、虐童、虐待老人、深度清洁、阿姨、除螨（除非业务描述明确提供该类服务）。
 
 === 【绝对必填字段，缺少任意一项本次输出作废】 ===
 1. **market_analysis** 必须包含：
@@ -3495,40 +3570,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
    - **problem_keywords（数组，每条至少2个）**
    - market_type / market_reason
 4. 只输出 JSON，不要任何解释文字。
-=== 示例：家政服务 ===
-业务：日常家政服务（保洁、保姆、月嫂、收纳等服务）
-
-输出示例（极高1个、高1个、中1个、付费方2个）：
-{{
-    "market_analysis": {{
-        "market_type": "mixed",
-        "market_type_display": "红海中的蓝海",
-        "competition_level": 7,
-        "competition_level_display": "竞争激烈",
-        "blue_ocean_opportunity": "差异化服务：专业甲醛治理/老人陪护/过敏家庭专护",
-        "red_ocean_features": ["传统保洁竞争白热化", "价格战激烈", "大型家政平台垄断流量"],
-        "problem_oriented_keywords": [
-            {{"keyword": "甲醛治理哪家靠谱", "type": "blue_ocean", "source": "场景痛点词"}},
-            {{"keyword": "新房怎么去甲醛最快", "type": "blue_ocean", "source": "长尾转化词"}},
-            {{"keyword": "家政保洁多少钱一小时", "type": "red_ocean", "source": "用户需求词"}},
-            {{"keyword": "过敏宝宝家里怎么清洁", "type": "blue_ocean", "source": "场景痛点词"}},
-            {{"keyword": "老人陪护服务哪里找", "type": "blue_ocean", "source": "长尾转化词"}},
-            {{"keyword": "成都武侯区专业家政保洁推荐", "type": "red_ocean", "source": "地域精准词"}},
-            {{"keyword": "专业除螨服务一次多少钱", "type": "red_ocean", "source": "用户需求词"}},
-            {{"keyword": "XX保洁公司正规吗", "type": "red_ocean", "source": "品牌核心词"}}
-        ]
-    }},
-    "user_problem_types": [
-        {{"identity": "有老人的家庭", "problem_type": "老人独居风险", "display_name": "老人独自在家风险", "description": "摔倒没人发现、晚上无人陪伴、突发疾病", "severity": "极高", "scenarios": ["老人洗澡时摔倒", "晚上独自在家", "子女上班不在家"], "market_type": "blue_ocean", "market_reason": "细分人群+极高严重性", "problem_keywords": [{{"keyword": "独居老人在家摔倒了没人发现怎么办", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "老人独自在家突发疾病怎么急救", "type": "blue_ocean", "source": "长尾转化词"}}]}},
-        {{"identity": "有娃家庭", "problem_type": "家居卫生问题", "display_name": "家里清洁不到位", "description": "孩子反复生病、过敏起疹子、螨虫困扰", "severity": "高", "scenarios": ["流感季节孩子生病", "床品螨虫过敏", "沙发清洁不彻底"], "market_type": "blue_ocean", "market_reason": "细分人群+高严重性", "problem_keywords": [{{"keyword": "过敏宝宝家里怎么除螨最有效", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "孩子反复生病是不是家里不干净", "type": "blue_ocean", "source": "长尾转化词"}}]}},
-        {{"identity": "双职工家庭", "problem_type": "家务堆积", "display_name": "工作忙没时间打扫", "description": "家务太多做不完、没时间收拾", "severity": "中", "scenarios": ["早上赶着上班", "加班到很晚", "周末想休息"], "market_type": "red_ocean", "market_reason": "大众人群+中等严重性", "problem_keywords": [{{"keyword": "家政保洁多少钱一小时", "type": "red_ocean", "source": "用户需求词"}}, {{"keyword": "成都武侯区家政保洁推荐", "type": "red_ocean", "source": "地域精准词"}}]}}
-    ],
-    "buyer_concern_types": [
-        {{"identity": "雇主", "concern_type": "服务信任问题", "display_name": "怕服务人员不靠谱", "description": "怕遇到偷东西/虐童/虐待老人", "examples": ["新闻里的负面案例", "网上搜到的投诉"], "market_type": "blue_ocean", "market_reason": "信任痛点+细分人群", "problem_keywords": [{{"keyword": "保姆虐童事件频发怎么筛选靠谱", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "家政公司有资质审查吗", "type": "blue_ocean", "source": "长尾转化词"}}]}},
-        {{"identity": "雇主", "concern_type": "服务效果问题", "display_name": "怕花了钱没效果", "description": "阿姨走了还是脏的、说好的深度清洁就擦擦灰", "examples": ["清洁不到位", "敷衍了事"], "market_type": "red_ocean", "market_reason": "普遍顾虑+大众需求", "problem_keywords": [{{"keyword": "深度清洁和普通保洁有什么区别", "type": "red_ocean", "source": "用户需求词"}}, {{"keyword": "XX保洁公司正规吗", "type": "red_ocean", "source": "品牌核心词"}}]}}
-    ]
-}}
-
+{few_shot_section}
 === 问题类型格式要求（重要） ===
 **problem_type（问题类型）**：必须具备总结性，是抽象归纳的类别名
 - ✅ 正确："肠道问题"、"过敏问题"、"发育问题"、"老人独居风险"

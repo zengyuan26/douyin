@@ -609,6 +609,18 @@ def init_preset_data():
         init_content_templates()
         init_title_templates()
         init_tag_templates()
+
+        # 初始化公开平台模板（关键词库/选题库模板 + 变量）
+        # 如需重新导入 geo-seo skill 模板，执行：
+        # from migrations.init_public_template_data import run; run()
+        try:
+            from migrations.init_public_template_data import import_geo_seo_templates, init_default_variables
+            import_geo_seo_templates()
+            init_default_variables()
+            print("[Init] 公开平台模板初始化完成")
+        except Exception as e:
+            print(f"[Init] 公开平台模板初始化跳过: {e}")
+
     print("[Init] 预设数据初始化完成！")
 
 

@@ -99,66 +99,6 @@
     
     <div class="knowledge-cards-container">
         <div class="knowledge-cards-grid knowledge-entry-cards">
-            <!-- 知识库 -->
-            <div>
-                <a href="{{ url_for('admin.knowledge') }}" class="text-decoration-none">
-                    <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #ffc107;">
-                        <div class="card-body py-4 d-flex flex-column align-items-center justify-content-center text-center">
-                            <div class="stat-icon mb-3">
-                                <i class="bi bi-book"></i>
-                            </div>
-                            <h6 class="mb-1 w-100">知识库</h6>
-                            <p class="text-muted mb-0 small w-100">爆款拆解/方法论/规则库</p>
-                        </div>
-                    </div>
-                </a>
-            </div>
-
-            <!-- 渠道管理 -->
-            <div>
-                <a href="{{ url_for('admin.clients') }}" class="text-decoration-none">
-                    <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #17a2b8;">
-                        <div class="card-body py-4 d-flex flex-column align-items-center justify-content-center text-center">
-                            <div class="stat-icon mb-3">
-                                <i class="bi bi-person-badge"></i>
-                            </div>
-                            <h6 class="mb-1 w-100">渠道管理</h6>
-                            <p class="text-muted mb-0 small w-100">管理渠道与账号信息</p>
-                        </div>
-                    </div>
-                </a>
-            </div>
-
-            <!-- 客户管理 -->
-            <div>
-                <a href="{{ url_for('admin.clients') }}" class="text-decoration-none">
-                    <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #28a745;">
-                        <div class="card-body py-4 d-flex flex-column align-items-center justify-content-center text-center">
-                            <div class="stat-icon mb-3">
-                                <i class="bi bi-building"></i>
-                            </div>
-                            <h6 class="mb-1 w-100">客户管理</h6>
-                            <p class="text-muted mb-0 small w-100">管理企业客户信息</p>
-                        </div>
-                    </div>
-                </a>
-            </div>
-
-            <!-- 专家管理 -->
-            <div>
-                <a href="{{ url_for('admin.experts') }}" class="text-decoration-none">
-                    <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #007bff;">
-                        <div class="card-body py-4 d-flex flex-column align-items-center justify-content-center text-center">
-                            <div class="stat-icon mb-3">
-                                <i class="bi bi-robot"></i>
-                            </div>
-                            <h6 class="mb-1 w-100">专家管理</h6>
-                            <p class="text-muted mb-0 small w-100">管理AI专家角色配置</p>
-                        </div>
-                    </div>
-                </a>
-            </div>
-
             <!-- 模板管理 -->
             <div>
                 <a href="{{ url_for('admin.templates', type='report') }}" class="text-decoration-none">
@@ -174,7 +114,7 @@
                 </a>
             </div>
 
-            <!-- 公开用户管理 -->
+            <!-- 客户管理 -->
             <div>
                 <a href="{{ url_for('admin.public_users') }}" class="text-decoration-none">
                     <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #e91e63;">
@@ -182,8 +122,8 @@
                             <div class="stat-icon mb-3">
                                 <i class="bi bi-people"></i>
                             </div>
-                            <h6 class="mb-1 w-100">公开用户</h6>
-                            <p class="text-muted mb-0 small w-100">公开平台用户/套餐/配额</p>
+                            <h6 class="mb-1 w-100">客户管理</h6>
+                            <p class="text-muted mb-0 small w-100">客户账号/套餐/配额</p>
                         </div>
                     </div>
                 </a>
@@ -218,6 +158,22 @@
                     </div>
                 </a>
             </div>
+
+            <!-- 分析维度管理 -->
+            <div>
+                <a href="{{ url_for('admin.analysis_dimensions_page') }}" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #17a2b8;">
+                        <div class="card-body py-4 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="stat-icon mb-3">
+                                <i class="bi bi-grid"></i>
+                            </div>
+                            <h6 class="mb-1 w-100">分析维度管理</h6>
+                            <p class="text-muted mb-0 small w-100">配置爆款拆解维度</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
         </div>
     </div>
 

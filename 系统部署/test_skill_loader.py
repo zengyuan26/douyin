@@ -88,7 +88,7 @@ def test_skill_loader():
     print("=" * 60)
 
     client_info = {
-        'client_name': '龙眼山矿泉水',
+        'client_name': '龙眼山天然涌泉',
         'industry': '食品饮料',
         'business_description': '桶装水批发配送',
         'business_type': '卖货类',

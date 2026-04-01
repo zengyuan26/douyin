@@ -478,26 +478,6 @@
                 <span class="logo-text">AI棱镜</span>
             </a>
             
-            <!-- 客户端切换（管理中心不显示） -->
-            {% if session.get('current_client_name') and not (hide_client_switcher|default(false)) and not (request.endpoint and 'admin' in request.endpoint) %}
-            <div class="dropdown client-dropdown me-3">
-                <button class="btn dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown">
-                    <i class="bi bi-building me-2"></i>
-                    {{ session.get('current_client_name') }}
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><h6 class="dropdown-header">切换客户</h6></li>
-                    {% if current_user.role in ('super_admin', 'admin') %}
-                    {% for client in current_user.created_clients.limit(10).all() %}
-                    <li><a class="dropdown-item" href="{{ url_for('main.client_select', id=client.id) }}"><i class="bi bi-building"></i>{{ client.name }}</a></li>
-                    {% endfor %}
-                    {% endif %}
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{{ url_for('main.clients') }}"><i class="bi bi-plus-circle"></i> 管理客户</a></li>
-                </ul>
-            </div>
-            {% endif %}
-            
             <!-- 导航折叠按钮 -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border: none; padding: 8px;">
                 <i class="bi bi-list"></i>

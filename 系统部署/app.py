@@ -97,6 +97,14 @@ def create_app(config_name='default'):
     except Exception as e:
         logging.warning(f"人群画像 API 注册失败: {e}")
 
+    # 注册画像管理 API（保存/缓存/频率控制）
+    try:
+        from routes.portrait_api import portrait_bp as portrait_api_blueprint
+        app.register_blueprint(portrait_api_blueprint)
+        logging.info("画像管理 API 已注册")
+    except Exception as e:
+        logging.warning(f"画像管理 API 注册失败: {e}")
+
     # 初始化公开平台缓存预热
     try:
         from services.public_cache import public_cache
@@ -118,6 +126,8 @@ def create_app(config_name='default'):
             scheduler_service.start()
             # 默认添加每日凌晨2点备份
             scheduler_service.add_daily_backup(hour=2, minute=0)
+            # 每日凌晨3:30清理过期缓存
+            scheduler_service.add_cache_cleanup(hour=3, minute=30)
             logging.info("定时备份服务已启动")
         except Exception as e:
             logging.warning(f"定时备份服务启动失败: {e}")

@@ -96,5 +96,31 @@ class SchedulerService:
         """立即触发一次备份"""
         return self.backup_service.create_backup()
 
+    def add_cache_cleanup(self, hour: int = 3, minute: int = 30):
+        """
+        添加每日缓存清理任务（凌晨3:30执行）
+        清理过期的关键词库/选题库缓存
+        """
+        def _cleanup():
+            # 动态导入 app 以避免循环依赖
+            from app import app
+            with app.app_context():
+                try:
+                    from services.portrait_cache_service import portrait_cache_service
+                    deleted = portrait_cache_service.cleanup_expired_cache()
+                    logger.info(f"[Scheduler] 清理过期缓存: 删除了 {deleted} 条")
+                except Exception as e:
+                    logger.error(f"[Scheduler] 缓存清理失败: {e}")
+
+        job = self._scheduler.add_job(
+            _cleanup,
+            CronTrigger(hour=hour, minute=minute),
+            id='cache_cleanup',
+            name='每日缓存清理',
+            replace_existing=True
+        )
+        logger.info(f"已添加缓存清理任务: {hour:02d}:{minute:02d}")
+        return job
+
 
 scheduler_service = SchedulerService()

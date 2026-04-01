@@ -25,8 +25,8 @@ class QuotaManager:
             'overage_price': 0,      # 免费用户不支持超量
             'ai_enhancement': False,  # 不支持AI增强内容
             'ai_target_enhancement': False,  # 不支持AI增强目标用户画像
-            'save_portraits': False,  # 不支持保存画像
-            'max_saved_portraits': 0,
+            'save_portraits': True,  # 支持保存画像（最多1个）
+            'max_saved_portraits': 1,
             'weekly_portrait_changes': 0,
         },
         'basic': {
@@ -236,6 +236,9 @@ class QuotaManager:
         """获取用户功能权限"""
         plan_config = cls.get_plan_config(user.premium_plan)
 
+        # 从数据库获取画像保存配额（支持后台动态配置）
+        max_saved = cls._get_portrait_quota(user.premium_plan)
+        
         return {
             'ai_enhancement': plan_config.get('ai_enhancement', False),
             'structure_options': plan_config.get('structure_options', 2),
@@ -245,11 +248,76 @@ class QuotaManager:
             'image_ratios': plan_config.get('image_ratios', ['9:16']),
             'api_access': plan_config.get('api_access', False),
             'priority_support': plan_config.get('priority_support', False),
-            # 画像保存功能
-            'save_portraits': plan_config.get('save_portraits', False),
-            'max_saved_portraits': plan_config.get('max_saved_portraits', 0),
+            # 画像保存功能（从数据库动态读取）
+            'save_portraits': max_saved > 0,
+            'max_saved_portraits': max_saved,
             'weekly_portrait_changes': plan_config.get('weekly_portrait_changes', 0),
         }
+
+    @classmethod
+    def _get_portrait_quota(cls, plan: str) -> int:
+        """从数据库获取画像保存配额，没有配置则返回默认值"""
+        try:
+            from models.models import db as app_db
+            from sqlalchemy import text
+            result = app_db.session.execute(
+                text("SELECT max_saved FROM portrait_quota_config WHERE plan_name = :plan"),
+                {'plan': plan}
+            ).fetchone()
+            if result:
+                return result[0] or 0
+        except Exception:
+            pass
+        # 回退到代码默认值
+        return cls.PLAN_CONFIG.get(plan, {}).get('max_saved_portraits', 0)
+
+    @classmethod
+    def get_all_portrait_quotas(cls) -> dict:
+        """获取所有方案的画像保存配额配置"""
+        quotas = {}
+        try:
+            from models.models import db as app_db
+            from sqlalchemy import text
+            results = app_db.session.execute(
+                text("SELECT plan_name, max_saved, description FROM portrait_quota_config ORDER BY id")
+            ).fetchall()
+            for r in results:
+                quotas[r[0]] = {
+                    'max_saved': r[1],
+                    'description': r[2]
+                }
+        except Exception:
+            pass
+        # 合并默认值
+        for plan, config in cls.PLAN_CONFIG.items():
+            if plan not in quotas:
+                quotas[plan] = {
+                    'max_saved': config.get('max_saved_portraits', 0),
+                    'description': ''
+                }
+        return quotas
+
+    @classmethod
+    def update_portrait_quota(cls, plan: str, max_saved: int) -> bool:
+        """更新方案画像保存配额"""
+        try:
+            from models.models import db as app_db
+            from sqlalchemy import text
+            app_db.session.execute(
+                text("""
+                    INSERT INTO portrait_quota_config (plan_name, max_saved, updated_at)
+                    VALUES (:plan, :max_saved, CURRENT_TIMESTAMP)
+                    ON CONFLICT(plan_name) DO UPDATE SET
+                        max_saved = :max_saved,
+                        updated_at = CURRENT_TIMESTAMP
+                """),
+                {'plan': plan, 'max_saved': max_saved}
+            )
+            app_db.session.commit()
+            return True
+        except Exception as e:
+            print(f"[QuotaManager] 更新画像配额失败: {e}")
+            return False
 
 
 # 全局实例

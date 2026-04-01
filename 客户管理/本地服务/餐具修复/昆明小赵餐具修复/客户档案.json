@@ -1,0 +1,147 @@
+{
+  "client_id": "CLIENT-本地服务-20260323-KM",
+  "client_name": "昆明小赵餐具修复",
+  "industry": "本地服务",
+  "sub_industry": "餐具修复/文物修复",
+  "created_at": "2026-03-23",
+  "updated_at": "2026-03-29",
+  "product_type": "瓷器修复服务",
+  "product_type_detail": {
+    "core_focus": "瓷器修复（裂纹、破损、缺口等）",
+    "features": [
+      "无痕修复",
+      "上门取送",
+      "昆明市区服务",
+      "酒店/宴会厅批量修复",
+      "婚庆瓷器紧急修复",
+      "传家宝情感修复"
+    ],
+    "service_area": ["昆明市"],
+    "service_scope": ["酒店", "宴会厅", "婚庆公司", "餐饮企业", "家庭用户"],
+    "pricing": {
+      "comparison": "比换新便宜50%-80%"
+    }
+  },
+  "market_focus": {
+    "niche": "昆明本地瓷器修复专家",
+    "target_customer": "酒店/宴会厅（降本）+ 婚庆公司（紧急）+ 餐饮企业（日常）+ 家庭用户（情感）",
+    "target_customer_detail": {
+      "酒店/宴会厅": "瓷器损耗大，换新成本高，需要上门取送服务",
+      "婚庆公司": "婚礼瓷器易损坏，需要快速响应",
+      "餐饮企业": "后厨日常损耗，需要长期合作",
+      "家庭用户": "传家宝/纪念品，情感寄托"
+    },
+    "customer_trait": "注重成本控制、情感价值、便捷服务",
+    "market_trend": {
+      "态势": "蓝海市场，竞争者少",
+      "进入门槛": "中等，需要专业技术",
+      "竞争程度": "低，昆明本地专业从业者少"
+    },
+    "differentiation": [
+      "昆明本地瓷器修复专家",
+      "上门取送服务（差异化卖点）",
+      "价格比换新便宜50%-80%",
+      "专精瓷器，更专业",
+      "云南方言讲解，亲和力强"
+    ]
+  },
+  "owner_info": {
+    "name": "小赵",
+    "gender": "男",
+    "age": "约40岁",
+    "hometown": "昆明",
+    "business_location": "昆明"
+  },
+  "basic_info": {
+    "client_type": "service",
+    "geographic_scope": "local",
+    "brand_type": "personal",
+    "description": "昆明本地瓷器修复专家，上门取送，比换新便宜50%-80%，专精瓷器修复",
+    "target_cities": ["昆明"],
+    "language_style": "云南方言/昆明话"
+  },
+  "contact": {
+    "owner": "小赵",
+    "phone": "电话",
+    "wechat": "微信"
+  },
+  "brand": {
+    "brand_name": "昆明小赵餐具修复",
+    "slogan": "瓷器碎了别扔，小赵帮你修",
+    "core_advantage": "昆明本地+上门取送+比换新便宜+无痕修复",
+    "logo": {
+      "has": false,
+      "path": "品牌资料/logo.png",
+      "description": "Logo 描述"
+    },
+    "spokesperson": {
+      "has": false,
+      "name": "小赵",
+      "type": "owner",
+      "description": "小赵本人出镜，昆明话讲解"
+    }
+  },
+  "services": [
+    {
+      "name": "瓷器裂纹修复",
+      "sku": "SKU-裂纹修复",
+      "price": "待定（比换新便宜50%+）",
+      "features": [
+        "无痕修复",
+        "上门取送",
+        "昆明市区内服务"
+      ],
+      "target_customer": "酒店、宴会厅、餐饮企业、家庭"
+    },
+    {
+      "name": "瓷器破损/缺口修复",
+      "sku": "SKU-破损修复",
+      "price": "待定（比换新便宜50%+）",
+      "features": [
+        "专业材料填充",
+        "颜色匹配",
+        "无痕效果"
+      ],
+      "target_customer": "酒店、婚庆公司、家庭传家宝"
+    },
+    {
+      "name": "批量瓷器修复",
+      "sku": "SKU-批量修复",
+      "price": "待定（批量优惠）",
+      "features": [
+        "酒店/宴会厅专属",
+        "批量折扣",
+        "上门打包取送"
+      ],
+      "target_customer": "酒店、宴会厅、婚庆公司"
+    }
+  ],
+  "competitive_advantages": {
+    "vs_replacement": {
+      "advantage": "比换新便宜50%-80%",
+      "benefit": "大幅降低成本"
+    },
+    "vs_self_repair": {
+      "advantage": "专业无痕修复",
+      "benefit": "效果好，无毒安全"
+    },
+    "vs_other_repairers": {
+      "advantage": "昆明本地+上门取送",
+      "benefit": "便捷省心"
+    }
+  },
+  "content_needs": {
+    "primary_keywords": [
+      "瓷器修复",
+      "昆明瓷器修复",
+      "酒店瓷器修复",
+      "婚庆瓷器修复",
+      "瓷器裂纹修复",
+      "餐具修复"
+    ],
+    "content_types": ["图文", "短视频"],
+    "posting_frequency": "daily/weekly",
+    "main_platforms": ["抖音", "小红书"]
+  },
+  "notes": "2026-03-29 创建客户档案，蓝海市场，昆明本地瓷器修复专家"
+}

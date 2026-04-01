@@ -22,13 +22,6 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     
-    # Relationships
-    channels = db.relationship('Channel', backref='owner', lazy='dynamic', overlaps="channel,channels")  # 渠道商（超级管理员创建的渠道账号）
-    clients = db.relationship('Client', backref='owner', lazy='dynamic')  # 渠道商管理的客户
-    
-    def __repr__(self):
-        return f'<User {self.username}>'
-    
     def is_super_admin(self):
         return self.role == 'super_admin'
 
@@ -47,38 +40,6 @@ class Industry(db.Model):
     
     def __repr__(self):
         return f'<Industry {self.name}>'
-
-
-class Channel(db.Model):
-    """渠道商表"""
-    __tablename__ = 'channels'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    name = db.Column(db.String(100), nullable=False)  # 渠道商名称
-    company = db.Column(db.String(100))  # 公司名称
-    contact = db.Column(db.String(50))  # 联系方式
-    description = db.Column(db.Text)
-    is_active = db.Column(db.Boolean, default=False)  # 默认待审核
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    user = db.relationship('User', backref=db.backref('channel', overlaps="channels,owner"), overlaps="channels,owner")
-    clients = db.relationship('Client', backref='channel', lazy='dynamic')
-    experts = db.relationship('Expert', 
-                              secondary='channel_experts',
-                              backref='channels')
-    
-    def __repr__(self):
-        return f'<Channel {self.name}>'
-
-
-# 渠道商-专家关联表
-channel_experts = db.Table('channel_experts',
-    db.Column('channel_id', db.Integer, db.ForeignKey('channels.id'), primary_key=True),
-    db.Column('expert_id', db.Integer, db.ForeignKey('experts.id'), primary_key=True),
-    db.Column('assigned_at', db.DateTime, default=datetime.utcnow)
-)
 
 
 class Expert(db.Model):
@@ -103,7 +64,6 @@ class Expert(db.Model):
     
     # Relationships
     skills = db.relationship('Skill', backref='expert', lazy='dynamic')
-    outputs = db.relationship('ExpertOutput', backref='expert', lazy='dynamic')
     
     def __repr__(self):
         return f'<Expert {self.name}>'
@@ -227,10 +187,6 @@ class KnowledgeRule(db.Model):
     usage_count = db.Column(db.Integer, default=0)  # 使用次数
     success_rate = db.Column(db.Float)  # 成功率
 
-    # 来源信息
-    is_auto_extracted = db.Column(db.Boolean, default=False)  # 是否为LLM自动提取
-    extraction_log_id = db.Column(db.Integer, db.ForeignKey('rule_extraction_logs.id'))  # 关联的提取记录
-
     # 状态
     status = db.Column(db.String(20), default='pending')  # pending/active/archived
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -238,230 +194,9 @@ class KnowledgeRule(db.Model):
 
     # Relationships
     dimension = db.relationship('AnalysisDimension', backref='knowledge_rules')
-    extraction_log = db.relationship('RuleExtractionLog', backref='approved_rules')
 
     def __repr__(self):
         return f'<KnowledgeRule {self.category} {self.rule_title}>'
-
-
-class Client(db.Model):
-    """客户表"""
-    __tablename__ = 'clients'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    channel_id = db.Column(db.Integer, db.ForeignKey('channels.id'))  # 所属渠道商
-    industry_id = db.Column(db.Integer, db.ForeignKey('industries.id'))  # 所属行业
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))  # 所属用户（渠道商或超级管理员）
-    name = db.Column(db.String(100), nullable=False)  # 客户名称
-    
-    # 业务类型：卖货类/服务类/两者都有
-    business_type = db.Column(db.String(50))  
-    # 产品类型：实物商品/批发供应链/其他
-    product_type = db.Column(db.String(50))
-    # 服务类型：本地生活/线上专业/知识付费/其他
-    service_type = db.Column(db.String(50))
-    
-    # 地域范围：本地/跨区域/全球
-    service_range = db.Column(db.String(50))
-    # 具体城市/区域
-    target_area = db.Column(db.String(100))
-    
-    # 品牌定位：个人IP/企业品牌/两者兼顾
-    brand_type = db.Column(db.String(50))
-    # 品牌/核心人物描述
-    brand_description = db.Column(db.Text)
-    
-    # 语言风格：普通话/方言
-    language_style = db.Column(db.String(50))
-    # 具体方言
-    dialect = db.Column(db.String(50))
-    
-    # 核心优势/卖点
-    core_advantage = db.Column(db.Text)
-    
-    # 项目目标：流量/品牌/转化
-    project_goals = db.Column(db.String(100))
-    
-    # 客户来源
-    source = db.Column(db.String(50))
-    
-    # 客户档案（JSON格式存储完整信息）
-    profile_data = db.Column(db.JSON)
-    
-    # 新增字段：主营业务、经营年限、其他补充
-    main_product = db.Column(db.String(200))  # 主营业务（含占比）
-    business_years = db.Column(db.String(20))  # 已经营年限
-    other_info = db.Column(db.Text)  # 其他补充
-    
-    # 状态：收集中/已完善/服务中
-    status = db.Column(db.String(20), default='collecting')
-    
-    contact = db.Column(db.String(100))  # 联系方式
-    description = db.Column(db.Text)
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    keywords = db.relationship('Keyword', backref='client', lazy='dynamic')
-    topics = db.relationship('Topic', backref='client', lazy='dynamic')
-    contents = db.relationship('Content', backref='client', lazy='dynamic')
-    monitors = db.relationship('Monitor', backref='client', lazy='dynamic')
-    expert_outputs = db.relationship('ExpertOutput', backref='client', lazy='dynamic')
-    industry = db.relationship('Industry', backref='clients')
-    # 使用不同的 backref 名称避免冲突
-    creator = db.relationship('User', backref=db.backref('created_clients', lazy='dynamic'), foreign_keys=[user_id])
-    
-    def __repr__(self):
-        return f'<Client {self.name}>'
-
-
-class Keyword(db.Model):
-    """关键词库表"""
-    __tablename__ = 'keywords'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
-    keyword = db.Column(db.String(100), nullable=False)
-    keyword_type = db.Column(db.String(50))  # 核心词, 痛点词, 场景词, 地域词, etc.
-    search_intent = db.Column(db.String(50))  # 搜索意图
-    competition = db.Column(db.String(20))  # 竞争度
-    is_monitored = db.Column(db.Boolean, default=False)  # 是否在监控中
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<Keyword {self.keyword}>'
-
-
-class Topic(db.Model):
-    """选题库表"""
-    __tablename__ = 'topics'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    topic_type = db.Column(db.String(50))  # 问题解决类, 认知颠覆类, etc.
-    content_format = db.Column(db.String(50))  # 图文, 短视频
-    target_audience = db.Column(db.String(100))
-    priority = db.Column(db.Integer, default=0)  # 优先级
-    status = db.Column(db.String(20), default='pending')  # pending, in_progress, completed
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<Topic {self.title}>'
-
-
-class Content(db.Model):
-    """内容输出表"""
-    __tablename__ = 'contents'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'))
-    topic_id = db.Column(db.Integer, db.ForeignKey('topics.id'))
-    title = db.Column(db.String(200), nullable=False)
-    content_type = db.Column(db.String(20))  # graphic, video
-    content = db.Column(db.Text)
-    file_path = db.Column(db.String(500))
-    status = db.Column(db.String(20), default='draft')  # draft, published
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<Content {self.title}>'
-
-
-class Monitor(db.Model):
-    """舆情监控配置表"""
-    __tablename__ = 'monitors'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
-    monitor_type = db.Column(db.String(20))  # link, keyword
-    link_type = db.Column(db.String(20))  # 话题, 视频, 商品 (仅link类型)
-    value = db.Column(db.String(500))  # 链接地址 or 关键词
-    theme = db.Column(db.String(100))  # 监控主题
-    status = db.Column(db.String(20), default='pending')  # pending, monitoring, paused
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<Monitor {self.monitor_type}:{self.value}>'
-
-
-class MonitorReport(db.Model):
-    """舆情监控报告表"""
-    __tablename__ = 'monitor_reports'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
-    report_date = db.Column(db.Date, nullable=False)
-    content = db.Column(db.Text)
-    keywords_data = db.Column(db.JSON)  # 关键词热度数据
-    links_data = db.Column(db.JSON)  # 链接数据
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<MonitorReport {self.client_id}:{self.report_date}>'
-
-
-class ExpertOutput(db.Model):
-    """专家输出记录表"""
-    __tablename__ = 'expert_outputs'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    expert_id = db.Column(db.Integer, db.ForeignKey('experts.id'))
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'))
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    output_type = db.Column(db.String(50))  # keyword, topic, content, analysis
-    title = db.Column(db.String(200))
-    content = db.Column(db.Text)
-    file_path = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<ExpertOutput {self.output_type}:{self.title}>'
-
-
-class ChatSession(db.Model):
-    """对话会话表"""
-    __tablename__ = 'chat_sessions'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)  # 会话所属用户
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'))  # 关联客户
-    expert_id = db.Column(db.Integer, db.ForeignKey('experts.id'))  # 当前专家
-    title = db.Column(db.String(200))  # 会话标题（首条消息摘要）
-    is_active = db.Column(db.Boolean, default=True)  # 是否活跃
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    user = db.relationship('User', backref='chat_sessions')
-    client = db.relationship('Client', backref='chat_sessions')
-    expert = db.relationship('Expert', backref='chat_sessions')
-    messages = db.relationship('ChatMessage', backref='session', lazy='dynamic', 
-                              order_by='ChatMessage.created_at')
-    
-    def __repr__(self):
-        return f'<ChatSession {self.id}:{self.title}>'
-
-
-class ChatMessage(db.Model):
-    """对话消息表"""
-    __tablename__ = 'chat_messages'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    session_id = db.Column(db.Integer, db.ForeignKey('chat_sessions.id'), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # system, user, assistant
-    content = db.Column(db.Text, nullable=False)  # 消息内容
-    expert_id = db.Column(db.Integer, db.ForeignKey('experts.id'))  # 回复的专家
-    extra_data = db.Column(db.JSON)  # 额外信息（如专家名称、命令等）
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    expert = db.relationship('Expert', backref='chat_messages')
-    
-    def __repr__(self):
-        return f'<ChatMessage {self.id}:{self.role}>'
 
 
 class KnowledgeAccount(db.Model):
@@ -1163,44 +898,6 @@ class ContentInteraction(db.Model):
         return f'<ContentInteraction {self.interaction_content[:30]}>'
 
 
-# ========== 爆款复制相关表 ==========
-
-class ContentReplication(db.Model):
-    """爆款复制记录表"""
-    __tablename__ = 'content_replications'
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))  # 操作人
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'))  # 关联客户
-    source_content_id = db.Column(db.Integer, db.ForeignKey('knowledge_contents.id'))  # 源内容ID
-    source_account_id = db.Column(db.Integer, db.ForeignKey('knowledge_accounts.id'))  # 源账号ID
-
-    # 复制模式
-    replication_mode = db.Column(db.String(50))  # full_copy(完全复制) / partial_copy(部分复制) / creative_copy(创意改编)
-    modification_notes = db.Column(db.Text)  # 修改说明
-
-    # 生成的内容
-    generated_title = db.Column(db.String(200))  # 生成标题
-    generated_content = db.Column(db.Text)  # 生成内容
-    generated_script = db.Column(db.JSON)  # 生成脚本（JSON格式）
-
-    # 状态
-    status = db.Column(db.String(20), default='draft')  # draft/generated/completed
-    is_favorite = db.Column(db.Boolean, default=False)  # 是否收藏
-
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    user = db.relationship('User', backref='content_replications')
-    client = db.relationship('Client', backref='content_replications')
-    source_content = db.relationship('KnowledgeContent', backref='replications')
-    source_account = db.relationship('KnowledgeAccount', backref='replications')
-
-    def __repr__(self):
-        return f'<ContentReplication {self.id} {self.replication_mode}>'
-
-
 # ========== 分析维度配置 ==========
 
 class AnalysisDimension(db.Model):
@@ -1358,45 +1055,6 @@ class FormulaElementSuggestion(db.Model):
 
     def __repr__(self):
         return f'<FormulaElementSuggestion {self.sub_category}/{self.code}>'
-
-
-# ========== 规则自动提取记录 ==========
-
-class RuleExtractionLog(db.Model):
-    """规则自动提取记录表 - LLM从生成内容中提取规则的记录"""
-    __tablename__ = 'rule_extraction_logs'
-
-    id = db.Column(db.Integer, primary_key=True)
-
-    # 关联内容
-    source_replication_id = db.Column(db.Integer, db.ForeignKey('content_replications.id'))
-
-    # 提取的内容信息
-    source_title = db.Column(db.String(200))  # 源内容标题
-    source_content = db.Column(db.Text)  # 源内容
-    generated_title = db.Column(db.String(200))  # 生成的标题
-    generated_content = db.Column(db.Text)  # 生成的内容
-
-    # LLM 提取的建议
-    suggested_rules = db.Column(db.JSON)  # 建议提取的规则列表
-
-    # 审核状态
-    status = db.Column(db.String(20), default='pending')  # pending/approved/rejected
-    approved_rules_count = db.Column(db.Integer, default=0)  # 审核通过入库的规则数
-
-    # 审核信息
-    reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    reviewed_at = db.Column(db.DateTime)
-    review_notes = db.Column(db.Text)
-
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # Relationships
-    source_replication = db.relationship('ContentReplication', backref='rule_extraction_logs')
-    reviewer = db.relationship('User', backref='rule_extraction_reviews')
-
-    def __repr__(self):
-        return f'<RuleExtractionLog {self.id} {self.status}>'
 
 
 # ========== 人群画像生成模块 ==========
