@@ -41,159 +41,215 @@ BUSINESS_TYPE_REVERSE = {
 
 
 # =============================================================================
-# 场景 → 基础人群固定映射
+# 场景 → 基础人群固定映射（统一三层结构）
+# =============================================================================
+# 层级定义：
+# - 决策层(buyer)：出钱、拍板、决策购买的人 → 对应 buyer_concerns
+# - 对接层：经办、联络、需求提报者 → 补充细分长尾，不与买用冲突
+# - 使用层(user)：实际使用、体验服务、产生痛点的人 → 对应 user_pains
 # =============================================================================
 SCENE_BASE_PERSONAS = {
     # 酒店/餐饮/茶楼/高端会所
     "hotel_restaurant": {
-        "决策层": [
-            {"name": "酒店总经理", "desc": "负责酒店整体运营，关注品牌形象和客户体验", "buyer": "酒店总经理", "user": "酒店运营"},
-            {"name": "餐饮总监", "desc": "负责餐厅/宴会运营，关注食材品质和成本控制", "buyer": "餐饮总监", "user": "餐饮管理"},
-            {"name": "会所负责人", "desc": "高端会所运营者，关注会员服务品质", "buyer": "会所负责人", "user": "会所运营"},
+        "决策层(buyer)": [
+            {"name": "酒店总经理", "desc": "负责酒店整体运营出钱拍板", "role": "buyer", "user_of": "酒店员工"},
+            {"name": "餐饮总监", "desc": "负责餐厅/宴会出钱决策", "role": "buyer", "user_of": "餐厅员工"},
+            {"name": "会所负责人", "desc": "高端会所出钱决策者", "role": "buyer", "user_of": "会所会员"},
         ],
-        "采购层": [
-            {"name": "行政总厨", "desc": "负责厨房采购，关注食材质量和供应稳定性", "buyer": "行政总厨", "user": "厨房团队"},
-            {"name": "采购经理", "desc": "酒店采购部门负责人，关注性价比和供应链", "buyer": "采购经理", "user": "采购部门"},
-            {"name": "宴会销售", "desc": "负责婚宴/会议接待，关注定制化需求", "buyer": "宴会销售", "user": "宴会运营"},
+        "对接层": [
+            {"name": "行政总厨", "desc": "厨房采购经办人，筛选供应商", "role": "mediator", "buyer_of": "酒店总经理", "user_of": "厨房团队"},
+            {"name": "采购经理", "desc": "采购部门经办，流程对接", "role": "mediator", "buyer_of": "管理层", "user_of": "采购部门"},
+            {"name": "宴会销售", "desc": "婚宴/会议需求提报者", "role": "mediator", "buyer_of": "客户", "user_of": "宴会客人"},
         ],
-        "执行层": [
-            {"name": "茶楼老板", "desc": "茶楼经营者，关注茶叶品质和客单价", "buyer": "茶楼老板", "user": "茶楼老板"},
-            {"name": "餐厅经理", "desc": "餐厅日常运营，关注翻台率和客诉处理", "buyer": "餐厅经理", "user": "餐厅运营"},
+        "使用层(user)": [
+            {"name": "餐厅经理", "desc": "餐厅日常运营使用服务", "role": "user", "buyer_of": "管理层"},
+            {"name": "茶楼老板", "desc": "茶楼自用经营者", "role": "user", "buyer_of": "茶楼老板"},
         ]
     },
     # 家用/住宅/小区业主
     "residential": {
-        "C端": [
-            {"name": "业主", "desc": "自住业主，关注居住品质和生活便利", "buyer": "业主", "user": "业主"},
-            {"name": "自住家庭", "desc": "有孩/有老家庭，关注安全和健康", "buyer": "自住家庭", "user": "家庭成员"},
-            {"name": "宝妈", "desc": "有0-12岁孩子，关注孩子健康和安全", "buyer": "宝妈", "user": "孩子"},
-            {"name": "银发族", "desc": "60岁以上老人，关注健康和便利", "buyer": "银发族", "user": "老人"},
-            {"name": "租房族", "desc": "租房居住，关注性价比和便捷服务", "buyer": "租房族", "user": "租房族"},
+        "决策层(buyer)": [
+            {"name": "自住业主", "desc": "自己出钱买给自己用", "role": "buyer_user", "user_of": "自住业主"},
+            {"name": "宝妈", "desc": "家长出钱买给孩子用", "role": "buyer", "user_of": "孩子"},
+            {"name": "银发族子女", "desc": "子女出钱买给老人用", "role": "buyer", "user_of": "老人"},
+            {"name": "租房青年", "desc": "租房族自己出钱用", "role": "buyer_user", "user_of": "租房青年"},
+        ],
+        "对接层": [
+            {"name": "家庭主妇", "desc": "家庭采购经办筛选者", "role": "mediator", "buyer_of": "家庭决策者", "user_of": "家庭成员"},
+        ],
+        "使用层(user)": [
+            {"name": "孩子", "desc": "实际使用者，0-12岁", "role": "user", "buyer_of": "宝妈"},
+            {"name": "老人", "desc": "实际使用者，60岁+", "role": "user", "buyer_of": "银发族子女"},
+            {"name": "家庭成员", "desc": "一般家庭成员使用", "role": "user", "buyer_of": "自住业主"},
         ]
     },
     # 写字楼/企业/工厂/园区
     "office_enterprise": {
-        "决策层": [
-            {"name": "企业老板", "desc": "企业负责人，关注品牌形象和员工福利", "buyer": "企业老板", "user": "企业管理"},
-            {"name": "行政总监", "desc": "负责企业行政，关注采购效率和成本", "buyer": "行政总监", "user": "行政部门"},
-            {"name": "HR负责人", "desc": "负责人力资源，关注员工关怀和企业文化", "buyer": "HR负责人", "user": "HR部门"},
+        "决策层(buyer)": [
+            {"name": "企业老板", "desc": "出钱拍板决策购买", "role": "buyer", "user_of": "员工"},
+            {"name": "行政总监", "desc": "行政出钱决策者", "role": "buyer", "user_of": "行政部门"},
+            {"name": "HR负责人", "desc": "人事出钱决策者", "role": "buyer", "user_of": "HR部门"},
         ],
-        "采购层": [
-            {"name": "行政专员", "desc": "负责日常行政采购，关注性价比", "buyer": "行政专员", "user": "行政执行"},
-            {"name": "后勤主管", "desc": "负责后勤保障，关注服务稳定性", "buyer": "后勤主管", "user": "后勤团队"},
-            {"name": "采购专员", "desc": "执行采购流程，关注供应商资质", "buyer": "采购专员", "user": "采购执行"},
+        "对接层": [
+            {"name": "行政专员", "desc": "采购经办筛选执行", "role": "mediator", "buyer_of": "行政总监", "user_of": "行政执行"},
+            {"name": "后勤主管", "desc": "后勤经办对接", "role": "mediator", "buyer_of": "管理层", "user_of": "后勤团队"},
+            {"name": "采购专员", "desc": "采购流程经办", "role": "mediator", "buyer_of": "采购经理", "user_of": "采购执行"},
         ],
-        "执行层": [
-            {"name": "办公室员工", "desc": "日常办公人群，关注便利性", "buyer": "办公室员工", "user": "办公室员工"},
-            {"name": "工厂工人", "desc": "生产一线工人，关注实用性和效率", "buyer": "工厂工人", "user": "生产工人"},
+        "使用层(user)": [
+            {"name": "办公室员工", "desc": "实际使用服务的员工", "role": "user", "buyer_of": "企业老板"},
+            {"name": "工厂工人", "desc": "生产一线实际使用者", "role": "user", "buyer_of": "工厂管理"},
         ]
     },
     # 学校/医院/食堂/政企单位
     "institutional": {
-        "决策层": [
-            {"name": "单位领导", "desc": "学校/医院/政企单位负责人", "buyer": "单位领导", "user": "单位管理"},
-            {"name": "后勤主任", "desc": "负责后勤采购，关注合规和品质", "buyer": "后勤主任", "user": "后勤管理"},
-            {"name": "食堂负责人", "desc": "负责食堂运营，关注成本和满意度", "buyer": "食堂负责人", "user": "食堂运营"},
+        "决策层(buyer)": [
+            {"name": "单位领导", "desc": "学校/医院出钱拍板者", "role": "buyer", "user_of": "单位人员"},
+            {"name": "后勤主任", "desc": "后勤出钱决策者", "role": "buyer", "user_of": "后勤部门"},
+            {"name": "食堂负责人", "desc": "食堂出钱决策者", "role": "buyer", "user_of": "食堂员工"},
         ],
-        "采购层": [
-            {"name": "采购负责人", "desc": "单位采购负责人，关注资质和履约", "buyer": "采购负责人", "user": "采购执行"},
-            {"name": "营养师", "desc": "食堂营养搭配，关注食品安全", "buyer": "营养师", "user": "营养管理"},
+        "对接层": [
+            {"name": "采购负责人", "desc": "采购经办流程对接", "role": "mediator", "buyer_of": "后勤主任", "user_of": "采购执行"},
+            {"name": "营养师", "desc": "需求提报审核者", "role": "mediator", "buyer_of": "食堂负责人", "user_of": "营养管理"},
         ],
-        "执行层": [
-            {"name": "教师", "desc": "学校教师，关注学生健康", "buyer": "教师", "user": "教学"},
-            {"name": "医护人员", "desc": "医院工作人员，关注工作便利", "buyer": "医护人员", "user": "医疗工作"},
+        "使用层(user)": [
+            {"name": "教师", "desc": "学校实际使用者", "role": "user", "buyer_of": "学校领导"},
+            {"name": "医护人员", "desc": "医院实际使用者", "role": "user", "buyer_of": "医院领导"},
+            {"name": "学生/病患", "desc": "终端使用者", "role": "user", "buyer_of": "单位领导"},
         ]
     },
     # 实体店/连锁门店/加盟品牌
     "retail_chain": {
-        "决策层": [
-            {"name": "品牌创始人", "desc": "品牌方负责人，关注品牌势能", "buyer": "品牌创始人", "user": "品牌管理"},
-            {"name": "连锁加盟商", "desc": "加盟品牌门店老板，关注盈利", "buyer": "加盟商", "user": "门店运营"},
+        "决策层(buyer)": [
+            {"name": "品牌创始人", "desc": "品牌方出钱决策", "role": "buyer", "user_of": "品牌管理"},
+            {"name": "连锁加盟商", "desc": "加盟商出钱决策", "role": "buyer", "user_of": "门店运营"},
         ],
-        "执行层": [
-            {"name": "门店店主", "desc": "单店老板，关注获客和复购", "buyer": "门店店主", "user": "门店运营"},
-            {"name": "店员", "desc": "门店员工，关注销售便利性", "buyer": "店员", "user": "销售执行"},
-            {"name": "督导", "desc": "连锁门店督导，关注标准化执行", "buyer": "督导", "user": "门店管理"},
+        "对接层": [
+            {"name": "督导", "desc": "连锁门店对接协调", "role": "mediator", "buyer_of": "品牌方", "user_of": "门店执行"},
+        ],
+        "使用层(user)": [
+            {"name": "门店店主", "desc": "单店老板自用决策", "role": "buyer_user", "user_of": "门店店主"},
+            {"name": "店员", "desc": "门店员工实际使用", "role": "user", "buyer_of": "门店店主"},
         ]
     },
     # 装修/工装/工程定制
     "renovation": {
-        "决策层": [
-            {"name": "业主/甲方", "desc": "装修甲方，关注预算和质量", "buyer": "业主", "user": "业主"},
-            {"name": "项目经理", "desc": "装修项目经理，关注工期和协调", "buyer": "项目经理", "user": "项目协调"},
+        "决策层(buyer)": [
+            {"name": "业主/甲方", "desc": "出钱拍板决策", "role": "buyer", "user_of": "业主"},
+            {"name": "项目经理", "desc": "项目出钱决策者", "role": "buyer", "user_of": "项目成员"},
         ],
-        "执行层": [
-            {"name": "工长", "desc": "装修工长，关注材料和工艺", "buyer": "工长", "user": "施工执行"},
-            {"name": "设计师", "desc": "室内设计师，关注效果落地", "buyer": "设计师", "user": "设计执行"},
-            {"name": "采购员", "desc": "项目采购，关注性价比", "buyer": "采购员", "user": "采购执行"},
+        "对接层": [
+            {"name": "设计师", "desc": "需求对接方案协调", "role": "mediator", "buyer_of": "业主", "user_of": "设计执行"},
+            {"name": "采购员", "desc": "材料采购经办", "role": "mediator", "buyer_of": "项目经理", "user_of": "采购执行"},
+        ],
+        "使用层(user)": [
+            {"name": "工长", "desc": "施工实际执行使用", "role": "user", "buyer_of": "业主/项目经理"},
+            {"name": "施工人员", "desc": "一线施工人员", "role": "user", "buyer_of": "工长"},
         ]
     },
     # 其他小众场景
     "other": {
         "通用": [
-            {"name": "行业对接人", "desc": "行业相关对接人员", "buyer": "行业对接人", "user": "业务执行"},
-            {"name": "采购", "desc": "一般采购人员", "buyer": "采购人员", "user": "采购执行"},
-            {"name": "执行人员", "desc": "项目执行人员", "buyer": "执行人员", "user": "任务执行"},
+            {"name": "决策者", "desc": "出钱拍板者", "role": "buyer", "user_of": "使用者"},
+            {"name": "经办人", "desc": "流程对接经办", "role": "mediator", "buyer_of": "决策者", "user_of": "执行"},
+            {"name": "使用者", "desc": "实际使用者", "role": "user", "buyer_of": "决策者"},
         ]
     }
 }
 
 
 # =============================================================================
-# 经营类型人群过滤函数
+# 经营类型人群过滤 + 买用关系映射
 # =============================================================================
 def filter_personas_by_business_type(base_personas: Dict, business_type: str) -> Dict:
     """
     根据经营类型，自动裁剪系统底层人群，防止乱生成C/B混合
+
+    买用关系统一规则：
+    - 决策层(buyer) → buyer_concerns（付费方顾虑）
+    - 使用层(user) → user_pains（使用者问题）
+    - 对接层 → 中间影响者（补充细分长尾，不与买用冲突）
+    - buyer_user角色 → 买用合一，两者都生成
 
     Args:
         base_personas: 场景基础人群（来自SCENE_BASE_PERSONAS）
         business_type: 经营类型枚举值
 
     Returns:
-        过滤后的人群字典
+        过滤后的人群字典，保持三层结构
     """
     if business_type == "product":
-        # 消费品：只保留纯C端，剔除所有企业/行政/采购
+        # 消费品：只保留C端，区分买用分离和买用合一
         filtered = {}
         for layer, personas in base_personas.items():
-            if layer in ["C端", "通用"]:
-                filtered[layer] = personas
-        return filtered if filtered else {"C端": SCENE_BASE_PERSONAS.get("residential", {}).get("C端", [])}
+            if "使用层" in layer or "决策层" in layer:
+                # 只保留role为buyer/user/buyer_user的人群
+                filtered[layer] = [p for p in personas if p.get("role") in ["buyer", "user", "buyer_user"]]
+        return filtered if filtered else _get_default_consumer_personas()
 
     elif business_type == "local_service":
-        # 本地服务：保留居民+小微门店，剔除大厂/政企
+        # 本地服务：买用合一为主（店主/居民自己买自己用）
         filtered = {}
         for layer, personas in base_personas.items():
-            if layer in ["C端", "执行层", "同城居民", "通用"]:
+            if layer in ["使用层(user)", "对接层", "通用"]:
                 filtered[layer] = personas
-        # 默认补充同城居民
-        if not filtered:
-            filtered = {"同城居民": SCENE_BASE_PERSONAS.get("residential", {}).get("C端", [])}
-        return filtered
+        return filtered if filtered else _get_default_local_service_personas()
 
     elif business_type == "personal":
-        # 个人IP：只保留个人/粉丝/博主
+        # 个人IP：买用合一（博主/个人用户自己产出自己用）
         return {
-            "个人IP用户": [
-                {"name": "个人用户", "desc": "普通个人消费者", "buyer": "个人用户", "user": "个人用户"},
-                {"name": "粉丝", "desc": "账号粉丝/追随者", "buyer": "粉丝", "user": "粉丝"},
-                {"name": "博主", "desc": "自媒体博主/KOL", "buyer": "博主", "user": "博主"},
-                {"name": "内容创作者", "desc": "内容创作者同行", "buyer": "创作者", "user": "创作者"},
+            "使用层(user)": [
+                {"name": "个人用户", "desc": "普通个人消费者", "role": "buyer_user", "user_of": "个人用户"},
+                {"name": "粉丝", "desc": "账号粉丝/追随者", "role": "user", "buyer_of": "博主"},
+                {"name": "博主", "desc": "自媒体博主自用决策", "role": "buyer_user", "user_of": "博主"},
+            ],
+            "对接层": [
+                {"name": "内容创作者", "desc": "同行创作者交流合作", "role": "mediator", "buyer_of": "博主", "user_of": "创作者"},
             ]
         }
 
     elif business_type == "enterprise":
-        # 企业服务：完整保留三层（决策/采购/执行）
+        # 企业服务：完整三层（决策/对接/执行）
         return base_personas
 
     else:
         return base_personas
 
 
+def _get_default_consumer_personas() -> Dict:
+    """消费品默认人群（买用分离为主）"""
+    return {
+        "决策层(buyer)": [
+            {"name": "宝妈", "desc": "家长出钱买给孩子用", "role": "buyer", "user_of": "孩子"},
+            {"name": "银发族子女", "desc": "子女出钱买给老人用", "role": "buyer", "user_of": "老人"},
+            {"name": "自购用户", "desc": "自己出钱买给自己用", "role": "buyer_user", "user_of": "自购用户"},
+        ],
+        "使用层(user)": [
+            {"name": "孩子", "desc": "0-12岁实际使用者", "role": "user", "buyer_of": "宝妈"},
+            {"name": "老人", "desc": "60岁+实际使用者", "role": "user", "buyer_of": "银发族子女"},
+            {"name": "个人", "desc": "成人自用", "role": "user", "buyer_of": "自购用户"},
+        ]
+    }
+
+
+def _get_default_local_service_personas() -> Dict:
+    """本地服务默认人群（买用合一）"""
+    return {
+        "使用层(user)": [
+            {"name": "自住业主", "desc": "自己出钱买给自己用", "role": "buyer_user", "user_of": "自住业主"},
+            {"name": "小微店主", "desc": "店主自己买自己用", "role": "buyer_user", "user_of": "小微店主"},
+            {"name": "本地居民", "desc": "居民自用", "role": "buyer_user", "user_of": "本地居民"},
+        ]
+    }
+
+
 def get_system_base_personas(service_scenario: str, business_type: str) -> str:
     """
     获取系统固定底座人群JSON字符串，用于注入Prompt
+
+    三层买用关系：
+    - 决策层(buyer)：出钱/拍板 → buyer_concerns
+    - 对接层：经办/联络 → 补充细分长尾
+    - 使用层(user)：实际使用 → user_pains
 
     Args:
         service_scenario: 服务场景枚举值
@@ -215,16 +271,25 @@ def get_system_base_personas(service_scenario: str, business_type: str) -> str:
 # =============================================================================
 # Prompt底座约束模板（全局共用）
 # =============================================================================
-PROMPT_BASE_CONSTRAINT = """【系统强制底座规则】
+PROMPT_BASE_CONSTRAINT = """【系统强制底座规则 - 买用关系对齐】
 1.底层固定人群：{system_base_personas}
-2.禁止自己创造顶层大类、禁止随意新增人群；
-3.只能在底层人群之下，做细分/小众/长尾延伸画像；
-4.严格遵守经营类型限制：
-   - 消费品=只做C端个人
-   - 本地服务=同城居民+小微商家
-   - 个人IP=博主/粉丝/个人用户
-   - 企业服务=决策/采购/执行三层
-5.严禁生成与经营类型不匹配的人群（如消费品场景下生成"企业老板"）
+
+2.三层结构买用强制映射：
+   - 决策层(buyer) → 生成 buyer_concerns（付费方顾虑）
+   - 使用层(user) → 生成 user_pains（使用者问题）
+   - 对接层 → 补充细分长尾人群，不与买用冲突
+
+3.买用关系统一规则：
+   - 消费品：买用分离（宝妈→孩子、子女→老人）
+   - 本地服务：买用合一（店主自用、居民自用）
+   - 个人IP：买用合一（博主自产出、粉丝用）
+   - 企业服务：三层分离（老板买→员工用，中间有对接层）
+
+4.禁止自己创造顶层大类、禁止随意新增人群；
+5.只能在底层人群之下，做细分/小众/长尾延伸画像；
+6.严格遵守经营类型限制；
+7.严禁生成与经营类型不匹配的人群（如消费品场景下生成"企业老板"）
+
 违规生成直接作废重写。
 
 """
@@ -650,9 +715,22 @@ class ContentGenerator:
 
 **核心原则：识别购买/决策侧的稳定身份称呼**
 
-【买用关系判断】
-- 买即用（买的人=用的人）：餐饮、维修、理发、手机、自用食品 → 身份是「消费者/用户」
-- 买用分离（买的人≠用的人）：奶粉、纸尿裤、老人用品、宠物用品 → 身份是「购买决策者（宝妈/子女/主人）」
+【买用关系判断 - 必须按三层结构生成】
+
+**消费品（买用分离）：**
+- 决策层(buyer)：出钱/拍板（宝妈、子女、家长）
+- 使用层(user)：实际使用者（孩子、老人、自己）
+- 例如：奶粉 → buyer=宝妈，user=宝宝
+
+**本地服务（买用合一）：**
+- 使用层(user) = 决策层(buyer)：自己出钱买给自己用
+- 例如：家政/维修 → buyer=user=业主
+
+**企业服务（三层分离）：**
+- 决策层(buyer)：出钱/拍板（老板、行政总监）
+- 对接层：经办/联络（行政专员）
+- 使用层(user)：实际使用者（员工）
+- 例如：企业采购 → buyer=老板，mediator=行政专员，user=员工
 
 【示例】
 - 灌香肠 → ToC：过年置办年货的家庭；ToB：早餐店/餐馆老板
@@ -1127,12 +1205,19 @@ class ContentGenerator:
         if not is_to_business:
             # C端：需要判断买用是否分离
             buyer_user_hint = """
-【买用关系判断】
-请在输出中明确说明购买方与使用方是否分离：
-- 买即用：买的人=用的人（如桶装水配送、自用食品、手机维修）
-- 买用分离：买的人≠用的人（如奶粉/纸尿裤是家长买给宝宝、老人用品是子女买给老人、礼品是送礼人买给收礼人）
+【买用关系判断 - 必须按三层结构生成】
 
-如果涉及宝宝、老人、孩子、宠物等，**一定是买用分离**。"""
+**消费品（买用分离为主）：**
+- 决策层(buyer)：出钱/拍板（宝妈、子女、家长）
+- 使用层(user)：实际使用者（孩子、老人、自己）
+
+**本地服务（买用合一为主）：**
+- 使用层(user) = 决策层(buyer)：自己出钱买给自己用
+
+**企业服务（三层分离）：**
+- 决策层(buyer)：出钱/拍板（老板、行政总监）
+- 对接层：经办/联络（行政专员）
+- 使用层(user)：实际使用者（员工）"""
 
         # 获取经营类型中文名
         business_type_name = BUSINESS_TYPE_MAP.get(business_type, '本地服务')
@@ -1340,19 +1425,24 @@ class ContentGenerator:
 
 === 核心原则 ===
 
-**【买用关系·强制判断】**
+**【买用关系·三层结构强制对齐】**
 
-**买用分离业务（买的人≠用的人）：**
-- 婴儿奶粉/辅食 → 宝宝是使用者 → buyer_user_relation = **「买给1-3岁宝宝」**
-- 纸尿裤/婴儿推车 → 宝宝是使用者 → **「买给0-3岁宝宝」**
-- 老人保健品/老花镜 → 老人是使用者 → **「买给长辈」**
-- 宠物食品/用品 → 宠物是使用者 → **「买给宠物」**
+**消费品（买用分离）：**
+- 决策层(buyer)：出钱拍板（宝妈、子女、家长）
+- 使用层(user)：实际使用者（孩子、老人）
+- buyer_user_relation = 「买给1-3岁宝宝/买给老人/自用」
 
-**买即用业务（买的人=用的人）：**
-- 餐饮/维修/理发 → 本人消费本人使用 → 「自用」
-- 桶装水/自用食品 → 本人喝本人吃 → 「自用」
+**本地服务（买用合一）：**
+- 使用层(user) = 决策层(buyer)：本人出钱本人用
+- buyer_user_relation = 「自用」
 
-**【灵活判断】业务描述中可能同时存在B端和C端客户：**
+**企业服务（三层分离）：**
+- 决策层(buyer)：出钱拍板（老板、行政总监）
+- 对接层：经办联络（行政专员）
+- 使用层(user)：实际使用者（员工、工人）
+- buyer_user_relation = 「老板买给员工用/买给公司用」
+
+**【重要】业务描述里有「宝宝」「孩子」「老人」「宠物」相关需求 → 必为买用分离！****
 - 矿泉水/定制产品：可能企业采购（酒店/公司）+ 个人定制（婚宴/寿宴）都存在
 - 要根据具体业务描述判断，不要假设所有客户都是同一类型
 
@@ -1894,17 +1984,22 @@ class ContentGenerator:
 
 === 核心原则 ===
 
-**【买用关系·强制判断】**
+**【买用关系·三层结构强制对齐】**
 
-**买用分离业务（买的人≠用的人）：**
-- 婴儿奶粉/辅食 → 宝宝是使用者 → buyer_user_relation = **「买给1-3岁宝宝」**
-- 纸尿裤/婴儿推车 → 宝宝是使用者 → **「买给0-3岁宝宝」**
-- 老人保健品/老花镜 → 老人是使用者 → **「买给长辈」**
-- 宠物食品/用品 → 宠物是使用者 → **「买给宠物」**
+**消费品（买用分离）：**
+- 决策层(buyer)：出钱拍板（宝妈、子女、家长）
+- 使用层(user)：实际使用者（孩子、老人）
+- buyer_user_relation = 「买给1-3岁宝宝/买给老人/自用」
 
-**买即用业务（买的人=用的人）：**
-- 餐饮/维修/理发 → 本人消费本人使用 → 「自用」
-- 桶装水/自用食品 → 本人喝本人吃 → 「自用」
+**本地服务（买用合一）：**
+- 使用层(user) = 决策层(buyer)：本人出钱本人用
+- buyer_user_relation = 「自用」
+
+**企业服务（三层分离）：**
+- 决策层(buyer)：出钱拍板（老板、行政总监）
+- 对接层：经办联络（行政专员）
+- 使用层(user)：实际使用者（员工、工人）
+- buyer_user_relation = 「老板买给员工用/买给公司用」
 
 **【重要】业务描述里有「宝宝」「孩子」「老人」「宠物」相关需求 → 必为买用分离！**
 
@@ -3772,14 +3867,28 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         aux_parts.append(f"服务城市：{local_city}")
     aux_section = '\n'.join(aux_parts) if aux_parts else "无"
 
-    # 买用关系提示
+    # 买用关系提示（与三层结构对齐）
     buyer_user_hint = ""
     if business_type == 'product':
-        buyer_user_hint = "【买用关系提示】消费品（实物有交付物）：使用者=付费者，自己买自己用"
+        buyer_user_hint = """【买用关系提示】消费品（买用分离为主）：
+- 决策层(buyer)：出钱/拍板者（宝妈、子女、家长）
+- 使用层(user)：实际使用者（孩子、老人、自己）
+- 例如：宝妈买奶粉给宝宝用 → buyer=宝妈，user=宝宝"""
     elif business_type == 'local_service':
-        buyer_user_hint = "【买用关系提示】本地服务（技艺类服务）：使用者=付费者，自己买自己用"
+        buyer_user_hint = """【买用关系提示】本地服务（买用合一为主）：
+- 使用层(user) = 决策层(buyer)：自己出钱买给自己用
+- 例如：居民找家政 → buyer=user=业主
+- 例如：店主找维修 → buyer=user=店主"""
+    elif business_type == 'personal':
+        buyer_user_hint = """【买用关系提示】个人IP（买用合一为主）：
+- 使用层(user) = 决策层(buyer)：博主/个人自产出自用
+- 例如：博主产出内容自己用，粉丝消费内容"""
     elif business_type == 'enterprise':
-        buyer_user_hint = "【买用关系提示】企业服务：使用者≠决策者（如员工用，经理/老板买）"
+        buyer_user_hint = """【买用关系提示】企业服务（三层分离）：
+- 决策层(buyer)：出钱/拍板（老板、行政总监）
+- 对接层：经办/联络（行政专员、采购员）
+- 使用层(user)：实际使用者（员工、工人）
+- 例如：老板买软件给员工用 → buyer=老板，user=员工，中间有对接层"""
 
     # 获取关键词筛选上下文
     try:
@@ -3915,7 +4024,10 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 === 推理框架 ===
 身份多样化：列出至少2-3种不同身份（不能只写"用户"），每种身份下思考其核心问题。
-问题分层：消费品/本地服务区分「使用者问题」（功能需求）和「付费者顾虑」（信任/价格/质量）。
+问题分层：三层结构：
+- 决策层(buyer) → 付费方顾虑（出钱/拍板者的信任/价格/质量顾虑）
+- 使用层(user) → 使用者问题（实际使用时的功能/体验/痛点）
+- 对接层 → 补充细分长尾人群
 场景细分：每个问题下列出2-3种具体使用场景，帮助后续画像细分。
 
 === 评分分布参考 ===
@@ -4457,10 +4569,17 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 - 严重程度: {problem.get('severity', '中')}
 - 买用关系: {problem.get('buyer_user_relation', '自用')}
 
-=== 核心思维 ===
-区分「使用者」和「付费者」：
-- **使用者**：直接体验产品/服务的人
-- **付费者**：出钱购买的人（可能是本人，也可能是他人，如宝妈给宝宝买、子女给父母买）
+=== 核心思维 - 三层结构强制对齐 ===
+区分「使用者」和「付费者」必须按三层结构：
+- **决策层(buyer)**：出钱/拍板决策购买的人
+- **对接层**：经办/联络/需求提报者
+- **使用层(user)**：直接体验产品/服务的实际使用者
+
+**买用关系统一规则：**
+- 消费品：买用分离（宝妈→孩子、子女→老人）
+- 本地服务：买用合一（店主自用、居民自用）
+- 个人IP：买用合一（博主自产出、粉丝用）
+- 企业服务：三层分离（老板买→员工用，中间有对接层）
 
 === 输出格式 ===
 严格按照以下JSON格式输出，不要添加任何额外文字：
