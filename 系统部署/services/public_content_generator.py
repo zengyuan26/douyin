@@ -4501,6 +4501,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 if kw and kw not in seen:
                     seen.add(kw)
                     fallback_keywords.append(kw_item)
+            merged_keywords = raw_keywords + fallback_keywords if raw_keywords else fallback_keywords
 
             blue_ocean_keywords = []
             red_ocean_keywords = []
