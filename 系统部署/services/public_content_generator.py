@@ -718,12 +718,15 @@ class ContentGenerator:
         customer_why = (params.get('customer_why') or '').strip()
         customer_problem = (params.get('customer_problem') or '').strip()
         customer_story = (params.get('customer_story') or '').strip()
+        service_scenario = (params.get('service_scenario') or '').strip()
+        local_city = (params.get('local_city') or '').strip()
 
         try:
             # 调用LLM挖掘问题
             problems = cls._挖掘_使用方_付费方问题(
                 business_desc, business_range, business_type,
-                customer_who, customer_why, customer_problem, customer_story
+                customer_who, customer_why, customer_problem, customer_story,
+                service_scenario, local_city
             )
 
             # 默认基于第一个使用方问题生成第一批人群画像
@@ -792,10 +795,13 @@ class ContentGenerator:
             customer_why = (params.get('customer_why') or '').strip()
             customer_problem = (params.get('customer_problem') or '').strip()
             customer_story = (params.get('customer_story') or '').strip()
+            service_scenario = (params.get('service_scenario') or '').strip()
+            local_city = (params.get('local_city') or '').strip()
 
             problems = cls._挖掘_使用方_付费方问题(
                 business_desc, business_range, business_type,
-                customer_who, customer_why, customer_problem, customer_story
+                customer_who, customer_why, customer_problem, customer_story,
+                service_scenario, local_city
             )
 
             # 找到指定的问题
@@ -851,7 +857,9 @@ class ContentGenerator:
         customer_who: str = '',
         customer_why: str = '',
         customer_problem: str = '',
-        customer_story: str = ''
+        customer_story: str = '',
+        service_scenario: str = '',
+        local_city: str = ''
     ) -> Dict[str, Any]:
         """
         调用LLM挖掘使用方问题和付费方顾虑
@@ -876,6 +884,25 @@ class ContentGenerator:
             aux_parts.append(f'- 核心问题：{customer_problem}')
         if customer_story:
             aux_parts.append(f'- 客户故事：{customer_story[:200]}')
+        
+        # 服务场景作为重要参考
+        if service_scenario:
+            scenario_map = {
+                'hotel_restaurant': '酒店/餐饮/茶楼/高端会所',
+                'residential': '家用/住宅/小区业主',
+                'office_enterprise': '写字楼/企业/工厂/园区',
+                'institutional': '学校/医院/食堂/政企单位',
+                'retail_chain': '实体店/连锁门店/加盟品牌',
+                'renovation': '装修/工装/工程定制',
+                'other': '其他小众场景'
+            }
+            scenario_text = scenario_map.get(service_scenario, service_scenario)
+            aux_parts.append(f'- 主要服务场景：{scenario_text}')
+        
+        # 本地城市信息
+        if business_range == 'local' and local_city:
+            aux_parts.append(f'- 服务城市：{local_city}')
+        
         aux_section = '\n'.join(aux_parts) if aux_parts else '（未填写辅助信息）'
 
         # 根据业务类型判断买用关系
@@ -1253,6 +1280,8 @@ class ContentGenerator:
         customer_why = params.get('customer_why', '')
         customer_problem = params.get('customer_problem', '')
         customer_story = params.get('customer_story', '')
+        service_scenario = params.get('service_scenario', '')
+        local_city = params.get('local_city', '')
 
         business_range = params.get('business_range', '')
         business_type = params.get('business_type', '')
@@ -1298,7 +1327,7 @@ class ContentGenerator:
             business_desc=business_desc,
             business_range=business_range or '（未填）',
             business_type=business_type or '（未填）',
-            filled_info=cls._build_filled_info(customer_who, customer_why, customer_problem, customer_story)
+            filled_info=cls._build_filled_info(customer_who, customer_why, customer_problem, customer_story, service_scenario, local_city)
         )
 
         try:
@@ -1942,8 +1971,9 @@ class ContentGenerator:
 
     @classmethod
     def _build_filled_info(cls, customer_who: str, customer_why: str,
-                           customer_problem: str, customer_story: str) -> str:
-        """构建已填写的深度了解信息"""
+                           customer_problem: str, customer_story: str,
+                           service_scenario: str = '', local_city: str = '') -> str:
+        """构建已填写的补充信息"""
         parts = []
         if customer_who:
             parts.append(f"典型客户案例：{customer_who}")
@@ -1953,8 +1983,21 @@ class ContentGenerator:
             parts.append(f"帮他解决了什么问题：{customer_problem}")
         if customer_story:
             parts.append(f"印象深刻的客户故事：{customer_story[:100]}")
+        if service_scenario:
+            scenario_map = {
+                'hotel_restaurant': '酒店/餐饮/茶楼/高端会所',
+                'residential': '家用/住宅/小区业主',
+                'office_enterprise': '写字楼/企业/工厂/园区',
+                'institutional': '学校/医院/食堂/政企单位',
+                'retail_chain': '实体店/连锁门店/加盟品牌',
+                'renovation': '装修/工装/工程定制',
+                'other': '其他小众场景'
+            }
+            parts.append(f"主要服务场景：{scenario_map.get(service_scenario, service_scenario)}")
+        if local_city:
+            parts.append(f"服务城市：{local_city}")
 
-        return '\n'.join(parts) if parts else '（未填写深度了解信息）'
+        return '\n'.join(parts) if parts else '（未填写补充信息）'
 
     @classmethod
     def _infer_local_industry_from_desc(cls, business_desc: str) -> str:
@@ -2748,30 +2791,45 @@ class ContentGenerator:
         target_customer = cls._infer_target_customer(params)
         business_desc = params.get('business_description', '')
 
-        # 获取深度了解信息
+        # 获取补充信息
         customer_who = params.get('customer_who', '')
         customer_why = params.get('customer_why', '')
         customer_problem = params.get('customer_problem', '')
         customer_story = params.get('customer_story', '')
         customer_experiences = params.get('customer_experiences', [])
+        service_scenario = params.get('service_scenario', '')
+        local_city = params.get('local_city', '')
 
         keywords = resources.get('keywords', {})
         topics = resources.get('topics', [])
 
-        # 构建深度了解信息
-        deep_info_parts = []
+        # 构建补充信息
+        extra_info_parts = []
         if customer_who:
-            deep_info_parts.append(f"客户是谁：{customer_who}")
+            extra_info_parts.append(f"客户是谁：{customer_who}")
         if customer_why:
-            deep_info_parts.append(f"为什么找到：{customer_why}")
+            extra_info_parts.append(f"为什么找到：{customer_why}")
         if customer_problem:
-            deep_info_parts.append(f"解决了什么问题：{customer_problem}")
+            extra_info_parts.append(f"解决了什么问题：{customer_problem}")
         if customer_experiences:
-            deep_info_parts.append(f"合作体验：{', '.join(customer_experiences)}")
+            extra_info_parts.append(f"合作体验：{', '.join(customer_experiences)}")
         if customer_story:
-            deep_info_parts.append(f"客户故事：{customer_story[:100]}...")
+            extra_info_parts.append(f"客户故事：{customer_story[:100]}...")
+        if service_scenario:
+            scenario_map = {
+                'hotel_restaurant': '酒店/餐饮/茶楼/高端会所',
+                'residential': '家用/住宅/小区业主',
+                'office_enterprise': '写字楼/企业/工厂/园区',
+                'institutional': '学校/医院/食堂/政企单位',
+                'retail_chain': '实体店/连锁门店/加盟品牌',
+                'renovation': '装修/工装/工程定制',
+                'other': '其他小众场景'
+            }
+            extra_info_parts.append(f"主要服务场景：{scenario_map.get(service_scenario, service_scenario)}")
+        if local_city:
+            extra_info_parts.append(f"服务城市：{local_city}")
 
-        deep_info = '\n'.join(deep_info_parts) if deep_info_parts else '暂无'
+        extra_info = '\n'.join(extra_info_parts) if extra_info_parts else '暂无'
 
         prompt = f"""你是一个专业的短视频文案专家。请为以下信息生成高质量的图文内容。
 
@@ -2787,8 +2845,8 @@ class ContentGenerator:
 目标客户：{target_customer}
 业务描述：{business_desc or "暂无"}
 
-客户深度信息（帮助精准定位）：
-{deep_info}
+补充信息（帮助精准定位）：
+{extra_info}
 
 可用关键词：
 - 核心词：{", ".join([k["keyword"] for k in keywords.get("core", [])]) if keywords.get("core") else "暂无"}
@@ -3447,6 +3505,10 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
     bad_examples = _get_mine_bad_examples(business_desc)
     kw_example = _get_mine_kw_example(business_desc)
 
+    # 获取服务场景信息
+    service_scenario = params.get('service_scenario', '')
+    local_city = params.get('local_city', '')
+
     # 构建辅助信息
     aux_parts = []
     if customer_who:
@@ -3457,6 +3519,22 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         aux_parts.append(f"解决的痛点：{customer_problem}")
     if customer_story:
         aux_parts.append(f"客户故事：{customer_story}")
+    # 服务场景作为重要参考
+    if service_scenario:
+        scenario_map = {
+            'hotel_restaurant': '酒店/餐饮/茶楼/高端会所',
+            'residential': '家用/住宅/小区业主',
+            'office_enterprise': '写字楼/企业/工厂/园区',
+            'institutional': '学校/医院/食堂/政企单位',
+            'retail_chain': '实体店/连锁门店/加盟品牌',
+            'renovation': '装修/工装/工程定制',
+            'other': '其他小众场景'
+        }
+        scenario_text = scenario_map.get(service_scenario, service_scenario)
+        aux_parts.append(f"主要服务场景：{scenario_text}")
+    # 本地城市信息
+    if business_range == 'local' and local_city:
+        aux_parts.append(f"服务城市：{local_city}")
     aux_section = '\n'.join(aux_parts) if aux_parts else "无"
 
     # 买用关系提示

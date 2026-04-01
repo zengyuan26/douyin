@@ -1130,14 +1130,19 @@
                                                 <label class="form-label">经营范围 <span class="text-danger">*</span></label>
                                                 <div class="d-flex gap-3 flex-wrap">
                                                     <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region" checked>
+                                                        <label class="form-check-label" for="range-cross">🌍 跨区域（全国）</label>
+                                                    </div>
+                                                    <div class="form-check">
                                                         <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
                                                         <label class="form-check-label" for="range-local">🏠 本地</label>
                                                     </div>
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region">
-                                                        <label class="form-check-label" for="range-cross">🌍 跨区域</label>
-                                                    </div>
                                                 </div>
+                                            </div>
+                                            <!-- 本地城市补充信息（选填） -->
+                                            <div class="col-md-6" id="local-city-wrapper" style="display: none;">
+                                                <label class="form-label">补充城市信息（选填）</label>
+                                                <input type="text" class="form-control" id="local-city" placeholder="例如：成都">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">经营类型 <span class="text-danger">*</span></label>
@@ -1162,57 +1167,33 @@
                                             </div>
                                         </div>
 
-                                        <!-- 深度了解（可选折叠） -->
+                                        <!-- 服务场景选择 -->
                                         <div class="mt-3">
-                                            <div class="accordion" id="accordionDeepInfo">
-                                                <div class="accordion-item border-0">
-                                                    <h2 class="accordion-header">
-                                                        <button class="accordion-button collapsed small" type="button"
-                                                                data-bs-toggle="collapse" data-bs-target="#collapseDeepInfo"
-                                                                style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px;">
-                                                            <span class="me-2">📊</span>
-                                                            <strong>深度了解（可选）</strong>
-                                                            <span class="badge bg-warning text-dark ms-2">AI辅助</span>
-                                                        </button>
-                                                    </h2>
-                                                    <div id="collapseDeepInfo" class="accordion-collapse collapse"
-                                                         data-bs-parent="#accordionDeepInfo">
-                                                        <div class="accordion-body pt-3">
-                                                            <div class="alert alert-warning small mb-3">
-                                                                <i class="bi bi-lightbulb me-1"></i>
-                                                                描述一个典型客户案例，帮助AI更精准定位目标人群和痛点
-                                                            </div>
-                                                            <div class="row g-3">
-                                                                <div class="col-12">
-                                                                    <label class="form-label" for="customer-who">1. 他们是谁？</label>
-                                                                    <input type="text" class="form-control" id="customer-who" placeholder="例如：某写字楼行政负责人">
-                                                                </div>
-                                                                <div class="col-12">
-                                                                    <label class="form-label" for="customer-why">2. 当初为什么会找到您？</label>
-                                                                    <input type="text" class="form-control" id="customer-why" placeholder="例如：原来用的水太贵了">
-                                                                </div>
-                                                                <div class="col-12">
-                                                                    <label class="form-label" for="customer-problem">3. 您帮他解决了什么？</label>
-                                                                    <input type="text" class="form-control" id="customer-problem" placeholder="例如：省了30%用水成本">
-                                                                </div>
-                                                                <div class="col-12">
-                                                                    <label class="form-label">4. 合作体验（可多选）</label>
-                                                                    <div class="d-flex gap-3 flex-wrap">
-                                                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="exp-smooth" value="smooth"><label class="form-check-label" for="exp-smooth">付款爽快</label></div>
-                                                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="exp-easy" value="easy"><label class="form-check-label" for="exp-easy">沟通顺畅</label></div>
-                                                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="exp-refer" value="refer"><label class="form-check-label" for="exp-refer">会介绍朋友</label></div>
-                                                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="exp-picky" value="picky"><label class="form-check-label" for="exp-picky">比较挑剔</label></div>
-                                                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="exp-slow" value="slow"><label class="form-check-label" for="exp-slow">决策周期长</label></div>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="col-12">
-                                                                    <label class="form-label" for="customer-story">5. 印象特别深的事（选填）</label>
-                                                                    <textarea class="form-control" id="customer-story" rows="2" placeholder="讲一个印象深刻的客户故事..."></textarea>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                            <label class="form-label">你的主要服务场景</label>
+                                            <select class="form-select" id="service-scenario" onchange="handleServiceScenarioChange()">
+                                                <option value="">请选择你的核心服务场景</option>
+                                                <option value="hotel_restaurant">🏨 酒店 / 餐饮 / 茶楼 / 高端会所
+小字：正餐、民宿、婚宴、茶室、私人会所、餐饮后厨配套</option>
+                                                <option value="residential">🏠 家用 / 住宅 / 小区业主
+小字：家庭自住、二手房翻新、家装配套、个人自用</option>
+                                                <option value="office_enterprise">🏢 写字楼 / 企业 / 工厂 / 园区
+小字：公司办公、厂区后勤、园区物业、企业采购</option>
+                                                <option value="institutional">🏫 学校 / 医院 / 食堂 / 政企单位
+小字：公立单位、食堂后勤、总务物资配套</option>
+                                                <option value="retail_chain">🛒 实体店 / 连锁门店 / 加盟品牌
+小字：门店经营、连锁供应链、加盟店配套</option>
+                                                <option value="renovation">🔨 装修 / 工装 / 工程定制
+小字：装修施工、工地配套、工程接单</option>
+                                                <option value="other">📝 其他小众场景
+小字：以上没有，简单写自己专属场景</option>
+                                            </select>
+                                            <!-- 其他场景补充输入 -->
+                                            <div id="other-scenario-wrapper" class="mt-2" style="display: none;">
+                                                <input type="text" class="form-control" id="other-scenario-input" 
+                                                       placeholder="简单备注你的使用场景（限15字内）" maxlength="15">
+                                            </div>
+                                            <div id="scenario-lock-hint" class="form-text text-muted" style="display: none;">
+                                                <i class="bi bi-lock-fill me-1"></i>选择固定场景后，人群库已自动锁定
                                             </div>
                                         </div>
 
@@ -1584,12 +1565,10 @@
             return {
                 business_desc: document.getElementById('business-desc')?.value || '',
                 business_range: document.querySelector('input[name="business-range"]:checked')?.value || '',
+                local_city: document.getElementById('local-city')?.value || '',
                 business_type: document.querySelector('input[name="business-type"]:checked')?.value || '',
-                customer_who: document.getElementById('customer-who')?.value || '',
-                customer_why: document.getElementById('customer-why')?.value || '',
-                customer_problem: document.getElementById('customer-problem')?.value || '',
-                customer_story: document.getElementById('customer-story')?.value || '',
-                customer_experiences: Array.from(document.querySelectorAll('input[name^="exp-"]:checked')).map(el => el.value),
+                service_scenario: document.getElementById('service-scenario')?.value || '',
+                other_scenario: document.getElementById('other-scenario-input')?.value || '',
             };
         }
 
@@ -1622,14 +1601,21 @@
             if (!confirm('确定要重置超级定位吗？当前输入的所有信息将被清除。')) return;
             try { localStorage.removeItem(SNAPSHOT_KEY); } catch(e) {}
             // 清空表单
-            const fields = ['business-desc','customer-who','customer-why','customer-problem','customer-story'];
+            const fields = ['business-desc', 'local-city', 'other-scenario-input'];
             fields.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
+            // 重置经营范围radio：默认跨区域，隐藏本地城市字段
             document.querySelectorAll('input[name="business-range"]').forEach(r => r.checked = false);
+            document.getElementById('range-cross').checked = true;
+            const cityWrapper = document.getElementById('local-city-wrapper');
+            if (cityWrapper) cityWrapper.style.display = 'none';
             document.querySelectorAll('input[name="business-type"]').forEach(r => r.checked = false);
-            document.querySelectorAll('input[name^="exp-"]').forEach(c => c.checked = false);
+            // 重置服务场景下拉框
+            const scenarioSelect = document.getElementById('service-scenario');
+            if (scenarioSelect) scenarioSelect.value = '';
+            handleServiceScenarioChange();
             // 隐藏超级定位结果区
             const sections = ['problems-section','target-customers-section','market-analysis-card','problem-mining-loading','portrait-generating-loading'];
             sections.forEach(id => {
@@ -1681,7 +1667,7 @@
 
         function applySnapshotToForm(snapshot) {
             if (!snapshot) return;
-            const fields = ['business-desc','customer-who','customer-why','customer-problem','customer-story'];
+            const fields = ['business-desc', 'local-city', 'other-scenario-input'];
             fields.forEach(id => {
                 const el = document.getElementById(id);
                 if (el && snapshot[id.replace(/-/g, '_')] !== undefined) {
@@ -1691,16 +1677,23 @@
             if (snapshot.business_range) {
                 const r = document.querySelector(`input[name="business-range"][value="${snapshot.business_range}"]`);
                 if (r) r.checked = true;
+                // 根据选择控制本地城市字段显示
+                if (snapshot.business_range === 'local') {
+                    const cityWrapper = document.getElementById('local-city-wrapper');
+                    if (cityWrapper) cityWrapper.style.display = 'block';
+                }
             }
             if (snapshot.business_type) {
                 const r = document.querySelector(`input[name="business-type"][value="${snapshot.business_type}"]`);
                 if (r) r.checked = true;
             }
-            if (snapshot.customer_experiences && Array.isArray(snapshot.customer_experiences)) {
-                snapshot.customer_experiences.forEach(v => {
-                    const c = document.getElementById('exp-' + v);
-                    if (c) c.checked = true;
-                });
+            // 恢复服务场景
+            if (snapshot.service_scenario) {
+                const scenarioSelect = document.getElementById('service-scenario');
+                if (scenarioSelect) {
+                    scenarioSelect.value = snapshot.service_scenario;
+                    handleServiceScenarioChange();
+                }
             }
         }
 
@@ -1860,6 +1853,40 @@
             // 默认显示超级定位 Tab
             switchGeneratorTab('super');
         }
+
+        // 经营范围切换：选择本地时显示城市补充字段
+        function initBusinessRangeToggle() {
+            const radios = document.querySelectorAll('input[name="business-range"]');
+            const cityWrapper = document.getElementById('local-city-wrapper');
+            radios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'local') {
+                        cityWrapper.style.display = 'block';
+                    } else {
+                        cityWrapper.style.display = 'none';
+                    }
+                });
+            });
+        }
+        document.addEventListener('DOMContentLoaded', initBusinessRangeToggle);
+
+        // 服务场景切换：选择"其他"时显示补充输入框，选固定项时锁定人群库提示
+        function handleServiceScenarioChange() {
+            const select = document.getElementById('service-scenario');
+            const otherWrapper = document.getElementById('other-scenario-wrapper');
+            const lockHint = document.getElementById('scenario-lock-hint');
+            if (!select) return;
+            if (select.value === 'other') {
+                otherWrapper.style.display = 'block';
+                lockHint.style.display = 'none';
+            } else if (select.value) {
+                otherWrapper.style.display = 'none';
+                lockHint.style.display = 'block';
+            } else {
+                otherWrapper.style.display = 'none';
+                lockHint.style.display = 'none';
+            }
+        }
         
         // 显示已保存画像区域和保存按钮（登录后）
         function showSavedPortraitsSection() {
@@ -1890,24 +1917,6 @@
             }
         }
 
-        // 收集可选字段 - 深度了解信息
-        function collectDeepInfo() {
-            const extraData = {
-                customer_who: document.getElementById('customer-who')?.value?.trim() || '',
-                customer_why: document.getElementById('customer-why')?.value?.trim() || '',
-                customer_problem: document.getElementById('customer-problem')?.value?.trim() || '',
-                customer_experiences: [],
-                customer_story: document.getElementById('customer-story')?.value?.trim() || '',
-            };
-
-            // 获取选中的合作体验
-            document.querySelectorAll('input[id^="exp-"]:checked').forEach(cb => {
-                extraData.customer_experiences.push(cb.value);
-            });
-
-            return extraData;
-        }
-
         // ================================================================
         // 状态变量
         // ================================================================
@@ -1931,6 +1940,9 @@
             const businessDesc = document.getElementById('business-desc').value.trim();
             const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
             const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
+            const serviceScenario = document.getElementById('service-scenario')?.value || '';
+            const otherScenario = document.getElementById('other-scenario-input')?.value?.trim() || '';
+            const localCity = document.getElementById('local-city')?.value?.trim() || '';
 
             if (!businessDesc) {
                 alert('请描述您的业务');
@@ -1945,8 +1957,6 @@
                 alert('请选择经营类型');
                 return;
             }
-
-            const extraData = collectDeepInfo();
 
             // 先折叠第一步，展开第二步，显示局部加载状态
             const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-form-body'), {toggle: false});
@@ -1967,11 +1977,9 @@
                         business_description: businessDesc,
                         business_range: businessRange,
                         business_type: businessType,
-                        customer_who: extraData.customer_who,
-                        customer_why: extraData.customer_why,
-                        customer_problem: extraData.customer_problem,
-                        customer_experiences: extraData.customer_experiences,
-                        customer_story: extraData.customer_story,
+                        service_scenario: serviceScenario,
+                        other_scenario: otherScenario,
+                        local_city: localCity,
                         refresh_nonce: Date.now(),
                     })
                 });
@@ -2060,7 +2068,9 @@
             const businessDesc = document.getElementById('business-desc').value.trim();
             const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
             const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
-            const extraData = collectDeepInfo();
+            const serviceScenario = document.getElementById('service-scenario')?.value || '';
+            const otherScenario = document.getElementById('other-scenario-input')?.value?.trim() || '';
+            const localCity = document.getElementById('local-city')?.value?.trim() || '';
 
             document.getElementById('loading').style.display = 'block';
             document.getElementById('loading-text').textContent = '正在重新识别目标人群，请稍候...';
@@ -2077,11 +2087,9 @@
                     business_description: businessDesc,
                     business_range: businessRange,
                     business_type: businessType,
-                    customer_who: extraData.customer_who,
-                    customer_why: extraData.customer_why,
-                    customer_problem: extraData.customer_problem,
-                    customer_experiences: extraData.customer_experiences,
-                    customer_story: extraData.customer_story,
+                    service_scenario: serviceScenario,
+                    other_scenario: otherScenario,
+                    local_city: localCity,
                     refresh_nonce: Date.now(),
                 })
             })
@@ -2818,6 +2826,9 @@
             const businessDesc = document.getElementById('business-desc').value.trim();
             const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
             const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
+            const serviceScenario = document.getElementById('service-scenario')?.value || '';
+            const otherScenario = document.getElementById('other-scenario-input')?.value?.trim() || '';
+            const localCity = document.getElementById('local-city')?.value?.trim() || '';
 
             // 获取选中的目标用户索引（单选）
             const checkedRadio = document.querySelector('input[name="target-customer"]:checked');
@@ -2827,8 +2838,6 @@
             }
 
             const selectedTargetIndex = parseInt(checkedRadio.value);
-
-            const extraData = collectDeepInfo();
 
             const genBtnStart = document.getElementById('btn-generate-content');
             if (genBtnStart) genBtnStart.disabled = true;
@@ -2852,11 +2861,9 @@
                         target_customer: targetCustomer,  // 传递选中的目标客户名称
                         selected_target_index: selectedTargetIndex,
                         selected_target_info: selectedTarget,  // 传递完整的目标用户画像信息
-                        customer_who: extraData.customer_who,
-                        customer_why: extraData.customer_why,
-                        customer_problem: extraData.customer_problem,
-                        customer_experiences: extraData.customer_experiences,
-                        customer_story: extraData.customer_story
+                        service_scenario: serviceScenario,
+                        other_scenario: otherScenario,
+                        local_city: localCity
                     })
                 });
 
@@ -3274,8 +3281,11 @@
         // 已保存画像「生成内容」→ 选题 → 内容
         window._generateContentForTopic = async function(topic, portrait) {
             const businessDesc = document.getElementById('business-desc')?.value?.trim() || portrait?.business_description || '';
-            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value || 'local';
+            const businessRange = document.querySelector('input[name="business-range"]:checked')?.value || 'cross_region';
             const businessType = document.querySelector('input[name="business-type"]:checked')?.value || 'product';
+            const serviceScenario = document.getElementById('service-scenario')?.value || '';
+            const otherScenario = document.getElementById('other-scenario-input')?.value?.trim() || '';
+            const localCity = document.getElementById('local-city')?.value?.trim() || '';
 
             // 兼容两种选题格式（专属库 type_name / 实时生成 type）
             const topicType = topic.type || topic.type_name || '';
@@ -3300,6 +3310,9 @@
                         business_description: businessDesc,
                         business_range: businessRange,
                         business_type: businessType,
+                        service_scenario: serviceScenario,
+                        other_scenario: otherScenario,
+                        local_city: localCity,
                         portrait: portrait
                     })
                 });
