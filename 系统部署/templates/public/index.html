@@ -1126,7 +1126,7 @@
                                                 <input type="text" 
                                                        class="form-control" 
                                                        id="business-desc" 
-                                                       maxlength="25"
+                                                       maxlength="20"
                                                        placeholder="请输入你的1个核心业务，例如：餐盘无痕修复、家具翻新、门窗维修">
                                                 <div class="form-text text-muted">仅填写1个主营服务，不写城市、不写广告语、不写多个业务</div>
                                                 <div class="invalid-feedback" id="business-desc-error"></div>
@@ -1886,8 +1886,8 @@
             if (trimmed.length === 0) {
                 return { valid: false, message: '请输入核心业务' };
             }
-            if (trimmed.length < 6) {
-                return { valid: false, message: '业务描述太短，请输入6字以上，清晰说明你的服务' };
+            if (trimmed.length < 3) {
+                return { valid: false, message: '业务描述太短，请输入3个字以上，清晰说明你的服务' };
             }
             if (trimmed.length > 20) {
                 return { valid: false, message: '业务描述不能超过20字，简洁写1个主营项目即可' };
