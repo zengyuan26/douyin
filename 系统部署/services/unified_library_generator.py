@@ -183,9 +183,10 @@ def _build_series_distribution(is_c端: bool, total: int = 100) -> Dict[str, int
 
 
 def _make_cache_key(params: Dict) -> str:
-    """基于输入数据生成 MD5 缓存键"""
-    # 提取关键字段生成摘要
+    """基于输入数据生成 MD5 缓存键（含 user_id 隔离）"""
+    # user_id 必须参与缓存键，防止跨用户数据泄露
     cache_data = {
+        'user_id': params.get('user_id', 'anonymous'),
         'business_desc': params.get('business_desc', ''),
         'service_scenario': params.get('service_scenario', ''),
         'business_type': params.get('business_type', ''),
@@ -311,6 +312,7 @@ class UnifiedLibraryGenerator:
 
         Args:
             params: {
+                user_id: int,                # 用户ID（必须，用于缓存隔离）
                 business_desc: str,        # 核心业务描述
                 service_scenario: str,     # 7大标准场景
                 business_type: str,        # 经营类型
@@ -335,7 +337,8 @@ class UnifiedLibraryGenerator:
             }
         """
         try:
-            # 1. 提取基础信息
+            # 1. 提取基础信息（含 user_id 用于缓存隔离）
+            user_id = params.get('user_id')
             business_desc = params.get('business_desc', '')
             service_scenario = params.get('service_scenario', '')
             business_type = params.get('business_type', 'local_service')
@@ -354,7 +357,7 @@ class UnifiedLibraryGenerator:
             is_c端 = _is_c端(business_type)
             end_type = 'C端' if is_c端 else 'B端'
 
-            # 3. 生成缓存键
+            # 3. 生成缓存键（含 user_id 隔离）
             cache_key = _make_cache_key(params)
 
             # 4. 检查缓存

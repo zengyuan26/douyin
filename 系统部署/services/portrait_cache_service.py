@@ -31,14 +31,15 @@ class PortraitCacheService:
     }
     
     @classmethod
-    def _generate_cache_key(cls, industry: str, business_desc: str, 
-                            portraits: List[Dict], cache_type: str) -> str:
-        """生成缓存key"""
-        # 组合所有参数
+    def _generate_cache_key(cls, industry: str, business_desc: str,
+                            portraits: List[Dict], cache_type: str,
+                            user_id: int = None) -> str:
+        """生成缓存key（含 user_id 隔离，防止跨用户数据泄露）"""
         data = {
+            'user_id': user_id if user_id else 0,
             'industry': industry,
             'business_desc': business_desc,
-            'portraits': portraits[:3] if portraits else [],  # 只取前3个画像
+            'portraits': portraits[:3] if portraits else [],
             'type': cache_type
         }
         json_str = json.dumps(data, sort_keys=True, ensure_ascii=False)
@@ -66,7 +67,7 @@ class PortraitCacheService:
         if plan_type == 'free':
             return None
         
-        cache_key = cls._generate_cache_key(industry, business_desc, portraits, 'keyword')
+        cache_key = cls._generate_cache_key(industry, business_desc, portraits, 'keyword', user_id)
         portrait_hash = cls._generate_portrait_hash(portraits)
         
         # 查询缓存
@@ -116,7 +117,7 @@ class PortraitCacheService:
         if plan_type == 'free':
             return False
         
-        cache_key = cls._generate_cache_key(industry, business_desc, portraits, 'keyword')
+        cache_key = cls._generate_cache_key(industry, business_desc, portraits, 'keyword', user_id)
         portrait_hash = cls._generate_portrait_hash(portraits)
         ttl = cls.DEFAULT_TTL.get(plan_type, 24)
         
@@ -168,7 +169,7 @@ class PortraitCacheService:
         if plan_type == 'free':
             return None
         
-        cache_key = cls._generate_cache_key(industry, business_desc, portraits, 'topic')
+        cache_key = cls._generate_cache_key(industry, business_desc, portraits, 'topic', user_id)
         
         # 查询缓存
         result = db.session.execute(
@@ -216,7 +217,7 @@ class PortraitCacheService:
         if plan_type == 'free':
             return False
         
-        cache_key = cls._generate_cache_key(industry, business_desc, portraits, 'topic')
+        cache_key = cls._generate_cache_key(industry, business_desc, portraits, 'topic', user_id)
         ttl = cls.DEFAULT_TTL.get(plan_type, 24)
         
         cache_level = cls.CACHE_LEVEL_USER if user_id else cls.CACHE_LEVEL_INDUSTRY

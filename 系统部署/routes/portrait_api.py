@@ -15,6 +15,7 @@ from flask import Blueprint, request, jsonify, session
 from functools import wraps
 from services.portrait_save_service import portrait_save_service
 from services.portrait_frequency_controller import portrait_frequency_controller
+from services.portrait_library_task_service import generate_with_semaphore
 from models.public_models import PublicUser, SavedPortrait
 from models.models import db
 from sqlalchemy import text
@@ -22,95 +23,6 @@ from sqlalchemy import text
 logger = logging.getLogger(__name__)
 
 
-def _background_generate_libraries(portrait_id: int, user_id: int, plan_type: str):
-    """
-    后台异步生成关键词库 + 选题库（后台线程执行）
-
-    流程：
-    1. 更新 generation_status = 'generating'
-    2. 生成关键词库 → 保存
-    3. 生成选题库 → 保存
-    4. 更新 generation_status = 'completed' / 'failed'
-    """
-    try:
-        from services.keyword_library_generator import keyword_library_generator
-        from services.topic_library_generator import topic_library_generator
-
-        portrait = SavedPortrait.query.get(portrait_id)
-        if portrait:
-            portrait.generation_status = 'generating'
-            portrait.generation_error = None
-            db.session.commit()
-
-        portrait = portrait_save_service.get_saved_portrait(portrait_id)
-        if not portrait:
-            logger.warning("[_background_generate] 画像不存在 portrait_id=%s", portrait_id)
-            return
-
-        portrait_data_dict = portrait.get('portrait_data', {})
-        business_info = {
-            'business_description': portrait.get('business_description', ''),
-            'industry': portrait.get('industry', ''),
-            'products': [],
-            'region': '',
-            'target_customer': portrait.get('target_customer', ''),
-        }
-
-        # 1. 生成关键词库
-        kw_result = keyword_library_generator.generate(
-            portrait_data=portrait_data_dict,
-            business_info=business_info,
-            plan_type=plan_type,
-            portrait_id=portrait_id,
-        )
-
-        if kw_result.get('success') and not kw_result.get('_meta', {}).get('from_cache'):
-            keyword_library_generator.save_to_portrait(
-                portrait_id=portrait_id,
-                keyword_library=kw_result['keyword_library'],
-                user_id=user_id,
-                plan_type=plan_type,
-            )
-            logger.info("[_background_generate] 关键词库生成完成 portrait_id=%s", portrait_id)
-
-        # 2. 生成选题库
-        kw_library = kw_result.get('keyword_library')
-        topic_result = topic_library_generator.generate(
-            portrait_data=portrait_data_dict,
-            business_info=business_info,
-            keyword_library=kw_library,
-            plan_type=plan_type,
-            portrait_id=portrait_id,
-        )
-
-        if topic_result.get('success') and not topic_result.get('_meta', {}).get('from_cache'):
-            topic_library_generator.save_to_portrait(
-                portrait_id=portrait_id,
-                topic_library=topic_result['topic_library'],
-                user_id=user_id,
-                plan_type=plan_type,
-            )
-            logger.info("[_background_generate] 选题库生成完成 portrait_id=%s", portrait_id)
-
-        # 更新状态：完成
-        portrait_row = SavedPortrait.query.get(portrait_id)
-        if portrait_row:
-            portrait_row.generation_status = 'completed'
-            db.session.commit()
-            logger.info("[_background_generate] 双库生成全部完成 portrait_id=%s", portrait_id)
-
-    except Exception as e:
-        import traceback
-        logger.error("[_background_generate] 异常: %s", e)
-        logger.debug("[_background_generate] 堆栈: %s", traceback.format_exc())
-        try:
-            portrait_row = SavedPortrait.query.get(portrait_id)
-            if portrait_row:
-                portrait_row.generation_status = 'failed'
-                portrait_row.generation_error = str(e)[:500]
-                db.session.commit()
-        except Exception:
-            pass
 
 
 portrait_bp = Blueprint('portrait', __name__, url_prefix='/public/api/portraits')
@@ -199,15 +111,15 @@ def save_portrait(user):
         )
         db.session.commit()
 
-        # 启动后台线程生成词库
+        # 启动后台线程生成词库（通过 Semaphore 控制 LLM 并发数）
         plan_type = user.premium_plan or 'basic'
         thread = threading.Thread(
-            target=_background_generate_libraries,
+            target=generate_with_semaphore,
             args=(portrait_id, user.id, plan_type),
             daemon=True
         )
         thread.start()
-        logger.info("[save_portrait] 已启动后台词库生成线程 portrait_id=%s plan_type=%s", portrait_id, plan_type)
+        logger.info("[save_portrait] 已提交词库生成任务 portrait_id=%s plan_type=%s", portrait_id, plan_type)
 
     return jsonify({
         'success': True,

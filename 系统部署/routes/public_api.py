@@ -1660,6 +1660,7 @@ def generate_unified_library():
     # 获取参数
     data = request.get_json() or {}
     params = {
+        'user_id': user.id,
         'business_desc': data.get('business_desc', ''),
         'service_scenario': data.get('service_scenario', ''),
         'business_type': data.get('business_type', 'local_service'),
