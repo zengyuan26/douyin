@@ -2,8 +2,8 @@
 
 > 基于 Flask + SQLite 的 Web 应用系统
 > 系统简称：AI棱镜
-> 版本：v3.3.1
-> 更新日期：2026-03-07
+> 版本：v3.3.2
+> 更新日期：2026-04-02
 
 ---
 
@@ -1451,3 +1451,65 @@ douyin_system_YYYYMMDD_HHMMSS.db
 | `templates/admin/knowledge_articles.html` | 新增筛选、搜索、分页功能 |
 | `templates/admin/knowledge_article_preview.html` | 新增文章预览页面 |
 | `routes/admin.py` | 新增文章增删改查路由（knowledge_article_add/edit/delete/preview） |
+
+---
+
+## v3.3.2 更新内容 (2026-04-02)
+
+### 画像词库系统重构 + 选题库 JSON 解析增强
+
+#### 1. 内容阶段配置系统
+
+**新增字段**：在 `saved_portraits` 表中新增 `content_stage` 字段，支持三阶段配置：
+
+| 阶段 | 阶段名 | 关键词配比 | 选题配比 |
+|------|--------|-----------|---------|
+| 起号阶段 | 起号阶段 | 长尾50%+地域30%+大词20% | 前置观望60%+刚需转化15%+使用配套25% |
+| 成长阶段 | 成长阶段 | 长尾35%+地域30%+大词35% | 前置观望50%+刚需转化30%+使用配套20% |
+| 成熟阶段 | 成熟阶段 | 长尾20%+地域20%+大词60% | 前置观望30%+刚需转化40%+使用配套30% |
+
+**新增页面**：`templates/admin/content_stage_config.html` - 管理员后台内容阶段配置页面
+
+**新增迁移脚本**：`migrations/add_content_stage_column.py` - 数据库字段迁移
+
+#### 2. 关键词库生成器重构
+
+**分类细化**：从原来的 9 类细化为 18 类，严格对应三大需求底盘：
+
+| 底盘 | 分类数 | 主要分类 |
+|------|--------|---------|
+| 前置观望搜前种草盘（50%） | 6 | 对比型、症状疑问、原因分析、上游供应链、行情价格、避坑科普 |
+| 刚需痛点盘（30%） | 4 | 直接需求、痛点关键词、决策鼓励、安心保障 |
+| 使用配套搜后种草盘（20%） | 5 | 地域关键词、季节时间、实操技巧干货、节日节气、行业关联 |
+
+**修复占位符问题**：添加 `{旺季时间}`、`{淡季时间}`、`{核心业务}` 三个模板变量的计算逻辑
+
+**强制归类规则**：旺/淡季词→使用配套盘、认知颠覆词→前置观望盘、技巧干货词→使用配套盘
+
+#### 3. 选题库生成器重构
+
+**分类细化**：从原来的 12 类细化为 21 类，新增对比选型类、痛点解决类、决策安心类、工具耗材类等
+
+**JSON 解析增强**：从 4 种解析方法扩展到 7 种，新增：
+
+- **方法5**：直接解析数组格式 `[...]`（支持纯数组返回）
+- **方法6**：逐个提取 JSON 对象（从前往后遍历括号配对）
+- **方法7**：从后向前提取完整对象（处理 LLM 返回被截断的情况）
+
+**修复默认选题库硬编码**：`_get_default_library()` 支持传入业务描述，动态生成通用选题，不再硬编码"定制水"
+
+#### 4. 技术修改清单
+
+| 修改文件 | 主要修改 |
+|----------|---------|
+| `models/public_models.py` | SavedPortrait 新增 content_stage 字段 |
+| `routes/admin.py` | 新增 content_stage_config 路由和 API |
+| `routes/public_api.py` | 修复 content_stage 字段查询错误 |
+| `services/keyword_filter_service.py` | 关键词过滤逻辑优化 |
+| `services/keyword_library_generator.py` | 分类细化、占位符修复、配比策略 |
+| `services/topic_library_generator.py` | 分类细化、JSON解析增强（7种方法）、默认库动态化 |
+| `services/unified_library_generator.py` | 双库生成逻辑重构 |
+| `services/public_content_generator.py` | 画像生成 prompt 优化 |
+| `templates/public/index.html` | 画像管理页面优化 |
+| `templates/admin/content_stage_config.html` | 新增内容阶段配置页面 |
+| `migrations/add_content_stage_column.py` | 新增数据库迁移脚本 |
