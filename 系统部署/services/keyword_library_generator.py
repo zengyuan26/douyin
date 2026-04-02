@@ -29,28 +29,31 @@ class KeywordLibraryGenerator:
     - 配比策略（起号期/成长期/成熟期）
     """
 
-    # 关键词分类常量（与 geo-seo 保持一致）
+    # 关键词分类常量（严格对应三大需求底盘）
+    # ①刚需痛点盘 → 直接需求+痛点词
+    # ②前置观望搜前种草盘 → 搜索+场景+认知颠覆词
+    # ③使用配套搜后种草盘 → 季节+节日节气+行业关联词
     CATEGORIES = [
-        {'name': '直接需求关键词', 'key': 'direct', 'min': 20,
+        {'name': '直接需求关键词', 'key': 'direct', 'base': '刚需痛点', 'min': 20,
          'desc': '核心词+品质服务词，直接表达购买意向'},
-        {'name': '痛点关键词', 'key': 'pain_point', 'min': 15,
+        {'name': '痛点关键词', 'key': 'pain_point', 'base': '刚需痛点', 'min': 15,
          'desc': '问题型+担心型+后果型，从评论区挖痛点'},
-        {'name': '搜索关键词', 'key': 'search', 'min': 15,
-         'desc': '疑问型+方法型+对比型，从搜索框挖需求'},
-        {'name': '场景关键词', 'key': 'scene', 'min': 15,
-         'desc': '客户类型+具体场景，场景细分'},
-        {'name': '地域关键词', 'key': 'region', 'min': 10,
+        {'name': '搜索关键词', 'key': 'search', 'base': '前置观望', 'min': 15,
+         'desc': '疑问型+方法型+对比型，从搜索框挖需求（搜前种草）'},
+        {'name': '场景关键词', 'key': 'scene', 'base': '前置观望', 'min': 15,
+         'desc': '客户类型+具体场景，场景细分（搜前种草）'},
+        {'name': '地域关键词', 'key': 'region', 'base': '刚需痛点', 'min': 10,
          'desc': '本地+周边扩展，本地流量词'},
-        {'name': '季节关键词', 'key': 'season', 'min': 10,
-         'desc': '旺季+淡季季节性关键词'},
-        {'name': '技巧干货关键词', 'key': 'skill', 'min': 10,
-         'desc': '干货型+数字型技巧词'},
-        {'name': '认知颠覆关键词', 'key': 'rethink', 'min': 5,
-         'desc': '反向+辟谣类，颠覆常识类'},
-        {'name': '节日节气关键词', 'key': 'festival', 'min': 15,
-         'desc': '传统节日+现代节日+24节气方法论'},
-        {'name': '行业关联关键词', 'key': 'industry', 'min': 10,
-         'desc': '上下游业务关联词，行业生态'},
+        {'name': '季节关键词', 'key': 'season', 'base': '使用配套', 'min': 10,
+         'desc': '旺季+淡季季节性关键词（搜后种草）'},
+        {'name': '技巧干货关键词', 'key': 'skill', 'base': '使用配套', 'min': 10,
+         'desc': '干货型+数字型技巧词（搜后种草）'},
+        {'name': '认知颠覆关键词', 'key': 'rethink', 'base': '前置观望', 'min': 5,
+         'desc': '反向+辟谣类，颠覆常识类（搜前种草）'},
+        {'name': '节日节气关键词', 'key': 'festival', 'base': '使用配套', 'min': 15,
+         'desc': '传统节日+现代节日+24节气方法论（搜后种草）'},
+        {'name': '行业关联关键词', 'key': 'industry', 'base': '使用配套', 'min': 10,
+         'desc': '上下游业务关联词，行业生态（搜后种草）'},
     ]
 
     def __init__(self):
@@ -294,11 +297,17 @@ class KeywordLibraryGenerator:
         """构建默认提示词（当模板不存在时使用）"""
 
         category_rules = '\n'.join([
-            f"{i+1}. **{c['name']}**（≥{c['min']}个）：{c['desc']}"
+            f"{i+1}. **{c['name']}**（底盘:{c['base']}，≥{c['min']}个）：{c['desc']}"
             for i, c in enumerate(self.CATEGORIES)
         ])
 
-        return f"""你是一位抖音SEO关键词专家。请为以下业务生成关键词库。
+        return f"""你是一位抖音SEO关键词专家。请为以下业务生成关键词库，严格遵循三大需求底盘结构。
+
+=== 三大需求底盘（关键词数量分配）===
+① 刚需痛点盘（40%）：直接需求词+痛点词+地域词，转化向
+② 前置观望搜前种草盘（30%）：搜索词+场景词+认知颠覆词，种草向
+③ 使用配套搜后种草盘（30%）：季节词+节日节气词+行业关联词+技巧干货词，种草向
+**严禁在生成关键词时临时补充种草内容，所有关键词必须从三盘中提取**
 
 ## 业务信息
 - 行业：{context['行业']}
@@ -320,8 +329,7 @@ class KeywordLibraryGenerator:
 - 当前节日：{context['当前节日']}
 - 当前节气：{context['当前节气']}
 
-## 关键词分类要求
-请生成以下10大分类的关键词：
+## 关键词分类要求（严格对应三盘，各底盘内容方向已标注）
 
 {category_rules}
 
@@ -337,7 +345,7 @@ class KeywordLibraryGenerator:
 
 ## 输出格式要求
 必须输出标准的JSON格式，包含以下字段：
-- categories: 关键词分类数组，每个分类包含 name, key, count, keywords
+- categories: 关键词分类数组，每个分类包含 name, key, base, count, keywords
 - blue_ocean: 蓝海长尾词数组
 - ratio_strategy: 配比策略对象
 - hot_keywords: 热点关键词数组

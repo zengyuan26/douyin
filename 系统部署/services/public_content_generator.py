@@ -3779,9 +3779,17 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         ).strip()
         if not problem_category:
             problem_category = infer_problem_category(problem_type, desc, display_name_raw)
+        base_map = {
+            '刚需痛点': '转化型',
+            '前置观望': '种草型',
+            '使用配套': '种草型',
+        }
+        base = problem.get('problem_base') or problem.get('concern_base') or ''
+        direction = base_map.get(base, '种草型')
         return {
             'id': _alloc_problem_id(problem.get('id'), f"{side}_{index+1}"),
             'identity': identity,
+            'problem_base': base,
             'problem_category': problem_category,
             'problem_type': problem_type,
             'display_name': display_name_raw,
@@ -3791,6 +3799,7 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
             'market_type': problem.get('market_type', 'red_ocean'),
             'market_reason': problem.get('market_reason', ''),
             'problem_keywords': problem.get('problem_keywords', []),
+            'content_direction': direction,
             '_side': side,
         }
 
@@ -4032,13 +4041,13 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         ]
     },
     "user_problem_types": [
-        {"identity": "有老人的家庭", "problem_category": "安全/质量问题", "problem_type": "老人独居风险", "display_name": "老人独自在家风险", "description": "摔倒没人发现、晚上无人陪伴、突发疾病", "severity": "极高", "scenarios": ["老人洗澡时摔倒", "晚上独自在家", "子女上班不在家"], "market_type": "blue_ocean", "market_reason": "细分人群+极高严重性", "problem_keywords": [{"keyword": "独居老人在家摔倒了没人发现怎么办", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "老人独自在家突发疾病怎么急救", "type": "blue_ocean", "source": "长尾转化词"}]},
-        {"identity": "有娃家庭", "problem_category": "体验/使用问题", "problem_type": "家居卫生问题", "display_name": "家里清洁不到位", "description": "孩子反复生病、过敏起疹子、螨虫困扰", "severity": "高", "scenarios": ["流感季节孩子生病", "床品螨虫过敏", "沙发清洁不彻底"], "market_type": "blue_ocean", "market_reason": "细分人群+高严重性", "problem_keywords": [{"keyword": "过敏宝宝家里怎么除螨最有效", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "孩子反复生病是不是家里不干净", "type": "blue_ocean", "source": "长尾转化词"}]},
-        {"identity": "双职工家庭", "problem_category": "成本/效率问题", "problem_type": "家务堆积", "display_name": "工作忙没时间打扫", "description": "家务太多做不完、没时间收拾", "severity": "中", "scenarios": ["早上赶着上班", "加班到很晚", "周末想休息"], "market_type": "red_ocean", "market_reason": "大众人群+中等严重性", "problem_keywords": [{"keyword": "家政保洁多少钱一小时", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "成都武侯区家政保洁推荐", "type": "red_ocean", "source": "地域精准词"}]}
+        {"identity": "有老人的家庭", "problem_base": "刚需痛点", "problem_category": "安全/质量问题", "problem_type": "老人独居风险", "display_name": "老人独自在家风险", "description": "摔倒没人发现、晚上无人陪伴、突发疾病", "severity": "极高", "scenarios": ["老人洗澡时摔倒", "晚上独自在家", "子女上班不在家"], "market_type": "blue_ocean", "market_reason": "细分人群+极高严重性", "problem_keywords": [{"keyword": "独居老人在家摔倒了没人发现怎么办", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "老人独自在家突发疾病怎么急救", "type": "blue_ocean", "source": "长尾转化词"}], "content_direction": "转化型"},
+        {"identity": "有娃家庭", "problem_base": "刚需痛点", "problem_category": "体验/使用问题", "problem_type": "家居卫生问题", "display_name": "家里清洁不到位", "description": "孩子反复生病、过敏起疹子、螨虫困扰", "severity": "高", "scenarios": ["流感季节孩子生病", "床品螨虫过敏", "沙发清洁不彻底"], "market_type": "blue_ocean", "market_reason": "细分人群+高严重性", "problem_keywords": [{"keyword": "过敏宝宝家里怎么除螨最有效", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "孩子反复生病是不是家里不干净", "type": "blue_ocean", "source": "长尾转化词"}], "content_direction": "转化型"},
+        {"identity": "双职工家庭", "problem_base": "使用配套", "problem_category": "成本/效率问题", "problem_type": "家务堆积", "display_name": "工作忙没时间打扫", "description": "家务太多做不完、没时间收拾", "severity": "中", "scenarios": ["早上赶着上班", "加班到很晚", "周末想休息"], "market_type": "red_ocean", "market_reason": "大众人群+中等严重性", "problem_keywords": [{"keyword": "家政保洁多少钱一小时", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "成都武侯区家政保洁推荐", "type": "red_ocean", "source": "地域精准词"}], "content_direction": "种草型"}
     ],
     "buyer_concern_types": [
-        {"identity": "雇主", "concern_category": "适配/兼容问题", "concern_type": "服务信任问题", "display_name": "怕服务人员不靠谱", "description": "怕遇到偷东西/虐童/虐待老人", "examples": ["新闻里的负面案例", "网上搜到的投诉"], "market_type": "blue_ocean", "market_reason": "信任痛点+细分人群", "problem_keywords": [{"keyword": "保姆虐童事件频发怎么筛选靠谱", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "家政公司有资质审查吗", "type": "blue_ocean", "source": "长尾转化词"}]},
-        {"identity": "雇主", "concern_category": "功能/效果问题", "concern_type": "服务效果问题", "display_name": "怕花了钱没效果", "description": "阿姨走了还是脏的、说好的深度清洁就擦擦灰", "examples": ["清洁不到位", "敷衍了事"], "market_type": "red_ocean", "market_reason": "普遍顾虑+大众需求", "problem_keywords": [{"keyword": "深度清洁和普通保洁有什么区别", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "XX保洁公司正规吗", "type": "red_ocean", "source": "品牌核心词"}]}
+        {"identity": "雇主", "concern_base": "刚需痛点", "concern_category": "适配/兼容问题", "concern_type": "服务信任问题", "display_name": "怕服务人员不靠谱", "description": "怕遇到偷东西/虐童/虐待老人", "examples": ["新闻里的负面案例", "网上搜到的投诉"], "market_type": "blue_ocean", "market_reason": "信任痛点+细分人群", "problem_keywords": [{"keyword": "保姆虐童事件频发怎么筛选靠谱", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "家政公司有资质审查吗", "type": "blue_ocean", "source": "长尾转化词"}]},
+        {"identity": "雇主", "concern_base": "前置观望", "concern_category": "功能/效果问题", "concern_type": "服务效果问题", "display_name": "怕花了钱没效果", "description": "阿姨走了还是脏的、说好的深度清洁就擦擦灰", "examples": ["清洁不到位", "敷衍了事"], "market_type": "red_ocean", "market_reason": "普遍顾虑+大众需求", "problem_keywords": [{"keyword": "深度清洁和普通保洁有什么区别", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "XX保洁公司正规吗", "type": "red_ocean", "source": "品牌核心词"}]}
     ]
 }
 """
@@ -4068,13 +4077,13 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         ]
     }},
     "user_problem_types": [
-        {{"identity": "核心人群A", "problem_category": "体验/使用问题", "problem_type": "使用体验问题", "display_name": "使用体验不理想", "description": "效果慢、不适、反复、与预期不符", "severity": "高", "scenarios": ["初次使用", "换新款", "季节变化"], "market_type": "blue_ocean", "market_reason": "细分人群", "problem_keywords": [{{"keyword": "用{product_name}没效果怎么办", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "{product_name}用了不舒服要停吗", "type": "blue_ocean", "source": "长尾转化词"}}]}},
-        {{"identity": "核心人群B", "problem_category": "适配/兼容问题", "problem_type": "选择适配问题", "display_name": "不知道选哪款", "description": "参数多、预算有限、怕买错", "severity": "中", "scenarios": ["大促比价", "送礼", "给家人选购"], "market_type": "blue_ocean", "market_reason": "长尾", "problem_keywords": [{{"keyword": "{product_name}怎么选适合自己", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "预算有限{product_name}怎么选", "type": "blue_ocean", "source": "长尾转化词"}}]}},
-        {{"identity": "忙碌型用户", "problem_category": "成本/效率问题", "problem_type": "时间便利问题", "display_name": "没空研究没空买", "description": "没时间做功课、怕麻烦、想省事", "severity": "中", "scenarios": ["加班", "出差", "带娃"], "market_type": "red_ocean", "market_reason": "普遍痛点", "problem_keywords": [{{"keyword": "{product_name}有没有送货上门", "type": "red_ocean", "source": "用户需求词"}}, {{"keyword": "附近哪里买{product_name}方便", "type": "red_ocean", "source": "地域精准词"}}]}}
+        {{"identity": "核心人群A", "problem_base": "刚需痛点", "problem_category": "体验/使用问题", "problem_type": "使用体验问题", "display_name": "使用体验不理想", "description": "效果慢、不适、反复、与预期不符", "severity": "高", "scenarios": ["初次使用", "换新款", "季节变化"], "market_type": "blue_ocean", "market_reason": "细分人群", "problem_keywords": [{{"keyword": "用{product_name}没效果怎么办", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "{product_name}用了不舒服要停吗", "type": "blue_ocean", "source": "长尾转化词"}}], "content_direction": "转化型"}},
+        {{"identity": "核心人群B", "problem_base": "前置观望", "problem_category": "适配/兼容问题", "problem_type": "选择适配问题", "display_name": "不知道选哪款", "description": "参数多、预算有限、怕买错", "severity": "中", "scenarios": ["大促比价", "送礼", "给家人选购"], "market_type": "blue_ocean", "market_reason": "长尾", "problem_keywords": [{{"keyword": "{product_name}怎么选适合自己", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "预算有限{product_name}怎么选", "type": "blue_ocean", "source": "长尾转化词"}}], "content_direction": "种草型"}},
+        {{"identity": "忙碌型用户", "problem_base": "使用配套", "problem_category": "成本/效率问题", "problem_type": "时间便利问题", "display_name": "没空研究没空买", "description": "没时间做功课、怕麻烦、想省事", "severity": "中", "scenarios": ["加班", "出差", "带娃"], "market_type": "red_ocean", "market_reason": "普遍痛点", "problem_keywords": [{{"keyword": "{product_name}有没有送货上门", "type": "red_ocean", "source": "用户需求词"}}, {{"keyword": "附近哪里买{product_name}方便", "type": "red_ocean", "source": "地域精准词"}}], "content_direction": "种草型"}}
     ],
     "buyer_concern_types": [
-        {{"identity": "购买者", "concern_type": "信任与渠道", "display_name": "怕假货怕买错渠道", "description": "怕假、怕串货、怕售后无保障", "examples": ["网购不放心", "小店不敢买"], "market_type": "blue_ocean", "market_reason": "信任成本", "problem_keywords": [{{"keyword": "怎么验{product_name}真假", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "{product_name}官方授权怎么查", "type": "blue_ocean", "source": "长尾转化词"}}]}},
-        {{"identity": "购买者", "concern_type": "性价比", "display_name": "怕买贵怕踩雷", "description": "活动价混乱、同款不同价", "examples": ["大促规则复杂"], "market_type": "red_ocean", "market_reason": "比价", "problem_keywords": [{{"keyword": "{product_name}正常价位多少", "type": "red_ocean", "source": "用户需求词"}}, {{"keyword": "{product_name}和大牌差别在哪", "type": "red_ocean", "source": "用户需求词"}}]}}
+        {{"identity": "购买者", "concern_base": "刚需痛点", "concern_type": "信任与渠道", "display_name": "怕假货怕买错渠道", "description": "怕假、怕串货、怕售后无保障", "examples": ["网购不放心", "小店不敢买"], "market_type": "blue_ocean", "market_reason": "信任成本", "problem_keywords": [{{"keyword": "怎么验{product_name}真假", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "{product_name}官方授权怎么查", "type": "blue_ocean", "source": "长尾转化词"}}]}},
+        {{"identity": "购买者", "concern_base": "前置观望", "concern_type": "性价比", "display_name": "怕买贵怕踩雷", "description": "活动价混乱、同款不同价", "examples": ["大促规则复杂"], "market_type": "red_ocean", "market_reason": "比价", "problem_keywords": [{{"keyword": "{product_name}正常价位多少", "type": "red_ocean", "source": "用户需求词"}}, {{"keyword": "{product_name}和大牌差别在哪", "type": "red_ocean", "source": "用户需求词"}}]}}
     ]
 }}
 """
@@ -4136,15 +4145,46 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 **五、输出格式要求**
 每条问题输出字段：
 - identity：用户身份（如"宝妈""酒店采购"）
+- problem_base：**需求底盘（必填）**，从以下三选一：
+  - `刚需痛点` → severity为极高/高，搜索目的是找解决方案
+  - `前置观望` → 前置科普/预防/认知类问题，搜索目的是学知识
+  - `使用配套` → 使用后配套/周边/养护类问题，搜索目的是找工具和复购
 - problem_category：问题大类（如"体验/使用问题"），从五类中选一
 - problem_type：细分问题类型（如"肠道问题""过敏问题"），必须具体
 - description：3-5个具体表现，用顿号分隔（如"拉肚子、腹胀、便秘"）
 - severity：仅限⭐⭐⭐、⭐⭐⭐⭐、⭐⭐⭐⭐⭐三档
 - scenarios：2-3个具体使用场景
 - problem_keywords：与该问题主题强对齐的搜索词（必须围绕本条问题，不能泛化）
+- content_direction：内容方向（从 problem_base 自动推导：刚需痛点→转化型；前置观望→种草型；使用配套→种草型）
 
 - concern_category：问题大类（如"功能/效果问题"），从五类中选一
-- examples：2-3个具体例子（付费者决策时的具体顾虑场景）
+- concern_base：**需求底盘（必填）**，从以下三选一：
+  - `刚需痛点` → 付费决策涉及安全/健康/核心效果，不可拖延
+  - `前置观望` → 付费决策前的认知/比价/信任类顾虑，搜索目的是学知识
+  - `使用配套` → 复购/升级/耗材类决策，搜索目的是找工具和方案
+=== 【三大需求底盘 - 必须强制拆分，不得后期临时补充种草】 ===
+**所有问题必须归入以下三盘之一，同一个问题只归属一盘：**
+
+**① 刚需痛点盘（核心问题池）**
+- 定义：用户已处于痛苦中、急需解决的核心问题，搜索目的是立即找到解决方案
+- 归类：severity 为「极高」「高」的问题 + 正在经历的症状/故障/损耗类问题
+- 内容方向：全部输出转化向内容（直面痛点、提供解决方案、引导成交）
+
+**② 前置观望搜前种草盘（行业上游/认知科普）**
+- 定义：用户尚未遇到该问题、但处于"知道有风险/将来可能遇到"阶段，搜索目的是学习了解、提前预防
+- 归类：健康安全科普类、知识科普类、预防类、行业认知类
+- 内容方向：全部输出种草向内容（行业知识科普、上游关联需求，不直接推销核心业务）
+
+**③ 使用配套搜后种草盘（周边工具/养护留存）**
+- 定义：用户已使用核心业务后，产生的周边工具、养护知识、留存复购类需求
+- 归类：使用后配套工具、保养维护、复购耗材、周边延伸需求
+- 内容方向：全部输出种草向内容（周边关联需求，引导加购/复购/升级）
+
+**重要约束：**
+- 三盘在问题识别阶段一次性拆分完毕，关键词库和选题库严格对应三盘输出
+- 严禁在生成关键词/选题时临时补充种草内容
+- 选題时自动区分：刚需痛点盘→转化型，前置观望盘+使用配套盘→种草型
+
 === 蓝海/红海判断标准 ===
 **market_type 判断规则**（每个问题必须填写）：
 
@@ -4493,9 +4533,17 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 else:
                     return {'success': False, 'message': 'AI生成失败，未能解析出有效数据'}
 
+            # 三盘 → 内容方向映射
+            base_map = {
+                '刚需痛点': '转化型',
+                '前置观望': '种草型',
+                '使用配套': '种草型',
+            }
+
             # --- 规范化处理（函数式写法，避免缩进陷阱） ---
             def _norm(item, is_problem=True):
                 type_key = 'problem_type' if is_problem else 'concern_type'
+                base_key = 'problem_base' if is_problem else 'concern_base'
                 desc_key = 'display_name'
                 raw_type = item.get(type_key, '') or item.get('问题类型', '') or item.get('顾虑类型', '') or ''
                 display = item.get(desc_key, '') or item.get('显示名称', '') or item.get('描述', '') or ''
@@ -4510,7 +4558,8 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 return {
                     'id': item.get('id', ''),
                     'identity': item.get('identity', '') or item.get('身份', ''),
-                    'problem_type' if is_problem else 'concern_type': raw_type,
+                    type_key: raw_type,
+                    base_key: item.get(base_key, '') or item.get('需求底盘', ''),
                     'display_name': display or f"{item.get('identity', '')}{raw_type}",
                     'description': item.get('description', '') or item.get('描述', ''),
                     'examples': item.get('examples', []) or item.get('例子', []),
@@ -4527,21 +4576,15 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             portraits_by_type = result.get('portraits_by_type', {})
             market_analysis = result.get('market_analysis', {}) or {}
 
-            all_user_problem_types = [
-                {**{'id': f'up_{i+1}', 'problem_keywords': _extract_problem_keywords(item)},
-                 **{k: v for k, v in _norm(item, True).items() if k != 'problem_keywords'},
-                 **{'id': _norm(item, True).get('id', f'up_{i+1}')},
-                 'problem_keywords': _extract_problem_keywords(item),
-                 'display_name': _norm(item, True)['display_name'] or f"{_norm(item, True)['identity']}{_norm(item, True)['problem_type']}"}
-                for i, item in enumerate(user_problem_types)
-            ]
-            # 重新构建（避免字典推导式覆盖问题）
             all_user_problem_types = []
             for i, item in enumerate(user_problem_types):
                 n = _norm(item, True)
+                base = item.get('problem_base') or item.get('concern_base') or ''
+                direction = base_map.get(base, '种草型') if base else '种草型'
                 all_user_problem_types.append({
                     'id': n.get('id', f'up_{i+1}'),
                     'identity': n['identity'],
+                    'problem_base': base,
                     'problem_type': n['problem_type'],
                     'display_name': n['display_name'] or f"{n['identity']}{n['problem_type']}",
                     'description': n['description'],
@@ -4550,14 +4593,18 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'market_type': n['market_type'],
                     'market_reason': n['market_reason'],
                     'problem_keywords': n['problem_keywords'],
+                    'content_direction': direction,
                 })
 
             all_buyer_concern_types = []
             for i, item in enumerate(buyer_concern_types):
                 n = _norm(item, False)
+                base = item.get('concern_base') or ''
+                direction = base_map.get(base, '种草型') if base else '种草型'
                 all_buyer_concern_types.append({
                     'id': n.get('id', f'bc_{i+1}'),
                     'identity': n['identity'],
+                    'concern_base': base,
                     'concern_type': n['concern_type'],
                     'display_name': n['display_name'] or f"{n['identity']}{n['concern_type']}",
                     'description': n['description'],
@@ -4566,6 +4613,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'market_type': n['market_type'],
                     'market_reason': n['market_reason'],
                     'problem_keywords': n['problem_keywords'],
+                    'content_direction': direction,
                 })
 
             all_problem_keywords = [kw for item in all_user_problem_types for kw in item['problem_keywords']]

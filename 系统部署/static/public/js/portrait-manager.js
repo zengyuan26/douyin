@@ -914,6 +914,11 @@ const PortraitManager = {
             radio.onchange = () => this._applyTopicFilter();
         });
 
+        // 内容方向筛选 radio
+        document.querySelectorAll('input[name="topic-dir"]').forEach(radio => {
+            radio.onchange = () => this._applyTopicFilter();
+        });
+
         // 更新按钮
         const regenBtn = document.getElementById('btn-regen-topic');
         if (regenBtn) {
@@ -931,7 +936,8 @@ const PortraitManager = {
         if (!this._currentTopicLib) return;
         const sliderVal = parseInt(document.getElementById('topic-count-slider')?.value || 20);
         const typeVal = document.querySelector('input[name="topic-type"]:checked')?.value || 'all';
-        this._renderTopicList(this._currentTopicLib, sliderVal, typeVal);
+        const dirVal = document.querySelector('input[name="topic-dir"]:checked')?.value || 'all';
+        this._renderTopicList(this._currentTopicLib, sliderVal, typeVal, dirVal);
     },
 
     async loadLibraryData(portraitId, tab = 'keyword') {
@@ -994,7 +1000,8 @@ const PortraitManager = {
             // 渲染选题列表（带筛选）
             const sliderVal = parseInt(document.getElementById('topic-count-slider')?.value || 20);
             const typeVal = document.querySelector('input[name="topic-type"]:checked')?.value || 'all';
-            this._renderTopicList(lib, sliderVal, typeVal);
+            const dirVal = document.querySelector('input[name="topic-dir"]:checked')?.value || 'all';
+            this._renderTopicList(lib, sliderVal, typeVal, dirVal);
 
             // 有数据时绑定更新按钮
             const regenBtn = document.getElementById('btn-regen-topic');
@@ -1002,25 +1009,34 @@ const PortraitManager = {
         }
     },
 
-    _renderTopicList(lib, count, typeFilter = 'all') {
+    _renderTopicList(lib, count, typeFilter = 'all', dirFilter = 'all') {
         const list = document.getElementById('topic-list');
         const topics = lib.topic_library?.topics || [];
 
         let filtered = topics;
         if (typeFilter !== 'all') {
-            filtered = topics.filter(t => (t.type_name || t.type || '') === typeFilter);
+            filtered = filtered.filter(t => (t.type_name || t.type || '') === typeFilter);
+        }
+        if (dirFilter !== 'all') {
+            filtered = filtered.filter(t => (t.content_direction || '') === dirFilter);
         }
 
         const shown = filtered.slice(0, count);
 
         list.innerHTML = shown.length === 0
             ? `<div class="col-12 text-center text-muted py-3 small">暂无此类选题</div>`
-            : shown.map(t => `
+            : shown.map(t => {
+                const contentDir = t.content_direction || '';
+                const dirClass = contentDir === '转化型' ? 'dir-convert' : contentDir === '种草型' ? 'dir-sow' : '';
+                const dirIcon = contentDir === '转化型' ? '🔴' : contentDir === '种草型' ? '🟡' : '';
+                const dirBadge = contentDir ? `<span class="badge ${dirClass}" style="font-size:10px;border:1px solid;background:${contentDir==='转化型'?'#fef2f2':'#fffbeb'};color:${contentDir==='转化型'?'#b91c1c':'#92400e'};">${dirIcon}${contentDir}</span>` : '';
+                return `
                 <div class="col-md-6 col-lg-4">
                     <div class="card border">
                         <div class="card-body py-2 px-2">
-                            <div class="d-flex align-items-start gap-1 mb-1">
+                            <div class="d-flex align-items-start gap-1 mb-1 flex-wrap">
                                 <span class="badge bg-secondary" style="font-size:10px;white-space:normal;">${this.escapeHtml(t.type_name || t.type || '')}</span>
+                                ${dirBadge}
                                 ${t.priority ? `<span class="badge ${this._priorityBadgeClass(t.priority)}" style="font-size:10px;">${t.priority}</span>` : ''}
                             </div>
                             <div class="small fw-bold mb-1" style="line-height:1.3;">${this.escapeHtml(t.title || '')}</div>
@@ -1031,7 +1047,8 @@ const PortraitManager = {
                                 </div>` : ''}
                         </div>
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
     },
 
     _priorityBadgeClass(p) {

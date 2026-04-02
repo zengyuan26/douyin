@@ -28,75 +28,120 @@ logger = logging.getLogger(__name__)
 
 
 
+# 三大需求底盘定义（固定不变，全链路以此为基础）
+THREE_BASES = {
+    '刚需痛点': {
+        'name': '刚需痛点盘',
+        'keyword_ratio': 0.40,   # 40% 关键词来自此盘
+        'topic_ratio': 0.35,     # 35% 选题来自此盘
+        'content_direction': '转化型',
+    },
+    '前置观望': {
+        'name': '前置观望搜前种草盘',
+        'keyword_ratio': 0.30,   # 30%
+        'topic_ratio': 0.35,     # 35%
+        'content_direction': '种草型',
+    },
+    '使用配套': {
+        'name': '使用配套搜后种草盘',
+        'keyword_ratio': 0.30,   # 30%
+        'topic_ratio': 0.30,     # 30%
+        'content_direction': '种草型',
+    },
+}
+
+# 关键词库分类严格对应三盘
+# ①刚需痛点盘 → 使用者问题词 + 付费者顾虑词（直接需求）
+# ②前置观望搜前种草盘 → 搜前上游词（行业上游/认知科普）
+# ③使用配套搜后种草盘 → 搜后周边词（周边工具/养护留存）
 # C端经营类型
 C端_TYPES = {'product', 'personal'}
 # B端经营类型
 B端_TYPES = {'local_service', 'enterprise'}
 
-# 关键词库分类配置（按 C/B 端）
+# 关键词库分类配置（严格按三盘分配，关键词数量从对应问题推导）
 KEYWORD_CATEGORIES_C端 = [
-    {'name': '使用者问题词', 'key': 'user_problem', 'min': 30,
-     'desc': '问题型，用户核心痛点，来自 user_problem_types'},
-    {'name': '付费者顾虑词', 'key': 'buyer_concern', 'min': 20,
-     'desc': '顾虑型，付费决策担忧，来自 buyer_concern_types'},
-    {'name': '产品推荐词', 'key': 'product_recommend', 'min': 15,
-     'desc': '对比型/推荐型/阶段型，基于业务+核心问题'},
-    {'name': '搜前上游词', 'key': 'pre_search', 'min': 10,
-     'desc': '准备型/上游知识型，行业上游+决策前需求'},
-    {'name': '搜后周边词', 'key': 'post_search', 'min': 15,
-     'desc': '后续型/周边配套型，使用后需求+周边服务'},
-    {'name': '行业生态词', 'key': 'industry_eco', 'min': 10,
-     'desc': '关联需求型/上下游型，行业生态+关联业务'},
+    # ①刚需痛点盘（40%）：直接解决用户痛苦
+    {'name': '使用者问题词', 'key': '刚需痛点', 'base': '刚需痛点', 'min': 25,
+     'desc': '直接需求词，问题型，用户核心痛点，必须来自 user_problem_types 中 problem_base=刚需痛点 的问题'},
+    {'name': '付费者顾虑词', 'key': '刚需痛点_顾虑', 'base': '刚需痛点', 'min': 15,
+     'desc': '决策顾虑词，顾虑型，付费决策担忧，必须来自 buyer_concern_types 中 concern_base=刚需痛点 的顾虑'},
+
+    # ②前置观望搜前种草盘（30%）：行业上游/认知科普
+    {'name': '搜前上游词', 'key': '前置观望', 'base': '前置观望', 'min': 20,
+     'desc': '搜前种草词，行业上游/认知科普/预防类，上游知识型，不直接推销核心业务'},
+    {'name': '产品推荐词', 'key': '前置观望_推荐', 'base': '前置观望', 'min': 10,
+     'desc': '选品对比型，选购指南/品牌对比，辅助用户决策，不直接推销'},
+
+    # ③使用配套搜后种草盘（30%）：周边工具/养护留存
+    {'name': '搜后周边词', 'key': '使用配套', 'base': '使用配套', 'min': 20,
+     'desc': '搜后种草词，周边配套/养护留存/复购耗材，使用后需求，不直接推销核心业务'},
+    {'name': '行业生态词', 'key': '使用配套_生态', 'base': '使用配套', 'min': 10,
+     'desc': '行业关联型，关联需求/上下游生态，引导加购复购'},
 ]
 
 KEYWORD_CATEGORIES_B端 = [
-    {'name': '使用者问题词', 'key': 'user_problem', 'min': 20,
-     'desc': '问题型，用户核心痛点，来自 user_problem_types'},
-    {'name': '付费者顾虑词', 'key': 'buyer_concern', 'min': 30,
-     'desc': '顾虑型，付费决策担忧，来自 buyer_concern_types'},
-    {'name': '产品推荐词', 'key': 'product_recommend', 'min': 15,
-     'desc': '对比型/推荐型/阶段型，基于业务+核心问题'},
-    {'name': '搜前上游词', 'key': 'pre_search', 'min': 15,
-     'desc': '准备型/上游知识型，行业上游+决策前需求'},
-    {'name': '搜后周边词', 'key': 'post_search', 'min': 5,
-     'desc': '后续型/周边配套型，使用后需求+周边服务'},
-    {'name': '行业生态词', 'key': 'industry_eco', 'min': 15,
-     'desc': '关联需求型/上下游型，行业生态+关联业务'},
+    # ①刚需痛点盘（40%）
+    {'name': '使用者问题词', 'key': '刚需痛点', 'base': '刚需痛点', 'min': 20,
+     'desc': '直接需求词，问题型，来自 user_problem_types'},
+    {'name': '付费者顾虑词', 'key': '刚需痛点_顾虑', 'base': '刚需痛点', 'min': 20,
+     'desc': '决策顾虑词，顾虑型，来自 buyer_concern_types'},
+
+    # ②前置观望搜前种草盘（30%）
+    {'name': '搜前上游词', 'key': '前置观望', 'base': '前置观望', 'min': 20,
+     'desc': '搜前种草词，行业上游/认知科普/预防类'},
+    {'name': '产品推荐词', 'key': '前置观望_推荐', 'base': '前置观望', 'min': 10,
+     'desc': '选品对比型，B端决策参考'},
+
+    # ③使用配套搜后种草盘（30%）
+    {'name': '搜后周边词', 'key': '使用配套', 'base': '使用配套', 'min': 15,
+     'desc': '搜后种草词，周边配套/复购耗材/升级需求'},
+    {'name': '行业生态词', 'key': '使用配套_生态', 'base': '使用配套', 'min': 15,
+     'desc': '行业关联型，关联业务/上下游'},
 ]
 
-# 选题库分类配置（按 C/B 端）
+# 选题库分类：严格按三盘输出选题方向
+# ①刚需痛点盘 → 转化型选题（全部直面痛点、提供解决方案、引导成交）
+# ②前置观望搜前种草盘 → 种草型选题（行业知识科普、上游关联需求）
+# ③使用配套搜后种草盘 → 种草型选题（周边工具、复购引导）
 TOPIC_SERIES_C端 = [
-    {'name': '使用者问题系列', 'key': 'user_problem_series', 'min': 30,
-     'desc': '知识科普/解决方案，种草型+转化型结合'},
-    {'name': '付费者决策系列', 'key': 'buyer_decision_series', 'min': 20,
-     'desc': '知识科普/渠道推荐/价格分析，转化型'},
-    {'name': '产品推荐系列', 'key': 'product_recommend_series', 'min': 15,
-     'desc': '产品推荐/对比分析/产品评测，转化型'},
-    {'name': '年龄段/场景系列', 'key': 'age_scene_series', 'min': 5,
-     'desc': '选购指南/产品推荐，种草型'},
-    {'name': '搜前上游系列', 'key': 'pre_search_series', 'min': 10,
-     'desc': '知识科普/经验分享，种草型'},
-    {'name': '搜后周边系列', 'key': 'post_search_series', 'min': 15,
-     'desc': '知识科普/工具推荐，种草型'},
-    {'name': '行业生态系列', 'key': 'industry_eco_series', 'min': 5,
-     'desc': '知识科普/关联需求分析，种草型'},
+    # ①刚需痛点盘（35%，转化向）
+    {'name': '使用者问题系列', 'key': '刚需痛点', 'base': '刚需痛点', 'min': 20,
+     'desc': '直面痛点，提供解决方案，引导成交，转化型'},
+    {'name': '付费者决策系列', 'key': '刚需痛点_顾虑', 'base': '刚需痛点', 'min': 15,
+     'desc': '打消付费顾虑，建立信任，推动决策，转化型'},
+
+    # ②前置观望搜前种草盘（35%，种草向）
+    {'name': '搜前上游科普系列', 'key': '前置观望', 'base': '前置观望', 'min': 15,
+     'desc': '行业知识科普/上游关联/认知教育，种草型'},
+    {'name': '选购指南系列', 'key': '前置观望_选购', 'base': '前置观望', 'min': 20,
+     'desc': '选品对比/品牌分析/避坑指南，种草型'},
+
+    # ③使用配套搜后种草盘（30%，种草向）
+    {'name': '搜后周边系列', 'key': '使用配套', 'base': '使用配套', 'min': 15,
+     'desc': '周边工具/养护知识/使用技巧，种草型'},
+    {'name': '复购升级系列', 'key': '使用配套_复购', 'base': '使用配套', 'min': 15,
+     'desc': '复购引导/升级推荐/耗材配套，种草型'},
 ]
 
 TOPIC_SERIES_B端 = [
-    {'name': '使用者问题系列', 'key': 'user_problem_series', 'min': 20,
-     'desc': '知识科普/解决方案，种草型+转化型结合'},
-    {'name': '付费者决策系列', 'key': 'buyer_decision_series', 'min': 30,
-     'desc': '知识科普/渠道推荐/价格分析，转化型'},
-    {'name': '产品推荐系列', 'key': 'product_recommend_series', 'min': 15,
-     'desc': '产品推荐/对比分析/产品评测，转化型'},
-    {'name': '年龄段/场景系列', 'key': 'age_scene_series', 'min': 5,
-     'desc': '选购指南/产品推荐，种草型'},
-    {'name': '搜前上游系列', 'key': 'pre_search_series', 'min': 15,
-     'desc': '知识科普/经验分享，种草型'},
-    {'name': '搜后周边系列', 'key': 'post_search_series', 'min': 5,
-     'desc': '知识科普/工具推荐，种草型'},
-    {'name': '行业生态系列', 'key': 'industry_eco_series', 'min': 10,
-     'desc': '知识科普/关联需求分析，种草型'},
+    # ①刚需痛点盘（35%，转化向）
+    {'name': '使用者问题系列', 'key': '刚需痛点', 'base': '刚需痛点', 'min': 20,
+     'desc': '直面痛点，提供解决方案，引导成交，转化型'},
+    {'name': '付费者决策系列', 'key': '刚需痛点_顾虑', 'base': '刚需痛点', 'min': 15,
+     'desc': '打消付费顾虑，建立信任，推动决策，转化型'},
+
+    # ②前置观望搜前种草盘（35%，种草向）
+    {'name': '搜前上游科普系列', 'key': '前置观望', 'base': '前置观望', 'min': 20,
+     'desc': '行业知识科普/上游关联/认知教育，种草型'},
+    {'name': '选购指南系列', 'key': '前置观望_选购', 'base': '前置观望', 'min': 15,
+     'desc': '选品对比/B端采购决策参考，种草型'},
+
+    # ③使用配套搜后种草盘（30%，种草向）
+    {'name': '搜后周边系列', 'key': '使用配套', 'base': '使用配套', 'min': 15,
+     'desc': '周边工具/养护知识/维护技巧，种草型'},
+    {'name': '复购升级系列', 'key': '使用配套_复购', 'base': '使用配套', 'min': 15,
+     'desc': '复购引导/B端增值服务推荐，种草型'},
 ]
 
 # 场景标签映射
@@ -387,6 +432,11 @@ class UnifiedLibraryGenerator:
             ])
 
             # 7. 构建提示词
+            base_map = {
+                '刚需痛点': '转化型',
+                '前置观望': '种草型',
+                '使用配套': '种草型',
+            }
             prompt = self._build_prompt(
                 business_desc=business_desc,
                 service_scenario=service_scenario,
@@ -400,6 +450,7 @@ class UnifiedLibraryGenerator:
                 kw_dist_text=kw_dist_text,
                 topic_distribution=topic_distribution,
                 topic_dist_text=topic_dist_text,
+                base_map=base_map,
             )
 
             # 8. 调用 LLM（重试1次）
@@ -468,8 +519,11 @@ class UnifiedLibraryGenerator:
         kw_dist_text: str,
         topic_distribution: Dict[str, int],
         topic_dist_text: str,
+        base_map: Dict[str, str] = None,
     ) -> str:
         """构建完整提示词"""
+        if base_map is None:
+            base_map = {'刚需痛点': '转化型', '前置观望': '种草型', '使用配套': '种草型'}
 
         # 关键词库示例
         keyword_example = """{
@@ -482,7 +536,8 @@ class UnifiedLibraryGenerator:
       "search_intent": "寻求解决方案",
       "competition": "低",
       "industry_tag": "餐饮行业",
-      "priority": "⭐⭐⭐⭐"
+      "priority": "⭐⭐⭐⭐",
+      "problem_base": "刚需痛点"
     }
   ]"""
 
@@ -496,93 +551,89 @@ class UnifiedLibraryGenerator:
       "type": "解决方案",
       "related_keyword": "餐盘破损用什么胶水粘最牢固",
       "priority": "⭐⭐⭐⭐",
-      "content_purpose": "转化型",
+      "content_direction": "转化型",
       "industry_tag": "餐饮行业"
     }
   ]"""
 
-        # 问题清单文本
+        # 问题清单文本（含三盘信息）
         problems_text = ""
         if problem_list.get('user_problem_types'):
             problems_text += "【使用者问题】\n"
             for p in problem_list['user_problem_types'][:5]:
-                problems_text += f"- {p.get('problem_type', '')}：{p.get('description', '')}\n"
-                problems_text += f"  场景：{','.join(p.get('scenarios', [])[:3])}\n"
+                base = p.get('problem_base', '（未标注底盘）')
+                direction = base_map.get(base, '种草型')
+                problems_text += f"- 底盘:{base} 内容方向:{direction} | {p.get('problem_type', '')}：{p.get('description', '')}\n"
+                problems_text += f"  场景：{','.join(p.get('scenarios', [])[:2])}\n"
         if problem_list.get('buyer_concern_types'):
             problems_text += "\n【付费者顾虑】\n"
             for p in problem_list['buyer_concern_types'][:5]:
-                problems_text += f"- {p.get('concern_type', '')}：{p.get('description', '')}\n"
+                base = p.get('concern_base', '（未标注底盘）')
+                direction = base_map.get(base, '种草型')
+                problems_text += f"- 底盘:{base} 内容方向:{direction} | {p.get('concern_type', '')}：{p.get('description', '')}\n"
                 if p.get('examples'):
                     problems_text += f"  示例：{','.join(p.get('examples', [])[:2])}\n"
 
-        prompt = f"""你是关键词库+选题库生成专家。基于以下业务信息，严格按照数量分布生成 100 个关键词 + 100 个选题。
+        prompt = f"""你是关键词库+选题库生成专家。严格遵循「三大需求底盘」结构，一次性生成 100个关键词 + 100个选题，关键词和选题的数量分配必须严格对应三盘比例。
+
+=== 三大需求底盘（固定结构，不允许后期临时补充种草） ===
+① 刚需痛点盘（40%关键词 + 35%选题）：用户已处于痛苦中、急需解决，关键词全部来自 problem_base=刚需痛点 的问题，选题全部输出转化型
+② 前置观望搜前种草盘（30%关键词 + 35%选题）：用户尚未遇到问题但知道有风险，关键词来自 problem_base=前置观望 的问题，选题全部输出种草型（行业知识科普/上游关联）
+③ 使用配套搜后种草盘（30%关键词 + 30%选题）：用户已使用业务后产生的周边需求，关键词来自 problem_base=使用配套 的问题，选题全部输出种草型（周边工具/养护/复购）
+**严禁**：在生成关键词/选题时临时补充种草内容，所有关键词和选题必须从三盘中提取
 
 === 业务信息 ===
 业务描述：{business_desc}
 服务场景：{service_scenario}
 经营类型：{end_type}（C端=product/personal；B端=local_service/enterprise）
 
-=== 问题清单（核心输入）===
+=== 问题清单（含三盘标注，必须严格对应）===
 {problems_text}
 
 === 画像摘要 ===
 {portrait_summary}
 
-=== 三层人群摘要 ===
-{persona_summary}
-
-=== 行业标签 ===
-{', '.join(industry_tags)}
-
-=== 关键词库数量分布（{end_type}，必须严格遵守）===
+=== 关键词库数量分布（严格对应三盘，合计100个）===
 {kw_dist_text}
-总计：100个
 
-=== 选题库数量分布（{end_type}，必须严格遵守）===
+=== 选题库数量分布（严格对应三盘，合计100个）===
 {topic_dist_text}
-总计：100个
 
 === 关键词库字段规范 ===
-- category: 关键词大类（严格按上述6大类命名）
+- category: 关键词大类（严格按上述6大类命名，对应三盘之一）
 - sub_category: 业务细分小类（如"酒店餐损控制"）
 - keyword: 口语化关键词（问句/短语，长尾优先，如"酒店食材损耗率高怎么办"）
-- type: 关键词类型（问题型/顾虑型/推荐型/知识型/后续型/关联型）
+- type: 关键词类型（问题型/顾虑型/推荐型/知识型/后续型）
 - search_intent: 搜索意图（寻求解决方案/了解知识/对比选择/准备决策）
 - competition: 竞争度（低/中/高，长尾词=低）
-- industry_tag: 行业标签（来自上述行业标签列表）
-- priority: 4档优先级（⭐⭐⭐⭐⭐/⭐⭐⭐⭐/⭐⭐⭐/⭐⭐），⭐⭐占比≤10%
+- industry_tag: 行业标签
+- priority: 4档优先级（⭐⭐⭐⭐⭐≤20%/⭐⭐⭐⭐≤30%/⭐⭐⭐≤40%/⭐⭐≤10%）
+- **problem_base**: 该词对应哪个需求底盘（刚需痛点/前置观望/使用配套）
 
 === 选题库字段规范 ===
-- series: 选题系列（严格按上述7大系列命名）
-- sub_series: 业务细分小系列（如"酒店餐损控制"）
-- topic: 选题标题（含关键词+人群+场景，不抽象，如"酒店食材损耗率高？3个库存管理技巧降本"）
+- series: 选题系列（严格按上述6大系列命名，对应三盘之一）
+- sub_series: 业务细分小系列
+- topic: 选题标题（含关键词+人群+场景，不抽象）
 - type: 选题类型（知识科普/解决方案/产品推荐/对比分析/经验分享）
 - related_keyword: 关联核心关键词（来自关键词库）
-- priority: 4档优先级（⭐⭐⭐⭐⭐/⭐⭐⭐⭐/⭐⭐⭐/⭐⭐），⭐⭐占比≤10%
-- content_purpose: 内容目的（种草型=间接引导/转化型=直面痛点）
-- industry_tag: 行业标签（与关键词库一致）
+- priority: 4档优先级（分布同上）
+- **content_direction**: 内容方向（**必须严格遵循**：刚需痛点盘=转化型；前置观望盘=种草型；使用配套盘=种草型）
+- industry_tag: 行业标签
 
-=== 内容目的定义 ===
-- 种草型：输出行业知识、上游/周边/关联需求，间接引导核心业务，不直接推销
-- 转化型：直面核心痛点/顾虑，提供解决方案，明确关联业务优势
+=== 内容方向硬性规则 ===
+- 转化型：直面核心痛点/顾虑，提供解决方案，明确关联业务优势（仅限刚需痛点盘）
+- 种草型：输出行业知识、上游/周边/关联需求，间接引导核心业务，不直接推销（仅限前置观望盘和使用配套盘）
 
 === 重要约束 ===
 1. 关键词禁用红海大词（如"餐具修复""灌香肠"），优先长尾词
 2. 选题不抽象、有行动指引，避免空话
-3. C端侧重使用者问题，B端侧重付费者顾虑（按数量分布执行）
-4. 确保各分类数量严格达标，总量 100+100
+3. 关键词和选题的 problem_base/content_direction 必须严格对应三盘比例
+4. 选题中转化型占比不超过35%（仅来自刚需痛点盘）
 5. ⭐⭐低优先级占比不超过10%
 
 === 输出格式 ===
-直接输出 JSON 字符串，无 Markdown、表格、多余文字：
-{keyword_example}
-  ],
-  "topic_library": [
-    {topic_example}
-  ]
-}}
-
-请基于「{business_desc}」生成完整的关键词库和选题库。
+直接输出 JSON 字符串，无 Markdown、表格、多余文字
+请基于「{business_desc}」生成完整的关键词库和选题库，严格遵循三盘结构。
 """
 
         return prompt
@@ -637,13 +688,13 @@ class UnifiedLibraryGenerator:
             return False
 
         # 检查必含字段
-        required_kw_fields = {'category', 'keyword', 'type', 'search_intent', 'competition', 'industry_tag', 'priority'}
+        required_kw_fields = {'category', 'keyword', 'type', 'search_intent', 'competition', 'industry_tag', 'priority', 'problem_base'}
         for item in kw_lib[:5]:
             if not required_kw_fields.issubset(set(item.keys())):
                 logger.debug("[UnifiedLibraryGenerator] 关键词字段缺失: %s", list(item.keys()))
                 return False
 
-        required_topic_fields = {'series', 'topic', 'type', 'related_keyword', 'priority', 'content_purpose', 'industry_tag'}
+        required_topic_fields = {'series', 'topic', 'type', 'related_keyword', 'priority', 'content_direction', 'industry_tag'}
         for item in topic_lib[:5]:
             if not required_topic_fields.issubset(set(item.keys())):
                 logger.debug("[UnifiedLibraryGenerator] 选题字段缺失: %s", list(item.keys()))
@@ -669,6 +720,12 @@ class UnifiedLibraryGenerator:
             if 'industry_tag' not in item or not item['industry_tag']:
                 item['industry_tag'] = default_industry_tag
 
+        # 填充 problem_base（如果没有，默认为种草型）
+        valid_bases = ['刚需痛点', '前置观望', '使用配套']
+        for item in keyword_lib:
+            if 'problem_base' not in item or item['problem_base'] not in valid_bases:
+                item['problem_base'] = '种草型'
+
         for item in topic_lib:
             if 'industry_tag' not in item or not item['industry_tag']:
                 item['industry_tag'] = default_industry_tag
@@ -685,11 +742,14 @@ class UnifiedLibraryGenerator:
             if item.get('competition') not in valid_competition:
                 item['competition'] = '中'
 
-        # 确保内容目的合法
-        valid_purposes = ['种草型', '转化型', '种草型+转化型']
+        # 确保 content_direction 合法（从 problem_base 推导）
+        base_to_direction = {'刚需痛点': '转化型', '前置观望': '种草型', '使用配套': '种草型'}
+        valid_directions = ['种草型', '转化型', '种草型+转化型']
         for item in topic_lib:
-            if item.get('content_purpose') not in valid_purposes:
-                item['content_purpose'] = '种草型'
+            direction = item.get('content_direction')
+            if direction not in valid_directions:
+                base = item.get('problem_base', '')
+                item['content_direction'] = base_to_direction.get(base, '种草型')
 
         # 统计优先级分布
         priority_counts = {'⭐⭐⭐⭐⭐': 0, '⭐⭐⭐⭐': 0, '⭐⭐⭐': 0, '⭐⭐': 0}

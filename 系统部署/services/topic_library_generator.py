@@ -31,27 +31,37 @@ class TopicLibraryGenerator:
     - B/C端区分
     """
 
-    # 选题分类（与 geo-seo 保持一致）
+    # 选题分类（严格对应三大需求底盘）
+    # ①刚需痛点盘 → 转化型选题（直面痛点、解决方案）
+    # ②前置观望搜前种草盘 → 种草型选题（科普、认知、选购）
+    # ③使用配套搜后种草盘 → 种草型选题（周边、复购、养护）
     TOPIC_TYPES = [
-        {'name': '问题解决类', 'key': 'problem', 'source': '评论区挖痛点',
-         'desc': '用户真实问题，高共鸣', 'priority': 'P0'},
-        {'name': '认知颠覆类', 'key': 'rethink', 'source': '颠覆常识',
+        # ①刚需痛点盘（转化型）
+        {'name': '问题解决类', 'key': 'problem', 'base': '刚需痛点', 'content_direction': '转化型',
+         'desc': '直面核心痛点，提供解决方案，引导成交', 'priority': 'P0'},
+        {'name': '效果验证类', 'key': 'effect_proof', 'base': '刚需痛点', 'content_direction': '转化型',
+         'desc': '产品效果对比/使用前后对比，建立信任', 'priority': 'P1'},
+
+        # ②前置观望搜前种草盘（种草型）
+        {'name': '认知颠覆类', 'key': 'rethink', 'base': '前置观望', 'content_direction': '种草型',
          'desc': '打破认知，易传播', 'priority': 'P1'},
-        {'name': '知识教程类', 'key': 'tutorial', 'source': '搜索框挖需求',
+        {'name': '知识教程类', 'key': 'tutorial', 'base': '前置观望', 'content_direction': '种草型',
          'desc': '主动搜索，精准流量', 'priority': 'P1'},
-        {'name': '经验分享类', 'key': 'experience', 'source': '传统经验',
+        {'name': '经验分享类', 'key': 'experience', 'base': '前置观望', 'content_direction': '种草型',
          'desc': '差异化，老一辈智慧', 'priority': 'P2'},
-        {'name': '季节营销类', 'key': 'seasonal', 'source': '季节节点',
-         'desc': '时效性强', 'priority': 'P2'},
-        {'name': '节日营销类', 'key': 'festival', 'source': '节日方法论',
-         'desc': '节日刚需，高转化', 'priority': 'P0'},
-        {'name': '节气养生类', 'key': 'solar_term', 'source': '节气方法论',
+        {'name': '场景细分类', 'key': 'scene', 'base': '前置观望', 'content_direction': '种草型',
+         'desc': '精准人群，种草向', 'priority': 'P1'},
+        {'name': '地域精准类', 'key': 'region', 'base': '前置观望', 'content_direction': '种草型',
+         'desc': '本地流量，种草向', 'priority': 'P2'},
+
+        # ③使用配套搜后种草盘（种草型）
+        {'name': '季节营销类', 'key': 'seasonal', 'base': '使用配套', 'content_direction': '种草型',
+         'desc': '时效性强，周边工具', 'priority': 'P2'},
+        {'name': '节日营销类', 'key': 'festival', 'base': '使用配套', 'content_direction': '种草型',
+         'desc': '节日刚需，复购引导', 'priority': 'P0'},
+        {'name': '节气养生类', 'key': 'solar_term', 'base': '使用配套', 'content_direction': '种草型',
          'desc': '传统智慧，持续输出', 'priority': 'P2'},
-        {'name': '场景细分类', 'key': 'scene', 'source': '场景关键词',
-         'desc': '精准人群，高转化', 'priority': 'P1'},
-        {'name': '地域精准类', 'key': 'region', 'source': '流量关键词',
-         'desc': '本地流量，精准转化', 'priority': 'P2'},
-        {'name': '情感故事类', 'key': 'emotional', 'source': '情感共鸣词',
+        {'name': '情感故事类', 'key': 'emotional', 'base': '使用配套', 'content_direction': '种草型',
          'desc': '易引发转发', 'priority': 'P3'},
     ]
 
@@ -324,11 +334,17 @@ class TopicLibraryGenerator:
         """构建默认提示词"""
 
         type_rules = '\n'.join([
-            f"{i+1}. **{t['name']}**（来源：{t['source']}）：{t['desc']} 【{t['priority']}】"
+            f"{i+1}. **{t['name']}**（底盘:{t['base']} 内容方向:{t['content_direction']}）：{t['desc']} 【{t['priority']}】"
             for i, t in enumerate(self.TOPIC_TYPES)
         ])
 
-        return f"""你是一位抖音爆款选题策划专家。请为以下业务生成{topic_count}个精准选题。
+        return f"""你是一位抖音爆款选题策划专家。请为以下业务生成{topic_count}个精准选题，严格遵循三大需求底盘结构。
+
+=== 三大需求底盘（选题数量分配 + 内容方向）===
+① 刚需痛点盘（转化型）：直面核心痛点，提供解决方案，明确关联业务优势，引导成交。选题类型：问题解决类、效果验证类
+② 前置观望搜前种草盘（种草型）：行业知识科普、上游关联需求，不直接推销核心业务。选题类型：认知颠覆类、知识教程类、经验分享类、场景细分类、地域精准类
+③ 使用配套搜后种草盘（种草型）：周边工具、养护知识、复购引导，不直接推销。选题类型：季节营销类、节日营销类、节气养生类、情感故事类
+**严禁在选题时临时补充种草内容，所有选题必须严格从三盘中提取对应类型**
 
 ## 业务信息
 - 行业：{context['行业']}
@@ -353,15 +369,28 @@ class TopicLibraryGenerator:
 ## 关键词参考
 {context['关键词库'] or '（无关键词库，将根据业务描述生成）'}
 
-## 选题分类（必须覆盖多种类型）
+## 选题分类要求（严格对应三盘，各选题的 content_direction 已标注）
+
 {type_rules}
 
 ## 选题要求
 1. 必须围绕用户真实痛点，差异化明显
 2. 优先选择高优先级（P0/P1）选题
 3. 融入季节、节日等实时因素
-4. 每条选题包含：标题、类型、来源、关键词、推荐理由
+4. 每条选题包含：标题、类型、来源、关键词、推荐理由、content_direction（**必须从底盘自动推导**）
 5. 涵盖至少5种以上选题类型
+6. **content_direction 强制规则**：问题解决类/效果验证类=转化型；其余类型=种草型
+
+## 输出格式（每条选题必须包含以下字段）
+- title: 选题标题
+- type_key: 选题类型键名
+- type_name: 选题类型名称
+- priority: 优先级（P0/P1/P2/P3）
+- source: 来源说明
+- keywords: 关键词列表
+- reason: 推荐理由
+- **content_direction**: 内容方向（**必须填写**：转化型=直面痛点；种草型=科普种草）
+- publish_timing: 发布时间建议
 
 ## 重要提醒
 1. 必须输出包含真实选题标题的JSON，不能使用任何占位符如 {{变量名}}
@@ -639,6 +668,7 @@ class TopicLibraryGenerator:
             for item in topics_data:
                 if isinstance(item, dict):
                     # 提取选题字段
+                    topic_base = item.get('problem_base', '')
                     topic = {
                         'title': item.get('标题') or item.get('title') or item.get('选题'),
                         'type_key': item.get('类型') or item.get('type') or item.get('分类', 'unknown'),
@@ -649,6 +679,7 @@ class TopicLibraryGenerator:
                         'reason': item.get('原因') or item.get('reason') or item.get('说明', ''),
                         'publish_timing': item.get('发布时间') or item.get('publish_timing') or '',
                         'content_hints': item.get('内容提示') or item.get('content_hints') or '',
+                        'content_direction': item.get('content_direction') or self._infer_content_direction(topic_base),
                     }
                     if topic['title']:
                         converted['topics'].append(topic)
@@ -663,6 +694,7 @@ class TopicLibraryGenerator:
                         # 这是一个选题列表
                         for item in value:
                             if isinstance(item, dict):
+                                topic_base = item.get('problem_base', '')
                                 topic = {
                                     'title': item.get('标题') or item.get('title') or item.get('选题'),
                                     'type_key': item.get('类型') or item.get('type') or item.get('分类', 'unknown'),
@@ -673,6 +705,7 @@ class TopicLibraryGenerator:
                                     'reason': item.get('原因') or item.get('reason') or item.get('说明', ''),
                                     'publish_timing': item.get('发布时间') or item.get('publish_timing') or '',
                                     'content_hints': item.get('内容提示') or item.get('content_hints') or '',
+                                    'content_direction': item.get('content_direction') or self._infer_content_direction(topic_base),
                                 }
                                 if topic['title']:
                                     converted['topics'].append(topic)
@@ -703,6 +736,7 @@ class TopicLibraryGenerator:
             result['topics'] = default['topics']
 
         # 补充缺失字段
+        base_to_direction = {'刚需痛点': '转化型', '前置观望': '种草型', '使用配套': '种草型'}
         for topic in result['topics']:
             if not isinstance(topic, dict):
                 continue
@@ -712,6 +746,8 @@ class TopicLibraryGenerator:
                 topic['priority'] = topic.get('优先级', 'P2')
             if 'type_name' not in topic:
                 topic['type_name'] = topic.get('type_name', topic.get('类型', ''))
+            if 'content_direction' not in topic or not topic['content_direction']:
+                topic['content_direction'] = base_to_direction.get(topic.get('problem_base', ''), '种草型')
 
         if 'by_type' not in result:
             result['by_type'] = self._count_by_type(result['topics'])
@@ -720,6 +756,15 @@ class TopicLibraryGenerator:
             result['priorities'] = self._count_by_priority(result['topics'])
 
         return result
+
+    def _infer_content_direction(self, topic_base: str) -> str:
+        """从选题底盘推导内容方向"""
+        direction_map = {
+            '刚需痛点': '转化型',
+            '前置观望': '种草型',
+            '使用配套': '种草型',
+        }
+        return direction_map.get(topic_base, '种草型')
 
     def _count_by_type(self, topics: List[Dict]) -> Dict:
         counts = {}

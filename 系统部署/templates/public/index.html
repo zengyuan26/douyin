@@ -656,6 +656,34 @@
             border: 1px solid #a7f3d0;
         }
 
+        /* 三盘标签 */
+        .pc-base-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 6px;
+            border: 1px solid;
+        }
+        .pc-base-badge.base-urgent {
+            color: #b91c1c;
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+        .pc-base-badge.base-watch {
+            color: #92400e;
+            background: #fffbeb;
+            border-color: #fde68a;
+        }
+        .pc-base-badge.base-peripheral {
+            color: #166534;
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
         .pc-desc {
             font-size: 0.8rem;
             color: #57534e;
@@ -951,6 +979,23 @@
             border-radius: 20px;
             background: #f3f4f6;
             color: #6b7280;
+        }
+        .topic-dir-badge {
+            font-size: 0.65rem;
+            padding: 1px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+            font-weight: 600;
+        }
+        .topic-dir-badge.dir-convert {
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+        .topic-dir-badge.dir-sow {
+            background: #fffbeb;
+            color: #92400e;
+            border: 1px solid #fde68a;
         }
         .topic-title {
             font-weight: 600;
@@ -2558,6 +2603,18 @@
                 `;
             }
 
+            // 三盘标签
+            const problemBase = problemData.problem_base || problemData.problem_base || '';
+            const contentDirection = problemData.content_direction || '';
+            let baseBadge = '';
+            if (problemBase) {
+                const baseClass = problemBase === '刚需痛点' ? 'base-urgent' :
+                                  problemBase === '前置观望' ? 'base-watch' : 'base-peripheral';
+                const baseIcon = problemBase === '刚需痛点' ? '🔴' :
+                                problemBase === '前置观望' ? '🟡' : '🟢';
+                baseBadge = `<span class="pc-base-badge ${baseClass}" title="底盘:${problemBase} 内容方向:${contentDirection}">${baseIcon}${problemBase}</span>`;
+            }
+
             // 问题大类前缀：优先 API 的 problem_category；无则联合标题+描述推断（与后端 infer_problem_category 规则对齐）
             let categoryLabel = '';
             const catRaw = (problemData.problem_category || '').trim();
@@ -2585,6 +2642,7 @@
                 <div class="problem-card" data-key="${escHtml(key)}" style="cursor:pointer;">
                     <div class="pc-top-row">
                         <span class="pc-type" title="${escHtml(problemType)}">${escHtml(categoryLabel)}${escHtml(problemType)}</span>
+                        ${baseBadge}
                         <span class="pc-id-badge ${badgeClass}"><span aria-hidden="true">${tagIcon}</span><span>${escHtml(identity)}</span></span>
                     </div>
                     <div class="pc-severity-row" aria-label="问题严重性">
@@ -3155,13 +3213,20 @@
 
             topics.forEach((topic, index) => {
                 const topicId = topic.id || (index + 1);
+                // 内容方向 badge
+                const contentDir = topic.content_direction || '';
+                const dirClass = contentDir === '转化型' ? 'dir-convert' : contentDir === '种草型' ? 'dir-sow' : '';
+                const dirIcon = contentDir === '转化型' ? '🔴' : contentDir === '种草型' ? '🟡' : '';
+                const dirBadge = contentDir ? `<span class="topic-dir-badge ${dirClass}">${dirIcon}${contentDir}</span>` : '';
+
                 const card = document.createElement('div');
                 card.className = 'col-md-6 col-lg-4';
                 card.innerHTML = `
                     <div class="topic-card" onclick="selectTopic('${topicId}', '${encodeURIComponent(topic.title)}', '${encodeURIComponent(topic.type)}')">
                         <div class="topic-card-header">
                             <span class="topic-number">${index + 1}</span>
-                            <span class="topic-type-badge">${topic.type || '通用'}</span>
+                            <span class="topic-type-badge">${topic.type_name || topic.type || '通用'}</span>
+                            ${dirBadge}
                         </div>
                         <div class="topic-title">${topic.title}</div>
                         <div class="topic-reason">${topic.reason || ''}</div>
@@ -4049,6 +4114,15 @@
                                                 <label class="btn btn-outline-secondary" for="topic-type-trace">追热</label>
                                                 <input type="radio" class="btn-check" name="topic-type" id="topic-type-interact" value="互动引留">
                                                 <label class="btn btn-outline-secondary" for="topic-type-interact">互动</label>
+                                            </div>
+                                            <span class="small text-muted">方向：</span>
+                                            <div class="btn-group btn-group-sm" id="topic-dir-filter" role="group">
+                                                <input type="radio" class="btn-check" name="topic-dir" id="topic-dir-all" value="all" checked>
+                                                <label class="btn btn-outline-secondary" for="topic-dir-all">全部</label>
+                                                <input type="radio" class="btn-check" name="topic-dir" id="topic-dir-convert" value="转化型">
+                                                <label class="btn btn-outline-secondary" for="topic-dir-convert">🔴转化</label>
+                                                <input type="radio" class="btn-check" name="topic-dir" id="topic-dir-sow" value="种草型">
+                                                <label class="btn btn-outline-secondary" for="topic-dir-sow">🟡种草</label>
                                             </div>
                                             <button class="btn btn-sm btn-outline-success" id="btn-regen-topic">
                                                 <i class="bi bi-arrow-clockwise me-1"></i>更新
