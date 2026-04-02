@@ -1850,6 +1850,9 @@
                     if (data.success) {
                         currentUser = data.data;
                         console.log('[checkAuth] 登录成功，currentUser:', currentUser);
+                        // 同步设置 _isPremium：任何非 free 套餐均为付费用户
+                        _isPremium = currentUser && currentUser.quota && currentUser.quota.plan_name && currentUser.quota.plan_name !== '免费版';
+                        console.log('[checkAuth] _isPremium:', _isPremium, 'plan_name:', currentUser?.quota?.plan_name);
                         showGenerator();
                         updateQuotaInfo();
                         // 恢复超级定位快照 + 绑定自动保存

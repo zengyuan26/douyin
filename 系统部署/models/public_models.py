@@ -188,6 +188,9 @@ class SavedPortrait(db.Model):
     # 词库生成错误信息
     generation_error = db.Column(db.Text)
 
+    # 内容阶段配置（管理员专属，仅内部可见）：起号阶段/成长阶段/成熟阶段
+    content_stage = db.Column(db.String(20), default='成长阶段')
+
     # 时间戳
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

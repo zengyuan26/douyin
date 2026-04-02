@@ -341,7 +341,7 @@ def api_identify_problems():
         if user:
             logger.info("[identify_problems] user_id=%s is_premium_col=%s premium_plan=%s premium_expires=%s is_paid_user=%s",
                          user_id, user.is_premium, user.premium_plan, user.premium_expires, user.is_paid_user())
-            is_premium = user.is_premium
+            is_premium = user.is_paid_user()
 
     params['_is_premium'] = is_premium
 
@@ -427,7 +427,7 @@ def api_generate_portraits():
     if user_id:
         user = PublicUser.query.get(user_id)
         if user:
-            is_premium = user.is_premium
+            is_premium = user.is_paid_user()
 
     params['_is_premium'] = is_premium
 
@@ -481,7 +481,7 @@ def api_generate_all_portraits():
     if user_id:
         user = PublicUser.query.get(user_id)
         if user:
-            is_premium = user.is_premium
+            is_premium = user.is_paid_user()
 
     # 只有付费用户才能使用并行生成
     if not is_premium:

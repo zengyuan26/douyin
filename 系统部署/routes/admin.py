@@ -2847,3 +2847,168 @@ def preview_portrait_dimensions():
             '社交维度': context['社交维度']
         }
     })
+
+
+# =============================================================================
+# 内容阶段配置（管理员专属）
+# =============================================================================
+
+@admin.route('/content-stage-config')
+@login_required
+def content_stage_config_page():
+    """内容阶段配置页面（管理员专属）"""
+    return render_template('admin/content_stage_config.html')
+
+
+@admin.route('/api/content-stage/config', methods=['GET'])
+@login_required
+def get_content_stage_config():
+    """
+    获取内容阶段配置（管理员专属）
+    返回：三套固定配比方案说明（仅展示，不存储）
+    """
+    stages = {
+        '起号阶段': {
+            'name': '起号阶段',
+            'description': '新账号起步期（0-30天），以种草为主，快速积累权重',
+            'topic_ratios': {
+                '前置观望搜前种草盘': '90%',
+                '刚需痛点盘': '0%（无）',
+                '使用配套搜后种草盘': '10%',
+            },
+            'keyword_ratios': {
+                '长尾词': '50%',
+                '地域词': '30%',
+                '核心大词': '20%',
+            },
+            'tag_strategy': '种草标签为主，无转化标签',
+        },
+        '成长阶段': {
+            'name': '成长阶段',
+            'description': '账号成长期（30-90天），种草+转化并重',
+            'topic_ratios': {
+                '前置观望搜前种草盘': '60%',
+                '刚需痛点盘': '15%',
+                '使用配套搜后种草盘': '25%',
+            },
+            'keyword_ratios': {
+                '长尾词': '35%',
+                '地域词': '30%',
+                '核心大词': '35%',
+            },
+            'tag_strategy': '种草标签60% + 转化标签40%',
+        },
+        '成熟阶段': {
+            'name': '成熟阶段',
+            'description': '账号成熟期（90天+），以转化为核心',
+            'topic_ratios': {
+                '前置观望搜前种草盘': '30%',
+                '刚需痛点盘': '50%',
+                '使用配套搜后种草盘': '20%',
+            },
+            'keyword_ratios': {
+                '长尾词': '20%',
+                '地域词': '20%',
+                '核心大词': '60%',
+            },
+            'tag_strategy': '转化标签为主，种草标签30%',
+        },
+    }
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'stages': stages,
+            'default_stage': '成长阶段',
+        }
+    })
+
+
+@admin.route('/api/portrait/<int:portrait_id>/content-stage', methods=['POST'])
+@login_required
+def update_portrait_content_stage(portrait_id):
+    """
+    更新画像的内容阶段配置（管理员专属）
+    前端：仅管理员可调用此接口
+    """
+    from models.public_models import SavedPortrait
+
+    portrait = SavedPortrait.query.get(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+
+    data = request.get_json() or {}
+    stage = data.get('content_stage', '成长阶段')
+
+    # 验证阶段值
+    valid_stages = ['起号阶段', '成长阶段', '成熟阶段']
+    if stage not in valid_stages:
+        return jsonify({'success': False, 'message': f'无效的阶段值，仅支持：{"、".join(valid_stages)}'}), 400
+
+    portrait.content_stage = stage
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'内容阶段已更新为：{stage}',
+        'data': {'portrait_id': portrait_id, 'content_stage': stage}
+    })
+
+
+@admin.route('/api/portraits/content-stage', methods=['GET'])
+@login_required
+def list_portraits_with_stage():
+    """
+    列出所有画像的阶段配置（管理员专属）
+    用于批量查看和修改
+    """
+    from models.public_models import SavedPortrait, PublicUser
+
+    portraits = SavedPortrait.query.order_by(SavedPortrait.created_at.desc()).limit(200).all()
+    result = []
+    for p in portraits:
+        user = PublicUser.query.get(p.user_id) if p.user_id else None
+        result.append({
+            'portrait_id': p.id,
+            'portrait_name': p.portrait_name,
+            'industry': p.industry,
+            'business_description': p.business_description,
+            'content_stage': p.content_stage or '成长阶段',
+            'user_id': p.user_id,
+            'user_email': user.email if user else None,
+            'created_at': p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else None,
+        })
+
+    return jsonify({'success': True, 'data': result})
+
+
+@admin.route('/api/portraits/content-stage/batch-update', methods=['POST'])
+@login_required
+def batch_update_content_stage():
+    """
+    批量更新画像内容阶段（管理员专属）
+    """
+    from models.public_models import SavedPortrait
+
+    data = request.get_json() or {}
+    portrait_ids = data.get('portrait_ids', [])
+    stage = data.get('content_stage', '成长阶段')
+
+    valid_stages = ['起号阶段', '成长阶段', '成熟阶段']
+    if stage not in valid_stages:
+        return jsonify({'success': False, 'message': f'无效的阶段值'}), 400
+
+    updated = 0
+    for pid in portrait_ids:
+        portrait = SavedPortrait.query.get(pid)
+        if portrait:
+            portrait.content_stage = stage
+            updated += 1
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'已批量更新 {updated} 个画像的阶段为：{stage}',
+        'data': {'updated_count': updated}
+    })

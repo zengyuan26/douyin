@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}内容阶段配置 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- 页面标题 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">内容阶段配置</h4>
+                    <p class="text-muted mb-0">管理员专属 · 配置账号内容策略阶段，影响关键词库权重和选题库筛选比例</p>
+                </div>
+                <div>
+                    <span class="badge bg-warning text-dark">
+                        <i class="bi bi-shield-lock me-1"></i>仅管理员可见
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 说明卡片 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>功能说明：</strong>内容阶段用于指导 AI 生成关键词库和选题库的比例分配。
+                此配置关联画像保存时自动写入，也可批量修改现有画像阶段。
+                普通客户前端不展示此配置项。
+            </div>
+        </div>
+    </div>
+
+    <!-- 三套固定配比方案 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5 class="mb-3">
+                <i class="bi bi-diagram-3 me-2"></i>三套固定配比方案
+            </h5>
+        </div>
+
+        <!-- 起号阶段 -->
+        <div class="col-md-4 mb-3">
+            <div class="card border-start border-warning border-4 h-100">
+                <div class="card-header bg-warning bg-opacity-10">
+                    <h6 class="mb-0 text-warning">
+                        <i class="bi bi-rocket-takeoff me-2"></i>起号阶段
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">新账号起步期（0-30天），以种草为主，快速积累账号权重</p>
+
+                    <div class="mb-2">
+                        <div class="fw-bold small text-muted mb-1">选题库比例</div>
+                        <div class="progress mb-1" style="height: 20px;">
+                            <div class="progress-bar bg-success" style="width: 90%">90%</div>
+                            <div class="progress-bar bg-secondary" style="width: 10%">10%</div>
+                        </div>
+                        <div class="small text-muted">
+                            <span class="text-success">前置种草 90%</span> · <span class="text-secondary">使用配套 10%</span> · <span class="text-danger">刚需转化 0%</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="fw-bold small text-muted mb-1">关键词库比例</div>
+                        <div class="progress mb-1" style="height: 20px;">
+                            <div class="progress-bar bg-info" style="width: 50%">50%</div>
+                            <div class="progress-bar bg-primary" style="width: 30%">30%</div>
+                            <div class="progress-bar bg-secondary" style="width: 20%">20%</div>
+                        </div>
+                        <div class="small text-muted">
+                            长尾50% · 地域30% · 大词20%
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="fw-bold small text-muted mb-1">标签策略</div>
+                        <span class="badge bg-success">种草标签为主</span>
+                        <span class="badge bg-secondary ms-1">无转化标签</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 成长阶段 -->
+        <div class="col-md-4 mb-3">
+            <div class="card border-start border-primary border-4 h-100">
+                <div class="card-header bg-primary bg-opacity-10">
+                    <h6 class="mb-0 text-primary">
+                        <i class="bi bi-graph-up-arrow me-2"></i>成长阶段
+                        <span class="badge bg-primary ms-2" style="font-size: 0.7rem;">默认</span>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">账号成长期（30-90天），种草+转化并重，积累精准流量</p>
+
+                    <div class="mb-2">
+                        <div class="fw-bold small text-muted mb-1">选题库比例</div>
+                        <div class="progress mb-1" style="height: 20px;">
+                            <div class="progress-bar bg-success" style="width: 60%">60%</div>
+                            <div class="progress-bar bg-danger" style="width: 15%">15%</div>
+                            <div class="progress-bar bg-secondary" style="width: 25%">25%</div>
+                        </div>
+                        <div class="small text-muted">
+                            <span class="text-success">前置种草 60%</span> · <span class="text-danger">刚需转化 15%</span> · <span class="text-secondary">使用配套 25%</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="fw-bold small text-muted mb-1">关键词库比例</div>
+                        <div class="progress mb-1" style="height: 20px;">
+                            <div class="progress-bar bg-info" style="width: 35%">35%</div>
+                            <div class="progress-bar bg-primary" style="width: 30%">30%</div>
+                            <div class="progress-bar bg-secondary" style="width: 35%">35%</div>
+                        </div>
+                        <div class="small text-muted">
+                            长尾35% · 地域30% · 大词35%
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="fw-bold small text-muted mb-1">标签策略</div>
+                        <span class="badge bg-success">种草标签 60%</span>
+                        <span class="badge bg-danger ms-1">转化标签 40%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 成熟阶段 -->
+        <div class="col-md-4 mb-3">
+            <div class="card border-start border-danger border-4 h-100">
+                <div class="card-header bg-danger bg-opacity-10">
+                    <h6 class="mb-0 text-danger">
+                        <i class="bi bi-trophy me-2"></i>成熟阶段
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">账号成熟期（90天+），以转化为核心，实现商业变现</p>
+
+                    <div class="mb-2">
+                        <div class="fw-bold small text-muted mb-1">选题库比例</div>
+                        <div class="progress mb-1" style="height: 20px;">
+                            <div class="progress-bar bg-success" style="width: 30%">30%</div>
+                            <div class="progress-bar bg-danger" style="width: 50%">50%</div>
+                            <div class="progress-bar bg-secondary" style="width: 20%">20%</div>
+                        </div>
+                        <div class="small text-muted">
+                            <span class="text-success">前置种草 30%</span> · <span class="text-danger">刚需转化 50%</span> · <span class="text-secondary">使用配套 20%</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="fw-bold small text-muted mb-1">关键词库比例</div>
+                        <div class="progress mb-1" style="height: 20px;">
+                            <div class="progress-bar bg-info" style="width: 20%">20%</div>
+                            <div class="progress-bar bg-primary" style="width: 20%">20%</div>
+                            <div class="progress-bar bg-secondary" style="width: 60%">60%</div>
+                        </div>
+                        <div class="small text-muted">
+                            长尾20% · 地域20% · 大词60%
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="fw-bold small text-muted mb-1">标签策略</div>
+                        <span class="badge bg-danger">转化标签为主</span>
+                        <span class="badge bg-success ms-1">种草标签 30%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量管理 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-list-ul me-2"></i>画像阶段批量管理
+                        </h6>
+                        <div class="d-flex gap-2">
+                            <select class="form-select form-select-sm" id="batch-stage-select" style="width: 140px;">
+                                <option value="起号阶段">起号阶段</option>
+                                <option value="成长阶段" selected>成长阶段</option>
+                                <option value="成熟阶段">成熟阶段</option>
+                            </select>
+                            <button class="btn btn-danger btn-sm" onclick="batchUpdateStage()">
+                                <i class="bi bi-check2-all me-1"></i>批量更新
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)">
+                                    </th>
+                                    <th>画像名称</th>
+                                    <th>行业</th>
+                                    <th>客户描述</th>
+                                    <th style="width: 120px;">当前阶段</th>
+                                    <th style="width: 100px;">创建时间</th>
+                                    <th style="width: 80px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="portrait-table">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-5">
+                                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                        加载中...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 加载画像列表
+async function loadPortraits() {
+    try {
+        const resp = await fetch('/admin/api/portraits/content-stage', {
+            credentials: 'include'
+        });
+        const data = await resp.json();
+
+        if (data.success && data.data) {
+            renderTable(data.data);
+        } else {
+            showError('加载画像列表失败');
+        }
+    } catch (e) {
+        showError('加载失败: ' + e.message);
+    }
+}
+
+// 渲染表格
+function renderTable(portraits) {
+    const tbody = document.getElementById('portrait-table');
+    if (!portraits || portraits.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-5">暂无画像数据</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = portraits.map(p => {
+        const stageBadge = getStageBadge(p.content_stage);
+        return `
+            <tr data-id="${p.portrait_id}">
+                <td>
+                    <input type="checkbox" class="portrait-check" value="${p.portrait_id}">
+                </td>
+                <td>
+                    <div class="fw-bold">${p.portrait_name || '未命名'}</div>
+                    <div class="small text-muted">${p.user_email || '未知用户'}</div>
+                </td>
+                <td><span class="badge bg-secondary">${p.industry || '未设置'}</span></td>
+                <td class="text-muted small" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${p.business_description || '无'}
+                </td>
+                <td>${stageBadge}</td>
+                <td class="small text-muted">${p.created_at || '未知'}</td>
+                <td>
+                    <select class="form-select form-select-sm stage-select" data-id="${p.portrait_id}" style="width: 100px;"
+                            onchange="updateSingleStage(${p.portrait_id}, this.value)">
+                        <option value="起号阶段" ${p.content_stage === '起号阶段' ? 'selected' : ''}>起号阶段</option>
+                        <option value="成长阶段" ${(!p.content_stage || p.content_stage === '成长阶段') ? 'selected' : ''}>成长阶段</option>
+                        <option value="成熟阶段" ${p.content_stage === '成熟阶段' ? 'selected' : ''}>成熟阶段</option>
+                    </select>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 获取阶段徽章
+function getStageBadge(stage) {
+    const badges = {
+        '起号阶段': '<span class="badge bg-warning text-dark">起号阶段</span>',
+        '成长阶段': '<span class="badge bg-primary">成长阶段</span>',
+        '成熟阶段': '<span class="badge bg-danger">成熟阶段</span>',
+    };
+    return badges[stage] || '<span class="badge bg-secondary">未设置</span>';
+}
+
+// 更新单个画像阶段
+async function updateSingleStage(portraitId, stage) {
+    try {
+        const resp = await fetch(`/admin/api/portrait/${portraitId}/content-stage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ content_stage: stage })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            showToast(data.message);
+        } else {
+            alert(data.message || '更新失败');
+        }
+    } catch (e) {
+        alert('更新失败: ' + e.message);
+    }
+}
+
+// 全选/取消全选
+function toggleSelectAll(checkbox) {
+    const checks = document.querySelectorAll('.portrait-check');
+    checks.forEach(c => c.checked = checkbox.checked);
+}
+
+// 批量更新阶段
+async function batchUpdateStage() {
+    const checks = document.querySelectorAll('.portrait-check:checked');
+    const ids = Array.from(checks).map(c => parseInt(c.value));
+
+    if (ids.length === 0) {
+        alert('请先选择要更新的画像');
+        return;
+    }
+
+    const stage = document.getElementById('batch-stage-select').value;
+    if (!confirm(`确定要将 ${ids.length} 个画像的阶段更新为「${stage}」吗？`)) {
+        return;
+    }
+
+    try {
+        const resp = await fetch('/admin/api/portraits/content-stage/batch-update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ portrait_ids: ids, content_stage: stage })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            showToast(data.message);
+            loadPortraits(); // 刷新列表
+        } else {
+            alert(data.message || '批量更新失败');
+        }
+    } catch (e) {
+        alert('批量更新失败: ' + e.message);
+    }
+}
+
+// 显示错误
+function showError(msg) {
+    const tbody = document.getElementById('portrait-table');
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-5">${msg}</td></tr>`;
+}
+
+// 显示提示
+function showToast(msg) {
+    const toast = document.createElement('div');
+    toast.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+    toast.innerHTML = `
+        <div class="toast show align-items-center text-white bg-success border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${msg}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// 页面加载
+document.addEventListener('DOMContentLoaded', loadPortraits);
+</script>
+{% endblock %}

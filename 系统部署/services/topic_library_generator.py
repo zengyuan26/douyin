@@ -31,39 +31,78 @@ class TopicLibraryGenerator:
     - B/C端区分
     """
 
-    # 选题分类（严格对应三大需求底盘）
-    # ①刚需痛点盘 → 转化型选题（直面痛点、解决方案）
-    # ②前置观望搜前种草盘 → 种草型选题（科普、认知、选购）
-    # ③使用配套搜后种草盘 → 种草型选题（周边、复购、养护）
+    # 选题分类（严格对应三大需求底盘 + 强制固定归类）
+    # 三盘比例：前置观望搜前种草盘 50% / 刚需痛点盘 30% / 使用配套搜后种草盘 20%
+    # 内容方向：前置观望=种草型；刚需痛点=转化型；使用配套=种草型
+    # 强制规则：对比选型/决策安心/上下游/实操等全部固定归类，选题方向不得跨界
     TOPIC_TYPES = [
-        # ①刚需痛点盘（转化型）
-        {'name': '问题解决类', 'key': 'problem', 'base': '刚需痛点', 'content_direction': '转化型',
-         'desc': '直面核心痛点，提供解决方案，引导成交', 'priority': 'P0'},
-        {'name': '效果验证类', 'key': 'effect_proof', 'base': '刚需痛点', 'content_direction': '转化型',
-         'desc': '产品效果对比/使用前后对比，建立信任', 'priority': 'P1'},
-
-        # ②前置观望搜前种草盘（种草型）
+        # ①前置观望搜前种草盘（50%，种草型）：专抓前期迷茫/做对比/查原因客户
+        {'name': '对比选型类', 'key': 'compare', 'base': '前置观望', 'content_direction': '种草型',
+         'desc': 'A与B区别/选型对比/哪种更好/划算对比，品牌分析，种草型', 'priority': 'P0'},
+        {'name': '原因分析类', 'key': 'cause', 'base': '前置观望', 'content_direction': '种草型',
+         'desc': '为什么会/原因分析/形成机理，认知教育，种草型', 'priority': 'P1'},
+        {'name': '上游科普类', 'key': 'upstream', 'base': '前置观望', 'content_direction': '种草型',
+         'desc': '原料/材质/供应链/选材鉴别知识，行业上游，种草型', 'priority': 'P1'},
+        {'name': '避坑指南类', 'key': 'pitfall', 'base': '前置观望', 'content_direction': '种草型',
+         'desc': '避坑/误区/骗局/怎么分辨，行业防骗，种草型', 'priority': 'P1'},
+        {'name': '行情价格类', 'key': 'price', 'base': '前置观望', 'content_direction': '种草型',
+         'desc': '价格/报价/行情/成本构成，预算参考，种草型', 'priority': 'P2'},
         {'name': '认知颠覆类', 'key': 'rethink', 'base': '前置观望', 'content_direction': '种草型',
-         'desc': '打破认知，易传播', 'priority': 'P1'},
+         'desc': '打破认知/颠覆常识，易传播，种草型', 'priority': 'P2'},
         {'name': '知识教程类', 'key': 'tutorial', 'base': '前置观望', 'content_direction': '种草型',
-         'desc': '主动搜索，精准流量', 'priority': 'P1'},
-        {'name': '经验分享类', 'key': 'experience', 'base': '前置观望', 'content_direction': '种草型',
-         'desc': '差异化，老一辈智慧', 'priority': 'P2'},
+         'desc': '主动搜索，精准流量，种草型', 'priority': 'P1'},
         {'name': '场景细分类', 'key': 'scene', 'base': '前置观望', 'content_direction': '种草型',
-         'desc': '精准人群，种草向', 'priority': 'P1'},
+         'desc': '精准人群细分，种草型', 'priority': 'P2'},
         {'name': '地域精准类', 'key': 'region', 'base': '前置观望', 'content_direction': '种草型',
-         'desc': '本地流量，种草向', 'priority': 'P2'},
+         'desc': '本地流量，种草型', 'priority': 'P3'},
 
-        # ③使用配套搜后种草盘（种草型）
+        # ②刚需痛点盘（30%，转化型）：强化决策安心，解决临门一脚
+        {'name': '痛点解决类', 'key': 'pain_point', 'base': '刚需痛点', 'content_direction': '转化型',
+         'desc': '直面核心痛点，提供解决方案，引导成交，转化型', 'priority': 'P0'},
+        {'name': '决策安心类', 'key': 'decision_encourage', 'base': '刚需痛点', 'content_direction': '转化型',
+         'desc': '靠谱吗/会不会坑/售后怎么样/别人怎么选，打消顾虑，转化型', 'priority': 'P0'},
+        {'name': '效果验证类', 'key': 'effect_proof', 'base': '刚需痛点', 'content_direction': '转化型',
+         'desc': '产品效果对比/使用前后对比/真实案例，建立信任，转化型', 'priority': 'P1'},
+
+        # ③使用配套搜后种草盘（20%，种草型）：使用后实操留存
+        {'name': '实操技巧类', 'key': 'skill', 'base': '使用配套', 'content_direction': '种草型',
+         'desc': '使用后方法/步骤流程/晾晒保存/配方调料/辅料佐料，种草型', 'priority': 'P1'},
+        {'name': '工具耗材类', 'key': 'tools', 'base': '使用配套', 'content_direction': '种草型',
+         'desc': '专用工具/周边耗材/后期养护推荐，种草型', 'priority': 'P2'},
+        {'name': '行业关联系列类', 'key': 'industry', 'base': '使用配套', 'content_direction': '种草型',
+         'desc': '上下游关联/复购引导/升级推荐，种草型', 'priority': 'P2'},
         {'name': '季节营销类', 'key': 'seasonal', 'base': '使用配套', 'content_direction': '种草型',
-         'desc': '时效性强，周边工具', 'priority': 'P2'},
+         'desc': '时效性强，季节关联，种草型', 'priority': 'P2'},
         {'name': '节日营销类', 'key': 'festival', 'base': '使用配套', 'content_direction': '种草型',
-         'desc': '节日刚需，复购引导', 'priority': 'P0'},
-        {'name': '节气养生类', 'key': 'solar_term', 'base': '使用配套', 'content_direction': '种草型',
-         'desc': '传统智慧，持续输出', 'priority': 'P2'},
+         'desc': '节日刚需，复购引导，种草型', 'priority': 'P1'},
         {'name': '情感故事类', 'key': 'emotional', 'base': '使用配套', 'content_direction': '种草型',
-         'desc': '易引发转发', 'priority': 'P3'},
+         'desc': '易引发转发，种草型', 'priority': 'P3'},
     ]
+
+    # 三套选题配比（内容阶段联动）
+    STAGE_TOPIC_RATIO_MAP = {
+        '起号阶段': {
+            '前置观望搜前种草盘': 0.90,
+            '刚需痛点盘': 0.00,
+            '使用配套搜后种草盘': 0.10,
+            'description': '90%前置种草 + 0%刚需转化 + 10%使用配套',
+            'tag_strategy': '种草标签为主，无转化标签',
+        },
+        '成长阶段': {
+            '前置观望搜前种草盘': 0.60,
+            '刚需痛点盘': 0.15,
+            '使用配套搜后种草盘': 0.25,
+            'description': '60%前置种草 + 15%刚需转化 + 25%使用配套',
+            'tag_strategy': '种草标签60% + 转化标签40%',
+        },
+        '成熟阶段': {
+            '前置观望搜前种草盘': 0.30,
+            '刚需痛点盘': 0.50,
+            '使用配套搜后种草盘': 0.20,
+            'description': '30%前置种草 + 50%刚需转化 + 20%使用配套',
+            'tag_strategy': '转化标签为主，种草标签30%',
+        },
+    }
 
     def __init__(self):
         self.llm = get_llm_service()
@@ -77,6 +116,7 @@ class TopicLibraryGenerator:
         use_template: bool = True,
         topic_count: int = 20,
         portrait_id: Optional[int] = None,
+        content_stage: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         生成选题库（缓存优先）
@@ -89,6 +129,7 @@ class TopicLibraryGenerator:
             use_template: 是否使用模板配置
             topic_count: 选题数量
             portrait_id: 画像ID（用于缓存检查）
+            content_stage: 内容阶段（起号阶段/成长阶段/成熟阶段），优先于 plan_type
         """
         try:
             # 缓存检查：如果画像有选题库且未过期，直接返回
@@ -102,6 +143,9 @@ class TopicLibraryGenerator:
                         'tokens_used': 0,
                         '_meta': {'from_cache': True},
                     }
+                # 读取画像的 content_stage 字段（优先使用）
+                if portrait and not content_stage:
+                    content_stage = portrait.content_stage or '成长阶段'
 
             # 防御性检查
             if not isinstance(portrait_data, dict):
@@ -112,11 +156,16 @@ class TopicLibraryGenerator:
             # 获取实时上下文
             realtime = template_config_service.get_realtime_context()
 
+            # 获取阶段配比
+            stage = content_stage or '成长阶段'
+            stage_config = self.STAGE_TOPIC_RATIO_MAP.get(stage, self.STAGE_TOPIC_RATIO_MAP['成长阶段'])
+            logger.info("[TopicLibraryGenerator] 内容阶段: %s，配比: %s", stage, stage_config['description'])
+
             # 构建变量上下文
             context = self._build_context(portrait_data, business_info, keyword_library, realtime)
 
             # 构建 Prompt - 直接使用默认提示词，不使用数据库模板
-            prompt = self._build_default_prompt(context, keyword_library, topic_count)
+            prompt = self._build_default_prompt(context, keyword_library, topic_count, stage, stage_config)
 
             # 调用 LLM
             system_msg = (
@@ -133,7 +182,7 @@ class TopicLibraryGenerator:
             response = self.llm.chat(messages)
 
             # 解析结果
-            result = self._parse_response(response)
+            result = self._parse_response(response, business_info.get('business_description', ''))
 
             return {
                 'success': True,
@@ -144,6 +193,7 @@ class TopicLibraryGenerator:
                     'realtime': realtime,
                     'used_template': use_template,
                     'based_on_keywords': bool(keyword_library),
+                    'content_stage': stage,
                 }
             }
 
@@ -316,7 +366,6 @@ class TopicLibraryGenerator:
             '当前季节': realtime.get('当前季节', ''),
             '月份名称': realtime.get('月份名称', ''),
             '季节消费特点': realtime.get('季节消费特点', ''),
-            '月度热点前缀': realtime.get('月度热点前缀', ''),
             '当前节日': realtime.get('当前节日', '无'),
             '当前节气': realtime.get('当前节气', '无'),
 
@@ -330,21 +379,30 @@ class TopicLibraryGenerator:
         context: Dict,
         keyword_library: Dict = None,
         topic_count: int = 20,
+        content_stage: str = '成长阶段',
+        stage_config: Dict = None,
     ) -> str:
-        """构建默认提示词"""
+        """构建默认提示词
+
+        Args:
+            content_stage: 内容阶段（起号阶段/成长阶段/成熟阶段）
+            stage_config: 阶段配比配置
+        """
+        if stage_config is None:
+            stage_config = self.STAGE_TOPIC_RATIO_MAP.get(content_stage, self.STAGE_TOPIC_RATIO_MAP['成长阶段'])
 
         type_rules = '\n'.join([
             f"{i+1}. **{t['name']}**（底盘:{t['base']} 内容方向:{t['content_direction']}）：{t['desc']} 【{t['priority']}】"
             for i, t in enumerate(self.TOPIC_TYPES)
         ])
 
-        return f"""你是一位抖音爆款选题策划专家。请为以下业务生成{topic_count}个精准选题，严格遵循三大需求底盘结构。
+        return f"""你是一位抖音爆款选题策划专家。请为以下业务生成{topic_count}个精准选题，严格遵循三大需求底盘结构，全链路执行：前期对比种草→中期安心转化→后期留存种草。
 
-=== 三大需求底盘（选题数量分配 + 内容方向）===
-① 刚需痛点盘（转化型）：直面核心痛点，提供解决方案，明确关联业务优势，引导成交。选题类型：问题解决类、效果验证类
-② 前置观望搜前种草盘（种草型）：行业知识科普、上游关联需求，不直接推销核心业务。选题类型：认知颠覆类、知识教程类、经验分享类、场景细分类、地域精准类
-③ 使用配套搜后种草盘（种草型）：周边工具、养护知识、复购引导，不直接推销。选题类型：季节营销类、节日营销类、节气养生类、情感故事类
-**严禁在选题时临时补充种草内容，所有选题必须严格从三盘中提取对应类型**
+=== 三大需求底盘（选题数量分配 + 内容方向，强制对应）===
+① **前置观望搜前种草盘（50%，种草型）**：对比选型/原因分析/上游科普/避坑指南/行情价格，专抓前期迷茫、做对比、查原因的潜在客户。选题类型：对比选型类、原因分析类、上游科普类、避坑指南类、行情价格类、认知颠覆类、知识教程类、场景细分类、地域精准类
+② **刚需痛点盘（30%，转化型）**：痛点解决/决策安心/效果验证，临门一脚解决下单犹豫。选题类型：痛点解决类、决策安心类、效果验证类
+③ **使用配套搜后种草盘（20%，种草型）**：季节时间（旺季/淡季）/实操技巧干货（技巧/方法/秘方/数字型）/工具耗材，使用后实操留存。选题类型：实操技巧类、工具耗材类、行业关联系列类、季节营销类、节日营销类、情感故事类
+**强制规则：所有选题必须严格从上述分类中提取，对比选型/决策安心/上游/认知颠覆/实操技巧干货/季节时间等关键词已固定归入对应底盘，选题方向不得跨界。AI 禁止自行新增分类或自由归类**
 
 ## 业务信息
 - 行业：{context['行业']}
@@ -362,14 +420,13 @@ class TopicLibraryGenerator:
 ## 实时上下文
 - 当前季节：{context['当前季节']}（{context['月份名称']}）
 - 季节消费特点：{context['季节消费特点']}
-- 月度热点：{context['月度热点前缀']}
 - 当前节日：{context['当前节日']}
 - 当前节气：{context['当前节气']}
 
-## 关键词参考
+## 关键词参考（选题须与关键词关联）
 {context['关键词库'] or '（无关键词库，将根据业务描述生成）'}
 
-## 选题分类要求（严格对应三盘，各选题的 content_direction 已标注）
+## 选题分类要求（严格对应三盘，各选题的 content_direction 已标注，强制归类）
 
 {type_rules}
 
@@ -379,7 +436,26 @@ class TopicLibraryGenerator:
 3. 融入季节、节日等实时因素
 4. 每条选题包含：标题、类型、来源、关键词、推荐理由、content_direction（**必须从底盘自动推导**）
 5. 涵盖至少5种以上选题类型
-6. **content_direction 强制规则**：问题解决类/效果验证类=转化型；其余类型=种草型
+6. **content_direction 强制规则**：痛点解决类/决策安心类/效果验证类=转化型；其余类型=种草型
+7. 选题必须与关键词库中的关键词形成关联
+8. **对比型选型类选题须映射自关键词库中的"对比型搜索关键词"分类**
+9. **决策安心类选题须映射自关键词库中的"决策鼓励关键词"和"安心保障关键词"分类**
+
+## 三套固定选题配比（管理员配置阶段，系统自动联动）
+**【当前生效阶段】：** **{content_stage}**（{stage_config['description']}）
+- 起号阶段（90%前置种草 + 10%使用配套）：无刚需转化选题
+  - 前置观望搜前种草盘：90%（对比选型类/原因分析类/上游科普类/避坑指南类/认知颠覆类/知识教程类/场景细分类/地域精准类）
+  - 使用配套搜后种草盘：10%（实操技巧类/工具耗材类/行业关联系列类/季节营销类/节日营销类/情感故事类）
+  - 刚需痛点盘：0%（无）
+- 成长阶段（60%前置种草 + 25%使用配套 + 15%刚需转化）
+  - 前置观望搜前种草盘：60%
+  - 使用配套搜后种草盘：25%
+  - 刚需痛点盘：15%（痛点解决类/决策安心类/效果验证类）
+- 成熟阶段（30%前置种草 + 20%使用配套 + 50%刚需转化）
+  - 前置观望搜前种草盘：30%
+  - 使用配套搜后种草盘：20%
+  - 刚需痛点盘：50%（痛点解决类/决策安心类/效果验证类）
+**【AI 强制执行】**：严格按照上述"当前生效阶段"的配比分配选题数量，不得偏离！标签策略：{stage_config['tag_strategy']}
 
 ## 输出格式（每条选题必须包含以下字段）
 - title: 选题标题
@@ -388,18 +464,16 @@ class TopicLibraryGenerator:
 - priority: 优先级（P0/P1/P2/P3）
 - source: 来源说明
 - keywords: 关键词列表
-- reason: 推荐理由
-- **content_direction**: 内容方向（**必须填写**：转化型=直面痛点；种草型=科普种草）
-- publish_timing: 发布时间建议
+- content_direction: **必须严格遵守：种草型=种草内容；转化型=转化内容**
+- recommended_reason: 推荐理由
 
-## 重要提醒
-1. 必须输出包含真实选题标题的JSON，不能使用任何占位符如 {{变量名}}
-2. 选题标题必须是实际可用的、吸引人的中文标题
-3. 所有字符串值都必须是真实内容
+## 输出数量要求
+生成恰好 **20个** 选题，三大底盘分配严格遵循当前阶段配比。
+生成恰好{topic_count}个选题：前置观望搜前种草盘约{stage_config.get('前置观望搜前种草盘', 0.6) * topic_count:.0f}个、刚需痛点盘约{stage_config.get('刚需痛点盘', 0.15) * topic_count:.0f}个、使用配套搜后种草盘约{stage_config.get('使用配套搜后种草盘', 0.25) * topic_count:.0f}个。
 
 请生成JSON格式的选题库："""
 
-    def _parse_response(self, response: str) -> Dict:
+    def _parse_response(self, response: str, business_description: str = '') -> Dict:
         """解析 LLM 返回"""
         import re
         import json
@@ -493,7 +567,61 @@ class TopicLibraryGenerator:
                                 result = json.loads(lib_str)
                             except:
                                 pass
-            
+
+            # 方法5：解析直接返回的选题数组（无外层包装）
+            if result is None:
+                try:
+                    # 尝试匹配数组格式 [...]
+                    array_match = re.search(r'\[\s*\{', clean_response)
+                    if array_match:
+                        # 提取从第一个 { 开始的整个 JSON
+                        start_pos = array_match.start()
+                        # 尝试找到一个能解析的结束位置
+                        for end_pos in range(len(clean_response), start_pos, -1):
+                            test_str = clean_response[start_pos:end_pos]
+                            try:
+                                parsed = json.loads(test_str)
+                                if isinstance(parsed, list) and len(parsed) > 0:
+                                    result = {'topics': parsed}
+                                    logger.debug("[TopicLibraryGenerator] 方法5成功提取%d个选题", len(parsed))
+                                    break
+                            except:
+                                continue
+                except Exception as e:
+                    logger.debug("[TopicLibraryGenerator] 方法5解析失败: %s", e)
+
+            # 方法6：逐个提取 JSON 对象并组合
+            if result is None:
+                try:
+                    topics = []
+                    # 查找所有完整的 JSON 对象 { ... }
+                    bracket_depth = 0
+                    in_json = False
+                    json_start = -1
+                    for i, c in enumerate(clean_response):
+                        if c == '{':
+                            if not in_json:
+                                json_start = i
+                                in_json = True
+                            bracket_depth += 1
+                        elif c == '}':
+                            bracket_depth -= 1
+                            if in_json and bracket_depth == 0:
+                                json_str = clean_response[json_start:i+1]
+                                try:
+                                    obj = json.loads(json_str)
+                                    if isinstance(obj, dict) and ('title' in obj or '标题' in obj or '选题' in obj):
+                                        topics.append(obj)
+                                except:
+                                    pass
+                                in_json = False
+                                json_start = -1
+                    if topics:
+                        result = {'topics': topics}
+                        logger.debug("[TopicLibraryGenerator] 方法6成功提取%d个选题", len(topics))
+                except Exception as e:
+                    logger.debug("[TopicLibraryGenerator] 方法6解析失败: %s", e)
+
             if result is None:
                 raise ValueError("所有JSON解析方式均失败")
             
@@ -503,16 +631,16 @@ class TopicLibraryGenerator:
             # 转换为标准格式
             result = self._convert_to_standard_format(result)
             
-            return self._validate_and_fill(result)
+            return self._validate_and_fill(result, business_description)
             
         except json.JSONDecodeError as e:
             logger.error("[TopicLibraryGenerator] JSON解析失败: %s", e)
             logger.error("[TopicLibraryGenerator] 原始响应前500字符: %s", response[:500])
-            return self._get_default_library()
+            return self._get_default_library(business_description)
         except Exception as e:
             logger.error("[TopicLibraryGenerator] Parse error: %s", e)
             logger.error("[TopicLibraryGenerator] 原始响应前500字符: %s", response[:500])
-            return self._get_default_library()
+            return self._get_default_library(business_description)
 
     def _fix_json_errors(self, json_str: str) -> str:
         """修复常见 JSON 格式错误"""
@@ -669,9 +797,11 @@ class TopicLibraryGenerator:
                 if isinstance(item, dict):
                     # 提取选题字段
                     topic_base = item.get('problem_base', '')
+                    type_key = item.get('type') or item.get('分类', 'unknown')
+                    type_key_dir = self._get_type_key_map().get(type_key, '种草型')
                     topic = {
                         'title': item.get('标题') or item.get('title') or item.get('选题'),
-                        'type_key': item.get('类型') or item.get('type') or item.get('分类', 'unknown'),
+                        'type_key': type_key,
                         'type_name': item.get('类型名称') or item.get('type_name') or '',
                         'priority': item.get('优先级') or item.get('priority') or 'P2',
                         'source': item.get('来源') or item.get('source') or '',
@@ -679,7 +809,7 @@ class TopicLibraryGenerator:
                         'reason': item.get('原因') or item.get('reason') or item.get('说明', ''),
                         'publish_timing': item.get('发布时间') or item.get('publish_timing') or '',
                         'content_hints': item.get('内容提示') or item.get('content_hints') or '',
-                        'content_direction': item.get('content_direction') or self._infer_content_direction(topic_base),
+                        'content_direction': item.get('content_direction') or type_key_dir,
                     }
                     if topic['title']:
                         converted['topics'].append(topic)
@@ -716,9 +846,9 @@ class TopicLibraryGenerator:
         
         return converted
 
-    def _validate_and_fill(self, result: Dict) -> Dict:
+    def _validate_and_fill(self, result: Dict, business_description: str = '') -> Dict:
         """验证并补充选题库"""
-        default = self._get_default_library()
+        default = self._get_default_library(business_description)
 
         # 处理可能的 key 变化
         if 'topics' not in result:
@@ -737,6 +867,7 @@ class TopicLibraryGenerator:
 
         # 补充缺失字段
         base_to_direction = {'刚需痛点': '转化型', '前置观望': '种草型', '使用配套': '种草型'}
+        type_key_to_direction = self._get_type_key_map()
         for topic in result['topics']:
             if not isinstance(topic, dict):
                 continue
@@ -746,8 +877,12 @@ class TopicLibraryGenerator:
                 topic['priority'] = topic.get('优先级', 'P2')
             if 'type_name' not in topic:
                 topic['type_name'] = topic.get('type_name', topic.get('类型', ''))
+            # content_direction：先从 type_key 推导，再从 base 兜底
             if 'content_direction' not in topic or not topic['content_direction']:
-                topic['content_direction'] = base_to_direction.get(topic.get('problem_base', ''), '种草型')
+                topic['content_direction'] = type_key_to_direction.get(
+                    topic.get('type_key', ''),
+                    base_to_direction.get(topic.get('problem_base', ''), '种草型')
+                )
 
         if 'by_type' not in result:
             result['by_type'] = self._count_by_type(result['topics'])
@@ -765,6 +900,29 @@ class TopicLibraryGenerator:
             '使用配套': '种草型',
         }
         return direction_map.get(topic_base, '种草型')
+
+    def _get_type_key_map(self) -> Dict[str, str]:
+        """获取 type_key 的 content_direction 映射"""
+        return {
+            'compare': '种草型',
+            'cause': '种草型',
+            'upstream': '种草型',
+            'pitfall': '种草型',
+            'price': '种草型',
+            'rethink': '种草型',
+            'tutorial': '种草型',
+            'scene': '种草型',
+            'region': '种草型',
+            'pain_point': '转化型',
+            'decision_encourage': '转化型',
+            'effect_proof': '转化型',
+            'skill': '种草型',
+            'tools': '种草型',
+            'industry': '种草型',
+            'seasonal': '种草型',
+            'festival': '种草型',
+            'emotional': '种草型',
+        }
 
     def _count_by_type(self, topics: List[Dict]) -> Dict:
         counts = {}
@@ -785,68 +943,91 @@ class TopicLibraryGenerator:
                 counts[p] += 1
         return counts
 
-    def _get_default_library(self) -> Dict:
-        """获取默认选题库（当LLM生成失败时使用）"""
+    def _get_default_library(self, business_description: str = '') -> Dict:
+        """获取默认选题库（当LLM生成失败时使用）
+
+        Args:
+            business_description: 业务描述，用于生成通用占位选题
+        """
+        # 从业务描述提取核心关键词作为占位选题的原料
+        core = business_description or '业务'
         return {
             'topics': [
                 {
-                    'title': '使用我们的服务，解决您的核心痛点',
-                    'type_name': '问题解决类',
-                    'type_key': 'problem',
-                    'source': '评论区挖痛点',
+                    'title': f'{core}好不好？真实用户反馈来了',
+                    'type_name': '对比选型类',
+                    'type_key': 'compare',
+                    'source': '对比选型系列',
                     'priority': 'P0',
                     'keywords': [],
-                    'reason': '直击用户最关心的问题',
-                    'publish_timing': '工作日午间',
-                    'content_hints': '展示痛点场景 + 解决方案',
-                },
-                {
-                    'title': '为什么选择我们而不是其他家',
-                    'type_name': '对比类',
-                    'type_key': 'compare',
-                    'source': '用户决策路径',
-                    'priority': 'P1',
-                    'keywords': [],
-                    'reason': '解答用户选择疑虑',
+                    'reason': '专抓前期迷茫客户，种草型',
                     'publish_timing': '周末晚间',
-                    'content_hints': '对比优势 + 真实案例',
+                    'content_direction': '种草型',
+                    'content_hints': '真实反馈 + 客观分析',
                 },
                 {
-                    'title': '客户案例：用了都说好',
-                    'type_name': '案例类',
-                    'type_key': 'case',
-                    'source': '客户反馈',
+                    'title': f'为什么越来越多人选择{core}？3个原因说透了',
+                    'type_name': '原因分析类',
+                    'type_key': 'cause',
+                    'source': '原因分析系列',
                     'priority': 'P1',
                     'keywords': [],
-                    'reason': '真实案例增强信任',
+                    'reason': '认知教育，种草型',
                     'publish_timing': '工作日下午',
-                    'content_hints': '前后对比 + 用户评价',
+                    'content_direction': '种草型',
+                    'content_hints': '原因拆解 + 行业趋势',
                 },
                 {
-                    'title': '您可能遇到的误区',
-                    'type_name': '避坑类',
-                    'type_key': 'warning',
-                    'source': '常见问题',
-                    'priority': 'P2',
+                    'title': f'选择{core}前，先看完这篇少走弯路',
+                    'type_name': '痛点解决类',
+                    'type_key': 'pain_point',
+                    'source': '刚需痛点盘',
+                    'priority': 'P0',
                     'keywords': [],
-                    'reason': '帮助用户避免损失',
+                    'reason': '直面核心痛点，转化型',
                     'publish_timing': '工作日午间',
-                    'content_hints': '误区场景 + 正确做法',
+                    'content_direction': '转化型',
+                    'content_hints': '展示痛点场景 + 解决方案 + 引导成交',
                 },
                 {
-                    'title': '行业趋势与我们的优势',
-                    'type_name': '行业洞察类',
-                    'type_key': 'insight',
-                    'source': '行业分析',
-                    'priority': 'P2',
+                    'title': f'{core}怎么选不踩坑？过来人经验分享',
+                    'type_name': '避坑指南类',
+                    'type_key': 'pitfall',
+                    'source': '避坑指南系列',
+                    'priority': 'P1',
                     'keywords': [],
-                    'reason': '展示专业深度',
-                    'publish_timing': '周末上午',
-                    'content_hints': '数据支撑 + 专业解读',
+                    'reason': '行业防骗，种草型',
+                    'publish_timing': '周末晚间',
+                    'content_direction': '种草型',
+                    'content_hints': '避坑场景 + 正确做法',
+                },
+                {
+                    'title': f'{core}到底靠不靠谱？看完你就明白了',
+                    'type_name': '决策安心类',
+                    'type_key': 'decision_encourage',
+                    'source': '刚需痛点盘',
+                    'priority': 'P0',
+                    'keywords': [],
+                    'reason': '打消付费顾虑，临门一脚，转化型',
+                    'publish_timing': '工作日下午',
+                    'content_direction': '转化型',
+                    'content_hints': '靠谱验证 + 售后保障 + 口碑案例',
+                },
+                {
+                    'title': f'{core}使用心得，看完少走弯路',
+                    'type_name': '实操技巧类',
+                    'type_key': 'skill',
+                    'source': '使用配套盘',
+                    'priority': 'P1',
+                    'keywords': [],
+                    'reason': '实操方法，种草型',
+                    'publish_timing': '工作日下午',
+                    'content_direction': '种草型',
+                    'content_hints': '实操经验 + 注意事项',
                 },
             ],
-            'by_type': {'problem': 1, 'compare': 1, 'case': 1, 'warning': 1, 'insight': 1},
-            'priorities': {'P0': 1, 'P1': 2, 'P2': 2, 'P3': 0},
+            'by_type': {'compare': 1, 'cause': 1, 'pain_point': 1, 'pitfall': 1, 'decision_encourage': 1, 'skill': 1},
+            'priorities': {'P0': 2, 'P1': 3, 'P2': 0, 'P3': 0},
         }
 
     def _estimate_tokens(self, prompt: str, response: str) -> int:

@@ -4744,6 +4744,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'buyer_concern_types': all_buyer_concern_types,
                     'buyer_user_relation': buyer_user_relation,
                     'portraits_by_type': dict(portraits_by_type),
+                    'is_premium': params.get('_is_premium', False),
                 }
             }
             break  # 跳出重试循环
