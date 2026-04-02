@@ -9,11 +9,9 @@
           rel="stylesheet"
           integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3"
           crossorigin="anonymous">
-    <!-- Bootstrap Icons 1.10.0 (SRI) -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
-          rel="stylesheet"
-          integrity="sha384-l4UPAMHGzl7zwogLW4UPAMHGzl7zwogLW4UPAMHGzl7zwogLW4nOwaU2T+XB"
-          crossorigin="anonymous">
+    <!-- Bootstrap Icons 1.10.0 (unpkg CDN) -->
+    <link href="https://unpkg.com/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+          rel="stylesheet">
     <script src="/static/public/js/portrait-manager.js"></script>
     <style>
         :root {
@@ -1506,6 +1504,7 @@
         let generatedContent = null;
         let currentAiEnhanced = false;
         let _currentMarketAnalysis = {};  // 当前市场分析数据（用于快照）
+        let _isPremium = false;  // 是否付费用户（提前声明，避免 checkAuth 中赋值时 TDZ）
 
         // ================================================================
         // 超级定位 Tab 快照（localStorage + 服务端）
@@ -1562,7 +1561,7 @@
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    console.log('[saveSnapshotToServer] 快照已保存, version=' + data.version);
+                    console.log('[saveSnapshotToServer] 快照已保存, version=' + data.version + ', portraits_data keys=' + Object.keys(_allPortraits));
                 }
             } catch (e) {
                 console.error('[saveSnapshotToServer] 保存失败:', e);
@@ -1742,6 +1741,10 @@
                     // 恢复问题和画像数据
                     _allProblems = serverSnap.problems_data;
                     _allPortraits = serverSnap.portraits_data || {};
+                    console.log('[initSnapshotRestore] portraits_data keys =', Object.keys(_allPortraits));
+                    console.log('[initSnapshotRestore] portraits_data sample =', JSON.stringify(_allPortraits).slice(0, 500));
+                    console.log('[initSnapshotRestore] selected_problem_id from snap =', serverSnap.selected_problem_id, 'typeof =', typeof serverSnap.selected_problem_id);
+                    console.log('[initSnapshotRestore] _allProblems[0].id =', _allProblems[0]?.id, 'typeof =', typeof _allProblems[0]?.id);
                     // 从第一个问题中提取 market_analysis（保存时附加的）
                     if (_allProblems[0] && _allProblems[0]._market_analysis) {
                         _currentMarketAnalysis = _allProblems[0]._market_analysis;
@@ -1769,6 +1772,17 @@
                         }
                     }
                     console.log('[initSnapshotRestore] 已从服务端恢复快照, version=' + serverSnap.version);
+                    console.log('[initSnapshotRestore] 恢复后 _isPremium =', _isPremium);
+                    console.log('[initSnapshotRestore] _allPortraits keys at return =', Object.keys(_allPortraits));
+                    console.log('[initSnapshotRestore] 调用 PortraitManager.loadSavedPortraits...');
+                    console.log('[initSnapshotRestore] PortraitManager 类型:', typeof PortraitManager, PortraitManager ? 'defined' : 'undefined');
+                    // 加载数据库中的已保存画像（兜底，确保画像列表完整）
+                    try {
+                        PortraitManager.loadSavedPortraits();
+                    } catch(e) {
+                        console.error('[initSnapshotRestore] loadSavedPortraits 异常:', e);
+                    }
+                    console.log('[initSnapshotRestore] loadSavedPortraits 调用完成, _allPortraits keys =', Object.keys(_allPortraits));
                     return;
                 }
             }
@@ -1808,6 +1822,9 @@
                     if (data.success) {
                         currentUser = data.data;
                         console.log('[checkAuth] 登录成功，currentUser:', currentUser);
+                        // 同步付费状态（currentUser 从 /api/quota 来，是权威来源）
+                        _isPremium = !!(currentUser && currentUser.is_premium);
+                        console.log('[checkAuth] _isPremium 设置为:', _isPremium, 'currentUser.is_premium =', currentUser && currentUser.is_premium);
                         showGenerator();
                         updateQuotaInfo();
                         // 恢复超级定位快照 + 绑定自动保存
@@ -2020,7 +2037,6 @@
         let _allPortraits = {};  // 按问题类型 key 存储的画像
         let _selectedTypeKey = null;  // 当前选中的问题类型 key
         let _allProblems = [];  // 统一的问题列表（不再分 user/buyer）
-        let _isPremium = false;  // 是否付费用户
         let _currentBusinessDesc = '';  // 当前业务描述
         let _isGeneratingPortraits = false;  // 防止多卡片同时点「生成」
 
@@ -2103,6 +2119,7 @@
                     _allProblems = problems;
                     _allPortraits = {};  // 清空旧画像
                     _isPremium = data.is_premium || false;
+                    console.debug('[mineAndGenerate] 收到 problems[0]:', JSON.stringify(problems[0], null, 2));
 
                     // 隐藏局部加载状态，显示问题内容
                     document.getElementById('problem-mining-loading').style.display = 'none';
@@ -2149,6 +2166,7 @@
         // 换一批：重新调用问题挖掘+画像生成
         let _refreshIdentitiesSeq = 0;
         function refreshIdentities() {
+            console.log('[refreshIdentities] 当前 _isPremium =', _isPremium, 'currentUser =', currentUser);
             if (!_isPremium) {
                 showToast('此功能仅限付费用户，<a href="/public/pricing" target="_blank" style="color:#1565c0;text-decoration:underline;">立即升级</a>', 'error');
                 return;
@@ -2207,6 +2225,7 @@
                     _allProblems = problems;
                     _allPortraits = {};
                     _isPremium = data.is_premium || false;
+                    console.debug('[mineAndGenerate/分步] 收到 problems[0]:', JSON.stringify(problems[0], null, 2));
 
                     // 渲染问题卡片
                     renderProblemCards(_allProblems);
@@ -2332,6 +2351,7 @@
 
         // 渲染指定问题类型的画像
         function renderPortraitsForType(key, displayName) {
+            console.log('[renderPortraitsForType] key=' + key + ', _allPortraits keys=' + Object.keys(_allPortraits));
             // 保存当前 key，供单画像分析使用
             _currentPortraitKey = key;
             // 直接用 id 精确查找（现在 key 就是后端返回的唯一 id）
@@ -2519,7 +2539,8 @@
             col.dataset.key = key;
             col.dataset.problemData = JSON.stringify(problemData);
 
-            let stars = severity === '高' ? '⭐⭐⭐⭐⭐' : severity === '中' ? '⭐⭐⭐⭐' : '⭐';
+            // 严重程度星级：仅 ⭐⭐⭐(中) ⭐⭐⭐⭐(高) ⭐⭐⭐⭐⭐(极高) 三档
+            let stars = severity === '极高' ? '⭐⭐⭐⭐⭐' : severity === '高' ? '⭐⭐⭐⭐' : '⭐⭐⭐';
 
             // 身份图标
             const tagIcon = identity.includes('宝') || identity.includes('宝宝') ? '👶' :
@@ -2560,10 +2581,33 @@
                 `;
             }
 
+            // 问题大类前缀：优先 API 的 problem_category；无则联合标题+描述推断（与后端 infer_problem_category 规则对齐）
+            let categoryLabel = '';
+            const catRaw = (problemData.problem_category || '').trim();
+            if (catRaw) {
+                categoryLabel = `【${catRaw.replace(/\/.*/, '')}】`;
+            } else {
+                const blob = `${problemType || ''}${problemData.description || ''}${problemData.display_name || ''}`;
+                const hit = (s) => blob.includes(s);
+                if (hit('安全隐患') || hit('卫生问题') || hit('质量缺陷') || hit('过期') || hit('变质') || hit('漏电') || hit('中毒') || hit('过敏') || hit('感染') || hit('假货') || hit('受伤') || hit('事故')) {
+                    categoryLabel = '【安全/质量】';
+                } else if (hit('不知道选') || hit('怕买错') || hit('选哪款') || hit('难选') || hit('选错') || hit('不匹配') || hit('不适合')) {
+                    categoryLabel = '【适配/兼容】';
+                } else if (hit('怕被宰') || hit('乱收费') || hit('性价比') || hit('等太久') || hit('响应慢') || hit('上门慢') || hit('周期长') || hit('效率低') || hit('预约难') || hit('排队') || hit('预算') || hit('费用') || hit('多少钱') || hit('加价') || hit('价格') || hit('贵') || hit('怕贵')) {
+                    categoryLabel = '【成本/效率】';
+                } else if (hit('怕效果差') || hit('效果差') || hit('没效果') || hit('无效') || hit('治不好') || hit('功能失效') || hit('达不成') || hit('解决不了') || hit('没治好') || hit('不奏效') || hit('怕效果')) {
+                    categoryLabel = '【功能/效果】';
+                } else if (hit('服务不专业') || hit('服务态度') || hit('态度差') || hit('服务差') || hit('不热情') || hit('敷衍') || hit('体验差') || hit('难用') || hit('操作复杂') || hit('不舒服') || hit('不专业')) {
+                    categoryLabel = '【体验/使用】';
+                } else {
+                    categoryLabel = '【体验/使用】';
+                }
+            }
+
             col.innerHTML = `
                 <div class="problem-card" data-key="${escHtml(key)}" style="cursor:pointer;">
                     <div class="pc-top-row">
-                        <span class="pc-type" title="${escHtml(problemType)}">${escHtml(problemType)}</span>
+                        <span class="pc-type" title="${escHtml(problemType)}">${escHtml(categoryLabel)}${escHtml(problemType)}</span>
                         <span class="pc-id-badge ${badgeClass}"><span aria-hidden="true">${tagIcon}</span><span>${escHtml(identity)}</span></span>
                     </div>
                     <div class="pc-severity-row" aria-label="问题严重性">
@@ -2622,6 +2666,7 @@
         // 写入画像缓存、更新问题卡片状态并刷新右侧列表（与 renderPortraitsForType 一致）
         function commitPortraitsResult(saveKey, problemData, portraits) {
             _allPortraits[saveKey] = portraits;
+            console.log('[commitPortraitsResult] saveKey=' + saveKey + ', 当前 _allPortraits keys=' + Object.keys(_allPortraits));
             const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-4')).find(function (c) {
                 return String(c.dataset.key || '') === String(saveKey || '');
             });
@@ -2639,6 +2684,10 @@
                 problemData.problem_type || problemData.concern_type || '',
                 problemData
             );
+            // 同步保存快照（画像数据也需要持久化）
+            if (currentUser) {
+                saveSnapshotToServer();
+            }
         }
 
         // 生成指定问题的画像（互斥锁：同时只允许一个生成任务）
@@ -3731,16 +3780,18 @@
 
                 if (saved && saved.id) {
                     showToast('✓ 画像保存成功！', 'success');
-                    
-                    // 多方案确保刷新
-                    console.log('[saveGeneratedPortrait] 准备刷新页面...');
-                    
-                    // 方案1: setTimeout 延迟刷新
-                    setTimeout(() => {
-                        console.log('[saveGeneratedPortrait] 执行方案1: window.location.reload(true)');
-                        window.location.reload(true);
-                    }, 300);
-                    
+
+                    // 只从快照中移除已入库的那个 key，保留其他未保存的画像
+                    if (key && _allPortraits[key]) {
+                        delete _allPortraits[key];
+                    }
+                    // 同步快照到服务端（保留其他画像数据）
+                    if (currentUser) {
+                        saveSnapshotToServer();
+                    }
+                    // 刷新侧边栏画像列表（不需要重载整个页面）
+                    PortraitManager.loadSavedPortraits(saved.id);
+                    resetSaveButtons();
                 } else {
                     console.error('[saveGeneratedPortrait] saved 为空或没有 id');
                     showToast('保存失败，请重试', 'error');

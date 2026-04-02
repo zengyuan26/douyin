@@ -3665,8 +3665,51 @@ def mine_problem_channels(params: Dict[str, Any]) -> Dict:
 
 
 # =============================================================================
-# 问题挖掘 + 画像生成 组合方法
+# 问题大类推断（LLM 漏填 problem_category 时兜底）
 # =============================================================================
+
+def infer_problem_category(
+    problem_type: str,
+    description: str = '',
+    display_name: str = '',
+) -> str:
+    """
+    根据 problem_type + 描述 + 展示名推断五大类之一（与 Prompt 中「问题大类」表述一致）。
+    用于 API 返回给前端的 problem_category，保证卡片可稳定展示【大类】前缀。
+    """
+    text = f"{problem_type or ''}{description or ''}{display_name or ''}"
+    if not text.strip():
+        return ''
+
+    # (大类全称, 关键词列表)；同类内放较长词在前，减少误匹配
+    rules: List[Tuple[str, List[str]]] = [
+        ("安全/质量问题", [
+            "安全隐患", "卫生问题", "质量缺陷", "食物中毒", "交叉感染",
+            "过期", "变质", "漏电", "中毒", "过敏", "感染", "假货", "受伤", "事故",
+        ]),
+        ("适配/兼容问题", [
+            "不知道选", "怕买错", "选哪款", "难选", "选错", "不匹配", "不适合",
+        ]),
+        ("成本/效率问题", [
+            "怕被宰", "乱收费", "性价比", "等太久", "响应慢", "上门慢", "周期长", "效率低",
+            "预约难", "排队", "预算", "费用", "多少钱", "加价", "价格", "贵", "怕贵",
+        ]),
+        ("功能/效果问题", [
+            "怕效果差", "效果差", "没效果", "无效", "治不好", "功能失效", "达不成",
+            "解决不了", "没治好", "不奏效", "怕效果",
+        ]),
+        ("体验/使用问题", [
+            "服务不专业", "服务态度", "态度差", "服务差", "不热情", "敷衍", "体验差",
+            "难用", "操作复杂", "不舒服", "不专业",
+        ]),
+    ]
+    for category, kws in rules:
+        for kw in kws:
+            if kw in text:
+                return category
+    # 本地生活/服务业常见表述未命中时，多数可归为体验侧
+    return "体验/使用问题"
+
 
 def mine_problems(params: Dict[str, Any]) -> Dict:
     """
@@ -3728,11 +3771,18 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
             problem.get('concern_type', '') or
             ''
         )
+        # 细分类型的大类：user_problem_types 用 problem_category，buyer_concern_types 用 concern_category
         desc = problem.get('description', '')
         display_name_raw = problem.get('display_name', '') or f"{identity}{problem_type}"
+        problem_category = (
+            (problem.get('problem_category') or problem.get('concern_category') or '')
+        ).strip()
+        if not problem_category:
+            problem_category = infer_problem_category(problem_type, desc, display_name_raw)
         return {
             'id': _alloc_problem_id(problem.get('id'), f"{side}_{index+1}"),
             'identity': identity,
+            'problem_category': problem_category,
             'problem_type': problem_type,
             'display_name': display_name_raw,
             'description': desc,
@@ -3759,6 +3809,10 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
     logger.debug("[mine_problems] all_problems[0]: %s", all_problems[0] if all_problems else '无')
     logger.debug("[mine_problems] all_problems[0].get('market_type'): %s", all_problems[0].get('market_type', '无') if all_problems else '无')
     logger.debug("[mine_problems] all_problems[0].get('problem_keywords'): %s", all_problems[0].get('problem_keywords', '无') if all_problems else '无')
+    logger.debug("[mine_problems] all_problems[0].get('problem_category'): %s", all_problems[0].get('problem_category', '无') if all_problems else '无')
+
+    logger.info("[mine_problems] 返回数据中 all_problems[0] 字段: %s",
+                 list(all_problems[0].keys()) if all_problems else [])
 
     return {
         'success': True,
@@ -3978,13 +4032,13 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         ]
     },
     "user_problem_types": [
-        {"identity": "有老人的家庭", "problem_type": "老人独居风险", "display_name": "老人独自在家风险", "description": "摔倒没人发现、晚上无人陪伴、突发疾病", "severity": "极高", "scenarios": ["老人洗澡时摔倒", "晚上独自在家", "子女上班不在家"], "market_type": "blue_ocean", "market_reason": "细分人群+极高严重性", "problem_keywords": [{"keyword": "独居老人在家摔倒了没人发现怎么办", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "老人独自在家突发疾病怎么急救", "type": "blue_ocean", "source": "长尾转化词"}]},
-        {"identity": "有娃家庭", "problem_type": "家居卫生问题", "display_name": "家里清洁不到位", "description": "孩子反复生病、过敏起疹子、螨虫困扰", "severity": "高", "scenarios": ["流感季节孩子生病", "床品螨虫过敏", "沙发清洁不彻底"], "market_type": "blue_ocean", "market_reason": "细分人群+高严重性", "problem_keywords": [{"keyword": "过敏宝宝家里怎么除螨最有效", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "孩子反复生病是不是家里不干净", "type": "blue_ocean", "source": "长尾转化词"}]},
-        {"identity": "双职工家庭", "problem_type": "家务堆积", "display_name": "工作忙没时间打扫", "description": "家务太多做不完、没时间收拾", "severity": "中", "scenarios": ["早上赶着上班", "加班到很晚", "周末想休息"], "market_type": "red_ocean", "market_reason": "大众人群+中等严重性", "problem_keywords": [{"keyword": "家政保洁多少钱一小时", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "成都武侯区家政保洁推荐", "type": "red_ocean", "source": "地域精准词"}]}
+        {"identity": "有老人的家庭", "problem_category": "安全/质量问题", "problem_type": "老人独居风险", "display_name": "老人独自在家风险", "description": "摔倒没人发现、晚上无人陪伴、突发疾病", "severity": "极高", "scenarios": ["老人洗澡时摔倒", "晚上独自在家", "子女上班不在家"], "market_type": "blue_ocean", "market_reason": "细分人群+极高严重性", "problem_keywords": [{"keyword": "独居老人在家摔倒了没人发现怎么办", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "老人独自在家突发疾病怎么急救", "type": "blue_ocean", "source": "长尾转化词"}]},
+        {"identity": "有娃家庭", "problem_category": "体验/使用问题", "problem_type": "家居卫生问题", "display_name": "家里清洁不到位", "description": "孩子反复生病、过敏起疹子、螨虫困扰", "severity": "高", "scenarios": ["流感季节孩子生病", "床品螨虫过敏", "沙发清洁不彻底"], "market_type": "blue_ocean", "market_reason": "细分人群+高严重性", "problem_keywords": [{"keyword": "过敏宝宝家里怎么除螨最有效", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "孩子反复生病是不是家里不干净", "type": "blue_ocean", "source": "长尾转化词"}]},
+        {"identity": "双职工家庭", "problem_category": "成本/效率问题", "problem_type": "家务堆积", "display_name": "工作忙没时间打扫", "description": "家务太多做不完、没时间收拾", "severity": "中", "scenarios": ["早上赶着上班", "加班到很晚", "周末想休息"], "market_type": "red_ocean", "market_reason": "大众人群+中等严重性", "problem_keywords": [{"keyword": "家政保洁多少钱一小时", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "成都武侯区家政保洁推荐", "type": "red_ocean", "source": "地域精准词"}]}
     ],
     "buyer_concern_types": [
-        {"identity": "雇主", "concern_type": "服务信任问题", "display_name": "怕服务人员不靠谱", "description": "怕遇到偷东西/虐童/虐待老人", "examples": ["新闻里的负面案例", "网上搜到的投诉"], "market_type": "blue_ocean", "market_reason": "信任痛点+细分人群", "problem_keywords": [{"keyword": "保姆虐童事件频发怎么筛选靠谱", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "家政公司有资质审查吗", "type": "blue_ocean", "source": "长尾转化词"}]},
-        {"identity": "雇主", "concern_type": "服务效果问题", "display_name": "怕花了钱没效果", "description": "阿姨走了还是脏的、说好的深度清洁就擦擦灰", "examples": ["清洁不到位", "敷衍了事"], "market_type": "red_ocean", "market_reason": "普遍顾虑+大众需求", "problem_keywords": [{"keyword": "深度清洁和普通保洁有什么区别", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "XX保洁公司正规吗", "type": "red_ocean", "source": "品牌核心词"}]}
+        {"identity": "雇主", "concern_category": "适配/兼容问题", "concern_type": "服务信任问题", "display_name": "怕服务人员不靠谱", "description": "怕遇到偷东西/虐童/虐待老人", "examples": ["新闻里的负面案例", "网上搜到的投诉"], "market_type": "blue_ocean", "market_reason": "信任痛点+细分人群", "problem_keywords": [{"keyword": "保姆虐童事件频发怎么筛选靠谱", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "家政公司有资质审查吗", "type": "blue_ocean", "source": "长尾转化词"}]},
+        {"identity": "雇主", "concern_category": "功能/效果问题", "concern_type": "服务效果问题", "display_name": "怕花了钱没效果", "description": "阿姨走了还是脏的、说好的深度清洁就擦擦灰", "examples": ["清洁不到位", "敷衍了事"], "market_type": "red_ocean", "market_reason": "普遍顾虑+大众需求", "problem_keywords": [{"keyword": "深度清洁和普通保洁有什么区别", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "XX保洁公司正规吗", "type": "red_ocean", "source": "品牌核心词"}]}
     ]
 }
 """
@@ -4014,9 +4068,9 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         ]
     }},
     "user_problem_types": [
-        {{"identity": "核心人群A", "problem_type": "体验与效果", "display_name": "使用体验不理想", "description": "效果慢、不适、反复、与预期不符", "severity": "高", "scenarios": ["初次使用", "换新款", "季节变化"], "market_type": "blue_ocean", "market_reason": "细分人群", "problem_keywords": [{{"keyword": "用{product_name}没效果怎么办", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "{product_name}用了不舒服要停吗", "type": "blue_ocean", "source": "长尾转化词"}}]}},
-        {{"identity": "核心人群B", "problem_type": "选择与决策", "display_name": "不知道选哪款", "description": "参数多、预算有限、怕买错", "severity": "中", "scenarios": ["大促比价", "送礼", "给家人选购"], "market_type": "blue_ocean", "market_reason": "长尾", "problem_keywords": [{{"keyword": "{product_name}怎么选适合自己", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "预算有限{product_name}怎么选", "type": "blue_ocean", "source": "长尾转化词"}}]}},
-        {{"identity": "忙碌型用户", "problem_type": "时间与便利", "display_name": "没空研究没空买", "description": "没时间做功课、怕麻烦、想省事", "severity": "中", "scenarios": ["加班", "出差", "带娃"], "market_type": "red_ocean", "market_reason": "普遍痛点", "problem_keywords": [{{"keyword": "{product_name}有没有送货上门", "type": "red_ocean", "source": "用户需求词"}}, {{"keyword": "附近哪里买{product_name}方便", "type": "red_ocean", "source": "地域精准词"}}]}}
+        {{"identity": "核心人群A", "problem_category": "体验/使用问题", "problem_type": "使用体验问题", "display_name": "使用体验不理想", "description": "效果慢、不适、反复、与预期不符", "severity": "高", "scenarios": ["初次使用", "换新款", "季节变化"], "market_type": "blue_ocean", "market_reason": "细分人群", "problem_keywords": [{{"keyword": "用{product_name}没效果怎么办", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "{product_name}用了不舒服要停吗", "type": "blue_ocean", "source": "长尾转化词"}}]}},
+        {{"identity": "核心人群B", "problem_category": "适配/兼容问题", "problem_type": "选择适配问题", "display_name": "不知道选哪款", "description": "参数多、预算有限、怕买错", "severity": "中", "scenarios": ["大促比价", "送礼", "给家人选购"], "market_type": "blue_ocean", "market_reason": "长尾", "problem_keywords": [{{"keyword": "{product_name}怎么选适合自己", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "预算有限{product_name}怎么选", "type": "blue_ocean", "source": "长尾转化词"}}]}},
+        {{"identity": "忙碌型用户", "problem_category": "成本/效率问题", "problem_type": "时间便利问题", "display_name": "没空研究没空买", "description": "没时间做功课、怕麻烦、想省事", "severity": "中", "scenarios": ["加班", "出差", "带娃"], "market_type": "red_ocean", "market_reason": "普遍痛点", "problem_keywords": [{{"keyword": "{product_name}有没有送货上门", "type": "red_ocean", "source": "用户需求词"}}, {{"keyword": "附近哪里买{product_name}方便", "type": "red_ocean", "source": "地域精准词"}}]}}
     ],
     "buyer_concern_types": [
         {{"identity": "购买者", "concern_type": "信任与渠道", "display_name": "怕假货怕买错渠道", "description": "怕假、怕串货、怕售后无保障", "examples": ["网购不放心", "小店不敢买"], "market_type": "blue_ocean", "market_reason": "信任成本", "problem_keywords": [{{"keyword": "怎么验{product_name}真假", "type": "blue_ocean", "source": "场景痛点词"}}, {{"keyword": "{product_name}官方授权怎么查", "type": "blue_ocean", "source": "长尾转化词"}}]}},
@@ -4036,11 +4090,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
    - market_type（red_ocean/blue_ocean/mixed）
    - problem_oriented_keywords（数组，每个对象含 keyword + type + source，**总数至少8个，蓝海词不少于4个**）
 2. **user_problem_types** 每条必须包含：
-   - identity / problem_type / display_name / description / severity / scenarios
+   - identity / problem_category / problem_type / display_name / description / severity / scenarios
    - **problem_keywords（数组，每条至少2个，含 keyword + type + source，且与该问题主题语义对齐）**
    - market_type / market_reason
 3. **buyer_concern_types** 每条必须包含：
-   - identity / concern_type / display_name / description / examples
+   - identity / concern_category / concern_type / display_name / description / examples
    - **problem_keywords（数组，每条至少2个）**
    - market_type / market_reason
 4. 只输出 JSON，不要任何解释文字。
@@ -4082,12 +4136,15 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 **五、输出格式要求**
 每条问题输出字段：
 - identity：用户身份（如"宝妈""酒店采购"）
-- problem_type：细分问题类型（如"肠道问题"），必须具体
+- problem_category：问题大类（如"体验/使用问题"），从五类中选一
+- problem_type：细分问题类型（如"肠道问题""过敏问题"），必须具体
 - description：3-5个具体表现，用顿号分隔（如"拉肚子、腹胀、便秘"）
 - severity：仅限⭐⭐⭐、⭐⭐⭐⭐、⭐⭐⭐⭐⭐三档
 - scenarios：2-3个具体使用场景
 - problem_keywords：与该问题主题强对齐的搜索词（必须围绕本条问题，不能泛化）
 
+- concern_category：问题大类（如"功能/效果问题"），从五类中选一
+- examples：2-3个具体例子（付费者决策时的具体顾虑场景）
 === 蓝海/红海判断标准 ===
 **market_type 判断规则**（每个问题必须填写）：
 
@@ -4098,7 +4155,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 **红海特征**（不满足蓝海则为红海）：
 1. **大众人群**：身份为通用人群（上班族/家庭/年轻人等）
-2. **中低严重性**：severity为"中"或"低"
+2. **中高严重性**：severity为"中"或"高"
 3. **普遍问题**：价格/便利/服务态度等大众痛点
 
 **market_reason**：简述判断理由（10字内）
@@ -5010,9 +5067,6 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
                 except Exception as e:
                     logger.debug("[generate_portraits] 策略%s失败: %s", strategy, e)
                     continue
-
-        logger.debug("[generate_portraits] JSON修复失败，尝试原始解析")
-        return try_parse(original)
 
         # 尝试多种解析方式
         result = try_parse(response)

@@ -332,12 +332,14 @@ def api_identify_problems():
     if not params.get('business_type'):
         return jsonify({'success': False, 'message': '请选择经营类型'}), 400
 
-    # 获取用户是否付费
+    # 获取用户是否付费（用 is_paid_user 含过期检查，不用 is_premium 列）
     user_id = session.get('public_user_id')
     is_premium = False
     if user_id:
         user = PublicUser.query.get(user_id)
         if user:
+            logger.info("[identify_problems] user_id=%s is_premium_col=%s premium_plan=%s premium_expires=%s is_paid_user=%s",
+                         user_id, user.is_premium, user.premium_plan, user.premium_expires, user.is_paid_user())
             is_premium = user.is_premium
 
     params['_is_premium'] = is_premium
@@ -428,10 +430,17 @@ def api_generate_portraits():
 
     params['_is_premium'] = is_premium
 
-    result = new_generate_portraits(params)
-    result['is_premium'] = is_premium
-
-    return jsonify(result)
+    try:
+        result = new_generate_portraits(params)
+        if result is None:
+            return jsonify({'success': False, 'message': '生成失败: 返回数据异常'}), 500
+        result['is_premium'] = is_premium
+        return jsonify(result)
+    except Exception as e:
+        import traceback
+        logger.error("[api_generate_portraits] 异常: %s", str(e))
+        logger.debug("[api_generate_portraits] 堆栈: %s", traceback.format_exc())
+        return jsonify({'success': False, 'message': f'生成失败: {str(e)}'}), 500
 
 
 @public_bp.route('/api/targets/generate-all-portraits', methods=['POST'])
@@ -809,12 +818,19 @@ def api_save_portrait():
     max_saved = quota_info.get('max_saved_portraits', 0)
     
     if max_saved > 0 and current_count >= max_saved:
-        return jsonify({'success': False, 'message': f'已达保存上限（{max_saved}个），请删除后再保存'}), 400
-    
-    # 如果设为默认，先取消其他默认
+        # 先删旧数据再插新数据（替换模式）
+        SavedPortrait.query.filter_by(user_id=user.id).delete()
+        db.session.commit()
+
+    # 如果设为默认，先取消其他默认（替换模式下无其他数据，无需处理）
     if set_as_default:
-        SavedPortrait.query.filter_by(user_id=user.id, is_default=True).update({'is_default': False})
-    
+        pass
+
+    # 生成画像名称
+    if not portrait_name:
+        portrait_name = f"画像_{datetime.now().strftime('%m%d_%H%M')}"
+
+    # 插入新记录
     new_portrait = SavedPortrait(
         user_id=user.id,
         portrait_data=portrait_data,
@@ -826,12 +842,10 @@ def api_save_portrait():
     )
     db.session.add(new_portrait)
     db.session.commit()
-    
-    # 保存成功后立即获取 ID（避免后续操作导致对象过期）
+
+    # 保存成功后立即获取 ID
     portrait_id = new_portrait.id
-    
-    # 画像保存服务内部已包含后台生成逻辑，此处不再重复启动线程
-    
+
     # 先立即返回成功，不阻塞响应
     return jsonify({
         'success': True,

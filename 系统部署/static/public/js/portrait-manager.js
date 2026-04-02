@@ -668,6 +668,7 @@ const PortraitManager = {
             if (data.success) {
                 if (this._currentPortraitId === portraitId) this._currentPortraitId = null;
                 await this.loadSavedPortraits();
+                this.renderPortraitCards();  // 刷新侧边栏列表
                 await this.loadQuota();
                 // 手动关闭详情弹窗
                 const modal = bootstrap.Modal.getInstance(document.getElementById('portraitDetailModal'));
