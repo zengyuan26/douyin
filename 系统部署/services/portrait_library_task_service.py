@@ -5,6 +5,7 @@
 1. ThreadPoolExecutor 线程池（限制最大并发线程数，防止线程爆炸）
 2. BoundedSemaphore 限制 LLM 并发调用数（防止第三方 API 限流）
 3. 全局队列，所有画像词库生成任务共享资源
+4. Flask app context 支持（后台线程在请求结束后执行，必须手动创建 context）
 """
 
 import threading
@@ -18,6 +19,16 @@ logger = logging.getLogger(__name__)
 MAX_POOL_WORKERS = 10          # 线程池最大工作线程数（限制总资源）
 MAX_LLM_CONCURRENCY = 5        # LLM 最大并发数（防 API 限流）
 POOL_NAME = "portrait_library"
+
+# 全局存储 Flask app 引用（由 create_app 初始化时注入）
+_flask_app = None
+
+
+def init_app(app):
+    """由 Flask app 初始化时调用，注入 app 引用"""
+    global _flask_app
+    _flask_app = app
+    logger.info("[PortraitLibraryTask] Flask app 已注入")
 
 
 class PortraitLibraryTaskService:
@@ -104,7 +115,7 @@ def generate_with_semaphore(
     调用流程：
     1. 获取 Semaphore（阻塞直到有空闲 LLM 槽位）
     2. 原子计数器 +1
-    3. 执行词库生成
+    3. 在 Flask app context 中执行词库生成
     4. 计数器 -1，释放 Semaphore
     """
     semaphore = task_service._llm_semaphore
@@ -122,7 +133,13 @@ def generate_with_semaphore(
                 portrait_id, active, MAX_LLM_CONCURRENCY
             )
 
-            _do_generate_library(portrait_id, user_id, plan_type)
+            # 后台线程在 HTTP 请求结束后执行，必须手动创建 Flask app context
+            if _flask_app is None:
+                logger.error("[PortraitLibraryTask] Flask app 未注入，无法创建 context")
+                return
+
+            with _flask_app.app_context():
+                _do_generate_library(portrait_id, user_id, plan_type)
 
         finally:
             # 原子计数 -1

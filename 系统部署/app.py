@@ -105,6 +105,14 @@ def create_app(config_name='default'):
     except Exception as e:
         logging.warning(f"画像管理 API 注册失败: {e}")
 
+    # 初始化画像词库后台任务服务（注入 Flask app，支持后台线程 app context）
+    try:
+        from services.portrait_library_task_service import init_app as init_task_service
+        init_task_service(app)
+        logging.info("画像词库后台任务服务已初始化")
+    except Exception as e:
+        logging.warning(f"画像词库后台任务服务初始化失败: {e}")
+
     # 初始化公开平台缓存预热
     try:
         from services.public_cache import public_cache
