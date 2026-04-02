@@ -100,23 +100,23 @@ class KeywordLibraryGenerator:
 
             # 构建变量上下文
             context = self._build_context(portrait_data, business_info, realtime)
+            
+            # 调试日志
+            logger.info("[KeywordLibraryGenerator] 业务信息: business_description=%s, industry=%s", 
+                business_info.get('business_description', ''), business_info.get('industry', ''))
+            logger.info("[KeywordLibraryGenerator] 业务描述上下文: %s", context.get('业务描述', ''))
 
-            # 获取模板内容
-            if use_template:
-                template = template_config_service.get_template('keyword')
-                if template:
-                    prompt = template_config_service.replace_variables(
-                        template['template_content'], context
-                    )
-                else:
-                    prompt = self._build_default_prompt(context, realtime, max_keywords)
-            else:
-                prompt = self._build_default_prompt(context, realtime, max_keywords)
+            # 直接使用默认提示词，不使用数据库模板（模板包含示例数据会干扰生成）
+            prompt = self._build_default_prompt(context, realtime, max_keywords)
 
             # 调用 LLM
             system_msg = (
-                "你是一位抖音SEO关键词专家，精通本地商家获客关键词挖掘。"
-                "必须严格按照JSON格式输出，关键词必须符合抖音搜索习惯。"
+                "【强制要求】你必须严格按照用户提供的业务描述生成关键词！\n"
+                "禁止添加任何未提供的信息！禁止编造产品名称！\n"
+                "\n"
+                "你是一位抖音SEO关键词专家，精通本地商家获客关键词挖掘。\n"
+                "必须严格按照JSON格式输出，关键词必须符合抖音搜索习惯。\n"
+                "关键词必须全部来源于用户提供的业务描述，不得包含任何其他产品。"
             )
             messages = [
                 {"role": "system", "content": system_msg},
@@ -246,6 +246,21 @@ class KeywordLibraryGenerator:
         if not scenario:
             scenario = user_persp.get('current_state', '')
 
+        # 优先使用表单输入的业务描述和行业（business_info）
+        # 这些是用户当前输入的最新数据
+        business_desc = business_info.get('business_description', '')
+        industry = business_info.get('industry', '')
+        
+        # 产品信息：如果表单提供了业务描述，忽略画像数据中的产品信息
+        products = business_info.get('products', [])
+        if not products and business_desc:
+            # 从业务描述提取产品
+            products = [business_desc]
+        
+        # 地域信息
+        region = business_info.get('region', '')
+        target_customer = business_info.get('target_customer', '')
+
         context = {
             # 画像信息（支持新旧格式）
             '目标客户身份': identity,
@@ -253,12 +268,12 @@ class KeywordLibraryGenerator:
             '核心顾虑': concern,
             '使用场景': scenario,
 
-            # 业务信息
-            '业务描述': business_info.get('business_description', ''),
-            '行业': business_info.get('industry', ''),
-            '产品': ', '.join(business_info.get('products', [])),
-            '地域': business_info.get('region', ''),
-            '目标客户': business_info.get('target_customer', ''),
+            # 业务信息（优先使用表单输入 business_info）
+            '业务描述': business_desc,
+            '行业': industry,
+            '产品': ', '.join(products) if isinstance(products, list) and products else str(products or ''),
+            '地域': region,
+            '目标客户': target_customer,
 
             # 实时上下文
             '当前季节': realtime.get('当前季节', ''),
@@ -320,53 +335,287 @@ class KeywordLibraryGenerator:
 - 成长期：长尾词35% + 地域词30% + 大词35%
 - 成熟期：长尾词20% + 地域词20% + 大词60%
 
-## 输出格式（严格JSON，最多{max_keywords}个关键词）
-```json
-{{
-  "categories": [
-    {{
-      "name": "直接需求关键词",
-      "key": "direct",
-      "count": 20,
-      "keywords": ["关键词1", "关键词2", ...]
-    }},
-    ...
-  ],
-  "blue_ocean": [
-    {{
-      "core_word": "核心词",
-      "modifier": "修饰词",
-      "full_keyword": "完整蓝海词",
-      "type": "人群细分"
-    }}
-  ],
-  "ratio_strategy": {{
-    "stage": "成长期",
-    "long_tail_ratio": 0.35,
-    "region_ratio": 0.30,
-    "core_ratio": 0.35
-  }},
-  "hot_keywords": ["热点词1", "热点词2", "热点词3"]
-}}
-```
+## 输出格式要求
+必须输出标准的JSON格式，包含以下字段：
+- categories: 关键词分类数组，每个分类包含 name, key, count, keywords
+- blue_ocean: 蓝海长尾词数组
+- ratio_strategy: 配比策略对象
+- hot_keywords: 热点关键词数组
 
-请严格按照JSON格式输出，不要包含其他内容。"""
+## 重要提醒
+1. 必须使用真实的中文关键词，不要使用任何占位符如 {{变量名}}
+2. 关键词必须与上述业务信息紧密相关
+3. 关键词数量不少于100个
+4. 输出必须是可直接解析的标准JSON格式
+
+请生成JSON格式的关键词库："""
 
     def _parse_response(self, response: str, realtime: Dict) -> Dict:
         """解析 LLM 返回"""
         import re
+        import json
         try:
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                result = json.loads(json_match.group(0))
-                # 注入实时热点
-                if 'hot_keywords' not in result:
-                    result['hot_keywords'] = []
-                return self._validate_and_fill(result)
-            return self._get_default_library(realtime)
+            # 预处理：去除 markdown 代码块
+            clean_response = response.strip()
+            if clean_response.startswith('```json'):
+                clean_response = clean_response[7:]
+            elif clean_response.startswith('```'):
+                clean_response = clean_response[3:]
+            if clean_response.endswith('```'):
+                clean_response = clean_response[:-3]
+            clean_response = clean_response.strip()
+            
+            result = None
+            
+            # 方法1：直接解析
+            try:
+                result = json.loads(clean_response)
+                if result:
+                    # 检查是否需要格式转换
+                    result = self._convert_to_standard_format(result)
+            except json.JSONDecodeError:
+                pass
+            
+            # 方法2：正则匹配 JSON 对象
+            if result is None:
+                json_match = re.search(r'\{[\s\S]*\}', clean_response)
+                if json_match:
+                    json_str = json_match.group(0)
+                    json_str = json_str.replace('{{', '{').replace('}}', '}')
+                    try:
+                        result = json.loads(json_str)
+                        if result:
+                            result = self._convert_to_standard_format(result)
+                    except json.JSONDecodeError as e:
+                        logger.debug("[KeywordLibraryGenerator] 正则匹配JSON解析失败: %s", e)
+            
+            # 方法3：修复常见 JSON 错误后重试
+            if result is None:
+                fixed = self._fix_json_errors(clean_response)
+                if fixed:
+                    try:
+                        result = json.loads(fixed)
+                        if result:
+                            result = self._convert_to_standard_format(result)
+                    except json.JSONDecodeError as e:
+                        logger.debug("[KeywordLibraryGenerator] 修复后仍解析失败: %s", e)
+            
+            # 方法4：更激进的修复
+            if result is None:
+                # 移除注释
+                lines = clean_response.split('\n')
+                cleaned_lines = []
+                for line in lines:
+                    if '//' in line:
+                        in_string = False
+                        escape = False
+                        for c in line:
+                            if escape:
+                                escape = False
+                                continue
+                            if c == '\\':
+                                escape = True
+                                continue
+                            if c == '"':
+                                in_string = not in_string
+                        if not in_string:
+                            line = line[:line.index('//')]
+                    cleaned_lines.append(line)
+                fixed = '\n'.join(cleaned_lines)
+                
+                # 修复末尾多余逗号
+                fixed = re.sub(r',(\s*[\]}])', r'\1', fixed)
+                
+                try:
+                    result = json.loads(fixed)
+                    if result:
+                        result = self._convert_to_standard_format(result)
+                except json.JSONDecodeError:
+                    pass
+            
+            if result is None:
+                logger.error("[KeywordLibraryGenerator] 所有JSON解析方式均失败")
+                logger.error("[KeywordLibraryGenerator] 原始响应前500字符: %s", response[:500])
+                return self._get_default_library(realtime)
+            
+            # 注入实时热点
+            if 'hot_keywords' not in result:
+                result['hot_keywords'] = []
+            return self._validate_and_fill(result)
         except Exception as e:
-            logger.debug("[KeywordLibraryGenerator] Parse error: %s", e)
+            logger.error("[KeywordLibraryGenerator] Parse error: %s", e)
+            logger.error("[KeywordLibraryGenerator] 原始响应前500字符: %s", response[:500])
             return self._get_default_library(realtime)
+    
+    def _convert_to_standard_format(self, result: Dict) -> Dict:
+        """将 LLM 返回的任意格式转换为标准格式"""
+        if not isinstance(result, dict):
+            return None
+        
+        # 已经是标准格式
+        if 'categories' in result and isinstance(result.get('categories'), list):
+            return result
+        
+        # 尝试转换 "关键词库" 或 "关键词" 格式
+        # 例如: {"关键词库": {"直接需求关键词": [...]}} -> {"categories": [...]}
+        converted = {
+            'categories': [],
+            'blue_ocean': [],
+            'ratio_strategy': {
+                'stage': '成长期',
+                'long_tail_ratio': 0.35,
+                'region_ratio': 0.30,
+                'core_ratio': 0.35,
+            },
+            'hot_keywords': [],
+        }
+        
+        # 定义关键词分类映射
+        category_map = {
+            '直接需求关键词': 'direct',
+            '痛点关键词': 'pain_point',
+            '搜索关键词': 'search',
+            '场景关键词': 'scene',
+            '品牌关键词': 'brand',
+            '长尾关键词': 'long_tail',
+            '对比关键词': 'compare',
+            '地域关键词': 'region',
+            '人群关键词': 'crowd',
+            '时效关键词': 'time_limited',
+        }
+        
+        # 尝试从多个可能的结构中提取关键词
+        keywords_data = None
+        
+        # 结构1: {"关键词库": {...}}
+        if '关键词库' in result and isinstance(result['关键词库'], dict):
+            keywords_data = result['关键词库']
+        # 结构2: 直接是关键词字典
+        else:
+            # 检查是否是嵌套结构（如 {"直接需求关键词": {"核心品类词": [...]}}）
+            # 找出所有关键词分类
+            for cat_name in category_map.keys():
+                if cat_name in result:
+                    keywords_data = result
+                    break
+            # 如果没有找到标准分类名，检查整个 result
+            if keywords_data is None:
+                keywords_data = result
+        
+        # 遍历关键词分类
+        for cat_name, cat_key in category_map.items():
+            if cat_name in keywords_data:
+                cat_data = keywords_data[cat_name]
+                keywords_list = []
+                
+                if isinstance(cat_data, list):
+                    # 直接是关键词列表
+                    for item in cat_data:
+                        if isinstance(item, dict):
+                            kw = item.get('关键词') or item.get('keyword') or item.get('kw')
+                            if kw:
+                                keywords_list.append(kw)
+                        elif isinstance(item, str):
+                            keywords_list.append(item)
+                elif isinstance(cat_data, dict):
+                    # 嵌套结构：{"核心品类词": [...], "品质保障": [...]}
+                    for sub_cat_name, sub_keywords in cat_data.items():
+                        if isinstance(sub_keywords, list):
+                            for item in sub_keywords:
+                                if isinstance(item, dict):
+                                    kw = item.get('关键词') or item.get('keyword') or item.get('kw')
+                                    if kw:
+                                        keywords_list.append(kw)
+                                elif isinstance(item, str):
+                                    keywords_list.append(item)
+                
+                if keywords_list:
+                    converted['categories'].append({
+                        'name': cat_name,
+                        'key': cat_key,
+                        'count': len(keywords_list),
+                        'keywords': keywords_list
+                    })
+        
+        # 如果没有提取到任何关键词，尝试更通用的方式
+        if not converted['categories']:
+            # 遍历 result 中所有的值，尝试提取关键词
+            for key, value in keywords_data.items():
+                if isinstance(value, list) and len(value) > 0:
+                    keywords_list = []
+                    for item in value:
+                        if isinstance(item, dict):
+                            kw = item.get('关键词') or item.get('keyword') or item.get('kw')
+                            if kw:
+                                keywords_list.append(kw)
+                        elif isinstance(item, str):
+                            keywords_list.append(item)
+                    if keywords_list:
+                        converted['categories'].append({
+                            'name': key,
+                            'key': category_map.get(key, 'other'),
+                            'count': len(keywords_list),
+                            'keywords': keywords_list
+                        })
+                elif isinstance(value, dict):
+                    # 嵌套结构
+                    for sub_key, sub_value in value.items():
+                        if isinstance(sub_value, list):
+                            keywords_list = []
+                            for item in sub_value:
+                                if isinstance(item, str):
+                                    keywords_list.append(item)
+                                elif isinstance(item, dict):
+                                    kw = item.get('关键词') or item.get('keyword')
+                                    if kw:
+                                        keywords_list.append(kw)
+                            if keywords_list:
+                                converted['categories'].append({
+                                    'name': f"{key}_{sub_key}",
+                                    'key': category_map.get(key, 'other'),
+                                    'count': len(keywords_list),
+                                    'keywords': keywords_list
+                                })
+        
+        # 如果仍然没有提取到，返回失败
+        if not converted['categories']:
+            logger.warning("[KeywordLibraryGenerator] 无法从响应中提取关键词格式")
+            return None
+        
+        return converted
+    
+    def _fix_json_errors(self, json_str: str) -> str:
+        """修复常见 JSON 格式错误"""
+        import re
+        
+        # 移除注释（// 开头的行）
+        lines = json_str.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            if '//' in line:
+                in_string = False
+                escape = False
+                for c in line:
+                    if escape:
+                        escape = False
+                        continue
+                    if c == '\\':
+                        escape = True
+                        continue
+                    if c == '"':
+                        in_string = not in_string
+                if not in_string:
+                    line = line[:line.index('//')]
+            cleaned_lines.append(line)
+        json_str = '\n'.join(cleaned_lines)
+        
+        # 修复末尾多余逗号
+        json_str = re.sub(r',(\s*[\]}])', r'\1', json_str)
+        
+        # 移除不可见控制字符
+        json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', json_str)
+        
+        return json_str
 
     def _validate_and_fill(self, result: Dict) -> Dict:
         """验证并补充关键词库"""

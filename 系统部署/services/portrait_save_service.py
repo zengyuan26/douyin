@@ -223,6 +223,9 @@ class PortraitSaveService:
 
         portraits = []
         for r in results:
+            # 调试日志
+            print(f"[get_user_portraits] 画像 {r[0]} r[17]={r[17]}, r[18]={r[18]}")
+            
             portrait = {
                 'id': r[0],
                 'portrait_name': r[1],
@@ -245,6 +248,8 @@ class PortraitSaveService:
                 'generation_status': r[17] or 'pending',
                 'generation_error': r[18],
             }
+            
+            print(f"[get_user_portraits] 返回 portrait: generation_status={portrait.get('generation_status')}")
 
             if include_data:
                 portrait['portrait_data'] = parse_json(r[2])

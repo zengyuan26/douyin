@@ -363,7 +363,11 @@ class TemplateConfigService:
 
         def replacer(match):
             var_name = match.group(1).strip()
-            return str(context.get(var_name, match.group(0)))
+            value = context.get(var_name)
+            if value is not None:
+                return str(value)
+            # 如果变量未找到，移除它（不保留占位符）
+            return ''
 
         return cls.VAR_PATTERN.sub(replacer, template_content)
 

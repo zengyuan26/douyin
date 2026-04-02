@@ -68,6 +68,11 @@ def save_portrait(user):
     target_customer = data.get('target_customer')
     source_session_id = data.get('source_session_id')
     set_as_default = data.get('set_as_default', False)
+    
+    # 调试日志
+    current_app.logger.info("[save_portrait] business_description=%s, industry=%s, target_customer=%s",
+        business_description, industry, target_customer)
+    current_app.logger.info("[save_portrait] portrait_data keys=%s", list(portrait_data.keys()) if isinstance(portrait_data, dict) else type(portrait_data))
 
     success, message, saved = portrait_save_service.save_portrait(
         user_id=user.id,
@@ -137,6 +142,10 @@ def get_saved_portraits(user):
     portraits = portrait_save_service.get_user_portraits(
         user.id, include_data=include_data
     )
+    
+    print(f"[get_saved_portraits] 返回 {len(portraits)} 个画像")
+    for p in portraits:
+        print(f"  画像 {p['id']} {p['portrait_name']}: generation_status={p.get('generation_status')}, has_kw={p.get('keyword_library') is not None}, has_topic={p.get('topic_library') is not None}")
     
     return jsonify({
         'success': True,
@@ -615,7 +624,13 @@ def get_keyword_library_markdown(user, portrait_id):
     industry = portrait.get('industry', '')
     business_desc = portrait.get('business_description', '')
     updated_at = portrait.get('keyword_updated_at')
-    updated_str = updated_at.strftime('%Y-%m-%d %H:%M') if updated_at else '未知'
+    
+    if isinstance(updated_at, str):
+        updated_str = updated_at
+    elif hasattr(updated_at, 'strftime'):
+        updated_str = updated_at.strftime('%Y-%m-%d %H:%M')
+    else:
+        updated_str = '未知'
 
     md = _build_keyword_library_markdown(
         kw_lib, portrait_name, industry, business_desc, updated_str
@@ -733,7 +748,13 @@ def get_topic_library_markdown(user, portrait_id):
     portrait_name = portrait.get('portrait_name', '未命名')
     industry = portrait.get('industry', '')
     updated_at = portrait.get('topic_updated_at')
-    updated_str = updated_at.strftime('%Y-%m-%d %H:%M') if updated_at else '未知'
+    
+    if isinstance(updated_at, str):
+        updated_str = updated_at
+    elif hasattr(updated_at, 'strftime'):
+        updated_str = updated_at.strftime('%Y-%m-%d %H:%M')
+    else:
+        updated_str = '未知'
 
     md = _build_topic_library_markdown(topic_lib, portrait_name, industry, updated_str)
     return jsonify({'success': True, 'data': {'markdown': md}})

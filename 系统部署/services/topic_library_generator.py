@@ -105,21 +105,15 @@ class TopicLibraryGenerator:
             # 构建变量上下文
             context = self._build_context(portrait_data, business_info, keyword_library, realtime)
 
-            # 构建 Prompt
-            if use_template:
-                template = template_config_service.get_template('topic')
-                if template:
-                    prompt = template_config_service.replace_variables(
-                        template['template_content'], context
-                    )
-                else:
-                    prompt = self._build_default_prompt(context, keyword_library, topic_count)
-            else:
-                prompt = self._build_default_prompt(context, keyword_library, topic_count)
+            # 构建 Prompt - 直接使用默认提示词，不使用数据库模板
+            prompt = self._build_default_prompt(context, keyword_library, topic_count)
 
             # 调用 LLM
             system_msg = (
-                "你是一位抖音爆款选题策划专家，精通本地商家内容营销。"
+                "【强制要求】你必须严格按照用户提供的业务描述生成选题！\n"
+                "禁止添加任何未提供的信息！禁止编造产品名称！\n"
+                "\n"
+                "你是一位抖音爆款选题策划专家，精通本地商家内容营销。\n"
                 "必须严格按照JSON格式输出，选题必须有差异化、能引发共鸣。"
             )
             messages = [
@@ -369,38 +363,12 @@ class TopicLibraryGenerator:
 4. 每条选题包含：标题、类型、来源、关键词、推荐理由
 5. 涵盖至少5种以上选题类型
 
-## 输出格式（严格JSON，共{topic_count}条）
-```json
-{{
-  "topics": [
-    {{
-      "title": "选题标题（戳心、≤20字）",
-      "type_name": "问题解决类",
-      "type_key": "problem",
-      "source": "评论区挖痛点",
-      "priority": "P0",
-      "keywords": ["关联关键词1", "关联关键词2"],
-      "reason": "推荐理由（为什么这条选题会火）",
-      "publish_timing": "推荐发布时间",
-      "content_hints": "内容创作提示"
-    }},
-    ...
-  ],
-  "by_type": {{
-    "problem": 4,
-    "rethink": 3,
-    ...
-  }},
-  "priorities": {{
-    "P0": 5,
-    "P1": 8,
-    "P2": 5,
-    "P3": 2
-  }}
-}}
-```
+## 重要提醒
+1. 必须输出包含真实选题标题的JSON，不能使用任何占位符如 {{变量名}}
+2. 选题标题必须是实际可用的、吸引人的中文标题
+3. 所有字符串值都必须是真实内容
 
-请严格按照JSON格式输出，不要包含其他内容。"""
+请生成JSON格式的选题库："""
 
     def _parse_response(self, response: str) -> Dict:
         """解析 LLM 返回"""
@@ -421,22 +389,27 @@ class TopicLibraryGenerator:
             # 尝试多种解析方式
             result = None
             
-            # 方法1：正则匹配 JSON 对象
-            json_match = re.search(r'\{[\s\S]*\}', clean_response)
-            if json_match:
-                json_str = json_match.group(0)
-                json_str = json_str.replace('{{', '{').replace('}}', '}')
-                try:
-                    result = json.loads(json_str)
-                except json.JSONDecodeError as e:
-                    logger.debug("[TopicLibraryGenerator] 正则匹配JSON解析失败: %s", e)
-            
-            # 方法2：直接解析
+            # 方法1：直接解析
             if result is None:
                 try:
                     result = json.loads(clean_response)
+                    if result:
+                        result = self._convert_to_standard_format(result)
                 except json.JSONDecodeError:
                     pass
+            
+            # 方法2：正则匹配 JSON 对象
+            if result is None:
+                json_match = re.search(r'\{[\s\S]*\}', clean_response)
+                if json_match:
+                    json_str = json_match.group(0)
+                    json_str = json_str.replace('{{', '{').replace('}}', '}')
+                    try:
+                        result = json.loads(json_str)
+                        if result:
+                            result = self._convert_to_standard_format(result)
+                    except json.JSONDecodeError as e:
+                        logger.debug("[TopicLibraryGenerator] 正则匹配JSON解析失败: %s", e)
             
             # 方法3：修复常见 JSON 错误后重试
             if result is None:
@@ -444,8 +417,53 @@ class TopicLibraryGenerator:
                 if fixed:
                     try:
                         result = json.loads(fixed)
+                        if result:
+                            result = self._convert_to_standard_format(result)
                     except json.JSONDecodeError as e:
                         logger.debug("[TopicLibraryGenerator] 修复后仍解析失败: %s", e)
+            
+            # 方法4：更激进的修复
+            if result is None:
+                # 尝试提取 "topic_library" 或 "topics" 部分的 JSON
+                topics_match = re.search(r'"topics"\s*:\s*\[([\s\S]*)\]', clean_response)
+                if topics_match:
+                    topics_str = '[' + topics_match.group(1)
+                    # 找到结束括号
+                    bracket_count = 1
+                    for i, c in enumerate(topics_match.group(1)):
+                        if c == '[':
+                            bracket_count += 1
+                        elif c == ']':
+                            bracket_count -= 1
+                            if bracket_count == 0:
+                                topics_str = '[' + topics_match.group(1)[:i+1]
+                                break
+                    if topics_str.endswith(']'):
+                        try:
+                            result = {'topics': json.loads(topics_str)}
+                        except:
+                            pass
+                
+                # 尝试提取 "topic_library" 对象
+                if result is None:
+                    lib_match = re.search(r'"topic_library"\s*:\s*\{([\s\S]*)\}', clean_response)
+                    if lib_match:
+                        lib_str = '{"topic_library": {' + lib_match.group(1)
+                        # 找到结束括号
+                        bracket_count = 1
+                        for i, c in enumerate(lib_match.group(1)):
+                            if c == '{':
+                                bracket_count += 1
+                            elif c == '}':
+                                bracket_count -= 1
+                                if bracket_count == 0:
+                                    lib_str = '{"topic_library": {' + lib_match.group(1)[:i+1] + '}'
+                                    break
+                        if lib_str.endswith('}'):
+                            try:
+                                result = json.loads(lib_str)
+                            except:
+                                pass
             
             if result is None:
                 raise ValueError("所有JSON解析方式均失败")
@@ -453,14 +471,18 @@ class TopicLibraryGenerator:
             # 处理 emoji key（如 "📚选题库" -> "topic_library"）
             result = self._normalize_keys(result)
             
+            # 转换为标准格式
+            result = self._convert_to_standard_format(result)
+            
             return self._validate_and_fill(result)
             
         except json.JSONDecodeError as e:
-            logger.debug("[TopicLibraryGenerator] JSON解析失败: %s", e)
-            logger.debug("[TopicLibraryGenerator] 原始响应前200字符: %s", response[:200])
+            logger.error("[TopicLibraryGenerator] JSON解析失败: %s", e)
+            logger.error("[TopicLibraryGenerator] 原始响应前500字符: %s", response[:500])
             return self._get_default_library()
         except Exception as e:
-            logger.debug("[TopicLibraryGenerator] Parse error: %s", e)
+            logger.error("[TopicLibraryGenerator] Parse error: %s", e)
+            logger.error("[TopicLibraryGenerator] 原始响应前500字符: %s", response[:500])
             return self._get_default_library()
 
     def _fix_json_errors(self, json_str: str) -> str:
@@ -492,11 +514,45 @@ class TopicLibraryGenerator:
         # 修复末尾多余逗号（如 "key": "value", } -> "key": "value" }）
         json_str = re.sub(r',(\s*[\]}])', r'\1', json_str)
         
-        # 修复单引号为双引号（在 JSON 值中）
-        # 注意：这是宽松解析，不处理 key
+        # 修复换行符在字符串值中的问题（JSON 字符串值不能有未转义的换行）
+        # 这是一个激进修复：尝试合并被意外拆分的行
+        lines = json_str.split('\n')
+        merged_lines = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            # 检查这一行是否有奇数个未闭合的引号（表示字符串值被换行中断）
+            quote_count = 0
+            escape = False
+            in_string = False
+            for c in line:
+                if escape:
+                    escape = False
+                    continue
+                if c == '\\':
+                    escape = True
+                    continue
+                if c == '"':
+                    in_string = not in_string
+                    quote_count += 1
+            
+            # 如果引号数量是奇数，可能字符串被换行中断
+            if quote_count % 2 == 1 and not in_string:
+                # 尝试和下一行合并
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1].strip()
+                    # 检查下一行是否以逗号、引号、花括号等结尾
+                    if next_line and (next_line[0] in '",}]' or next_line.startswith('"')):
+                        line = line + ' ' + next_line
+                        i += 1
+            
+            merged_lines.append(line)
+            i += 1
         
-        # 移除多余空白和换行（可能导致问题）
-        # 但保留必要的格式
+        json_str = '\n'.join(merged_lines)
+        
+        # 移除不可见控制字符（除 \n, \r, \t 外）
+        json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', json_str)
         
         return json_str
 
@@ -547,6 +603,85 @@ class TopicLibraryGenerator:
             cleaned = key.encode('ascii', 'ignore').decode('ascii')
         
         return cleaned.strip() if cleaned else key
+
+    def _convert_to_standard_format(self, result: Dict) -> Dict:
+        """将 LLM 返回的任意格式转换为标准格式"""
+        if not isinstance(result, dict):
+            return result
+        
+        # 已经是标准格式
+        if 'topics' in result and isinstance(result.get('topics'), list):
+            return result
+        
+        # 尝试转换 "选题库" 格式
+        # 例如: {"选题库": {...}} 或 {"选题": [...]} -> {"topics": [...]}
+        converted = {
+            'topics': [],
+        }
+        
+        # 尝试从多个可能的结构中提取选题
+        topics_data = None
+        
+        # 结构1: {"选题库": {...}}
+        if '选题库' in result and isinstance(result['选题库'], dict):
+            topics_data = result['选题库']
+            if '选题' in topics_data:
+                topics_data = topics_data['选题']
+        # 结构2: {"选题": [...]} 或 {"topics": [...]}
+        elif '选题' in result:
+            topics_data = result['选题']
+        # 结构3: {"选题库": [...]}
+        elif '选题库' in result and isinstance(result['选题库'], list):
+            topics_data = result['选题库']
+        
+        # 处理选题列表
+        if topics_data and isinstance(topics_data, list):
+            for item in topics_data:
+                if isinstance(item, dict):
+                    # 提取选题字段
+                    topic = {
+                        'title': item.get('标题') or item.get('title') or item.get('选题'),
+                        'type_key': item.get('类型') or item.get('type') or item.get('分类', 'unknown'),
+                        'type_name': item.get('类型名称') or item.get('type_name') or '',
+                        'priority': item.get('优先级') or item.get('priority') or 'P2',
+                        'source': item.get('来源') or item.get('source') or '',
+                        'keywords': item.get('关键词') or item.get('keywords') or [],
+                        'reason': item.get('原因') or item.get('reason') or item.get('说明', ''),
+                        'publish_timing': item.get('发布时间') or item.get('publish_timing') or '',
+                        'content_hints': item.get('内容提示') or item.get('content_hints') or '',
+                    }
+                    if topic['title']:
+                        converted['topics'].append(topic)
+        
+        # 如果没有提取到任何选题，返回原结果（让后续验证处理）
+        if not converted['topics']:
+            # 尝试在 result 的任何位置找选题列表
+            for key, value in result.items():
+                if isinstance(value, list) and len(value) > 0:
+                    first_item = value[0]
+                    if isinstance(first_item, dict) and ('标题' in first_item or 'title' in first_item or '选题' in first_item):
+                        # 这是一个选题列表
+                        for item in value:
+                            if isinstance(item, dict):
+                                topic = {
+                                    'title': item.get('标题') or item.get('title') or item.get('选题'),
+                                    'type_key': item.get('类型') or item.get('type') or item.get('分类', 'unknown'),
+                                    'type_name': item.get('类型名称') or item.get('type_name') or '',
+                                    'priority': item.get('优先级') or item.get('priority') or 'P2',
+                                    'source': item.get('来源') or item.get('source') or '',
+                                    'keywords': item.get('关键词') or item.get('keywords') or [],
+                                    'reason': item.get('原因') or item.get('reason') or item.get('说明', ''),
+                                    'publish_timing': item.get('发布时间') or item.get('publish_timing') or '',
+                                    'content_hints': item.get('内容提示') or item.get('content_hints') or '',
+                                }
+                                if topic['title']:
+                                    converted['topics'].append(topic)
+                        break
+        
+        if not converted['topics']:
+            return result  # 返回原结果
+        
+        return converted
 
     def _validate_and_fill(self, result: Dict) -> Dict:
         """验证并补充选题库"""

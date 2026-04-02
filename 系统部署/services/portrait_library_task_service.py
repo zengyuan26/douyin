@@ -193,7 +193,11 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str) -> None
             'region': '',
             'target_customer': portrait.get('target_customer', ''),
         }
-
+        
+        # 调试日志
+        logger.info("[PortraitLibraryTask] portrait_data keys=%s", list(portrait_data_dict.keys()) if portrait_data_dict else [])
+        logger.info("[PortraitLibraryTask] business_info: %s", business_info)
+        
         # 3. 生成关键词库
         kw_result = keyword_library_generator.generate(
             portrait_data=portrait_data_dict,

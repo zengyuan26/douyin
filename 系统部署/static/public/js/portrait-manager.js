@@ -86,6 +86,12 @@ const PortraitManager = {
             if (data.success) {
                 this._savedPortraits = data.data || [];
                 console.log('[PortraitManager] 已加载画像数量:', this._savedPortraits.length);
+                
+                // 调试：打印每个画像的状态
+                this._savedPortraits.forEach(p => {
+                    const kwCount = (p.keyword_library?.categories || []).reduce((sum, cat) => sum + (cat.keywords || []).length, 0);
+                    console.log(`[PortraitManager] 画像 ${p.id} ${p.portrait_name}: status=${p.generation_status}, kwCount=${kwCount}, topicCount=${p.topic_library?.topics?.length || 0}`);
+                });
 
                 // 优先使用传入的画像ID（保存成功后）
                 if (savedPortraitId) {
@@ -173,6 +179,8 @@ const PortraitManager = {
             if (p.topic_library && p.topic_library.topics) {
                 topicCount = p.topic_library.topics.length;
             }
+
+            console.log(`[PortraitManager.renderPortraitCards] 画像 ${p.id}: generation_status=${p.generation_status}, kwCount=${kwCount}, topicCount=${topicCount}`);
 
             // 生成状态
             const genStatus = p.generation_status || 'pending';
@@ -275,16 +283,9 @@ const PortraitManager = {
                 if (status === 'completed' || status === 'failed') {
                     // 生成完成或失败，停止轮询
                     delete this._pollingTimers[portraitId];
-                    // 更新本地数据
-                    const idx = this._savedPortraits.findIndex(p => p.id === portraitId);
-                    if (idx >= 0) {
-                        this._savedPortraits[idx] = {
-                            ...this._savedPortraits[idx],
-                            ...data.data,
-                        };
-                    }
-                    // 重新渲染卡片
-                    this.renderPortraitCards();
+                    
+                    // 重新加载完整画像列表，确保包含最新生成的词库数据
+                    await this.loadSavedPortraits(portraitId);
 
                     if (status === 'failed') {
                         const errMsg = data.data.generation_error || '未知错误';

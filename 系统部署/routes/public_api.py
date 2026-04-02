@@ -9,6 +9,7 @@ import datetime
 import logging
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, current_app
 from flask_login import current_user
+from sqlalchemy import text
 from models.public_models import PublicUser, PublicGeneration, PublicPricingPlan
 from models.models import db, AnalysisDimension
 from services.public_auth import auth_service
@@ -787,6 +788,11 @@ def api_get_saved_portraits():
             item['portrait_data'] = p.portrait_data
             item['business_description'] = p.business_description
             item['industry'] = p.industry
+            item['generation_status'] = p.generation_status or 'pending'
+            item['keyword_library'] = p.keyword_library
+            item['topic_library'] = p.topic_library
+            item['keyword_updated_at'] = p.keyword_updated_at.isoformat() if p.keyword_updated_at else None
+            item['topic_updated_at'] = p.topic_updated_at.isoformat() if p.topic_updated_at else None
         result.append(item)
     
     return jsonify({'success': True, 'data': result})
@@ -845,6 +851,46 @@ def api_save_portrait():
 
     # 保存成功后立即获取 ID
     portrait_id = new_portrait.id
+
+    # 免费用户：不需要生成词库，直接标记完成
+    if not user.is_paid_user():
+        db.session.execute(
+            text("UPDATE saved_portraits SET generation_status = 'completed' WHERE id = :id"),
+            {'id': portrait_id}
+        )
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': portrait_id,
+                'portrait_name': portrait_name,
+                'is_default': set_as_default
+            },
+            'auto_generated': None
+        })
+
+    # 付费用户：更新状态为生成中，启动后台线程生成词库
+    db.session.execute(
+        text("UPDATE saved_portraits SET generation_status = 'generating' WHERE id = :id"),
+        {'id': portrait_id}
+    )
+    db.session.commit()
+
+    # 启动后台线程生成词库（通过 Semaphore 控制 LLM 并发数）
+    import threading
+    plan_type = user.premium_plan or 'basic'
+    try:
+        from services.portrait_library_task_service import generate_with_semaphore
+        thread = threading.Thread(
+            target=generate_with_semaphore,
+            args=(portrait_id, user.id, plan_type),
+            daemon=True
+        )
+        thread.start()
+        logger.info("[api_save_portrait] 已提交词库生成任务 portrait_id=%s plan_type=%s", portrait_id, plan_type)
+    except Exception as e:
+        logger.error("[api_save_portrait] 启动词库生成任务失败: %s", e)
+        # 任务启动失败不影响保存成功返回
 
     # 先立即返回成功，不阻塞响应
     return jsonify({
