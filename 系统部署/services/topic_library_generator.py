@@ -250,6 +250,39 @@ class TopicLibraryGenerator:
         if not isinstance(realtime, dict):
             realtime = {}
 
+        # 支持多种画像格式
+        # 新格式（超级定位）：portrait_summary, user_perspective, buyer_perspective, identity_tags
+        # 旧格式：identity, pain_point, concern, scenario
+        identity_tags = portrait_data.get('identity_tags', {})
+        user_persp = portrait_data.get('user_perspective', {})
+        buyer_persp = portrait_data.get('buyer_perspective', {})
+
+        # 目标客户身份
+        identity = portrait_data.get('identity', '')
+        if not identity:
+            identity = identity_tags.get('user', '') or identity_tags.get('buyer', '')
+
+        # 核心痛点
+        pain_point = portrait_data.get('pain_point', '')
+        if not pain_point:
+            pain_point = user_persp.get('problem', '')
+            if not pain_point:
+                summary = portrait_data.get('portrait_summary', '')
+                if summary and '，' in summary:
+                    pain_point = summary.split('，')[0]
+
+        # 核心顾虑
+        concern = portrait_data.get('concern', '')
+        if not concern:
+            concern = buyer_persp.get('obstacles', '')
+            if not concern:
+                concern = buyer_persp.get('psychology', '')
+
+        # 使用场景
+        scenario = portrait_data.get('scenario', '')
+        if not scenario:
+            scenario = user_persp.get('current_state', '')
+
         # 从关键词库提取关键词
         keywords_text = ''
         if keyword_library:
@@ -262,11 +295,11 @@ class TopicLibraryGenerator:
             keywords_text = ', '.join(all_kw[:50])
 
         context = {
-            # 画像
-            '目标客户身份': portrait_data.get('identity', ''),
-            '核心痛点': portrait_data.get('pain_point', ''),
-            '核心顾虑': portrait_data.get('concern', ''),
-            '使用场景': portrait_data.get('scenario', ''),
+            # 画像（支持新旧格式）
+            '目标客户身份': identity,
+            '核心痛点': pain_point,
+            '核心顾虑': concern,
+            '使用场景': scenario,
 
             # 业务
             '业务描述': business_info.get('business_description', ''),

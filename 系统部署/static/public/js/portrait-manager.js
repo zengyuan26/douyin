@@ -146,7 +146,7 @@ const PortraitManager = {
 
         try {
             // 只显示当前选中的或默认画像（每个客户只有一个画像）
-            const currentPortrait = this._savedPortraits.find(p => p.id === this._currentPortraitId) 
+            const currentPortrait = this._savedPortraits.find(p => p.id === this._currentPortraitId)
                 || this._savedPortraits.find(p => p.is_default)
                 || this._savedPortraits[0];
 
@@ -157,7 +157,7 @@ const PortraitManager = {
             }
 
             const p = currentPortrait;
-            
+
             // 计算关键词库和选题库数量
             let kwCount = 0;
             if (p.keyword_library && p.keyword_library.categories) {
@@ -168,26 +168,35 @@ const PortraitManager = {
                     kwCount += p.keyword_library.blue_ocean.length;
                 }
             }
-            
+
             let topicCount = 0;
             if (p.topic_library && p.topic_library.topics) {
                 topicCount = p.topic_library.topics.length;
             }
-            
-            // 关键词库状态提示
+
+            // 生成状态
+            const genStatus = p.generation_status || 'pending';
+            // 关键词库状态
             let kwBadge = '';
             if (kwCount > 0) {
                 kwBadge = `<span class="badge bg-info me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})" title="点击查看关键词库">📚 关键词库 ${kwCount} 个</span>`;
+            } else if (genStatus === 'generating') {
+                kwBadge = `<span class="badge bg-warning me-1" id="kw-status-badge-${p.id}">📚 关键词库 <span class="spinner-border spinner-border-sm" style="width:10px;height:10px;"></span> 生成中</span>`;
+            } else if (genStatus === 'failed') {
+                kwBadge = `<span class="badge bg-danger me-1" id="kw-status-badge-${p.id}" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})" title="点击重试">📚 关键词库 生成失败（点击重试）</span>`;
             } else {
-                kwBadge = `<span class="badge bg-secondary me-1">📚 关键词库 生成中...</span>`;
+                kwBadge = `<span class="badge bg-secondary me-1" id="kw-status-badge-${p.id}">📚 关键词库 待生成</span>`;
             }
-
-            // 选题库状态提示
+            // 选题库状态
             let topicBadge = '';
             if (topicCount > 0) {
                 topicBadge = `<span class="badge bg-success me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})" title="点击查看选题库 Markdown">📋 选题库 ${topicCount} 个</span>`;
+            } else if (genStatus === 'generating') {
+                topicBadge = `<span class="badge bg-warning me-1" id="topic-status-badge-${p.id}">📋 选题库 <span class="spinner-border spinner-border-sm" style="width:10px;height:10px;"></span> 生成中</span>`;
+            } else if (genStatus === 'failed') {
+                topicBadge = `<span class="badge bg-danger me-1" id="topic-status-badge-${p.id}" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})" title="点击重试">📋 选题库 生成失败（点击重试）</span>`;
             } else {
-                topicBadge = `<span class="badge bg-secondary me-1">📋 选题库 生成中...</span>`;
+                topicBadge = `<span class="badge bg-secondary me-1" id="topic-status-badge-${p.id}">📋 选题库 待生成</span>`;
             }
 
             container.innerHTML = `
@@ -220,9 +229,112 @@ const PortraitManager = {
                 </div>
             </div>`;
             console.log('[PortraitManager] 画像卡片渲染成功，当前画像ID:', p.id);
+
+            // 如果正在生成中，启动轮询
+            if (genStatus === 'generating') {
+                this._startLibraryPolling(p.id);
+            }
         } catch (e) {
             console.error('[PortraitManager] 渲染画像卡片失败:', e);
             container.innerHTML = '<div class="col-12 text-center py-4 text-danger">渲染画像卡片失败</div>';
+        }
+    },
+
+    // 轮询词库生成状态（最多轮询5分钟）
+    _startLibraryPolling(portraitId) {
+        // 防止重复轮询
+        if (this._pollingTimers && this._pollingTimers[portraitId]) {
+            return;
+        }
+        if (!this._pollingTimers) this._pollingTimers = {};
+
+        let pollCount = 0;
+        const maxPolls = 60; // 最多60次，每次5秒 = 5分钟
+        const interval = 5000; // 5秒
+
+        const poll = async () => {
+            if (pollCount >= maxPolls) {
+                console.warn('[PortraitManager] 词库生成轮询超时 portraitId:', portraitId);
+                delete this._pollingTimers[portraitId];
+                return;
+            }
+            pollCount++;
+
+            try {
+                const resp = await fetch(`/public/api/portraits/${portraitId}/status`, {
+                    credentials: 'include'
+                });
+                const data = await resp.json();
+                if (!data.success) {
+                    delete this._pollingTimers[portraitId];
+                    return;
+                }
+
+                const status = data.data.generation_status;
+
+                if (status === 'completed' || status === 'failed') {
+                    // 生成完成或失败，停止轮询
+                    delete this._pollingTimers[portraitId];
+                    // 更新本地数据
+                    const idx = this._savedPortraits.findIndex(p => p.id === portraitId);
+                    if (idx >= 0) {
+                        this._savedPortraits[idx] = {
+                            ...this._savedPortraits[idx],
+                            ...data.data,
+                        };
+                    }
+                    // 重新渲染卡片
+                    this.renderPortraitCards();
+
+                    if (status === 'failed') {
+                        const errMsg = data.data.generation_error || '未知错误';
+                        showToast('词库生成失败：' + errMsg, 'error');
+                    } else {
+                        showToast('词库生成完成！', 'success');
+                    }
+                    return;
+                }
+
+                // 仍在生成中，继续轮询
+                this._pollingTimers[portraitId] = setTimeout(poll, interval);
+
+            } catch (e) {
+                console.error('[PortraitManager] 轮询状态失败:', e);
+                delete this._pollingTimers[portraitId];
+            }
+        };
+
+        this._pollingTimers[portraitId] = setTimeout(poll, interval);
+    },
+
+    // 重新触发词库生成（手动重试）
+    async retryGenerateLibrary(portraitId) {
+        if (!confirm('确定要重新生成词库吗？')) return;
+
+        try {
+            const resp = await fetch(`/public/api/portraits/${portraitId}/library/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ library_type: 'all' })
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                showToast('词库重新生成已启动...', 'info');
+                // 更新本地状态为 generating
+                const idx = this._savedPortraits.findIndex(p => p.id === portraitId);
+                if (idx >= 0) {
+                    this._savedPortraits[idx].generation_status = 'generating';
+                    this.renderPortraitCards();
+                    this._startLibraryPolling(portraitId);
+                }
+            } else {
+                showToast(data.message || '启动生成失败', 'error');
+            }
+        } catch (e) {
+            console.error('[PortraitManager] retryGenerateLibrary 失败:', e);
+            showToast('重试失败，请稍后重试', 'error');
         }
     },
 
@@ -231,9 +343,20 @@ const PortraitManager = {
         const portrait = this._savedPortraits.find(p => p.id === portraitId);
         if (!portrait) return;
 
+        // 检查词库生成状态
+        const genStatus = portrait.generation_status || 'pending';
         const topics = portrait.topic_library?.topics || [];
+
+        if (genStatus === 'generating') {
+            showToast('词库正在生成中，请稍候...', 'info');
+            return;
+        }
+        if (genStatus === 'failed') {
+            showToast('词库生成失败，请点击重试后使用', 'error');
+            return;
+        }
         if (topics.length === 0) {
-            alert('暂无选题库，请重新生成画像');
+            showToast('暂无选题库，请等待生成完成', 'warning');
             return;
         }
 
@@ -296,9 +419,20 @@ const PortraitManager = {
         const portrait = this._savedPortraits.find(p => p.id === portraitId);
         if (!portrait) return;
 
+        // 检查词库生成状态
+        const genStatus = portrait.generation_status || 'pending';
         const topics = portrait.topic_library?.topics || [];
+
+        if (genStatus === 'generating') {
+            showToast('词库正在生成中，请稍候...', 'info');
+            return;
+        }
+        if (genStatus === 'failed') {
+            showToast('词库生成失败，请点击重试后查看', 'error');
+            return;
+        }
         if (topics.length === 0) {
-            alert('暂无选题库，请重新生成画像');
+            showToast('暂无选题库，请等待生成完成', 'warning');
             return;
         }
 
@@ -1066,18 +1200,27 @@ const PortraitManager = {
             topicCount = p.topic_library.topics.length;
         }
 
+        const genStatus = p.generation_status || 'pending';
         let kwBadge = '';
         if (kwCount > 0) {
             kwBadge = `<span class="badge bg-info me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})" title="点击查看关键词库">📚 关键词库 ${kwCount} 个</span>`;
+        } else if (genStatus === 'generating') {
+            kwBadge = `<span class="badge bg-warning me-1" data-kw-status="generating">📚 关键词库 生成中...</span>`;
+        } else if (genStatus === 'failed') {
+            kwBadge = `<span class="badge bg-danger me-1" data-kw-status="failed" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})">📚 关键词库 生成失败（点击重试）</span>`;
         } else {
-            kwBadge = `<span class="badge bg-secondary me-1">📚 关键词库 生成中...</span>`;
+            kwBadge = `<span class="badge bg-secondary me-1" data-kw-status="pending">📚 关键词库 待生成</span>`;
         }
 
         let topicBadge = '';
         if (topicCount > 0) {
             topicBadge = `<span class="badge bg-success me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})" title="点击查看选题库 Markdown">📋 选题库 ${topicCount} 个</span>`;
+        } else if (genStatus === 'generating') {
+            topicBadge = `<span class="badge bg-warning me-1" data-topic-status="generating">📋 选题库 生成中...</span>`;
+        } else if (genStatus === 'failed') {
+            topicBadge = `<span class="badge bg-danger me-1" data-topic-status="failed" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})">📋 选题库 生成失败（点击重试）</span>`;
         } else {
-            topicBadge = `<span class="badge bg-secondary me-1">📋 选题库 生成中...</span>`;
+            topicBadge = `<span class="badge bg-secondary me-1" data-topic-status="pending">📋 选题库 待生成</span>`;
         }
 
         container.innerHTML = kwBadge + ' ' + topicBadge;
@@ -1086,45 +1229,93 @@ const PortraitManager = {
     // 轮询检查选题库生成状态（使用轻量化状态端点）
     _startTopicPolling(portraitId) {
         let attempts = 0;
-        const maxAttempts = 30; // 最多30次，每次3秒 = 90秒
+        const maxAttempts = 120; // 最多120次，每次3秒 = 6分钟
+        let kwReady = false;
+        let topicReady = false;
+
+        const updateStatus = () => {
+            const remaining = Math.max(0, maxAttempts - attempts);
+            const secondsLeft = remaining * 3;
+            const minSec = secondsLeft >= 60
+                ? `约${Math.ceil(secondsLeft / 60)}分钟`
+                : `约${secondsLeft}秒`;
+            // 更新 badge 显示进度
+            const container = document.getElementById(`pm-badge-container-${portraitId}`);
+            if (container) {
+                const kwBadge = container.querySelector('[data-kw-status]');
+                const topicBadge = container.querySelector('[data-topic-status]');
+                if (kwBadge && !kwReady) {
+                    kwBadge.innerHTML = `📚 关键词库 生成中(${minSec})...`;
+                }
+                if (topicBadge && !topicReady) {
+                    topicBadge.innerHTML = `📋 选题库 生成中(${minSec})...`;
+                }
+            }
+        };
 
         const poll = async () => {
             if (attempts >= maxAttempts) {
-                console.log('[PortraitManager] 选题库轮询超时');
+                console.log('[PortraitManager] 选题库轮询超时（6分钟）');
+                const container = document.getElementById(`pm-badge-container-${portraitId}`);
+                if (container) {
+                    container.innerHTML = `<span class="badge bg-warning me-1">📚 关键词库 生成超时</span>` +
+                        `<span class="badge bg-warning me-1">📋 选题库 生成超时</span>`;
+                }
+                showToast('关键词库/选题库生成超时，请在画像卡片上点击「查看详情」刷新状态', 'warning', 6000);
                 return;
             }
 
             attempts++;
-            console.log(`[PortraitManager] 检查选题库生成状态... (${attempts}/${maxAttempts})`);
+            updateStatus();
 
             try {
-                // 轻量化端点：只返回状态字段，避免加载全部数据
                 const resp = await fetch(`/public/api/portraits/${portraitId}/status`, { credentials: 'include' });
                 const result = await resp.json();
 
                 if (result.success) {
                     const status = result.data;
+                    const genStatus = status.generation_status;
 
-                    // 选题库已生成
-                    if (status.topic_library && status.topic_library.topics && status.topic_library.topics.length > 0) {
-                        console.log('[PortraitManager] 选题库已生成:', status.topic_library.topics.length, '个');
+                    // 如果已完成或失败，停止轮询并更新 UI
+                    if (genStatus === 'completed' || genStatus === 'failed') {
+                        // 更新本地数据
+                        const localPortrait = this._savedPortraits.find(p => p.id === portraitId);
+                        if (localPortrait) {
+                            Object.assign(localPortrait, status);
+                        }
+                        this.renderPortraitCards();
 
-                        // 增量更新本地缓存
+                        if (genStatus === 'failed') {
+                            const errMsg = status.generation_error || '未知错误';
+                            showToast('词库生成失败：' + errMsg, 'error');
+                        } else {
+                            showToast('关键词库和选题库生成完成！', 'success');
+                        }
+                        return;
+                    }
+
+                    // 关键词库
+                    if (status.keyword_library && !kwReady) {
+                        kwReady = true;
+                        const localPortrait = this._savedPortraits.find(p => p.id === portraitId);
+                        if (localPortrait) {
+                            localPortrait.keyword_library = status.keyword_library;
+                            localPortrait.keyword_updated_at = status.keyword_updated_at;
+                        }
+                    }
+
+                    // 选题库
+                    if (status.topic_library && status.topic_library.topics && status.topic_library.topics.length > 0 && !topicReady) {
+                        topicReady = true;
                         const localPortrait = this._savedPortraits.find(p => p.id === portraitId);
                         if (localPortrait) {
                             localPortrait.topic_library = status.topic_library;
                             localPortrait.topic_updated_at = status.topic_updated_at;
                         }
-
-                        // 增量更新 badge（不重新渲染整个页面）
+                        // 增量更新 badge
                         this._updatePortraitBadges(portraitId);
-                        showToast('选题库生成完成', 'success');
+                        showToast('关键词库和选题库生成完成！', 'success');
                         return;
-                    }
-
-                    // 关键词库先生成也可通知用户
-                    if (status.keyword_library && !status.topic_library) {
-                        console.log('[PortraitManager] 关键词库已生成，等待选题库...');
                     }
                 }
             } catch (e) {
@@ -1135,7 +1326,6 @@ const PortraitManager = {
             setTimeout(poll, 3000);
         };
 
-        // 延迟3秒开始第一次检查
         setTimeout(poll, 3000);
     },
 

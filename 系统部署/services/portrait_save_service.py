@@ -48,130 +48,86 @@ class PortraitSaveService:
         if not allowed:
             return False, reason, {}
         
-        # 每个客户只保留一个画像：删除旧的
-        db.session.execute(
-            text("DELETE FROM saved_portraits WHERE user_id = :user_id"),
-            {'user_id': user_id}
-        )
-        
-        # 如果设为默认，先取消其他默认（已删除，这里保持一致）
-        if set_as_default:
-            # 旧数据已删除，无需取消
-            pass
-        
-        # 生成画像名称
-        if not portrait_name:
-            portrait_name = f"画像_{datetime.now().strftime('%m%d_%H%M')}"
-        
-        # 插入保存记录
-        result = db.session.execute(
-            text("""
-                INSERT INTO saved_portraits 
-                (user_id, portrait_name, portrait_data, business_description,
-                 industry, target_customer, is_default, source_session_id, created_at)
-                VALUES (:user_id, :name, :data, :desc, :industry, :customer,
-                        :is_default, :session_id, NOW())
-            """),
-            {
-                'user_id': user_id,
-                'name': portrait_name,
-                'data': json.dumps(portrait_data, ensure_ascii=False),
-                'desc': business_description,
-                'industry': industry,
-                'customer': target_customer,
-                'is_default': set_as_default,
-                'session_id': source_session_id
-            }
-        )
-        
-        saved_id = result.lastrowid
-        db.session.commit()
+        try:
+            # 每个客户只保留一个画像：删除旧的（先备份）
+            old_portraits = cls.get_user_portraits(user_id, include_data=False)
+
+            db.session.execute(
+                text("DELETE FROM saved_portraits WHERE user_id = :user_id"),
+                {'user_id': user_id}
+            )
+
+            # 如果设为默认，先取消其他默认（已删除，这里保持一致）
+            if set_as_default:
+                pass
+
+            # 生成画像名称
+            if not portrait_name:
+                portrait_name = f"画像_{datetime.now().strftime('%m%d_%H%M')}"
+
+            # 插入保存记录
+            result = db.session.execute(
+                text("""
+                    INSERT INTO saved_portraits
+                    (user_id, portrait_name, portrait_data, business_description,
+                     industry, target_customer, is_default, source_session_id, created_at)
+                    VALUES (:user_id, :name, :data, :desc, :industry, :customer,
+                            :is_default, :session_id, NOW())
+                """),
+                {
+                    'user_id': user_id,
+                    'name': portrait_name,
+                    'data': json.dumps(portrait_data, ensure_ascii=False),
+                    'desc': business_description,
+                    'industry': industry,
+                    'customer': target_customer,
+                    'is_default': set_as_default,
+                    'session_id': source_session_id
+                }
+            )
+
+            saved_id = result.lastrowid
+            db.session.commit()
+
+        except Exception:
+            db.session.rollback()
+            # 尝试恢复旧数据（如果被删了）
+            try:
+                if old_portraits:
+                    for op in old_portraits:
+                        db.session.execute(
+                            text("""
+                                INSERT INTO saved_portraits
+                                (user_id, portrait_name, portrait_data, business_description,
+                                 industry, target_customer, is_default, source_session_id,
+                                 keyword_library, topic_library, created_at)
+                                VALUES (:uid, :name, :data, :desc, :industry, :customer,
+                                        :is_default, :session_id, :kw, :topic, NOW())
+                            """),
+                            {
+                                'uid': user_id,
+                                'name': op.get('portrait_name', ''),
+                                'data': json.dumps(op.get('portrait_data', {}), ensure_ascii=False),
+                                'desc': op.get('business_description', ''),
+                                'industry': op.get('industry', ''),
+                                'customer': op.get('target_customer', ''),
+                                'is_default': op.get('is_default', False),
+                                'session_id': op.get('source_session_id'),
+                                'kw': json.dumps(op.get('keyword_library'), ensure_ascii=False) if op.get('keyword_library') else None,
+                                'topic': json.dumps(op.get('topic_library'), ensure_ascii=False) if op.get('topic_library') else None,
+                            }
+                        )
+                    db.session.commit()
+            except Exception:
+                db.session.rollback()
+                logger.exception("[portrait_save] 画像保存失败且旧数据恢复也失败，user_id=%s", user_id)
+
+            raise
 
         # 获取保存的画像
         saved = cls.get_saved_portrait(saved_id)
 
-        # 后台自动生成关键词库+选题库（付费用户）
-        cls._trigger_library_generation_async(saved_id, saved)
-
         return True, '画像保存成功', saved
-
-    @classmethod
-    def _trigger_library_generation_async(cls, portrait_id: int, portrait: Dict):
-        """后台异步生成关键词库和选题库（带缓存检查+超时控制）"""
-        import threading
-
-        def _generate():
-            try:
-                from services.keyword_library_generator import keyword_library_generator
-                from services.topic_library_generator import topic_library_generator
-                from models.public_models import PublicUser
-                from services.portrait_frequency_controller import portrait_frequency_controller
-
-                user_id = portrait.get('user_id', 0)
-                logger.info("[后台生成] 开始生成画像 %s, user_id=%s", portrait_id, user_id)
-                user = PublicUser.query.get(user_id)
-                if not user:
-                    logger.warning("[后台生成] 用户 %s 不存在，跳过", user_id)
-                    return
-                if not user.is_paid_user():
-                    logger.info("[后台生成] 用户 %s 为免费用户，跳过专属库生成", user_id)
-                    return
-
-                plan_type = user.premium_plan or 'basic'
-                logger.info("[后台生成] 用户 %s plan=%s", user_id, plan_type)
-
-                portrait_data = portrait.get('portrait_data', {})
-                business_info = {
-                    'business_description': portrait.get('business_description', ''),
-                    'industry': portrait.get('industry', ''),
-                    'products': [],
-                    'region': '',
-                    'target_customer': portrait.get('target_customer', ''),
-                }
-
-                # 关键词库（传 portrait_id 启用缓存检查）
-                kw_result = keyword_library_generator.generate(
-                    portrait_data=portrait_data,
-                    business_info=business_info,
-                    plan_type=plan_type,
-                    portrait_id=portrait_id,
-                )
-                logger.info("[后台生成] 关键词库: success=%s, from_cache=%s",
-                            kw_result.get('success'), kw_result.get('_meta', {}).get('from_cache'))
-                if kw_result.get('success') and not kw_result.get('_meta', {}).get('from_cache'):
-                    keyword_library_generator.save_to_portrait(
-                        portrait_id=portrait_id,
-                        keyword_library=kw_result['keyword_library'],
-                        user_id=user_id,
-                        plan_type=plan_type,
-                    )
-                    portrait_frequency_controller.record_library_update(user_id, 'keyword')
-
-                # 选题库（传 portrait_id 启用缓存检查）
-                kw_library = keyword_library_generator.get_from_portrait(portrait_id)
-                topic_result = topic_library_generator.generate(
-                    portrait_data=portrait_data,
-                    business_info=business_info,
-                    keyword_library=kw_library,
-                    plan_type=plan_type,
-                    portrait_id=portrait_id,
-                )
-                logger.info("[后台生成] 选题库: success=%s, from_cache=%s",
-                            topic_result.get('success'), topic_result.get('_meta', {}).get('from_cache'))
-                if topic_result.get('success') and not topic_result.get('_meta', {}).get('from_cache'):
-                    topic_library_generator.save_to_portrait(
-                        portrait_id=portrait_id,
-                        topic_library=topic_result['topic_library'],
-                        user_id=user_id,
-                        plan_type=plan_type,
-                    )
-                    portrait_frequency_controller.record_library_update(user_id, 'topic')
-                logger.info("[后台生成] 画像 %s 关键词库+选题库生成完成", portrait_id)
-            except Exception:
-                logger.exception("[后台生成] 画像 %s 生成失败", portrait_id)
-
-        thread = threading.Thread(target=_generate, daemon=True)
-        thread.start()
     
     @classmethod
     def get_saved_portrait(cls, portrait_id: int) -> Optional[Dict]:
@@ -183,7 +139,8 @@ class PortraitSaveService:
                        last_used_at, created_at,
                        keyword_library, topic_library,
                        keyword_updated_at, keyword_update_count, keyword_cache_expires_at,
-                       topic_updated_at, topic_update_count, topic_cache_expires_at
+                       topic_updated_at, topic_update_count, topic_cache_expires_at,
+                       generation_status, generation_error
                 FROM saved_portraits
                 WHERE id = :id
             """),
@@ -232,6 +189,9 @@ class PortraitSaveService:
             'topic_updated_at': fmt_datetime(result[16]),
             'topic_update_count': result[17] or 0,
             'topic_cache_expires_at': fmt_datetime(result[18]),
+            # 生成状态
+            'generation_status': result[19] or 'pending',
+            'generation_error': result[20],
         }
     
     @classmethod
@@ -242,7 +202,8 @@ class PortraitSaveService:
                    is_default, used_count, last_used_at, created_at,
                    keyword_library, topic_library,
                    keyword_updated_at, keyword_update_count, keyword_cache_expires_at,
-                   topic_updated_at, topic_update_count, topic_cache_expires_at
+                   topic_updated_at, topic_update_count, topic_cache_expires_at,
+                   generation_status, generation_error
             FROM saved_portraits
             WHERE user_id = :user_id
             ORDER BY is_default DESC, last_used_at DESC, created_at DESC
@@ -280,6 +241,9 @@ class PortraitSaveService:
                 'topic_updated_at': r[14].isoformat() if r[14] else None,
                 'topic_update_count': r[15] or 0,
                 'topic_cache_expires_at': r[16].isoformat() if r[16] else None,
+                # 生成状态
+                'generation_status': r[17] or 'pending',
+                'generation_error': r[18],
             }
 
             if include_data:

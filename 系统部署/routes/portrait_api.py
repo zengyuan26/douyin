@@ -8,17 +8,109 @@
 4. 画像统计
 """
 
+import json
+import logging
+import threading
 from flask import Blueprint, request, jsonify, session
 from functools import wraps
 from services.portrait_save_service import portrait_save_service
 from services.portrait_frequency_controller import portrait_frequency_controller
-from models.public_models import PublicUser
+from models.public_models import PublicUser, SavedPortrait
 from models.models import db
 from sqlalchemy import text
 
-import logging
 logger = logging.getLogger(__name__)
 
+
+def _background_generate_libraries(portrait_id: int, user_id: int, plan_type: str):
+    """
+    后台异步生成关键词库 + 选题库（后台线程执行）
+
+    流程：
+    1. 更新 generation_status = 'generating'
+    2. 生成关键词库 → 保存
+    3. 生成选题库 → 保存
+    4. 更新 generation_status = 'completed' / 'failed'
+    """
+    try:
+        from services.keyword_library_generator import keyword_library_generator
+        from services.topic_library_generator import topic_library_generator
+
+        portrait = SavedPortrait.query.get(portrait_id)
+        if portrait:
+            portrait.generation_status = 'generating'
+            portrait.generation_error = None
+            db.session.commit()
+
+        portrait = portrait_save_service.get_saved_portrait(portrait_id)
+        if not portrait:
+            logger.warning("[_background_generate] 画像不存在 portrait_id=%s", portrait_id)
+            return
+
+        portrait_data_dict = portrait.get('portrait_data', {})
+        business_info = {
+            'business_description': portrait.get('business_description', ''),
+            'industry': portrait.get('industry', ''),
+            'products': [],
+            'region': '',
+            'target_customer': portrait.get('target_customer', ''),
+        }
+
+        # 1. 生成关键词库
+        kw_result = keyword_library_generator.generate(
+            portrait_data=portrait_data_dict,
+            business_info=business_info,
+            plan_type=plan_type,
+            portrait_id=portrait_id,
+        )
+
+        if kw_result.get('success') and not kw_result.get('_meta', {}).get('from_cache'):
+            keyword_library_generator.save_to_portrait(
+                portrait_id=portrait_id,
+                keyword_library=kw_result['keyword_library'],
+                user_id=user_id,
+                plan_type=plan_type,
+            )
+            logger.info("[_background_generate] 关键词库生成完成 portrait_id=%s", portrait_id)
+
+        # 2. 生成选题库
+        kw_library = kw_result.get('keyword_library')
+        topic_result = topic_library_generator.generate(
+            portrait_data=portrait_data_dict,
+            business_info=business_info,
+            keyword_library=kw_library,
+            plan_type=plan_type,
+            portrait_id=portrait_id,
+        )
+
+        if topic_result.get('success') and not topic_result.get('_meta', {}).get('from_cache'):
+            topic_library_generator.save_to_portrait(
+                portrait_id=portrait_id,
+                topic_library=topic_result['topic_library'],
+                user_id=user_id,
+                plan_type=plan_type,
+            )
+            logger.info("[_background_generate] 选题库生成完成 portrait_id=%s", portrait_id)
+
+        # 更新状态：完成
+        portrait_row = SavedPortrait.query.get(portrait_id)
+        if portrait_row:
+            portrait_row.generation_status = 'completed'
+            db.session.commit()
+            logger.info("[_background_generate] 双库生成全部完成 portrait_id=%s", portrait_id)
+
+    except Exception as e:
+        import traceback
+        logger.error("[_background_generate] 异常: %s", e)
+        logger.debug("[_background_generate] 堆栈: %s", traceback.format_exc())
+        try:
+            portrait_row = SavedPortrait.query.get(portrait_id)
+            if portrait_row:
+                portrait_row.generation_status = 'failed'
+                portrait_row.generation_error = str(e)[:500]
+                db.session.commit()
+        except Exception:
+            pass
 
 
 portrait_bp = Blueprint('portrait', __name__, url_prefix='/public/api/portraits')
@@ -46,9 +138,17 @@ def login_required(f):
 @portrait_bp.route('/save', methods=['POST'])
 @login_required
 def save_portrait(user):
-    """保存画像"""
+    """
+    保存画像（立即返回，词库后台异步生成）
+
+    返回体新增 generation_status 字段，前端可据此展示真实状态：
+    - pending：待生成（免费用户）
+    - generating：生成中（付费用户，后台线程正在生成）
+    - completed：已完成（付费用户）
+    - failed：失败（付费用户）
+    """
     data = request.get_json() or {}
-    
+
     portrait_data = data.get('portrait_data', {})
     portrait_name = data.get('portrait_name')
     business_description = data.get('business_description')
@@ -56,7 +156,7 @@ def save_portrait(user):
     target_customer = data.get('target_customer')
     source_session_id = data.get('source_session_id')
     set_as_default = data.get('set_as_default', False)
-    
+
     success, message, saved = portrait_save_service.save_portrait(
         user_id=user.id,
         portrait_data=portrait_data,
@@ -67,92 +167,53 @@ def save_portrait(user):
         source_session_id=source_session_id,
         set_as_default=set_as_default
     )
-    
-    if success:
-        # 自动生成关键词库和选题库（仅对付费用户）
-        auto_generate_result = None
-        logger.debug("[save_portrait] user.is_premium=%s, premium_plan=%s, premium_expires=%s", user.is_premium, user.premium_plan, user.premium_expires)
-        logger.debug("[save_portrait] user.is_paid_user()=%s", user.is_paid_user())
-        
-        if user.is_paid_user() and saved and saved.get('id'):
-            try:
-                from services.keyword_library_generator import keyword_library_generator
-                from services.topic_library_generator import topic_library_generator
-                
-                portrait_id = saved['id']
-                portrait = portrait_save_service.get_saved_portrait(portrait_id)
-                if portrait:
-                    portrait_data_dict = portrait.get('portrait_data', {})
-                    business_info = {
-                        'business_description': portrait.get('business_description', ''),
-                        'industry': portrait.get('industry', ''),
-                        'products': [],
-                        'region': '',
-                        'target_customer': portrait.get('target_customer', ''),
-                    }
-                    plan_type = user.premium_plan or 'basic'
-                    logger.info("[save_portrait] 开始生成关键词库，plan_type=%s", plan_type)
-                    
-                    # 生成关键词库（带缓存检查）
-                    kw_result = keyword_library_generator.generate(
-                        portrait_data=portrait_data_dict,
-                        business_info=business_info,
-                        plan_type=plan_type,
-                        portrait_id=portrait_id,
-                    )
-                    logger.debug("[save_portrait] 结果: %s, from_cache=%s",
-                                 kw_result.get('success'), kw_result.get('_meta', {}).get('from_cache'))
-                    if kw_result.get('success') and not kw_result.get('_meta', {}).get('from_cache'):
-                        keyword_library_generator.save_to_portrait(
-                            portrait_id=portrait_id,
-                            keyword_library=kw_result['keyword_library'],
-                            user_id=user.id,
-                            plan_type=plan_type,
-                        )
 
-                    # 生成选题库（带缓存检查）
-                    kw_library = kw_result.get('keyword_library')
-                    logger.debug("[save_portrait] 开始生成选题库")
-                    topic_result = topic_library_generator.generate(
-                        portrait_data=portrait_data_dict,
-                        business_info=business_info,
-                        keyword_library=kw_library,
-                        plan_type=plan_type,
-                        portrait_id=portrait_id,
-                    )
-                    logger.debug("[save_portrait] 选题库结果: success=%s, from_cache=%s",
-                                topic_result.get('success'), topic_result.get('_meta', {}).get('from_cache'))
-                    if topic_result.get('success') and not topic_result.get('_meta', {}).get('from_cache'):
-                        topic_library_generator.save_to_portrait(
-                            portrait_id=portrait_id,
-                            topic_library=topic_result['topic_library'],
-                            user_id=user.id,
-                            plan_type=plan_type,
-                        )
-                    
-                    auto_generate_result = {
-                        'keyword': kw_result.get('success', False),
-                        'topic': topic_result.get('success', False)
-                    }
-                    
-                    # 重新获取更新后的画像数据
-                    saved = portrait_save_service.get_saved_portrait(portrait_id)
-            except Exception as e:
-                import traceback
-                logger.error("[portrait_save] 异常: %s", e)
-                logger.debug("[portrait_save] 堆栈: %s", traceback.format_exc())
-        
-        return jsonify({
-            'success': True,
-            'message': message,
-            'data': saved,
-            'auto_generated': auto_generate_result
-        })
-    else:
+    if not success:
         return jsonify({
             'success': False,
             'message': message
         }), 400
+
+    portrait_id = saved.get('id')
+
+    # 免费用户：不需要生成词库
+    if not user.is_paid_user():
+        # 更新 generation_status = completed（无需生成）
+        if portrait_id:
+            db.session.execute(
+                text("UPDATE saved_portraits SET generation_status = 'completed' WHERE id = :id"),
+                {'id': portrait_id}
+            )
+            db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': message,
+            'data': saved,
+        })
+
+    # 付费用户：立即更新 generation_status = 'generating' 并启动后台线程
+    if portrait_id:
+        db.session.execute(
+            text("UPDATE saved_portraits SET generation_status = 'generating' WHERE id = :id"),
+            {'id': portrait_id}
+        )
+        db.session.commit()
+
+        # 启动后台线程生成词库
+        plan_type = user.premium_plan or 'basic'
+        thread = threading.Thread(
+            target=_background_generate_libraries,
+            args=(portrait_id, user.id, plan_type),
+            daemon=True
+        )
+        thread.start()
+        logger.info("[save_portrait] 已启动后台词库生成线程 portrait_id=%s plan_type=%s", portrait_id, plan_type)
+
+    return jsonify({
+        'success': True,
+        'message': message,
+        'data': saved,
+    })
 
 
 @portrait_bp.route('/saved', methods=['GET'])
@@ -188,17 +249,36 @@ def get_portrait_detail(user, portrait_id):
 @portrait_bp.route('/<int:portrait_id>/status', methods=['GET'])
 @login_required
 def get_portrait_status(user, portrait_id):
-    """轻量化状态端点（轮询专用，仅返回生成状态字段）"""
+    """
+    轻量化状态端点（轮询专用，仅返回生成状态字段）
+
+    返回 generation_status：
+    - pending：待生成（免费用户或异常情况）
+    - generating：生成中
+    - completed：已完成（词库已就绪）
+    - failed：失败（带 generation_error）
+    """
     owned, portrait = _check_portrait_ownership(portrait_id, user)
     if not owned:
         if not portrait:
             return jsonify({'success': False, 'message': '画像不存在'}), 404
         return jsonify({'success': False, 'message': '无权访问该画像'}), 403
 
+    # 从数据库直接获取 generation_status
+    row = db.session.execute(
+        text("SELECT generation_status, generation_error FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+
+    gen_status = row[0] if row else 'pending'
+    gen_error = row[1] if row else None
+
     return jsonify({
         'success': True,
         'data': {
             'id': portrait['id'],
+            'generation_status': gen_status,
+            'generation_error': gen_error,
             'keyword_library': portrait.get('keyword_library'),
             'keyword_updated_at': portrait.get('keyword_updated_at'),
             'keyword_cache_expires_at': portrait.get('keyword_cache_expires_at'),

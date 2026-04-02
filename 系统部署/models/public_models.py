@@ -183,6 +183,11 @@ class SavedPortrait(db.Model):
     # 来源会话ID（关联问题识别）
     session_id = db.Column(db.Integer)
 
+    # 词库生成状态：pending（待生成）/ generating（生成中）/ completed（已完成）/ failed（失败）
+    generation_status = db.Column(db.String(20), default='pending')
+    # 词库生成错误信息
+    generation_error = db.Column(db.Text)
+
     # 时间戳
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

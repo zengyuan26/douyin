@@ -277,7 +277,7 @@ class PortraitFrequencyController:
         new_start = today
         if current_start:
             start_date = datetime.strptime(current_start, '%Y-%m-%d').date() if isinstance(current_start, str) else current_start
-            if (today - start_date).days >= 1:
+            if (today - start_date).days >= 30:
                 new_used = 1
                 new_start = today
             else:
@@ -316,7 +316,8 @@ class PortraitFrequencyController:
         reset_at = None
         if start:
             start_date = datetime.strptime(start, '%Y-%m-%d').date() if isinstance(start, str) else start
-            days_until_reset = max(0, 1 - (today - start_date).days)
+            days_since_start = (today - start_date).days
+            days_until_reset = max(0, 30 - days_since_start)
             reset_at = (today + timedelta(days=days_until_reset)).isoformat()
 
         return {

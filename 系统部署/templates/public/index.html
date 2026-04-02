@@ -1561,7 +1561,6 @@
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    console.log('[saveSnapshotToServer] 快照已保存, version=' + data.version + ', portraits_data keys=' + Object.keys(_allPortraits));
                 }
             } catch (e) {
                 console.error('[saveSnapshotToServer] 保存失败:', e);
@@ -1741,10 +1740,6 @@
                     // 恢复问题和画像数据
                     _allProblems = serverSnap.problems_data;
                     _allPortraits = serverSnap.portraits_data || {};
-                    console.log('[initSnapshotRestore] portraits_data keys =', Object.keys(_allPortraits));
-                    console.log('[initSnapshotRestore] portraits_data sample =', JSON.stringify(_allPortraits).slice(0, 500));
-                    console.log('[initSnapshotRestore] selected_problem_id from snap =', serverSnap.selected_problem_id, 'typeof =', typeof serverSnap.selected_problem_id);
-                    console.log('[initSnapshotRestore] _allProblems[0].id =', _allProblems[0]?.id, 'typeof =', typeof _allProblems[0]?.id);
                     // 从第一个问题中提取 market_analysis（保存时附加的）
                     if (_allProblems[0] && _allProblems[0]._market_analysis) {
                         _currentMarketAnalysis = _allProblems[0]._market_analysis;
@@ -1771,18 +1766,6 @@
                             selectProblemCard(p.id, p.identity, p.problem_type || p.concern_type, p);
                         }
                     }
-                    console.log('[initSnapshotRestore] 已从服务端恢复快照, version=' + serverSnap.version);
-                    console.log('[initSnapshotRestore] 恢复后 _isPremium =', _isPremium);
-                    console.log('[initSnapshotRestore] _allPortraits keys at return =', Object.keys(_allPortraits));
-                    console.log('[initSnapshotRestore] 调用 PortraitManager.loadSavedPortraits...');
-                    console.log('[initSnapshotRestore] PortraitManager 类型:', typeof PortraitManager, PortraitManager ? 'defined' : 'undefined');
-                    // 加载数据库中的已保存画像（兜底，确保画像列表完整）
-                    try {
-                        PortraitManager.loadSavedPortraits();
-                    } catch(e) {
-                        console.error('[initSnapshotRestore] loadSavedPortraits 异常:', e);
-                    }
-                    console.log('[initSnapshotRestore] loadSavedPortraits 调用完成, _allPortraits keys =', Object.keys(_allPortraits));
                     return;
                 }
             }
@@ -1822,9 +1805,6 @@
                     if (data.success) {
                         currentUser = data.data;
                         console.log('[checkAuth] 登录成功，currentUser:', currentUser);
-                        // 同步付费状态（currentUser 从 /api/quota 来，是权威来源）
-                        _isPremium = !!(currentUser && currentUser.is_premium);
-                        console.log('[checkAuth] _isPremium 设置为:', _isPremium, 'currentUser.is_premium =', currentUser && currentUser.is_premium);
                         showGenerator();
                         updateQuotaInfo();
                         // 恢复超级定位快照 + 绑定自动保存
@@ -2119,7 +2099,6 @@
                     _allProblems = problems;
                     _allPortraits = {};  // 清空旧画像
                     _isPremium = data.is_premium || false;
-                    console.debug('[mineAndGenerate] 收到 problems[0]:', JSON.stringify(problems[0], null, 2));
 
                     // 隐藏局部加载状态，显示问题内容
                     document.getElementById('problem-mining-loading').style.display = 'none';
@@ -2166,7 +2145,6 @@
         // 换一批：重新调用问题挖掘+画像生成
         let _refreshIdentitiesSeq = 0;
         function refreshIdentities() {
-            console.log('[refreshIdentities] 当前 _isPremium =', _isPremium, 'currentUser =', currentUser);
             if (!_isPremium) {
                 showToast('此功能仅限付费用户，<a href="/public/pricing" target="_blank" style="color:#1565c0;text-decoration:underline;">立即升级</a>', 'error');
                 return;
@@ -2225,7 +2203,6 @@
                     _allProblems = problems;
                     _allPortraits = {};
                     _isPremium = data.is_premium || false;
-                    console.debug('[mineAndGenerate/分步] 收到 problems[0]:', JSON.stringify(problems[0], null, 2));
 
                     // 渲染问题卡片
                     renderProblemCards(_allProblems);
@@ -3589,18 +3566,34 @@
                     // 关闭模态框
                     const modal = bootstrap.Modal.getInstance(document.getElementById('savePortraitModal'));
                     modal.hide();
-                    
+
                     // 清空输入
                     document.getElementById('portrait-name-input').value = '';
                     document.getElementById('portrait-business-input').value = '';
                     document.getElementById('portrait-default-check').checked = false;
-                    
+
+                    // 局部更新画像数据（API已返回含关键词库+选题库的完整数据）
+                    // 先查找是否已存在（可能被后台线程删除了旧数据）
+                    const existIdx = PortraitManager._savedPortraits.findIndex(p => p.id === saved.id);
+                    if (existIdx >= 0) {
+                        PortraitManager._savedPortraits[existIdx] = saved;
+                    } else {
+                        PortraitManager._savedPortraits.unshift(saved);
+                    }
+                    PortraitManager._currentPortraitId = saved.id;
+
+                    // 更新配额显示
+                    await PortraitManager.loadQuota();
+
+                    // 局部重新渲染（不刷新页面，关键词库/选题库数据直接可见）
+                    PortraitManager.renderPortraitCards();
+
+                    // 隐藏超级定位步骤（已有保存的画像）
+                    if (typeof updateSuperStepsVisibility === 'function') {
+                        updateSuperStepsVisibility();
+                    }
+
                     showToast('✓ 画像保存成功！', 'success');
-                    
-                    // 刷新页面
-                    setTimeout(() => {
-                        window.location.reload(true);
-                    }, 300);
                 } else {
                     showToast('保存失败，请重试', 'error');
                     resetSaveButtons();
@@ -3694,11 +3687,20 @@
 
                 if (saved && saved.id) {
                     showToast('✓ 画像保存成功！', 'success');
-                    
-                    // 刷新页面
-                    setTimeout(() => {
-                        window.location.reload(true);
-                    }, 300);
+
+                    // 局部更新（API已返回含关键词库+选题库的完整数据）
+                    const existIdx = PortraitManager._savedPortraits.findIndex(p => p.id === saved.id);
+                    if (existIdx >= 0) {
+                        PortraitManager._savedPortraits[existIdx] = saved;
+                    } else {
+                        PortraitManager._savedPortraits.unshift(saved);
+                    }
+                    PortraitManager._currentPortraitId = saved.id;
+                    await PortraitManager.loadQuota();
+                    PortraitManager.renderPortraitCards();
+                    if (typeof updateSuperStepsVisibility === 'function') {
+                        updateSuperStepsVisibility();
+                    }
                 } else {
                     showToast('保存失败，请重试', 'error');
                     resetSaveButtons();
