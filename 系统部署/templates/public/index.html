@@ -2615,33 +2615,13 @@
                 baseBadge = `<span class="pc-base-badge ${baseClass}" title="底盘:${problemBase} 内容方向:${contentDirection}">${baseIcon}${problemBase}</span>`;
             }
 
-            // 问题大类前缀：优先 API 的 problem_category；无则联合标题+描述推断（与后端 infer_problem_category 规则对齐）
-            let categoryLabel = '';
-            const catRaw = (problemData.problem_category || '').trim();
-            if (catRaw) {
-                categoryLabel = `【${catRaw.replace(/\/.*/, '')}】`;
-            } else {
-                const blob = `${problemType || ''}${problemData.description || ''}${problemData.display_name || ''}`;
-                const hit = (s) => blob.includes(s);
-                if (hit('安全隐患') || hit('卫生问题') || hit('质量缺陷') || hit('过期') || hit('变质') || hit('漏电') || hit('中毒') || hit('过敏') || hit('感染') || hit('假货') || hit('受伤') || hit('事故')) {
-                    categoryLabel = '【安全/质量】';
-                } else if (hit('不知道选') || hit('怕买错') || hit('选哪款') || hit('难选') || hit('选错') || hit('不匹配') || hit('不适合')) {
-                    categoryLabel = '【适配/兼容】';
-                } else if (hit('怕被宰') || hit('乱收费') || hit('性价比') || hit('等太久') || hit('响应慢') || hit('上门慢') || hit('周期长') || hit('效率低') || hit('预约难') || hit('排队') || hit('预算') || hit('费用') || hit('多少钱') || hit('加价') || hit('价格') || hit('贵') || hit('怕贵')) {
-                    categoryLabel = '【成本/效率】';
-                } else if (hit('怕效果差') || hit('效果差') || hit('没效果') || hit('无效') || hit('治不好') || hit('功能失效') || hit('达不成') || hit('解决不了') || hit('没治好') || hit('不奏效') || hit('怕效果')) {
-                    categoryLabel = '【功能/效果】';
-                } else if (hit('服务不专业') || hit('服务态度') || hit('态度差') || hit('服务差') || hit('不热情') || hit('敷衍') || hit('体验差') || hit('难用') || hit('操作复杂') || hit('不舒服') || hit('不专业')) {
-                    categoryLabel = '【体验/使用】';
-                } else {
-                    categoryLabel = '【体验/使用】';
-                }
-            }
+            // 问题大类前缀去掉，仅显示细分问题类型
+            // 问题卡片顶部一行：细分问题类型 + 三盘标签 + 身份标签
 
             col.innerHTML = `
                 <div class="problem-card" data-key="${escHtml(key)}" style="cursor:pointer;">
                     <div class="pc-top-row">
-                        <span class="pc-type" title="${escHtml(problemType)}">${escHtml(categoryLabel)}${escHtml(problemType)}</span>
+                        <span class="pc-type" title="${escHtml(problemType)}">${escHtml(problemType)}</span>
                         ${baseBadge}
                         <span class="pc-id-badge ${badgeClass}"><span aria-hidden="true">${tagIcon}</span><span>${escHtml(identity)}</span></span>
                     </div>
