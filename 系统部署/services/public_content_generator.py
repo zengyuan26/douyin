@@ -5069,6 +5069,21 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         enriched.update(chronic_tags)
         all_problems.append(enriched)
 
+    # 【定制礼赠】程序化种子问题并入列表（与慢性层一致，保证前端可见）
+    custom_gift_extraction = data.get('custom_gift_extraction') or {}
+    cg_probs = custom_gift_extraction.get('custom_gift_problems') or []
+    cg_u, cg_b = 0, 0
+    for gp in cg_probs:
+        side = (gp.get('_merge_side') or 'user').strip().lower()
+        clean = {k: v for k, v in gp.items() if k != '_merge_side'}
+        idx = cg_u if side == 'user' else cg_b
+        if side == 'user':
+            cg_u += 1
+        else:
+            cg_b += 1
+        enriched = _enrich(clean, idx, 'cg_' + side)
+        all_problems.append(enriched)
+
     # 获取市场分析数据
     market_analysis = data.get('market_analysis', {}) or {}
 
@@ -5100,6 +5115,7 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
                 'extraction_summary': chronic_extraction.get('extraction_summary', ''),
                 'chronic_problems': chronic_problems,
             },
+            'custom_gift_extraction': data.get('custom_gift_extraction') or {},
         }
     }
 
@@ -5794,6 +5810,203 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
     # 【行为+场景+慢性体征拆解层结束】
     # =============================================================================
 
+    # =============================================================================
+    # 【第五维识别：定制礼赠仪式场景识别层】
+    # 只要业务含：定制/刻字/LOGO/专属/纪念/伴手礼/礼赠，自动触发
+    # =============================================================================
+    def _is_custom_gift_business(desc: str) -> bool:
+        """判断业务是否为定制礼赠类"""
+        if not desc:
+            return False
+        desc_lower = desc.lower()
+        trigger_keywords = ['定制', '刻字', 'logo', '专属', '纪念', '伴手礼', '礼赠',
+                          '礼品', '礼物', '赠品', '企业定制', '批量定制']
+        for kw in trigger_keywords:
+            if kw in desc_lower:
+                return True
+        return False
+
+    def _get_custom_gift_context(desc: str) -> Dict[str, Any]:
+        """获取定制礼赠识别的上下文"""
+        # 仪式场景关键词映射
+        ritual_keywords = {
+            '婚宴仪式': ['婚礼', '婚宴', '结婚', '伴郎', '伴娘', '订婚'],
+            '寿宴仪式': ['寿宴', '祝寿', '生日宴', '老人', '长辈'],
+            '满月百日宴': ['满月', '百日', '周岁', '宝宝宴', '新生儿'],
+            '乔迁之喜': ['乔迁', '搬家', '新居', '入伙'],
+            '升学谢师宴': ['升学', '谢师', '高考', '毕业', '金榜题名'],
+            '开业典礼': ['开业', '开张', '新店', '新公司'],
+            '年会团建': ['年会', '团建', '公司活动', '员工福利'],
+            '商务答谢': ['商务', '答谢', '客户', '合作伙伴'],
+        }
+
+        # 匹配仪式场景
+        matched_rituals = []
+        desc_lower = desc.lower()
+        for ritual_name, keywords in ritual_keywords.items():
+            for kw in keywords:
+                if kw in desc_lower:
+                    matched_rituals.append(ritual_name)
+                    break
+
+        # 如果没有匹配到具体场景，提供通用仪式场景
+        if not matched_rituals:
+            matched_rituals = ['通用宴请场景']
+
+        # 定制心理顾虑
+        psychology_concerns = [
+            {'type': '办宴体面', 'desc': '担心宴请不够体面，怕丢面子'},
+            {'type': '送礼走心', 'desc': '担心礼品不够用心，显得敷衍'},
+            {'type': '定制踩坑', 'desc': '担心定制过程出问题，交付延误或质量差丢面子'},
+            {'type': '性价比顾虑', 'desc': '担心定制价格虚高，花冤枉钱'},
+        ]
+
+        # 三大底盘内容映射
+        content_base_map = {
+            '前置观望种草盘': ['宴席选款种草', '吉利款式种草', '案例对比种草', '定制避坑指南'],
+            '刚需痛点盘': ['定制报价刚需', '定稿排版刚需', '加急制作刚需'],
+            '使用配套搜后种草盘': ['现场搭配配套', '发放储存配套', '礼盒配套推荐'],
+        }
+
+        return {
+            'matched_rituals': matched_rituals,
+            'psychology_concerns': psychology_concerns,
+            'content_base_map': content_base_map,
+        }
+
+    def _build_custom_gift_seed_problems(desc: str, rituals: List[str]) -> List[Dict[str, Any]]:
+        """程序化礼赠/仪式向种子问题（与慢性层一样合并进问题列表，避免仅 prompt 被模型忽略）"""
+        ps = _product_name(desc)
+        r0 = rituals[0] if rituals else '宴请活动'
+        rjoin = '、'.join(rituals[:3]) if rituals else '宴请/年会/商务活动'
+        return [
+            {
+                '_merge_side': 'user',
+                'identity': '宴请/活动主理人',
+                'problem_base': '前置观望种草盘',
+                'problem_category': '适配/兼容问题',
+                'problem_type': '宴席定制选款',
+                'display_name': f'{r0}定制{ps}怎么选体面',
+                'description': '怕款式土气、LOGO不醒目、和现场布置不协调、来宾觉得不用心',
+                'severity': '中',
+                'scenarios': [f'{rjoin}迎宾区', '主桌/讲台摆台', '伴手礼发放'],
+                'market_type': 'blue_ocean',
+                'market_reason': '礼赠体面+场景细分',
+                'problem_keywords': [
+                    {'keyword': f'{r0}定制{ps}怎么选不丢面子', 'type': 'blue_ocean', 'source': '场景痛点词'},
+                    {'keyword': f'两家{ps}定制印LOGO哪家更靠谱', 'type': 'blue_ocean', 'source': '长尾转化词'},
+                ],
+            },
+            {
+                '_merge_side': 'user',
+                'identity': '采购负责人',
+                'problem_base': '前置观望种草盘',
+                'problem_category': '安全/质量问题',
+                'problem_type': '定制交付避坑',
+                'display_name': '怕定制翻车当场尴尬',
+                'description': '刻字糊、色差、瓶贴歪、错字漏字、延期到货',
+                'severity': '高',
+                'scenarios': ['开箱验货', '现场摆台', '来宾拍照发圈前'],
+                'market_type': 'blue_ocean',
+                'market_reason': '定制踩坑高焦虑',
+                'problem_keywords': [
+                    {'keyword': f'定制{ps}常见翻车有哪些怎么避', 'type': 'blue_ocean', 'source': '场景痛点词'},
+                    {'keyword': f'定制{ps}印字前打样要注意什么', 'type': 'blue_ocean', 'source': '长尾转化词'},
+                ],
+            },
+            {
+                '_merge_side': 'user',
+                'identity': '活动执行',
+                'problem_base': '刚需痛点盘',
+                'problem_category': '成本/效率问题',
+                'problem_type': '报价与加急',
+                'display_name': '定制报价与赶工期',
+                'description': '起订量高、总价摸不清、设计定稿反复、临近节点怕交不出货',
+                'severity': '高',
+                'scenarios': ['临近婚期/年会', '多部门确认', '补单加急'],
+                'market_type': 'red_ocean',
+                'market_reason': '决策刚需',
+                'problem_keywords': [
+                    {'keyword': f'定制{ps}一般怎么报价', 'type': 'red_ocean', 'source': '用户需求词'},
+                    {'keyword': f'定制{ps}加急几天能出货', 'type': 'blue_ocean', 'source': '长尾转化词'},
+                ],
+            },
+            {
+                '_merge_side': 'buyer',
+                'identity': '购买者',
+                'concern_base': '刚需痛点盘',
+                'concern_category': '安全/质量问题',
+                'concern_type': '定稿与校对',
+                'display_name': '定稿怕印错丢人',
+                'description': '怕文案错字、LOGO反白、条形码扫不出、批次和约定不一致',
+                'examples': ['最终稿确认', '批量开机前'],
+                'severity': '高',
+                'market_type': 'blue_ocean',
+                'market_reason': '信任与体面',
+                'problem_keywords': [
+                    {'keyword': f'定制{ps}定稿前核对清单', 'type': 'blue_ocean', 'source': '场景痛点词'},
+                    {'keyword': f'定制{ps}设计稿和实物色差怎么控', 'type': 'blue_ocean', 'source': '长尾转化词'},
+                ],
+            },
+            {
+                '_merge_side': 'buyer',
+                'identity': '购买者',
+                'concern_base': '使用配套搜后种草盘',
+                'concern_category': '成本/效率问题',
+                'concern_type': '存储与分装',
+                'display_name': '现场搭配与余货存放',
+                'description': '桌数变动怎么补配、剩余怎么存不坏、礼盒组合怎么省心',
+                'examples': ['活动后余货', '分发给宾客'],
+                'severity': '中',
+                'market_type': 'blue_ocean',
+                'market_reason': '使用后配套',
+                'problem_keywords': [
+                    {'keyword': f'定制{ps}剩多了怎么保存', 'type': 'blue_ocean', 'source': '场景痛点词'},
+                    {'keyword': f'{ps}礼盒伴手礼怎么搭配好看', 'type': 'blue_ocean', 'source': '长尾转化词'},
+                ],
+            },
+        ]
+
+    # 判断是否触发定制礼赠识别层
+    is_custom_gift = _is_custom_gift_business(business_desc)
+    custom_gift_context = None
+    custom_gift_context_str = ""
+    custom_gift_problems: List[Dict[str, Any]] = []
+
+    if is_custom_gift:
+        custom_gift_context = _get_custom_gift_context(business_desc)
+        custom_gift_problems = _build_custom_gift_seed_problems(
+            business_desc,
+            list(custom_gift_context.get('matched_rituals', [])),
+        )
+        logger.info(
+            "[mine_problems_and_generate_personas] 定制礼赠识别触发: 仪式=%s 种子问题=%d条",
+            custom_gift_context.get('matched_rituals'),
+            len(custom_gift_problems),
+        )
+        custom_gift_context_str = f"""
+=== 【第五维识别：定制礼赠仪式场景识别层】（业务包含定制/礼赠/纪念等关键词，自动触发）
+
+【匹配的仪式场景】：{', '.join(custom_gift_context.get('matched_rituals', []))}
+
+【定制礼赠心理顾虑】（画像必须包含）：
+{chr(10).join([f"- {p['type']}：{p['desc']}" for p in custom_gift_context.get('psychology_concerns', [])])}
+
+【三大底盘内容分类映射】：
+{chr(10).join([f"- {base}：{', '.join(contents)}" for base, contents in custom_gift_context.get('content_base_map', {}).items()])}
+
+**强制要求**：
+1. 画像中必须包含"办宴体面"、"送礼走心"、"怕定制踩坑丢面子"等心理关键词
+2. 画像描述中必须明确仪式场景（如婚宴/寿宴/满月等）
+3. 内容方向直接映射到三大底盘：
+   - 宴席选款/吉利款式/案例对比/避坑指南 → 前置观望种草盘（种草型）
+   - 定制报价/定稿排版/加急制作 → 刚需痛点盘（转化型）
+   - 现场搭配/发放储存/礼盒配套 → 使用配套搜后种草盘（种草型）
+"""
+    # =============================================================================
+    # 【定制礼赠仪式场景识别层结束】
+    # =============================================================================
+
     # 获取系统固定底座人群
     system_base_personas = get_system_base_personas(service_scenario, business_type)
 
@@ -6173,6 +6386,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 {emotion_context}
 {chronic_context}
+{custom_gift_context_str}
 === 待分析业务信息 ===
 请求ID：{_nonce}（每次请求唯一，请务必生成与历史结果不同的问题和关键词）
 业务描述：{business_desc}
@@ -6684,6 +6898,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                         'symptom_tags': symptom_tags,
                         'extraction_summary': chronic_extraction_summary,
                         'chronic_problems': chronic_problems,
+                    },
+                    'custom_gift_extraction': {
+                        'is_custom_gift': bool(is_custom_gift),
+                        'matched_rituals': (custom_gift_context or {}).get('matched_rituals', []),
+                        'custom_gift_problems': custom_gift_problems,
                     },
                 }
             }
