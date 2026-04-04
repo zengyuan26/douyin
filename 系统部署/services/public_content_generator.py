@@ -246,6 +246,1230 @@ def _get_default_local_service_personas() -> Dict:
     }
 
 
+# =============================================================================
+# 【需求底盘三盘枚举 - 固定值，禁止自定义别名或改写】
+# =============================================================================
+# 三盘枚举原文直译，不允许任何别名、简写、改写
+PROBLEM_BASE_SOUQIAN_ZHONGCAO = "前置观望种草盘"          # 用户处于"知道有风险/将来可能遇到"阶段，搜索目的是学习了解、提前预防
+PROBLEM_BASE_GANGXU_TONGDIAN = "刚需痛点盘"             # 用户已处于痛苦中、急需解决的核心问题，搜索目的是立即找到解决方案
+PROBLEM_BASE_SHIYONG_PEITAO = "使用配套搜后种草盘"      # 用户已使用核心业务后，产生的周边工具、养护知识、留存复购类需求
+
+PROBLEM_BASE_LIST = [
+    PROBLEM_BASE_SOUQIAN_ZHONGCAO,
+    PROBLEM_BASE_GANGXU_TONGDIAN,
+    PROBLEM_BASE_SHIYONG_PEITAO,
+]
+
+PROBLEM_BASE_TO_CONTENT_DIRECTION = {
+    PROBLEM_BASE_GANGXU_TONGDIAN: "转化型",
+    PROBLEM_BASE_SOUQIAN_ZHONGCAO: "种草型",
+    PROBLEM_BASE_SHIYONG_PEITAO: "种草型",
+}
+
+
+# =============================================================================
+# 【双标签枚举 - consume_type（消费类型）+ demand_attr（需求属性）】
+# =============================================================================
+# consume_type（消费类型）：必需 / 增量
+CONSUMER_TYPE_REQUIRED = "必需"     # 硬需求：已有问题必须解决，不解决会持续痛苦
+CONSUMER_TYPE_INCREMENTAL = "增量"  # 种草需求：锦上添花，可买可不买
+
+# demand_attr（需求属性）：功能驱动 / 场景情绪驱动
+DEMAND_ATTR_FUNCTION = "功能驱动"              # 用户关注产品本身的功能、效果、性价比
+DEMAND_ATTR_SCENE_EMOTION = "场景情绪驱动"    # 用户关注仪式感、场景氛围、情绪价值
+
+# 双标签自动打标规则（原文直译，不允许改写关键词匹配逻辑）
+# 规则：损坏 / 替换 / 效果差 / 性价比诉求 = 必需 + 功能驱动
+# 规则：仪式感 / 场景穿搭 / 爱好生活 = 增量 + 场景情绪驱动
+CONSUMPTION_TYPE_KEYWORDS = {
+    "必需": ["损坏", "替换", "效果差", "性价比诉求", "坏了", "坏了", "换", "修", "换新", "替换", "解决", "修复", "更换", "坏了", "不耐用", "不好用", "质量差", "用坏了", "报废", "断货", "用完", "空瓶", "断货", "没有了", "需要买", "必备", "刚需", "救命", "急需", "紧急", "应急"],
+    "增量": ["仪式感", "场景穿搭", "爱好生活", "精致", "升级", "改善", "提升", "享受", "体验", "氛围", "装饰", "好看", "美观", "时尚", "潮流", "流行", "新款", "新品", "送礼", "收藏", "囤货", "送礼", "节日", "纪念日", "生日", "特殊场合", "场合", "仪式"],
+}
+
+DEMAND_ATTR_KEYWORDS = {
+    "功能驱动": ["损坏", "替换", "效果差", "性价比诉求", "坏了", "不耐用", "效果", "功能", "质量", "性能", "参数", "配置", "材质", "成分", "配方", "规格", "价格", "贵", "便宜", "划算", "值不值", "性价比", "耗电", "功率", "容量", "尺寸", "大小", "重量", "维修", "售后", "保修", "寿命", "耐用", "好用", "实用"],
+    "场景情绪驱动": ["仪式感", "场景穿搭", "爱好生活", "好看", "美观", "漂亮", "精致", "氛围", "仪式", "场合", "场景", "心情", "情绪", "享受", "体验", "品味", "格调", "风格", "设计", "颜值", "拍照", "上镜", "打卡", "晒图", "分享", "礼物", "惊喜", "浪漫", "温馨"],
+}
+
+
+# =============================================================================
+# 【常驻行为 + 固定场景 + 慢性体征枚举 - 用于「行为+场景+慢性体征拆解」解析层】
+# =============================================================================
+# 常驻行为（久坐/久站/熬夜/长期伏案等导致的长期习惯性姿势问题）
+RESIDENT_BEHAVIORS = {
+    "久坐": ["长期久坐", "一坐就是", "屁股不离椅子", "办公室一坐", "开车久坐", "伏案工作", "对着电脑"],
+    "久站": ["长期久站", "一站就是", "站立工作", "销售站立", "服务行业站立", "站立时间"],
+    "熬夜": ["经常熬夜", "长期熬夜", "睡眠不足", "作息不规律", "晚睡", "失眠", "睡眠质量差"],
+    "长期伏案": ["长期伏案", "低头看手机", "低头族", "长期低头", "颈部前倾", "驼背"],
+    "高强度用眼": ["长期用眼", "盯着屏幕", "电脑办公", "设计师", "程序员", "会计", "长期看手机"],
+    "重体力": ["搬重物", "体力劳动", "弯腰干活", "腰肌劳损", "经常下蹲", "爬楼梯"],
+    "不规律饮食": ["暴饮暴食", "三餐不定", "经常应酬", "外卖党", "不吃早餐", "夜宵"],
+    "缺乏运动": ["久坐不动", "不运动", "宅", "躺着", "懒得动", "缺乏锻炼"],
+}
+
+# 固定场景（办公室/后厨/工位等）
+FIXED_SCENES = {
+    "办公室": ["白领", "上班族", "办公室", "职场", "写字楼", "文员", "行政", "财务"],
+    "家庭": ["家庭", "居家", "住所", "自住", "业主", "居民"],
+    "工厂车间": ["工厂", "车间", "工人", "蓝领", "制造业", "生产"],
+    "后厨餐饮": ["厨师", "后厨", "餐饮", "厨房", "服务员", "餐饮从业者"],
+    "工地": ["工地", "建筑", "装修", "施工", "农民工", "工程"],
+    "商铺店面": ["店员", "导购", "营业员", "收银", "销售", "门店"],
+    "驾驶": ["司机", "驾驶员", "长途", "货运", "客运", "出租车"],
+    "学校": ["学生", "老师", "教师", "教室", "宿舍", "校园"],
+    "医院": ["医生", "护士", "医护", "医院", "药店", "医疗"],
+}
+
+# 慢性常态化症状（腰酸/颈椎僵/眼疲劳等）
+CHRONIC_SYMPTOMS = {
+    "骨骼肌肉类": {
+        "腰酸背痛": ["腰酸", "腰痛", "腰疼", "背部酸痛", "腰肌劳损", "腰间盘", "久坐腰疼"],
+        "颈椎僵硬": ["颈椎", "脖子酸", "脖子僵硬", "肩颈不适", "颈部", "脖子疼", "颈椎病"],
+        "肩周不适": ["肩膀酸", "肩膀疼", "肩周", "手臂发麻", "五十肩", "肩部不适"],
+        "腿脚肿胀": ["腿肿", "脚肿", "下肢浮肿", "静脉曲张", "小腿胀", "久站腿肿"],
+        "关节疼痛": ["关节", "膝盖疼", "膝关节", "踝关节", "手腕疼", "腱鞘炎"],
+    },
+    "眼部疲劳类": {
+        "眼疲劳": ["眼疲劳", "眼睛干涩", "眼睛酸", "眼干", "视力模糊", "用眼过度"],
+        "头痛头晕": ["头痛", "头晕", "偏头痛", "头部不适", "太阳穴疼", "眼睛疼连带头疼"],
+    },
+    "消化系统类": {
+        "肠胃不适": ["肠胃", "胃不舒服", "消化不良", "腹胀", "便秘", "痔疮"],
+        "肥胖问题": ["肥胖", "体重增加", "赘肉", "啤酒肚", "久坐腹", "代谢慢"],
+    },
+    "精神状态类": {
+        "精力不足": ["疲惫", "犯困", "没精神", "精力不足", "容易疲劳", "体力不支"],
+        "睡眠问题": ["失眠", "睡眠差", "睡不着", "多梦", "睡眠质量", "熬夜后"],
+        "焦虑压力": ["焦虑", "压力大", "情绪", "精神紧张", "职场焦虑", "心理"],
+    },
+    "皮肤问题类": {
+        "皮肤干燥": ["皮肤干", "皮肤问题", "皮肤瘙痒", "湿疹", "过敏", "皮肤差"],
+        "体态问题": ["体态", "含胸", "驼背", "圆肩", "骨盆前倾", "姿势不良"],
+    },
+}
+
+
+# =============================================================================
+# 【心理情绪动因枚举 - 新增第四维识别层：前置于「行为+场景+慢性体征」解析层】
+# =============================================================================
+# 情绪动因大类（焦虑/自卑/压抑/内耗/怕丢脸等）
+EMOTION_DRIVER_CATEGORIES = {
+    "焦虑型": {
+        "育儿焦虑": ["育儿", "孩子", "宝宝", "小孩", "学生", "成绩", "升学", "早教", "喂养", "发育", "身高", "体重", "补习", "培训班"],
+        "职场焦虑": ["职场", "工作", "开会", "加班", "KPI", "晋升", "面试", "同事", "领导", "上班", "下班", "996", "工资", "辞职", "转行"],
+        "容貌焦虑": ["颜值", "脸", "皮肤", "痘痘", "黑头", "毛孔", "身材", "胖", "瘦", "腿粗", "腰粗", "手臂粗", "法令纹", "眼角纹", "白发", "掉发", "秃"],
+        "健康焦虑": ["体检", "指标", "结节", "息肉", "囊肿", "三高", "脂肪肝", "血糖", "血压", "血脂", "胃镜", "体检报告", "复查", "癌", "肿瘤"],
+        "财务焦虑": ["还贷", "房贷", "车贷", "信用卡", "花呗", "负债", "月光", "存款", "工资不够", "入不敷出", "钱", "预算", "开销"],
+        "关系焦虑": ["婆媳", "夫妻", "亲子", "感情", "婚姻", "吵架", "冷战", "离婚", "出轨", "小三", "原生家庭", "原生家庭"],
+        "社交焦虑": ["社恐", "内向", "不敢", "不会说话", "人际关系", "尴尬", "被嘲笑", "丢人", "面子", "怕丢脸", "不合群"],
+        "选择焦虑": ["不知道选哪个", "不知道怎么选", "哪个好", "哪个更好", "选错了怎么办", "怕选错", "选择困难", "纠结", "挑花眼", "对比", "比较"],
+        "学业焦虑": ["考试", "升学", "成绩", "考研", "考公", "考证", "学习", "挂科", "毕设", "论文", "答辩", "毕业"],
+    },
+    "自卑型": {
+        "能力自卑": ["不会", "不懂", "做不好", "笨", "学不会", "脑子慢", "记不住", "反应慢", "脑子转不动"],
+        "外貌自卑": ["丑", "土", "难看", "气质差", "没气质", "不会打扮", "不会穿搭", "衣品差", "品味差"],
+        "经济自卑": ["穷", "没钱", "买不起", "太贵", "消费不起", "不配", "没面子", "不如别人", "攀比"],
+        "社交自卑": ["说错话", "不会聊天", "情商低", "不会说话", "得罪人", "被孤立", "没朋友"],
+    },
+    "压抑型": {
+        "情绪压抑": ["憋着", "不敢说", "忍着", "不想说", "压抑", "闷在心里", "情绪低落", "提不起精神"],
+        "需求压抑": ["凑合", "将就", "算了", "不买了", "太贵了", "不需要", "没时间", "以后再说"],
+        "关系压抑": ["不想回家", "不想面对", "应付", "强颜欢笑", "心累", "心寒", "失望"],
+    },
+    "内耗型": {
+        "决策内耗": ["反复纠结", "想来想去", "纠结", "犹豫不决", "拿不定主意", "纠结半天", "想太多"],
+        "关系内耗": ["反复想", "反复猜", "猜他怎么想", "内耗", "猜忌", "不信任", "想太多", "玻璃心"],
+        "完美内耗": ["必须完美", "不能出错", "不能失败", "怕出错", "高标准", "强迫", "苛刻", "自责"],
+        "后悔内耗": ["后悔", "早知道", "如果当初", "要是", "自责", "懊恼", "遗憾"],
+    },
+    "怕丢脸型": {
+        "公开场合": ["当众", "人多的地方", "丢人", "怕丢人", "丢脸", "尴尬", "出丑", "被笑话", "被嘲笑", "社死"],
+        "社交评价": ["别人怎么看", "别人会笑", "面子", "掉价", "不体面", "上不了台面", "丢人现眼"],
+        "职场形象": ["被同事笑话", "被领导说", "被开除", "丢脸", "职场形象", "口碑", "名声"],
+    },
+    "怕选错型": {
+        "怕买错": ["买错了怎么办", "怕买错", "不敢买", "选错了浪费", "怕浪费", "白花钱", "买了后悔"],
+        "怕入错行": ["转行", "选错行业", "入错行", "选错专业", "后悔选专业", "学错了"],
+        "怕用错方法": ["用错了怎么办", "怕方法不对", "怕弄巧成拙", "怕适得其反", "不敢尝试", "怕弄坏"],
+    },
+}
+
+# 情绪动因 → 痛点/症状映射（情绪会导致什么样的身体/心理/行为症状）
+EMOTION_TO_SYMPTOM_MAP = {
+    "焦虑型": {
+        "育儿焦虑": ["失眠多梦", "情绪暴躁", "食欲紊乱", "精力不足", "自我怀疑", "记忆力下降"],
+        "职场焦虑": ["睡眠障碍", "肩颈紧绷", "消化不良", "情绪波动", "效率下降", "职业倦怠"],
+        "容貌焦虑": ["回避照镜", "过度护肤", "饮食紊乱", "社交回避", "自我否定", "情绪低落"],
+        "健康焦虑": ["反复检查", "疑病倾向", "失眠", "草木皆兵", "焦虑不安", "逃避体检"],
+        "财务焦虑": ["回避消费", "报复性省钱", "失眠", "压抑消费", "生活质量下降", "争吵增多"],
+        "关系焦虑": ["过度控制", "猜疑", "争吵增多", "回避沟通", "情绪失控", "孤立自己"],
+        "社交焦虑": ["回避社交", "脸红手抖", "发言紧张", "事后后悔", "自我否定", "孤独感"],
+        "选择焦虑": ["拖延决策", "反复比较", "错过最佳时机", "后悔", "抱怨", "效率低下"],
+        "学业焦虑": ["失眠", "记忆力减退", "注意力不集中", "逃避考试", "自我否定", "厌学"],
+    },
+    "自卑型": {
+        "能力自卑": ["回避挑战", "过度准备", "拖延行动", "自我设限", "不敢尝试", "消极被动"],
+        "外貌自卑": ["过度关注外表", "回避镜子/照片", "穿衣保守", "社交退缩", "自我否定", "不敢展示"],
+        "经济自卑": ["回避社交", "攀比", "物质补偿", "自我贬低", "仇富心理", "社交退缩"],
+        "社交自卑": ["回避聚会", "不敢发言", "过度在意他人评价", "事后后悔", "自我否定", "敏感多疑"],
+    },
+    "压抑型": {
+        "情绪压抑": ["情绪低落", "躯体化症状", "胃痛", "头痛", "失眠", "自我封闭"],
+        "需求压抑": ["委屈自己", "讨好型人格", "不快乐", "抱怨", "怨恨", "隐性消费"],
+        "关系压抑": ["心累", "冷漠", "沟通减少", "关系疏离", "爆发争吵", "逃避"],
+    },
+    "内耗型": {
+        "决策内耗": ["错过时机", "效率低下", "疲惫不堪", "怨天尤人", "行动瘫痪", "反复拖延"],
+        "关系内耗": ["猜疑", "争吵", "情绪消耗", "信任缺失", "关系恶化", "孤独感加重"],
+        "完美内耗": ["效率低下", "过度准备", "自我施压", "身心疲惫", "害怕行动", "错过机会"],
+        "后悔内耗": ["沉溺过去", "无法释怀", "影响当下决策", "消极", "自我否定", "恶性循环"],
+    },
+    "怕丢脸型": {
+        "公开场合": ["回避当众表现", "发言紧张", "表现失态", "事后羞耻", "自我否定", "社交退缩"],
+        "社交评价": ["过度在意评价", "表演型行为", "事后反复回想", "敏感", "玻璃心", "人际紧张"],
+        "职场形象": ["过度谨慎", "不敢表达", "讨好同事", "隐忍委屈", "积累不满", "爆发"],
+    },
+    "怕选错型": {
+        "怕买错": ["迟迟不下手", "反复退货", "错过优惠", "后悔", "抱怨", "不敢购买"],
+        "怕入错行": ["职业迷茫", "频繁跳槽", "不敢尝试", "后悔", "自我否定", "停滞不前"],
+        "怕用错方法": ["不敢行动", "反复查资料", "方法论囤积", "实践不足", "自我怀疑", "效率低下"],
+    },
+}
+
+# 情绪长期累积 → 最终痛点映射
+EMOTION_TO_ULTIMATE_PAIN_MAP = {
+    "育儿焦虑": ["孩子教育方向迷茫", "亲子关系紧张", "家庭矛盾频发", "自身情绪失控", "生活质量下降"],
+    "职场焦虑": ["职业倦怠", "晋升受阻", "人际关系恶化", "身体健康预警", "工作生活失衡"],
+    "容貌焦虑": ["社交回避", "自信丧失", "消费陷阱", "情绪不稳定", "生活满意度下降"],
+    "健康焦虑": ["正常生活受影响", "过度医疗", "经济负担", "家庭关系紧张", "心理疾病风险"],
+    "财务焦虑": ["生活质量下降", "消费决策扭曲", "家庭矛盾", "不敢享受生活", "经济压力恶性循环"],
+    "关系焦虑": ["关系恶化", "孤独感", "心理健康受损", "工作生活受影响", "恶性循环"],
+    "社交焦虑": ["人脉受限", "机会流失", "自我封闭", "心理健康受损", "生活质量下降"],
+    "选择焦虑": ["决策瘫痪", "持续错过", "机会成本增加", "自我怀疑加剧", "生活质量下降"],
+    "学业焦虑": ["成绩下滑", "厌学情绪", "升学受影响", "家庭矛盾", "心理问题"],
+    "能力自卑": ["职业发展受阻", "收入增长停滞", "自我价值感低", "人际关系退缩", "恶性循环"],
+    "外貌自卑": ["社交退缩", "错失机会", "消费陷阱", "心理健康受损", "生活质量下降"],
+    "经济自卑": ["社交退缩", "消费扭曲", "人际关系障碍", "自我设限", "代际贫困风险"],
+    "社交自卑": ["人脉受限", "职业发展受阻", "自我封闭", "心理问题", "恶性循环"],
+    "情绪压抑": ["心理疾病", "躯体化症状", "关系破裂", "生活满意度极低", "爆发风险"],
+    "需求压抑": ["委屈积累", "自我价值感低", "讨好型人格固化", "关系失衡", "心理健康受损"],
+    "关系压抑": ["关系破裂", "心理问题", "自我迷失", "生活满意度下降", "孤独终老风险"],
+    "决策内耗": ["一事无成", "机会成本巨大", "自我否定", "生活质量下降", "心理健康受损"],
+    "关系内耗": ["关系破裂", "身心俱疲", "社交退缩", "心理问题", "生活质量下降"],
+    "完美内耗": ["效率极低", "身心俱疲", "成就低", "自我施压循环", "心理健康受损"],
+    "后悔内耗": ["无法活在当下", "决策能力下降", "自我否定加剧", "生活质量下降", "恶性循环"],
+    "怕丢脸": ["错失机会", "人际关系假象", "身心疲惫", "自我迷失", "生活质量下降"],
+    "怕选错": ["持续错过", "机会成本增加", "自我怀疑加剧", "决策能力退化", "生活质量下降"],
+}
+
+# 情绪类原生问题类型（新增第六类：情绪疑问+心态误区）
+SEEDING_PROBLEM_TYPES_EMOTION = [
+    "情绪疑问", "心态误区", "心理顾虑", "情绪疏导", "心态调节", "心理调适",
+    "减压疑问", "内耗疑问", "焦虑疑问", "自卑疑问", "怕丢脸疑问",
+]
+
+
+# =============================================================================
+# 【心理情绪三盘归类规则 - 情绪问题专属归类逻辑】
+# =============================================================================
+# 规则1：普通情绪顾虑、焦虑疑惑 → 前置观望种草盘（50%）
+#         尚未严重影响生活，处于观望/学习阶段
+# 规则2：情绪严重影响生活/健康 → 刚需痛点盘（30%）
+#         已出现明显症状，急需解决
+# 规则3：情绪疏导、心态调节干货 → 使用配套搜后种草盘（20%）
+#         已接受现实，需要方法和工具辅助
+EMOTION_PROBLEM_BASE_RULES = {
+    "前置观望种草盘": [
+        # 普通情绪顾虑、焦虑疑惑
+        "不知道会不会xxx焦虑", "怎么缓解xxx焦虑", "xxx焦虑正常吗",
+        "xxx焦虑是不是我想多了", "怎么判断xxx焦虑严不严重",
+        "xxx焦虑怎么自我调节", "职场焦虑怎么办", "育儿焦虑怎么缓解",
+        "容貌焦虑正常吗", "选择焦虑怎么办", "社交焦虑怎么克服",
+        "怎么克服自卑心理", "怎么减少内耗", "怎么停止胡思乱想",
+        "怕丢脸怎么办", "怕选错怎么办", "怎么克服完美主义",
+        "xxx会让我焦虑吗", "要不要xxx焦虑", "是否需要xxx焦虑",
+    ],
+    "刚需痛点盘": [
+        # 情绪已严重影响生活/健康
+        "焦虑导致失眠", "焦虑严重影响工作", "焦虑导致身体症状",
+        "自卑导致社交障碍", "内耗严重影响效率", "压抑导致心理问题",
+        "焦虑已经影响生活", "焦虑严重影响睡眠", "焦虑导致家庭矛盾",
+        "心理问题已经影响健康", "情绪问题已经很严重", "焦虑躯体化症状",
+        "社恐已经严重影响工作", "选择恐惧已经严重影响生活", "完美主义已经严重影响效率",
+        "长期焦虑导致健康问题", "焦虑已经影响身体健康", "心理问题已经需要治疗",
+    ],
+    "使用配套搜后种草盘": [
+        # 情绪疏导、心态调节干货
+        "焦虑怎么自我疏导", "减压方法", "放松技巧", "冥想有用吗",
+        "心理咨询有用吗", "心态调节方法", "情绪管理技巧",
+        "如何停止内耗", "怎么缓解心理压力", "自我调节方法推荐",
+        "焦虑症自我治疗", "减压工具推荐", "放松训练方法",
+        "心理疏导方法", "情绪释放技巧", "心态调整干货",
+        "如何与自己和解", "怎么接受不完美的自己", "自我成长方法",
+    ],
+}
+
+
+def is_emotion_seeding_problem(emotion_type: str, description: str) -> bool:
+    """
+    判断情绪类问题是否属于「前置观望种草盘」
+
+    普通情绪顾虑、焦虑疑惑 → 前置观望种草盘
+    """
+    text = f"{emotion_type} {description}".lower()
+    seeding_keywords = [
+        "怎么缓解", "怎么办", "正常吗", "是不是", "会不会",
+        "怎么克服", "怎么减少", "要不要", "是否需要",
+        "焦虑", "自卑", "内耗", "怕丢脸", "怕选错", "社恐",
+        "担心", "纠结", "犹豫", "压抑",
+    ]
+    for kw in seeding_keywords:
+        if kw in text:
+            pain_keywords = [
+                "已经严重影响", "已经严重影响生活", "已经严重影响工作",
+                "焦虑导致失眠", "焦虑导致身体", "心理问题",
+                "已经需要治疗", "已经严重到", "严重影响健康",
+            ]
+            for pain in pain_keywords:
+                if pain in text:
+                    return False
+            return True
+    return False
+
+
+def is_emotion_urgent_problem(emotion_type: str, description: str) -> bool:
+    """
+    判断情绪类问题是否属于「刚需痛点盘」
+
+    情绪严重影响生活/健康 → 刚需痛点盘
+    """
+    text = f"{emotion_type} {description}".lower()
+    urgent_keywords = [
+        "已经严重影响", "严重影响", "焦虑导致", "已经严重",
+        "心理问题", "需要治疗", "已经无法", "已经失控",
+        "严重影响工作", "严重影响生活", "严重影响健康",
+        "躯体化症状", "严重影响睡眠", "严重影响家庭",
+    ]
+    for kw in urgent_keywords:
+        if kw in text:
+            return True
+    return False
+
+
+def is_emotion_companion_problem(emotion_type: str, description: str) -> bool:
+    """
+    判断情绪类问题是否属于「使用配套搜后种草盘」
+
+    情绪疏导、心态调节干货 → 使用配套搜后种草盘
+    """
+    text = f"{emotion_type} {description}".lower()
+    companion_keywords = [
+        "怎么疏导", "自我疏导", "减压方法", "放松技巧", "冥想",
+        "心理咨询", "心态调节", "情绪管理", "自我调节", "减压工具",
+        "放松训练", "心理疏导", "情绪释放", "与自己和解", "自我成长",
+        "怎么接受", "自我治疗", "怎么释怀", "怎么放下",
+    ]
+    for kw in companion_keywords:
+        if kw in text:
+            return True
+    return False
+
+
+def infer_emotion_problem_base(
+    emotion_type: str,
+    description: str,
+    severity: str,
+) -> str:
+    """
+    针对心理情绪类问题，智能推断需求底盘
+
+    归类规则：
+    - 普通情绪顾虑、焦虑疑惑 → 【前置观望种草盘】
+    - 情绪严重影响生活/健康 → 【刚需痛点盘】
+    - 情绪疏导、心态调节干货 → 【使用配套搜后种草盘】
+
+    Args:
+        emotion_type: 情绪类型（如：育儿焦虑、职场焦虑）
+        description: 问题描述
+        severity: 严重程度（高/中/低）
+
+    Returns:
+        需求底盘名称
+    """
+    if is_emotion_urgent_problem(emotion_type, description):
+        return PROBLEM_BASE_GANGXU_TONGDIAN
+    if is_emotion_companion_problem(emotion_type, description):
+        return PROBLEM_BASE_SHIYONG_PEITAO
+    if is_emotion_seeding_problem(emotion_type, description):
+        return PROBLEM_BASE_SOUQIAN_ZHONGCAO
+    # 默认前置观望
+    return PROBLEM_BASE_SOUQIAN_ZHONGCAO
+
+
+# =============================================================================
+# 【五类种草原生问题 - 包含原有的四类 + 第五类「长期习惯疑问+场景预防误区」】
+# =============================================================================
+# 原有四类种草原生问题
+SEEDING_PROBLEM_TYPES_ORIGINAL = [
+    "症状疑问", "对比选型", "上游供应链", "认知误区",
+]
+# 新增第五类：长期习惯疑问 + 场景预防误区（适配常态化隐性痛点）
+SEEDING_PROBLEM_TYPES_HABITUAL = [
+    "长期习惯疑问", "场景预防误区", "姿势疑问", "养护时机", "预防措施", "早期信号",
+]
+
+
+def is_chronic_habitual_problem(problem_type: str, description: str, behavior_tags: List[str] = None) -> bool:
+    """
+    判断是否为第五类种草原生问题：「长期习惯疑问 + 场景预防误区」
+
+    判断依据：
+    1. 问题类型或描述中包含长期习惯相关关键词
+    2. 包含固定场景相关的预防性疑问
+    3. 用户关注"长期如此会有什么后果"、"如何预防"、"早期信号"等
+
+    Args:
+        problem_type: 问题类型
+        description: 问题描述
+        behavior_tags: 行为标签列表（来自解析层）
+
+    Returns:
+        True = 属于第五类种草原生问题，必须归入「前置观望种草盘」
+    """
+    text_type = (problem_type or '').lower()
+    text_desc = (description or '').lower()
+    text = f"{text_type} {text_desc}"
+
+    # 第五类关键词：长期习惯 + 场景预防
+    habitual_keywords = [
+        "长期", "久坐", "久站", "长期伏案", "习惯", "姿势",
+        "预防", "怎么预防", "如何避免", "怎么矫正",
+        "早期信号", "前期症状", "前兆",
+        "护", "养护", "保护", "防护", "保健",
+        "有什么影响", "后果", "危害", "长期会怎样",
+        "正确姿势", "怎么坐", "怎么站", "如何改善",
+        "要不要", "需不需要", "该不该",
+    ]
+
+    for kw in habitual_keywords:
+        if kw in text_type or kw in text_desc:
+            return True
+
+    # 行为标签匹配：行为标签出现时，追加行为场景相关的种草问题
+    if behavior_tags:
+        for tag in behavior_tags:
+            if tag in text_type or tag in text_desc:
+                # 行为标签匹配时，优先识别预防性/习惯性疑问
+                if any(kw in text for kw in ["怎么", "如何", "要不要", "该不该", "预防", "改善", "矫正"]):
+                    return True
+
+    return False
+
+
+def auto_tag_chronic_symptom(identity: str, problem_type: str, description: str) -> Dict[str, Any]:
+    """
+    根据常驻行为、固定场景、慢性体征标签自动打标
+
+    Args:
+        identity: 用户身份
+        problem_type: 问题类型
+        description: 问题描述
+
+    Returns:
+        包含 behavior_tags, scene_tags, symptom_tags 的字典
+    """
+    result = {
+        'behavior_tags': [],      # 常驻行为标签
+        'scene_tags': [],         # 固定场景标签
+        'symptom_tags': [],       # 慢性体征标签
+        'is_chronic_symptom': False,  # 是否为慢性体征问题
+    }
+
+    text = f"{identity} {problem_type} {description}".lower()
+
+    # 匹配常驻行为
+    for behavior, keywords in RESIDENT_BEHAVIORS.items():
+        for kw in keywords:
+            if kw in text:
+                if behavior not in result['behavior_tags']:
+                    result['behavior_tags'].append(behavior)
+                break
+
+    # 匹配固定场景
+    for scene, keywords in FIXED_SCENES.items():
+        for kw in keywords:
+            if kw in text:
+                if scene not in result['scene_tags']:
+                    result['scene_tags'].append(scene)
+                break
+
+    # 匹配慢性体征
+    for category, symptoms in CHRONIC_SYMPTOMS.items():
+        for symptom_name, keywords in symptoms.items():
+            for kw in keywords:
+                if kw in text:
+                    if symptom_name not in result['symptom_tags']:
+                        result['symptom_tags'].append(symptom_name)
+                    result['is_chronic_symptom'] = True
+                    break
+
+    return result
+
+
+def infer_problem_base_for_chronic(
+    problem_type: str,
+    description: str,
+    severity: str,
+    is_habitual_question: bool,
+) -> str:
+    """
+    针对慢性体征类问题，智能推断需求底盘
+
+    归类规则：
+    - 长期日常不适、预防顾虑、习惯误区 → 【前置观望种草盘】
+    - 急性发作、严重影响工作生活 → 【刚需痛点盘】
+    - 日常坐姿养护/拉伸/护腰工具 → 【使用配套搜后种草盘】
+
+    Args:
+        problem_type: 问题类型
+        description: 问题描述
+        severity: 严重程度
+        is_habitual_question: 是否为第五类种草原生问题
+
+    Returns:
+        需求底盘枚举值
+    """
+    text = f"{problem_type} {description}".lower()
+
+    # 第五类种草原生问题 → 强制前置观望种草盘
+    if is_habitual_question:
+        return PROBLEM_BASE_SOUQIAN_ZHONGCAO
+
+    # 急性发作关键词 → 刚需痛点盘
+    acute_keywords = ["急性", "突然", "发作", "突发", "加剧", "恶化", "严重", "疼得", "难受得", "影响工作", "影响生活", "无法"]
+    for kw in acute_keywords:
+        if kw in text:
+            return PROBLEM_BASE_GANGXU_TONGDIAN
+
+    # 高严重程度 → 刚需痛点盘
+    if severity in ["极高", "高", "⭐⭐⭐⭐⭐", "⭐⭐⭐⭐"]:
+        # 但如果有预防/养护关键词，偏向种草盘
+        prevention_keywords = ["预防", "怎么预防", "如何避免", "平时", "日常", "习惯"]
+        for kw in prevention_keywords:
+            if kw in text:
+                return PROBLEM_BASE_SOUQIAN_ZHONGCAO
+        return PROBLEM_BASE_GANGXU_TONGDIAN
+
+    # 养护/工具类关键词 → 使用配套搜后种草盘
+    maintenance_keywords = ["护", "保养", "养护", "拉伸", "按摩", "工具", "器材", "靠垫", "护腰", "眼药水", "按摩仪", "筋膜枪", "瑜伽垫"]
+    for kw in maintenance_keywords:
+        if kw in text:
+            return PROBLEM_BASE_SHIYONG_PEITAO
+
+    # 预防类关键词 → 前置观望种草盘
+    prevention_keywords = ["预防", "怎么预防", "如何避免", "平时", "日常", "习惯", "误区", "纠正", "矫正", "注意", "防护"]
+    for kw in prevention_keywords:
+        if kw in text:
+            return PROBLEM_BASE_SOUQIAN_ZHONGCAO
+
+    # 默认前置观望种草盘（慢性体征多为隐性痛点）
+    return PROBLEM_BASE_SOUQIAN_ZHONGCAO
+
+
+def auto_tag_consume_type(problem_type: str, description: str, severity: str) -> str:
+    """
+    根据关键词自动打标 consume_type（必需 / 增量）
+
+    规则原文直译：
+    - 损坏 / 替换 / 效果差 / 性价比诉求 = 必需 + 功能驱动
+    - 仪式感 / 场景穿搭 / 爱好生活 = 增量 + 场景情绪驱动
+
+    Args:
+        problem_type: 问题类型
+        description: 问题描述
+        severity: 严重程度
+
+    Returns:
+        consume_type: 必需 或 增量
+    """
+    text = f"{problem_type} {description}".lower()
+
+    # 必需：严重程度高 + 包含硬需求关键词
+    required_score = 0
+    if severity in ["极高", "高", "⭐⭐⭐⭐⭐", "⭐⭐⭐⭐"]:
+        required_score += 2
+    for kw in CONSUMPTION_TYPE_KEYWORDS["必需"]:
+        if kw in text:
+            required_score += 1
+
+    # 增量：包含软需求关键词
+    incremental_score = 0
+    for kw in CONSUMPTION_TYPE_KEYWORDS["增量"]:
+        if kw in text:
+            incremental_score += 1
+
+    # 判断逻辑：必需得分 >= 2 或 增量得分 = 0 时，判定为必需
+    if required_score >= 2 or incremental_score == 0:
+        return CONSUMER_TYPE_REQUIRED
+    return CONSUMER_TYPE_INCREMENTAL
+
+
+def auto_tag_demand_attr(problem_type: str, description: str) -> str:
+    """
+    根据关键词自动打标 demand_attr（功能驱动 / 场景情绪驱动）
+
+    规则原文直译：
+    - 损坏 / 替换 / 效果差 / 性价比诉求 = 功能驱动
+    - 仪式感 / 场景穿搭 / 爱好生活 = 场景情绪驱动
+
+    Args:
+        problem_type: 问题类型
+        description: 问题描述
+
+    Returns:
+        demand_attr: 功能驱动 或 场景情绪驱动
+    """
+    text = f"{problem_type} {description}".lower()
+
+    function_score = 0
+    for kw in DEMAND_ATTR_KEYWORDS["功能驱动"]:
+        if kw in text:
+            function_score += 1
+
+    emotion_score = 0
+    for kw in DEMAND_ATTR_KEYWORDS["场景情绪驱动"]:
+        if kw in text:
+            emotion_score += 1
+
+    # 判断逻辑：功能驱动得分 >= 1 且情绪驱动得分 < 功能驱动得分时，判定为功能驱动
+    if function_score >= 1 and emotion_score < function_score:
+        return DEMAND_ATTR_FUNCTION
+    return DEMAND_ATTR_SCENE_EMOTION
+
+
+# =============================================================================
+# 【五类种草原生问题 - 强制归入「前置观望种草盘」】
+# 包含原有四类 + 新增第五类「长期习惯疑问+场景预防误区」
+# =============================================================================
+# 原文直译，不允许分流到另外两盘
+SEEDING_PROBLEM_TYPES = [
+    "症状疑问",        # 用户对某种症状/现象的疑问（如：这是什么问题？怎么判断？）
+    "对比选型",        # 用户在多个选项之间犹豫（如：哪个好？怎么选？）
+    "上游供应链",      # 用户关注产品背后的供应链/原料/来源（如：原料哪来的？怎么生产？）
+    "认知误区",        # 用户对某个概念的误解/纠正（如：原来不是这样的！我一直搞错了）
+]
+# 新增第六类：情绪疑问+心态误区（适配心理情绪动因解析层）
+SEEDING_PROBLEM_TYPES_EXTENDED = [
+    "长期习惯疑问",    # 用户对长期习惯的疑问（如：久坐会有什么后果？怎么改善？）
+    "场景预防误区",    # 用户对场景预防的认知误区（如：按摩能治颈椎吗？）
+    "姿势疑问",        # 用户对正确姿势的疑问（如：怎么坐才正确？）
+    "养护时机",        # 用户对养护时机的疑问（如：什么时候开始护腰？）
+    "预防措施",        # 用户对预防措施的疑问（如：怎么预防腰肌劳损？）
+    "早期信号",        # 用户对早期信号的疑问（如：颈椎病早期有什么症状？）
+    # 情绪疑问+心态误区（第四维前置解析层新增）
+    "情绪疑问",        # 用户对情绪/心态的疑问（如：焦虑正常吗？怎么缓解？）
+    "心态误区",        # 用户对心态调节的认知误区（如：忍忍就好了？）
+    "心理顾虑",        # 用户对心理问题的顾虑（如：会不会心理出问题？）
+    "减压疑问",        # 减压相关疑问（如：怎么减压？）
+    "内耗疑问",        # 内耗相关疑问（如：怎么停止内耗？）
+    "焦虑疑问",        # 焦虑相关疑问（如：职场焦虑正常吗？）
+    "自卑疑问",        # 自卑相关疑问（如：怎么克服自卑？）
+    "怕丢脸疑问",      # 怕丢脸相关疑问（如：怎么克服怕丢脸心理？）
+    "怕选错疑问",      # 怕选错相关疑问（如：怎么克服选择恐惧？）
+]
+
+SEEDING_KEYWORD_HINTS = [
+    # 原有四类关键词
+    "怎么判断", "是什么", "有什么区别", "哪个好", "怎么选",
+    "哪来的", "怎么生产", "原料", "供应链", "怎么做的",
+    "误区", "原来", "其实", "不是", "错了", "误解",
+    "科普", "知识", "了解", "知道", "不懂", "不清楚",
+    # 第五类关键词：长期习惯 + 场景预防
+    "长期", "久坐", "久站", "长期伏案", "习惯",
+    "预防", "怎么预防", "如何避免", "怎么矫正",
+    "姿势", "正确姿势", "怎么坐", "怎么站",
+    "护", "养护", "保健", "保护",
+    "早期信号", "前兆", "前期症状",
+    "有什么影响", "后果", "危害", "长期会怎样",
+    # 第六类关键词：情绪疑问+心态误区（心理情绪动因解析层新增）
+    "焦虑", "自卑", "内耗", "压抑", "怕丢脸", "怕选错",
+    "社恐", "社交焦虑", "职场焦虑", "育儿焦虑", "容貌焦虑", "健康焦虑",
+    "财务焦虑", "选择焦虑", "学业焦虑", "选择困难",
+    "纠结", "犹豫", "不自信", "没面子", "丢人", "尴尬",
+    "怎么缓解", "怎么办", "正常吗", "是不是",
+    "怎么克服", "怎么减少", "要不要", "是否需要",
+    "怎么调节", "怎么疏导", "怎么释放", "怎么调整",
+    "减压", "放松", "冥想", "心态", "情绪管理",
+    "自我怀疑", "不配", "玻璃心", "强迫", "完美主义",
+]
+
+SEEDING_KEYWORD_HINTS = [
+    # 原有四类关键词
+    "怎么判断", "是什么", "有什么区别", "哪个好", "怎么选",
+    "哪来的", "怎么生产", "原料", "供应链", "怎么做的",
+    "误区", "原来", "其实", "不是", "错了", "误解",
+    "科普", "知识", "了解", "知道", "不懂", "不清楚",
+    # 第五类关键词：长期习惯 + 场景预防
+    "长期", "久坐", "久站", "长期伏案", "习惯",
+    "预防", "怎么预防", "如何避免", "怎么矫正",
+    "姿势", "正确姿势", "怎么坐", "怎么站",
+    "护", "养护", "保健", "保护",
+    "早期信号", "前兆", "前期症状",
+    "有什么影响", "后果", "危害", "长期会怎样",
+]
+
+
+def is_seeding_problem(problem_type: str, description: str) -> bool:
+    """
+    判断是否为六类种草原生问题，强制归入「前置观望种草盘」
+
+    判断依据：
+    1. problem_type 或 description 包含原有四类种草原生问题关键词
+    2. 新增第五类：长期习惯疑问 + 场景预防误区关键词
+    3. 新增第六类：情绪疑问 + 心态误区关键词（心理情绪动因前置解析层）
+
+    Args:
+        problem_type: 问题类型
+        description: 问题描述
+
+    Returns:
+        True = 属于种草原生问题，必须归入「前置观望种草盘」
+    """
+    text_type = problem_type.lower()
+    text_desc = description.lower()
+    text = f"{text_type} {text_desc}"
+
+    # 直接匹配原有四类问题类型名称
+    for seed_type in SEEDING_PROBLEM_TYPES:
+        if seed_type in text_type or seed_type in text_desc:
+            return True
+
+    # 直接匹配第五类问题类型名称
+    for seed_type in SEEDING_PROBLEM_TYPES_EXTENDED:
+        if seed_type in text_type or seed_type in text_desc:
+            return True
+
+    # 匹配种草关键词（原有四类 + 第五类）
+    for hint in SEEDING_KEYWORD_HINTS:
+        if hint in text:
+            # 需要额外判断：如果是已经发生的痛点问题，不算种草
+            pain_keywords = [
+                "坏了", "拉肚子", "过敏", "故障", "烂了", "碎了", "出问题了",
+                "疼得", "难受得", "无法", "严重影响", "已经", "突发", "发作",
+                # 情绪类排除：严重影响生活/健康不属于种草
+                "已经严重影响生活", "已经严重影响工作", "已经严重影响健康",
+                "焦虑导致", "心理问题已经", "已经需要治疗",
+                "已经严重到", "已经失控", "已经无法", "已经严重",
+            ]
+            for pain in pain_keywords:
+                if pain in text:
+                    return False
+            return True
+
+    return False
+
+
+# =============================================================================
+# 【用户阶段标签枚举 - 画像生成时新增】
+# =============================================================================
+USER_STAGE_WATCH = "观望期"    # 用户尚未购买，处于了解和比较阶段
+USER_STAGE_DECIDE = "决策期"   # 用户正在做购买决策，权衡各种选项
+USER_STAGE_USE = "使用期"      # 用户已购买，正在使用或体验服务
+
+USER_STAGE_MAP = {
+    PROBLEM_BASE_SOUQIAN_ZHONGCAO: USER_STAGE_WATCH,
+    PROBLEM_BASE_GANGXU_TONGDIAN: USER_STAGE_DECIDE,
+    PROBLEM_BASE_SHIYONG_PEITAO: USER_STAGE_USE,
+}
+
+
+def get_user_stage_from_problem_base(problem_base: str) -> str:
+    """
+    根据 problem_base（需求底盘）推导用户阶段标签
+
+    Args:
+        problem_base: 需求底盘枚举值
+
+    Returns:
+        用户阶段标签
+    """
+    return USER_STAGE_MAP.get(problem_base, USER_STAGE_WATCH)
+
+
+# =============================================================================
+# 【行业场景差异化规则 - 新增 industry_scene + trust_demand】
+# =============================================================================
+# 原文直译，严格对应 GEO「解决方案导向 + 信任背书」逻辑
+
+# 4类业务场景定义
+INDUSTRY_SCENE_HIGH_RISK = "高客单价高风险"      # 客单价高、决策风险大（如：装修、婚礼、培训）
+INDUSTRY_SCENE_B2B = "B2B企业服务"               # B端采购、多人决策（如：企业服务、设备采购）
+INDUSTRY_SCENE_LOCAL_TRUST = "本地信任型"         # 本地生活、服务半径受限（如：本地家政、维修、美容院）
+INDUSTRY_SCENE_PERSONAL_BRAND = "个人品牌专家型"   # 依赖个人IP/专业背书（如：知识付费、个人工作室）
+
+# 场景 → industry_scene 自动识别规则（原文直译）
+INDUSTRY_SCENE_KEYWORDS = {
+    INDUSTRY_SCENE_HIGH_RISK: [
+        "装修", "工装", "工程", "婚礼", "婚庆", "摄影", "摄像",
+        "培训", "课程", "教育", "留学", "移民", "留学中介",
+        "定制", "全屋定制", "家具定制", "橱柜定制", "门窗定制",
+        "医美", "整形", "牙齿矫正", "种植牙",
+        "月子中心", "产后修复",
+    ],
+    INDUSTRY_SCENE_B2B: [
+        "企业", "公司", "工厂", "机构", "单位", "酒店", "餐厅",
+        "写字楼", "办公楼", "商铺", "门店", "连锁", "加盟",
+        "食堂", "学校", "医院", "物业", "保洁外包", "团建",
+        "设备", "机械", "工业", "生产", "采购", "供应商",
+    ],
+    INDUSTRY_SCENE_LOCAL_TRUST: [
+        "家政", "保洁", "维修", "疏通", "开锁", "搬家",
+        "空调", "清洗", "清洁", "擦玻璃", "收纳",
+        "美容", "美发", "美甲", "按摩", "SPA", "养生",
+        "宠物", "宠物店", "宠物医院", "宠物美容",
+        "本地", "附近", "上门",
+    ],
+    INDUSTRY_SCENE_PERSONAL_BRAND: [
+        "知识付费", "课程", "培训", "咨询", "顾问",
+        "个人", "工作室", "独立", "私教", "私教课",
+        "律师", "医生", "会计师", "设计师", "摄影师",
+        "博主", "网红", "达人", "IP", "个人品牌",
+        "代运营", "策划", "设计服务",
+    ],
+}
+
+
+def identify_industry_scene(business_description: str, service_scenario: str) -> str:
+    """
+    自动识别 4 类业务场景
+
+    规则原文直译：
+    - 高客单价高风险：装修/婚庆/培训/定制等，决策风险大
+    - B2B企业服务：B端采购、多人决策流程
+    - 本地信任型：本地生活、服务半径受限，依赖口碑
+    - 个人品牌专家型：依赖个人IP/专业背书
+
+    Args:
+        business_description: 业务描述
+        service_scenario: 服务场景枚举值
+
+    Returns:
+        行业场景类型
+    """
+    text = f"{business_description} {service_scenario}".lower()
+
+    # 按优先级匹配（高客单价高风险 > B2B企业服务 > 本地信任型 > 个人品牌专家型）
+    scene_order = [
+        (INDUSTRY_SCENE_HIGH_RISK, INDUSTRY_SCENE_KEYWORDS[INDUSTRY_SCENE_HIGH_RISK]),
+        (INDUSTRY_SCENE_B2B, INDUSTRY_SCENE_KEYWORDS[INDUSTRY_SCENE_B2B]),
+        (INDUSTRY_SCENE_LOCAL_TRUST, INDUSTRY_SCENE_KEYWORDS[INDUSTRY_SCENE_LOCAL_TRUST]),
+        (INDUSTRY_SCENE_PERSONAL_BRAND, INDUSTRY_SCENE_KEYWORDS[INDUSTRY_SCENE_PERSONAL_BRAND]),
+    ]
+
+    for scene_type, keywords in scene_order:
+        for kw in keywords:
+            if kw in text:
+                return scene_type
+
+    # 默认返回通用场景
+    return "通用场景"
+
+
+# 场景专属痛点定义（原文直译）
+INDUSTRY_SCENE_PAIN_POINTS = {
+    INDUSTRY_SCENE_HIGH_RISK: [
+        "怕被坑、花冤枉钱",
+        "怕效果达不到预期",
+        "怕售后没人管",
+        "怕偷工减料、材料以次充好",
+        "怕工期拖延、交付延期",
+        "怕后期增项加钱",
+    ],
+    INDUSTRY_SCENE_B2B: [
+        "怕供应商资质不够",
+        "怕交付质量不稳定",
+        "怕售后服务响应慢",
+        "怕采购合规审计问题",
+        "怕合同纠纷无法追责",
+    ],
+    INDUSTRY_SCENE_LOCAL_TRUST: [
+        "怕师傅手艺差、干活不细致",
+        "怕材料被掉包",
+        "怕临时加价",
+        "怕出现问题找不到人",
+        "怕预约等待时间长",
+    ],
+    INDUSTRY_SCENE_PERSONAL_BRAND: [
+        "怕博主/专家名不副实",
+        "怕课程/服务不值这个价",
+        "怕学完没效果",
+        "怕后期服务跟不上",
+        "怕个人跑路、机构倒闭",
+    ],
+}
+
+
+# 场景专属信任诉求 trust_demand 定义（原文直译）
+TRUST_DEMAND_DIMENSIONS = {
+    "资质背书": "营业执照、行业资质、认证证书、权威机构背书",
+    "案例背书": "真实客户案例、前后对比效果图、视频见证、客户证言",
+    "专业背书": "专业团队介绍、技术说明、行业经验年限、专业媒体报道",
+    "口碑背书": "真实好评截图、客户转介绍率、复购率、平台评分",
+    "售后背书": "售后承诺条款、退款政策、服务保障险、专人跟进",
+    "实地背书": "线下门店/工厂实地考察、视频探厂、直播参观",
+    "合同背书": "正规合同范本、报价单透明、验收标准明确",
+}
+
+
+# 场景 → trust_demand 映射（原文直译，每种场景有专属组合）
+INDUSTRY_SCENE_TRUST_MAP = {
+    INDUSTRY_SCENE_HIGH_RISK: [
+        "资质背书", "案例背书", "专业背书", "售后背书", "合同背书",
+    ],
+    INDUSTRY_SCENE_B2B: [
+        "资质背书", "案例背书", "专业背书", "口碑背书", "合同背书", "实地背书",
+    ],
+    INDUSTRY_SCENE_LOCAL_TRUST: [
+        "口碑背书", "案例背书", "售后背书", "资质背书",
+    ],
+    INDUSTRY_SCENE_PERSONAL_BRAND: [
+        "专业背书", "案例背书", "口碑背书", "售后背书",
+    ],
+    "通用场景": [
+        "资质背书", "口碑背书", "售后背书",
+    ],
+}
+
+
+def get_industry_scene_trust_demand(industry_scene: str) -> List[Dict[str, str]]:
+    """
+    获取指定行业场景的信任诉求组合
+
+    Args:
+        industry_scene: 行业场景类型
+
+    Returns:
+        信任诉求列表，每个包含维度名称和描述
+    """
+    trust_keys = INDUSTRY_SCENE_TRUST_MAP.get(industry_scene, INDUSTRY_SCENE_TRUST_MAP["通用场景"])
+    return [
+        {"dimension": key, "description": TRUST_DEMAND_DIMENSIONS.get(key, "")}
+        for key in trust_keys
+    ]
+
+
+def get_industry_scene_pain_points(industry_scene: str) -> List[str]:
+    """
+    获取指定行业场景的专属痛点列表
+
+    Args:
+        industry_scene: 行业场景类型
+
+    Returns:
+        场景专属痛点列表
+    """
+    return INDUSTRY_SCENE_PAIN_POINTS.get(industry_scene, [])
+
+
+# 场景 → 搜索行为预判 补充规则
+INDUSTRY_SCENE_SEARCH_OVERRIDES = {
+    INDUSTRY_SCENE_HIGH_RISK: [
+        "会搜索公司/团队资质证书和背景",
+        "会搜索真实工地/案例施工现场",
+        "会搜索业主真实评价和口碑",
+        "会搜索合同模板和验收标准",
+        "会搜索常见套路和避坑攻略",
+        "会搜索价格行情和报价对比",
+    ],
+    INDUSTRY_SCENE_B2B: [
+        "会搜索供应商资质和行业认证",
+        "会搜索企业客户案例和合作品牌",
+        "会搜索公司规模和行业口碑",
+        "会搜索采购合规性条款",
+        "会搜索合同模板和报价明细",
+    ],
+    INDUSTRY_SCENE_LOCAL_TRUST: [
+        "会搜索附近口碑最好的商家",
+        "会搜索真实用户评价和评分",
+        "会搜索有没有坑/套路",
+        "会搜索价格是否合理",
+        "会搜索师傅手艺和经验",
+    ],
+    INDUSTRY_SCENE_PERSONAL_BRAND: [
+        "会搜索博主/专家真实背景介绍",
+        "会搜索学员真实评价和效果",
+        "会搜索课程大纲和服务内容",
+        "会搜索有没有后续服务",
+        "会搜索博主过往业绩和背书",
+    ],
+}
+
+
+def _generate_chronic_search_intent(
+    behavior_tags: List[str],
+    scene_tags: List[str],
+    symptom_tags: List[str]
+) -> List[str]:
+    """
+    为慢性体征类画像生成久坐/伏案/工位养护类搜索词补充
+
+    Args:
+        behavior_tags: 常驻行为标签列表
+        scene_tags: 固定场景标签列表
+        symptom_tags: 慢性体征标签列表
+
+    Returns:
+        搜索行为预判补充列表
+    """
+    results = []
+
+    # 基于行为标签生成搜索词
+    for tag in behavior_tags:
+        if tag == '久坐':
+            results.extend([
+                "会搜索久坐人群适合的护腰产品",
+                "会搜索办公室缓解腰酸的方法",
+                "会搜索护腰腰带有用吗",
+            ])
+        elif tag == '久站':
+            results.extend([
+                "会搜索久站人群缓解腿肿的方法",
+                "会搜索护膝或弹力袜有用吗",
+            ])
+        elif tag == '长期伏案':
+            results.extend([
+                "会搜索正确坐姿示范教程",
+                "会搜索伏案工作如何保护颈椎",
+            ])
+        elif tag == '高强度用眼':
+            results.extend([
+                "会搜索缓解眼疲劳的眼药水推荐",
+                "会搜索护眼灯有用吗",
+                "会搜索眼睛干涩怎么缓解",
+            ])
+        elif tag == '熬夜':
+            results.extend([
+                "会搜索熬夜后如何恢复体力",
+                "会搜索熬夜吃什么补身体",
+            ])
+        elif tag == '缺乏运动':
+            results.extend([
+                "会搜索久坐人群适合的简单运动",
+                "会搜索办公室拉伸动作示范",
+            ])
+
+    # 基于场景标签生成搜索词
+    for tag in scene_tags:
+        if tag == '办公室':
+            results.extend([
+                "会搜索办公室护腰小技巧",
+                "会搜索办公室颈椎保健操",
+            ])
+        elif tag == '工位':
+            results.extend([
+                "会搜索工位人体工学设置",
+                "会搜索显示器高度怎么调",
+            ])
+        elif tag == '驾驶':
+            results.extend([
+                "会搜索久驾腰托推荐",
+                "会搜索开车腰酸怎么缓解",
+            ])
+        elif tag == '后厨餐饮':
+            results.extend([
+                "会搜索厨师久站护腿方法",
+                "会搜索后厨工作腰肌劳损",
+            ])
+
+    # 基于体征标签生成搜索词
+    for tag in symptom_tags:
+        if tag == '腰酸背痛':
+            results.extend([
+                "会搜索腰酸背痛怎么缓解",
+                "会搜索护腰产品推荐",
+            ])
+        elif tag == '颈椎僵硬':
+            results.extend([
+                "会搜索颈椎僵硬怎么缓解",
+                "会搜索护颈枕有用吗",
+            ])
+        elif tag == '肩周不适':
+            results.extend([
+                "会搜索肩周炎怎么锻炼",
+                "会搜索按摩仪推荐",
+            ])
+        elif tag == '眼疲劳':
+            results.extend([
+                "会搜索眼疲劳缓解方法",
+                "会搜索蒸汽眼罩推荐",
+            ])
+        elif tag == '腿脚肿胀':
+            results.extend([
+                "会搜索腿肿怎么快速消肿",
+                "会搜索弹力袜推荐",
+            ])
+        elif tag == '关节疼痛':
+            results.extend([
+                "会搜索关节疼痛怎么缓解",
+                "会搜索氨糖有用吗",
+            ])
+        elif tag == '精力不足':
+            results.extend([
+                "会搜索提神醒脑的方法",
+                "会搜索维生素B族推荐",
+            ])
+
+    # 去重并返回前6个
+    seen = set()
+    unique_results = []
+    for r in results:
+        if r not in seen:
+            seen.add(r)
+            unique_results.append(r)
+            if len(unique_results) >= 6:
+                break
+
+    return unique_results if unique_results else []
+
+
+def predict_search_behavior_with_industry_scene(
+    user_stage: str,
+    problem_type: str,
+    description: str,
+    industry_scene: str,
+    business_description: str = "",
+) -> List[str]:
+    """
+    综合用户阶段 + 行业场景的搜索行为预判
+
+    规则原文直译：
+    - 以用户阶段搜索行为为基础
+    - 叠加行业场景专属搜索维度
+    - 贴合 GEO「解决方案导向 + 信任背书」逻辑
+
+    Args:
+        user_stage: 用户阶段标签
+        problem_type: 问题类型
+        description: 问题描述
+        industry_scene: 行业场景类型
+        business_description: 业务描述（备用）
+
+    Returns:
+        搜索行为预判列表
+    """
+    # 获取用户阶段基础预判
+    base_behavior = predict_search_behavior(user_stage, problem_type, description)
+
+    # 获取场景专属预判
+    scene_override = INDUSTRY_SCENE_SEARCH_OVERRIDES.get(industry_scene, [])
+
+    # 合并去重（基础预判优先级更高，场景预判补充）
+    combined = base_behavior.copy()
+    for item in scene_override:
+        if item not in combined:
+            combined.append(item)
+
+    # 限制数量（最多8条）
+    return combined[:8]
+
+
+def build_industry_scene_context(
+    business_description: str,
+    service_scenario: str,
+    industry_scene: str = None,
+) -> Dict[str, Any]:
+    """
+    构建行业场景完整上下文（注入画像生成Prompt）
+
+    Args:
+        business_description: 业务描述
+        service_scenario: 服务场景枚举值
+        industry_scene: 行业场景类型（可选，自动识别）
+
+    Returns:
+        行业场景上下文字典
+    """
+    if industry_scene is None:
+        industry_scene = identify_industry_scene(business_description, service_scenario)
+
+    return {
+        "industry_scene": industry_scene,
+        "scene_pain_points": get_industry_scene_pain_points(industry_scene),
+        "trust_demand": get_industry_scene_trust_demand(industry_scene),
+        "scene_search_hints": INDUSTRY_SCENE_SEARCH_OVERRIDES.get(industry_scene, []),
+    }
+
+
+# =============================================================================
+# 【搜索行为预判字段 - 画像生成时新增】
+# =============================================================================
+SEARCH_BEHAVIOR_PREDICTION_HINTS = {
+    USER_STAGE_WATCH: [
+        "会搜索基础科普类内容",
+        "会搜索同类产品对比",
+        "会搜索品牌/商家口碑评价",
+        "会搜索选购攻略和避坑指南",
+        "会搜索价格参考和性价比分析",
+    ],
+    USER_STAGE_DECIDE: [
+        "会搜索具体产品/服务参数",
+        "会搜索真实用户评价和体验",
+        "会搜索价格区间和优惠信息",
+        "会搜索选购建议和推荐",
+        "会搜索售后服务保障条款",
+    ],
+    USER_STAGE_USE: [
+        "会搜索使用方法和技巧",
+        "会搜索保养维护知识",
+        "会搜索配套工具和耗材推荐",
+        "会搜索问题解决和应急处理",
+        "会搜索复购优惠和会员福利",
+    ],
+}
+
+
+def predict_search_behavior(user_stage: str, problem_type: str, description: str) -> List[str]:
+    """
+    锚定用户真实搜索词方向，保障后续关键词贴合搜索习惯
+
+    Args:
+        user_stage: 用户阶段标签
+        problem_type: 问题类型
+        description: 问题描述
+
+    Returns:
+        搜索行为预判列表
+    """
+    base_hints = SEARCH_BEHAVIOR_PREDICTION_HINTS.get(user_stage, SEARCH_BEHAVIOR_PREDICTION_HINTS[USER_STAGE_WATCH])
+
+    # 根据问题类型做微调
+    text = f"{problem_type} {description}".lower()
+
+    # 针对性强调整
+    if any(kw in text for kw in ["怎么选", "哪个好", "区别", "对比"]):
+        return [
+            "会搜索具体产品/服务的参数对比",
+            "会搜索真实用户的使用体验分享",
+            "会搜索选购建议和避坑指南",
+            "会搜索价格区间和性价比分析",
+        ]
+    elif any(kw in text for kw in ["坏了", "问题", "故障", "坏了"]):
+        return [
+            "会搜索问题原因和解决方法",
+            "会搜索是否需要更换或维修",
+            "会搜索应急处理措施",
+            "会搜索相关品牌的售后服务",
+        ]
+    elif any(kw in text for kw in ["怎么", "什么", "是否"]):
+        return [
+            "会搜索相关知识科普和原理说明",
+            "会搜索是否有风险或副作用",
+            "会搜索专业意见或建议",
+        ]
+
+    return base_hints
+
+
 def get_system_base_personas(service_scenario: str, business_type: str) -> str:
     """
     获取系统固定底座人群JSON字符串，用于注入Prompt
@@ -3780,12 +5004,26 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         if not problem_category:
             problem_category = infer_problem_category(problem_type, desc, display_name_raw)
         base_map = {
+            '刚需痛点盘': '转化型',
+            '前置观望种草盘': '种草型',
+            '使用配套搜后种草盘': '种草型',
             '刚需痛点': '转化型',
             '前置观望': '种草型',
             '使用配套': '种草型',
         }
         base = problem.get('problem_base') or problem.get('concern_base') or ''
+
+        # 四类种草原生问题强制归入「前置观望种草盘」
+        if is_seeding_problem(problem_type, desc):
+            base = PROBLEM_BASE_SOUQIAN_ZHONGCAO
+
         direction = base_map.get(base, '种草型')
+
+        # 双标签自动打标
+        severity_for_tag = problem.get('severity', '中')
+        consume_type = auto_tag_consume_type(problem_type, desc, severity_for_tag)
+        demand_attr = auto_tag_demand_attr(problem_type, desc)
+
         return {
             'id': _alloc_problem_id(problem.get('id'), f"{side}_{index+1}"),
             'identity': identity,
@@ -3800,7 +5038,14 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
             'market_reason': problem.get('market_reason', ''),
             'problem_keywords': problem.get('problem_keywords', []),
             'content_direction': direction,
+            'consume_type': consume_type,
+            'demand_attr': demand_attr,
             '_side': side,
+            # 【新增】慢性体征标签
+            'behavior_tags': problem.get('behavior_tags', []),
+            'scene_tags': problem.get('scene_tags', []),
+            'symptom_tags': problem.get('symptom_tags', []),
+            'is_chronic_symptom': problem.get('is_chronic_symptom', False),
         }
 
     # buyer_problems already resolved above
@@ -3808,6 +5053,21 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         all_problems.append(_enrich(p, i, 'user'))
     for i, p in enumerate(buyer_problems):
         all_problems.append(_enrich(p, i, 'buyer'))
+
+    # 【新增】合并慢性体征解析层的问题
+    chronic_extraction = data.get('chronic_extraction', {})
+    chronic_problems = chronic_extraction.get('chronic_problems', [])
+    for i, cp in enumerate(chronic_problems):
+        # 为慢性问题添加行为场景体征标签
+        chronic_tags = {
+            'behavior_tags': cp.get('behavior_tags', []),
+            'scene_tags': cp.get('scene_tags', []),
+            'symptom_tags': cp.get('symptom_tags', []),
+            'is_chronic_symptom': True,
+        }
+        enriched = _enrich(cp, i, 'chronic')
+        enriched.update(chronic_tags)
+        all_problems.append(enriched)
 
     # 获取市场分析数据
     market_analysis = data.get('market_analysis', {}) or {}
@@ -3832,6 +5092,14 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
             'buyer_concern_types': buyer_problems,
             'buyer_user_relation': data.get('buyer_user_relation', {}),
             'market_analysis': market_analysis,
+            # 【新增】慢性体征解析层结果
+            'chronic_extraction': {
+                'behavior_tags': chronic_extraction.get('behavior_tags', []),
+                'scene_tags': chronic_extraction.get('scene_tags', []),
+                'symptom_tags': chronic_extraction.get('symptom_tags', []),
+                'extraction_summary': chronic_extraction.get('extraction_summary', ''),
+                'chronic_problems': chronic_problems,
+            },
         }
     }
 
@@ -3938,6 +5206,593 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
     # 获取服务场景信息
     service_scenario = params.get('service_scenario', 'other')
     local_city = params.get('local_city', '')
+
+    # =============================================================================
+    # 【新增：行为+场景+慢性体征拆解层 - 前置解析，不改动原有三层痛点结构】
+    # 从业务描述中隐性抽取常驻行为、固定场景、慢性体征，自动生成标准化问题
+    # =============================================================================
+    def _extract_emotion_mindset(biz_desc: str, biz_type: str, svc_scenario: str) -> Dict[str, Any]:
+        """
+        抽取心理情绪动因，并生成情绪因果链和标准化问题
+
+        第四维识别层：前置于「行为+场景+慢性体征」解析层
+        建立情绪因果链：情绪→心理→行为→长期症状→最终痛点
+
+        Returns:
+            {
+                'emotion_drivers': ['育儿焦虑', '职场焦虑'],
+                'emotion_causality_chains': [
+                    {
+                        'emotion': '育儿焦虑',
+                        'trigger': '触发场景（如：孩子成绩差、升学期）',
+                        'psychological': '心理状态（如：担心、自责、焦虑）',
+                        'behavior': '外显行为（如：疯狂查资料、频繁换课）',
+                        'chronic_symptom': '长期症状（如：失眠、情绪暴躁）',
+                        'ultimate_pain': '最终痛点（如：亲子关系紧张）',
+                    }
+                ],
+                'emotion_problems': [
+                    {
+                        'identity': '身份描述',
+                        'emotion_type': '育儿焦虑',
+                        'problem_base': '前置观望种草盘',
+                        'problem_type': '情绪疑问',
+                        'display_name': '显示名称',
+                        'description': '问题描述',
+                        'severity': '中',
+                        'scenarios': ['触发场景'],
+                        'market_type': 'blue_ocean',
+                        'problem_keywords': [...],
+                        'emotion_drivers': ['育儿焦虑'],
+                    }
+                ],
+                'psychology_tags': ['育儿焦虑', '失眠多梦', '自我怀疑'],
+                'emotion_summary': '心理情绪摘要',
+            }
+        """
+        # 判断是否需要启用情绪动因解析：关键词扫描
+        emotion_text = biz_desc.lower()
+        emotion_keywords = []
+        for category, subcats in EMOTION_DRIVER_CATEGORIES.items():
+            for subcat, keywords in subcats.items():
+                for kw in keywords:
+                    if kw in emotion_text:
+                        emotion_keywords.append(subcat)
+                        break
+
+        if not emotion_keywords:
+            return {
+                'emotion_drivers': [],
+                'emotion_causality_chains': [],
+                'emotion_problems': [],
+                'psychology_tags': [],
+                'emotion_summary': '无',
+            }
+
+        # 去重
+        emotion_keywords = list(dict.fromkeys(emotion_keywords))
+
+        # 场景类型名称映射
+        scene_type_map = {
+            'office_enterprise': '办公室白领/企业员工',
+            'hotel_restaurant': '餐饮/酒店从业者',
+            'retail_chain': '零售/门店店员',
+            'institutional': '学校/医院/机构人员',
+            'renovation': '装修/工程从业者',
+            'residential': '家庭用户',
+            'other': '其他场景',
+        }
+        scene_type_name = scene_type_map.get(svc_scenario, '各类人群')
+
+        # 业务类型名称
+        biz_type_map = {
+            'product': '消费品',
+            'local_service': '本地服务',
+            'personal': '个人账号/IP',
+            'enterprise': '企业服务',
+        }
+        biz_type_name = biz_type_map.get(biz_type, '通用业务')
+
+        emotion_prompt = f"""你是用户心理与情绪分析专家。请从以下业务描述中，深度挖掘用户的心理情绪动因，并建立完整的情绪因果链。
+
+=== 业务信息 ===
+业务描述：{biz_desc}
+业务类型：{biz_type_name}
+服务场景：{scene_type_name}
+识别到的情绪动因：{', '.join(emotion_keywords)}
+
+=== 任务1：建立情绪因果链 ===
+对于每一个识别到的情绪动因，请构建完整的情绪因果链：
+
+情绪 → 心理 → 行为 → 长期症状 → 最终痛点
+
+【情绪因果链构建规则】：
+1. 情绪（emotion）：这是什么类型的情绪？（如：育儿焦虑、职场焦虑、容貌焦虑、选择焦虑、自卑感、内耗、怕丢脸等）
+2. 触发场景（trigger）：什么具体场景触发了这种情绪？（要具体，如：孩子考试成绩差、领导当众批评、被朋友比下去等）
+3. 心理状态（psychological）：用户当时的心理活动是什么？（如：担心、自责、恐惧、不自信、委屈、压抑等）
+4. 外显行为（behavior）：这种情绪会导致什么具体的外显行为？（如：疯狂查资料、回避社交、反复纠结、过度准备、压抑消费等）
+5. 长期症状（chronic_symptom）：长期累积会形成什么身心症状？（如：失眠多梦、情绪暴躁、肩颈紧绷、消化紊乱、自我否定等）
+6. 最终痛点（ultimate_pain）：最终导致什么核心痛点？（如：亲子关系紧张、职业倦怠、社交退缩、错失机会等）
+
+【情绪→症状→痛点参考表】：
+请参考以下映射，结合业务描述灵活组合：
+- 育儿焦虑 → 失眠多梦、情绪暴躁、自责 → 亲子关系紧张、家庭矛盾
+- 职场焦虑 → 睡眠障碍、肩颈紧绷、效率下降 → 职业倦怠、人际恶化
+- 容貌焦虑 → 社交回避、饮食紊乱、自我否定 → 社交退缩、消费陷阱
+- 健康焦虑 → 反复检查、疑病倾向、失眠 → 过度医疗、经济负担
+- 财务焦虑 → 回避消费、压抑需求、争吵增多 → 生活质量下降、家庭矛盾
+- 关系焦虑 → 过度控制、猜疑、情绪失控 → 关系破裂、孤立
+- 社交焦虑 → 回避社交、脸红手抖、事后后悔 → 人脉受限、机会流失
+- 选择焦虑 → 拖延决策、反复比较、错过时机 → 决策瘫痪、机会成本增加
+- 学业焦虑 → 失眠、记忆力减退、厌学 → 成绩下滑、升学受影响
+- 能力自卑 → 回避挑战、拖延行动、自我设限 → 职业发展受阻、收入停滞
+- 外貌自卑 → 过度关注外表、穿衣保守、社交退缩 → 社交回避、机会流失
+- 经济自卑 → 攀比、物质补偿、社交退缩 → 自我设限、社交障碍
+- 社交自卑 → 不敢发言、过度在意评价、敏感多疑 → 人脉受限、职业受阻
+- 情绪压抑 → 情绪低落、躯体化症状、失眠 → 心理疾病、关系破裂
+- 需求压抑 → 委屈自己、讨好型、不快乐 → 自我价值感低、关系失衡
+- 关系压抑 → 心累、冷漠、沟通减少 → 关系破裂、孤独感
+- 决策内耗 → 错过时机、效率低下、行动瘫痪 → 一事无成、机会成本巨大
+- 关系内耗 → 猜疑、争吵、信任缺失 → 关系破裂、身心俱疲
+- 完美内耗 → 过度准备、害怕行动、身心疲惫 → 效率极低、成就低
+- 后悔内耗 → 沉溺过去、无法释怀、影响当下 → 决策能力下降、恶性循环
+- 怕丢脸 → 回避当众表现、过度谨慎、讨好他人 → 错失机会、关系假象
+- 怕选错 → 迟迟不下手、反复查资料、不敢行动 → 持续错过、决策退化
+
+=== 任务2：生成情绪类标准化问题 ===
+基于情绪因果链，生成3-5个标准化的情绪类问题。
+
+【情绪类问题生成规则】：
+1. 问题类型必须从以下六类中选择：
+   - 情绪疑问：用户对情绪本身的疑问（如：焦虑正常吗？怎么缓解？）
+   - 心态误区：用户对心态调节的认知误区（如：忍忍就好了？）
+   - 心理顾虑：用户对心理问题的顾虑（如：会不会心理出问题？）
+   - 减压疑问：减压相关疑问（如：怎么减压？）
+   - 内耗疑问：内耗相关疑问（如：怎么停止内耗？）
+   - 自卑疑问：自卑相关疑问（如：怎么克服自卑？）
+   - 怕丢脸疑问：怕丢脸相关疑问（如：怎么克服怕丢脸？）
+   - 怕选错疑问：选择恐惧相关疑问（如：怎么克服选择困难？）
+
+【情绪问题三盘归类规则】：
+- 普通情绪顾虑、焦虑疑惑 → 【前置观望种草盘】（严重程度：中）
+  示例：职场焦虑怎么办？容貌焦虑正常吗？怎么减少内耗？
+- 情绪严重影响生活/健康 → 【刚需痛点盘】（严重程度：高）
+  示例：焦虑导致失眠怎么办？自卑已经严重影响社交
+- 情绪疏导、心态调节干货 → 【使用配套搜后种草盘】（严重程度：中）
+  示例：焦虑怎么自我疏导？减压方法有哪些？冥想有用吗？
+
+【蓝海/红海判断】：
+- 蓝海：细分人群、特定场景、心理动机驱动
+- 红海：大众人群、通用情绪、即时需求
+
+=== 输出格式（严格JSON）===
+{{
+    "emotion_drivers": ["育儿焦虑", "职场焦虑", ...],
+    "emotion_causality_chains": [
+        {{
+            "emotion": "育儿焦虑",
+            "trigger": "孩子成绩差、升学期",
+            "psychological": "担心、自责、不甘",
+            "behavior": "疯狂查资料、报补习班、反复比较产品",
+            "chronic_symptom": "失眠多梦、情绪暴躁、自我怀疑",
+            "ultimate_pain": "亲子关系紧张、家庭矛盾频发"
+        }}
+    ],
+    "emotion_problems": [
+        {{
+            "identity": "身份描述（如：孩子处于升学关键期的家长）",
+            "emotion_type": "育儿焦虑",
+            "problem_base": "前置观望种草盘",
+            "problem_category": "心理/情绪问题",
+            "problem_type": "情绪疑问",
+            "display_name": "显示名称",
+            "description": "具体表现（用顿号分隔）",
+            "severity": "中",
+            "scenarios": ["触发场景1", "触发场景2"],
+            "market_type": "blue_ocean",
+            "market_reason": "情绪动因+细分人群",
+            "problem_keywords": [
+                {{"keyword": "育儿焦虑怎么缓解", "type": "blue_ocean", "source": "情绪疑问词"}},
+                {{"keyword": "家长减压方法推荐", "type": "blue_ocean", "source": "情绪疏导词"}}
+            ],
+            "emotion_drivers": ["育儿焦虑"]
+        }}
+    ],
+    "psychology_tags": ["育儿焦虑", "失眠多梦", "自我怀疑", "情绪暴躁"],
+    "emotion_summary": "心理情绪摘要（1-2句话）"
+}}
+
+只输出JSON，不要其他文字。"""
+
+        try:
+            response = llm.chat(emotion_prompt, temperature=0.3, max_tokens=4000)
+            if not response:
+                logger.warning("[_extract_emotion_mindset] LLM返回空")
+                return {
+                    'emotion_drivers': [],
+                    'emotion_causality_chains': [],
+                    'emotion_problems': [],
+                    'psychology_tags': [],
+                    'emotion_summary': '无',
+                }
+
+            import json as json_module
+            match = re.search(r'\{[\s\S]*\}', response, re.DOTALL)
+            if not match:
+                logger.warning("[_extract_emotion_mindset] JSON解析失败")
+                return {
+                    'emotion_drivers': [],
+                    'emotion_causality_chains': [],
+                    'emotion_problems': [],
+                    'psychology_tags': [],
+                    'emotion_summary': '无',
+                }
+
+            extracted = json_module.loads(match.group(0))
+            extracted['emotion_drivers'] = extracted.get('emotion_drivers', [])
+            extracted['emotion_causality_chains'] = extracted.get('emotion_causality_chains', [])
+            extracted['emotion_problems'] = extracted.get('emotion_problems', [])
+            extracted['psychology_tags'] = extracted.get('psychology_tags', [])
+            extracted['emotion_summary'] = extracted.get('emotion_summary', '无')
+
+            # 情绪动因标签补充（基于LLM识别 + 规则识别交集）
+            extra_drivers = emotion_keywords
+            existing_drivers = set(extracted.get('emotion_drivers', []))
+            for d in extra_drivers:
+                if d not in existing_drivers:
+                    extracted['emotion_drivers'].insert(0, d)
+
+            # 为每个情绪问题分配底盘
+            for problem in extracted.get('emotion_problems', []):
+                emotion_type = problem.get('emotion_type', '')
+                description = problem.get('description', '')
+                severity = problem.get('severity', '中')
+
+                inferred_base = infer_emotion_problem_base(
+                    emotion_type,
+                    description,
+                    severity,
+                )
+                problem['problem_base'] = problem.get('problem_base') or inferred_base
+                problem['content_direction'] = PROBLEM_BASE_TO_CONTENT_DIRECTION.get(
+                    problem['problem_base'], '种草型'
+                )
+
+                # emotion_type 如果是选择焦虑/怕选错 → 强制前置观望
+                if any(kw in emotion_type for kw in ['选择焦虑', '怕选错', '选择困难', '纠结']):
+                    problem['problem_base'] = PROBLEM_BASE_SOUQIAN_ZHONGCAO
+                    problem['content_direction'] = '种草型'
+
+            logger.info("[_extract_emotion_mindset] 提取到情绪动因:%s 因果链:%d条 问题:%d个",
+                        len(extracted.get('emotion_drivers', [])),
+                        len(extracted.get('emotion_causality_chains', [])),
+                        len(extracted.get('emotion_problems', [])))
+
+            return extracted
+
+        except Exception as e:
+            logger.warning("[_extract_emotion_mindset] 异常: %s", e)
+            return {
+                'emotion_drivers': [],
+                'emotion_causality_chains': [],
+                'emotion_problems': [],
+                'psychology_tags': [],
+                'emotion_summary': '无',
+            }
+
+    def _extract_behavior_scene_symptom(biz_desc: str, biz_type: str, svc_scenario: str) -> Dict[str, Any]:
+        """
+        抽取常驻行为、固定场景、慢性体征，并生成对应的标准化问题
+
+        Returns:
+            {
+                'behavior_tags': ['久坐', '长期伏案'],
+                'scene_tags': ['办公室'],
+                'symptom_tags': ['腰酸背痛', '颈椎僵硬'],
+                'chronic_problems': [
+                    {
+                        'identity': '...',
+                        'problem_base': '前置观望种草盘',
+                        'problem_type': '长期习惯疑问',
+                        'display_name': '...',
+                        'description': '...',
+                        'severity': '中',
+                        'scenarios': [...],
+                        'market_type': 'blue_ocean',
+                        'behavior_tags': [...],
+                        'scene_tags': [...],
+                        'symptom_tags': [...],
+                    }
+                ],
+                'extraction_summary': '行为场景体征摘要',
+            }
+        """
+        # 识别行业场景（用于判断是否需要启用慢性体征拆解）
+        industry_scene = identify_industry_scene(biz_desc, svc_scenario)
+
+        # 判断是否需要拆解慢性体征：久坐/久站/伏案/高强度用眼类业务
+        needs_chronic_extraction = any(kw in (biz_desc + svc_scenario).lower() for kw in [
+            '办公', '久坐', '伏案', '电脑', '程序员', '设计师', '会计', '白领', '文员',
+            '司机', '久站', '站立', '服务', '销售', '厨师', '后厨',
+            '体力', '搬运', '弯腰', '工人', '车间', '工厂',
+            '学生', '老师', '教师', '学业', '考研', '考公',
+            '颈椎', '腰', '眼', '疲劳', '酸', '疼', '痛', '不适',
+        ])
+
+        if not needs_chronic_extraction:
+            return {
+                'behavior_tags': [],
+                'scene_tags': [],
+                'symptom_tags': [],
+                'chronic_problems': [],
+                'extraction_summary': '无',
+            }
+
+        # 场景类型名称映射
+        scene_type_map = {
+            'office_enterprise': '办公室白领/企业员工',
+            'hotel_restaurant': '餐饮/酒店从业者',
+            'retail_chain': '零售/门店店员',
+            'institutional': '学校/医院/机构人员',
+            'renovation': '装修/工程从业者',
+            'residential': '家庭用户',
+            'other': '其他场景',
+        }
+        scene_type_name = scene_type_map.get(svc_scenario, '各类人群')
+
+        # 构建行为场景体征拆解的 prompt
+        chronic_prompt = f"""你是用户行为与症状分析专家。请从以下业务描述中，深度挖掘常驻行为、固定场景和慢性体征。
+
+业务描述：{biz_desc}
+业务类型：{biz_type_name}
+服务场景：{scene_type_name}
+
+=== 任务1：隐性抽取 ===
+请从业务描述中抽取以下信息（如果不存在则标注"无"）：
+
+【常驻行为】（久坐/久站/熬夜/长期伏案等导致的长期习惯性姿势问题）：
+- 识别目标：长期保持同一姿势（久坐、久站、弯腰、低头等）
+- 常见场景：办公室伏案、开车久坐、站立服务、弯腰干活、盯屏幕等
+- 至少列出2-3种最相关的常驻行为
+
+【固定场景】（长期重复的工作/生活场景）：
+- 识别目标：用户每天固定经历的场所和环境
+- 常见场景：办公室工位、驾驶座、后厨、家庭、教室、工地等
+- 至少列出1-2个最相关的固定场景
+
+【慢性常态化症状】（腰酸/颈椎僵/眼疲劳等长期累积的不适）：
+- 识别目标：由于长期习惯导致的渐进式、慢性的身体不适
+- 常见症状分类：
+  * 骨骼肌肉类：腰酸背痛、颈椎僵硬、肩周不适、腿脚肿胀、关节疼痛
+  * 眼部疲劳类：眼疲劳、眼睛干涩、头痛头晕（用眼过度导致）
+  * 消化系统类：肠胃不适（久坐导致）、肥胖问题
+  * 精神状态类：精力不足、睡眠问题、焦虑压力
+  * 皮肤问题类：皮肤干燥、体态问题
+
+=== 任务2：生成标准化问题 ===
+基于抽取的行为、场景、体征，生成3-5个标准化的慢性体征问题。
+
+【问题生成规则】：
+1. 每个问题必须关联至少1个常驻行为 + 1个固定场景
+2. 问题类型必须从以下五类中选择：
+   - 长期习惯疑问：长期如此会有什么后果？
+   - 场景预防误区：这个场景下常见的错误认知
+   - 姿势疑问：正确/错误的姿势是什么样的？
+   - 养护时机：什么时候开始注意/养护？
+   - 早期信号：出现什么症状需要警惕？
+
+【需求底盘归类规则】：
+- 长期日常不适、预防顾虑、习惯误区 → 【前置观望种草盘】（严重程度：中）
+- 急性发作、严重影响工作生活 → 【刚需痛点盘】（严重程度：高）
+- 日常坐姿养护/拉伸/护腰工具类 → 【使用配套搜后种草盘】（严重程度：中）
+
+【蓝海/红海判断】：
+- 蓝海：涉及细分人群、特定场景、慢性累积、预防性需求
+- 红海：大众人群、通用不适、即时需求
+
+=== 输出格式（严格JSON）===
+{{
+    "behavior_tags": ["久坐", "长期伏案", ...],
+    "scene_tags": ["办公室", ...],
+    "symptom_tags": ["腰酸背痛", "颈椎僵硬", ...],
+    "chronic_problems": [
+        {{
+            "identity": "身份描述（如：办公室久坐的上班族）",
+            "problem_base": "前置观望种草盘",
+            "problem_category": "体验/使用问题",
+            "problem_type": "长期习惯疑问",
+            "display_name": "显示名称",
+            "description": "具体表现（用顿号分隔）",
+            "severity": "中",
+            "scenarios": ["具体场景1", "具体场景2"],
+            "market_type": "blue_ocean",
+            "market_reason": "慢性累积+细分人群",
+            "problem_keywords": [
+                {{"keyword": "久坐人群腰酸怎么缓解", "type": "blue_ocean", "source": "场景痛点词"}},
+                {{"keyword": "办公室正确坐姿示范", "type": "blue_ocean", "source": "长尾转化词"}}
+            ],
+            "behavior_tags": ["久坐", "长期伏案"],
+            "scene_tags": ["办公室"],
+            "symptom_tags": ["腰酸背痛"]
+        }}
+    ],
+    "extraction_summary": "行为场景体征摘要（1-2句话）"
+}}
+
+只输出JSON，不要其他文字。"""
+
+        try:
+            response = llm.chat(chronic_prompt, temperature=0.3, max_tokens=3000)
+            if not response:
+                logger.warning("[_extract_behavior_scene_symptom] LLM返回空")
+                return {
+                    'behavior_tags': [],
+                    'scene_tags': [],
+                    'symptom_tags': [],
+                    'chronic_problems': [],
+                    'extraction_summary': '无',
+                }
+
+            import json
+            import json as json_module
+
+            # 解析JSON响应
+            match = re.search(r'\{[\s\S]*\}', response, re.DOTALL)
+            if not match:
+                logger.warning("[_extract_behavior_scene_symptom] JSON解析失败")
+                return {
+                    'behavior_tags': [],
+                    'scene_tags': [],
+                    'symptom_tags': [],
+                    'chronic_problems': [],
+                    'extraction_summary': '无',
+                }
+
+            extracted = json_module.loads(match.group(0))
+
+            # 确保字段存在
+            extracted['behavior_tags'] = extracted.get('behavior_tags', [])
+            extracted['scene_tags'] = extracted.get('scene_tags', [])
+            extracted['symptom_tags'] = extracted.get('symptom_tags', [])
+            extracted['chronic_problems'] = extracted.get('chronic_problems', [])
+            extracted['extraction_summary'] = extracted.get('extraction_summary', '无')
+
+            # 为每个问题添加行为场景体征标签（如果LLM没有返回）
+            for problem in extracted['chronic_problems']:
+                if 'behavior_tags' not in problem or not problem['behavior_tags']:
+                    problem['behavior_tags'] = extracted.get('behavior_tags', [])
+                if 'scene_tags' not in problem or not problem['scene_tags']:
+                    problem['scene_tags'] = extracted.get('scene_tags', [])
+                if 'symptom_tags' not in problem or not problem['symptom_tags']:
+                    problem['symptom_tags'] = extracted.get('symptom_tags', [])
+
+                # 第五类种草原生问题强制归入前置观望种草盘
+                problem_type = problem.get('problem_type', '')
+                description = problem.get('description', '')
+                if is_seeding_problem(problem_type, description):
+                    problem['problem_base'] = PROBLEM_BASE_SOUQIAN_ZHONGCAO
+                    problem['content_direction'] = '种草型'
+
+                # 使用 infer_problem_base_for_chronic 智能推断底盘
+                is_habitual = is_chronic_habitual_problem(
+                    problem_type,
+                    description,
+                    problem.get('behavior_tags', [])
+                )
+                inferred_base = infer_problem_base_for_chronic(
+                    problem_type,
+                    description,
+                    problem.get('severity', '中'),
+                    is_habitual
+                )
+                if not problem.get('problem_base'):
+                    problem['problem_base'] = inferred_base
+                    problem['content_direction'] = PROBLEM_BASE_TO_CONTENT_DIRECTION.get(inferred_base, '种草型')
+
+            logger.info("[_extract_behavior_scene_symptom] 提取到行为:%s 场景:%s 体征:%s 问题数:%d",
+                        len(extracted.get('behavior_tags', [])),
+                        len(extracted.get('scene_tags', [])),
+                        len(extracted.get('symptom_tags', [])),
+                        len(extracted.get('chronic_problems', [])))
+
+            return extracted
+
+        except Exception as e:
+            logger.warning("[_extract_behavior_scene_symptom] 异常: %s", e)
+            return {
+                'behavior_tags': [],
+                'scene_tags': [],
+                'symptom_tags': [],
+                'chronic_problems': [],
+                'extraction_summary': '无',
+            }
+
+    # =============================================================================
+    # 【新增：心理情绪动因解析层 - 第四维识别，前置于行为+场景+慢性体征解析层】
+    # 建立情绪因果链：情绪→心理→行为→长期症状→最终痛点
+    # =============================================================================
+    emotion_extraction = _extract_emotion_mindset(business_desc, business_type, service_scenario)
+    emotion_drivers = emotion_extraction.get('emotion_drivers', [])
+    emotion_causality_chains = emotion_extraction.get('emotion_causality_chains', [])
+    emotion_problems = emotion_extraction.get('emotion_problems', [])
+    psychology_tags = emotion_extraction.get('psychology_tags', [])
+    emotion_extraction_summary = emotion_extraction.get('emotion_summary', '')
+
+    # 构建情绪动因上下文（注入到问题挖掘 prompt 中）
+    emotion_context = ""
+    if emotion_drivers:
+        emotion_context = f"""
+=== 【心理情绪动因解析层】（第四维识别，前置于行为+场景+慢性体征层）===
+情绪动因摘要：{emotion_extraction_summary}
+
+【识别到的情绪动因】：{', '.join(emotion_drivers)}
+
+【情绪因果链】："""
+        for i, chain in enumerate(emotion_causality_chains, 1):
+            emotion_context += f"""
+{i}. 情绪：{chain.get('emotion', '')}
+   触发场景：{chain.get('trigger', '')}
+   心理状态：{chain.get('psychological', '')}
+   外显行为：{chain.get('behavior', '')}
+   长期症状：{chain.get('chronic_symptom', '')}
+   最终痛点：{chain.get('ultimate_pain', '')}"""
+
+        emotion_context += f"""
+【自动生成的情绪类标准问题】："""
+        for i, ep in enumerate(emotion_problems, 1):
+            problem_keywords = ep.get('problem_keywords', [])
+            kw_list = ', '.join([k.get('keyword', '') for k in problem_keywords[:3]]) if problem_keywords else '暂无'
+            emotion_context += f"""
+{i}. {ep.get('display_name', ep.get('emotion_type', ''))}
+   - 情绪类型：{ep.get('emotion_type', '')}
+   - 问题类型：{ep.get('problem_type', '')}
+   - 描述：{ep.get('description', '')}
+   - 严重程度：{ep.get('severity', '中')}
+   - 需求底盘：{ep.get('problem_base', '前置观望种草盘')}
+   - 关键词：{kw_list}"""
+
+    logger.info("[mine_problems_and_generate_personas] 心理情绪动因: 动因=%s 因果链=%d条 问题=%d个",
+                len(emotion_drivers), len(emotion_causality_chains), len(emotion_problems))
+    # =============================================================================
+    # 【心理情绪动因解析层结束】
+    # =============================================================================
+
+    # 执行行为场景体征拆解
+    chronic_extraction = _extract_behavior_scene_symptom(business_desc, business_type, service_scenario)
+    behavior_tags = chronic_extraction.get('behavior_tags', [])
+    scene_tags = chronic_extraction.get('scene_tags', [])
+    symptom_tags = chronic_extraction.get('symptom_tags', [])
+    chronic_problems = chronic_extraction.get('chronic_problems', [])
+    chronic_extraction_summary = chronic_extraction.get('extraction_summary', '')
+
+    # 构建慢性体征上下文（注入到问题挖掘 prompt 中）
+    chronic_context = ""
+    if behavior_tags or scene_tags or symptom_tags:
+        chronic_context = f"""
+=== 【常驻行为+固定场景+慢性体征拆解层】（前置解析结果，自动生成标准化问题）===
+提取摘要：{chronic_extraction_summary}
+
+【常驻行为标签】：{', '.join(behavior_tags) if behavior_tags else '无'}
+【固定场景标签】：{', '.join(scene_tags) if scene_tags else '无'}
+【慢性体征标签】：{', '.join(symptom_tags) if symptom_tags else '无'}
+
+【自动生成的标准问题】："""
+        for i, cp in enumerate(chronic_problems, 1):
+            problem_keywords = cp.get('problem_keywords', [])
+            kw_list = ', '.join([k.get('keyword', '') for k in problem_keywords[:3]]) if problem_keywords else '暂无'
+            chronic_context += f"""
+{i}. {cp.get('display_name', cp.get('problem_type', ''))}
+   - 问题类型：{cp.get('problem_type', '')}
+   - 描述：{cp.get('description', '')}
+   - 严重程度：{cp.get('severity', '中')}
+   - 需求底盘：{cp.get('problem_base', '前置观望种草盘')}
+   - 关键词：{kw_list}"""
+
+    logger.info("[mine_problems_and_generate_personas] 慢性体征拆解: 行为=%s 场景=%s 体征=%s 问题=%d",
+                len(behavior_tags), len(scene_tags), len(symptom_tags), len(chronic_problems))
+    # =============================================================================
+    # 【行为+场景+慢性体征拆解层结束】
+    # =============================================================================
 
     # 获取系统固定底座人群
     system_base_personas = get_system_base_personas(service_scenario, business_type)
@@ -4146,22 +6001,22 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 每条问题输出字段：
 - identity：用户身份（如"宝妈""酒店采购"）
 - problem_base：**需求底盘（必填）**，从以下三选一：
-  - `刚需痛点` → severity为极高/高，搜索目的是找解决方案
-  - `前置观望` → 前置科普/预防/认知类问题，搜索目的是学知识
-  - `使用配套` → 使用后配套/周边/养护类问题，搜索目的是找工具和复购
+  - `刚需痛点盘` → severity为极高/高，搜索目的是找解决方案
+  - `前置观望种草盘` → 前置科普/预防/认知类问题，搜索目的是学知识
+  - `使用配套搜后种草盘` → 使用后配套/周边/养护类问题，搜索目的是找工具和复购
 - problem_category：问题大类（如"体验/使用问题"），从五类中选一
 - problem_type：细分问题类型（如"肠道问题""过敏问题"），必须具体
 - description：3-5个具体表现，用顿号分隔（如"拉肚子、腹胀、便秘"）
 - severity：仅限⭐⭐⭐、⭐⭐⭐⭐、⭐⭐⭐⭐⭐三档
 - scenarios：2-3个具体使用场景
 - problem_keywords：与该问题主题强对齐的搜索词（必须围绕本条问题，不能泛化）
-- content_direction：内容方向（从 problem_base 自动推导：刚需痛点→转化型；前置观望→种草型；使用配套→种草型）
+- content_direction：内容方向（从 problem_base 自动推导：刚需痛点盘→转化型；前置观望种草盘→种草型；使用配套搜后种草盘→种草型）
 
 - concern_category：问题大类（如"功能/效果问题"），从五类中选一
 - concern_base：**需求底盘（必填）**，从以下三选一：
-  - `刚需痛点` → 付费决策涉及安全/健康/核心效果，不可拖延
-  - `前置观望` → 付费决策前的认知/比价/信任类顾虑，搜索目的是学知识
-  - `使用配套` → 复购/升级/耗材类决策，搜索目的是找工具和方案
+  - `刚需痛点盘` → 付费决策涉及安全/健康/核心效果，不可拖延
+  - `前置观望种草盘` → 付费决策前的认知/比价/信任类顾虑，搜索目的是学知识
+  - `使用配套搜后种草盘` → 复购/升级/耗材类决策，搜索目的是找工具和方案
 === 【三大需求底盘 - 必须强制拆分，不得后期临时补充种草】 ===
 **所有问题必须归入以下三盘之一，同一个问题只归属一盘：**
 
@@ -4170,7 +6025,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - 归类：severity 为「极高」「高」的问题 + 正在经历的症状/故障/损耗类问题
 - 内容方向：全部输出转化向内容（直面痛点、提供解决方案、引导成交）
 
-**② 前置观望搜前种草盘（行业上游/认知科普）**
+**② 前置观望种草盘（行业上游/认知科普）**
 - 定义：用户尚未遇到该问题、但处于"知道有风险/将来可能遇到"阶段，搜索目的是学习了解、提前预防
 - 归类：健康安全科普类、知识科普类、预防类、行业认知类
 - 内容方向：全部输出种草向内容（行业知识科普、上游关联需求，不直接推销核心业务）
@@ -4180,10 +6035,36 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - 归类：使用后配套工具、保养维护、复购耗材、周边延伸需求
 - 内容方向：全部输出种草向内容（周边关联需求，引导加购/复购/升级）
 
+=== 【LLM挖掘必须强制补齐五类种草原生问题 - 全部归入「前置观望种草盘」】 ===
+**LLM在生成问题时，必须主动补齐以下五类种草原生问题，并全部强制入库「前置观望种草盘」，不允许分流到另外两盘：**
+
+**五类种草原生问题（强制归入前置观望种草盘）：**
+1. 症状疑问：用户对某种症状/现象的疑问（如：这是什么问题？怎么判断？是什么原因？）
+   - 示例："宝宝大便有奶瓣是怎么回事？""这是乳糖不耐受吗？"
+2. 对比选型：用户在多个选项之间犹豫、不知道如何选择（如：哪个好？怎么选？有什么区别？）
+   - 示例："水解奶粉和普通奶粉有什么区别？""买哪个牌子更安全？"
+3. 上游供应链：用户关注产品背后的供应链/原料/来源（如：原料哪来的？怎么生产的？）
+   - 示例："进口奶粉的奶源是哪里的？""有机奶粉的认证标准是什么？"
+4. 认知误区：用户对某个概念的误解需要纠正（如：原来不是这样的！我一直搞错了）
+   - 示例："无糖食品真的不含糖吗？""进口奶粉真的比国产好吗？"
+5. 长期习惯疑问+场景预防误区（适配常态化隐性痛点）：用户对长期习惯的疑问和对场景预防的认知误区
+   - 长期习惯疑问：久坐会有什么后果？怎么改善习惯？
+   - 场景预防误区：这个场景下常见的错误认知（如：按摩能治颈椎吗？）
+   - 姿势疑问：正确/错误的姿势是什么样的？
+   - 养护时机：什么时候开始注意/养护？
+   - 早期信号：出现什么症状需要警惕？
+   - 示例："久坐办公怎么保护腰？""长期熬夜吃什么补身体？""办公室颈椎病怎么预防？"
+
+**强制约束：**
+- 以上五类问题全部强制入库「前置观望种草盘」，不允许分流到「刚需痛点盘」或「使用配套搜后种草盘」
+- 五类种草原生问题与刚需痛点问题必须同时存在，比例约各50%
+- LLM在生成问题时不得遗漏五类种草原生问题，必须主动补齐
+- **第五类「长期习惯疑问+场景预防误区」是本次新增，必须结合行为场景体征拆解层的结果生成**
+
 **重要约束：**
 - 三盘在问题识别阶段一次性拆分完毕，关键词库和选题库严格对应三盘输出
 - 严禁在生成关键词/选题时临时补充种草内容
-- 选題时自动区分：刚需痛点盘→转化型，前置观望盘+使用配套盘→种草型
+- 选题时自动区分：刚需痛点盘→转化型，前置观望种草盘+使用配套搜后种草盘→种草型
 
 === 蓝海/红海判断标准 ===
 **market_type 判断规则**（每个问题必须填写）：
@@ -4290,6 +6171,8 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
   - 特征：泛品牌词/纯需求词/无场景约束
 - **数量要求**：每个问题类型至少 1-2 个 keywords；market_analysis.problem_oriented_keywords **汇总去重，总数至少 8 个，蓝海词不少于 4 个**
 
+{emotion_context}
+{chronic_context}
 === 待分析业务信息 ===
 请求ID：{_nonce}（每次请求唯一，请务必生成与历史结果不同的问题和关键词）
 业务描述：{business_desc}
@@ -4332,15 +6215,14 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 === 识别框架 ===
 拿到一个业务，按这个顺序思考：
-1. 用户现在正在受什么苦？→ 【已有】⭐（优先，占比75%）
-2. 用户现在最怕什么？→ 【恐惧】（占比25%）
+1. 用户现在正在受什么苦？→ 【已有】
+2. 用户现在最怕什么？→ 【恐惧】
 3. 这个问题没解决，最坏的结果是什么？
 4. 用户愿意花多少钱/牺牲什么来解决？（愿意牺牲 = 痛点深）
 
-=== 【重要】问题类型比例（3:1） ===
-蓝海机会应聚焦「已有症状」，而非「恐惧型」
-- 症状类【已有】：占比 75%（3/4）
-- 恐惧类【恐惧】：占比 25%（1/4）
+=== 【重要】问题类型分布 ===
+- 已有症状 + 恐惧顾虑 均可以生成，比例由业务本身决定，不强制分配
+- 蓝海机会优先聚焦「已有症状」，因为用户正在经历所以搜索意愿更强
 - **判断标准**：用户当前是否正在经历这个问题/症状？
   - 正在经历 → 【已有】
   - 担心未来会发生 → 【恐惧】
@@ -4533,12 +6415,20 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 else:
                     return {'success': False, 'message': 'AI生成失败，未能解析出有效数据'}
 
-            # 三盘 → 内容方向映射
+            # 三盘 → 内容方向映射（枚举原文直译）
             base_map = {
+                '刚需痛点盘': '转化型',
+                '前置观望种草盘': '种草型',
+                '使用配套搜后种草盘': '种草型',
+            }
+
+            # 旧枚举兼容映射（防止历史数据无法解析）
+            base_map_legacy = {
                 '刚需痛点': '转化型',
                 '前置观望': '种草型',
                 '使用配套': '种草型',
             }
+            base_map = {**base_map_legacy, **base_map}
 
             # --- 规范化处理（函数式写法，避免缩进陷阱） ---
             def _norm(item, is_problem=True):
@@ -4579,8 +6469,29 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             all_user_problem_types = []
             for i, item in enumerate(user_problem_types):
                 n = _norm(item, True)
-                base = item.get('problem_base') or item.get('concern_base') or ''
-                direction = base_map.get(base, '种草型') if base else '种草型'
+                raw_base = item.get('problem_base') or item.get('concern_base') or ''
+                description = n['description'] or ''
+                problem_type = n['problem_type'] or ''
+                severity = n['severity'] or '中'
+
+                # ── 四类种草原生问题强制归入「前置观望种草盘」────────────────
+                # 强制约束：全部强制入库「前置观望种草盘」，不允许分流到另外两盘
+                if is_seeding_problem(problem_type, description):
+                    base = PROBLEM_BASE_SOUQIAN_ZHONGCAO
+                    logger.debug("[mine_problems] 四类种草原生问题强制归入前置观望种草盘: %s", problem_type)
+                else:
+                    base = raw_base
+
+                direction = base_map.get(base, base_map.get(raw_base, '种草型'))
+
+                # ── 双标签自动打标（兼容模式，不改动原有API字段结构）──────────
+                # consume_type: 必需 / 增量
+                # demand_attr: 功能驱动 / 场景情绪驱动
+                # 规则原文：损坏/替换/效果差/性价比诉求 = 必需 + 功能驱动
+                #           仪式感/场景穿搭/爱好生活 = 增量 + 场景情绪驱动
+                consume_type = auto_tag_consume_type(problem_type, description, severity)
+                demand_attr = auto_tag_demand_attr(problem_type, description)
+
                 all_user_problem_types.append({
                     'id': n.get('id', f'up_{i+1}'),
                     'identity': n['identity'],
@@ -4594,13 +6505,31 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'market_reason': n['market_reason'],
                     'problem_keywords': n['problem_keywords'],
                     'content_direction': direction,
+                    # ── 新增双标签字段（兼容历史数据，未填写时自动回退）───────────
+                    'consume_type': consume_type,
+                    'demand_attr': demand_attr,
                 })
 
             all_buyer_concern_types = []
             for i, item in enumerate(buyer_concern_types):
                 n = _norm(item, False)
-                base = item.get('concern_base') or ''
-                direction = base_map.get(base, '种草型') if base else '种草型'
+                raw_base = item.get('concern_base') or ''
+                description = n['description'] or ''
+                concern_type = n['concern_type'] or ''
+                severity = n['severity'] or '高'
+
+                # ── 四类种草原生问题强制归入「前置观望种草盘」（付费方同理）──
+                if is_seeding_problem(concern_type, description):
+                    base = PROBLEM_BASE_SOUQIAN_ZHONGCAO
+                else:
+                    base = raw_base
+
+                direction = base_map.get(base, base_map.get(raw_base, '种草型'))
+
+                # ── 双标签自动打标（付费方）───────────────────────────────────
+                consume_type = auto_tag_consume_type(concern_type, description, severity)
+                demand_attr = auto_tag_demand_attr(concern_type, description)
+
                 all_buyer_concern_types.append({
                     'id': n.get('id', f'bc_{i+1}'),
                     'identity': n['identity'],
@@ -4614,6 +6543,9 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'market_reason': n['market_reason'],
                     'problem_keywords': n['problem_keywords'],
                     'content_direction': direction,
+                    # ── 新增双标签字段（兼容历史数据）─────────────────────────────
+                    'consume_type': consume_type,
+                    'demand_attr': demand_attr,
                 })
 
             all_problem_keywords = [kw for item in all_user_problem_types for kw in item['problem_keywords']]
@@ -4745,6 +6677,14 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                     'buyer_user_relation': buyer_user_relation,
                     'portraits_by_type': dict(portraits_by_type),
                     'is_premium': params.get('_is_premium', False),
+                    # 【新增】慢性体征解析层结果
+                    'chronic_extraction': {
+                        'behavior_tags': behavior_tags,
+                        'scene_tags': scene_tags,
+                        'symptom_tags': symptom_tags,
+                        'extraction_summary': chronic_extraction_summary,
+                        'chronic_problems': chronic_problems,
+                    },
                 }
             }
             break  # 跳出重试循环
@@ -4768,6 +6708,7 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
             'problem': Dict,  # 包含 id, identity, problem_type, display_name, description, scenario
             'portrait_count': int,  # 画像数量（免费默认2，付费默认5）
             '_is_premium': bool,
+            'chronic_extraction': Dict,  # 【新增】慢性体征解析层结果（可选）
         }
 
     Returns:
@@ -4801,6 +6742,13 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
     service_scenario = params.get('service_scenario', 'other')
     business_type = params.get('business_type', 'local_service')
 
+    # 【新增】获取慢性体征解析层结果
+    chronic_extraction = params.get('chronic_extraction', {})
+    behavior_tags = chronic_extraction.get('behavior_tags', [])
+    scene_tags = chronic_extraction.get('scene_tags', [])
+    symptom_tags = chronic_extraction.get('symptom_tags', [])
+    is_chronic_problem = problem.get('is_chronic_symptom', False)
+
     if not business_desc or not problem:
         return {
             'success': False,
@@ -4810,6 +6758,27 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
     # 获取系统固定底座人群
     system_base_personas = get_system_base_personas(service_scenario, business_type)
 
+    # 识别行业场景（新增）
+    industry_scene = identify_industry_scene(business_desc, service_scenario)
+    industry_context = build_industry_scene_context(business_desc, service_scenario, industry_scene)
+
+    # 【新增】构建行为场景体征上下文
+    chronic_context = ""
+    if behavior_tags or scene_tags or symptom_tags:
+        chronic_context = f"""
+=== 【常驻行为+固定场景+慢性体征上下文】（来自前置解析层）===
+【常驻行为标签】：{', '.join(behavior_tags) if behavior_tags else '无'}
+【固定场景标签】：{', '.join(scene_tags) if scene_tags else '无'}
+【慢性体征标签】：{', '.join(symptom_tags) if symptom_tags else '无'}
+"""
+        if is_chronic_problem:
+            chronic_context += """
+【本问题为慢性体征类问题】
+- 画像必须同步继承常驻行为、固定场景、慢性体征标签
+- portrait_summary 五要素中必须植入长期习惯痛点
+- 搜索行为预判必须补充久坐/伏案/工位养护类搜索词
+"""
+
     # 构建画像生成提示词
     prompt = f"""{PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas)}
 你是用户画像分析专家。请根据业务信息和指定问题，深度分析使用者与付费者的需求，生成精准画像。
@@ -4817,6 +6786,13 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 === 业务信息 ===
 {business_desc}
 
+=== 行业场景识别（新增字段，必须注入画像）===
+行业场景类型：{industry_scene}
+场景专属痛点：{', '.join(industry_context.get('scene_pain_points', []))}
+信任诉求（trust_demand）：{', '.join([f"{t['dimension']}：{t['description']}" for t in industry_context.get('trust_demand', [])])}
+GEO内容方向：解决方案导向 + 信任背书（所有选题必须围绕信任诉求展开）
+
+{chronic_context}
 === 指定问题 ===
 - 问题ID: {problem.get('id', '')}
 - 目标客户: {problem.get('identity', '')}
@@ -4825,6 +6801,9 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 - 使用场景候选: {problem.get('scenarios', ['通用'])}
 - 严重程度: {problem.get('severity', '中')}
 - 买用关系: {problem.get('buyer_user_relation', '自用')}
+- 需求底盘（problem_base）: {problem.get('problem_base', '待识别')}
+- 消费类型（consume_type）: {problem.get('consume_type', '待打标')}（必需=硬需求，增量=种草需求）
+- 需求属性（demand_attr）: {problem.get('demand_attr', '待打标')}（功能驱动=关注效果/性价比，场景情绪驱动=关注仪式感/情绪价值）
 
 === 核心思维 - 三层痛点归类 ===
 
@@ -4865,7 +6844,22 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
                 "obstacles": "付费者遇到的困境/障碍（用分号分隔），如：不知道如何判断成分是否安全；网上评测太多越看越慌；担心价格太贵买错浪费",
                 "psychology": "付费者当前的心理状态，如：焦虑、纠结、着急、迷茫"
             }},
-            "description": "综合描述，100-150字，包含两人关系、使用场景、核心矛盾"
+            "description": "综合描述，100-150字，包含两人关系、使用场景、核心矛盾",
+            "用户阶段标签": "观望期 / 决策期 / 使用期（根据问题所属需求底盘自动推断：前置观望种草盘→观望期；刚需痛点盘→决策期；使用配套搜后种草盘→使用期）",
+            "搜索行为预判": [
+                "会搜索XXXX相关内容（具体描述用户真实搜索意图，如：会搜索具体产品参数对比、真实用户体验分享、价格区间和优惠信息等）",
+                "会搜索XXXX相关内容",
+                "会搜索XXXX相关内容"
+            ],
+            "industry_scene": "行业场景类型（固定值，来自系统识别）：高客单价高风险 / B2B企业服务 / 本地信任型 / 个人品牌专家型 / 通用场景",
+            "trust_demand": {{
+                "dimension": "信任诉求维度名称（如：资质背书、口碑背书、案例背书等）",
+                "description": "信任诉求具体描述"
+            }},
+            "behavior_tags": ["常驻行为标签，如：久坐、长期伏案"],
+            "scene_tags": ["固定场景标签，如：办公室、工位"],
+            "symptom_tags": ["慢性体征标签，如：腰酸背痛、颈椎僵硬"],
+            "search_intent_supplement": ["久坐/伏案/工位养护类搜索词补充"]
         }}
     ]
 }}
@@ -4898,6 +6892,18 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 5. **情绪与 buyer_perspective.psychology 保持一致**
 
 6. **差异化**：每个画像要有明显区分，场景不同+困境不同
+
+7. **【慢性体征画像特别要求】**：
+   - 如果存在常驻行为、固定场景、慢性体征标签，画像必须继承这些标签
+   - portrait_summary 五要素中必须植入长期习惯痛点（如：每天在办公室对着电脑一坐就是8小时...）
+   - 搜索行为预判必须补充久坐/伏案/工位养护类搜索词
+   - identity_tags 中应体现行为场景（如：办公室久坐的上班族、长期盯屏幕的设计师）
+   - 示例：
+     * 身份：每天在办公室对着电脑一坐就是8小时的程序员
+     * 症状：脖子僵硬、肩膀酸胀、眼睛干涩
+     * 转变：想找个方法缓解久坐带来的不适
+     * 困境：不知道什么护颈枕有用，怕买错浪费钱
+     * 情绪：焦虑，担心以后落下职业病
 
 === 示例 ===
 
@@ -4953,6 +6959,12 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 - 每个画像必须包含「使用场景」字段
 - portrait_summary 结构公式：身份 + 问题/症状 + 想转变 + 受限于困境 + 情绪
 - 情绪须与 buyer_perspective.psychology 对齐
+- **【必填】每个画像必须包含「用户阶段标签」字段**：观望期（前置观望种草盘）/ 决策期（刚需痛点盘）/ 使用期（使用配套搜后种草盘）
+- **【必填】每个画像必须包含「搜索行为预判」字段**：锚定用户真实搜索词方向，描述用户会搜索哪些相关内容（必须与问题类型和用户阶段对齐，不是泛化的搜索词）
+- **【必填】每个画像必须包含「industry_scene」字段**：来自系统识别的行业场景类型，必须严格使用固定值
+- **【必填】每个画像必须包含「trust_demand」字段**：来自系统识别的信任诉求维度，必须严格使用固定值
+- **行业场景决策心理**：画像需体现行业场景专属的决策心理（参考场景专属痛点 + trust_demand）
+- **GEO内容方向**：所有选题必须围绕信任诉求展开，贴合「解决方案导向 + 信任背书」逻辑
 - 只输出JSON，不要在JSON前后添加任何文字
 - 不要使用省略号或占位符"""
 
@@ -5130,10 +7142,75 @@ def generate_portraits(params: Dict[str, Any]) -> Dict:
 
         if result:
             portraits = result.get('portraits', [])
-            # 确保每个画像都有 使用场景 字段
+
+            # 从问题继承需求底盘和双标签
+            problem_base = problem.get('problem_base', '')
+            consume_type = problem.get('consume_type', CONSUMER_TYPE_REQUIRED)
+            demand_attr = problem.get('demand_attr', DEMAND_ATTR_FUNCTION)
+
+            # 从慢性体征解析层继承标签
+            p_behavior_tags = problem.get('behavior_tags', behavior_tags)
+            p_scene_tags = problem.get('scene_tags', scene_tags)
+            p_symptom_tags = problem.get('symptom_tags', symptom_tags)
+
+            # 根据 problem_base 推导用户阶段标签
+            user_stage = get_user_stage_from_problem_base(problem_base)
+
             for p in portraits:
+                # 确保每个画像都有 使用场景 字段
                 if '使用场景' not in p or not p['使用场景']:
                     p['使用场景'] = problem.get('scenarios', ['通用'])[0] if problem.get('scenarios') else '通用'
+
+                # 自动补齐用户阶段标签（若LLM未填写）
+                if '用户阶段标签' not in p or not p['用户阶段标签']:
+                    p['用户阶段标签'] = user_stage
+
+                # 自动补齐搜索行为预判（若LLM未填写，综合用户阶段 + 行业场景）
+                if '搜索行为预判' not in p or not p['搜索行为预判']:
+                    p['搜索行为预判'] = predict_search_behavior_with_industry_scene(
+                        user_stage,
+                        problem.get('problem_type', ''),
+                        problem.get('description', ''),
+                        industry_scene,
+                        business_desc
+                    )
+
+                # 【新增】补充久坐/伏案/工位养护类搜索词（针对慢性体征问题）
+                if p_behavior_tags or p_scene_tags or p_symptom_tags:
+                    if '搜索行为预判' in p and isinstance(p['搜索行为预判'], list):
+                        # 添加慢性体征相关的搜索词
+                        chronic_search_supplement = _generate_chronic_search_intent(
+                            p_behavior_tags, p_scene_tags, p_symptom_tags
+                        )
+                        p['搜索行为预判'].extend(chronic_search_supplement)
+
+                # 自动补齐 consume_type（若LLM未填写）
+                if 'consume_type' not in p or not p['consume_type']:
+                    p['consume_type'] = consume_type
+
+                # 自动补齐 demand_attr（若LLM未填写）
+                if 'demand_attr' not in p or not p['demand_attr']:
+                    p['demand_attr'] = demand_attr
+
+                # 画像继承问题的需求底盘
+                p['problem_base'] = problem_base
+
+                # 自动补齐 industry_scene（若LLM未填写）
+                if 'industry_scene' not in p or not p['industry_scene']:
+                    p['industry_scene'] = industry_scene
+
+                # 自动补齐 trust_demand（若LLM未填写）
+                if 'trust_demand' not in p or not p['trust_demand']:
+                    p['trust_demand'] = get_industry_scene_trust_demand(industry_scene)
+
+                # 【新增】自动补齐行为场景体征标签
+                if 'behavior_tags' not in p or not p['behavior_tags']:
+                    p['behavior_tags'] = p_behavior_tags if p_behavior_tags else []
+                if 'scene_tags' not in p or not p['scene_tags']:
+                    p['scene_tags'] = p_scene_tags if p_scene_tags else []
+                if 'symptom_tags' not in p or not p['symptom_tags']:
+                    p['symptom_tags'] = p_symptom_tags if p_symptom_tags else []
+
             return {
                 'success': True,
                 'problem_id': problem.get('id', ''),
