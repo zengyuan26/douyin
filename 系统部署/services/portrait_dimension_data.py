@@ -780,7 +780,407 @@ PORTRAIT_DIMENSIONS_DATA = [
         'prompt_template': '社群营销/圈层渗透',
         'weight': 8.0
     },
+
+    # ========== 定制礼赠仪式场景识别层（整体权重10分）==========
+    # 新增：只要业务含 定制/刻字/LOGO/专属/纪念/伴手礼/礼赠，自动触发此层
+    {
+        'name': '婚宴仪式',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_event',
+        'description': '婚礼宴请场景，送礼和定制需求强烈',
+        'icon': 'bi-heart',
+        'examples': '婚礼伴手礼、婚宴定制酒、婚纱摄影伴手礼',
+        'prompt_template': '婚礼定制推荐/婚礼礼品避坑',
+        'weight': 10.0,
+        'trigger_keywords': ['婚礼', '婚宴', '结婚', '伴郎', '伴娘', '订婚'],
+        'ritual_keywords': ['婚宴伴手礼', '婚礼定制', '结婚礼品', '婚礼伴手礼定制']
+    },
+    {
+        'name': '寿宴仪式',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_event',
+        'description': '祝寿宴请场景，注重吉祥寓意',
+        'icon': 'bi-gift',
+        'examples': '寿宴定制酒、祝寿礼品、老人祝寿伴手礼',
+        'prompt_template': '寿宴定制推荐/祝寿礼品避坑',
+        'weight': 10.0,
+        'trigger_keywords': ['寿宴', '祝寿', '生日宴', '老人', '长辈'],
+        'ritual_keywords': ['寿宴礼品', '祝寿定制', '生日定制礼品']
+    },
+    {
+        'name': '满月/百日宴',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_event',
+        'description': '新生儿宴请场景，送礼讲究寓意和安全性',
+        'icon': 'bi-balloon',
+        'examples': '满月伴手礼、百日宴定制、宝宝宴礼品',
+        'prompt_template': '满月定制推荐/宝宝礼品避坑',
+        'weight': 10.0,
+        'trigger_keywords': ['满月', '百日', '周岁', '宝宝宴', '新生儿', '满月酒'],
+        'ritual_keywords': ['满月伴手礼', '百日宴定制', '宝宝满月礼品', '周岁定制']
+    },
+    {
+        'name': '乔迁之喜',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_event',
+        'description': '搬家宴请场景，注重实用和寓意',
+        'icon': 'bi-house',
+        'examples': '乔迁定制礼品、新居入伙伴手礼、搬家宴请礼品',
+        'prompt_template': '乔迁定制推荐/搬家礼品避坑',
+        'weight': 9.0,
+        'trigger_keywords': ['乔迁', '搬家', '新居', '入伙', '新房'],
+        'ritual_keywords': ['乔迁礼品', '搬家伴手礼', '新居入伙定制', '搬家礼品定制']
+    },
+    {
+        'name': '升学宴/谢师宴',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_event',
+        'description': '升学或感谢老师场景，注重纪念意义',
+        'icon': 'bi-mortarboard',
+        'examples': '升学宴礼品、谢师宴定制、毕业伴手礼',
+        'prompt_template': '升学定制推荐/谢师礼品避坑',
+        'weight': 9.0,
+        'trigger_keywords': ['升学', '谢师', '高考', '中考', '毕业', '金榜题名'],
+        'ritual_keywords': ['升学宴礼品', '谢师宴定制', '毕业伴手礼', '状元宴礼品']
+    },
+    {
+        'name': '开业典礼',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_event',
+        'description': '店铺/公司开业场景，注重宣传和喜庆',
+        'icon': 'bi-shop-window',
+        'examples': '开业定制礼品、开业伴手礼、开张庆典礼品',
+        'prompt_template': '开业定制推荐/开店礼品避坑',
+        'weight': 9.0,
+        'trigger_keywords': ['开业', '开张', '新店', '新公司', '开业的'],
+        'ritual_keywords': ['开业礼品', '开业伴手礼', '开张定制', '新店开业礼品']
+    },
+    {
+        'name': '年会/团建',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_event',
+        'description': '公司年会/团建场景，注重纪念和团队感',
+        'icon': 'bi-people',
+        'examples': '年会定制礼品、团建伴手礼、公司纪念品',
+        'prompt_template': '年会定制推荐/团建礼品避坑',
+        'weight': 8.0,
+        'trigger_keywords': ['年会', '团建', '公司活动', '企业团建', '员工福利'],
+        'ritual_keywords': ['年会礼品', '团建伴手礼', '企业定制礼品', '公司纪念品定制']
+    },
+    {
+        'name': '发布会/启动仪式',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_event',
+        'description': '产品/项目发布会场景，注重品牌展示',
+        'icon': 'bi-megaphone',
+        'examples': '发布会伴手礼、启动仪式定制、媒体礼品',
+        'prompt_template': '发布会定制推荐/启动仪式礼品避坑',
+        'weight': 8.0,
+        'trigger_keywords': ['发布会', '启动仪式', '新品发布', '媒体', '启动会'],
+        'ritual_keywords': ['发布会礼品', '启动仪式定制', '媒体伴手礼', '新品发布礼品']
+    },
+    {
+        'name': '纪念日/节日',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_event',
+        'description': '各类纪念日和传统节日场景',
+        'icon': 'bi-calendar-event',
+        'examples': '节日定制礼品、纪念日伴手礼、中秋/端午/春节礼品',
+        'prompt_template': '节日定制推荐/节日礼品避坑',
+        'weight': 9.0,
+        'trigger_keywords': ['纪念日', '中秋', '端午', '春节', '元宵', '重阳', '七夕', '节日'],
+        'ritual_keywords': ['节日礼品', '节日定制', '中秋伴手礼', '端午礼品', '春节礼品定制']
+    },
+    {
+        'name': '商务答谢',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_event',
+        'description': '商务往来答谢场景，注重档次和定制感',
+        'icon': 'bi-briefcase',
+        'examples': '商务定制礼品、答谢伴手礼、客户礼品',
+        'prompt_template': '商务定制推荐/客户礼品避坑',
+        'weight': 9.0,
+        'trigger_keywords': ['商务', '答谢', '客户', '合作伙伴', '礼品定制', '企业礼品'],
+        'ritual_keywords': ['商务礼品', '客户定制', '答谢礼品', '企业伴手礼定制']
+    },
+
+    # ========== 定制礼赠心理顾虑识别层（整体权重10分）==========
+    {
+        'name': '办宴体面顾虑',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_psychology',
+        'description': '担心宴请不够体面，怕丢面子',
+        'icon': 'bi-emoji-smile',
+        'examples': '婚宴礼品不够档次、寿宴礼品太普通、宾客不满意',
+        'prompt_template': '体面定制方案/高端礼品推荐',
+        'weight': 10.0,
+        'psychology_type': 'face_concern'
+    },
+    {
+        'name': '送礼走心顾虑',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_psychology',
+        'description': '担心礼品不够用心，显得敷衍',
+        'icon': 'bi-heart-pulse',
+        'examples': '礼品太大众没心意、定制的东西好不好、能不能体现心意',
+        'prompt_template': '走心定制方案/个性化礼品推荐',
+        'weight': 10.0,
+        'psychology_type': 'sincerity_concern'
+    },
+    {
+        'name': '定制踩坑顾虑',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_psychology',
+        'description': '担心定制过程出问题，交付延误或质量差丢面子',
+        'icon': 'bi-exclamation-triangle',
+        'examples': '定制工期赶不上、送来发现质量问题、定制效果和想象不符',
+        'prompt_template': '避坑指南/定制保障方案',
+        'weight': 10.0,
+        'psychology_type': 'quality_concern'
+    },
+    {
+        'name': '性价比顾虑',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_psychology',
+        'description': '担心定制价格虚高，花冤枉钱',
+        'icon': 'bi-wallet',
+        'examples': '定制品是不是都很贵、批量定制有没有优惠',
+        'prompt_template': '性价比分析/定制报价指南',
+        'weight': 8.0,
+        'psychology_type': 'price_concern'
+    },
+
+    # ========== 定制礼赠内容类型识别层（整体权重9分）==========
+    {
+        'name': '宴席选款种草',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_content_type',
+        'description': '帮助用户选择适合宴席的定制礼品',
+        'icon': 'bi-list-check',
+        'examples': '婚宴伴手礼选哪款、寿宴选什么礼品有面子',
+        'prompt_template': '宴席礼品推荐/选款指南',
+        'weight': 9.0,
+        'content_base': '前置观望种草盘',
+        'content_direction': '种草型'
+    },
+    {
+        'name': '吉利款式种草',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_content_type',
+        'description': '推荐寓意好、受欢迎的定制款式',
+        'icon': 'bi-star',
+        'examples': '婚宴送什么寓意好、寿宴礼品哪些款式最吉利',
+        'prompt_template': '吉利款式推荐/寓意解读',
+        'weight': 9.0,
+        'content_base': '前置观望种草盘',
+        'content_direction': '种草型'
+    },
+    {
+        'name': '案例对比种草',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_content_type',
+        'description': '通过真实案例对比，帮助用户做决策',
+        'icon': 'bi-bar-chart',
+        'examples': '某客户的婚宴伴手礼选择对比、真实定制案例分享',
+        'prompt_template': '案例分析/对比推荐',
+        'weight': 8.0,
+        'content_base': '前置观望种草盘',
+        'content_direction': '种草型'
+    },
+    {
+        'name': '定制避坑指南',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_content_type',
+        'description': '帮助用户避免定制过程中的常见坑',
+        'icon': 'bi-shield-check',
+        'examples': '定制伴手礼常见的坑、定制工期延误怎么处理',
+        'prompt_template': '避坑指南/防骗指南',
+        'weight': 9.0,
+        'content_base': '前置观望种草盘',
+        'content_direction': '种草型'
+    },
+    {
+        'name': '定制报价刚需',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_content_type',
+        'description': '定制价格和报价相关问题，解决临门一脚',
+        'icon': 'bi-currency-dollar',
+        'examples': '定制伴手礼多少钱、最低价多少、怎么报价',
+        'prompt_template': '报价透明/价格攻略',
+        'weight': 9.0,
+        'content_base': '刚需痛点盘',
+        'content_direction': '转化型'
+    },
+    {
+        'name': '定稿排版刚需',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_content_type',
+        'description': '定制设计稿件确认相关问题',
+        'icon': 'bi-pencil',
+        'examples': '定稿需要多久、稿件修改次数、设计不满意怎么办',
+        'prompt_template': '定稿流程/修改政策',
+        'weight': 8.0,
+        'content_base': '刚需痛点盘',
+        'content_direction': '转化型'
+    },
+    {
+        'name': '加急制作刚需',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_content_type',
+        'description': '加急定制相关问题，时间紧迫用户需求',
+        'icon': 'bi-clock',
+        'examples': '能不能加急、加急要多少钱、时间来不及怎么办',
+        'prompt_template': '加急方案/时间管理',
+        'weight': 8.0,
+        'content_base': '刚需痛点盘',
+        'content_direction': '转化型'
+    },
+    {
+        'name': '现场搭配配套',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_content_type',
+        'description': '宴席现场礼品搭配和使用指导',
+        'icon': 'bi-people-fill',
+        'examples': '伴手礼怎么摆放、宴席现场怎么分发',
+        'prompt_template': '现场搭配指南/分发技巧',
+        'weight': 7.0,
+        'content_base': '使用配套搜后种草盘',
+        'content_direction': '种草型'
+    },
+    {
+        'name': '发放储存配套',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_content_type',
+        'description': '礼品保存和发放相关问题',
+        'icon': 'bi-box-seam',
+        'examples': '伴手礼怎么保存、未发放的怎么处理、保质期多久',
+        'prompt_template': '储存指南/发放建议',
+        'weight': 6.0,
+        'content_base': '使用配套搜后种草盘',
+        'content_direction': '种草型'
+    },
+    {
+        'name': '礼盒配套推荐',
+        'category': 'custom_gift',
+        'sub_category': 'ritual_content_type',
+        'description': '礼盒包装搭配和升级推荐',
+        'icon': 'bi-box',
+        'examples': '伴手礼盒怎么搭配更体面、礼盒升级方案',
+        'prompt_template': '礼盒搭配/升级推荐',
+        'weight': 7.0,
+        'content_base': '使用配套搜后种草盘',
+        'content_direction': '种草型'
+    },
 ]
+
+
+# ========== 定制礼赠识别配置 ==========
+
+# 触发关键词列表：业务描述中包含这些词，自动触发定制礼赠识别层
+CUSTOM_GIFT_TRIGGER_KEYWORDS = [
+    '定制', '刻字', 'LOGO', '专属', '纪念', '伴手礼', '礼赠',
+    '礼品', '礼物', '赠品', '定制水', '定制酒', '定制茶叶',
+    '企业定制', '公司定制', '批量定制', '活动定制', '婚礼定制',
+    '生日定制', '节日定制', '会议定制', '培训定制', '团建定制'
+]
+
+# 定制产品关键词映射：用于识别具体定制品类
+CUSTOM_PRODUCT_KEYWORDS = {
+    '定制水': ['定制水', '定制饮用水', '定制矿泉水', '定制瓶装水'],
+    '定制酒': ['定制酒', '定制白酒', '定制红酒', '定制啤酒', '定制酒水'],
+    '定制茶叶': ['定制茶叶', '定制茶', '定制礼盒茶', '定制茶礼'],
+    '定制伴手礼': ['伴手礼', '伴手礼品', '婚礼伴手礼', '商务伴手礼', '活动伴手礼'],
+    '企业定制物料': ['企业定制', '公司定制', '定制物料', '企业物料', '公司物料'],
+}
+
+# 三大底盘内容分类映射
+CUSTOM_GIFT_CONTENT_BASE_MAP = {
+    # 前置观望种草盘（种草型）
+    '前置观望种草盘': [
+        '宴席选款种草', '吉利款式种草', '案例对比种草', '定制避坑指南'
+    ],
+    # 刚需痛点盘（转化型）
+    '刚需痛点盘': [
+        '定制报价刚需', '定稿排版刚需', '加急制作刚需'
+    ],
+    # 使用配套搜后种草盘（种草型）
+    '使用配套搜后种草盘': [
+        '现场搭配配套', '发放储存配套', '礼盒配套推荐'
+    ]
+}
+
+
+def is_custom_gift_business(business_description: str) -> bool:
+    """
+    判断业务是否为定制礼赠类业务
+
+    Args:
+        business_description: 业务描述文本
+
+    Returns:
+        True 如果业务包含定制礼赠相关关键词
+    """
+    if not business_description:
+        return False
+
+    desc_lower = business_description.lower()
+    for keyword in CUSTOM_GIFT_TRIGGER_KEYWORDS:
+        if keyword.lower() in desc_lower:
+            return True
+    return False
+
+
+def get_ritual_event_from_business(business_description: str) -> list:
+    """
+    从业务描述中提取仪式场景类型
+
+    Args:
+        business_description: 业务描述文本
+
+    Returns:
+        匹配的仪式场景列表
+    """
+    matched_rituals = []
+    for dimension in PORTRAIT_DIMENSIONS_DATA:
+        if dimension.get('sub_category') == 'ritual_event':
+            trigger_kws = dimension.get('trigger_keywords', [])
+            for kw in trigger_kws:
+                if kw in business_description:
+                    matched_rituals.append(dimension['name'])
+                    break
+    return matched_rituals
+
+
+def get_custom_gift_portrait_psychology() -> list:
+    """
+    获取定制礼赠画像应包含的心理顾虑
+
+    Returns:
+        心理顾虑维度列表
+    """
+    psychologies = []
+    for dimension in PORTRAIT_DIMENSIONS_DATA:
+        if dimension.get('sub_category') == 'ritual_psychology':
+            psychologies.append({
+                'name': dimension['name'],
+                'description': dimension['description'],
+                'psychology_type': dimension.get('psychology_type', ''),
+                'prompt_template': dimension.get('prompt_template', '')
+            })
+    return psychologies
+
+
+def get_content_type_by_base(base_name: str) -> list:
+    """
+    根据底盘名称获取对应的内容类型
+
+    Args:
+        base_name: 底盘名称
+
+    Returns:
+        内容类型列表
+    """
+    return CUSTOM_GIFT_CONTENT_BASE_MAP.get(base_name, [])
 
 
 # 子分类中英对照
@@ -796,5 +1196,8 @@ SUB_CATEGORY_LABELS = {
     'cost_dimension': '成本维度',
     'efficiency_dimension': '效率维度',
     'emotional_dimension': '情感维度',
-    'social_dimension': '社交维度'
+    'social_dimension': '社交维度',
+    'ritual_event': '仪式场景',
+    'ritual_psychology': '定制心理',
+    'ritual_content_type': '定制内容类型'
 }

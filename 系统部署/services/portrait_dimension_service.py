@@ -18,7 +18,16 @@ from collections import defaultdict
 import logging
 
 from models.models import AnalysisDimension
-from services.portrait_dimension_data import SUB_CATEGORY_LABELS
+from services.portrait_dimension_data import (
+    SUB_CATEGORY_LABELS,
+    PORTRAIT_DIMENSIONS_DATA,
+    CUSTOM_GIFT_TRIGGER_KEYWORDS,
+    is_custom_gift_business,
+    get_ritual_event_from_business,
+    get_custom_gift_portrait_psychology,
+    get_content_type_by_base,
+    CUSTOM_GIFT_CONTENT_BASE_MAP
+)
 
 logger = logging.getLogger(__name__)
 
@@ -284,12 +293,80 @@ def get_content_direction(barrier_name: str) -> str:
 
 # ========== AI提示词构建 ==========
 
-def build_portrait_generation_context() -> Dict[str, str]:
+def is_business_custom_gift(description: str) -> bool:
+    """
+    判断业务是否为定制礼赠类业务
+
+    Args:
+        description: 业务描述
+
+    Returns:
+        True 如果业务包含定制礼赠相关关键词
+    """
+    return is_custom_gift_business(description)
+
+
+def get_custom_gift_context(description: str = '') -> Dict[str, str]:
+    """
+    获取定制礼赠识别层的上下文信息
+
+    Args:
+        description: 业务描述（用于匹配具体仪式场景）
+
+    Returns:
+        包含仪式场景、心理顾虑、内容类型的字典
+    """
+    # 获取匹配的仪式场景
+    matched_rituals = []
+    if description:
+        matched_rituals = get_ritual_event_from_business(description)
+
+    # 如果没有匹配，使用全部仪式场景
+    if not matched_rituals:
+        for dim in PORTRAIT_DIMENSIONS_DATA:
+            if dim.get('sub_category') == 'ritual_event':
+                matched_rituals.append(dim['name'])
+
+    # 获取心理顾虑
+    psychologies = get_custom_gift_portrait_psychology()
+
+    # 构建仪式场景描述
+    ritual_scenes = "\n".join([
+        f"- {r}" for r in matched_rituals
+    ])
+
+    # 构建心理顾虑描述
+    psychology_desc = "\n".join([
+        f"- {p['name']}：{p['description']}"
+        for p in psychologies
+    ])
+
+    # 三大底盘内容类型
+    content_by_base = []
+    for base_name, content_types in CUSTOM_GIFT_CONTENT_BASE_MAP.items():
+        content_by_base.append(f"\n**{base_name}**：")
+        for ct in content_types:
+            content_by_base.append(f"  - {ct}")
+
+    return {
+        'ritual_scenes': ritual_scenes,
+        'psychology_desc': psychology_desc,
+        'matched_rituals': matched_rituals,
+        'psychologies': psychologies,
+        'content_by_base': "\n".join(content_by_base)
+    }
+
+
+def build_portrait_generation_context(business_description: str = '') -> Dict[str, str]:
     """
     构建画像生成的完整AI提示词上下文（精简版）
     返回包含所有维度信息的字典
+
+    Args:
+        business_description: 业务描述（用于定制礼赠识别）
     """
-    return {
+    # 基础上下文
+    context = {
         '矛盾类型': get_all_conflict_types_for_ai(),
         '转变类型': get_all_transformation_types_for_ai(),
         '障碍维度': get_all_barriers_for_ai(),
@@ -304,6 +381,18 @@ def build_portrait_generation_context() -> Dict[str, str]:
         '内容类型': get_all_content_types_for_ai(),
         '内容方向映射': get_barrier_mapping_for_ai()
     }
+
+    # 如果是定制礼赠业务，添加定制识别层
+    if is_custom_gift_business(business_description):
+        custom_context = get_custom_gift_context(business_description)
+        context['仪式场景'] = custom_context['ritual_scenes']
+        context['定制心理'] = custom_context['psychology_desc']
+        context['三大底盘内容'] = custom_context['content_by_base']
+        context['is_custom_gift'] = 'true'
+    else:
+        context['is_custom_gift'] = 'false'
+
+    return context
 
 
 # ========== 画像生成模板 ==========
@@ -370,6 +459,7 @@ PORTRAIT_GENERATION_PROMPT_TEMPLATE = """你是精准营销专家。基于业务
 {efficiency_dims}
 极高时间敏感=要最快方案,愿意投入时间=学习型用户
 
+{custom_gift_section}
 ## 输出要求
 
 请生成画像时：
@@ -400,7 +490,8 @@ def generate_portrait_prompt(
     user_identity: str,
     buyer_identity: str,
     buyer_user_relationship: str,
-    specific_problem: str
+    specific_problem: str,
+    business_description: str = ''
 ) -> str:
     """
     生成画像生成的AI提示词
@@ -411,14 +502,41 @@ def generate_portrait_prompt(
         buyer_identity: 付费人身份
         buyer_user_relationship: 买用关系描述
         specific_problem: 具体问题描述
+        business_description: 业务描述（用于定制礼赠识别）
     
     Returns:
         格式化后的AI提示词
     """
-    context = build_portrait_generation_context()
+    context = build_portrait_generation_context(business_description)
     barrier_mapping_str = "\n".join([
         f"{k}→{v}" for k, v in context['内容方向映射'].items()
     ])
+    
+    # 检查是否是定制礼赠业务
+    custom_gift_section = ''
+    if context.get('is_custom_gift') == 'true':
+        custom_gift_section = f"""
+## 【定制礼赠专属维度】（业务包含定制/礼赠/纪念等关键词）
+
+### 适用仪式场景
+{context.get('仪式场景', '')}
+
+### 定制礼赠心理顾虑（画像必须包含）
+{context.get('定制心理', '')}
+
+### 三大底盘内容分类
+{context.get('三大底盘内容', '')}
+
+**强制要求**：
+1. 画像中必须包含"办宴体面"、"送礼走心"、"怕定制踩坑丢面子"等心理关键词
+2. 画像描述中必须明确仪式场景（如婚宴/寿宴/满月等）
+3. 内容方向直接映射到三大底盘：
+   - 宴席选款/吉利款式/案例对比/避坑指南 → 前置观望种草盘（种草型）
+   - 定制报价/定稿排版/加急制作 → 刚需痛点盘（转化型）
+   - 现场搭配/发放储存/礼盒配套 → 使用配套搜后种草盘（种草型）
+"""
+    else:
+        custom_gift_section = ''
     
     return PORTRAIT_GENERATION_PROMPT_TEMPLATE.format(
         business_info=business_info,
@@ -437,7 +555,8 @@ def generate_portrait_prompt(
         social_dims=context['社交维度'],
         risk_dims=context['风险维度'],
         cost_dims=context['成本维度'],
-        efficiency_dims=context['效率维度']
+        efficiency_dims=context['效率维度'],
+        custom_gift_section=custom_gift_section
     )
 
 
