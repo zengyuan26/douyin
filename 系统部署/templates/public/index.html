@@ -130,49 +130,6 @@
             color: white;
         }
 
-        .pricing-card {
-            background: white;
-            border-radius: 16px;
-            padding: 2rem;
-            text-align: center;
-            border: 2px solid transparent;
-            transition: all 0.3s;
-            height: 100%;
-        }
-
-        .pricing-card.featured {
-            border-color: var(--primary);
-            transform: scale(1.05);
-        }
-
-        .pricing-card .price {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .pricing-card .price span {
-            font-size: 1rem;
-            color: var(--text-muted);
-        }
-
-        .pricing-card ul {
-            list-style: none;
-            padding: 0;
-            margin: 1.5rem 0;
-        }
-
-        .pricing-card li {
-            padding: 0.5rem 0;
-            color: var(--text-muted);
-        }
-
-        .pricing-card li::before {
-            content: "✓";
-            color: var(--secondary);
-            margin-right: 0.5rem;
-        }
-
         footer {
             background: var(--text-dark);
             color: white;
@@ -184,10 +141,6 @@
             .generator-section {
                 padding: 1.5rem;
                 margin-top: 0;
-            }
-
-            .pricing-card.featured {
-                transform: scale(1);
             }
         }
 
@@ -552,10 +505,13 @@
         .problem-card {
             background: white;
             border-radius: 12px;
-            padding: 16px 20px;
+            padding: 18px 20px 16px;
             border: 2px solid #e5e7eb;
             transition: all 0.3s;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
         }
 
         .problem-card:hover {
@@ -588,33 +544,53 @@
             z-index: 2;
         }
 
-        /* 市场洞察 · 问题卡片：第1行 = 问题类型 + 身份；第2行 = 严重性（星级） */
-        .pc-top-row {
+        /* 市场洞察 · 问题卡片：标题独占一行；标签区自动换行 */
+        .pc-header {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            gap: 10px;
+            padding-right: 28px;
+            margin-bottom: 10px;
+            min-width: 0;
+        }
+
+        /* 问题类型 + 身份标签同排 */
+        .pc-title-row {
+            display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            padding-right: 30px;
-            margin-bottom: 6px;
+            align-items: center;
+            gap: 8px 10px;
             min-width: 0;
         }
 
         .pc-type {
-            font-size: 1rem;
+            display: block;
+            font-size: 1.05rem;
             font-weight: 700;
             color: #3730a3;
-            line-height: 1.3;
+            line-height: 1.45;
             letter-spacing: -0.02em;
+            word-break: break-word;
             flex: 1 1 auto;
             min-width: 0;
+        }
+
+        /* 三盘 + 双标签换行展示 */
+        .pc-tags-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 10px;
+            min-width: 0;
+            width: 100%;
         }
 
         .pc-severity-row {
             display: flex;
             align-items: center;
-            gap: 6px;
-            margin-bottom: 8px;
-            padding-right: 30px;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding-right: 28px;
         }
 
         .pc-severity-label {
@@ -660,13 +636,15 @@
         .pc-base-badge {
             display: inline-flex;
             align-items: center;
-            gap: 3px;
+            gap: 4px;
             font-size: 11px;
             font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-left: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            margin-left: 0;
             border: 1px solid;
+            line-height: 1.35;
+            max-width: 100%;
         }
         .pc-base-badge.base-urgent {
             color: #b91c1c;
@@ -684,12 +662,45 @@
             border-color: #bbf7d0;
         }
 
+        /* 双标签：consume_type + demand_attr */
+        .pc-dual-badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 600;
+            margin-left: 0;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1.35;
+            max-width: 100%;
+        }
+        .pc-consume-type.label-required {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .pc-consume-type.label-incremental {
+            background: #f0fdf4;
+            color: #166534;
+        }
+        .pc-demand-attr.label-function {
+            background: #fff7ed;
+            color: #c2410c;
+        }
+        .pc-demand-attr.label-emotion {
+            background: #fdf4ff;
+            color: #7e22ce;
+        }
+        .pc-dual-badge.label-unknown {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
         .pc-desc {
-            font-size: 0.8rem;
+            font-size: 0.8125rem;
             color: #57534e;
-            line-height: 1.5;
-            margin-bottom: 8px;
-            padding: 8px 10px;
+            line-height: 1.55;
+            margin-bottom: 12px;
+            padding: 10px 12px;
             background: #fafaf9;
             border-radius: 8px;
             border-left: 3px solid #818cf8;
@@ -698,20 +709,21 @@
         .pc-keywords-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
-            margin-bottom: 10px;
+            gap: 8px;
+            margin-bottom: 14px;
+            align-items: flex-start;
         }
 
         .pc-kw-tag {
             font-size: 0.75rem;
-            padding: 4px 10px;
-            border-radius: 6px;
+            padding: 6px 10px;
+            border-radius: 8px;
             font-weight: 500;
             display: inline-block;
-            max-width: 160px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            max-width: 100%;
+            line-height: 1.4;
+            white-space: normal;
+            word-break: break-word;
             transition: all 0.2s;
         }
 
@@ -743,14 +755,21 @@
 
         .pc-foot {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
-            gap: 8px;
+            gap: 10px 12px;
+            margin-top: 4px;
+            padding-top: 12px;
+            border-top: 1px solid #f1f5f9;
         }
 
         .pc-status {
             font-size: 0.75rem;
             color: #78716c;
+            line-height: 1.45;
+            flex: 1 1 140px;
+            min-width: 0;
         }
 
         .pc-status.done {
@@ -1253,7 +1272,7 @@
                                                     <strong>升级解锁AI精准画像</strong>
                                                     <p class="mb-0 small">免费用户使用基础画像，付费用户获得AI深度分析</p>
                                                 </div>
-                                                <a href="#pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
+                                                <a href="/public/pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
                                             </div>
                                         </div>
 
@@ -1384,7 +1403,7 @@
                                             <strong>付费用户专享</strong>
                                             <p class="mb-0 small">升级后可换一批选题，获得更多精准选题推荐</p>
                                         </div>
-                                        <a href="#pricing" class="btn btn-sm btn-outline-warning">了解套餐</a>
+                                        <a href="/public/pricing" class="btn btn-sm btn-outline-warning">了解套餐</a>
                                     </div>
                                 </div>
                             </div>
@@ -1442,71 +1461,6 @@
                             </div>
                         </div><!-- /#tab-content-content -->
                     </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 定价方案 -->
-    <section id="pricing" class="py-5" style="background: var(--bg-light);">
-        <div class="container py-5">
-            <div class="text-center mb-5">
-                <h2 class="mb-2">适合企业家的定价方案</h2>
-                <p class="text-muted">按需选择，让 AI 为您的企业增长赋能</p>
-            </div>
-            <div class="row g-4 justify-content-center">
-                <div class="col-md-3">
-                    <div class="pricing-card">
-                        <h5>免费体验</h5>
-                        <div class="price">¥0<span>/月</span></div>
-                        <p class="text-muted small mb-3">先体验再决定</p>
-                        <ul>
-                            <li>每日2次 AI 内容优化</li>
-                            <li>基础内容模板</li>
-                            <li>3种内容结构</li>
-                            <li>标准标题生成</li>
-                        </ul>
-                        <button class="btn btn-outline-primary w-100">免费试用</button>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="pricing-card featured">
-                        <span class="badge bg-transparent border border-primary text-primary position-absolute" style="top: -12px;">企业家首选</span>
-                        <h5>商业版</h5>
-                        <div class="price">¥999<span>/月</span></div>
-                        <p class="text-muted small mb-3">年营收1000万+企业标配</p>
-                        <ul>
-                            <li>每月200次 AI 内容优化</li>
-                            <li>无限内容模板库</li>
-                            <li>10个标题方案</li>
-                            <li>AI 深度内容增强</li>
-                            <li>竞品内容分析</li>
-                            <li>专属内容策略指导</li>
-                        </ul>
-                        <button class="btn btn-primary w-100">立即开通</button>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="pricing-card">
-                        <h5>企业定制</h5>
-                        <div class="price">定制<span>/月</span></div>
-                        <p class="text-muted small mb-3">大型企业专属方案</p>
-                        <ul>
-                            <li>无限 AI 内容生成</li>
-                            <li>私有知识库对接</li>
-                            <li>API 接口开放</li>
-                            <li>专属客户成功经理</li>
-                            <li>上门培训服务</li>
-                            <li>定制开发支持</li>
-                        </ul>
-                        <button class="btn btn-outline-primary w-100">咨询报价</button>
-                    </div>
-                </div>
-            </div>
-            <div class="text-center mt-4">
-                <p class="text-muted small">
-                    <i class="bi bi-shield-check me-1"></i>
-                    支持月付 / 年付（年付8折）| 7天无理由退款 | 技术支持
-                </p>
             </div>
         </div>
     </section>
@@ -2519,6 +2473,68 @@
                     cardContent += `<div style="font-size: 13px; color: #555; line-height: 1.6; padding-top: 0.5rem; border-top: 1px dashed #ddd;">${escHtml(description)}</div>`;
                 }
 
+                // ── 新增画像字段：需求底盘 + 用户阶段 + 搜索行为预判 ──────────────────
+                const problemBase = target.problem_base || target.problem_base || '';
+                const userStage = target['用户阶段标签'] || target.user_stage || '';
+                const searchBehaviors = target['搜索行为预判'] || target.search_behaviors || [];
+                const consumeType = target.consume_type || '';
+                const demandAttr = target.demand_attr || '';
+
+                // 需求底盘 + 用户阶段标签行
+                if (problemBase || userStage) {
+                    cardContent += `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:0.75rem; padding-top:0.75rem; border-top:1px dashed #eee;">`;
+                    if (problemBase) {
+                        let baseStyle = 'font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600;';
+                        if (problemBase === '刚需痛点盘' || problemBase === '刚需痛点') {
+                            baseStyle += 'background:#fee2e2; color:#b91c1c;';
+                        } else if (problemBase === '前置观望种草盘' || problemBase === '前置观望') {
+                            baseStyle += 'background:#fef9c3; color:#854d0e;';
+                        } else {
+                            baseStyle += 'background:#dcfce7; color:#166534;';
+                        }
+                        cardContent += `<span style="${baseStyle}">${escHtml(problemBase)}</span>`;
+                    }
+                    if (userStage) {
+                        let stageStyle = 'font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; background:#e0e7ff; color:#3730a3;';
+                        cardContent += `<span style="${stageStyle}" title="用户阶段">📍${escHtml(userStage)}</span>`;
+                    }
+                    if (consumeType) {
+                        let ctStyle = 'font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600;';
+                        if (consumeType === '必需') {
+                            ctStyle += 'background:#fee2e2; color:#b91c1c;';
+                        } else if (consumeType === '增量') {
+                            ctStyle += 'background:#f0fdf4; color:#166534;';
+                        } else {
+                            ctStyle += 'background:#f3f4f6; color:#6b7280;';
+                        }
+                        cardContent += `<span style="${ctStyle}" title="消费类型">${escHtml(consumeType)}</span>`;
+                    }
+                    if (demandAttr) {
+                        let daStyle = 'font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600;';
+                        if (demandAttr === '功能驱动') {
+                            daStyle += 'background:#fff7ed; color:#c2410c;';
+                        } else if (demandAttr === '场景情绪驱动') {
+                            daStyle += 'background:#fdf4ff; color:#7e22ce;';
+                        } else {
+                            daStyle += 'background:#f3f4f6; color:#6b7280;';
+                        }
+                        cardContent += `<span style="${daStyle}" title="需求属性">${escHtml(demandAttr)}</span>`;
+                    }
+                    cardContent += `</div>`;
+                }
+
+                // 搜索行为预判
+                if (Array.isArray(searchBehaviors) && searchBehaviors.length > 0) {
+                    cardContent += `<div style="margin-top:0.5rem; padding:0.5rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">`;
+                    cardContent += `<div style="font-size:11px; font-weight:600; color:#475569; margin-bottom:4px;">🔍 搜索行为预判</div>`;
+                    searchBehaviors.forEach(function(behavior) {
+                        if (behavior && String(behavior).trim()) {
+                            cardContent += `<div style="font-size:11px; color:#64748b; padding:2px 0; padding-left:8px; border-left:2px solid #cbd5e1;">${escHtml(String(behavior))}</div>`;
+                        }
+                    });
+                    cardContent += `</div>`;
+                }
+
                 cardContent += `</div>`;
                 card.innerHTML = cardContent;
 
@@ -2606,27 +2622,51 @@
                 `;
             }
 
-            // 三盘标签
+            // 三盘标签（兼容旧枚举和新的三盘固定值）
             const problemBase = problemData.problem_base || problemData.problem_base || '';
             const contentDirection = problemData.content_direction || '';
             let baseBadge = '';
             if (problemBase) {
-                const baseClass = problemBase === '刚需痛点' ? 'base-urgent' :
-                                  problemBase === '前置观望' ? 'base-watch' : 'base-peripheral';
-                const baseIcon = problemBase === '刚需痛点' ? '🔴' :
-                                problemBase === '前置观望' ? '🟡' : '🟢';
+                // 新的三盘枚举：原文直译
+                let baseClass, baseIcon;
+                if (problemBase === '刚需痛点盘' || problemBase === '刚需痛点') {
+                    baseClass = 'base-urgent'; baseIcon = '🔴';
+                } else if (problemBase === '前置观望种草盘' || problemBase === '前置观望') {
+                    baseClass = 'base-watch'; baseIcon = '🟡';
+                } else if (problemBase === '使用配套搜后种草盘' || problemBase === '使用配套') {
+                    baseClass = 'base-peripheral'; baseIcon = '🟢';
+                } else {
+                    baseClass = 'base-urgent'; baseIcon = '🔴';
+                }
                 baseBadge = `<span class="pc-base-badge ${baseClass}" title="底盘:${problemBase} 内容方向:${contentDirection}">${baseIcon}${problemBase}</span>`;
             }
 
-            // 问题大类前缀去掉，仅显示细分问题类型
-            // 问题卡片顶部一行：细分问题类型 + 三盘标签 + 身份标签
+            // 双标签：consume_type（必需/增量）+ demand_attr（功能驱动/场景情绪驱动）
+            const consumeType = problemData.consume_type || '';
+            const demandAttr = problemData.demand_attr || '';
+            let dualLabelBadges = '';
+            if (consumeType || demandAttr) {
+                const ctClass = consumeType === '必需' ? 'label-required' : (consumeType === '增量' ? 'label-incremental' : 'label-unknown');
+                const daClass = demandAttr === '功能驱动' ? 'label-function' : (demandAttr === '场景情绪驱动' ? 'label-emotion' : 'label-unknown');
+                dualLabelBadges = `
+                    <span class="pc-dual-badge pc-consume-type ${ctClass}" title="消费类型">${consumeType || '待打标'}</span>
+                    <span class="pc-dual-badge pc-demand-attr ${daClass}" title="需求属性">${demandAttr || '待打标'}</span>
+                `;
+            }
+
+            // 问题大类前缀去掉；版面：标题+身份同行 → 三盘+双标签换行 → 描述+关键词+底部
 
             col.innerHTML = `
                 <div class="problem-card" data-key="${escHtml(key)}" style="cursor:pointer;">
-                    <div class="pc-top-row">
-                        <span class="pc-type" title="${escHtml(problemType)}">${escHtml(problemType)}</span>
-                        ${baseBadge}
-                        <span class="pc-id-badge ${badgeClass}"><span aria-hidden="true">${tagIcon}</span><span>${escHtml(identity)}</span></span>
+                    <div class="pc-header">
+                        <div class="pc-title-row">
+                            <span class="pc-type" title="${escHtml(problemType)}">${escHtml(problemType)}</span>
+                            <span class="pc-id-badge ${badgeClass}"><span aria-hidden="true">${tagIcon}</span><span>${escHtml(identity)}</span></span>
+                        </div>
+                        <div class="pc-tags-row">
+                            ${baseBadge}
+                            ${dualLabelBadges}
+                        </div>
                     </div>
                     <div class="pc-severity-row" aria-label="问题严重性">
                         <span class="pc-star" aria-hidden="true">${stars}</span>

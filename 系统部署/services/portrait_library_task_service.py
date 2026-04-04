@@ -8,6 +8,7 @@
 4. Flask app context 支持（后台线程在请求结束后执行，必须手动创建 context）
 """
 
+import json
 import threading
 import logging
 from concurrent.futures import ThreadPoolExecutor, Future
@@ -193,11 +194,11 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str) -> None
             'region': '',
             'target_customer': portrait.get('target_customer', ''),
         }
-        
         # 调试日志
-        logger.info("[PortraitLibraryTask] portrait_data keys=%s", list(portrait_data_dict.keys()) if portrait_data_dict else [])
-        logger.info("[PortraitLibraryTask] business_info: %s", business_info)
-        
+        business_str = json.dumps(business_info, ensure_ascii=False) if business_info else '{}'
+        logger.info("[PortraitLibraryTask] portrait_data keys=" + str(list(portrait_data_dict.keys()) if portrait_data_dict else []))
+        logger.info("[PortraitLibraryTask] business_info: " + business_str)
+
         # 3. 生成关键词库
         kw_result = keyword_library_generator.generate(
             portrait_data=portrait_data_dict,
@@ -252,10 +253,14 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str) -> None
 
     except Exception as e:
         import traceback
-        logger.error("[PortraitLibraryTask] 异常 portrait_id=%d: %s", portrait_id, e)
+        error_str = str(e)
+        if len(error_str) > 300:
+            error_str = error_str[:300] + '...'
+        # 异常信息本身可能含 { } 或 %，用字符串拼接避免二次格式化
+        logger.error("[PortraitLibraryTask] 异常 portrait_id=%d: " + error_str, portrait_id)
         logger.debug(
-            "[PortraitLibraryTask] 堆栈 portrait_id=%d: %s",
-            portrait_id, traceback.format_exc()
+            "[PortraitLibraryTask] 堆栈 portrait_id=%d: " + traceback.format_exc(),
+            portrait_id
         )
         try:
             from models.public_models import SavedPortrait, db

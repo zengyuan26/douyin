@@ -29,51 +29,57 @@ class KeywordLibraryGenerator:
     - 配比策略（起号期/成长期/成熟期）
     """
 
+    def _escape_fstring(self, s: str) -> str:
+        """转义字符串中的花括号，防止在 f-string 中被误解析为占位符"""
+        if not isinstance(s, str):
+            return ''
+        return s.replace('{', '{{').replace('}', '}}')
+
     # 关键词分类常量（严格对应三大需求底盘 + 强制固定归类）
     # 三盘比例：前置观望搜前种草盘 50% / 刚需痛点盘 30% / 使用配套搜后种草盘 20%
     # 强制规则：对比选型/决策安心/上下游/原料/配料/工具/对比等全部固定归类，AI 禁止自由发挥
     CATEGORIES = [
         # ────────────── ① 前置观望搜前种草盘（50%）────────────────────────────
         # 【新增】对比型搜索专区：专抓前期迷茫、做对比、查原因的潜在客户
-        {'name': '对比型搜索关键词', 'key': 'compare', 'base': '前置观望', 'min': 15,
+        {'name': '对比型搜索关键词', 'key': 'compare', 'base': '前置观望种草盘', 'min': 15,
          'desc': 'A与B区别/选型对比/哪种更好/划算对比/品牌对比，问题导向，不推产品'},
-        {'name': '症状疑问关键词', 'key': 'symptom', 'base': '前置观望', 'min': 10,
+        {'name': '症状疑问关键词', 'key': 'symptom', 'base': '前置观望种草盘', 'min': 10,
          'desc': '前期症状/问题征兆疑问型词，不推产品，捕捉犹豫期客户'},
-        {'name': '原因分析关键词', 'key': 'cause', 'base': '前置观望', 'min': 10,
+        {'name': '原因分析关键词', 'key': 'cause', 'base': '前置观望种草盘', 'min': 10,
          'desc': '为什么会/原因分析/形成机理，从评论区挖认知需求'},
-        {'name': '上游供应链原料选材关键词', 'key': 'upstream', 'base': '前置观望', 'min': 10,
-         'desc': '原料/材质/供应链/选材/鉴别知识，上游关联词'},
-        {'name': '行情价格关键词', 'key': 'price', 'base': '前置观望', 'min': 5,
-         'desc': '价格/报价/行情/行情波动/成本构成问题词'},
-        {'name': '避坑科普关键词', 'key': 'pitfall', 'base': '前置观望', 'min': 10,
-         'desc': '避坑/误区/骗局/怎么分辨/如何避免，辟谣类词（搜前种草）'},
+        {'name': '上游供应链原料选材关键词', 'key': 'upstream', 'base': '前置观望种草盘', 'min': 10,
+         'desc': '选机构看什么/师资怎么辨别/课程内容怎么判断，搜前对比评估类词'},
+        {'name': '行情价格关键词', 'key': 'price', 'base': '前置观望种草盘', 'min': 5,
+         'desc': '收费合理吗/不同机构价格差异/值不值，预算顾虑类词'},
+        {'name': '避坑科普关键词', 'key': 'pitfall', 'base': '前置观望种草盘', 'min': 10,
+         'desc': '黑机构套路/虚假承诺/不靠谱机构特征，辟谣类词（搜前种草）'},
 
         # ────────────── ② 刚需痛点盘（30%）────────────────────────────────────
         # 【强化】新增决策鼓励 + 打消顾虑专区：解决临门一脚犹豫
-        {'name': '直接需求关键词', 'key': 'direct', 'base': '刚需痛点', 'min': 10,
-         'desc': '核心词+品质服务词，直接表达购买意向'},
-        {'name': '痛点关键词', 'key': 'pain_point', 'base': '刚需痛点', 'min': 10,
-         'desc': '问题型+担心型+后果型，从评论区挖痛点'},
-        {'name': '决策鼓励关键词', 'key': 'decision_encourage', 'base': '刚需痛点', 'min': 8,
+        {'name': '直接需求关键词', 'key': 'direct', 'base': '刚需痛点盘', 'min': 10,
+         'desc': '要报/赶紧找/马上报名，直接表达购买意向的紧迫词'},
+        {'name': '痛点关键词', 'key': 'pain_point', 'base': '刚需痛点盘', 'min': 10,
+         'desc': '怎么办/来不及了/不甘心，后果焦虑型词'},
+        {'name': '决策鼓励关键词', 'key': 'decision_encourage', 'base': '刚需痛点盘', 'min': 8,
          'desc': '靠谱吗/会不会坑/售后怎么样/划算吗，临门一脚打消顾虑类'},
-        {'name': '安心保障关键词', 'key': 'reassure', 'base': '刚需痛点', 'min': 7,
-         'desc': '别人怎么选/长期合作/口碑评价/真实案例，强化下单信心类'},
+        {'name': '安心保障关键词', 'key': 'reassure', 'base': '刚需痛点盘', 'min': 7,
+         'desc': '别人怎么选/真实案例/口碑评价/退款保障，强化下单信心类'},
 
         # ────────────── ③ 使用配套搜后种草盘（20%）────────────────────────────
-        {'name': '地域关键词', 'key': 'region', 'base': '使用配套', 'min': 8,
-         'desc': '本地+周边扩展地域词'},
-        # 【扩充】旺/淡季词 + 干货数字承诺型词 + 认知颠覆词（前置观望新增）
-        {'name': '季节时间关键词', 'key': 'season', 'base': '使用配套', 'min': 10,
-         'desc': '旺季词（时间+业务+优惠/团购/批发）+淡季词（时间+业务+技巧/保存），搜后种草'},
-        {'name': '实操技巧干货关键词', 'key': 'skill', 'base': '使用配套', 'min': 10,
-         'desc': '干货型（技巧/方法/秘方/诀窍）+数字型（记住X点/X个技巧）+承诺型（好用/秘诀），搜后种草'},
-        {'name': '工具耗材关键词', 'key': 'tools', 'base': '使用配套', 'min': 5,
-         'desc': '专用工具/周边耗材/后期养护/升级推荐（搜后种草）'},
-        {'name': '行业关联关键词', 'key': 'industry', 'base': '使用配套', 'min': 5,
-         'desc': '上下游业务关联词，行业生态（搜后种草）'},
-        # 【新增】认知颠覆关键词（前置观望搜前种草盘）
-        {'name': '认知颠覆关键词', 'key': 'rethink', 'base': '前置观望', 'min': 5,
-         'desc': '颠覆型（不是.../原来要...）+辟谣类（90%都错了）+揭秘类（答案+是...）+纠正类（别再...了），搜前种草'},
+        {'name': '地域关键词', 'key': 'region', 'base': '使用配套搜后种草盘', 'min': 8,
+         'desc': 'XX城市志愿填报辅导/本地靠谱机构推荐，本地流量词'},
+        # 【扩充】旺/淡季词 + 干货数字承诺型词 + 认知颠覆词（前置观望种草盘新增）
+        {'name': '季节时间关键词', 'key': 'season', 'base': '使用配套搜后种草盘', 'min': 10,
+         'desc': '出分前/出分后/填报截止前，时间节点焦虑词，搜后种草'},
+        {'name': '实操技巧干货关键词', 'key': 'skill', 'base': '使用配套搜后种草盘', 'min': 10,
+         'desc': '平行志愿怎么填/压线生怎么报/城市vs学校谁优先，从用户具体问题出发的实操词，搜后种草'},
+        {'name': '工具耗材关键词', 'key': 'tools', 'base': '使用配套搜后种草盘', 'min': 5,
+         'desc': '志愿填报辅助工具/测评量表/历年分数线App，报后辅助使用类词，搜后种草'},
+        {'name': '行业关联关键词', 'key': 'industry', 'base': '使用配套搜后种草盘', 'min': 5,
+         'desc': '强基计划/综合评价/提前批区别，志愿填报延伸知识类词，搜后种草'},
+        # 【新增】认知颠覆关键词（前置观望种草盘）
+        {'name': '认知颠覆关键词', 'key': 'rethink', 'base': '前置观望种草盘', 'min': 5,
+         'desc': '以为随便选就行/不找机构也来得及/分数够了不用规划，打破固有偏见的认知颠覆类词，搜前种草'},
     ]
 
     def __init__(self):
@@ -194,8 +200,11 @@ class KeywordLibraryGenerator:
             }
 
         except Exception as e:
-            logger.error("[KeywordLibraryGenerator] Error: %s", e)
-            return {'success': False, 'error': str(e)}
+            error_str = str(e)
+            if len(error_str) > 300:
+                error_str = error_str[:300] + '...'
+            logger.error("[KeywordLibraryGenerator] Error: " + error_str)
+            return {'success': False, 'error': error_str}
 
     def save_to_portrait(
         self,
@@ -301,6 +310,13 @@ class KeywordLibraryGenerator:
         if not scenario:
             scenario = user_persp.get('current_state', '')
 
+        # 完整画像摘要 + 用户视角（注入 prompt 强化关键词与画像绑定）
+        portrait_summary = portrait_data.get('portrait_summary', '')
+        user_perspective_text = portrait_data.get('user_perspective', {}).get('problem', '')
+        buyer_perspective_text = portrait_data.get('buyer_perspective', {}).get('obstacles', '') or \
+                                 portrait_data.get('buyer_perspective', {}).get('psychology', '')
+        user_current_state = user_persp.get('current_state', '')
+
         # 优先使用表单输入的业务描述和行业（business_info）
         # 这些是用户当前输入的最新数据
         business_desc = business_info.get('business_description', '')
@@ -337,29 +353,34 @@ class KeywordLibraryGenerator:
 
         context = {
             # 画像信息（支持新旧格式）
-            '目标客户身份': identity,
-            '核心痛点': pain_point,
-            '核心顾虑': concern,
-            '使用场景': scenario,
+            '目标客户身份': self._escape_fstring(identity),
+            '核心痛点': self._escape_fstring(pain_point),
+            '核心顾虑': self._escape_fstring(concern),
+            '使用场景': self._escape_fstring(scenario),
+            # 完整画像摘要 + 用户视角（强化关键词与画像绑定）
+            'portrait_summary': self._escape_fstring(portrait_summary),
+            '用户视角描述': self._escape_fstring(user_perspective_text),
+            '买单方视角描述': self._escape_fstring(buyer_perspective_text),
+            '用户当前状态': self._escape_fstring(user_current_state),
 
             # 业务信息（优先使用表单输入 business_info）
-            '业务描述': business_desc,
-            '行业': industry,
-            '产品': ', '.join(products) if isinstance(products, list) and products else str(products or ''),
-            '地域': region,
-            '目标客户': target_customer,
+            '业务描述': self._escape_fstring(business_desc),
+            '行业': self._escape_fstring(industry),
+            '产品': self._escape_fstring(', '.join(products) if isinstance(products, list) and products else str(products or '')),
+            '地域': self._escape_fstring(region),
+            '目标客户': self._escape_fstring(target_customer),
 
             # 实时上下文
-            '当前季节': realtime.get('当前季节', ''),
-            '月份名称': realtime.get('月份名称', ''),
-            '季节消费特点': realtime.get('季节消费特点', ''),
-            '当前节日': realtime.get('当前节日', '无'),
-            '当前节气': realtime.get('当前节气', '无'),
+            '当前季节': self._escape_fstring(realtime.get('当前季节', '')),
+            '月份名称': self._escape_fstring(realtime.get('月份名称', '')),
+            '季节消费特点': self._escape_fstring(realtime.get('季节消费特点', '')),
+            '当前节日': self._escape_fstring(realtime.get('当前节日', '无')),
+            '当前节气': self._escape_fstring(realtime.get('当前节气', '无')),
 
             # 模板变量（用于 prompt 中的占位符替换）
             '旺季时间': 旺季时间,
             '淡季时间': 淡季时间,
-            '核心业务': core_business,
+            '核心业务': self._escape_fstring(core_business),
         }
         return context
 
@@ -389,7 +410,7 @@ class KeywordLibraryGenerator:
         return f"""你是一位抖音SEO关键词专家。请为以下业务生成关键词库，严格遵循三大需求底盘结构，全链路执行：前期对比种草→中期安心转化→后期留存种草。
 
 === 三大需求底盘（固定比例，禁止 AI 自由发挥归类）===
-① **前置观望搜前种草盘（50%）**：对比型搜索/症状疑问/原因分析/上游供应链原料选材/行情价格/避坑科普/**认知颠覆**，问题导向，专抓前期迷茫、做对比、查原因的潜在客户，不推产品
+① **前置观望种草盘（50%）**：对比型搜索/症状疑问/原因分析/上游供应链原料选材/行情价格/避坑科普/**认知颠覆**，问题导向，专抓前期迷茫、做对比、查原因的潜在客户，不推产品
 ② **刚需痛点盘（30%）**：直接需求/痛点/决策鼓励/安心保障，临门一脚解决下单犹豫，强化转化
 ③ **使用配套搜后种草盘（20%）**：地域/季节时间（旺季词+淡季词）/实操技巧干货（技巧/方法/秘方/数字型/承诺型）/**工具耗材**/行业关联，使用后实操留存种草
 **强制规则：所有关键词必须严格从上述分类中提取，禁止临时补充种草内容。对比选型/决策安心/上下游/原料/配料/工具/对比等全部固定归类，旺/淡季词、干货数字承诺型词、认知颠覆词已固定归类，AI 禁止自行新增分类或自由归类**
@@ -407,6 +428,20 @@ class KeywordLibraryGenerator:
 - 核心顾虑：{context['核心顾虑']}
 - 使用场景：{context['使用场景']}
 
+## 画像视角约束（所有关键词必须绑定此画像，强制执行）
+- **画像摘要**：{context['portrait_summary'] or '（无）'}
+- **用户视角（这个用户遇到了什么问题）**：{context['用户视角描述'] or '（无）'}
+- **买单方视角（出钱的人担心什么）**：{context['买单方视角描述'] or '（无）'}
+- **用户当前状态**：{context['用户当前状态'] or '（无）'}
+
+**【强制约束】**：
+1. 所有关键词必须围绕上述画像用户的真实搜索意图生成
+2. 关键词的主语/第一视角必须是画像用户自己，不是泛化的"用户"或"客户"
+3. 举例：如果画像是"信息不对称家长"，关键词应从"家长"的视角出发：
+   - 家长搜："高考志愿填报机构哪家靠谱"
+   - 不是："高考志愿填报辅导的服务内容"
+4. 不同画像的同一业务，关键词主语和搜索角度必须不同
+
 ## 实时上下文
 - 当前季节：{context['当前季节']}（{context['月份名称']}）
 - 季节消费特点：{context['季节消费特点']}
@@ -417,16 +452,31 @@ class KeywordLibraryGenerator:
 
 {category_rules}
 
-## 季节/时间关键词（替换版，来源：关键词库模板第6节）
-旺季关键词：{context['旺季时间']}+{context['核心业务']}、{context['旺季时间']}+{context['核心业务']}+优惠、{context['旺季时间']}+{context['核心业务']}+团购、{context['旺季时间']}+{context['核心业务']}+批发
-淡季关键词：{context['淡季时间']}+{context['核心业务']}、{context['淡季时间']}+{context['核心业务']}+技巧、{context['淡季时间']}+{context['核心业务']}+保存
+## 季节/时间关键词（必须从用户痛点角度生成，不是业务拼接）
+**禁止**："春季高考志愿填报辅导"、"冬季高考志愿填报辅导保存"
+**正确示例**：
+  - "高三家长三月焦虑：要不要提前报志愿辅导"
+  - "高考出分前家长能做哪些准备"
+  - "志愿填报季：家长最晚什么时候必须做决定"
+  - "高考出分后一周内必须完成的事"
 
-## 认知颠覆/反向关键词（新增版，来源：关键词库模板第8节）
-颠覆型：{context['核心业务']}+不是...、原来{context['核心业务']}+要...、{context['核心业务']}+90%都错了、{context['核心业务']}+答案+是...、{context['核心业务']}+别再...了
+## 认知颠覆/反向关键词（从用户固有偏见出发，不是业务拼接）
+**禁止**："高考志愿填报辅导90%都错了"、"高考志愿填报辅导别再这样想了"
+**正确示例**：
+  - "以为随便选就行？历年家长的血泪教训"
+  - "不找辅导机构，孩子就输了吗？"
+  - "分数够用就不用找专业辅导了？"
+  - "志愿填报是孩子的事，家长不该插手？"
 
-## 技巧/干货关键词（优化版，来源：关键词库模板第7节）
-干货型：{context['核心业务']}+技巧、{context['核心业务']}+方法、{context['核心业务']}+秘方、{context['核心业务']}+诀窍
-数字型/承诺型：{context['核心业务']}+记住这X点、{context['核心业务']}+X个技巧、{context['核心业务']}+好用、{context['核心业务']}+秘诀
+## 技巧/干货关键词（必须站在用户问题角度，不是业务介绍）
+**禁止**："高考志愿填报辅导技巧"、"高考志愿填报辅导5个技巧"
+**正确示例**：
+  - "孩子成绩一般怎么报志愿"
+  - "压线生怎么选学校和专业"
+  - "平行志愿怎么填才能不滑档"
+  - "分数不高不低怎么取舍学校"
+  - "报志愿时城市和学校哪个更重要"
+  - "普通家庭的孩子怎么报好大学"
 
 ## 蓝海长尾词挖掘
 使用修饰词公式生成蓝海词：
@@ -454,7 +504,7 @@ class KeywordLibraryGenerator:
 4. 输出必须是可直接解析的标准JSON格式
 5. **所有关键词必须严格归入上述分类，不得新增分类或自由归类**
 6. **旺/淡季词归入使用配套搜后种草盘的"季节时间关键词"分类**
-7. **认知颠覆词归入前置观望搜前种草盘的"认知颠覆关键词"分类**
+7. **认知颠覆词归入前置观望种草盘的"认知颠覆关键词"分类**
 8. **技巧干货词归入使用配套搜后种草盘的"实操技巧干货关键词"分类**
 
 请生成JSON格式的关键词库："""
@@ -475,28 +525,37 @@ class KeywordLibraryGenerator:
             clean_response = clean_response.strip()
             
             result = None
+            parse_method = ''
             
             # 方法1：直接解析
             try:
                 result = json.loads(clean_response)
                 if result:
-                    # 检查是否需要格式转换
                     result = self._convert_to_standard_format(result)
+                    parse_method = '方法1'
             except json.JSONDecodeError:
                 pass
             
-            # 方法2：正则匹配 JSON 对象
+            # 方法2：找到第一个完整的 JSON 对象（而非贪婪匹配到最后一个 }）
             if result is None:
-                json_match = re.search(r'\{[\s\S]*\}', clean_response)
-                if json_match:
-                    json_str = json_match.group(0)
-                    json_str = json_str.replace('{{', '{').replace('}}', '}')
-                    try:
-                        result = json.loads(json_str)
-                        if result:
-                            result = self._convert_to_standard_format(result)
-                    except json.JSONDecodeError as e:
-                        logger.debug("[KeywordLibraryGenerator] 正则匹配JSON解析失败: %s", e)
+                try:
+                    start = clean_response.find('{')
+                    if start == -1:
+                        raise ValueError("No JSON object found")
+                    end = len(clean_response)
+                    for try_end in range(end, start, -1):
+                        candidate = clean_response[start:try_end]
+                        candidate = candidate.replace('{{', '{').replace('}}', '}')
+                        try:
+                            parsed = json.loads(candidate)
+                            if parsed:
+                                result = self._convert_to_standard_format(parsed)
+                                parse_method = '方法2'
+                                break
+                        except json.JSONDecodeError:
+                            continue
+                except Exception as e:
+                    logger.debug("[KeywordLibraryGenerator] 方法2异常: " + str(e))
             
             # 方法3：修复常见 JSON 错误后重试
             if result is None:
@@ -506,53 +565,146 @@ class KeywordLibraryGenerator:
                         result = json.loads(fixed)
                         if result:
                             result = self._convert_to_standard_format(result)
+                            parse_method = '方法3'
                     except json.JSONDecodeError as e:
-                        logger.debug("[KeywordLibraryGenerator] 修复后仍解析失败: %s", e)
+                        logger.debug("[KeywordLibraryGenerator] 修复后仍解析失败: " + str(e))
             
-            # 方法4：更激进的修复
+            # 方法4：从后向前提取完整对象（处理LLM返回被截断的情况）
             if result is None:
-                # 移除注释
-                lines = clean_response.split('\n')
-                cleaned_lines = []
-                for line in lines:
-                    if '//' in line:
-                        in_string = False
-                        escape = False
-                        for c in line:
-                            if escape:
-                                escape = False
-                                continue
-                            if c == '\\':
-                                escape = True
-                                continue
-                            if c == '"':
-                                in_string = not in_string
-                        if not in_string:
-                            line = line[:line.index('//')]
-                    cleaned_lines.append(line)
-                fixed = '\n'.join(cleaned_lines)
-                
-                # 修复末尾多余逗号
-                fixed = re.sub(r',(\s*[\]}])', r'\1', fixed)
-                
                 try:
-                    result = json.loads(fixed)
-                    if result:
-                        result = self._convert_to_standard_format(result)
-                except json.JSONDecodeError:
-                    pass
+                    categories = self._extract_valid_categories_backward(clean_response)
+                    if categories:
+                        result = {
+                            'categories': categories,
+                            'blue_ocean': [],
+                            'ratio_strategy': {
+                                'stage': '成长期',
+                                'long_tail_ratio': 0.35,
+                                'region_ratio': 0.30,
+                                'core_ratio': 0.35,
+                            },
+                        }
+                        parse_method = '方法4'
+                except Exception as e:
+                    logger.debug("[KeywordLibraryGenerator] 方法4解析失败: " + str(e))
+            
+            # 方法5：逐个提取 JSON 对象并组合
+            if result is None:
+                try:
+                    categories = self._extract_categories_by_braces(clean_response)
+                    if categories:
+                        result = {
+                            'categories': categories,
+                            'blue_ocean': [],
+                            'ratio_strategy': {
+                                'stage': '成长期',
+                                'long_tail_ratio': 0.35,
+                                'region_ratio': 0.30,
+                                'core_ratio': 0.35,
+                            },
+                        }
+                        parse_method = '方法5'
+                except Exception as e:
+                    logger.debug("[KeywordLibraryGenerator] 方法5解析失败: " + str(e))
             
             if result is None:
                 logger.error("[KeywordLibraryGenerator] 所有JSON解析方式均失败")
-                logger.error("[KeywordLibraryGenerator] 原始响应前500字符: %s", response[:500])
+                logger.error("[KeywordLibraryGenerator] 原始响应前500字符: %r", response[:500])
                 return self._get_default_library(realtime)
             
-            # 注入实时热点（已移除 hot_keywords，不再自动注入）
+            logger.info("[KeywordLibraryGenerator] 解析成功，使用: %s", parse_method)
             return self._validate_and_fill(result)
         except Exception as e:
-            logger.error("[KeywordLibraryGenerator] Parse error: %s", e)
-            logger.error("[KeywordLibraryGenerator] 原始响应前500字符: %s", response[:500])
+            error_str = str(e)
+            if len(error_str) > 300:
+                error_str = error_str[:300] + '...'
+            logger.error("[KeywordLibraryGenerator] Parse error: " + error_str)
+            logger.error("[KeywordLibraryGenerator] 原始响应前500字符: %r", response[:500])
             return self._get_default_library(realtime)
+    
+    def _extract_valid_categories_backward(self, text: str) -> list:
+        """从后向前查找完整有效的 category 对象（处理 LLM 返回被截断的情况）"""
+        categories = []
+        n = len(text)
+
+        for start in range(n - 2, -1, -1):
+            if text[start] != '{':
+                continue
+            candidate = text[start:]
+            if not candidate.strip().startswith('{'):
+                continue
+            try:
+                obj = json.loads(candidate)
+                if isinstance(obj, dict):
+                    # 检查是否是 category 对象
+                    if 'name' in obj and 'keywords' in obj:
+                        categories.insert(0, obj)
+                    # 检查是否是外层包裹对象
+                    elif 'categories' in obj and isinstance(obj['categories'], list):
+                        for cat in obj['categories']:
+                            if isinstance(cat, dict) and 'name' in cat and 'keywords' in cat:
+                                categories.insert(0, cat)
+            except json.JSONDecodeError:
+                continue
+
+        return categories
+
+    def _extract_categories_by_braces(self, text: str) -> list:
+        """通过括号匹配提取 category 对象"""
+        categories = []
+        i = 0
+        n = len(text)
+        
+        while i < n:
+            # 找到 category 对象的开始
+            if text[i] == '{':
+                depth = 0
+                start = i
+                in_string = False
+                escape = False
+                
+                for j in range(i, n):
+                    c = text[j]
+                    if escape:
+                        escape = False
+                        continue
+                    if c == '\\':
+                        escape = True
+                        continue
+                    if c == '"' and not escape:
+                        in_string = not in_string
+                        continue
+                    if in_string:
+                        continue
+                    
+                    if c == '{':
+                        depth += 1
+                    elif c == '}':
+                        depth -= 1
+                        if depth == 0:
+                            json_str = text[start:j+1]
+                            try:
+                                obj = json.loads(json_str)
+                                if isinstance(obj, dict):
+                                    # 检查是否是 category 对象
+                                    if 'name' in obj and 'keywords' in obj:
+                                        categories.append(obj)
+                                    # 检查是否是外层包裹对象
+                                    elif 'categories' in obj and isinstance(obj['categories'], list):
+                                        for cat in obj['categories']:
+                                            if isinstance(cat, dict) and 'name' in cat and 'keywords' in cat:
+                                                categories.append(cat)
+                            except json.JSONDecodeError:
+                                pass
+                            i = j + 1
+                            break
+                else:
+                    i += 1
+                    continue
+            else:
+                i += 1
+        
+        return categories
     
     def _convert_to_standard_format(self, result: Dict) -> Dict:
         """将 LLM 返回的任意格式转换为标准格式"""
@@ -652,7 +804,7 @@ class KeywordLibraryGenerator:
                                     keywords_list.append(item)
                 
                 if keywords_list:
-                    base = next((c['base'] for c in self.CATEGORIES if c['key'] == cat_key), '前置观望')
+                    base = next((c['base'] for c in self.CATEGORIES if c['key'] == cat_key), '前置观望种草盘')
                     converted['categories'].append({
                         'name': cat_name,
                         'key': cat_key,
@@ -675,7 +827,7 @@ class KeywordLibraryGenerator:
                         elif isinstance(item, str):
                             keywords_list.append(item)
                     if keywords_list:
-                        base = next((c['base'] for c in self.CATEGORIES if c['key'] == category_map.get(key, 'other')), '前置观望')
+                        base = next((c['base'] for c in self.CATEGORIES if c['key'] == category_map.get(key, 'other')), '前置观望种草盘')
                         converted['categories'].append({
                             'name': key,
                             'key': category_map.get(key, 'other'),
@@ -696,7 +848,7 @@ class KeywordLibraryGenerator:
                                     if kw:
                                         keywords_list.append(kw)
                             if keywords_list:
-                                base = next((c['base'] for c in self.CATEGORIES if c['key'] == category_map.get(key, 'other')), '前置观望')
+                                base = next((c['base'] for c in self.CATEGORIES if c['key'] == category_map.get(key, 'other')), '前置观望种草盘')
                                 converted['categories'].append({
                                     'name': f"{key}_{sub_key}",
                                     'key': category_map.get(key, 'other'),
@@ -715,7 +867,57 @@ class KeywordLibraryGenerator:
     def _fix_json_errors(self, json_str: str) -> str:
         """修复常见 JSON 格式错误"""
         import re
-        
+
+        # 预处理：去除 markdown 代码块标记
+        json_str = json_str.strip()
+        if json_str.startswith('```json'):
+            json_str = json_str[7:]
+        elif json_str.startswith('```'):
+            json_str = json_str[3:]
+        if json_str.endswith('```'):
+            json_str = json_str[:-3]
+        json_str = json_str.strip()
+
+        # ── 修复1：中文单引号和中文双引号（LLM 常用「'」「"」替代 JSON 的 "）──
+        def replace_curly_quotes(text):
+            result = []
+            i = 0
+            in_string = False
+            while i < len(text):
+                c = text[i]
+                if c == '"' and (i == 0 or text[i-1] != '\\'):
+                    in_string = not in_string
+                    result.append(c)
+                elif not in_string and c in '\u2018\u2019\u201b':
+                    result.append('"')
+                elif not in_string and c in '\u201c\u201d\u201f':
+                    result.append('"')
+                else:
+                    result.append(c)
+                i += 1
+            return ''.join(result)
+        json_str = replace_curly_quotes(json_str)
+
+        # ── 修复2：字符串值内单引号被误用作闭合引号（如 "xxx'）──
+        lines = json_str.split('\n')
+        fixed_lines = []
+        for line in lines:
+            quote_count = 0
+            escape = False
+            for ch in line:
+                if escape:
+                    escape = False
+                    continue
+                if ch == '\\':
+                    escape = True
+                    continue
+                if ch == '"':
+                    quote_count += 1
+            if quote_count % 2 == 1:
+                line = line.rstrip() + '"'
+            fixed_lines.append(line)
+        json_str = '\n'.join(fixed_lines)
+
         # 移除注释（// 开头的行）
         lines = json_str.split('\n')
         cleaned_lines = []
@@ -736,13 +938,103 @@ class KeywordLibraryGenerator:
                     line = line[:line.index('//')]
             cleaned_lines.append(line)
         json_str = '\n'.join(cleaned_lines)
-        
+
         # 修复末尾多余逗号
         json_str = re.sub(r',(\s*[\]}])', r'\1', json_str)
-        
+
+        # 修复被意外拆分的行（字符串值被换行中断）
+        lines = json_str.split('\n')
+        merged_lines = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            quote_count = 0
+            escape = False
+            in_string = False
+            for c in line:
+                if escape:
+                    escape = False
+                    continue
+                if c == '\\':
+                    escape = True
+                    continue
+                if c == '"':
+                    in_string = not in_string
+                    quote_count += 1
+
+            if quote_count % 2 == 1 and not in_string:
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1].strip()
+                    if next_line and (next_line[0] in '",}]' or next_line.startswith('"')):
+                        line = line + ' ' + next_line
+                        i += 1
+
+            merged_lines.append(line)
+            i += 1
+
+        json_str = '\n'.join(merged_lines)
+
+        # 修复被截断的字符串值（Unterminated string starting at line X column Y）
+        lines = json_str.split('\n')
+        fixed_lines = []
+        for line in lines:
+            trailing_content = ""
+            in_string = False
+            escape = False
+            for c in line:
+                if escape:
+                    escape = False
+                    trailing_content += c
+                    continue
+                if c == '\\':
+                    escape = True
+                    trailing_content += c
+                    continue
+                if c == '"':
+                    in_string = not in_string
+                if not in_string:
+                    trailing_content += c
+                else:
+                    trailing_content += c
+
+            if not in_string:
+                trailing = trailing_content.strip()
+                if trailing and trailing[-1] not in ',"}])':
+                    # 被截断的字符串内容，截断到最后一个合法字符
+                    for j in range(len(line) - 1, -1, -1):
+                        if line[j] in ',"}])\n\t ':
+                            continue
+                        else:
+                            line = line[:j+1]
+                            break
+            fixed_lines.append(line)
+        json_str = '\n'.join(fixed_lines)
+
         # 移除不可见控制字符
         json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', json_str)
-        
+
+        # 尝试找到最后一个能完整解析的位置（从后向前扫描）
+        last_valid_pos = -1
+        for i in range(len(json_str) - 1, -1, -1):
+            c = json_str[i]
+            if c in '}':
+                try:
+                    json.loads(json_str[:i+1])
+                    last_valid_pos = i + 1
+                    break
+                except:
+                    continue
+            elif c == ']':
+                try:
+                    json.loads(json_str[:i+1])
+                    last_valid_pos = i + 1
+                    break
+                except:
+                    continue
+        if last_valid_pos > 0 and last_valid_pos < len(json_str):
+            json_str = json_str[:last_valid_pos]
+            logger.debug("[KeywordLibraryGenerator] JSON被截断，保留到位置 %d", last_valid_pos)
+
         return json_str
 
     def _validate_and_fill(self, result: Dict) -> Dict:
@@ -757,7 +1049,7 @@ class KeywordLibraryGenerator:
                 if isinstance(cat, dict) and 'base' not in cat:
                     cat['base'] = next(
                         (c['base'] for c in self.CATEGORIES if c['key'] == cat.get('key', '')),
-                        '前置观望'
+                        '前置观望种草盘'
                     )
         return result
 

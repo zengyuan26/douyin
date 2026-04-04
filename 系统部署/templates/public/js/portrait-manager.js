@@ -114,15 +114,67 @@ const PortraitManager = {
             return;
         }
         
-        container.innerHTML = this._savedPortraits.map(p => `
-            <div class="saved-portrait-item ${p.id === this._currentPortraitId ? 'active' : ''}" 
+        container.innerHTML = this._savedPortraits.map(p => {
+            const pd = p.portrait_data || {};
+            const problemBase = pd.problem_base || pd.problem_base || '';
+            const userStage = pd['用户阶段标签'] || pd.user_stage || '';
+            const consumeType = pd.consume_type || '';
+            const demandAttr = pd.demand_attr || '';
+
+            let tagBadges = '';
+            if (problemBase || userStage || consumeType || demandAttr) {
+                const badges = [];
+                if (problemBase) {
+                    let style = 'font-size:10px; padding:1px 5px; border-radius:999px; font-weight:600;';
+                    if (problemBase === '刚需痛点盘' || problemBase === '刚需痛点') {
+                        style += 'background:#fee2e2; color:#b91c1c;';
+                    } else if (problemBase === '前置观望种草盘' || problemBase === '前置观望') {
+                        style += 'background:#fef9c3; color:#854d0e;';
+                    } else {
+                        style += 'background:#dcfce7; color:#166534;';
+                    }
+                    badges.push(`<span style="${style}">${this.escapeHtml(problemBase)}</span>`);
+                }
+                if (userStage) {
+                    badges.push(`<span style="font-size:10px; padding:1px 5px; border-radius:999px; font-weight:600; background:#e0e7ff; color:#3730a3;">📍${this.escapeHtml(userStage)}</span>`);
+                }
+                if (consumeType) {
+                    let style = 'font-size:10px; padding:1px 5px; border-radius:999px; font-weight:600;';
+                    if (consumeType === '必需') {
+                        style += 'background:#fee2e2; color:#b91c1c;';
+                    } else if (consumeType === '增量') {
+                        style += 'background:#f0fdf4; color:#166534;';
+                    } else {
+                        style += 'background:#f3f4f6; color:#6b7280;';
+                    }
+                    badges.push(`<span style="${style}">${this.escapeHtml(consumeType)}</span>`);
+                }
+                if (demandAttr) {
+                    let style = 'font-size:10px; padding:1px 5px; border-radius:999px; font-weight:600;';
+                    if (demandAttr === '功能驱动') {
+                        style += 'background:#fff7ed; color:#c2410c;';
+                    } else if (demandAttr === '场景情绪驱动') {
+                        style += 'background:#fdf4ff; color:#7e22ce;';
+                    } else {
+                        style += 'background:#f3f4f6; color:#6b7280;';
+                    }
+                    badges.push(`<span style="${style}">${this.escapeHtml(demandAttr)}</span>`);
+                }
+                tagBadges = `<div style="display:flex; flex-wrap:wrap; gap:3px; margin-top:3px;">${badges.join('')}</div>`;
+            }
+
+            return `
+            <div class="saved-portrait-item ${p.id === this._currentPortraitId ? 'active' : ''}"
                  data-id="${p.id}" onclick="PortraitManager.selectPortrait(${p.id})">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="portrait-name">${this.escapeHtml(p.portrait_name || '未命名')}</span>
-                        ${p.is_default ? '<span class="badge bg-primary ms-1">默认</span>' : ''}
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="flex:1; min-width:0;">
+                        <div class="d-flex align-items-center gap-1 flex-wrap">
+                            <span class="portrait-name">${this.escapeHtml(p.portrait_name || '未命名')}</span>
+                            ${p.is_default ? '<span class="badge bg-primary ms-1" style="font-size:9px;">默认</span>' : ''}
+                        </div>
+                        ${tagBadges}
                     </div>
-                    <div class="btn-group btn-group-sm">
+                    <div class="btn-group btn-group-sm" style="flex-shrink:0;">
                         <button class="btn btn-outline-primary" onclick="event.stopPropagation(); PortraitManager.usePortrait(${p.id})" title="使用">
                             <i class="bi bi-check-circle"></i>
                         </button>
@@ -132,7 +184,7 @@ const PortraitManager = {
                     </div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     },
     
     /**

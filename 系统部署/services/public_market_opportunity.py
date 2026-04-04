@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 class PublicMarketOpportunityService:
     """公开页面市场机会分析服务"""
 
+    def _escape_fstring(self, s: str) -> str:
+        """转义字符串中的花括号，防止在 f-string 中被误解析为占位符"""
+        if not isinstance(s, str):
+            return ''
+        return s.replace('{', '{{').replace('}', '}}')
+
     def __init__(self):
         """初始化服务"""
         pass
@@ -74,8 +80,11 @@ class PublicMarketOpportunityService:
                 }
 
         except Exception as e:
-            logger.error(f"生成市场机会失败: {e}")
-            return {'success': False, 'error': str(e)}
+            error_str = str(e)
+            if len(error_str) > 300:
+                error_str = error_str[:300] + '...'
+            logger.error("[PublicMarketOpportunity] 生成市场机会失败: " + error_str)
+            return {'success': False, 'error': error_str}
 
     def _build_context(self, business_info: Dict, portraits_data: List[Dict]) -> Dict:
         """构建精简上下文"""
@@ -103,10 +112,12 @@ class PublicMarketOpportunityService:
                         summary = buyer_persp.get('goal', '') or buyer_persp.get('obstacles', '')
 
                     if name and summary:
-                        personas.append(f"{name}: {summary[:80]}")
+                        escaped_name = self._escape_fstring(name)
+                        escaped_summary = self._escape_fstring(summary[:80])
+                        personas.append(f"{escaped_name}: {escaped_summary}")
 
         return {
-            'business': business_desc,
+            'business': self._escape_fstring(business_desc),
             'personas': personas,
         }
 
