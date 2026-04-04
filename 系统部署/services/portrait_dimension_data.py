@@ -73,7 +73,7 @@ PORTRAIT_DIMENSIONS_DATA = [
         'sub_category': 'conflict_type',
         'description': '用户有现有方案但效果不好，想要更好的替代',
         'icon': 'bi-arrow-repeat',
-        'examples': '用旧奶粉但宝宝不长肉、用旧手机但太卡、换护肤品但没效果',
+        'examples': '用旧产品但效果不好、换新产品但没效果、用旧手机但太卡、换护肤品但没效果',
         'usage_tips': '描述现有方案的问题 + 更好的选择',
         'prompt_template': '升级替代/效果对比',
         'weight': 8.0
@@ -117,7 +117,7 @@ PORTRAIT_DIMENSIONS_DATA = [
         'sub_category': 'transformation_type',
         'description': '从较差到较好',
         'icon': 'bi-graph-up-arrow',
-        'examples': '普通奶粉→优质奶粉、低配→高配',
+        'examples': '普通产品→优质产品、低配→高配',
         'prompt_template': '升级方案',
         'weight': 7.0
     },
@@ -127,7 +127,7 @@ PORTRAIT_DIMENSIONS_DATA = [
         'sub_category': 'transformation_type',
         'description': '从旧状态到新状态',
         'icon': 'bi-arrow-right-circle',
-        'examples': '旧奶粉→新奶粉、旧手机→新手机',
+        'examples': '旧产品→新产品、旧手机→新手机',
         'prompt_template': '切换引导',
         'weight': 7.0
     },
@@ -179,7 +179,7 @@ PORTRAIT_DIMENSIONS_DATA = [
         'sub_category': 'transformation_barrier',
         'description': '不知道正确的方法/知识',
         'icon': 'bi-brain',
-        'examples': '不知道怎么转奶、不知道选哪个',
+        'examples': '不知道怎么选、不知道正确方法',
         'applicable_audience': '内在',
         'prompt_template': '科普/教程',
         'weight': 9.0
@@ -199,11 +199,11 @@ PORTRAIT_DIMENSIONS_DATA = [
         'name': '决策',
         'category': 'super_positioning',
         'sub_category': 'transformation_barrier',
-        'description': '信息太多不知道怎么选',
+        'description': '使用后症状没有改善甚至加重',
         'icon': 'bi-list-check',
-        'examples': '牌子太多、不知道哪个好',
+        'examples': '用完没效果/症状更严重/有不适反应',
         'applicable_audience': '内在',
-        'prompt_template': '对比/推荐',
+        'prompt_template': '症状加重/不适加剧',
         'weight': 8.0
     },
     {
@@ -223,7 +223,7 @@ PORTRAIT_DIMENSIONS_DATA = [
         'sub_category': 'transformation_barrier',
         'description': '买用分离，担心决策伤害使用人',
         'icon': 'bi-shield-exclamation',
-        'examples': '不知道我的选择对不对、担心伤害宝宝',
+        'examples': '不知道我的选择对不对、担心对家人不安全',
         'applicable_audience': '内在',
         'prompt_template': '专家背书/安全性',
         'weight': 9.0
@@ -392,7 +392,7 @@ PORTRAIT_DIMENSIONS_DATA = [
         'sub_category': 'buyer_user_relationship',
         'description': '付费人想保护使用人（买用分离）',
         'icon': 'bi-heart',
-        'examples': '宝妈买给宝宝、家长买给孩子',
+        'examples': '家长买给孩子、主人买给宠物',
         'prompt_template': '安全性/关爱',
         'weight': 9.0
     },
@@ -442,10 +442,10 @@ PORTRAIT_DIMENSIONS_DATA = [
         'name': '对比',
         'category': 'super_positioning',
         'sub_category': 'content_type',
-        'description': '告诉你选哪个',
+        'description': '对比不同产品使用后的不同症状反应',
         'icon': 'bi-bar-chart',
-        'examples': 'A和B哪个好、有什么区别',
-        'prompt_template': '对比分析',
+        'examples': 'A产品用完发红B产品没有/不同体质用完症状对比',
+        'prompt_template': '症状对比分析',
         'weight': 8.0
     },
     {
@@ -506,7 +506,7 @@ PORTRAIT_DIMENSIONS_DATA = [
         'sub_category': 'intent_stage',
         'description': '发现问题，但不明确',
         'icon': 'bi-exclamation-circle',
-        'examples': '宝宝转奶、腹泻怎么办',
+        'examples': '症状反复、不知道怎么处理',
         'prompt_template': '问题识别',
         'weight': 6.0
     },
@@ -516,7 +516,7 @@ PORTRAIT_DIMENSIONS_DATA = [
         'sub_category': 'intent_stage',
         'description': '寻找解决方案',
         'icon': 'bi-search',
-        'examples': '转奶方法、奶粉推荐',
+        'examples': '产品推荐、怎么选',
         'prompt_template': '方案寻找',
         'weight': 7.0
     },
@@ -546,7 +546,7 @@ PORTRAIT_DIMENSIONS_DATA = [
         'sub_category': 'intent_stage',
         'description': '使用后的问题',
         'icon': 'bi-bag-check',
-        'examples': '转奶成功、效果',
+        'examples': '效果不明显、想调整方案',
         'prompt_template': '使用指导',
         'weight': 6.0
     },

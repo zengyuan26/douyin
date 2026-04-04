@@ -429,7 +429,7 @@ PORTRAIT_GENERATION_PROMPT_TEMPLATE = """你是精准营销专家。基于业务
 
 ### 转变类型
 {transformation_types}
-例：旧→新 表示从旧奶粉转到新奶粉
+例：旧→新 表示从旧产品转到新产品
 
 ### 转变阶段
 {change_stages}
@@ -437,7 +437,7 @@ PORTRAIT_GENERATION_PROMPT_TEMPLATE = """你是精准营销专家。基于业务
 
 ### 买用关系
 {buyer_relations}
-保护型=为他人购买(宝妈给宝宝),孝心型=晚辈给长辈
+保护型=为他人购买(家长给孩子),孝心型=晚辈给长辈
 
 ### 情感维度
 {emotional_dims}
@@ -453,7 +453,7 @@ PORTRAIT_GENERATION_PROMPT_TEMPLATE = """你是精准营销专家。基于业务
 
 ### 成本维度
 {cost_dims}
-极度价格敏感=只买最便宜,性价比导向=买对不买贵,首次购买谨慎=怕被坑
+极度担心=用完有不适/症状加重,谨慎型=怕有副作用,首次购买谨慎=担心用完出问题
 
 ### 效率维度
 {efficiency_dims}
@@ -470,17 +470,17 @@ PORTRAIT_GENERATION_PROMPT_TEMPLATE = """你是精准营销专家。基于业务
 
 ## 输出格式
 {{
-  "name": "【宝宝转奶】不知道怎么转+老公说不用+焦虑宝妈",
+  "name": "【产品升级】担心用完症状加重+家人有顾虑+焦虑家长",
   "conflict_type": "替代型",
   "transformation": {{
     "type": "旧→新",
-    "user_current": "宝宝在喝旧奶粉",
-    "user_target": "顺利接受新奶粉"
+    "user_current": "用户在使用旧产品",
+    "user_target": "顺利接受新产品"
   }},
   "barriers": ["认知", "他人-反对"],
   "emotional": ["焦虑型"],
   "content_directions": ["科普", "权威背书"],
-  "keywords": ["转奶方法", "奶粉推荐"]
+  "keywords": ["产品推荐", "怎么选"]
 }}
 """
 

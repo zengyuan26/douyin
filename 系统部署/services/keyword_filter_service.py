@@ -93,26 +93,32 @@ class KeywordFilterService:
         region = cls._extract_region_from_desc(business_desc)
 
         # 构建替换字典（全部基于 business_desc 动态生成，反映新三盘结构）
+        # 【重要】严禁使用宏观决策类词：哪个好、靠谱吗、哪里买、价格等
+        # 只允许带具体症状前缀的问题
         replacements = {
             'EXAMPLE_PRODUCT':       product_name,
             # ── 前置观望搜前种草盘（50%）──
-            'EXAMPLE_COMPARE':      f'「{product_name}」和竞品对比有什么区别/哪个好',
-            'EXAMPLE_CAUSE':        f'「{product_name}」为什么会涨价/质量不稳定什么原因',
-            'EXAMPLE_UPSTREAM':     f'「{product_name}」用什么原料/怎么选材最放心',
-            'EXAMPLE_PITFALL':       f'「{product_name}」有哪些坑/怎么分辨优劣',
-            'EXAMPLE_PRICE':        f'「{product_name}」价格行情/报价多少合理',
-            'EXAMPLE_SCENE_PAIN':   f'「{product_name}」有质量问题商家推诿怎么办',
-            'EXAMPLE_SCENE_PROBLEM': f'「{product_name}」使用中出现问题了怎么处理',
+            # ❌ 禁止：哪个好、怎么选、靠谱吗
+            # ✅ 只允许：具体症状+问题
+            'EXAMPLE_COMPARE':      f'「{product_name}」使用后有什么具体反应/症状',
+            'EXAMPLE_CAUSE':        f'「{product_name}」用完身体有哪些异常/不适',
+            'EXAMPLE_UPSTREAM':     f'「{product_name}」用完皮肤发红/瘙痒是怎么回事',
+            'EXAMPLE_PITFALL':       f'「{product_name}」使用后大便异常/食欲下降是什么原因',
+            'EXAMPLE_PRICE':        f'「{product_name}」用完不舒服/有异常反应正常吗',
+            'EXAMPLE_SCENE_PAIN':   f'「{product_name}」使用中出现不适/异常怎么处理',
+            'EXAMPLE_SCENE_PROBLEM': f'「{product_name}」使用后症状加重/有副作用怎么办',
             # ── 刚需痛点盘（30%）──
-            'EXAMPLE_DIRECT':       f'「{product_name}」哪里定制/怎么购买',
-            'EXAMPLE_DECISION':     f'「{product_name}」供应商靠谱吗/会不会坑人',
-            'EXAMPLE_REASSURE':     f'「{product_name}」售后怎么样/长期合作放心吗',
+            # ❌ 禁止：靠谱吗、哪里定制
+            # ✅ 只允许：具体症状+影响
+            'EXAMPLE_DIRECT':       f'「{product_name}」用完症状加重/影响生活怎么办',
+            'EXAMPLE_DECISION':     f'「{product_name}」用完出现健康问题/有风险吗',
+            'EXAMPLE_REASSURE':     f'「{product_name}」出现不适/反应后商家怎么处理',
             # ── 使用配套搜后种草盘（20%）──
-            'EXAMPLE_SKILL':       f'「{product_name}」使用后怎么保存/有什么技巧',
-            'EXAMPLE_TOOLS':       f'「{product_name}」用什么工具/需要哪些耗材',
+            'EXAMPLE_SKILL':       f'「{product_name}」使用后怎么缓解不适/调理身体',
+            'EXAMPLE_TOOLS':       f'「{product_name}」搭配什么可以改善症状/不适',
             # ── 地域/长尾 ──
-            'EXAMPLE_REGION_SERVICE': f'成都武侯区「{product_name}」哪里有卖',
-            'EXAMPLE_LONGTAIL':       f'婚宴/企业场景「{product_name}」定制哪家好',
+            'EXAMPLE_REGION_SERVICE': f'{region}「{product_name}」用完有不适反应去哪看',
+            'EXAMPLE_LONGTAIL':       f'{region}「{product_name}」用完症状加重的真实案例',
             'EXAMPLE_REGION':         region,
         }
 

@@ -320,6 +320,7 @@ def api_identify_problems():
     }
     """
     from services.public_content_generator import mine_problems
+    import traceback as tb_module
 
     params = request.get_json() or {}
 
@@ -345,12 +346,20 @@ def api_identify_problems():
 
     params['_is_premium'] = is_premium
 
-    # 调用问题挖掘函数
-    result = mine_problems(params)
+    # 调用问题挖掘函数（全量 try/except 确保返回友好 JSON 而非 500）
+    try:
+        result = mine_problems(params)
+    except Exception as e:
+        logger.error("[api_identify_problems] mine_problems 异常: %s\n%s", e, tb_module.format_exc())
+        return jsonify({'success': False, 'message': f'服务异常: {str(e)}'}), 500
 
-    # 添加用户标识
+    # 确保返回的是标准 dict，且不含不可序列化字段
+    if not isinstance(result, dict):
+        logger.error("[api_identify_problems] mine_problems 返回类型异常: %s", type(result))
+        return jsonify({'success': False, 'message': '服务返回格式异常，请稍后重试'}), 500
+
+    # 添加用户标识并返回
     result['is_premium'] = is_premium
-
     return jsonify(result)
 
 
@@ -566,17 +575,24 @@ def api_mine_and_generate():
             is_premium = True
     params['_is_premium'] = is_premium
 
-    # 调用组合服务（带重试机制）
+    # 调用组合服务（带重试机制 + 全局异常捕获）
     from services.public_content_generator import mine_problems_and_generate_personas
-    max_retries = 2
-    for attempt in range(max_retries + 1):
-        result = mine_problems_and_generate_personas(params)
-        if result.get('success'):
-            return jsonify(result)
-        if attempt < max_retries:
-            logger.info("[api_mine_and_generate] 第 %d 次失败，重试中...", attempt + 1)
-
-    return jsonify(result)
+    import traceback as tb_module
+    try:
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            result = mine_problems_and_generate_personas(params)
+            if isinstance(result, dict) and result.get('success'):
+                return jsonify(result)
+            if attempt < max_retries:
+                logger.info("[api_mine_and_generate] 第 %d 次失败，重试中...", attempt + 1)
+        # 重试耗尽，返回最后一次结果（即使是失败）
+        if not isinstance(result, dict):
+            return jsonify({'success': False, 'message': '服务返回格式异常，请稍后重试'}), 500
+        return jsonify(result)
+    except Exception as e:
+        logger.error("[api_mine_and_generate] mine_problems_and_generate_personas 异常: %s\n%s", e, tb_module.format_exc())
+        return jsonify({'success': False, 'message': f'服务异常: {str(e)}'}), 500
 
 
 @public_bp.route('/api/targets/generate', methods=['POST'])

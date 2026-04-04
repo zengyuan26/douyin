@@ -183,9 +183,18 @@ class LLMService:
         
         response = requests.post(url, headers=headers, json=payload, timeout=300)
         response.raise_for_status()
-        
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
+
+        try:
+            result = response.json()
+        except Exception as e:
+            logger.error(f"[LLM] OpenAI 响应 JSON 解析失败: {e}, body={response.text[:200]}")
+            return None
+
+        try:
+            return result["choices"][0]["message"]["content"]
+        except (KeyError, TypeError, IndexError) as e:
+            logger.error(f"[LLM] OpenAI 响应格式异常: {e}, result={str(result)[:300]}")
+            return None
 
     def _chat_qwen(self, messages, temperature, max_tokens):
         """阿里云百炼 (Qwen) API 调用 - 兼容 OpenAI 格式"""
@@ -233,9 +242,18 @@ class LLMService:
             )
         
         response.raise_for_status()
-        
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
+
+        try:
+            result = response.json()
+        except Exception as e:
+            logger.error(f"[LLM] Qwen 响应 JSON 解析失败: {e}, body={response.text[:200]}")
+            return None
+
+        try:
+            return result["choices"][0]["message"]["content"]
+        except (KeyError, TypeError, IndexError) as e:
+            logger.error(f"[LLM] Qwen 响应格式异常: {e}, result={str(result)[:300]}")
+            return None
 
     def _chat_siliconflow(self, messages, temperature, max_tokens):
         """硅基流动 API 调用 - 兼容 OpenAI 格式"""
@@ -286,11 +304,20 @@ class LLMService:
         
         # 检查响应状态
         if response.status_code != 200:
-            logger.error(f"[LLM] SiliconFlow API 错误: {response.status_code} - {response.text}")
+            logger.error(f"[LLM] SiliconFlow API 错误: {response.status_code} - {response.text[:500]}")
             return None
-        
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
+
+        try:
+            result = response.json()
+        except Exception as e:
+            logger.error(f"[LLM] SiliconFlow 响应 JSON 解析失败: {e}, body={response.text[:200]}")
+            return None
+
+        try:
+            return result["choices"][0]["message"]["content"]
+        except (KeyError, TypeError, IndexError) as e:
+            logger.error(f"[LLM] SiliconFlow 响应格式异常: {e}, result={str(result)[:300]}")
+            return None
     
     def _chat_azure(self, messages, temperature, max_tokens):
         """Azure OpenAI API 调用"""
@@ -311,10 +338,19 @@ class LLMService:
         
         response = requests.post(url, headers=headers, json=payload, timeout=300)
         response.raise_for_status()
-        
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
-    
+
+        try:
+            result = response.json()
+        except Exception as e:
+            logger.error(f"[LLM] Azure 响应 JSON 解析失败: {e}, body={response.text[:200]}")
+            return None
+
+        try:
+            return result["choices"][0]["message"]["content"]
+        except (KeyError, TypeError, IndexError) as e:
+            logger.error(f"[LLM] Azure 响应格式异常: {e}, result={str(result)[:300]}")
+            return None
+
     def list_models(self):
         """列出可用模型"""
         try:
