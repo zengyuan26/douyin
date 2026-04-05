@@ -58,7 +58,6 @@
             --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
             --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
             --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);
-            --shadow-window: 0 22px 70px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
             
             /* 圆角 - Apple 风格 */
             --radius-sm: 6px;
@@ -147,82 +146,33 @@
         }
 
         /* ================================================
-           macOS 主内容区域
+           主内容区（网易云 Mac 式：与侧栏一体，无套窗）
            ================================================ */
         .main-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
+            max-width: none;
+            margin: 0;
+            padding: 20px 28px 32px;
+        }
+
+        .workspace-main {
+            min-width: 0;
         }
 
         /* ================================================
-           macOS 窗口卡片
-           ================================================ */
-        .mac-window {
-            background: var(--bg-primary);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-window);
-            overflow: hidden;
-            margin-bottom: 24px;
-        }
-
-        .mac-window-header {
-            background: linear-gradient(180deg, #FDFEFD 0%, #F5F5F7 100%);
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-bottom: 1px solid var(--apple-gray5);
-        }
-
-        .window-controls {
-            display: flex;
-            gap: 8px;
-        }
-
-        .window-control {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: opacity var(--transition-fast);
-        }
-
-        .window-control:hover {
-            opacity: 0.8;
-        }
-
-        .window-control.close { background: #FF5F57; }
-        .window-control.minimize { background: #FEBC2E; }
-        .window-control.maximize { background: #28C840; }
-
-        .window-title {
-            flex: 1;
-            text-align: center;
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: var(--text-secondary);
-        }
-
-        .mac-window-body {
-            padding: 24px;
-        }
-
-        /* ================================================
-           macOS 标题
+           页面标题
            ================================================ */
         .section-title {
-            font-size: 1.75rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--text-primary);
-            letter-spacing: -0.025em;
-            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
         }
 
         .section-subtitle {
-            font-size: 1rem;
+            font-size: 0.9375rem;
             color: var(--text-secondary);
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
 
         /* ================================================
@@ -738,39 +688,6 @@
         }
 
         /* ================================================
-           macOS Footer
-           ================================================ */
-        footer {
-            background: var(--bg-primary);
-            border-top: 1px solid var(--apple-gray5);
-            padding: 40px 0;
-            margin-top: 60px;
-        }
-
-        footer h6 {
-            font-size: 0.9375rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 12px;
-        }
-
-        footer p, footer li {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-        }
-
-        footer a {
-            color: var(--apple-blue);
-            text-decoration: none;
-            transition: color var(--transition-fast);
-        }
-
-        footer a:hover {
-            color: var(--apple-blue-hover);
-            text-decoration: underline;
-        }
-
-        /* ================================================
            原有组件兼容样式
            ================================================ */
         
@@ -1246,6 +1163,124 @@
             transform: translateY(-6px) scale(1.03);
         }
         .portrait-card .card-body { padding: 0; position: relative; z-index: 2; }
+
+        /* 画像卡片导航样式 */
+        .portrait-card-nav {
+            margin-bottom: 12px;
+        }
+        .portrait-card-nav .btn-nav {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid #e5e7eb;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        }
+        .portrait-card-nav .btn-nav:hover:not(:disabled) {
+            background: #f5f5f7;
+            border-color: #007AFF;
+        }
+        .portrait-card-nav .btn-nav:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* 推荐选题列表样式 */
+        .topic-progress {
+            height: 6px;
+            border-radius: 3px;
+            background: #e5e7eb;
+            overflow: hidden;
+        }
+        .topic-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #34c759, #28a745);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        .topic-item {
+            display: flex;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+        .topic-item:hover {
+            border-color: #34c759;
+            background: #f0fff4;
+        }
+        .topic-item.selected {
+            border-color: #34c759;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            box-shadow: 0 2px 8px rgba(52,199,89,0.2);
+        }
+        .topic-radio {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #d1d5db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s;
+            background: white;
+        }
+        .topic-item.selected .topic-radio {
+            border-color: #34c759;
+        }
+        .topic-radio-inner {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #34c759;
+            transform: scale(0);
+            transition: transform 0.2s;
+        }
+        .topic-item.selected .topic-radio-inner {
+            transform: scale(1);
+        }
+        .topic-content {
+            flex: 1;
+        }
+        .topic-type-badge {
+            font-size: 11px;
+            font-weight: 600;
+            color: #1565c0;
+            background: #e3f2fd;
+            padding: 2px 8px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+        .topic-priority-badge {
+            font-size: 10px;
+            font-weight: 600;
+            color: #c62828;
+            background: #ffebee;
+            padding: 2px 8px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+        .topic-title-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 4px 0;
+        }
+        .topic-reason-text {
+            font-size: 12px;
+            color: #8e8e93;
+            margin-top: 4px;
+        }
         .portrait-card-name {
             font-weight: 700;
             color: #1a1a1a;
@@ -2072,21 +2107,1200 @@
             right: 20px;
             z-index: 9999;
         }
-        
-        /* 响应式调整 */
+
+        /* ================================================
+           精选式布局：左侧边栏 + 右侧白底内容区（Apple 白底主栏）
+           ================================================ */
+        .public-app-layout {
+            display: flex;
+            height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
+            align-items: stretch;
+        }
+
+        .public-sidebar {
+            flex: 0 0 240px;
+            width: 240px;
+            max-width: 100%;
+            background: #1D1D1F;
+            border-right: 1px solid rgba(255,255,255,0.08);
+            padding: 20px 12px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 20;
+            overflow-y: auto;
+        }
+
+        .public-sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 1.05rem;
+            color: #FFFFFF !important;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+            padding: 8px 10px;
+            border-radius: var(--radius-md);
+            margin-bottom: 12px;
+        }
+
+        .public-sidebar-brand:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #FFFFFF !important;
+        }
+
+        /* 分组样式已移至侧栏分组区域 */
+
+        .public-sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-top: auto;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .public-sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: background var(--transition-fast), color var(--transition-fast);
+        }
+
+        .public-sidebar-link i {
+            font-size: 1rem;
+            opacity: 0.75;
+        }
+
+        .public-sidebar-link:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #FFFFFF;
+        }
+
+        .public-sidebar-link.is-active {
+            background: rgba(0, 122, 255, 0.25);
+            color: #0A84FF;
+        }
+
+        .public-sidebar-link.is-active i {
+            opacity: 1;
+            color: #0A84FF;
+        }
+
+        /* ================================================
+           侧栏分组样式
+           ================================================ */
+        .sidebar-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .public-sidebar-section-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(255, 255, 255, 0.35);
+            margin: 12px 10px 6px;
+            padding: 0 4px;
+        }
+
+        .sidebar-group-bottom {
+            margin-top: auto;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .sidebar-badge {
+            margin-left: auto;
+            background: var(--apple-red, #FF3B30);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 10px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        .sidebar-coming-soon {
+            margin-left: auto;
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.08);
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+
+        /* ================================================
+           超级定位三 Tab 样式
+           ================================================ */
+        .super-workspace-new {
+            background: transparent;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: visible;
+            margin-bottom: 0;
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
+            margin-top: 8px;
+            padding-top: 16px;
+        }
+
+        .super-tabs-bar {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            padding: 0 4px;
+            background: transparent;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            flex-shrink: 0;
+        }
+
+        .super-tab-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 14px 18px;
+            background: transparent;
+            border: none;
+            border-bottom: 2.5px solid transparent;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: -1px;
+        }
+
+        .super-tab-btn i {
+            font-size: 0.9375rem;
+        }
+
+        .super-tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .super-tab-btn.active {
+            color: var(--apple-red, #FF3B30);
+            border-bottom-color: var(--apple-red, #FF3B30);
+            font-weight: 600;
+        }
+
+        .super-tabs-actions {
+            margin-left: auto;
+            padding: 8px 0;
+        }
+
+        .super-tab-content-wrapper {
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .super-tab-panel {
+            display: none;
+        }
+
+        .super-tab-panel.active {
+            display: block;
+        }
+
+        .tab-panel-inner {
+            padding: 24px;
+            max-height: calc(100vh - 240px);
+            overflow-y: auto;
+        }
+
+        .super-empty-hint {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 24px;
+            gap: 12px;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-align: center;
+        }
+
+        .super-empty-icon {
+            opacity: 0.6;
+        }
+
+        /* ================================================
+           侧边栏工作区手风琴样式（深色主题）
+           ================================================ */
+        .sidebar-accordion-item {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 4px 0;
+        }
+
+        .sidebar-accordion-item:last-child {
+            border-bottom: none;
+        }
+
+        .sidebar-accordion-header {
+            width: 100%;
+            padding: 9px 10px;
+            background: transparent;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: background var(--transition-fast);
+        }
+
+        .sidebar-accordion-header:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .step-num-sm {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.65rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all var(--transition-fast);
+        }
+
+        .sidebar-accordion-header.active .step-num-sm {
+            background: #0A84FF;
+            color: white;
+        }
+
+        .step-title-sm {
+            flex: 1;
+            text-align: left;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .collapse-arrow {
+            color: rgba(255, 255, 255, 0.3);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+
+        .sidebar-accordion-header.active .collapse-arrow {
+            transform: rotate(180deg);
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .sidebar-accordion-body {
+            padding: 8px 10px 12px;
+            animation: slideDown var(--transition-fast);
+        }
+
+        .sidebar-form-group {
+            margin-bottom: 10px;
+        }
+
+        .sidebar-form-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.45);
+            margin-bottom: 4px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .sidebar-form-input,
+        .sidebar-form-select {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            background: rgba(255, 255, 255, 0.08);
+            color: #FFFFFF;
+            transition: all var(--transition-fast);
+        }
+
+        .sidebar-form-input::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        .sidebar-form-input:focus,
+        .sidebar-form-select:focus {
+            border-color: #0A84FF;
+            box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.2);
+            outline: none;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .sidebar-form-select option {
+            background: #2C2C2E;
+            color: #FFFFFF;
+        }
+
+        .sidebar-radio-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .sidebar-radio-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+        }
+
+        .sidebar-radio-label input[type="radio"] {
+            accent-color: #0A84FF;
+        }
+
+        .sidebar-status-text {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+            padding: 6px 0;
+        }
+
+        .public-content {
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .public-topbar {
+            flex-shrink: 0;
+            min-height: 52px;
+            padding: 8px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 12px 16px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            background: var(--bg-primary);
+        }
+
+        .public-topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .public-topbar-actions .nav-link {
+            padding: 6px 12px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary) !important;
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+        }
+
+        .public-topbar-actions .nav-link:hover {
+            color: var(--text-primary) !important;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .public-topbar-actions .btn-primary {
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 0.875rem;
+            padding: 7px 18px;
+            background: var(--apple-blue);
+            border: none;
+            transition: all var(--transition-fast);
+        }
+
+        .public-topbar-actions .btn-primary:hover {
+            background: var(--apple-blue-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 12px rgba(0, 122, 255, 0.35);
+        }
+
+        /* ================================================
+           登录后顶栏用户区
+           ================================================ */
+        .topbar-user {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .topbar-user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+            user-select: none;
+        }
+
+        .topbar-user-info:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .topbar-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(0, 122, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .topbar-user-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .topbar-nickname {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            line-height: 1.2;
+        }
+
+        .topbar-plan-badge {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 4px;
+            line-height: 1.4;
+        }
+
+        .topbar-plan-badge.pro { background: rgba(99,102,241,0.12); color: #6366f1; }
+        .topbar-plan-badge.ent { background: rgba(34,197,94,0.12); color: #22c55e; }
+        .topbar-plan-badge.basic { background: rgba(0,122,255,0.12); color: #007aff; }
+
+        .topbar-chevron {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            transition: transform 0.2s;
+        }
+
+        .topbar-user.is-open .topbar-chevron {
+            transform: rotate(180deg);
+        }
+
+        .topbar-user-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            min-width: 180px;
+            background: var(--bg-surface);
+            border: 1px solid var(--apple-gray5);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            padding: 6px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-6px);
+            transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+            z-index: 9999;
+        }
+
+        .topbar-user.is-open .topbar-user-dropdown {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .topbar-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: background var(--transition-fast);
+            cursor: pointer;
+        }
+
+        .topbar-dropdown-item:hover {
+            background: var(--apple-gray6);
+        }
+
+        .topbar-dropdown-item i {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .topbar-dropdown-danger:hover {
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        .topbar-dropdown-danger:hover i {
+            color: #ef4444;
+        }
+
+        .public-content-scroll {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* ================================================
+           NetEase 风格增强：红色强调色 + 卡片角标
+           ================================================ */
+
+        /* 红色主强调色（网易云风格） */
+        :root {
+            --netease-red: #EC4141;
+            --netease-red-hover: #D93A3A;
+            --netease-red-light: #FFF0F0;
+        }
+
+        /* 画像卡片：红色角标（播放量风格） */
+        .netease-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        /* 画像封面叠字效果 */
+        .netease-cover-overlay {
+            position: relative;
+            overflow: hidden;
+            border-radius: var(--radius-md);
+        }
+
+        .netease-cover-overlay::after {
+            content: attr(data-label);
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.65));
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 20px 10px 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* NetEase 风格网格卡片 */
+        .netease-grid-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid var(--apple-gray5);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .netease-grid-card:hover {
+            border-color: var(--apple-gray4);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .netease-grid-card:hover .netease-card-play {
+            opacity: 1;
+        }
+
+        .netease-card-cover {
+            position: relative;
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #E8F4FF 0%, #F3E8FF 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .netease-card-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .netease-card-play {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 36px;
+            height: 36px;
+            background: var(--netease-red);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            box-shadow: 0 2px 8px rgba(236,65,65,0.4);
+        }
+
+        .netease-card-play:hover {
+            transform: scale(1.1);
+        }
+
+        .netease-card-play svg {
+            width: 14px;
+            height: 14px;
+            fill: white;
+            margin-left: 2px;
+        }
+
+        .netease-card-info {
+            padding: 10px 12px;
+        }
+
+        .netease-card-title {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .netease-card-meta {
+            font-size: 0.7rem;
+            color: var(--text-tertiary);
+        }
+
+        /* NetEase 区块标题 */
+        .netease-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .netease-section-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .netease-section-title::before {
+            content: '';
+            width: 4px;
+            height: 18px;
+            background: var(--netease-red);
+            border-radius: 2px;
+        }
+
+        .netease-section-more {
+            font-size: 0.8125rem;
+            color: var(--text-tertiary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            transition: color 0.2s ease;
+        }
+
+        .netease-section-more:hover {
+            color: var(--netease-red);
+        }
+
+        /* NetEase Tab 激活下划线（红色） */
+        .netease-tab-active {
+            color: var(--netease-red) !important;
+        }
+
+        /* 侧栏选中项：红色高亮 */
+        .public-sidebar-link.is-active {
+            background: rgba(236, 65, 65, 0.18);
+            color: #FF6B6B;
+        }
+
+        .public-sidebar-link.is-active i {
+            color: #FF6B6B;
+        }
+
+        /* 标签：红色小标签 */
+        .netease-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            background: var(--netease-red-light);
+            color: var(--netease-red);
+        }
+
+        /* Hi-Res / SQ 品质标签 */
+        .netease-quality-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 1px 4px;
+            border: 1px solid currentColor;
+            border-radius: 2px;
+            font-size: 0.55rem;
+            font-weight: 700;
+            color: var(--netease-red);
+        }
+
+        @media (max-width: 900px) {
+            body {
+                background: var(--bg-primary);
+            }
+
+            .public-app-layout {
+                flex-direction: column;
+                height: auto;
+                max-height: none;
+                min-height: 100vh;
+                overflow: visible;
+            }
+
+            .public-sidebar {
+                flex: none;
+                width: 100%;
+                background: #1D1D1F;
+                border-right: none;
+                border-bottom: 1px solid rgba(255,255,255,0.08);
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+                padding: 12px 14px;
+                gap: 8px;
+                overflow-y: visible;
+            }
+
+            .public-sidebar-nav {
+                flex-direction: row;
+                flex-wrap: wrap;
+                flex: 1;
+                gap: 4px;
+                border-top: none;
+                padding-top: 0;
+                margin-top: 0;
+            }
+
+            .public-content {
+                flex: 1 1 auto;
+                min-height: 0;
+            }
+
+            .public-content-scroll {
+                overflow-y: visible;
+            }
+
+            .public-sidebar-section-label {
+                display: none;
+            }
+
+            .public-sidebar-link {
+                padding: 8px 12px;
+                font-size: 0.8125rem;
+            }
+
+            .public-sidebar-brand {
+                margin-bottom: 0;
+            }
+        }
+
+        /* ================================================
+           精选展示区 - Cover Flow（大卡片 + 3D 旋转）
+           ================================================ */
+        .featured-section {
+            padding: 0 0 20px;
+        }
+
+        .featured-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .featured-section-title {
+            font-size: 1.0625rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .featured-section-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 18px;
+            background: linear-gradient(180deg, var(--apple-blue), var(--apple-purple));
+            border-radius: 2px;
+        }
+
+        .featured-section-meta {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+        }
+
+        /* Cover Flow 容器 */
+        .featured-coverflow-wrap {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .featured-coverflow-stage {
+            position: relative;
+            height: 360px;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .featured-coverflow-track {
+            position: absolute;
+            left: 50%;
+            top: 10px;
+            width: 100%;
+            height: 300px;
+            pointer-events: none;
+        }
+
+        .featured-coverflow-card {
+            position: absolute;
+            width: 220px;
+            top: 0;
+            border-radius: var(--radius-xl);
+            background: var(--bg-primary);
+            border: 1px solid var(--apple-gray5);
+            box-shadow: var(--shadow-md);
+            cursor: pointer;
+            overflow: hidden;
+            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                        box-shadow 0.5s ease,
+                        border-color 0.3s ease;
+        }
+
+        .featured-coverflow-card:hover {
+            border-color: var(--apple-blue);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .featured-coverflow-card.is-center {
+            box-shadow: var(--shadow-lg);
+            border-color: var(--apple-blue);
+        }
+
+        .featured-coverflow-card.is-center .fc-card-inner {
+            border: 2px solid var(--apple-blue);
+            border-radius: calc(var(--radius-xl) - 2px);
+        }
+
+        .fc-card-inner {
+            height: 100%;
+            border: 1px solid transparent;
+            border-radius: calc(var(--radius-xl) - 1px);
+            overflow: hidden;
+        }
+
+        .fc-card-cover {
+            height: 160px;
+            background: linear-gradient(135deg, #E8F4FF 0%, #F3E8FF 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: var(--apple-blue);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fc-card-cover::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0, 122, 255, 0.08), rgba(175, 82, 222, 0.08));
+        }
+
+        .fc-card-body {
+            padding: 12px 14px;
+        }
+
+        .fc-card-name {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .fc-card-desc {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .fc-card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .fc-tag {
+            font-size: 0.6875rem;
+            padding: 2px 7px;
+            background: var(--apple-gray6);
+            color: var(--text-secondary);
+            border-radius: 8px;
+        }
+
+        .fc-card-footer {
+            padding: 8px 14px;
+            border-top: 1px solid var(--apple-gray5);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .fc-card-date {
+            font-size: 0.6875rem;
+            color: var(--text-secondary);
+        }
+
+        .fc-card-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .fc-btn-icon {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            border: 1px solid var(--apple-gray4);
+            background: transparent;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-size: 0.75rem;
+        }
+
+        .fc-btn-icon:hover {
+            background: var(--apple-gray6);
+            color: var(--text-primary);
+        }
+
+        .fc-btn-icon.delete:hover {
+            background: #FFF0F0;
+            border-color: var(--apple-red);
+            color: var(--apple-red);
+        }
+
+        /* Cover Flow 导航 */
+        .featured-coverflow-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 12px 0 4px;
+        }
+
+        .fc-nav-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid var(--apple-gray4);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-size: 0.875rem;
+        }
+
+        .fc-nav-btn:hover {
+            background: var(--apple-gray6);
+            border-color: var(--apple-gray3);
+        }
+
+        .fc-nav-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .fc-nav-dots {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .fc-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--apple-gray4);
+            transition: all var(--transition-normal);
+            cursor: pointer;
+        }
+
+        .fc-dot.is-active {
+            width: 20px;
+            border-radius: 3px;
+            background: var(--apple-blue);
+        }
+
+        /* ================================================
+           画像横铺区 - 横向滚动卡片行
+           ================================================ */
+        .portraits-row-section {
+            padding: 20px 0 0;
+        }
+
+        .portraits-row-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .portraits-row-title {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .portraits-row-scroll {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: var(--apple-gray4) transparent;
+        }
+
+        .portraits-row-scroll::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .portraits-row-scroll::-webkit-scrollbar-thumb {
+            background: var(--apple-gray4);
+            border-radius: 2px;
+        }
+
+        .pr-card {
+            flex: 0 0 200px;
+            scroll-snap-align: start;
+            background: var(--bg-primary);
+            border: 1px solid var(--apple-gray5);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .pr-card:hover {
+            border-color: var(--apple-gray4);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .pr-card-cover {
+            height: 80px;
+            background: linear-gradient(135deg, #E8F4FF, #F3E8FF);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: var(--apple-blue);
+        }
+
+        .pr-card-body {
+            padding: 10px 12px;
+        }
+
+        .pr-card-name {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .pr-card-meta {
+            font-size: 0.6875rem;
+            color: var(--text-secondary);
+        }
+
+        .pr-empty {
+            flex: 1;
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        /* ================================================
+           流程表单区（保持现有 accordion 逻辑）
+           ================================================ */
+        .generator-steps-section {
+            padding: 28px 0 40px;
+        }
+
         @media (max-width: 768px) {
             .main-container {
                 padding: 16px;
             }
-            
-            .mac-window {
-                border-radius: var(--radius-lg);
-            }
-            
-            .mac-window-body {
-                padding: 16px;
-            }
-            
+
             .col-md-6 {
                 flex: 0 0 100%;
                 max-width: 100%;
@@ -2120,16 +3334,16 @@
     </style>
 </head>
 <body>
-    <!-- macOS 风格导航栏 -->
-    <nav class="navbar navbar-expand-lg sticky-top">
-        <div class="container">
-            <a class="navbar-brand" href="/public">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="margin-right: 8px; vertical-align: middle;">
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 17L12 22L22 17" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 12L12 17L22 12" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <div class="public-app-layout">
+        <aside class="public-sidebar" aria-label="主导航">
+            <!-- Logo -->
+            <a class="public-sidebar-brand" href="/public">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#logoGradSidebar)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="url(#logoGradSidebar)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="url(#logoGradSidebar)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     <defs>
-                        <linearGradient id="logoGrad" x1="2" y1="2" x2="22" y2="22">
+                        <linearGradient id="logoGradSidebar" x1="2" y1="2" x2="22" y2="22">
                             <stop stop-color="#007AFF"/>
                             <stop offset="1" stop-color="#AF52DE"/>
                         </linearGradient>
@@ -2137,46 +3351,91 @@
                 </svg>
                 AI 棱镜
             </a>
-            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item"><a class="nav-link" href="/public/#features">功能</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/public/pricing">定价</a></li>
-                    <li class="nav-item" id="nav-login">
-                        <a class="nav-link" href="/login?type=public" target="_self">登录</a>
-                    </li>
-                    <li class="nav-item ms-2" id="nav-register">
-                        <a class="btn btn-primary" href="/login?type=public#register" target="_self">
-                            免费开始
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
 
+            <!-- 分组1：快速生成 -->
+            <div class="sidebar-group">
+                <div class="public-sidebar-section-label">快速生成</div>
+                <a class="public-sidebar-link is-active" href="#" data-sidebar-tab="tab-super"
+                   onclick="sidebarNavClick(event, 'tab-super')">
+                    <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+                    超级定位
+                </a>
+            </div>
+
+            <!-- 分组2：我的 -->
+            <div class="sidebar-group">
+                <div class="public-sidebar-section-label">我的</div>
+                <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-portraits"
+                   onclick="sidebarNavClick(event, 'tab-portraits')">
+                    <i class="bi bi-people-fill" aria-hidden="true"></i>
+                    客户画像
+                    <span class="sidebar-badge" id="sidebar-portrait-count" style="display:none;">0</span>
+                </a>
+                <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-topics"
+                   onclick="sidebarNavClick(event, 'tab-topics')">
+                    <i class="bi bi-card-list" aria-hidden="true"></i>
+                    选题清单
+                </a>
+                <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-contents"
+                   onclick="sidebarNavClick(event, 'tab-contents')">
+                    <i class="bi bi-collection-play-fill" aria-hidden="true"></i>
+                    内容清单
+                </a>
+            </div>
+
+            <!-- 分组3：工具 -->
+            <div class="sidebar-group sidebar-group-bottom">
+                <div class="public-sidebar-section-label">工具</div>
+                <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-planet"
+                   onclick="sidebarNavClick(event, 'tab-planet')">
+                    <i class="bi bi-globe2" aria-hidden="true"></i>
+                    内容星球
+                    <span class="sidebar-coming-soon">即将上线</span>
+                </a>
+                <a class="public-sidebar-link" href="/public/pricing" onclick="sidebarNavLink(event, this)">
+                    <i class="bi bi-tag-fill" aria-hidden="true"></i>
+                    定价
+                </a>
+            </div>
+        </aside>
+        <div class="public-content">
+            <header class="public-topbar">
+                <div class="public-topbar-actions" id="topbar-auth">
+                    <span id="nav-login">
+                        <a class="nav-link" href="/login?type=public" target="_self">登录</a>
+                    </span>
+                    <span id="nav-register">
+                        <a class="btn btn-primary" href="/login?type=public#register" target="_self">免费开始</a>
+                    </span>
+                </div>
+                <!-- 登录后顶栏（默认隐藏） -->
+                <div class="topbar-user" id="topbar-user" style="display:none;">
+                    <div class="topbar-user-info" id="topbar-user-info" onclick="toggleUserDropdown()">
+                        <div class="topbar-avatar" id="topbar-avatar">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="var(--apple-blue)">
+                                <path d="M10 10C12.21 10 14 8.21 14 6C14 3.79 12.21 2 10 2C7.79 2 6 3.79 6 6C6 8.21 7.79 10 10 10ZM10 12C7.33 12 2 13.34 2 16V18H18V16C18 13.34 12.67 12 10 12Z"/>
+                            </svg>
+                        </div>
+                        <div class="topbar-user-meta">
+                            <span class="topbar-nickname" id="topbar-nickname"></span>
+                            <span class="topbar-plan-badge" id="topbar-plan-badge"></span>
+                        </div>
+                        <i class="bi bi-chevron-down topbar-chevron" id="topbar-chevron"></i>
+                    </div>
+                    <div class="topbar-user-dropdown" id="topbar-user-dropdown">
+                        <a class="topbar-dropdown-item" href="#" onclick="showAccountSettings(event)">
+                            <i class="bi bi-gear"></i>修改账号密码
+                        </a>
+                        <a class="topbar-dropdown-item topbar-dropdown-danger" href="#" onclick="logout(event)">
+                            <i class="bi bi-box-arrow-right"></i>退出登录
+                        </a>
+                    </div>
+                </div>
+            </header>
+            <div class="public-content-scroll">
     <!-- 主内容区域 -->
     <main class="main-container">
-        <!-- macOS 窗口卡片 -->
-        <div class="mac-window" id="generator-window">
-            <!-- 窗口标题栏 -->
-            <div class="mac-window-header">
-                <div class="window-controls">
-                    <div class="window-control close" title="关闭"></div>
-                    <div class="window-control minimize" title="最小化"></div>
-                    <div class="window-control maximize" title="最大化"></div>
-                </div>
-                <div class="window-title">AI 棱镜 - 内容生成器</div>
-                <div style="width: 52px;"></div>
-            </div>
-            
-            <!-- 窗口内容 -->
-            <div class="mac-window-body">
-                <!-- 页面标题 -->
+        <div class="workspace-main" id="generator-window">
                 <h1 class="section-title">快速生成内容</h1>
                 <p class="section-subtitle">基于 AI 分析，精准定位目标用户，一键生成爆款内容</p>
 
@@ -2211,19 +3470,42 @@
                         </div>
                     </div>
 
-                    <!-- Tab 切换 -->
-                    <div class="tab-group mb-4">
-                        <div class="tab-item active" id="tab-super" onclick="switchGeneratorTab('super')">
-                            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
-                                <path d="M9 1L1 5V9C1 13.5 4.5 17.5 9 19C13.5 17.5 17 13.5 17 9V5L9 1Z"/>
-                            </svg>
-                            <span>超级定位</span>
+                    <!-- ================================================
+                         精选展示区 - Cover Flow（视觉冲击，3D 旋转卡片）
+                         ================================================ -->
+                    <div id="featured-section" class="featured-section" style="display: none;">
+                        <div class="featured-section-header">
+                            <div class="featured-section-title">精选画像</div>
+                            <div class="featured-section-meta" id="featured-count"></div>
                         </div>
-                        <div class="tab-item" id="tab-content" onclick="switchGeneratorTab('content')">
-                            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
-                                <path d="M14 1H4C2.9 1 2 1.9 2 3V15C2 16.1 2.9 17 4 17H14C15.1 17 16 16.1 16 15V3C16 1.9 15.1 1 14 1ZM14 15H4V3H14V15Z"/>
-                            </svg>
-                            <span>生成内容</span>
+                        <div class="featured-coverflow-wrap">
+                            <div class="featured-coverflow-stage" id="featured-coverflow-stage">
+                                <div class="featured-coverflow-track" id="featured-coverflow-track"></div>
+                                <div class="featured-coverflow-nav">
+                                    <button class="fc-nav-btn" id="fc-nav-prev" aria-label="上一张">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                    <div class="fc-nav-dots" id="fc-nav-dots"></div>
+                                    <button class="fc-nav-btn" id="fc-nav-next" aria-label="下一张">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ================================================
+                         画像横铺区 - 横向滚动卡片行（效率浏览）
+                         ================================================ -->
+                    <div id="portraits-row-section" class="portraits-row-section" style="display: none;">
+                        <div class="portraits-row-header">
+                            <div class="portraits-row-title">最近使用</div>
+                            <button class="btn-apple btn-sm" onclick="showAllPortraits()">查看全部</button>
+                        </div>
+                        <div class="portraits-row-scroll" id="portraits-row-scroll">
+                            <div id="portraits-row-loading" style="flex:1; text-align:center; padding: 24px 0;">
+                                <div class="apple-spinner mx-auto" style="width:20px;height:20px;border-width:2px;"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -2237,20 +3519,28 @@
                         </div>
                     </div>
 
-                    <div id="portrait-section" class="mb-4" style="display: none;">
-                        <div class="apple-card">
-                            <div class="apple-card-header blue" style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#portrait-cards-collapse" onclick="window._togglePortraitSection()">
-                                <svg width="20" height="20" viewBox="0 0 20 20" fill="white">
-                                    <path d="M10 2C7.24 2 5 4.24 5 7C5 9.76 7.24 12 10 12C12.76 12 15 9.76 15 7C15 4.24 12.76 2 10 2ZM10 10C8.35 10 7 8.65 7 7C7 5.35 8.35 4 10 4C11.65 4 13 5.35 13 7C13 8.65 11.65 10 10 10Z"/>
-                                    <path d="M10 13C6.13 13 3 14.57 3 16V18H17V16C17 14.57 13.87 13 10 13Z"/>
-                                </svg>
-                                <span style="font-weight: 600;">已保存画像</span>
-                                <svg id="portrait-section-chevron" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-left:auto; transition: transform 0.25s;">
+                    <div id="portrait-section" class="mt-4" style="display: none;">
+                        <!-- 已保存画像区域（标题在左侧，箭头在右侧，卡片在下方） -->
+                        <div class="portrait-section-wrapper apple-accordion">
+                            <!-- 顶部导航栏：左侧标题 + 右侧折叠箭头 -->
+                            <div class="portrait-section-header apple-accordion-header d-flex align-items-center justify-content-between"
+                                 data-bs-toggle="collapse" data-bs-target="#portrait-cards-collapse"
+                                 style="cursor: pointer;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="white">
+                                        <path d="M10 2C7.24 2 5 4.24 5 7C5 9.76 7.24 12 10 12C12.76 12 15 9.76 15 7C15 4.24 12.76 2 10 2ZM10 10C8.35 10 7 8.65 7 7C7 5.35 8.35 4 10 4C11.65 4 13 5.35 13 7C13 8.65 11.65 10 10 10Z"/>
+                                        <path d="M10 13C6.13 13 3 14.57 3 16V18H17V16C17 14.57 13.87 13 10 13Z"/>
+                                    </svg>
+                                    <span class="step-title">已保存画像</span>
+                                </div>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"
+                                     class="collapse-icon portrait-collapse-icon" style="transition: transform 0.2s;">
                                     <path d="M4 6L8 10L12 6"/>
                                 </svg>
                             </div>
-                            <div id="portrait-cards-collapse" class="collapse show">
-                                <div class="apple-card-body" id="portrait-cards-container">
+                            <!-- 卡片内容区域 -->
+                            <div id="portrait-cards-collapse" class="collapse">
+                                <div id="portrait-cards-container" style="padding: 16px 20px;">
                                     <div id="portrait-cards-loading" class="text-center py-3">
                                         <div class="apple-spinner mx-auto" style="width: 24px; height: 24px; border-width: 2px;"></div>
                                         <span style="font-size: 0.875rem; color: var(--text-secondary); margin-left: 8px;">加载画像...</span>
@@ -2261,230 +3551,180 @@
                         </div>
                     </div>
 
-                        <!-- 超级定位 Tab 内容 -->
-                    <div id="tab-super-content">
-                        <!-- 超级定位流程（可折叠步骤） -->
-                        <div class="accordion super-steps-accordion" id="super-steps-accordion">
-
-                            <!-- 步骤1：描述业务 -->
-                            <div class="apple-accordion mb-3" id="super-step-form">
-                                <div class="apple-accordion-item">
-                                    <div class="apple-accordion-header-wrapper d-flex align-items-center justify-content-between w-100">
-                                        <button class="apple-accordion-header collapsed" type="button" data-bs-toggle="collapse"
-                                                data-bs-target="#step-form-body" id="step-form-btn" style="flex: 1;">
-                                            <div class="step-num">1</div>
-                                            <span class="step-title">描述业务</span>
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="collapse-icon" style="transition: transform 0.2s;">
-                                                <path d="M4 6L8 10L12 6"/>
-                                            </svg>
-                                        </button>
-                                        <button class="btn-apple btn-sm ms-3" id="btn-reset-super" onclick="resetSuperSnapshot()">
-                                            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
-                                                <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                                                <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                            </svg>
-                                            重置
-                                        </button>
-                                    </div>
-                                    <div id="step-form-body" class="accordion-collapse collapse" data-bs-parent="#super-step-form">
-                                        <div class="apple-accordion-body" style="padding: 20px;">
-                                            <div class="form-content-wrapper" style="max-width: 680px; margin: 0 auto;">
-                                                <div class="row g-3">
-                                                    <div class="col-12">
-                                                    <label class="form-label">核心业务 <span class="text-danger">*</span></label>
-                                                    <input type="text" 
-                                                           class="form-control"
-                                                           id="business-desc" 
-                                                           maxlength="20"
-                                                           placeholder="请输入你的1个核心业务，例如：餐盘无痕修复、家具翻新、门窗维修">
-                                                    <div class="form-text text-muted">仅填写1个主营服务，不写城市、不写广告语、不写多个业务</div>
-                                                    <div class="invalid-feedback" id="business-desc-error"></div>
-                                                </div>
-                                                <div class="col-12">
-                                                    <label class="form-label">经营范围 <span class="text-danger">*</span></label>
-                                                    <div class="d-flex gap-3 flex-wrap">
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region" checked>
-                                                            <label class="form-check-label" for="range-cross">🌍 跨区域（全国）</label>
-                                                        </div>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
-                                                            <label class="form-check-label" for="range-local">🏠 本地</label>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <!-- 本地城市补充信息（选填） -->
-                                                <div class="col-12" id="local-city-wrapper" style="display: none;">
-                                                    <label class="form-label">补充城市信息（选填）</label>
-                                                    <input type="text" class="form-control" id="local-city" placeholder="例如：成都">
-                                                </div>
-                                                <div class="col-12">
-                                                    <label class="form-label">经营类型 <span class="text-danger">*</span></label>
-                                                    <div class="d-flex gap-3 flex-wrap">
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="radio" name="business-type" id="type-product" value="product">
-                                                            <label class="form-check-label" for="type-product">📦 消费品</label>
-                                                        </div>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="radio" name="business-type" id="type-service" value="local_service">
-                                                            <label class="form-check-label" for="type-service">🔧 本地服务</label>
-                                                        </div>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="radio" name="business-type" id="type-personal" value="personal">
-                                                            <label class="form-check-label" for="type-personal">👤 个人品牌</label>
-                                                        </div>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="radio" name="business-type" id="type-enterprise" value="enterprise">
-                                                            <label class="form-check-label" for="type-enterprise">🏢 企业服务</label>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-12 mt-3">
-                                                    <label class="form-label">你的主要服务场景</label>
-                                                    <select class="form-select" id="service-scenario" onchange="handleServiceScenarioChange()">
-                                                        <option value="">请选择你的核心服务场景</option>
-                                                        <option value="hotel_restaurant">🏨 酒店 / 餐饮 / 茶楼 / 高端会所（正餐、民宿、婚宴、茶室、私人会所、餐饮后厨配套）</option>
-                                                        <option value="residential">🏠 家用 / 住宅 / 小区业主（家庭自住、二手房翻新、家装配套、个人自用）</option>
-                                                        <option value="office_enterprise">🏢 写字楼 / 企业 / 工厂 / 园区（公司办公、厂区后勤、园区物业、企业采购）</option>
-                                                        <option value="institutional">🏫 学校 / 医院 / 食堂 / 政企单位（公立单位、食堂后勤、总务物资配套）</option>
-                                                        <option value="retail_chain">🛒 实体店 / 连锁门店 / 加盟品牌（门店经营、连锁供应链、加盟店配套）</option>
-                                                        <option value="renovation">🔨 装修 / 工装 / 工程定制（装修施工、工地配套、工程接单）</option>
-                                                        <option value="other">📝 其他小众场景（以上没有，简单写自己专属场景）</option>
-                                                    </select>
-                                                    <!-- 其他场景补充输入 -->
-                                                    <div id="other-scenario-wrapper" class="mt-2" style="display: none;">
-                                                        <input type="text" class="form-control" id="other-scenario-input" 
-                                                               placeholder="简单备注你的使用场景（限15字内）" maxlength="15">
-                                                    </div>
-                                                    <div id="scenario-lock-hint" class="form-text text-muted" style="display: none;">
-                                                        <i class="bi bi-lock-fill me-1"></i>选择固定场景后，人群库已自动锁定
-                                                    </div>
-                                                </div>
-                                                <div class="col-12">
-                                                    <div id="ai-upgrade-hint" class="alert alert-info mt-3" style="display: none;">
-                                                        <div class="d-flex justify-content-between align-items-center">
-                                                            <div>
-                                                                <i class="bi bi-stars me-1"></i>
-                                                                <strong>升级解锁AI精准画像</strong>
-                                                                <p class="mb-0 small">免费用户使用基础画像，付费用户获得AI深度分析</p>
-                                                            </div>
-                                                            <a href="/public/pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-12">
-                                                    <div class="text-center mt-4">
-                                                        <button class="btn btn-generate btn-lg" id="btn-one-key-analyze" onclick="mineAndGenerate()" style="border: 2px solid rgba(99,102,241,0.4); box-shadow: 0 4px 16px rgba(99,102,241,0.2);">
-                                                            🚀 开始一键分析
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                    <!-- 超级定位三 Tab 切换区 -->
+                    <!-- 超级定位三 Tab -->
+                    <div class="super-workspace-new" id="super-workspace-new" style="display: none;">
+                        <!-- 顶部 Tab 栏 -->
+                        <div class="super-tabs-bar">
+                            <button class="super-tab-btn active" data-super-tab="tab-form" onclick="switchSuperTab('tab-form')">
+                                <i class="bi bi-card-text"></i>描述业务
+                            </button>
+                            <button class="super-tab-btn" data-super-tab="tab-problems" onclick="switchSuperTab('tab-problems')">
+                                <i class="bi bi-search"></i>问题识别
+                            </button>
+                            <button class="super-tab-btn" data-super-tab="tab-portraits" onclick="switchSuperTab('tab-portraits')">
+                                <i class="bi bi-people"></i>生成画像
+                            </button>
+                            <div class="super-tabs-actions">
+                                <button class="btn-apple btn-sm" id="btn-reset-super" onclick="resetSuperSnapshot()">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
+                                        <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                                        <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                    </svg>
+                                    重置
+                                </button>
                             </div>
+                        </div>
 
-                            <!-- 步骤2：问题识别 -->
-                            <div class="apple-accordion mb-3" id="super-step-problems">
-                                <div class="apple-accordion-item">
-                                    <div class="apple-accordion-header-wrapper d-flex align-items-center justify-content-between w-100">
-                                        <button class="apple-accordion-header collapsed" type="button" data-bs-toggle="collapse"
-                                                data-bs-target="#step-problems-body" id="step-problems-btn" style="flex: 1;">
-                                            <div class="step-num">2</div>
-                                            <span class="step-title">问题识别</span>
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="collapse-icon" style="transition: transform 0.2s;">
-                                                <path d="M4 6L8 10L12 6"/>
-                                            </svg>
-                                        </button>
-                                        <button class="btn-apple btn-sm ms-3" id="btn-refresh-identities" onclick="refreshIdentities()">
-                                            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
-                                                <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                                                <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                            </svg>
-                                            换一批
-                                        </button>
-                                    </div>
-                                    <div id="step-problems-body" class="accordion-collapse collapse" data-bs-parent="#super-step-problems">
-                                        <div class="apple-accordion-body" style="padding: 20px;">
-                                            <!-- 局部加载状态：问题识别中 -->
-                                            <div id="problem-mining-loading" class="loading-state" style="display: none;">
-                                                <div class="apple-spinner mx-auto"></div>
-                                                <h5>正在深入分析市场问题</h5>
-                                                <p>AI 正在从海量数据中挖掘目标用户的核心痛点...</p>
+                        <!-- Tab 内容面板容器 -->
+                        <div class="super-tab-content-wrapper">
+
+                            <!-- Tab1：描述业务 -->
+                            <div class="super-tab-panel active" id="super-tab-form">
+                                <div class="tab-panel-inner">
+                                    <div class="form-content-wrapper" style="max-width: 680px; margin: 0 auto;">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                            <label class="form-label">核心业务 <span class="text-danger">*</span></label>
+                                            <input type="text"
+                                                   class="form-control"
+                                                   id="business-desc"
+                                                   maxlength="20"
+                                                   placeholder="请输入你的1个核心业务，例如：餐盘无痕修复、家具翻新、门窗维修">
+                                            <div class="form-text text-muted">仅填写1个主营服务，不写城市、不写广告语、不写多个业务</div>
+                                            <div class="invalid-feedback" id="business-desc-error"></div>
                                             </div>
-                                            <div id="problems-section">
-                                                <div id="market-analysis-card" class="apple-card mb-4" style="display: none;">
-                                                    <div class="apple-card-header blue">
-                                                        <svg width="20" height="20" viewBox="0 0 20 20" fill="white">
-                                                            <path d="M3 13h14M3 6h14M3 10h8"/>
-                                                        </svg>
-                                                        <span style="font-weight: 600;">市场机会分析</span>
-                                                    </div>
-                                                    <div class="apple-card-body" style="background: var(--apple-gray6);">
-                                                        <div id="market-tags-row" class="d-flex flex-wrap gap-2 mb-3 align-items-start">
-                                                            <div id="blue-ocean-tag" class="market-tag blue-tag" style="display:none;">
-                                                                <span class="tag-icon"></span>
-                                                                <span class="tag-text" id="blue-ocean-opportunity">—</span>
-                                                            </div>
-                                                            <div id="red-ocean-tags"></div>
-                                                        </div>
-                                                        <div id="problem-keywords-section" style="display:none;">
-                                                            <div class="kw-section-title">
-                                                                <span class="kw-icon"></span>
-                                                                <span class="kw-label">问题导向词</span>
-                                                                <span class="apple-badge blue kw-count" id="keyword-count">0 个</span>
-                                                            </div>
-                                                            <p class="kw-subtitle">用户搜索时使用的问题词，可直接用于标题创作</p>
-                                                            <div class="problem-keywords-wrap" id="problem-keywords-list"></div>
-                                                        </div>
-                                                    </div>
+                                            <div class="col-12">
+                                            <label class="form-label">经营范围 <span class="text-danger">*</span></label>
+                                            <div class="d-flex gap-3 flex-wrap">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region" checked>
+                                                    <label class="form-check-label" for="range-cross">🌍 跨区域（全国）</label>
                                                 </div>
-
-                                                <div class="row g-3 problem-grid" id="user-pains-list"></div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
+                                                    <label class="form-check-label" for="range-local">🏠 本地</label>
+                                                </div>
+                                            </div>
+                                            </div>
+                                            <!-- 本地城市补充信息（选填） -->
+                                            <div class="col-12" id="local-city-wrapper" style="display: none;">
+                                                <label class="form-label">补充城市信息（选填）</label>
+                                                <input type="text" class="form-control" id="local-city" placeholder="例如：成都">
+                                            </div>
+                                            <div class="col-12">
+                                            <label class="form-label">经营类型 <span class="text-danger">*</span></label>
+                                            <div class="d-flex gap-3 flex-wrap">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="business-type" id="type-product" value="product">
+                                                    <label class="form-check-label" for="type-product">📦 消费品</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="business-type" id="type-service" value="local_service">
+                                                    <label class="form-check-label" for="type-service">🔧 本地服务</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="business-type" id="type-personal" value="personal">
+                                                    <label class="form-check-label" for="type-personal">👤 个人品牌</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="business-type" id="type-enterprise" value="enterprise">
+                                                    <label class="form-check-label" for="type-enterprise">🏢 企业服务</label>
+                                                </div>
+                                            </div>
+                                            </div>
+                                            <div class="col-12">
+                                            <label class="form-label">你的主要服务场景</label>
+                                            <select class="form-select" id="service-scenario" onchange="handleServiceScenarioChange()">
+                                                <option value="">请选择你的核心服务场景</option>
+                                                <option value="hotel_restaurant">🏨 酒店 / 餐饮 / 茶楼 / 高端会所（正餐、民宿、婚宴、茶室、私人会所、餐饮后厨配套）</option>
+                                                <option value="residential">🏠 家用 / 住宅 / 小区业主（家庭自住、二手房翻新、家装配套、个人自用）</option>
+                                                <option value="office_enterprise">🏢 写字楼 / 企业 / 工厂 / 园区（公司办公、厂区后勤、园区物业、企业采购）</option>
+                                                <option value="institutional">🏫 学校 / 医院 / 食堂 / 政企单位（公立单位、食堂后勤、总务物资配套）</option>
+                                                <option value="retail_chain">🛒 实体店 / 连锁门店 / 加盟品牌（门店经营、连锁供应链、加盟店配套）</option>
+                                                <option value="renovation">🔨 装修 / 工装 / 工程定制（装修施工、工地配套、工程接单）</option>
+                                                <option value="other">📝 其他小众场景（以上没有，简单写自己专属场景）</option>
+                                            </select>
+                                            <!-- 其他场景补充输入 -->
+                                            <div id="other-scenario-wrapper" class="mt-2" style="display: none;">
+                                                <input type="text" class="form-control" id="other-scenario-input"
+                                                       placeholder="简单备注你的使用场景（限15字内）" maxlength="15">
+                                            </div>
+                                            <div id="scenario-lock-hint" class="form-text text-muted" style="display: none;">
+                                                <i class="bi bi-lock-fill me-1"></i>选择固定场景后，人群库已自动锁定
+                                            </div>
+                                            </div>
+                                            <div class="col-12">
+                                            <div id="ai-upgrade-hint" class="alert alert-info mt-3" style="display: none;">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="bi bi-stars me-1"></i>
+                                                        <strong>升级解锁AI精准画像</strong>
+                                                        <p class="mb-0 small">免费用户使用基础画像，付费用户获得AI深度分析</p>
+                                                    </div>
+                                                    <a href="/public/pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
+                                                </div>
+                                            </div>
+                                            </div>
+                                            <div class="col-12">
+                                            <div class="text-center mt-4">
+                                                <button class="btn btn-generate btn-lg" id="btn-one-key-analyze" onclick="mineAndGenerate()" style="border: 2px solid rgba(99,102,241,0.4); box-shadow: 0 4px 16px rgba(99,102,241,0.2);">
+                                                    🚀 开始一键分析
+                                                </button>
+                                            </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </div><!-- /#super-tab-form -->
 
-                            <!-- 步骤3：生成画像 -->
-                            <div class="apple-accordion" id="super-step-portraits">
-                                <div class="apple-accordion-item">
-                                    <div class="apple-accordion-header-wrapper d-flex align-items-center justify-content-between w-100">
-                                        <button class="apple-accordion-header collapsed" type="button" data-bs-toggle="collapse"
-                                                data-bs-target="#step-portraits-body" id="step-portraits-btn" style="flex: 1;">
-                                            <div class="step-num">3</div>
-                                            <span class="step-title">生成画像</span>
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="collapse-icon" style="transition: transform 0.2s;">
-                                                <path d="M4 6L8 10L12 6"/>
-                                            </svg>
-                                        </button>
-                                        <button class="btn-apple btn-sm ms-3" id="btn-refresh-targets" onclick="refreshTargetCustomers()">
-                                            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
-                                                <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                                                <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                            </svg>
-                                            换一批
-                                        </button>
+                            <!-- Tab2：问题识别 -->
+                            <div class="super-tab-panel" id="super-tab-problems">
+                                <div class="tab-panel-inner">
+                                    <!-- 问题列表区域 -->
+                                    <div id="problems-section" class="mt-2" style="display: none;">
+                                        <!-- 问题卡片由JS动态生成 -->
                                     </div>
-                                    <div id="step-portraits-body" class="accordion-collapse collapse" data-bs-parent="#super-step-portraits">
-                                        <div class="apple-accordion-body" style="padding: 20px;">
-                                            <!-- 局部加载状态：生成画像中 -->
-                                            <div id="portrait-generating-loading" class="loading-state" style="display: none;">
-                                                <div class="apple-spinner mx-auto"></div>
-                                                <h5>正在为您生成精准人群画像</h5>
-                                                <p>AI 正在基于问题洞察构建目标用户画像...</p>
-                                            </div>
-                                            <div id="target-customers-section">
-                                                <div id="portrait-quota-display" class="mb-3"></div>
-                                                <div class="small text-secondary mb-4">已生成 <span id="target-count" style="font-weight: 600; color: var(--apple-blue);">0</span> 个目标用户</div>
-                                                <div class="portrait-grid" id="target-customers-list"></div>
-                                            </div>
+                                    <!-- 问题空状态 -->
+                                    <div id="problems-empty-hint" class="super-empty-hint">
+                                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="opacity: 0.4;">
+                                            <circle cx="24" cy="24" r="20" stroke="#8E8E93" stroke-width="2" fill="none"/>
+                                            <path d="M24 14V26M24 32V34" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round"/>
+                                        </svg>
+                                        <div>
+                                            <strong>请先在「描述业务」中填写信息</strong>
+                                            <p class="mb-0">点击上方 Tab1 填写业务描述后<br>系统将自动识别目标客户的核心痛点</p>
                                         </div>
+                                        <button class="btn-apple btn-sm mt-2" onclick="switchSuperTab('tab-form')">去填写</button>
                                     </div>
                                 </div>
-                            </div>
-                        </div><!-- /#tab-super-content -->
+                            </div><!-- /#super-tab-problems -->
+
+                            <!-- Tab3：生成画像 -->
+                            <div class="super-tab-panel" id="super-tab-portraits">
+                                <div class="tab-panel-inner">
+                                    <!-- 画像列表区域 -->
+                                    <div id="target-customers-section" class="mt-2" style="display: none;">
+                                        <!-- 画像卡片由JS动态生成 -->
+                                    </div>
+                                    <!-- 画像空状态 -->
+                                    <div id="portraits-empty-hint" class="super-empty-hint">
+                                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="opacity: 0.4;">
+                                            <circle cx="18" cy="16" r="6" stroke="#8E8E93" stroke-width="2" fill="none"/>
+                                            <circle cx="30" cy="16" r="6" stroke="#8E8E93" stroke-width="2" fill="none"/>
+                                            <path d="M8 38C8 31.4 12.5 26 18 26M30 26C35.5 26 40 31.4 40 38" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" fill="none"/>
+                                        </svg>
+                                        <div>
+                                            <strong>请先完成问题识别</strong>
+                                            <p class="mb-0">点击上方 Tab2 等待问题分析完成后<br>系统将根据问题生成目标客户画像</p>
+                                        </div>
+                                        <button class="btn-apple btn-sm mt-2" onclick="switchSuperTab('tab-problems')">去识别</button>
+                                    </div>
+                                </div>
+                            </div><!-- /#super-tab-portraits -->
+
+                        </div><!-- /.super-tab-content-wrapper -->
+                    </div><!-- /.super-workspace-new -->
 
                         <!-- 生成内容 Tab 内容 -->
                         <div id="tab-content-content" style="display: none;">
@@ -2538,9 +3778,6 @@
                                     </div>
                                 </div>
                             </div>
-                                    </div>
-                                </div>
-                            </div>
 
                             <!-- 生成结果 -->
                             <div id="result" class="mt-4" style="display: none;">
@@ -2587,52 +3824,11 @@
                             </div>
                         </div><!-- /#tab-content-content -->
                     </div><!-- /#generator-form -->
-                </div><!-- /.mac-window-body -->
-            </div><!-- /.mac-window -->
-        </div><!-- /.main-container -->
+        </div><!-- /.workspace-main -->
     </main>
-
-    <!-- macOS 风格 Footer -->
-    <footer>
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <h6 style="font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="url(#footerGrad)">
-                            <path d="M10 2L2 6L10 10L18 6L10 2Z"/>
-                            <path d="M2 14L10 18L18 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <path d="M2 10L10 14L18 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <defs>
-                                <linearGradient id="footerGrad" x1="2" y1="2" x2="18" y2="18">
-                                    <stop stop-color="#007AFF"/>
-                                    <stop offset="1" stop-color="#AF52DE"/>
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                        AI 棱镜
-                    </h6>
-                    <p class="small mb-0" style="color: var(--text-secondary); line-height: 1.6;">
-                        AI时代创作者的内容生产引擎，基于大语言模型和爆款数据分析，
-                        帮助内容被 AI 收录引用，打造专属内容获客资产。
-                    </p>
-                </div>
-                <div class="col-md-3">
-                    <h6>快速链接</h6>
-                    <ul class="list-unstyled mb-0">
-                        <li class="mb-2"><a href="/public/#features">功能介绍</a></li>
-                        <li class="mb-2"><a href="/public/pricing">定价方案</a></li>
-                        <li class="mb-2"><a href="/public/register">免费注册</a></li>
-                    </ul>
-                </div>
-                <div class="col-md-3">
-                    <h6>联系方式</h6>
-                    <p class="small mb-0" style="color: var(--text-secondary);">商务合作请联系</p>
-                </div>
-            </div>
-            <hr style="margin: 32px 0 24px; border-color: var(--apple-gray5);">
-            <p class="text-center mb-0 small" style="color: var(--text-secondary);">© 2024 AI 棱镜 - 让内容创作更智能</p>
-        </div>
-    </footer>
+            </div><!-- /.public-content-scroll -->
+        </div><!-- /.public-content -->
+    </div><!-- /.public-app-layout -->
 
     <!-- Bootstrap 5.1.3 JS (SRI) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
@@ -2695,6 +3891,9 @@
                     }
                 }
             });
+
+            // 初始化已保存画像区域的折叠箭头动画
+            initPortraitSectionCollapse();
 
             // 描述业务步骤展开时，折叠已保存画像区域
             const stepFormBody = document.getElementById('step-form-body');
@@ -2884,30 +4083,132 @@
 
         // 显示超级定位步骤区域（点击"新建画像"按钮时调用）
         function showSuperSteps() {
-            const superSection = document.getElementById('tab-super-content');
+            const superSection = document.getElementById('super-workspace-new');
             if (superSection) {
-                superSection.style.display = 'block';
+                if (superSection.style.display === 'none') {
+                    superSection.style.display = 'block';
+                }
+                superSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
-            // 三块默认折叠
-            const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-form-body'), {toggle: false});
-            bsCollapse1.hide();
-            const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
-            bsCollapse2.hide();
-            const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
-            bsCollapse3.hide();
-            // 滚动到步骤区域
-            superSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            switchSuperTab('tab-form');
         }
 
-        // 控制超级定位步骤显示（根据是否有已保存画像）
-        function updateSuperStepsVisibility() {
-            // 如果 PortraitManager 有已保存画像，隐藏步骤区域
-            if (window.PortraitManager && window.PortraitManager._savedPortraits && window.PortraitManager._savedPortraits.length > 0) {
-                const superSection = document.getElementById('tab-super-content');
-                if (superSection) {
-                    superSection.style.display = 'none';
+        // ================================================================
+        // 侧边栏工作区手风琴功能
+        // ================================================================
+
+        // 侧边栏手风琴折叠状态
+        const _sidebarOpenSteps = { 1: false, 2: false, 3: false };
+
+        function toggleSidebarStep(step) {
+            // 切换当前步骤的展开状态
+            _sidebarOpenSteps[step] = !_sidebarOpenSteps[step];
+
+            // 更新所有 header 的 active 状态和箭头方向
+            [1, 2, 3].forEach(function(s) {
+                const header = document.getElementById('sidebar-step-' + s);
+                const body = document.getElementById('sidebar-step-' + s + '-body');
+                if (header && body) {
+                    if (_sidebarOpenSteps[s]) {
+                        header.classList.add('active');
+                        body.style.display = 'block';
+                    } else {
+                        header.classList.remove('active');
+                        body.style.display = 'none';
+                    }
+                }
+            });
+
+            // 同步数据到主表单（用于步骤2/3的数据展示）
+            if (step === 1 && _sidebarOpenSteps[1]) {
+                syncBusinessDesc();
+                syncBusinessRange();
+                syncServiceScenario();
+            }
+        }
+
+        function syncBusinessDesc() {
+            const main = document.getElementById('business-desc');
+            const sidebar = document.getElementById('sidebar-business-desc');
+            if (main && sidebar) {
+                main.value = sidebar.value;
+            }
+        }
+
+        function syncBusinessRange() {
+            const sidebarChecked = document.querySelector('input[name="sidebar-business-range"]:checked');
+            const mainRadio = document.getElementById('range-cross');
+            if (sidebarChecked && mainRadio) {
+                document.querySelectorAll('input[name="business-range"]').forEach(function(r) {
+                    r.checked = (r.value === sidebarChecked.value);
+                });
+            }
+        }
+
+        function syncServiceScenario() {
+            const sidebar = document.getElementById('sidebar-service-scenario');
+            const main = document.getElementById('service-scenario');
+            if (sidebar && main) {
+                main.value = sidebar.value;
+                // 触发 change 事件
+                main.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
+        async function startOneKeyAnalysis() {
+            // 从侧边栏收集数据，同步到主表单，然后触发主表单的"开始分析"
+            syncBusinessDesc();
+            syncBusinessRange();
+            syncServiceScenario();
+
+            // 获取主表单核心业务值
+            const businessDesc = document.getElementById('business-desc')?.value?.trim();
+            if (!businessDesc) {
+                showToast('请先填写核心业务', 'error');
+                return;
+            }
+
+            // 折叠侧边栏步骤1，打开步骤2
+            _sidebarOpenSteps[1] = false;
+            _sidebarOpenSteps[2] = true;
+            _sidebarOpenSteps[3] = false;
+
+            [1, 2, 3].forEach(function(s) {
+                const header = document.getElementById('sidebar-step-' + s);
+                const body = document.getElementById('sidebar-step-' + s + '-body');
+                if (header && body) {
+                    if (_sidebarOpenSteps[s]) {
+                        header.classList.add('active');
+                        body.style.display = 'block';
+                    } else {
+                        header.classList.remove('active');
+                        body.style.display = 'none';
+                    }
+                }
+            });
+
+            // 更新侧边栏步骤2状态
+            const status2 = document.getElementById('sidebar-problem-status');
+            if (status2) status2.textContent = '正在分析...';
+
+            // 调用主表单的分析函数（如果存在）
+            if (typeof window.startAnalysis === 'function') {
+                await window.startAnalysis();
+            } else {
+                // 尝试查找主表单中的分析按钮并触发
+                const startBtn = document.querySelector('[onclick*="startAnalysis"]');
+                if (startBtn) startBtn.click();
+            }
+
+            // 展开主内容区的超级定位流程
+            const superSection = document.getElementById('super-workspace-new');
+            if (superSection) {
+                if (superSection.style.display === 'none') {
+                    superSection.style.display = 'block';
                 }
             }
+            // 切换到问题识别 Tab
+            switchSuperTab('tab-problems');
         }
 
         function applySnapshotToForm(snapshot) {
@@ -2939,31 +4240,6 @@
                     scenarioSelect.value = snapshot.service_scenario;
                     handleServiceScenarioChange();
                 }
-            }
-        }
-
-        // ================================================================
-        // Tab 切换
-        // ================================================================
-        function switchGeneratorTab(tab) {
-            const tabSuper = document.getElementById('tab-super');
-            const tabContent = document.getElementById('tab-content');
-            const superContent = document.getElementById('tab-super-content');
-            const contentContent = document.getElementById('tab-content-content');
-
-            // 折叠已保存画像区域
-            _collapsePortraitSection();
-
-            if (tab === 'super') {
-                tabSuper?.classList.add('active');
-                tabContent?.classList.remove('active');
-                superContent && (superContent.style.display = '');
-                contentContent && (contentContent.style.display = 'none');
-            } else {
-                tabContent?.classList.add('active');
-                tabSuper?.classList.remove('active');
-                contentContent && (contentContent.style.display = '');
-                superContent && (superContent.style.display = 'none');
             }
         }
 
@@ -3072,36 +4348,80 @@
 
         function updateNav() {
             if (currentUser) {
-                document.getElementById('nav-login').innerHTML =
-                    '<a class="nav-link" href="#" onclick="logout()">退出</a>';
+                // 隐藏未登录状态
+                document.getElementById('topbar-auth').style.display = 'none';
 
-                var planName = currentUser.quota && currentUser.quota.plan_name ? currentUser.quota.plan_name : '';
-                var welcomeText = currentUser.quota && currentUser.quota.email ? currentUser.quota.email : '用户';
+                // 显示用户顶栏
+                const topbarUser = document.getElementById('topbar-user');
+                topbarUser.style.display = 'flex';
 
+                // 填充昵称
+                const email = currentUser.quota && currentUser.quota.email ? currentUser.quota.email : '用户';
+                document.getElementById('topbar-nickname').textContent = email;
+
+                // 填充套餐徽章
+                const planName = currentUser.quota && currentUser.quota.plan_name ? currentUser.quota.plan_name : '';
+                const badge = document.getElementById('topbar-plan-badge');
                 if (planName === '企业版') {
-                    document.getElementById('nav-register').innerHTML =
-                        '<span class="badge bg-success me-2">企业版（无限）</span><span class="nav-link">欢迎，' + welcomeText + '</span>';
+                    badge.textContent = '企业版';
+                    badge.className = 'topbar-plan-badge ent';
                 } else if (planName === '专业版') {
-                    document.getElementById('nav-register').innerHTML =
-                        '<span class="badge bg-primary me-2">专业版</span><span class="nav-link">欢迎，' + welcomeText + '</span>';
+                    badge.textContent = '专业版';
+                    badge.className = 'topbar-plan-badge pro';
                 } else if (planName === '基础版') {
-                    document.getElementById('nav-register').innerHTML =
-                        '<span class="badge bg-info me-2">基础版</span><span class="nav-link">欢迎，' + welcomeText + '</span>';
+                    badge.textContent = '基础版';
+                    badge.className = 'topbar-plan-badge basic';
                 } else {
-                    document.getElementById('nav-register').innerHTML =
-                        '<span class="nav-link">欢迎，' + welcomeText + '</span>';
+                    badge.style.display = 'none';
                 }
-                
+
                 // 登录后显示保存按钮
                 showSavedPortraitsSection();
+                // 显示超级定位工作区
+                const superWs = document.getElementById('super-workspace-new');
+                if (superWs) superWs.style.display = 'block';
+                // 默认切换到超级定位 Tab
+                switchSidebarTab('tab-super');
             }
+        }
+
+        // 展开/收起用户下拉菜单
+        function toggleUserDropdown() {
+            const topbarUser = document.getElementById('topbar-user');
+            topbarUser.classList.toggle('is-open');
+        }
+
+        // 点击下拉菜单外部关闭
+        document.addEventListener('click', function(e) {
+            const topbarUser = document.getElementById('topbar-user');
+            if (!topbarUser.contains(e.target)) {
+                topbarUser.classList.remove('is-open');
+            }
+        });
+
+        // 修改账号密码（暂时提示）
+        function showAccountSettings(e) {
+            e.preventDefault();
+            document.getElementById('topbar-user').classList.remove('is-open');
+            alert('修改账号密码功能开发中，敬请期待。');
+        }
+
+        function logout(e) {
+            if (e) e.preventDefault();
+            document.getElementById('topbar-user').classList.remove('is-open');
+            document.getElementById('topbar-auth').style.display = 'flex';
+            document.getElementById('topbar-user').style.display = 'none';
+            currentUser = null;
+            document.getElementById('login-prompt').style.display = 'block';
+            document.getElementById('generator-form').style.display = 'none';
+            // 调用服务端登出
+            fetch('/public/api/logout', { method: 'POST', credentials: 'include' })
+                .finally(() => { window.location.href = '/login?type=public'; });
         }
 
         function showGenerator() {
             document.getElementById('login-prompt').style.display = 'none';
             document.getElementById('generator-form').style.display = 'block';
-            // 默认显示超级定位 Tab
-            switchGeneratorTab('super');
         }
 
         // 经营范围切换：选择本地时显示城市补充字段
@@ -3230,6 +4550,11 @@
             if (section) {
                 section.style.display = 'block';
             }
+            // 新版精选 + 横铺区也显示
+            const featured = document.getElementById('featured-section');
+            const row = document.getElementById('portraits-row-section');
+            if (featured) featured.style.display = 'block';
+            if (row) row.style.display = 'block';
             // 重置为展开状态
             _expandPortraitSection();
             // 根据套餐显示保存按钮
@@ -3283,41 +4608,77 @@
         // 折叠已保存画像区域（超级定位流程开始时调用）
         function _collapsePortraitSection() {
             const collapseEl = document.getElementById('portrait-cards-collapse');
-            const chevron = document.getElementById('portrait-section-chevron');
+            const headerEl = document.querySelector('.portrait-section-header');
+            const icon = headerEl?.querySelector('.portrait-collapse-icon');
             if (collapseEl) {
-                collapseEl.classList.remove('show');
+                const bsCollapse = bootstrap.Collapse.getInstance(collapseEl);
+                if (bsCollapse) {
+                    bsCollapse.hide();
+                } else {
+                    collapseEl.classList.remove('show');
+                }
             }
-            if (chevron) {
-                chevron.style.transform = 'rotate(-90deg)';
+            if (headerEl) {
+                headerEl.classList.add('collapsed');
+            }
+            if (icon) {
+                icon.style.transform = 'rotate(-90deg)';
             }
         }
 
         // 展开已保存画像区域
         function _expandPortraitSection() {
             const collapseEl = document.getElementById('portrait-cards-collapse');
-            const chevron = document.getElementById('portrait-section-chevron');
+            const headerEl = document.querySelector('.portrait-section-header');
+            const icon = headerEl?.querySelector('.portrait-collapse-icon');
             if (collapseEl) {
-                collapseEl.classList.add('show');
+                const bsCollapse = bootstrap.Collapse.getInstance(collapseEl);
+                if (bsCollapse) {
+                    bsCollapse.show();
+                } else {
+                    collapseEl.classList.add('show');
+                }
             }
-            if (chevron) {
-                chevron.style.transform = 'rotate(0deg)';
+            if (headerEl) {
+                headerEl.classList.remove('collapsed');
+            }
+            if (icon) {
+                icon.style.transform = 'rotate(0deg)';
             }
         }
 
         // 点击已保存画像标题栏切换折叠/展开
         window._togglePortraitSection = function() {
-            const collapseEl = document.getElementById('portrait-cards-collapse');
-            const chevron = document.getElementById('portrait-section-chevron');
-            if (!collapseEl) return;
-            const isCollapsed = !collapseEl.classList.contains('show');
-            if (isCollapsed) {
-                collapseEl.classList.add('show');
-                if (chevron) chevron.style.transform = 'rotate(0deg)';
-            } else {
-                collapseEl.classList.remove('show');
-                if (chevron) chevron.style.transform = 'rotate(-90deg)';
-            }
+            // Bootstrap collapse 自动处理
         };
+
+        // 初始化已保存画像区域的折叠箭头动画
+        function initPortraitSectionCollapse() {
+            const collapseEl = document.getElementById('portrait-cards-collapse');
+            const headerEl = document.querySelector('.portrait-section-header');
+            const icon = headerEl?.querySelector('.portrait-collapse-icon');
+
+            if (collapseEl && headerEl) {
+                // 展开时
+                collapseEl.addEventListener('show.bs.collapse', function() {
+                    headerEl.classList.remove('collapsed');
+                    if (icon) icon.style.transform = 'rotate(0deg)';
+                });
+                // 折叠时
+                collapseEl.addEventListener('hide.bs.collapse', function() {
+                    headerEl.classList.add('collapsed');
+                    if (icon) icon.style.transform = 'rotate(-90deg)';
+                });
+                // 初始化状态
+                if (collapseEl.classList.contains('show')) {
+                    headerEl.classList.remove('collapsed');
+                    if (icon) icon.style.transform = 'rotate(0deg)';
+                } else {
+                    headerEl.classList.add('collapsed');
+                    if (icon) icon.style.transform = 'rotate(-90deg)';
+                }
+            }
+        }
 
         // ================================================================
         // 一键分析：问题挖掘 + 画像生成
@@ -4708,9 +6069,8 @@
                 }
             });
 
-            // 显示选题区域并切换到内容Tab
+            // 显示选题区域
             document.getElementById('topics-section').style.display = 'block';
-            switchGeneratorTab('content');
             document.getElementById('topics-list').innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">正在生成选题...</p></div>';
 
             try {
@@ -5008,19 +6368,6 @@
             });
         }
 
-        async function logout() {
-            try {
-                await fetch('/public/api/logout', {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-            } catch (e) {
-                console.error('Logout error:', e);
-            }
-            // 退出后跳转到登录页
-            window.location.href = '/login?type=public';
-        }
-
         // 已保存画像「生成内容」→ 选题 → 内容
         window._generateContentForTopic = async function(topic, portrait) {
             const businessDesc = document.getElementById('business-desc')?.value?.trim() || portrait?.business_description || '';
@@ -5208,11 +6555,6 @@
                     // 局部重新渲染（不刷新页面，关键词库/选题库数据直接可见）
                     PortraitManager.renderPortraitCards();
 
-                    // 隐藏超级定位步骤（已有保存的画像）
-                    if (typeof updateSuperStepsVisibility === 'function') {
-                        updateSuperStepsVisibility();
-                    }
-
                     showToast('✓ 画像保存成功！', 'success');
                 } else {
                     showToast('保存失败，请重试', 'error');
@@ -5318,9 +6660,6 @@
                     PortraitManager._currentPortraitId = saved.id;
                     await PortraitManager.loadQuota();
                     PortraitManager.renderPortraitCards();
-                    if (typeof updateSuperStepsVisibility === 'function') {
-                        updateSuperStepsVisibility();
-                    }
                 } else {
                     showToast('保存失败，请重试', 'error');
                     resetSaveButtons();
@@ -5540,6 +6879,206 @@
 
         // 页面加载时检查登录
         checkAuth();
+
+        // ============================================================
+        // 侧栏导航 + 超级定位 Tab 切换逻辑
+        // ============================================================
+
+        // 当前侧栏激活 Tab
+        let _currentSidebarTab = 'tab-super';
+
+        /**
+         * 侧栏导航点击
+         * @param {Event} e - 点击事件
+         * @param {string} tabName - Tab 名称
+         */
+        function sidebarNavClick(e, tabName) {
+            e.preventDefault();
+            switchSidebarTab(tabName);
+        }
+
+        /**
+         * 侧栏普通链接跳转（不切换 Tab）
+         */
+        function sidebarNavLink(e, linkEl) {
+            // 保持原生行为，允许跳转
+        }
+
+        /**
+         * 切换侧栏 Tab
+         * @param {string} tabName - 'tab-super' | 'tab-portraits' | 'tab-topics' | 'tab-contents' | 'tab-planet'
+         */
+        function switchSidebarTab(tabName) {
+            _currentSidebarTab = tabName;
+
+            // 更新侧栏高亮
+            document.querySelectorAll('.public-sidebar-link[data-sidebar-tab]').forEach(link => {
+                link.classList.toggle('is-active', link.dataset.sidebarTab === tabName);
+            });
+
+            // 隐藏所有内容面板
+            document.getElementById('super-workspace-new').style.display = 'none';
+            document.getElementById('tab-content-content').style.display = 'none';
+
+            if (tabName === 'tab-super') {
+                // 超级定位
+                document.getElementById('super-workspace-new').style.display = 'block';
+                // 切换到超级定位 Tab 时显示第一个 Tab
+                switchSuperTab('tab-form');
+            } else if (tabName === 'tab-portraits') {
+                // 客户画像
+                // 隐藏选题/内容区域，显示画像区
+                document.getElementById('tab-content-content').style.display = 'none';
+                document.getElementById('portrait-section').style.display = 'block';
+                document.getElementById('featured-section').style.display = 'none';
+                document.getElementById('portraits-row-section').style.display = 'none';
+                document.getElementById('portrait-onboarding-tip').style.display = 'none';
+                // 加载画像列表
+                if (PortraitManager) PortraitManager.init();
+            } else if (tabName === 'tab-topics') {
+                // 选题清单
+                // 隐藏画像区域，显示选题区
+                document.getElementById('portrait-section').style.display = 'none';
+                document.getElementById('featured-section').style.display = 'none';
+                document.getElementById('portraits-row-section').style.display = 'none';
+                document.getElementById('tab-content-content').style.display = 'block';
+                document.getElementById('topics-section').style.display = 'block';
+                document.getElementById('topic-content-section').style.display = 'none';
+                document.getElementById('result').style.display = 'none';
+                if (typeof refreshTopics === 'function') refreshTopics();
+            } else if (tabName === 'tab-contents') {
+                // 内容清单
+                document.getElementById('portrait-section').style.display = 'none';
+                document.getElementById('featured-section').style.display = 'none';
+                document.getElementById('portraits-row-section').style.display = 'none';
+                document.getElementById('tab-content-content').style.display = 'block';
+                document.getElementById('topics-section').style.display = 'none';
+                document.getElementById('topic-content-section').style.display = 'none';
+                document.getElementById('result').style.display = 'none';
+                // 内容清单暂未实现，显示提示
+                showToast('内容清单功能即将上线', 'info');
+            } else if (tabName === 'tab-planet') {
+                // 内容星球 - 显示敬请期待弹层
+                showPlanetComingSoon();
+            }
+        }
+
+        /**
+         * 显示「内容星球」敬请期待弹层
+         */
+        function showPlanetComingSoon() {
+            const modalEl = document.getElementById('planet-coming-soon-modal') || createPlanetModal();
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
+        /**
+         * 创建「内容星球」弹层 DOM
+         */
+        function createPlanetModal() {
+            const modalHtml = `
+                <div class="modal fade" id="planet-coming-soon-modal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content" style="border-radius: 14px; border: none;">
+                            <div class="modal-body text-center p-5">
+                                <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                                        <circle cx="12" cy="12" r="10" stroke="white" stroke-width="2" fill="none"/>
+                                        <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="white" stroke-width="2" fill="none"/>
+                                        <path d="M2 12h20" stroke="white" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                                <h5 style="font-weight: 600; margin-bottom: 8px;">内容星球</h5>
+                                <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 20px;">
+                                    这是一个全新的内容创作宇宙<br>让我们一起探索更多可能
+                                </p>
+                                <div style="display: flex; gap: 8px; justify-content: center;">
+                                    <span class="apple-badge orange">即将上线</span>
+                                    <span class="apple-badge gray">敬请期待</span>
+                                </div>
+                                <div style="margin-top: 24px;">
+                                    <button class="btn btn-primary" data-bs-dismiss="modal" style="border-radius: 8px;">我知道了</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            return document.getElementById('planet-coming-soon-modal');
+        }
+
+        /**
+         * 切换超级定位内部 Tab
+         * @param {string} tabName - 'tab-form' | 'tab-problems' | 'tab-portraits'
+         */
+        function switchSuperTab(tabName) {
+            // 更新 Tab 按钮高亮
+            document.querySelectorAll('.super-tab-btn[data-super-tab]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.superTab === tabName);
+            });
+
+            // 切换 Tab 内容面板
+            document.querySelectorAll('.super-tab-content-wrapper .super-tab-panel').forEach(panel => {
+                panel.classList.toggle('active', panel.id === 'super-tab-' + tabName.replace('tab-', ''));
+            });
+
+            // 控制空状态提示的显示
+            const problemsSection = document.getElementById('problems-section');
+            const problemsEmptyHint = document.getElementById('problems-empty-hint');
+            const portraitsSection = document.getElementById('target-customers-section');
+            const portraitsEmptyHint = document.getElementById('portraits-empty-hint');
+
+            if (tabName === 'tab-problems') {
+                // 问题识别 Tab：检查是否有数据
+                const hasProblems = problemsSection && problemsSection.querySelector('.problem-card');
+                if (problemsSection) problemsSection.style.display = hasProblems ? 'block' : 'none';
+                if (problemsEmptyHint) problemsEmptyHint.style.display = hasProblems ? 'none' : 'flex';
+            } else if (tabName === 'tab-portraits') {
+                // 生成画像 Tab：检查是否有画像
+                const hasPortraits = portraitsSection && portraitsSection.querySelector('.target-customer-card');
+                if (portraitsSection) portraitsSection.style.display = hasPortraits ? 'block' : 'none';
+                if (portraitsEmptyHint) portraitsEmptyHint.style.display = hasPortraits ? 'none' : 'flex';
+            }
+
+            // 通知后端当前 Tab（如果有 PortraitManager）
+            if (PortraitManager && typeof PortraitManager.setActiveSuperTab === 'function') {
+                PortraitManager.setActiveSuperTab(tabName);
+            }
+        }
+
+        /**
+         * 显示 Toast 提示
+         */
+        function showToast(msg, type) {
+            const toastEl = document.createElement('div');
+            toastEl.className = 'apple-toast';
+            toastEl.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;';
+            toastEl.textContent = msg;
+            document.body.appendChild(toastEl);
+            setTimeout(() => { toastEl.style.opacity = '0'; toastEl.style.transition = 'opacity 0.3s'; setTimeout(() => toastEl.remove(), 300); }, 2000);
+        }
+
+        // ============================================================
+        // 画像加载完成后更新侧栏角标
+        // ============================================================
+        const _origLoadSavedPortraits = PortraitManager.loadSavedPortraits;
+        PortraitManager.loadSavedPortraits = async function(savedPortraitId) {
+            await _origLoadSavedPortraits.call(this, savedPortraitId);
+            updateSidebarPortraitCount();
+        };
+
+        function updateSidebarPortraitCount() {
+            const count = PortraitManager._savedPortraits.length;
+            const badge = document.getElementById('sidebar-portrait-count');
+            if (badge) {
+                if (count > 0) {
+                    badge.textContent = count;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        }
 
     </script>
     

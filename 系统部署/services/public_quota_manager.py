@@ -28,8 +28,8 @@ class QuotaManager:
             'overage_price': 0,      # 免费用户不支持超量
             'ai_enhancement': False,  # 不支持AI增强内容
             'ai_target_enhancement': False,  # 不支持AI增强目标用户画像
-            'save_portraits': True,  # 支持保存画像（最多1个）
-            'max_saved_portraits': 1,
+            'save_portraits': True,  # 支持保存画像（最多3个）
+            'max_saved_portraits': 3,
             'weekly_portrait_changes': 0,
         },
         'basic': {
@@ -41,7 +41,7 @@ class QuotaManager:
             'structure_options': 10,  # 10种内容结构
             'title_options': 5,       # 5个标题方案
             'save_portraits': True,   # 支持保存画像
-            'max_saved_portraits': 5,  # 最多保存5个
+            'max_saved_portraits': 3,  # 最多保存3个
             'weekly_portrait_changes': 2,  # 每周可更换2次
         },
         'professional': {
@@ -56,7 +56,7 @@ class QuotaManager:
             'precise_tags': True,    # 精准埋词方案
             'image_ratios': ['9:16', '4:3', '1:1'],  # 可选图片比例
             'save_portraits': True,
-            'max_saved_portraits': 20,  # 最多保存20个
+            'max_saved_portraits': 3,  # 最多保存3个
             'weekly_portrait_changes': 5,
         },
         'enterprise': {
@@ -71,7 +71,7 @@ class QuotaManager:
             'precise_tags': True,
             'image_ratios': ['9:16', '4:3', '1:1', '16:9'],
             'save_portraits': True,
-            'max_saved_portraits': 100,  # 最多保存100个
+            'max_saved_portraits': 3,  # 最多保存3个
             'weekly_portrait_changes': 0,  # 不限更换
             'api_access': True,
             'priority_support': True,

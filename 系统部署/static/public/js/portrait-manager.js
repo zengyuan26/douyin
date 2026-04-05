@@ -15,6 +15,13 @@ const PortraitManager = {
     _libraryQuota: { keyword: null, topic: null },
     _currentLibraryPortraitId: null,
 
+    // 推荐选题相关状态
+    _recommendedTopics: [],           // 当前显示的5个选题
+    _recommendedHistory: [],          // 已浏览过的选题ID列表
+    _currentRecommendPortraitId: null, // 当前推荐弹窗对应的画像ID
+    _totalTopicCount: 0,              // 选题库总数
+    _selectedTopicIdx: null,          // 当前选中的选题索引
+
     // ========================================================================
     // 一、初始化
     // ========================================================================
@@ -23,6 +30,11 @@ const PortraitManager = {
         await this.loadQuota();
         await this.loadSavedPortraits();
         await this.loadLibraryQuota();
+    },
+
+    // 重置当前画像索引
+    resetPortraitIndex() {
+        this._currentPortraitIndex = 0;
     },
 
     // ========================================================================
@@ -36,8 +48,10 @@ const PortraitManager = {
             if (data.success) {
                 this._quota = data.data;
                 this.updateQuotaDisplay();
-                // 付费用户显示画像专区
+                // 付费用户显示画像专区（新版精选 + 横铺）
                 if (this._quota && this._quota.can_save) {
+                    document.getElementById('featured-section').style.display = 'block';
+                    document.getElementById('portraits-row-section').style.display = 'block';
                     document.getElementById('portrait-section').style.display = 'block';
                 }
             }
@@ -85,6 +99,8 @@ const PortraitManager = {
             const data = await resp.json();
             if (data.success) {
                 this._savedPortraits = data.data || [];
+                // 重置当前索引
+                this._currentPortraitIndex = 0;
                 console.log('[PortraitManager] 已加载画像数量:', this._savedPortraits.length);
                 
                 // 调试：打印每个画像的状态
@@ -115,6 +131,8 @@ const PortraitManager = {
                     }
                 }
 
+                this.renderFeaturedCoverFlow();
+                this.renderPortraitsRow();
                 this.renderPortraitCards();
                 // 有已保存画像时，隐藏超级定位步骤
                 if (typeof updateSuperStepsVisibility === 'function') {
@@ -151,18 +169,15 @@ const PortraitManager = {
         }
 
         try {
-            // 只显示当前选中的或默认画像（每个客户只有一个画像）
-            const currentPortrait = this._savedPortraits.find(p => p.id === this._currentPortraitId)
-                || this._savedPortraits.find(p => p.is_default)
-                || this._savedPortraits[0];
-
-            if (!currentPortrait) {
-                console.error('[PortraitManager] 未找到有效的画像数据');
-                container.innerHTML = '<div class="col-12 text-center py-4 text-danger">画像数据异常</div>';
-                return;
+            // 保存当前显示的索引
+            if (!this._currentPortraitIndex) {
+                this._currentPortraitIndex = 0;
             }
 
-            const p = currentPortrait;
+            const total = this._savedPortraits.length;
+
+            // 只显示当前索引的画像
+            const p = this._savedPortraits[this._currentPortraitIndex];
 
             // 计算关键词库和选题库数量
             let kwCount = 0;
@@ -179,8 +194,6 @@ const PortraitManager = {
             if (p.topic_library && p.topic_library.topics) {
                 topicCount = p.topic_library.topics.length;
             }
-
-            console.log(`[PortraitManager.renderPortraitCards] 画像 ${p.id}: generation_status=${p.generation_status}, kwCount=${kwCount}, topicCount=${topicCount}`);
 
             // 生成状态
             const genStatus = p.generation_status || 'pending';
@@ -207,48 +220,96 @@ const PortraitManager = {
                 topicBadge = `<span class="badge me-1" style="background: #f5f5f5; color: #8e8e93; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="topic-status-badge-${p.id}">📋 选题库 待生成</span>`;
             }
 
+            // 左右导航 HTML
+            const navHtml = total > 1 ? `
+                <div class="portrait-card-nav d-flex align-items-center justify-content-between">
+                    <button class="btn-nav" onclick="PortraitManager.prevPortrait(${this._currentPortraitIndex})"
+                            ${this._currentPortraitIndex === 0 ? 'disabled' : ''}
+                            style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid #e5e7eb; background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; ${this._currentPortraitIndex === 0 ? 'opacity: 0.3; cursor: not-allowed;' : ''}">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="color: #3c3c43;">
+                            <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 12px; padding: 6px 12px; border-radius: 20px;">
+                            ${this._currentPortraitIndex + 1} / ${total}
+                        </span>
+                    </div>
+                    <button class="btn-nav" onclick="PortraitManager.nextPortrait(${this._currentPortraitIndex})"
+                            ${this._currentPortraitIndex === total - 1 ? 'disabled' : ''}
+                            style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid #e5e7eb; background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; ${this._currentPortraitIndex === total - 1 ? 'opacity: 0.3; cursor: not-allowed;' : ''}">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="color: #3c3c43;">
+                            <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+            ` : '';
+
             container.innerHTML = `
-            <div class="col-12">
-                <div class="portrait-card" style="cursor:default;">
-                    <div class="card-body" style="position: relative; z-index: 2;">
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-                            <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
-                                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:56px;height:56px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 4px 12px rgba(102,126,234,0.3);">
-                                    <i class="bi bi-person text-white fs-4"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="fw-bold" style="color: #1a1a1a; text-shadow: 0 1px 0 rgba(255,255,255,0.5); font-size: 1.1rem;" id="pm-badge-name-${p.id}">${this.escapeHtml(p.portrait_name || '用户画像')}</div>
-                                    <div class="small" style="color: #8e8e93;" id="pm-badge-industry-${p.id}">${this.escapeHtml(p.industry || '')}</div>
-                                    <div class="mt-2 d-flex flex-wrap gap-2" id="pm-badge-container-${p.id}">
-                                        ${kwBadge}
-                                        ${topicBadge}
+                ${navHtml}
+                <div class="col-12">
+                    <div class="portrait-card" style="cursor:default;">
+                        <div class="card-body" style="position: relative; z-index: 2;">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                                <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:56px;height:56px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 4px 12px rgba(102,126,234,0.3);">
+                                        <i class="bi bi-person text-white fs-4"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="fw-bold" style="color: #1a1a1a; text-shadow: 0 1px 0 rgba(255,255,255,0.5); font-size: 1.1rem;" id="pm-badge-name-${p.id}">${this.escapeHtml(p.portrait_name || '用户画像')}</div>
+                                        <div class="small" style="color: #8e8e93;" id="pm-badge-industry-${p.id}">${this.escapeHtml(p.industry || '')}</div>
+                                        <div class="mt-2 d-flex flex-wrap gap-2" id="pm-badge-container-${p.id}">
+                                            ${kwBadge}
+                                            ${topicBadge}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="d-flex align-items-center gap-2 flex-shrink-0 flex-wrap justify-content-end">
-                                <button class="btn btn-sm" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); border: none; color: white; border-radius: 10px; font-weight: 600; box-shadow: 0 2px 8px rgba(52,199,89,0.25); padding: 0.4rem 1rem;" onclick="PortraitManager.showRecommendedTopicsModal(${p.id})" title="推荐选题">
-                                    <i class="bi bi-lightbulb me-1"></i>推荐选题
-                                </button>
-                                <button class="btn btn-sm" style="background: linear-gradient(135deg, #007AFF 0%, #0056cc 100%); border: none; color: white; border-radius: 10px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,122,255,0.25); padding: 0.4rem 1rem;" onclick="PortraitManager.showTopicSelectAndGenerate(${p.id})" title="生成内容">
-                                    <i class="bi bi-lightning-charge me-1"></i>生成内容
-                                </button>
-                                <button class="btn btn-sm" style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.06); padding: 0.4rem 1rem;" onclick="PortraitManager.showPortraitDetail(${p.id})" title="查看详情">
-                                    <i class="bi bi-eye me-1"></i>查看详情
-                                </button>
+                                <div class="d-flex align-items-center gap-2 flex-shrink-0 flex-wrap justify-content-end">
+                                    <button class="btn btn-sm" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); border: none; color: white; border-radius: 10px; font-weight: 600; box-shadow: 0 2px 8px rgba(52,199,89,0.25); padding: 0.4rem 1rem;" onclick="PortraitManager.showRecommendedTopicsModal(${p.id})" title="推荐选题">
+                                        <i class="bi bi-lightbulb me-1"></i>推荐选题
+                                    </button>
+                                    <button class="btn btn-sm" style="background: linear-gradient(135deg, #007AFF 0%, #0056cc 100%); border: none; color: white; border-radius: 10px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,122,255,0.25); padding: 0.4rem 1rem;" onclick="PortraitManager.showTopicSelectAndGenerate(${p.id})" title="生成内容">
+                                        <i class="bi bi-lightning-charge me-1"></i>生成内容
+                                    </button>
+                                    <button class="btn btn-sm" style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.06); padding: 0.4rem 1rem;" onclick="PortraitManager.showPortraitDetail(${p.id})" title="查看详情">
+                                        <i class="bi bi-eye me-1"></i>查看详情
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>`;
-            console.log('[PortraitManager] 画像卡片渲染成功，当前画像ID:', p.id);
+            `;
 
-            // 如果正在生成中，启动轮询
+            console.log('[PortraitManager] 画像卡片渲染成功，共', total, '个画像，当前显示第', this._currentPortraitIndex + 1, '个');
+
+            // 为所有正在生成中的画像启动轮询
             if (genStatus === 'generating') {
                 this._startLibraryPolling(p.id);
             }
         } catch (e) {
             console.error('[PortraitManager] 渲染画像卡片失败:', e);
             container.innerHTML = '<div class="col-12 text-center py-4 text-danger">渲染画像卡片失败</div>';
+        }
+    },
+
+    // 切换到上一张画像
+    prevPortrait(currentIndex) {
+        if (currentIndex > 0) {
+            this._currentPortraitIndex = currentIndex - 1;
+            this.renderPortraitCards();
+            this.renderFeaturedCoverFlow();
+            this.renderPortraitsRow();
+        }
+    },
+
+    // 切换到下一张画像
+    nextPortrait(currentIndex) {
+        if (currentIndex < this._savedPortraits.length - 1) {
+            this._currentPortraitIndex = currentIndex + 1;
+            this.renderPortraitCards();
+            this.renderFeaturedCoverFlow();
+            this.renderPortraitsRow();
         }
     },
 
@@ -332,6 +393,8 @@ const PortraitManager = {
                 if (idx >= 0) {
                     this._savedPortraits[idx].generation_status = 'generating';
                     this.renderPortraitCards();
+                    this.renderFeaturedCoverFlow();
+                    this.renderPortraitsRow();
                     this._startLibraryPolling(portraitId);
                 }
             } else {
@@ -343,7 +406,7 @@ const PortraitManager = {
         }
     },
 
-    // 直接显示选题选择弹窗（选择后生成内容）
+    // 直接显示选题选择弹窗（选择后生成内容）- 兼容旧版
     showTopicSelectAndGenerate(portraitId) {
         const portrait = this._savedPortraits.find(p => p.id === portraitId);
         if (!portrait) return;
@@ -365,9 +428,20 @@ const PortraitManager = {
             return;
         }
 
+        // 初始化状态（与推荐选题共用）
+        this._currentRecommendPortraitId = portraitId;
+        this._recommendedHistory = [];
+        this._selectedTopicIdx = null;
+        this._totalTopicCount = topics.length;
+
         // 随机推荐5个选题
         const shuffled = [...topics].sort(() => Math.random() - 0.5);
-        const recommended = shuffled.slice(0, 5);
+        this._recommendedTopics = shuffled.slice(0, 5);
+
+        // 更新已浏览历史（存储索引）
+        shuffled.forEach((t, idx) => {
+            this._recommendedHistory.push(idx);
+        });
 
         const modalHtml = `
         <div class="modal fade" id="topicSelectModal" tabindex="-1">
@@ -379,33 +453,22 @@ const PortraitManager = {
                     </div>
                     <div class="modal-body">
                         <p class="small mb-3" style="color: #8e8e93;">从选题库中随机推荐5个，选择一个后点击生成内容</p>
-                        <div class="list-group" id="topic-list">
-                            ${recommended.map((t, idx) => `
-                                <label class="list-group-item list-group-item-action d-flex gap-3 py-3" style="cursor:pointer; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 8px; background: white;">
-                                    <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="topicSelect" value="${idx}" id="topic-${idx}">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                                            <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${this.escapeHtml(t.type_name || t.type || '选题')}</span>
-                                            ${t.priority ? `<span class="badge" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${t.priority}</span>` : ''}
-                                        </div>
-                                        <div class="fw-medium" style="color: #1a1a1a;">${this.escapeHtml(t.title || '')}</div>
-                                        ${t.reason ? `<div class="small mt-1" style="color: #8e8e93;">${this.escapeHtml(t.reason)}</div>` : ''}
-                                    </div>
-                                </label>
-                            `).join('')}
+                        <div id="topic-select-list">
+                            ${this._renderTopicSelectList()}
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn" style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600;" data-bs-dismiss="modal">取消</button>
-                        <button type="button" class="btn" style="background: linear-gradient(135deg, #007AFF 0%, #0056cc 100%); border: none; color: white; border-radius: 10px; font-weight: 600;" onclick="PortraitManager.generateWithSelectedTopic(${portraitId})">
+                        <button type="button" class="btn" id="btn-generate-from-select"
+                                style="background: linear-gradient(135deg, #007AFF 0%, #0056cc 100%); border: none; color: white; border-radius: 10px; font-weight: 600;"
+                                onclick="PortraitManager.generateFromSelectModal()"
+                                disabled>
                             <i class="bi bi-lightning-charge me-1"></i>生成内容
                         </button>
                     </div>
                 </div>
             </div>
         </div>`;
-
-        this._recommendedTopics = recommended;
 
         const oldModal = document.getElementById('topicSelectModal');
         if (oldModal) oldModal.remove();
@@ -419,14 +482,79 @@ const PortraitManager = {
         });
     },
 
-    // 显示推荐选题弹窗（只查看，不直接生成）
-    showRecommendedTopicsModal(portraitId) {
+    // 渲染选题选择列表（用于 showTopicSelectAndGenerate）
+    _renderTopicSelectList() {
+        return this._recommendedTopics.map((t, idx) => `
+            <div class="topic-item ${this._selectedTopicIdx === idx ? 'selected' : ''}"
+                 onclick="PortraitManager.onSelectTopicForGenerate(${idx}, 'topicSelectModal', 'btn-generate-from-select')">
+                <div class="topic-radio">
+                    <div class="topic-radio-inner"></div>
+                </div>
+                <div class="topic-content">
+                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                        <span class="topic-type-badge">${this.escapeHtml(t.type_name || t.type || '选题')}</span>
+                        ${t.priority ? `<span class="topic-priority-badge">${t.priority}</span>` : ''}
+                    </div>
+                    <div class="topic-title-text">${this.escapeHtml(t.title || '')}</div>
+                    ${t.reason ? `<div class="topic-reason-text">📝 ${this.escapeHtml(t.reason)}</div>` : ''}
+                </div>
+            </div>
+        `).join('');
+    },
+
+    // 选择选题（用于生成内容弹窗）
+    onSelectTopicForGenerate(idx, modalId, btnId) {
+        this._selectedTopicIdx = idx;
+
+        // 更新 UI
+        document.querySelectorAll('#' + modalId + ' .topic-item').forEach((el, i) => {
+            el.classList.toggle('selected', i === idx);
+        });
+
+        const generateBtn = document.getElementById(btnId);
+        if (generateBtn) {
+            generateBtn.disabled = false;
+        }
+    },
+
+    // 从选题选择弹窗生成内容
+    generateFromSelectModal() {
+        if (this._selectedTopicIdx === null || this._selectedTopicIdx === undefined) {
+            showToast('请先选择一个选题', 'warning');
+            return;
+        }
+
+        const topic = this._recommendedTopics[this._selectedTopicIdx];
+        if (!topic) return;
+
+        // 关闭弹窗
+        const modal = bootstrap.Modal.getInstance(document.getElementById('topicSelectModal'));
+        if (modal) modal.hide();
+
+        // 调用内容��成
+        if (typeof this.generateContentWithTopic === 'function') {
+            this.generateContentWithTopic(this._currentRecommendPortraitId, topic);
+        } else {
+            console.log('生成内容:', { portraitId: this._currentRecommendPortraitId, topic });
+            showToast(`将使用选题「${topic.title}」生成内容`, 'info');
+        }
+    },
+
+    // 显示推荐选题弹窗（重构版）
+    async showRecommendedTopicsModal(portraitId) {
+        console.log('[推荐选题] 打开弹窗, portraitId:', portraitId);
+
         const portrait = this._savedPortraits.find(p => p.id === portraitId);
-        if (!portrait) return;
+        if (!portrait) {
+            console.error('[推荐选题] 未找到画像:', portraitId);
+            return;
+        }
 
         // 检查词库生成状态
         const genStatus = portrait.generation_status || 'pending';
         const topics = portrait.topic_library?.topics || [];
+
+        console.log('[推荐选题] 画像状态:', genStatus, '选题数量:', topics.length);
 
         if (genStatus === 'generating') {
             showToast('词库正在生成中，请稍候...', 'info');
@@ -441,8 +569,139 @@ const PortraitManager = {
             return;
         }
 
-        const shuffled = [...topics].sort(() => Math.random() - 0.5);
-        const recommended = shuffled.slice(0, 5);
+        // 初始化状态 - 强制重置
+        this._currentRecommendPortraitId = portraitId;
+        this._recommendedHistory = [];  // 重置历史
+        this._viewedHashes = new Set();  // 重置哈希集合
+        this._selectedTopicIdx = null;
+        this._totalTopicCount = topics.length;
+
+        console.log('[推荐选题] 总选题数:', this._totalTopicCount);
+
+        // 加载第一批选题
+        await this._loadMoreTopics();
+
+        console.log('[推荐选题] 已加载选题:', this._recommendedTopics.length, '已浏览历史:', this._recommendedHistory);
+
+        // 渲染弹窗
+        this._renderRecommendModal();
+    },
+
+    // 从选题库加载更多选题（排除已浏览的）
+    async _loadMoreTopics() {
+        const portrait = this._savedPortraits.find(p => p.id === this._currentRecommendPortraitId);
+        if (!portrait) {
+            console.error('[加载选题] 未找到画像');
+            return;
+        }
+
+        const allTopics = portrait.topic_library?.topics || [];
+        console.log('[加载选题] 总选题:', allTopics.length, '已浏览:', this._recommendedHistory);
+
+        // 初始化 _viewedHashes 如果不存在
+        if (!this._viewedHashes) this._viewedHashes = new Set();
+
+        // 过滤掉已浏览过的（用内容哈希比对）
+        const available = allTopics.filter(t => {
+            const hash = this._hashTopic(t);
+            return !this._viewedHashes.has(hash);
+        });
+
+        console.log('[加载选题] 可用选题:', available.length);
+
+        if (available.length === 0) {
+            console.log('[加载选题] 已全部浏览，触发刷新');
+            await this._refreshTopicLibrary();
+            return;
+        }
+
+        const shuffled = available.sort(() => Math.random() - 0.5);
+        this._recommendedTopics = shuffled.slice(0, 5);
+
+        console.log('[加载选题] 本次加载:', this._recommendedTopics.length);
+
+        // 用内容哈希记录已浏览
+        shuffled.forEach(t => {
+            this._viewedHashes.add(this._hashTopic(t));
+        });
+
+        console.log('[加载选题] 完成后已浏览总数:', this._viewedHashes.size);
+    },
+
+    // 生成选题内容哈希（用于去重）
+    _hashTopic(t) {
+        return `${t.content_direction || ''}|${t.content_hints || ''}|${(t.keywords || []).join(',')}|${t.priority || ''}|${t.publish_timing || ''}`;
+    },
+
+    // 刷新选题库
+    async _refreshTopicLibrary() {
+        showToast('选题库已全部浏览，正在刷新...', 'info');
+
+        // 显示刷新状态
+        const statusEl = document.getElementById('topic-refresh-status');
+        const progressText = document.getElementById('topic-progress-text');
+        const progressBar = document.getElementById('topic-progress-bar');
+        if (statusEl) statusEl.style.display = 'inline';
+        if (progressText) progressText.textContent = '正在刷新选题库...';
+        if (progressBar) progressBar.style.width = '100%';
+
+        const refreshBtn = document.getElementById('btn-refresh-topics');
+        const generateBtn = document.getElementById('btn-generate-with-topic');
+        if (refreshBtn) refreshBtn.disabled = true;
+        if (generateBtn) generateBtn.disabled = true;
+
+        try {
+            // 触发词库重新生成
+            const resp = await fetch(`/public/api/portraits/${this._currentRecommendPortraitId}/library/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ library_type: 'topic' })
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                // 重新加载画像数据
+                await this.loadSavedPortraits(this._currentRecommendPortraitId);
+
+                // 重置状态
+                this._recommendedHistory = [];
+                this._viewedHashes = new Set();
+                this._selectedTopicIdx = null;
+
+                // 重新加载选题
+                const portrait = this._savedPortraits.find(p => p.id === this._currentRecommendPortraitId);
+                this._totalTopicCount = portrait?.topic_library?.topics?.length || 0;
+
+                await this._loadMoreTopics();
+
+                // 更新弹窗内容
+                this._updateRecommendModalContent();
+
+                if (statusEl) statusEl.style.display = 'none';
+                showToast('选题库已更新，共 ' + this._totalTopicCount + ' 个选题', 'success');
+            } else {
+                showToast(data.message || '刷新失败，请稍后重试', 'error');
+                if (refreshBtn) refreshBtn.disabled = false;
+                if (generateBtn) generateBtn.disabled = false;
+            }
+        } catch (e) {
+            showToast('刷新失败，请稍后重试', 'error');
+            if (refreshBtn) refreshBtn.disabled = false;
+            if (generateBtn) generateBtn.disabled = false;
+        }
+    },
+
+    // 渲染推荐选题弹窗
+    _renderRecommendModal() {
+        const viewedCount = this._viewedHashes ? this._viewedHashes.size : 0;
+        const progress = this._totalTopicCount > 0
+            ? (viewedCount / this._totalTopicCount) * 100
+            : 0;
+        const remaining = this._totalTopicCount - viewedCount;
+        const isAllViewed = remaining <= 0;
+
+        console.log('[渲染弹窗] 进度:', viewedCount + '/' + this._totalTopicCount, '选题数据:', this._recommendedTopics);
 
         const modalHtml = `
         <div class="modal fade" id="topicRecommendModal" tabindex="-1">
@@ -453,34 +712,42 @@ const PortraitManager = {
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="small mb-3" style="color: #8e8e93;">从选题库中随机推荐5个，可选择一个后生成内容</p>
-                        <div class="list-group">
-                            ${recommended.map((t, idx) => `
-                                <label class="list-group-item list-group-item-action d-flex gap-3 py-3" style="cursor:pointer; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 8px; background: white;">
-                                    <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="topicSelect" value="${idx}" id="topic-${idx}">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                                            <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${this.escapeHtml(t.type_name || t.type || '选题')}</span>
-                                            ${t.priority ? `<span class="badge" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${t.priority}</span>` : ''}
-                                        </div>
-                                        <div class="fw-medium" style="color: #1a1a1a;">${this.escapeHtml(t.title || '')}</div>
-                                        ${t.reason ? `<div class="small mt-1" style="color: #8e8e93;">${this.escapeHtml(t.reason)}</div>` : ''}
-                                    </div>
-                                </label>
-                            `).join('')}
+                        <!-- 进度指示 -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span id="topic-progress-text" class="small" style="color: #8e8e93;">从选题库中随机推荐，已浏览 ${viewedCount}/${this._totalTopicCount} 个</span>
+                                <span id="topic-refresh-status" class="small" style="color: #34c759; display: none;">
+                                    <span class="spinner-border spinner-border-sm me-1"></span>刷新中
+                                </span>
+                            </div>
+                            <div class="topic-progress">
+                                <div id="topic-progress-bar" class="topic-progress-bar" style="width: ${progress}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- 选题列表 -->
+                        <div id="recommend-topic-list">
+                            ${this._renderRecommendTopicList()}
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn" style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600;" data-bs-dismiss="modal">关闭</button>
-                        <button type="button" class="btn" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); border: none; color: white; border-radius: 10px; font-weight: 600;" onclick="PortraitManager.generateWithSelectedTopic(${portraitId})">
+                        <button type="button" class="btn" id="btn-refresh-topics"
+                                style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600;"
+                                onclick="PortraitManager.onRefreshRecommended()"
+                                ${isAllViewed ? 'disabled' : ''}>
+                            <i class="bi bi-arrow-repeat me-1"></i>换一批
+                            ${isAllViewed ? '<span class="small ms-1">(已全部浏览)</span>' : ''}
+                        </button>
+                        <button type="button" class="btn" id="btn-generate-with-topic"
+                                style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); border: none; color: white; border-radius: 10px; font-weight: 600;"
+                                onclick="PortraitManager.generateWithSelectedTopic()"
+                                disabled>
                             <i class="bi bi-lightning-charge me-1"></i>生成内容
                         </button>
                     </div>
                 </div>
             </div>
         </div>`;
-
-        this._recommendedTopics = recommended;
 
         const oldModal = document.getElementById('topicRecommendModal');
         if (oldModal) oldModal.remove();
@@ -494,29 +761,124 @@ const PortraitManager = {
         });
     },
 
-    // 使用选中的选题生成内容
-    generateWithSelectedTopic(portraitId) {
-        const selected = document.querySelector('input[name="topicSelect"]:checked');
-        if (!selected) {
-            alert('请先选择一个选题');
+    // 渲染推荐选题列表
+    _renderRecommendTopicList() {
+        if (this._recommendedTopics.length === 0) {
+            return '<div class="text-center py-4 text-muted">暂无更多选题</div>';
+        }
+
+        return this._recommendedTopics.map((t, idx) => `
+            <div class="topic-item ${this._selectedTopicIdx === idx ? 'selected' : ''}"
+                 onclick="PortraitManager.onSelectTopic(${idx})">
+                <div class="topic-radio">
+                    <div class="topic-radio-inner"></div>
+                </div>
+                <div class="topic-content">
+                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                        <span class="topic-type-badge">${this.escapeHtml(t.type_name || t.type || '选题')}</span>
+                        ${t.priority ? `<span class="topic-priority-badge">${t.priority}</span>` : ''}
+                    </div>
+                    <div class="topic-title-text">${this.escapeHtml(t.title || '')}</div>
+                    ${t.reason ? `<div class="topic-reason-text">📝 ${this.escapeHtml(t.reason)}</div>` : ''}
+                </div>
+            </div>
+        `).join('');
+    },
+
+    // 更新弹窗内容（不重新渲染整个弹窗）
+    _updateRecommendModalContent() {
+        const listContainer = document.getElementById('recommend-topic-list');
+        if (listContainer) {
+            listContainer.innerHTML = this._renderRecommendTopicList();
+        }
+
+        const viewedCount = this._viewedHashes ? this._viewedHashes.size : this._recommendedHistory.length;
+        const progress = this._totalTopicCount > 0
+            ? (viewedCount / this._totalTopicCount) * 100
+            : 0;
+        const remaining = this._totalTopicCount - viewedCount;
+
+        const progressBar = document.getElementById('topic-progress-bar');
+        const progressText = document.getElementById('topic-progress-text');
+        if (progressBar) progressBar.style.width = `${progress}%`;
+        if (progressText) {
+            progressText.textContent = `从选题库中随机推荐，已浏览 ${viewedCount}/${this._totalTopicCount} 个`;
+        }
+
+        // 更新按钮状态
+        const refreshBtn = document.getElementById('btn-refresh-topics');
+        const generateBtn = document.getElementById('btn-generate-with-topic');
+
+        if (refreshBtn) {
+            refreshBtn.disabled = remaining <= 0;
+            refreshBtn.innerHTML = remaining <= 0
+                ? '<i class="bi bi-arrow-repeat me-1"></i>换一批<span class="small ms-1">(已全部浏览)</span>'
+                : '<i class="bi bi-arrow-repeat me-1"></i>换一批';
+        }
+        if (generateBtn) {
+            generateBtn.disabled = this._selectedTopicIdx === null;
+        }
+    },
+
+    // 选择选题
+    onSelectTopic(idx) {
+        this._selectedTopicIdx = idx;
+
+        // 更新 UI
+        document.querySelectorAll('.topic-item').forEach((el, i) => {
+            el.classList.toggle('selected', i === idx);
+        });
+
+        const generateBtn = document.getElementById('btn-generate-with-topic');
+        if (generateBtn) {
+            generateBtn.disabled = false;
+        }
+    },
+
+    // 点击"换一批"
+    async onRefreshRecommended() {
+        const viewedCount = this._viewedHashes ? this._viewedHashes.size : this._recommendedHistory.length;
+        const remaining = this._totalTopicCount - viewedCount;
+
+        console.log('[换一批] 当前已浏览:', viewedCount, '剩余:', remaining);
+
+        if (remaining <= 0) {
+            await this._refreshTopicLibrary();
             return;
         }
 
-        const topicIdx = parseInt(selected.value);
-        const topic = this._recommendedTopics[topicIdx];
+        const refreshBtn = document.getElementById('btn-refresh-topics');
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>加载中...';
+            refreshBtn.disabled = true;
+        }
+
+        await this._loadMoreTopics();
+        console.log('[换一批] 刷新后已浏览:', this._viewedHashes.size);
+        this._updateRecommendModalContent();
+    },
+
+    // 使用选中的选题生成内容
+    generateWithSelectedTopic() {
+        if (this._selectedTopicIdx === null || this._selectedTopicIdx === undefined) {
+            showToast('请先选择一个选题', 'warning');
+            return;
+        }
+
+        const topic = this._recommendedTopics[this._selectedTopicIdx];
         if (!topic) return;
 
         // 关闭弹窗
-        const modal = bootstrap.Modal.getInstance(document.getElementById('topicSelectModal'));
+        const modal = bootstrap.Modal.getInstance(document.getElementById('topicRecommendModal'));
         if (modal) modal.hide();
 
         // 调用内容生成（传入选题信息）
         if (typeof this.generateContentWithTopic === 'function') {
-            this.generateContentWithTopic(portraitId, topic);
+            this.generateContentWithTopic(this._currentRecommendPortraitId, topic);
         } else {
             // 备用方案：显示到控制台
-            console.log('生成内容:', { portraitId, topic });
-            alert(`将使用选题「${topic.title}」生成内容`);
+            console.log('生成内容:', { portraitId: this._currentRecommendPortraitId, topic });
+            showToast(`将使用选题「${topic.title}」生成内容`, 'info');
         }
     },
 
@@ -1355,6 +1717,8 @@ const PortraitManager = {
                             Object.assign(localPortrait, status);
                         }
                         this.renderPortraitCards();
+                        this.renderFeaturedCoverFlow();
+                        this.renderPortraitsRow();
 
                         if (genStatus === 'failed') {
                             const errMsg = status.generation_error || '未知错误';
@@ -1665,6 +2029,253 @@ const PortraitManager = {
     _cfCurrentX: 0,
     _cfThreshold: 80,
     _cfBoundHandlers: null,
+
+    // 精选展示 Cover Flow（新版）
+    _fcContainer: null,
+    _fcIndex: 0,
+    _fcCardWidth: 220,
+    _fcDragging: false,
+    _fcStartX: 0,
+    _fcCurrentX: 0,
+    _fcThreshold: 60,
+    _fcBoundHandlers: null,
+
+    // ========================================================================
+    // 精选展示 Cover Flow
+    // ========================================================================
+    renderFeaturedCoverFlow() {
+        const section = document.getElementById('featured-section');
+        const track = document.getElementById('featured-coverflow-track');
+        const dots = document.getElementById('fc-nav-dots');
+        const count = document.getElementById('featured-count');
+        if (!section || !track) return;
+
+        const portraits = this._savedPortraits;
+        section.style.display = portraits.length > 0 ? 'block' : 'none';
+        if (count) count.textContent = portraits.length > 0 ? `${portraits.length} 个精选画像` : '';
+
+        if (portraits.length === 0) {
+            track.innerHTML = '';
+            if (dots) dots.innerHTML = '';
+            return;
+        }
+
+        const cards = portraits.map((p, i) => {
+            const name = this.escapeHtml(p.portrait_name || '画像' + (i + 1));
+            const desc = this._getPortraitBrief(p);
+            const tags = this._getPortraitTags(p).slice(0, 3);
+            const date = p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '';
+            const isCenter = (p.id === this._currentPortraitId) || (!this._currentPortraitId && i === 0);
+
+            return `
+                <div class="featured-coverflow-card${isCenter ? ' is-center' : ''}"
+                     data-index="${i}" data-id="${p.id}" onclick="PortraitManager.selectPortraitById(${p.id})">
+                    <div class="fc-card-inner">
+                        <div class="fc-card-cover">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                        <div class="fc-card-body">
+                            <div class="fc-card-name">${name}</div>
+                            <div class="fc-card-desc">${desc}</div>
+                            ${tags.length ? `<div class="fc-card-tags">${tags.map(t => `<span class="fc-tag">${this.escapeHtml(t)}</span>`).join('')}</div>` : ''}
+                        </div>
+                        <div class="fc-card-footer">
+                            <span class="fc-card-date">${date}</span>
+                            <div class="fc-card-actions">
+                                <button class="fc-btn-icon delete" onclick="event.stopPropagation(); PortraitManager.confirmDeletePortrait(${p.id})" title="删除">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+
+        track.innerHTML = cards;
+        this._renderFcDots();
+
+        this._fcContainer = section;
+        this._initFeaturedCoverFlow();
+    },
+
+    _getPortraitBrief(p) {
+        const pd = p.portrait_data;
+        if (!pd || !pd.personas || !pd.personas.length) {
+            return p.industry ? `行业：${p.industry}` : '暂无详细描述';
+        }
+        const persona = pd.personas[0];
+        const segs = [];
+        if (persona.identity) segs.push(persona.identity);
+        if (persona.problem) segs.push(persona.problem);
+        return segs.slice(0, 2).join('；') || '暂无描述';
+    },
+
+    _getPortraitTags(p) {
+        const pd = p.portrait_data;
+        if (!pd || !pd.personas || !pd.personas.length) return [];
+        const tags = [];
+        const persona = pd.personas[0];
+        if (persona.buyer_perspective?.tags) tags.push(...persona.buyer_perspective.tags);
+        if (persona.occupation) tags.push(persona.occupation);
+        if (persona.demographic?.age) tags.push(persona.demographic.age);
+        return tags.slice(0, 5);
+    },
+
+    _renderFcDots() {
+        const dots = document.getElementById('fc-nav-dots');
+        if (!dots) return;
+        dots.innerHTML = this._savedPortraits.map((p, i) =>
+            `<span class="fc-dot${i === this._fcIndex ? ' is-active' : ''}" data-idx="${i}"></span>`
+        ).join('');
+        dots.querySelectorAll('.fc-dot').forEach(dot => {
+            dot.addEventListener('click', () => {
+                const idx = parseInt(dot.dataset.idx);
+                this._fcIndex = idx;
+                this._updateFeaturedTransform(this._fcIndex, 0);
+                this._renderFcDots();
+            });
+        });
+    },
+
+    _initFeaturedCoverFlow() {
+        const stage = this._fcContainer?.querySelector('.featured-coverflow-stage');
+        const track = document.getElementById('featured-coverflow-track');
+        if (!stage || !track) return;
+
+        const ci = this._savedPortraits.findIndex(p => p.id === this._currentPortraitId);
+        this._fcIndex = ci >= 0 ? ci : 0;
+
+        if (this._fcBoundHandlers) {
+            document.removeEventListener('mousemove', this._fcBoundHandlers.onMove);
+            document.removeEventListener('mouseup', this._fcBoundHandlers.onEnd);
+            document.removeEventListener('touchmove', this._fcBoundHandlers.onMove);
+            document.removeEventListener('touchend', this._fcBoundHandlers.onEnd);
+        }
+
+        const self = this;
+        const onStart = function(e) {
+            self._fcDragging = true;
+            self._fcStartX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            self._fcCurrentX = 0;
+            track.style.transition = 'none';
+        };
+        const onMove = function(e) {
+            if (!self._fcDragging) return;
+            if (e.type === 'touchmove') e.preventDefault();
+            const clientX = e.type.includes('mouse') ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+            self._fcCurrentX = clientX - self._fcStartX;
+            self._updateFeaturedTransform(self._fcIndex, self._fcCurrentX);
+        };
+        const onEnd = function() {
+            if (!self._fcDragging) return;
+            self._fcDragging = false;
+            track.style.transition = '';
+            const delta = self._fcCurrentX;
+            if (delta < -self._fcThreshold && self._fcIndex < self._savedPortraits.length - 1) {
+                self._fcIndex++;
+            } else if (delta > self._fcThreshold && self._fcIndex > 0) {
+                self._fcIndex--;
+            }
+            self._updateFeaturedTransform(self._fcIndex, 0);
+            self._renderFcDots();
+        };
+
+        this._fcBoundHandlers = { onMove, onEnd };
+        stage.addEventListener('mousedown', onStart);
+        stage.addEventListener('touchstart', onStart, { passive: true });
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchend', onEnd);
+
+        document.getElementById('fc-nav-prev')?.addEventListener('click', () => {
+            if (this._fcIndex > 0) { this._fcIndex--; this._updateFeaturedTransform(this._fcIndex, 0); this._renderFcDots(); }
+        });
+        document.getElementById('fc-nav-next')?.addEventListener('click', () => {
+            if (this._fcIndex < this._savedPortraits.length - 1) { this._fcIndex++; this._updateFeaturedTransform(this._fcIndex, 0); this._renderFcDots(); }
+        });
+
+        this._updateFeaturedTransform(this._fcIndex, 0);
+    },
+
+    _updateFeaturedTransform(index, offset) {
+        const track = document.getElementById('featured-coverflow-track');
+        if (!track) return;
+        const cards = track.querySelectorAll('.featured-coverflow-card');
+        const w = this._fcCardWidth;
+        cards.forEach((card, i) => {
+            const pos = i - index;
+            const x = pos * w + offset;
+            const rotateY = pos * -28;
+            const scale = i === index ? 1.06 : 0.86;
+            const zIndex = 100 - Math.abs(pos);
+            const opacity = Math.abs(pos) > 2 ? 0 : 1;
+            card.style.transform = `translateX(calc(-50% + ${x}px)) rotateY(${rotateY}deg) scale(${scale})`;
+            card.style.zIndex = zIndex;
+            card.style.opacity = opacity;
+            card.classList.toggle('is-center', i === index);
+        });
+    },
+
+    // ========================================================================
+    // 画像横铺区（横向滚动卡片行）
+    // ========================================================================
+    renderPortraitsRow() {
+        const section = document.getElementById('portraits-row-section');
+        const scroll = document.getElementById('portraits-row-scroll');
+        const loading = document.getElementById('portraits-row-loading');
+        if (!section || !scroll) return;
+
+        if (loading) loading.remove();
+        section.style.display = this._savedPortraits.length > 0 ? 'block' : 'none';
+
+        if (this._savedPortraits.length === 0) {
+            scroll.innerHTML = '<div class="pr-empty">暂无保存的画像</div>';
+            return;
+        }
+
+        const html = this._savedPortraits.map((p, i) => {
+            const name = this.escapeHtml(p.portrait_name || '画像' + (i + 1));
+            const brief = this._getPortraitBrief(p);
+            const date = p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '';
+            const isActive = p.id === this._currentPortraitId;
+            return `
+                <div class="pr-card${isActive ? ' selected' : ''}" onclick="PortraitManager.selectPortraitById(${p.id})">
+                    <div class="pr-card-cover">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                    <div class="pr-card-body">
+                        <div class="pr-card-name">${name}</div>
+                        <div class="pr-card-meta">${brief}</div>
+                        <div class="pr-card-meta" style="margin-top: 2px; color: var(--apple-gray);">${date}</div>
+                    </div>
+                </div>`;
+        }).join('');
+
+        scroll.innerHTML = html;
+    },
+
+    selectPortraitById(portraitId) {
+        this._currentPortraitId = portraitId;
+        this.renderFeaturedCoverFlow();
+        this.renderPortraitsRow();
+        // 同时更新原 accordion 区（如果存在）
+        if (typeof this.renderPortraitCards === 'function') {
+            this.renderPortraitCards();
+        }
+        // 滚动到当前卡片
+        const idx = this._savedPortraits.findIndex(p => p.id === portraitId);
+        if (idx >= 0) {
+            const row = document.getElementById('portraits-row-scroll');
+            const card = row?.querySelectorAll('.pr-card')[idx];
+            card?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+    },
+
+    confirmDeletePortrait(portraitId) {
+        if (!confirm('确定要删除这个画像吗？')) return;
+        this.deletePortrait(portraitId);
+    },
 
     renderPortraitCards() {
         const container = document.getElementById('portrait-cards-list');

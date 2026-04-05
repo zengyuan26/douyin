@@ -20,8 +20,8 @@ class PortraitFrequencyController:
     # 套餐配置
     PLAN_CONFIG = {
         'free': {
-            'can_save': False,
-            'max_saved': 0,
+            'can_save': True,
+            'max_saved': 3,
             'weekly_change_limit': None,      # 无限制
             'monthly_change_limit': None,
             'can_lock': False,
