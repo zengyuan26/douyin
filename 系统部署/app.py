@@ -105,6 +105,14 @@ def create_app(config_name='default'):
     except Exception as e:
         logging.warning(f"画像管理 API 注册失败: {e}")
 
+    # 注册星系内容宇宙 API（ECharts 可视化）
+    try:
+        from routes.galaxy_api import galaxy_bp as galaxy_api_blueprint
+        app.register_blueprint(galaxy_api_blueprint)
+        logging.info("星系内容宇宙 API 已注册")
+    except Exception as e:
+        logging.warning(f"星系内容宇宙 API 注册失败: {e}")
+
     # 初始化画像词库后台任务服务（注入 Flask app，支持后台线程 app context）
     try:
         from services.portrait_library_task_service import init_app as init_task_service

@@ -69,6 +69,12 @@ def register_page():
     return redirect(url_for('auth.public_register'))
 
 
+@public_bp.route('/galaxy')
+def galaxy_page():
+    """星系内容宇宙 - 可视化页面"""
+    return render_template('public/galaxy.html')
+
+
 # =============================================================================
 # 认证相关 API
 # =============================================================================
@@ -1739,4 +1745,188 @@ def generate_unified_library():
         return jsonify(result)
     else:
         return jsonify(result), 500
+
+
+# =============================================================================
+# 账号设置 API
+# =============================================================================
+
+@public_bp.route('/api/account/profile', methods=['GET'])
+def api_get_profile():
+    """获取当前用户资料"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': user.id,
+            'email': user.email,
+            'nickname': user.nickname or '',
+            'avatar': user.avatar or '',
+            'is_verified': user.is_verified,
+            'is_premium': user.is_paid_user(),
+            'premium_plan': user.premium_plan or 'free',
+            'created_at': user.created_at.isoformat() if user.created_at else None
+        }
+    })
+
+
+@public_bp.route('/api/account/profile', methods=['PUT'])
+def api_update_profile():
+    """更新用户资料"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    data = request.get_json() or {}
+
+    # 更新昵称
+    if 'nickname' in data:
+        nickname = data.get('nickname', '').strip()
+        if len(nickname) > 80:
+            return jsonify({'success': False, 'message': '昵称最多80个字符'}), 400
+        user.nickname = nickname
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': '资料更新成功',
+        'data': {
+            'id': user.id,
+            'email': user.email,
+            'nickname': user.nickname or '',
+            'avatar': user.avatar or ''
+        }
+    })
+
+
+@public_bp.route('/api/account/password', methods=['PUT'])
+def api_change_password():
+    """修改密码"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    data = request.get_json() or {}
+    old_password = data.get('old_password', '')
+    new_password = data.get('new_password', '')
+    confirm_password = data.get('confirm_password', '')
+
+    if not old_password:
+        return jsonify({'success': False, 'message': '请输入原密码'}), 400
+
+    if not new_password:
+        return jsonify({'success': False, 'message': '请输入新密码'}), 400
+
+    if len(new_password) < 6:
+        return jsonify({'success': False, 'message': '新密码至少6位'}), 400
+
+    if new_password != confirm_password:
+        return jsonify({'success': False, 'message': '两次输入的新密码不一致'}), 400
+
+    success, message = auth_service.change_password(user, old_password, new_password)
+
+    if success:
+        return jsonify({'success': True, 'message': message})
+    else:
+        return jsonify({'success': False, 'message': message}), 400
+
+
+@public_bp.route('/api/account/avatar', methods=['POST'])
+def api_upload_avatar():
+    """上传头像"""
+    import base64
+    import uuid
+    import os
+
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    # 检查是否有文件上传
+    if 'avatar' not in request.files and 'avatar_base64' not in request.form:
+        return jsonify({'success': False, 'message': '请选择头像图片'}), 400
+
+    try:
+        avatar_url = ''
+
+        # 处理 base64 上传
+        if 'avatar_base64' in request.form:
+            base64_data = request.form.get('avatar_base64', '')
+            if base64_data.startswith('data:image'):
+                # 去掉 data:image/xxx;base64, 前缀
+                base64_data = base64_data.split(',')[1]
+
+            # 解码并保存
+            image_data = base64.b64decode(base64_data)
+
+            # 生成唯一文件名
+            ext = 'png'
+            if 'image/jpeg' in request.form.get('avatar_type', 'png'):
+                ext = 'jpg'
+            elif 'image/png' in request.form.get('avatar_type', 'png'):
+                ext = 'png'
+            elif 'image/gif' in request.form.get('avatar_type', 'png'):
+                ext = 'gif'
+
+            filename = f"avatar_{user.id}_{uuid.uuid4().hex[:8]}.{ext}"
+
+            # 保存到 static/uploads/avatars/
+            upload_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                'static', 'uploads', 'avatars'
+            )
+            os.makedirs(upload_dir, exist_ok=True)
+
+            filepath = os.path.join(upload_dir, filename)
+            with open(filepath, 'wb') as f:
+                f.write(image_data)
+
+            avatar_url = f'/static/uploads/avatars/{filename}'
+
+        # 处理文件上传
+        elif 'avatar' in request.files:
+            file = request.files['avatar']
+            if file.filename == '':
+                return jsonify({'success': False, 'message': '请选择头像图片'}), 400
+
+            # 检查文件类型
+            allowed_exts = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+            ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+            if ext not in allowed_exts:
+                return jsonify({'success': False, 'message': '只支持 PNG、JPG、GIF、WebP 格式'}), 400
+
+            # 生成唯一文件名
+            filename = f"avatar_{user.id}_{uuid.uuid4().hex[:8]}.{ext}"
+
+            # 保存到 static/uploads/avatars/
+            upload_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                'static', 'uploads', 'avatars'
+            )
+            os.makedirs(upload_dir, exist_ok=True)
+
+            filepath = os.path.join(upload_dir, filename)
+            file.save(filepath)
+
+            avatar_url = f'/static/uploads/avatars/{filename}'
+
+        # 更新数据库
+        user.avatar = avatar_url
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': '头像上传成功',
+            'data': {
+                'avatar': avatar_url
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[UploadAvatar] 上传头像失败: {e}")
+        return jsonify({'success': False, 'message': '头像上传失败，请重试'}), 500
 

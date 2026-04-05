@@ -58,6 +58,9 @@ class PublicUser(db.Model):
     monthly_token_count = db.Column(db.Integer, default=0)
     monthly_reset_at = db.Column(db.Date)
 
+    # 头像
+    avatar = db.Column(db.String(500), default='')
+
     # 状态
     is_active = db.Column(db.Boolean, default=True)
     last_login = db.Column(db.DateTime)
@@ -116,6 +119,8 @@ class PublicGeneration(db.Model):
     __tablename__ = 'public_generations'
     __table_args__ = (
         db.Index('idx_generation_user_created', 'user_id', 'created_at'),
+        db.Index('idx_generation_portrait', 'user_id', 'portrait_id'),
+        db.Index('idx_generation_problem', 'user_id', 'problem_id'),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -123,6 +128,12 @@ class PublicGeneration(db.Model):
 
     # Relationships
     user = db.relationship('PublicUser', back_populates='generations')
+
+    # 星系关联字段（新增）
+    # 关联恒星（画像ID）
+    portrait_id = db.Column(db.Integer, nullable=True)
+    # 关联行星（核心问题ID）
+    problem_id = db.Column(db.Integer, nullable=True)
 
     # 生成参数
     industry = db.Column(db.String(50))

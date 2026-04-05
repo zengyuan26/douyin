@@ -614,6 +614,503 @@
         }
 
         /* ================================================
+           账号设置模态框
+           ================================================ */
+        .account-settings-modal .modal-dialog {
+            max-width: 480px;
+        }
+
+        .account-settings-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--apple-gray5);
+            margin-bottom: 20px;
+        }
+
+        .account-settings-tab {
+            flex: 1;
+            padding: 12px 16px;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border: none;
+            background: none;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .account-settings-tab:hover {
+            color: var(--text-primary);
+        }
+
+        .account-settings-tab.active {
+            color: var(--apple-blue);
+            font-weight: 600;
+        }
+
+        .account-settings-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--apple-blue);
+            border-radius: 2px 2px 0 0;
+        }
+
+        .account-settings-content {
+            display: none;
+        }
+
+        .account-settings-content.active {
+            display: block;
+        }
+
+        .avatar-upload-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .avatar-upload-preview {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #E8F4FF 0%, #F3E8FF 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--apple-blue);
+            overflow: hidden;
+            margin-bottom: 12px;
+            border: 3px solid var(--apple-gray5);
+            transition: border-color 0.2s;
+        }
+
+        .avatar-upload-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .avatar-upload-preview:hover {
+            border-color: var(--apple-blue);
+        }
+
+        .avatar-upload-btn {
+            padding: 8px 20px;
+            font-size: 0.875rem;
+            border-radius: var(--radius-md);
+            border: 1px dashed var(--apple-gray4);
+            background: var(--apple-gray6);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .avatar-upload-btn:hover {
+            border-color: var(--apple-blue);
+            color: var(--apple-blue);
+            background: var(--apple-gray6);
+        }
+
+        .account-form-group {
+            margin-bottom: 20px;
+        }
+
+        .account-form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .account-form-input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--apple-gray4);
+            border-radius: var(--radius-md);
+            font-size: 0.9375rem;
+            transition: all 0.2s;
+            background: var(--bg-primary);
+        }
+
+        .account-form-input:focus {
+            outline: none;
+            border-color: var(--apple-blue);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+        }
+
+        .account-form-input:disabled {
+            background: var(--apple-gray6);
+            color: var(--text-tertiary);
+            cursor: not-allowed;
+        }
+
+        .account-form-hint {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+        }
+
+        .account-form-error {
+            font-size: 0.75rem;
+            color: var(--apple-red);
+            margin-top: 6px;
+            display: none;
+        }
+
+        .account-form-error.show {
+            display: block;
+        }
+
+        .password-strength {
+            height: 4px;
+            background: var(--apple-gray5);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .password-strength-bar {
+            height: 100%;
+            width: 0;
+            transition: all 0.3s;
+            border-radius: 2px;
+        }
+
+        .password-strength-bar.weak { width: 33%; background: var(--apple-red); }
+        .password-strength-bar.medium { width: 66%; background: var(--apple-orange); }
+        .password-strength-bar.strong { width: 100%; background: var(--apple-green); }
+
+        /* ================================================
+           个性皮肤：跟随系统 / 经典红 / 酷炫黑
+           ================================================ */
+        @media (prefers-color-scheme: dark) {
+            html[data-skin="system"] {
+                color-scheme: dark;
+                --apple-blue: #0A84FF;
+                --apple-blue-hover: #409CFF;
+                --apple-purple: #BF5AF2;
+                --bg-primary: #1C1C1E;
+                --bg-secondary: #000000;
+                --bg-tertiary: #2C2C2E;
+                --bg-elevated: rgba(44, 44, 46, 0.92);
+                --text-primary: #F5F5F7;
+                --text-secondary: #A1A1A6;
+                --text-tertiary: #8E8E93;
+                --border-color: rgba(255, 255, 255, 0.12);
+                --apple-gray4: #48484A;
+                --apple-gray5: #3A3A3C;
+                --apple-gray6: #2C2C2E;
+            }
+            html[data-skin="system"] .public-topbar {
+                border-bottom-color: rgba(255, 255, 255, 0.08);
+            }
+            html[data-skin="system"] .topbar-separator {
+                background: rgba(255, 255, 255, 0.15);
+            }
+        }
+
+        html[data-skin="classic-red"] {
+            color-scheme: light;
+            --primary: #EC4141;
+            --primary-hover: #D93A3A;
+            --apple-blue: #EC4141;
+            --apple-blue-hover: #D93A3A;
+            --apple-purple: #FF6B6B;
+            --bg-primary: #FFFFFF;
+            --bg-secondary: #FFF6F6;
+            --bg-tertiary: #FFEDED;
+            --bg-elevated: rgba(255, 255, 255, 0.94);
+            --border-color: rgba(236, 65, 65, 0.14);
+        }
+
+        html[data-skin="classic-red"] .navbar-brand span {
+            background: linear-gradient(135deg, #EC4141, #FF8E8E);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        html[data-skin="classic-red"] .public-topbar {
+            border-bottom-color: rgba(236, 65, 65, 0.12);
+        }
+
+        html[data-skin="classic-red"] .public-sidebar-link.is-active {
+            color: #FF8A8A;
+            background: rgba(236, 65, 65, 0.22);
+        }
+
+        html[data-skin="classic-red"] .public-sidebar-link.is-active i {
+            color: #FF8A8A;
+        }
+
+        html[data-skin="cool-black"] {
+            color-scheme: dark;
+            --primary: #0A84FF;
+            --primary-hover: #409CFF;
+            --apple-blue: #0A84FF;
+            --apple-blue-hover: #409CFF;
+            --apple-red: #FF453A;
+            --apple-green: #32D74B;
+            --apple-orange: #FF9F0A;
+            --bg-primary: #1C1C1E;
+            --bg-secondary: #000000;
+            --bg-tertiary: #2C2C2E;
+            --bg-elevated: rgba(44, 44, 46, 0.92);
+            --text-primary: #F5F5F7;
+            --text-secondary: #A1A1A6;
+            --text-tertiary: #8E8E93;
+            --border-color: rgba(255, 255, 255, 0.12);
+            --apple-gray4: #48484A;
+            --apple-gray5: #3A3A3C;
+            --apple-gray6: #2C2C2E;
+        }
+
+        html[data-skin="cool-black"] .public-topbar {
+            border-bottom-color: rgba(255, 255, 255, 0.08);
+        }
+
+        html[data-skin="cool-black"] .topbar-separator {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        html[data-skin="cool-black"] .topbar-icon-btn {
+            color: var(--text-secondary);
+        }
+
+        html[data-skin="cool-black"] .topbar-icon-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+        }
+
+        html[data-skin="cool-black"] .public-topbar-actions .nav-link:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        html[data-skin="cool-black"] .modal-content {
+            background: #2C2C2E;
+            color: var(--text-primary);
+        }
+
+        html[data-skin="cool-black"] .modal-header,
+        html[data-skin="cool-black"] .modal-footer {
+            background: #2C2C2E;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        html[data-skin="cool-black"] .modal-body {
+            background: #2C2C2E;
+        }
+
+        html[data-skin="cool-black"] .modal-title {
+            color: var(--text-primary);
+        }
+
+        html[data-skin="cool-black"] .btn-close {
+            filter: invert(1) opacity(0.85);
+        }
+
+        html[data-skin="cool-black"] .form-control,
+        html[data-skin="cool-black"] .form-select {
+            background: #3A3A3C;
+            border-color: #48484A;
+            color: var(--text-primary);
+        }
+
+        /* 换肤弹窗（参考网易云风格） */
+        .skin-modal .modal-dialog {
+            max-width: 420px;
+        }
+
+        .skin-modal .modal-content {
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .skin-modal-header {
+            padding: 20px 20px 0;
+            border: none;
+        }
+
+        .skin-modal-tabs {
+            display: flex;
+            gap: 28px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .skin-modal-tab {
+            border: none;
+            background: none;
+            padding: 12px 0 14px;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            position: relative;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .skin-modal-tab:hover {
+            color: var(--text-primary);
+        }
+
+        .skin-modal-tab.active {
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .skin-modal-tab.active::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -1px;
+            height: 3px;
+            background: #EC4141;
+            border-radius: 2px 2px 0 0;
+        }
+
+        .skin-official-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #EC4141;
+            background: rgba(236, 65, 65, 0.1);
+            margin-bottom: 16px;
+        }
+
+        .skin-card-grid {
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .skin-card-col {
+            flex: 1;
+            min-width: 0;
+            text-align: center;
+        }
+
+        .skin-card {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .skin-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        .skin-card.is-selected {
+            border-color: #EC4141;
+            box-shadow: 0 0 0 1px rgba(236, 65, 65, 0.35);
+        }
+
+        .skin-card-mark {
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #EC4141;
+            color: #fff;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            line-height: 1;
+            z-index: 2;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .skin-card.is-selected .skin-card-mark {
+            display: flex;
+        }
+
+        .skin-card-deco {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            opacity: 0.35;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .skin-card-label {
+            margin-top: 10px;
+            font-size: 0.8125rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            line-height: 1.35;
+        }
+
+        .skin-card-label-sub {
+            color: var(--text-tertiary);
+            font-weight: 400;
+        }
+
+        .skin-card-default {
+            background: #FFFFFF;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .skin-card-default .skin-card-deco {
+            background: #FFB6C4;
+        }
+
+        .skin-card-red {
+            background: linear-gradient(145deg, #EC4141 0%, #C62828 100%);
+        }
+
+        .skin-card-red .skin-card-deco {
+            background: rgba(255, 255, 255, 0.45);
+        }
+
+        .skin-card-black {
+            background: linear-gradient(145deg, #2C2C2E 0%, #0A0A0A 100%);
+        }
+
+        .skin-card-black .skin-card-deco {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .skin-modal-pane-pendant {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+        }
+
+        .public-topbar-inner {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 10px;
+            width: 100%;
+        }
+
+        /* ================================================
            macOS Toast 通知
            ================================================ */
         .apple-toast {
@@ -2243,6 +2740,17 @@
             border-radius: 4px;
         }
 
+        .sidebar-new-badge {
+            margin-left: auto;
+            font-size: 0.55rem;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #FF6B35, #FF2D55);
+            padding: 1px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+
         /* ================================================
            超级定位三 Tab 样式
            ================================================ */
@@ -2316,9 +2824,69 @@
         }
 
         .tab-panel-inner {
-            padding: 24px;
-            max-height: calc(100vh - 240px);
+            padding: 0;
+            max-height: calc(100vh - 200px);
             overflow-y: auto;
+        }
+
+        /* Mac 风格：表单区域无嵌套框，扁平化设计 */
+        .form-content-wrapper {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 32px 0 48px;
+        }
+
+        .form-content-wrapper .form-label {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .form-content-wrapper .form-control,
+        .form-content-wrapper .form-select {
+            background: var(--bg-primary);
+            border: 1.5px solid var(--apple-gray4);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            font-size: 0.9375rem;
+            transition: all var(--transition-fast);
+            box-shadow: none;
+        }
+
+        .form-content-wrapper .form-control:focus,
+        .form-content-wrapper .form-select:focus {
+            border-color: var(--apple-blue);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+        }
+
+        .form-content-wrapper .form-check-label {
+            font-size: 0.9375rem;
+            cursor: pointer;
+        }
+
+        .form-content-wrapper .btn-generate {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none;
+            border-radius: var(--radius-lg);
+            padding: 16px 48px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            transition: all var(--transition-fast);
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        }
+
+        .form-content-wrapper .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(99, 102, 241, 0.4);
+        }
+
+        /* 问题识别和画像生成区域：无嵌套框 */
+        .problems-content-wrapper,
+        .portraits-content-wrapper {
+            padding: 20px 0;
         }
 
         .super-empty-hint {
@@ -2538,44 +3106,33 @@
         }
 
         /* ================================================
-           登录后顶栏用户区
+           登录后顶栏用户区 - Mac 风格横向单行布局
            ================================================ */
         .topbar-user {
-            position: relative;
             display: flex;
             align-items: center;
-        }
-
-        .topbar-user-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: background var(--transition-fast);
-            user-select: none;
-        }
-
-        .topbar-user-info:hover {
-            background: rgba(0, 0, 0, 0.05);
+            gap: 10px;
+            flex-shrink: 0;
         }
 
         .topbar-avatar {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
-            background: rgba(0, 122, 255, 0.1);
+            background: linear-gradient(135deg, var(--apple-blue), #5856D6);
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            overflow: hidden;
         }
 
-        .topbar-user-meta {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
+        #topbar-avatar-letter {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1;
+            text-transform: uppercase;
         }
 
         .topbar-nickname {
@@ -2592,75 +3149,46 @@
         .topbar-plan-badge {
             font-size: 0.6875rem;
             font-weight: 600;
-            padding: 1px 6px;
+            padding: 2px 8px;
             border-radius: 4px;
             line-height: 1.4;
+            white-space: nowrap;
         }
 
         .topbar-plan-badge.pro { background: rgba(99,102,241,0.12); color: #6366f1; }
         .topbar-plan-badge.ent { background: rgba(34,197,94,0.12); color: #22c55e; }
         .topbar-plan-badge.basic { background: rgba(0,122,255,0.12); color: #007aff; }
 
-        .topbar-chevron {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            transition: transform 0.2s;
+        .topbar-separator {
+            width: 1px;
+            height: 18px;
+            background: rgba(0, 0, 0, 0.12);
+            flex-shrink: 0;
         }
 
-        .topbar-user.is-open .topbar-chevron {
-            transform: rotate(180deg);
-        }
-
-        .topbar-user-dropdown {
-            position: absolute;
-            top: calc(100% + 8px);
-            right: 0;
-            min-width: 180px;
-            background: var(--bg-surface);
-            border: 1px solid var(--apple-gray5);
-            border-radius: var(--radius-lg);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-            padding: 6px;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-6px);
-            transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
-            z-index: 9999;
-        }
-
-        .topbar-user.is-open .topbar-user-dropdown {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-        }
-
-        .topbar-dropdown-item {
+        .topbar-icon-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 9px 12px;
-            border-radius: var(--radius-md);
-            font-size: 0.875rem;
-            color: var(--text-primary);
-            text-decoration: none;
-            transition: background var(--transition-fast);
+            justify-content: center;
             cursor: pointer;
-        }
-
-        .topbar-dropdown-item:hover {
-            background: var(--apple-gray6);
-        }
-
-        .topbar-dropdown-item i {
-            font-size: 0.875rem;
             color: var(--text-secondary);
+            font-size: 0.875rem;
+            transition: all var(--transition-fast);
+            padding: 0;
         }
 
-        .topbar-dropdown-danger:hover {
-            background: rgba(239, 68, 68, 0.08);
+        .topbar-icon-btn:hover {
+            background: rgba(0, 0, 0, 0.08);
+            color: var(--text-primary);
         }
 
-        .topbar-dropdown-danger:hover i {
+        .topbar-icon-btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
             color: #ef4444;
         }
 
@@ -3334,6 +3862,17 @@
     </style>
 </head>
 <body>
+    <script>
+        (function () {
+            try {
+                var v = localStorage.getItem('public_ui_skin') || 'system';
+                if (v !== 'system' && v !== 'classic-red' && v !== 'cool-black') v = 'system';
+                document.documentElement.setAttribute('data-skin', v);
+            } catch (e) {
+                document.documentElement.setAttribute('data-skin', 'system');
+            }
+        })();
+    </script>
     <div class="public-app-layout">
         <aside class="public-sidebar" aria-label="主导航">
             <!-- Logo -->
@@ -3358,7 +3897,7 @@
                 <a class="public-sidebar-link is-active" href="#" data-sidebar-tab="tab-super"
                    onclick="sidebarNavClick(event, 'tab-super')">
                     <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
-                    超级定位
+                    开始创作
                 </a>
             </div>
 
@@ -3386,11 +3925,11 @@
             <!-- 分组3：工具 -->
             <div class="sidebar-group sidebar-group-bottom">
                 <div class="public-sidebar-section-label">工具</div>
-                <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-planet"
-                   onclick="sidebarNavClick(event, 'tab-planet')">
-                    <i class="bi bi-globe2" aria-hidden="true"></i>
+                <a class="public-sidebar-link" href="/public/galaxy" id="sidebar-galaxy-link"
+                   onclick="sidebarNavLink(event, this)" data-page="galaxy">
+                    <i class="bi bi-stars" aria-hidden="true"></i>
                     内容星球
-                    <span class="sidebar-coming-soon">即将上线</span>
+                    <span class="sidebar-new-badge">NEW</span>
                 </a>
                 <a class="public-sidebar-link" href="/public/pricing" onclick="sidebarNavLink(event, this)">
                     <i class="bi bi-tag-fill" aria-hidden="true"></i>
@@ -3400,36 +3939,52 @@
         </aside>
         <div class="public-content">
             <header class="public-topbar">
-                <div class="public-topbar-actions" id="topbar-auth">
-                    <span id="nav-login">
-                        <a class="nav-link" href="/login?type=public" target="_self">登录</a>
-                    </span>
-                    <span id="nav-register">
-                        <a class="btn btn-primary" href="/login?type=public#register" target="_self">免费开始</a>
-                    </span>
-                </div>
-                <!-- 登录后顶栏（默认隐藏） -->
-                <div class="topbar-user" id="topbar-user" style="display:none;">
-                    <div class="topbar-user-info" id="topbar-user-info" onclick="toggleUserDropdown()">
+                <div class="public-topbar-inner">
+                    <div class="public-topbar-actions" id="topbar-auth">
+                        <span id="nav-login">
+                            <a class="nav-link" href="/login?type=public" target="_self">登录</a>
+                        </span>
+                        <span id="nav-register">
+                            <a class="btn btn-primary" href="/login?type=public#register" target="_self">免费开始</a>
+                        </span>
+                    </div>
+                    <!-- 登录后顶栏（默认隐藏）Mac 风格横向布局 -->
+                    <div class="topbar-user" id="topbar-user" style="display:none;">
+                        <!-- 头像 -->
                         <div class="topbar-avatar" id="topbar-avatar">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="var(--apple-blue)">
-                                <path d="M10 10C12.21 10 14 8.21 14 6C14 3.79 12.21 2 10 2C7.79 2 6 3.79 6 6C6 8.21 7.79 10 10 10ZM10 12C7.33 12 2 13.34 2 16V18H18V16C18 13.34 12.67 12 10 12Z"/>
-                            </svg>
+                            <span id="topbar-avatar-letter"></span>
                         </div>
-                        <div class="topbar-user-meta">
-                            <span class="topbar-nickname" id="topbar-nickname"></span>
-                            <span class="topbar-plan-badge" id="topbar-plan-badge"></span>
+                        <!-- 昵称 -->
+                        <span class="topbar-nickname" id="topbar-nickname"></span>
+                        <!-- 账号类型标签 -->
+                        <span class="topbar-plan-badge" id="topbar-plan-badge"></span>
+                        <!-- 分隔线 -->
+                        <span class="topbar-separator"></span>
+                        <!-- 设置下拉菜单 -->
+                        <div class="topbar-settings-dropdown" id="topbar-settings-dropdown">
+                            <button type="button" class="topbar-icon-btn" id="topbar-settings-btn" onclick="toggleSettingsDropdown(event)" title="设置">
+                                <i class="bi bi-gear"></i>
+                            </button>
+                            <div class="topbar-settings-menu" id="topbar-settings-menu">
+                                <button class="topbar-settings-item" onclick="openAccountSettings(event, 'profile'); toggleSettingsDropdown(event);">
+                                    <i class="bi bi-pencil-square"></i>
+                                    修改账号
+                                </button>
+                                <button class="topbar-settings-item" onclick="openAccountSettings(event, 'password'); toggleSettingsDropdown(event);">
+                                    <i class="bi bi-key"></i>
+                                    修改密码
+                                </button>
+                                <div class="topbar-settings-divider"></div>
+                                <button class="topbar-settings-item danger" onclick="logout(event)">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                    退出登录
+                                </button>
+                            </div>
                         </div>
-                        <i class="bi bi-chevron-down topbar-chevron" id="topbar-chevron"></i>
                     </div>
-                    <div class="topbar-user-dropdown" id="topbar-user-dropdown">
-                        <a class="topbar-dropdown-item" href="#" onclick="showAccountSettings(event)">
-                            <i class="bi bi-gear"></i>修改账号密码
-                        </a>
-                        <a class="topbar-dropdown-item topbar-dropdown-danger" href="#" onclick="logout(event)">
-                            <i class="bi bi-box-arrow-right"></i>退出登录
-                        </a>
-                    </div>
+                    <button type="button" class="topbar-icon-btn" id="topbar-skin-btn" onclick="openSkinModal(event)" title="个性皮肤">
+                        <i class="bi bi-palette-fill"></i>
+                    </button>
                 </div>
             </header>
             <div class="public-content-scroll">
@@ -3666,12 +4221,10 @@
                                                 </div>
                                             </div>
                                             </div>
-                                            <div class="col-12">
-                                            <div class="text-center mt-4">
-                                                <button class="btn btn-generate btn-lg" id="btn-one-key-analyze" onclick="mineAndGenerate()" style="border: 2px solid rgba(99,102,241,0.4); box-shadow: 0 4px 16px rgba(99,102,241,0.2);">
+                                            <div class="col-12 text-center mt-4">
+                                                <button class="btn btn-generate btn-lg" id="btn-one-key-analyze" onclick="mineAndGenerate()">
                                                     🚀 开始一键分析
                                                 </button>
-                                            </div>
                                             </div>
                                         </div>
                                     </div>
@@ -4355,9 +4908,11 @@
                 const topbarUser = document.getElementById('topbar-user');
                 topbarUser.style.display = 'flex';
 
-                // 填充昵称
+                // 填充昵称和头像
                 const email = currentUser.quota && currentUser.quota.email ? currentUser.quota.email : '用户';
+                const emailLetter = email.charAt(0).toUpperCase();
                 document.getElementById('topbar-nickname').textContent = email;
+                document.getElementById('topbar-avatar-letter').textContent = emailLetter;
 
                 // 填充套餐徽章
                 const planName = currentUser.quota && currentUser.quota.plan_name ? currentUser.quota.plan_name : '';
@@ -4385,30 +4940,404 @@
             }
         }
 
-        // 展开/收起用户下拉菜单
-        function toggleUserDropdown() {
-            const topbarUser = document.getElementById('topbar-user');
-            topbarUser.classList.toggle('is-open');
+        const PUBLIC_SKIN_STORAGE_KEY = 'public_ui_skin';
+        const PUBLIC_SKIN_IDS = ['system', 'classic-red', 'cool-black'];
+
+        function getPublicSkin() {
+            try {
+                var v = localStorage.getItem(PUBLIC_SKIN_STORAGE_KEY) || 'system';
+                return PUBLIC_SKIN_IDS.indexOf(v) >= 0 ? v : 'system';
+            } catch (e) {
+                return 'system';
+            }
         }
 
-        // 点击下拉菜单外部关闭
-        document.addEventListener('click', function(e) {
-            const topbarUser = document.getElementById('topbar-user');
-            if (!topbarUser.contains(e.target)) {
-                topbarUser.classList.remove('is-open');
+        function applyPublicSkin(skinId, persist) {
+            if (PUBLIC_SKIN_IDS.indexOf(skinId) < 0) skinId = 'system';
+            document.documentElement.setAttribute('data-skin', skinId);
+            if (persist !== false) {
+                try {
+                    localStorage.setItem(PUBLIC_SKIN_STORAGE_KEY, skinId);
+                } catch (e) { /* ignore */ }
             }
-        });
+            document.querySelectorAll('[data-skin-card]').forEach(function (el) {
+                el.classList.toggle('is-selected', el.getAttribute('data-skin-card') === skinId);
+            });
+        }
 
-        // 修改账号密码（暂时提示）
-        function showAccountSettings(e) {
-            e.preventDefault();
-            document.getElementById('topbar-user').classList.remove('is-open');
-            alert('修改账号密码功能开发中，敬请期待。');
+        function syncSkinPickerSelection() {
+            applyPublicSkin(getPublicSkin(), false);
+        }
+
+        function openSkinModal(e) {
+            if (e) e.preventDefault();
+            document.getElementById('topbar-settings-dropdown')?.classList.remove('is-open');
+            syncSkinModalTab('skins');
+            syncSkinPickerSelection();
+            var el = document.getElementById('skinModal');
+            if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
+            var modal = bootstrap.Modal.getOrCreateInstance(el);
+            modal.show();
+        }
+
+        function pickPublicSkin(skinId) {
+            applyPublicSkin(skinId, true);
+            if (typeof showToast === 'function') {
+                showToast('已切换皮肤', 'success');
+            }
+        }
+
+        function switchSkinModalTab(tab) {
+            var paneSkins = document.getElementById('skin-modal-pane-skins');
+            var panePendant = document.getElementById('skin-modal-pane-pendant');
+            var btnSkins = document.getElementById('skin-tab-skins');
+            var btnPendant = document.getElementById('skin-tab-pendant');
+            if (!paneSkins || !panePendant) return;
+            if (tab === 'pendant') {
+                paneSkins.style.display = 'none';
+                panePendant.style.display = 'block';
+                if (btnSkins) { btnSkins.classList.remove('active'); }
+                if (btnPendant) { btnPendant.classList.add('active'); }
+            } else {
+                paneSkins.style.display = 'block';
+                panePendant.style.display = 'none';
+                if (btnSkins) { btnSkins.classList.add('active'); }
+                if (btnPendant) { btnPendant.classList.remove('active'); }
+            }
+        }
+
+        function syncSkinModalTab(tab) {
+            switchSkinModalTab(tab || 'skins');
+        }
+
+        // 账号设置相关变量
+        let _currentAccountTab = 'profile';
+        let _avatarChanged = false;
+        let _avatarBase64 = '';
+        let _avatarType = 'image/png';
+
+        // 打开账号设置模态框
+        function openAccountSettings(e, tab) {
+            if (e) e.preventDefault();
+            _currentAccountTab = tab || 'profile';
+            _avatarChanged = false;
+            _avatarBase64 = '';
+
+            // 切换到对应Tab
+            switchAccountTab(_currentAccountTab);
+
+            // 加载用户资料
+            loadUserProfile();
+
+            // 显示模态框
+            const modal = new bootstrap.Modal(document.getElementById('accountSettingsModal'));
+            modal.show();
+        }
+
+        // 切换账号设置Tab
+        function switchAccountTab(tab) {
+            _currentAccountTab = tab;
+
+            // 更新Tab按钮状态
+            document.querySelectorAll('.account-settings-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+
+            // 更新内容显示
+            document.querySelectorAll('.account-settings-content').forEach(content => {
+                content.classList.toggle('active', content.id === 'account-tab-' + tab);
+            });
+
+            // 更新提交按钮文字
+            const submitBtn = document.getElementById('account-settings-submit');
+            if (submitBtn) {
+                submitBtn.innerHTML = tab === 'password'
+                    ? '<i class="bi bi-check-lg me-1"></i>修改密码'
+                    : '<i class="bi bi-check-lg me-1"></i>保存';
+            }
+        }
+
+        // 加载用户资料
+        async function loadUserProfile() {
+            try {
+                const resp = await fetch('/public/api/account/profile');
+                const result = await resp.json();
+
+                if (result.success) {
+                    const data = result.data;
+
+                    // 填充表单
+                    document.getElementById('profile-email').value = data.email || '';
+                    document.getElementById('profile-nickname').value = data.nickname || '';
+
+                    // 账号类型
+                    const planNames = {
+                        'free': '免费版',
+                        'basic': '基础版',
+                        'professional': '专业版',
+                        'enterprise': '企业版'
+                    };
+                    document.getElementById('profile-plan').value = planNames[data.premium_plan] || '免费版';
+
+                    // 头像
+                    updateAvatarPreview(data.avatar, data.nickname || data.email || '?');
+                } else {
+                    showToast('加载用户资料失败', 'error');
+                }
+            } catch (err) {
+                console.error('加载用户资料失败:', err);
+                showToast('加载用户资料失败', 'error');
+            }
+        }
+
+        // 更新头像预览
+        function updateAvatarPreview(avatarUrl, name) {
+            const preview = document.getElementById('avatar-preview');
+            const letter = document.getElementById('avatar-letter');
+
+            if (avatarUrl) {
+                preview.innerHTML = `<img src="${avatarUrl}" alt="头像">`;
+            } else {
+                const firstChar = (name || '?').charAt(0).toUpperCase();
+                preview.innerHTML = `<span id="avatar-letter">${firstChar}</span>`;
+            }
+        }
+
+        // 触发头像上传
+        function triggerAvatarUpload() {
+            document.getElementById('avatar-input').click();
+        }
+
+        // 处理头像选择
+        function handleAvatarSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // 检查文件大小 (最大 2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('头像图片不能超过 2MB', 'error');
+                return;
+            }
+
+            // 检查文件类型
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                showToast('只支持 JPG、PNG、GIF、WebP 格式', 'error');
+                return;
+            }
+
+            _avatarType = file.type;
+            _avatarChanged = true;
+
+            // 预览头像
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                _avatarBase64 = e.target.result;
+                const preview = document.getElementById('avatar-preview');
+                preview.innerHTML = `<img src="${_avatarBase64}" alt="头像预览">`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 检查密码强度
+        function checkPasswordStrength(password) {
+            const bar = document.getElementById('pwd-strength-bar');
+            const hint = document.getElementById('pwd-strength-hint');
+
+            if (!password) {
+                bar.className = 'password-strength-bar';
+                hint.textContent = '密码强度：未设置';
+                return;
+            }
+
+            let strength = 0;
+            if (password.length >= 6) strength++;
+            if (password.length >= 10) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^A-Za-z0-9]/.test(password)) strength++;
+
+            if (strength <= 2) {
+                bar.className = 'password-strength-bar weak';
+                hint.textContent = '密码强度：弱';
+            } else if (strength <= 3) {
+                bar.className = 'password-strength-bar medium';
+                hint.textContent = '密码强度：中等';
+            } else {
+                bar.className = 'password-strength-bar strong';
+                hint.textContent = '密码强度：强';
+            }
+        }
+
+        // 提交账号设置
+        async function submitAccountSettings() {
+            if (_currentAccountTab === 'profile') {
+                await submitProfileSettings();
+            } else {
+                await submitPasswordSettings();
+            }
+        }
+
+        // 提交基础资料
+        async function submitProfileSettings() {
+            const nickname = document.getElementById('profile-nickname').value.trim();
+            const submitBtn = document.getElementById('account-settings-submit');
+
+            // 禁用按钮
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中...';
+
+            try {
+                // 如果头像有变化，先上传头像
+                if (_avatarChanged && _avatarBase64) {
+                    const avatarFormData = new FormData();
+                    avatarFormData.append('avatar_base64', _avatarBase64);
+                    avatarFormData.append('avatar_type', _avatarType);
+
+                    const avatarResp = await fetch('/public/api/account/avatar', {
+                        method: 'POST',
+                        body: avatarFormData
+                    });
+                    const avatarResult = await avatarResp.json();
+
+                    if (!avatarResult.success) {
+                        showToast(avatarResult.message || '头像上传失败', 'error');
+                        return;
+                    }
+                }
+
+                // 更新资料
+                const resp = await fetch('/public/api/account/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nickname })
+                });
+                const result = await resp.json();
+
+                if (result.success) {
+                    // 更新顶栏显示
+                    if (result.data.nickname) {
+                        document.getElementById('topbar-nickname').textContent = result.data.nickname;
+                    }
+
+                    // 更新头像
+                    if (result.data.avatar) {
+                        updateTopbarAvatar(result.data.avatar, result.data.nickname);
+                    }
+
+                    showToast('资料保存成功', 'success');
+
+                    // 关闭模态框
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('accountSettingsModal'));
+                    modal.hide();
+
+                    // 重置状态
+                    _avatarChanged = false;
+                    _avatarBase64 = '';
+                } else {
+                    showToast(result.message || '保存失败', 'error');
+                }
+            } catch (err) {
+                console.error('保存资料失败:', err);
+                showToast('保存失败，请重试', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>保存';
+            }
+        }
+
+        // 提交密码修改
+        async function submitPasswordSettings() {
+            const oldPwd = document.getElementById('pwd-old').value;
+            const newPwd = document.getElementById('pwd-new').value;
+            const confirmPwd = document.getElementById('pwd-confirm').value;
+
+            // 清除错误
+            document.getElementById('pwd-old-error').classList.remove('show');
+            document.getElementById('pwd-confirm-error').classList.remove('show');
+
+            // 验证
+            if (!oldPwd) {
+                document.getElementById('pwd-old-error').textContent = '请输入当前密码';
+                document.getElementById('pwd-old-error').classList.add('show');
+                return;
+            }
+
+            if (!newPwd) {
+                showToast('请输入新密码', 'error');
+                return;
+            }
+
+            if (newPwd.length < 6) {
+                showToast('新密码至少6位', 'error');
+                return;
+            }
+
+            if (newPwd !== confirmPwd) {
+                document.getElementById('pwd-confirm-error').textContent = '两次输入的密码不一致';
+                document.getElementById('pwd-confirm-error').classList.add('show');
+                return;
+            }
+
+            const submitBtn = document.getElementById('account-settings-submit');
+
+            // 禁用按钮
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>修改中...';
+
+            try {
+                const resp = await fetch('/public/api/account/password', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        old_password: oldPwd,
+                        new_password: newPwd,
+                        confirm_password: confirmPwd
+                    })
+                });
+                const result = await resp.json();
+
+                if (result.success) {
+                    showToast('密码修改成功', 'success');
+
+                    // 清空表单
+                    document.getElementById('pwd-old').value = '';
+                    document.getElementById('pwd-new').value = '';
+                    document.getElementById('pwd-confirm').value = '';
+                    checkPasswordStrength('');
+
+                    // 关闭模态框
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('accountSettingsModal'));
+                    modal.hide();
+                } else {
+                    document.getElementById('pwd-old-error').textContent = result.message || '原密码错误';
+                    document.getElementById('pwd-old-error').classList.add('show');
+                }
+            } catch (err) {
+                console.error('修改密码失败:', err);
+                showToast('修改失败，请重试', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>修改密码';
+            }
+        }
+
+        // 更新顶栏头像
+        function updateTopbarAvatar(avatarUrl, name) {
+            const avatarEl = document.getElementById('topbar-avatar');
+            if (!avatarEl) return;
+
+            if (avatarUrl) {
+                avatarEl.innerHTML = `<img src="${avatarUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+            } else {
+                const firstChar = (name || '?').charAt(0).toUpperCase();
+                avatarEl.innerHTML = `<span style="color: var(--apple-blue); font-weight: 600;">${firstChar}</span>`;
+            }
         }
 
         function logout(e) {
             if (e) e.preventDefault();
-            document.getElementById('topbar-user').classList.remove('is-open');
+            document.getElementById('topbar-settings-dropdown')?.classList.remove('is-open');
             document.getElementById('topbar-auth').style.display = 'flex';
             document.getElementById('topbar-user').style.display = 'none';
             currentUser = null;
@@ -4418,6 +5347,23 @@
             fetch('/public/api/logout', { method: 'POST', credentials: 'include' })
                 .finally(() => { window.location.href = '/login?type=public'; });
         }
+
+        // 设置下拉菜单切换
+        function toggleSettingsDropdown(e) {
+            if (e) e.stopPropagation();
+            const dropdown = document.getElementById('topbar-settings-dropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('is-open');
+            }
+        }
+
+        // 点击下拉菜单外部关闭
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('topbar-settings-dropdown');
+            if (dropdown && !dropdown.contains(e.target)) {
+                dropdown.classList.remove('is-open');
+            }
+        });
 
         function showGenerator() {
             document.getElementById('login-prompt').style.display = 'none';
@@ -6901,6 +7847,16 @@
          * 侧栏普通链接跳转（不切换 Tab）
          */
         function sidebarNavLink(e, linkEl) {
+            // 页面级跳转：移除所有侧栏 Tab 高亮，仅高亮当前链接
+            document.querySelectorAll('.public-sidebar-link[data-sidebar-tab]').forEach(link => {
+                link.classList.remove('is-active');
+            });
+            // 如果有 data-page 属性，也高亮它
+            if (linkEl && linkEl.dataset && linkEl.dataset.page) {
+                document.querySelectorAll('.public-sidebar-link[data-page]').forEach(link => {
+                    link.classList.toggle('is-active', link.dataset.page === linkEl.dataset.page);
+                });
+            }
             // 保持原生行为，允许跳转
         }
 
@@ -7081,7 +8037,138 @@
         }
 
     </script>
-    
+
+    <!-- 个性皮肤 -->
+    <div class="modal fade skin-modal" id="skinModal" tabindex="-1" aria-labelledby="skinModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header skin-modal-header border-0 pb-0">
+                    <div class="w-100">
+                        <div class="skin-modal-tabs" role="tablist">
+                            <button type="button" class="skin-modal-tab active" id="skin-tab-skins" data-skin-tab="skins" onclick="switchSkinModalTab('skins')">个性皮肤</button>
+                            <button type="button" class="skin-modal-tab" id="skin-tab-pendant" data-skin-tab="pendant" onclick="switchSkinModalTab('pendant')">头像挂件</button>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body pt-3">
+                    <div id="skin-modal-pane-skins">
+                        <div class="skin-official-tag">官方</div>
+                        <div class="skin-card-grid">
+                            <div class="skin-card-col">
+                                <div class="skin-card skin-card-default" data-skin-card="system" role="button" tabindex="0" onclick="pickPublicSkin('system')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickPublicSkin('system');}">
+                                    <div class="skin-card-deco" aria-hidden="true"></div>
+                                    <span class="skin-card-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                                </div>
+                                <div class="skin-card-label">默认<span class="skin-card-label-sub"> - 跟随系统</span></div>
+                            </div>
+                            <div class="skin-card-col">
+                                <div class="skin-card skin-card-red" data-skin-card="classic-red" role="button" tabindex="0" onclick="pickPublicSkin('classic-red')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickPublicSkin('classic-red');}">
+                                    <div class="skin-card-deco" aria-hidden="true"></div>
+                                    <span class="skin-card-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                                </div>
+                                <div class="skin-card-label">经典红</div>
+                            </div>
+                            <div class="skin-card-col">
+                                <div class="skin-card skin-card-black" data-skin-card="cool-black" role="button" tabindex="0" onclick="pickPublicSkin('cool-black')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickPublicSkin('cool-black');}">
+                                    <div class="skin-card-deco" aria-hidden="true"></div>
+                                    <span class="skin-card-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                                </div>
+                                <div class="skin-card-label">酷炫黑</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="skin-modal-pane-pendant" class="skin-modal-pane-pendant" style="display: none;">
+                        <i class="bi bi-gem" style="font-size: 2.5rem; opacity: 0.35; display: block; margin-bottom: 12px;"></i>
+                        头像挂件功能即将上线，敬请期待。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 账号设置模态框 -->
+    <div class="modal fade account-settings-modal" id="accountSettingsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-badge me-2"></i>账号设置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Tabs -->
+                    <div class="account-settings-tabs">
+                        <button class="account-settings-tab active" data-tab="profile" onclick="switchAccountTab('profile')">
+                            <i class="bi bi-person me-1"></i>基础资料
+                        </button>
+                        <button class="account-settings-tab" data-tab="password" onclick="switchAccountTab('password')">
+                            <i class="bi bi-key me-1"></i>修改密码
+                        </button>
+                    </div>
+
+                    <!-- Tab: 基础资料 -->
+                    <div class="account-settings-content active" id="account-tab-profile">
+                        <div class="avatar-upload-wrapper">
+                            <div class="avatar-upload-preview" id="avatar-preview" onclick="triggerAvatarUpload()">
+                                <span id="avatar-letter"></span>
+                            </div>
+                            <button class="avatar-upload-btn" onclick="triggerAvatarUpload()">
+                                <i class="bi bi-camera me-1"></i>更换头像
+                            </button>
+                            <input type="file" id="avatar-input" accept="image/*" style="display: none;" onchange="handleAvatarSelect(event)">
+                        </div>
+
+                        <div class="account-form-group">
+                            <label class="account-form-label">邮箱</label>
+                            <input type="email" class="account-form-input" id="profile-email" disabled>
+                            <p class="account-form-hint">邮箱用于登录，暂不支持修改</p>
+                        </div>
+
+                        <div class="account-form-group">
+                            <label class="account-form-label">昵称</label>
+                            <input type="text" class="account-form-input" id="profile-nickname" placeholder="输入你的昵称" maxlength="80">
+                        </div>
+
+                        <div class="account-form-group">
+                            <label class="account-form-label">账号类型</label>
+                            <input type="text" class="account-form-input" id="profile-plan" disabled>
+                        </div>
+                    </div>
+
+                    <!-- Tab: 修改密码 -->
+                    <div class="account-settings-content" id="account-tab-password">
+                        <div class="account-form-group">
+                            <label class="account-form-label">当前密码</label>
+                            <input type="password" class="account-form-input" id="pwd-old" placeholder="请输入当前密码">
+                            <p class="account-form-error" id="pwd-old-error"></p>
+                        </div>
+
+                        <div class="account-form-group">
+                            <label class="account-form-label">新密码</label>
+                            <input type="password" class="account-form-input" id="pwd-new" placeholder="请输入新密码（至少6位）" oninput="checkPasswordStrength(this.value)">
+                            <div class="password-strength">
+                                <div class="password-strength-bar" id="pwd-strength-bar"></div>
+                            </div>
+                            <p class="account-form-hint" id="pwd-strength-hint">密码强度：未设置</p>
+                        </div>
+
+                        <div class="account-form-group">
+                            <label class="account-form-label">确认新密码</label>
+                            <input type="password" class="account-form-input" id="pwd-confirm" placeholder="请再次输入新密码">
+                            <p class="account-form-error" id="pwd-confirm-error"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="account-settings-submit" onclick="submitAccountSettings()">
+                        <i class="bi bi-check-lg me-1"></i>保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 保存画像模态框 -->
     <div class="modal fade" id="savePortraitModal" tabindex="-1">
         <div class="modal-dialog">
