@@ -14,196 +14,1162 @@
           rel="stylesheet">
     <script src="/static/public/js/portrait-manager.js"></script>
     <style>
+        /* ================================================
+           Mac OS 风格设计系统 - Apple Human Interface Guidelines
+           ================================================ */
+        
         :root {
-            --primary: #6366F1;
-            --primary-dark: #4F46E5;
-            --secondary: #10B981;
-            --bg-light: #F9FAFB;
-            --text-dark: #1F2937;
-            --text-muted: #6B7280;
+            /* Apple 系统颜色 */
+            --apple-blue: #007AFF;
+            --apple-blue-hover: #0056CC;
+            --apple-green: #34C759;
+            --apple-red: #FF3B30;
+            --apple-orange: #FF9500;
+            --apple-yellow: #FFCC00;
+            --apple-purple: #AF52DE;
+            --apple-pink: #FF2D55;
+            --apple-gray: #8E8E93;
+            --apple-gray2: #AEAEB2;
+            --apple-gray3: #C7C7CC;
+            --apple-gray4: #D1D1D6;
+            --apple-gray5: #E5E5EA;
+            --apple-gray6: #F2F2F7;
+            
+            /* 主题色 */
+            --primary: var(--apple-blue);
+            --primary-hover: var(--apple-blue-hover);
+            --success: var(--apple-green);
+            --warning: var(--apple-orange);
+            --danger: var(--apple-red);
+            
+            /* 背景色 - macOS Big Sur+ 风格 */
+            --bg-primary: #FFFFFF;
+            --bg-secondary: #F5F5F7;
+            --bg-tertiary: #F0F0F5;
+            --bg-elevated: rgba(255, 255, 255, 0.8);
+            
+            /* 文字颜色 */
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --text-tertiary: #6E6E73;
+            
+            /* 边框和阴影 */
+            --border-color: rgba(0, 0, 0, 0.1);
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);
+            --shadow-window: 0 22px 70px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+            
+            /* 圆角 - Apple 风格 */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --radius-xl: 20px;
+            
+            /* 过渡动画 */
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.25s ease;
+            --transition-slow: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        /* 基础样式重置 */
+        * {
+            box-sizing: border-box;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: var(--bg-light);
-            color: var(--text-dark);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
         }
 
+        /* ================================================
+           macOS 导航栏
+           ================================================ */
         .navbar {
-            background: white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            background: var(--bg-elevated);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 24px;
+            height: 52px;
         }
 
-        .bg-primary {
-            background-color: var(--primary) !important;
-        }
-
-        .text-primary {
-            color: var(--primary) !important;
-        }
-
-        .border-primary {
-            border-color: var(--primary) !important;
-        }
-
-        .feature-card {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: transform 0.2s, box-shadow 0.2s;
-            height: 100%;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        }
-
-        .feature-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-
-        .generator-section {
-            background: white;
-            border-radius: 16px;
-            padding: 2.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            margin-top: 1.5rem;
-        }
-
-        .form-select, .form-control {
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-        }
-
-        .btn-generate {
-            background: var(--primary);
-            border: none;
-            padding: 0.875rem 2rem;
+        .navbar-brand {
             font-weight: 600;
-            border-radius: 8px;
             font-size: 1.1rem;
+            color: var(--text-primary) !important;
+            letter-spacing: -0.02em;
         }
 
-        .btn-generate:hover {
-            background: var(--primary-dark);
+        .navbar-brand span {
+            background: linear-gradient(135deg, var(--apple-blue), var(--apple-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
-        .result-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            border: 1px solid #e5e7eb;
-        }
-
-        .result-card h5 {
-            color: var(--primary);
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }
-
-        .result-content {
-            background: white;
-            border-radius: 8px;
-            padding: 1rem;
-            font-size: 0.95rem;
-            line-height: 1.8;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .btn-copy {
-            background: var(--secondary);
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            color: white;
+        .navbar-nav .nav-link {
+            color: var(--text-secondary) !important;
             font-size: 0.875rem;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
         }
 
-        .btn-copy:hover {
-            background: #059669;
-            color: white;
+        .navbar-nav .nav-link:hover {
+            color: var(--text-primary) !important;
+            background: rgba(0, 0, 0, 0.05);
         }
 
-        footer {
-            background: var(--text-dark);
-            color: white;
-            padding: 2rem 0;
-            margin-top: 4rem;
+        .navbar .btn {
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            font-size: 0.875rem;
+            padding: 6px 16px;
+            transition: all var(--transition-fast);
         }
 
-        @media (max-width: 768px) {
-            .generator-section {
-                padding: 1.5rem;
-                margin-top: 0;
-            }
+        .navbar .btn-primary {
+            background: var(--apple-blue);
+            border-color: var(--apple-blue);
         }
 
-        /* 步骤指示器样式 */
-        .step-indicator {
+        .navbar .btn-primary:hover {
+            background: var(--apple-blue-hover);
+            border-color: var(--apple-blue-hover);
+            transform: scale(1.02);
+        }
+
+        /* ================================================
+           macOS 主内容区域
+           ================================================ */
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* ================================================
+           macOS 窗口卡片
+           ================================================ */
+        .mac-window {
+            background: var(--bg-primary);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-window);
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .mac-window-header {
+            background: linear-gradient(180deg, #FDFEFD 0%, #F5F5F7 100%);
+            padding: 12px 16px;
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 16px;
-            border-radius: 20px;
-            background: #f3f4f6;
-            color: #9ca3af;
-            transition: all 0.3s;
+            border-bottom: 1px solid var(--apple-gray5);
         }
 
-        .step-indicator.active {
-            background: linear-gradient(135deg, var(--primary) 0%, #818CF8 100%);
-            color: white;
+        .window-controls {
+            display: flex;
+            gap: 8px;
         }
 
-        .step-indicator .step-num {
-            width: 24px;
-            height: 24px;
+        .window-control {
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            background: rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: opacity var(--transition-fast);
+        }
+
+        .window-control:hover {
+            opacity: 0.8;
+        }
+
+        .window-control.close { background: #FF5F57; }
+        .window-control.minimize { background: #FEBC2E; }
+        .window-control.maximize { background: #28C840; }
+
+        .window-title {
+            flex: 1;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .mac-window-body {
+            padding: 24px;
+        }
+
+        /* ================================================
+           macOS 标题
+           ================================================ */
+        .section-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.025em;
+            margin-bottom: 8px;
+        }
+
+        .section-subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        /* ================================================
+           macOS 表单元素
+           ================================================ */
+        .form-control, .form-select {
+            border: 1px solid var(--apple-gray4);
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
+            font-size: 0.9375rem;
+            background: var(--bg-primary);
+            transition: all var(--transition-fast);
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--apple-blue);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+            outline: none;
+        }
+
+        .form-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        /* ================================================
+           macOS 按钮
+           ================================================ */
+        .btn-apple {
+            background: linear-gradient(180deg, #FFFFFF 0%, #F5F5F7 100%);
+            border: 1px solid var(--apple-gray4);
+            border-radius: var(--radius-md);
+            padding: 10px 20px;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            transition: all var(--transition-fast);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-apple:hover {
+            background: linear-gradient(180deg, #FFFFFF 0%, #EBEBEB 100%);
+            border-color: var(--apple-gray3);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary-apple {
+            background: linear-gradient(180deg, #007AFF 0%, #0056CC 100%);
+            border: none;
+            border-radius: var(--radius-md);
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            transition: all var(--transition-fast);
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+        }
+
+        .btn-primary-apple:hover {
+            background: linear-gradient(180deg, #0066DD 0%, #0044AA 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 122, 255, 0.4);
+        }
+
+        .btn-primary-apple:active {
+            transform: translateY(0);
+        }
+
+        /* ================================================
+           macOS 标签切换
+           ================================================ */
+        .tab-group {
+            display: flex;
+            background: var(--apple-gray6);
+            border-radius: var(--radius-md);
+            padding: 4px;
+            gap: 4px;
+        }
+
+        .tab-item {
+            flex: 1;
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            text-align: center;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
+            gap: 8px;
         }
 
-        .step-indicator.active .step-num {
-            background: white;
-            color: var(--primary);
+        .tab-item:hover {
+            color: var(--text-primary);
         }
 
-        .step-indicator .step-text {
-            font-size: 14px;
+        .tab-item.active {
+            background: var(--bg-primary);
+            color: var(--apple-blue);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* ================================================
+           macOS 步骤指示器
+           ================================================ */
+        .step-track {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin-bottom: 24px;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .step-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--apple-gray5);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-normal);
+        }
+
+        .step-item.active .step-circle {
+            background: var(--apple-blue);
+            color: white;
+        }
+
+        .step-item.completed .step-circle {
+            background: var(--apple-green);
+            color: white;
+        }
+
+        .step-label {
+            margin-left: 8px;
+            font-size: 0.8125rem;
             font-weight: 500;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .step-item.active .step-label {
+            color: var(--apple-blue);
         }
 
         .step-line {
-            width: 40px;
+            flex: 1;
             height: 2px;
-            background: #e5e7eb;
+            background: var(--apple-gray5);
+            margin: 0 12px;
+            min-width: 40px;
         }
 
-        /* 折叠面板样式 */
-        #collapseDeepInfo .accordion-body {
-            border: 1px solid #e5e7eb;
-            border-top: none;
-            border-radius: 0 0 8px 8px;
-            background: #fafafa;
+        .step-line.active {
+            background: var(--apple-blue);
         }
 
-        /* 单选框样式 */
-        .form-check-input:checked {
-            background-color: var(--primary);
-            border-color: var(--primary);
+        /* ================================================
+           macOS 手风琴折叠面板
+           ================================================ */
+        .apple-accordion {
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            background: var(--bg-primary);
+            box-shadow: var(--shadow-sm);
         }
 
+        .apple-accordion-item {
+            border-bottom: 1px solid var(--apple-gray5);
+        }
+
+        .apple-accordion-item:last-child {
+            border-bottom: none;
+        }
+
+        .apple-accordion-header {
+            width: 100%;
+            padding: 16px 20px;
+            background: transparent;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .apple-accordion-header:hover {
+            background: var(--apple-gray6);
+        }
+
+        .apple-accordion-header .step-num {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--apple-gray5);
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-fast);
+        }
+
+        .apple-accordion-header.active .step-num {
+            background: var(--apple-blue);
+            color: white;
+        }
+
+        .apple-accordion-header .step-title {
+            flex: 1;
+            text-align: left;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .apple-accordion-body {
+            padding: 0 20px 20px 56px;
+            animation: slideDown var(--transition-normal);
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ================================================
+           macOS 卡片
+           ================================================ */
+        .apple-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--apple-gray5);
+            overflow: hidden;
+            transition: all var(--transition-fast);
+        }
+
+        .apple-card:hover {
+            border-color: var(--apple-gray4);
+            box-shadow: var(--shadow-md);
+        }
+
+        .apple-card.selected {
+            border-color: var(--apple-blue);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+        }
+
+        .apple-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--apple-gray5);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .apple-card-header.blue {
+            background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+            color: white;
+            border-bottom: none;
+        }
+
+        .apple-card-body {
+            padding: 20px;
+        }
+
+        /* ================================================
+           macOS 气泡标签
+           ================================================ */
+        .bubble-tag {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border: 1.5px solid transparent;
+        }
+
+        .bubble-tag.blue {
+            background: linear-gradient(135deg, #E8F4FF 0%, #D4EDFF 100%);
+            color: #0066CC;
+            border-color: #B8DAFF;
+        }
+
+        .bubble-tag.pink {
+            background: linear-gradient(135deg, #FFE8F0 0%, #FFD4E0 100%);
+            color: #CC2255;
+            border-color: #FFB8CC;
+        }
+
+        .bubble-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .bubble-tag.selected {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
+        }
+
+        /* ================================================
+           macOS 加载动画
+           ================================================ */
+        .apple-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--apple-gray5);
+            border-top-color: var(--apple-blue);
+            border-radius: 50%;
+            animation: appleSpin 0.8s linear infinite;
+        }
+
+        @keyframes appleSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .loading-state .apple-spinner {
+            margin: 0 auto 20px;
+        }
+
+        .loading-state h5 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .loading-state p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* ================================================
+           macOS 进度条
+           ================================================ */
+        .apple-progress {
+            height: 6px;
+            background: var(--apple-gray5);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .apple-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--apple-blue), #5856D6);
+            border-radius: 3px;
+            transition: width var(--transition-slow);
+        }
+
+        /* ================================================
+           macOS 徽章
+           ================================================ */
+        .apple-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .apple-badge.blue {
+            background: #E8F4FF;
+            color: #0066CC;
+        }
+
+        .apple-badge.green {
+            background: #E8F8EE;
+            color: #28A745;
+        }
+
+        .apple-badge.orange {
+            background: #FFF4E5;
+            color: #CC7700;
+        }
+
+        .apple-badge.red {
+            background: #FFEBE8;
+            color: #CC2200;
+        }
+
+        .apple-badge.gray {
+            background: var(--apple-gray6);
+            color: var(--text-secondary);
+        }
+
+        /* ================================================
+           macOS 模态框
+           ================================================ */
+        .modal-content {
+            border: none;
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-header {
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--apple-gray5);
+            padding: 16px 20px;
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            background: var(--apple-gray6);
+            border-top: 1px solid var(--apple-gray5);
+            padding: 16px 20px;
+        }
+
+        /* ================================================
+           macOS Toast 通知
+           ================================================ */
+        .apple-toast {
+            background: rgba(30, 30, 30, 0.9);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            color: white;
+            border-radius: var(--radius-md);
+            padding: 12px 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            animation: toastIn 0.3s ease;
+        }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ================================================
+           macOS 特色功能区
+           ================================================ */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 24px;
+        }
+
+        .feature-item {
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            text-align: center;
+            transition: all var(--transition-normal);
+            border: 1px solid transparent;
+        }
+
+        .feature-item:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--apple-gray5);
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 1.5rem;
+        }
+
+        .feature-icon.blue { background: linear-gradient(135deg, #E8F4FF 0%, #D4EDFF 100%); }
+        .feature-icon.green { background: linear-gradient(135deg, #E8F8EE 0%, #D4F0E0 100%); }
+        .feature-icon.purple { background: linear-gradient(135deg, #F3E8FF 0%, #E8D4FF 100%); }
+        .feature-icon.orange { background: linear-gradient(135deg, #FFF4E5 0%, #FFE8CC 100%); }
+
+        .feature-title {
+            font-size: 1.0625rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* ================================================
+           macOS Footer
+           ================================================ */
+        footer {
+            background: var(--bg-primary);
+            border-top: 1px solid var(--apple-gray5);
+            padding: 40px 0;
+            margin-top: 60px;
+        }
+
+        footer h6 {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        footer p, footer li {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        footer a {
+            color: var(--apple-blue);
+            text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+
+        footer a:hover {
+            color: var(--apple-blue-hover);
+            text-decoration: underline;
+        }
+
+        /* ================================================
+           原有组件兼容样式
+           ================================================ */
+        
+        /* 兼容原有 Bootstrap 样式 */
+        .text-primary { color: var(--apple-blue) !important; }
+        .text-secondary { color: var(--text-secondary) !important; }
+        .text-muted { color: var(--text-secondary) !important; }
+        .text-danger { color: var(--apple-red) !important; }
+        .text-success { color: var(--apple-green) !important; }
+        .text-warning { color: var(--apple-orange) !important; }
+        
+        .bg-primary { background-color: var(--apple-blue) !important; }
+        .bg-light { background-color: var(--bg-secondary) !important; }
+        .bg-success { background-color: var(--apple-green) !important; }
+        .bg-warning { background-color: var(--apple-orange) !important; }
+        
+        .border-primary { border-color: var(--apple-blue) !important; }
+        .border-0 { border: none !important; }
+        
+        .btn { border-radius: var(--radius-md); font-weight: 500; transition: all var(--transition-fast); }
+        .btn-primary { background: var(--apple-blue); border-color: var(--apple-blue); color: white; }
+        .btn-primary:hover { background: var(--apple-blue-hover); border-color: var(--apple-blue-hover); }
+        .btn-outline-primary { background: transparent; border: 1px solid var(--apple-blue); color: var(--apple-blue); }
+        .btn-outline-primary:hover { background: var(--apple-blue); color: white; }
+        .btn-outline-secondary { background: transparent; border: 1px solid var(--apple-gray4); color: var(--text-primary); }
+        .btn-outline-secondary:hover { background: var(--apple-gray6); }
+        .btn-outline-success { background: transparent; border: 1px solid var(--apple-green); color: var(--apple-green); }
+        .btn-outline-warning { background: transparent; border: 1px solid var(--apple-orange); color: var(--apple-orange); }
+        .btn-outline-warning:hover { background: var(--apple-orange); color: white; }
+        .btn-outline-danger { background: transparent; border: 1px solid var(--apple-red); color: var(--apple-red); }
+        .btn-sm { padding: 4px 12px; font-size: 0.8125rem; }
+        .btn-lg { padding: 12px 28px; font-size: 1rem; }
+        .btn-secondary { background: var(--apple-gray5); border: none; color: var(--text-primary); }
+        
+        .alert { border-radius: var(--radius-md); padding: 12px 16px; }
+        .alert-info { background: #E8F4FF; border: 1px solid #B8DAFF; color: #0066CC; }
+        .alert-warning { background: #FFF4E5; border: 1px solid #FFD699; color: #CC6600; }
+        .alert-primary { background: #E8F4FF; border: 1px solid #B8DAFF; color: #0066CC; }
+        .alert-success { background: #E8F8EE; border: 1px solid #A8DAAC; color: #28A745; }
+        .alert-danger { background: #FFEBE8; border: 1px solid #FFB8AA; color: #CC2200; }
+        .alert-link { color: inherit; font-weight: 600; text-decoration: underline; }
+        
+        .badge { border-radius: 12px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; }
+        .badge.bg-primary { background: var(--apple-blue) !important; }
+        .badge.bg-success { background: var(--apple-green) !important; }
+        .badge.bg-warning { background: var(--apple-orange) !important; }
+        .badge.bg-danger { background: var(--apple-red) !important; }
+        .badge.bg-secondary { background: var(--apple-gray5) !important; }
+        
+        .form-text { font-size: 0.8125rem; color: var(--text-secondary); }
+        .form-check { display: flex; align-items: center; }
+        .form-check-input { width: 18px; height: 18px; margin-right: 8px; cursor: pointer; }
+        .form-check-label { cursor: pointer; font-size: 0.9375rem; }
+        .invalid-feedback { color: var(--apple-red); font-size: 0.8125rem; }
+        
+        .accordion-button { background: transparent; border: none; }
+        .accordion-button:not(.collapsed) { background: transparent; box-shadow: none; }
+        .accordion-collapse { position: relative; }
+        
+        .card { background: var(--bg-primary); border-radius: var(--radius-lg); border: 1px solid var(--apple-gray5); overflow: hidden; }
+        .card-header { padding: 12px 16px; background: var(--apple-gray6); border-bottom: 1px solid var(--apple-gray5); }
+        .card-body { padding: 16px; }
+        
+        .spinner-border { width: 24px; height: 24px; border: 2px solid var(--apple-gray5); border-top-color: var(--apple-blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .spinner-border-sm { width: 16px; height: 16px; border-width: 2px; }
+        .spinner-border.text-primary { border-color: var(--apple-gray5); border-top-color: var(--apple-blue); }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .shadow-sm { box-shadow: var(--shadow-sm) !important; }
+        .shadow-lg { box-shadow: var(--shadow-lg) !important; }
+        
+        .py-5 { padding-top: 3rem !important; padding-bottom: 3rem !important; }
+        .py-2 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+        .px-3 { padding-left: 1rem !important; padding-right: 1rem !important; }
+        .p-2 { padding: 0.5rem !important; }
+        .p-3 { padding: 1rem !important; }
+        .p-4 { padding: 1.5rem !important; }
+        .p-5 { padding: 3rem !important; }
+        .pt-3 { padding-top: 1rem !important; }
+        .pb-3 { padding-bottom: 1rem !important; }
+        .mb-0 { margin-bottom: 0 !important; }
+        .mb-1 { margin-bottom: 0.25rem !important; }
+        .mb-2 { margin-bottom: 0.5rem !important; }
+        .mb-3 { margin-bottom: 1rem !important; }
+        .mb-4 { margin-bottom: 1.5rem !important; }
+        .mt-2 { margin-top: 0.5rem !important; }
+        .mt-3 { margin-top: 1rem !important; }
+        .mt-4 { margin-top: 1.5rem !important; }
+        .me-1 { margin-right: 0.25rem !important; }
+        .me-2 { margin-right: 0.5rem !important; }
+        .ms-2 { margin-left: 0.5rem !important; }
+        .mx-auto { margin-left: auto !important; margin-right: auto !important; }
+        .my-3 { margin-top: 1rem !important; margin-bottom: 1rem !important; }
+        .my-4 { margin-top: 1.5rem !important; margin-bottom: 1.5rem !important; }
+        .ms-auto { margin-left: auto !important; }
+        .d-flex { display: flex !important; }
+        .d-none { display: none !important; }
+        .align-items-center { align-items: center !important; }
+        .align-items-start { align-items: flex-start !important; }
+        .justify-content-center { justify-content: center !important; }
+        .justify-content-between { justify-content: space-between !important; }
+        .flex-wrap { flex-wrap: wrap !important; }
+        .gap-2 { gap: 0.5rem !important; }
+        .gap-3 { gap: 1rem !important; }
+        .flex-1 { flex: 1 !important; }
+        .flex-column { flex-direction: column !important; }
+        .g-2 { gap: 0.5rem !important; }
+        .g-3 { gap: 1rem !important; }
+        .g-4 { gap: 1.5rem !important; }
+        .row { display: flex; flex-wrap: wrap; margin: 0 -12px; }
+        .row > * { padding: 0 12px; }
+        .col-12 { flex: 0 0 100%; max-width: 100%; }
+        .col-md-4 { flex: 0 0 33.333%; max-width: 33.333%; }
+        .col-md-6 { flex: 0 0 50%; max-width: 50%; }
+        .col-lg-3 { flex: 0 0 25%; max-width: 25%; }
+
+        .problem-grid {
+            display: block;
+            overflow: visible;
+        }
+        .problem-grid .col-md-6 {
+            flex: none;
+            width: 100%;
+            max-width: 100%;
+            padding: 0;
+        }
+
+        /* 问题卡片 Cover Flow */
+        #user-pains-list {
+            overflow: visible;
+            position: relative;
+        }
+
+        .prob-cf-stage {
+            position: relative;
+            overflow: visible;
+            height: 440px;
+        }
+
+        .prob-cf-track {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 750px;
+            height: 440px;
+            margin-left: -375px;
+            overflow: visible;
+            cursor: grab;
+            user-select: none;
+            transform-style: preserve-3d;
+            perspective: 1200px;
+        }
+        .prob-cf-track:active { cursor: grabbing; }
+
+        .prob-cf-card {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            margin-left: -225px;
+            width: 450px;
+            height: 420px;
+            transform-style: preserve-3d;
+            transition: transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                        opacity 0.3s ease,
+                        box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .prob-cf-inner {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border-radius: 20px;
+            border: 2px solid #e5e7eb;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .prob-cf-card.active .prob-cf-inner {
+            border-color: #007AFF;
+            box-shadow: 0 0 0 3px rgba(0,122,255,0.15), 0 8px 30px rgba(0,122,255,0.18);
+        }
+
+        .prob-cf-header {
+            padding: 16px 18px 10px;
+            background: linear-gradient(135deg, #f8f7ff 0%, #f0f4ff 100%);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        .prob-cf-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .prob-cf-type {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: #1a1a1a;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .prob-cf-identity {
+            font-size: 0.8rem;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .prob-cf-identity.id-user {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #1565c0;
+        }
+        .prob-cf-identity.id-buyer {
+            background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+            color: #f57f17;
+        }
+        .prob-cf-tags-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .base-tag {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .base-tag.red { background: #fee2e2; color: #b91c1c; }
+        .base-tag.yellow { background: #fef9c3; color: #a16207; }
+        .base-tag.green { background: #f0fdf4; color: #15803d; }
+        .prob-tag {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .prob-tag.red { background: #fee2e2; color: #b91c1c; }
+        .prob-tag.green { background: #f0fdf4; color: #15803d; }
+        .prob-tag.orange { background: #fff7ed; color: #c2410c; }
+        .prob-tag.purple { background: #fdf4ff; color: #7e22ce; }
+        .prob-tag.gray { background: #f3f4f6; color: #6b7280; }
+
+        .prob-cf-severity {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            background: #fffde7;
+            border-bottom: 1px solid #f0f4ff;
+        }
+        .prob-stars { font-size: 0.9rem; }
+        .prob-severity-label { font-size: 0.82rem; font-weight: 600; color: #8e8e93; }
+
+        .prob-cf-desc {
+            padding: 8px 18px;
+            font-size: 0.92rem;
+            color: #555;
+            line-height: 1.6;
+            flex: 1;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+
+        .prob-cf-kw-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 0 18px 8px;
+        }
+        .prob-kw {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        .prob-kw.red { background: #fee2e2; color: #b91c1c; }
+        .prob-kw.blue { background: #e3f2fd; color: #1565c0; }
+
+        .prob-cf-footer {
+            padding: 10px 18px;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: auto;
+        }
+        .prob-cf-status {
+            font-size: 0.8rem;
+            color: #8e8e93;
+        }
+        .prob-cf-status.done { color: #16a34a; font-weight: 600; }
+        .prob-cf-generate {
+            font-size: 0.82rem !important;
+            padding: 6px 16px !important;
+            border-radius: 20px !important;
+        }
+
+        /* 问题 Cover Flow 导航 */
+        .prob-cf-nav {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            transform: translateY(-50%);
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .prob-cf-nav .cf-arrow {
+            pointer-events: auto;
+        }
+
+        /* 问题 Cover Flow 计数器 */
+        .prob-cf-counter {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #8e8e93;
+            min-width: 50px;
+            text-align: center;
+            background: rgba(255,255,255,0.8);
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+
+        /* 问题卡片 Cover Flow 响应式 */
+        @media (max-width: 768px) {
+            .prob-cf-stage { height: 340px; }
+            .prob-cf-track { width: 600px; height: 340px; margin-left: -300px; }
+            .prob-cf-card { width: 340px; height: 320px; margin-left: -170px; }
+            .prob-cf-inner { border-radius: 16px; }
+            .prob-cf-type { font-size: 0.9rem; }
+        }
+        /* 画像卡片网格布局 */
+        .portrait-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        .portrait-grid > .col-md-6 {
+            flex: none;
+            width: 100%;
+            max-width: 100%;
+            padding: 0;
+        }
+        
+        .text-center { text-align: center !important; }
+        .text-end { text-align: right !important; }
+        .text-white { color: white !important; }
+        .fw-bold { font-weight: 700 !important; }
+        .fw-normal { font-weight: 400 !important; }
+        .fst-italic { font-style: italic; }
+        .small { font-size: 0.875rem !important; }
+        .fs-6 { font-size: 0.875rem !important; }
+        .lh-lg { line-height: 1.75 !important; }
+        .text-decoration-none { text-decoration: none !important; }
+        
+        .position-fixed { position: fixed !important; }
+        .bottom-0 { bottom: 0 !important; }
+        .end-0 { right: 0 !important; }
+        .sticky-top { position: sticky !important; top: 0 !important; z-index: 100; }
+        .overflow-hidden { overflow: hidden !important; }
+        .overflow-auto { overflow: auto !important; }
+        .w-100 { width: 100% !important; }
+        .h-100 { height: 100% !important; }
+        .rounded { border-radius: var(--radius-md) !important; }
+        .rounded-0 { border-radius: 0 !important; }
+        .border { border: 1px solid var(--apple-gray5) !important; }
+        
+        /* ================================================
+           问题/画像卡片完整样式（原有功能）
+           ================================================ */
+        
         /* 目标用户卡片 */
+        .target-customer-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s;
+            position: relative;
+        }
         .target-customer-card:hover {
             border-color: #bbf7d0 !important;
             box-shadow: 0 4px 16px rgba(0,0,0,.08);
@@ -218,107 +1184,121 @@
             border-color: #e9ecef;
             background-color: #fff;
         }
+        .target-identity {
+            font-weight: 600;
+            font-size: 1.05rem;
+            color: #1f2937;
+            margin-bottom: 12px;
+        }
+        .target-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .target-tag {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        .target-desc {
+            font-size: 0.875rem;
+            color: #6b7280;
+            line-height: 1.6;
+        }
         
-        /* 已保存画像列表样式 */
-        .saved-portrait-item {
-            padding: 12px 16px;
-            border-bottom: 1px solid #e9ecef;
+        /* 画像卡片 - iPod Classic 专辑封面风格 */
+        .portrait-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            border: 2px solid #e5e7eb;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
-        .saved-portrait-item:last-child {
-            border-bottom: none;
+        .portrait-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+            z-index: 1;
         }
-        .saved-portrait-item:hover {
-            background-color: #f8f9fa;
+        .portrait-card:hover {
+            border-color: #007AFF;
+            box-shadow: 0 8px 30px rgba(0, 122, 255, 0.2);
+            transform: translateY(-4px) scale(1.02);
         }
-        .saved-portrait-item.active {
-            background-color: #e8f4ff;
-            border-left: 3px solid var(--primary);
+        .portrait-card.selected {
+            border-color: #007AFF;
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3), 0 12px 40px rgba(0, 122, 255, 0.25);
+            transform: translateY(-6px) scale(1.03);
         }
-        .saved-portrait-item .portrait-name {
+        .portrait-card .card-body { padding: 0; position: relative; z-index: 2; }
+        .portrait-card-name {
+            font-weight: 700;
+            color: #1a1a1a;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+        }
+        .portrait-card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .portrait-tag {
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: #f5f5f7;
+            color: #8e8e93;
             font-weight: 500;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
-
-        /* 画像卡片 - 移动端适配 */
-        @media (max-width: 768px) {
-            #portrait-section .card {
-                border-radius: 8px;
-            }
-            #portrait-section .card-header {
-                padding: 8px 12px;
-                font-size: 14px;
-            }
-            .portrait-card {
-                border-radius: 6px;
-            }
-            .portrait-card .card-body {
-                padding: 8px 10px;
-            }
-            .portrait-card-name {
-                max-width: 100px !important;
-                font-size: 13px;
-            }
-            /* 画像专区标题截断 */
-            #portrait-section .card-header .bi-person-badge {
-                font-size: 14px;
-            }
-            /* 专属库弹窗移动端 */
-            #portraitLibraryModal .modal-xl {
-                max-width: 98vw;
-                margin: 4px;
-            }
-            #portraitLibraryModal .tab-content {
-                font-size: 13px;
-            }
-            #portraitLibraryModal .card {
-                border-radius: 6px;
-            }
-            #portraitLibraryModal .card-body {
-                padding: 8px 10px;
-            }
+        .portrait-card-desc {
+            font-size: 0.8rem;
+            color: #8e8e93;
+            line-height: 1.5;
+            margin-top: auto;
         }
-        @media (max-width: 480px) {
-            #portrait-section .card-body {
-                padding: 6px 8px !important;
-            }
-            .portrait-card-name {
-                max-width: 80px !important;
-                font-size: 12px;
-            }
-            /* 库状态徽章缩小 */
-            .portrait-card .badge {
-                font-size: 9px !important;
-                padding: 1px 4px;
-            }
-            /* 专属库弹窗 Tab */
-            #portraitLibraryModal .nav-link {
-                font-size: 12px;
-                padding: 6px 10px;
-            }
-            /* 选题库列表单列 */
-            #topic-list .col-md-6 {
-                padding: 0 4px;
-            }
+        .portrait-summary-natural {
+            font-size: 0.85rem;
+            line-height: 1.65;
+            color: #3c3c43;
+            margin-bottom: 0.85rem;
+            padding: 12px 14px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            border: 1px solid rgba(0,0,0,0.04);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
         }
         
-        /* 内容类型推荐样式 */
-        .content-type-recommendation .badge {
-            font-weight: normal;
-        }
-        .content-type-recommendation .progress {
-            background-color: #e9ecef;
-        }
-
-        /* 身份选择卡片样式 */
-        .hover-border-primary:hover {
-            border-color: var(--primary) !important;
-            box-shadow: 0 2px 8px rgba(99,102,241,.15);
-        }
-
-        .transition-all {
-            transition: all 0.2s ease;
-        }
+        /* 画像标签样式 - iPod Classic 风格 */
+        .portrait-tag.age-tag { background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #7b1fa2; border: 1px solid #ce93d8; box-shadow: 0 2px 6px rgba(123, 31, 162, 0.15); }
+        .portrait-tag.occ-tag { background: linear-gradient(135deg, #fce7f3 0%, #f8bbd9 100%); color: #c2185b; border: 1px solid #f48fb1; box-shadow: 0 2px 6px rgba(194, 24, 91, 0.15); }
+        .portrait-tag.income-tag { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; box-shadow: 0 2px 6px rgba(46, 125, 50, 0.15); }
+        .portrait-tag.loc-tag { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; box-shadow: 0 2px 6px rgba(21, 101, 192, 0.15); }
+        .portrait-tag.family-tag { background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); color: #f57f17; border: 1px solid #ffe082; box-shadow: 0 2px 6px rgba(245, 127, 23, 0.15); }
+        .portrait-tag.buyer-tag { background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; box-shadow: 0 2px 6px rgba(198, 40, 40, 0.15); }
+        .portrait-tag.user-tag { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; box-shadow: 0 2px 6px rgba(21, 101, 192, 0.15); }
+        
         /* 气泡词云样式 */
         .identity-cloud {
             display: flex;
@@ -332,7 +1312,6 @@
             border-radius: 16px;
             border: 2px dashed #e2e8f0;
         }
-
         .identity-bubble {
             display: inline-flex;
             align-items: center;
@@ -351,84 +1330,29 @@
             flex-direction: column;
             gap: 4px;
         }
-
-        .bubble-text {
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
-
-        .bubble-user {
-            font-size: 0.7rem;
-            opacity: 0.85;
-            font-weight: 400;
-        }
-
+        .bubble-text { font-weight: 600; font-size: 0.95rem; }
+        .bubble-user { font-size: 0.7rem; opacity: 0.85; font-weight: 400; }
         @keyframes bubbleFloat {
-            0% {
-                opacity: 0;
-                transform: scale(0.5) translateY(20px);
-            }
-            100% {
-                opacity: 1;
-                transform: scale(1) translateY(0);
-            }
+            0% { opacity: 0; transform: scale(0.5) translateY(20px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
         }
-
         .identity-bubble:hover {
             transform: translateY(-4px) scale(1.05);
             box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         }
-
         .identity-bubble.selected {
             transform: translateY(-2px) scale(1.08);
             box-shadow: 0 8px 30px rgba(99, 102, 241, 0.3);
         }
-
-        /* ToB 气泡样式 */
-        .identity-bubble.to-b {
-            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-            color: #1e40af;
-            border-color: #93c5fd;
-        }
-        .identity-bubble.to-b:hover {
-            background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
-        }
-        .identity-bubble.to-b.selected {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            color: white;
-            border-color: #1d4ed8;
-        }
-
-        /* ToC 气泡样式 */
-        .identity-bubble.to-c {
-            background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
-            color: #be185d;
-            border-color: #f9a8d4;
-        }
-        .identity-bubble.to-c:hover {
-            background: linear-gradient(135deg, #fbcfe8 0%, #f9a8d4 100%);
-        }
-        .identity-bubble.to-c.selected {
-            background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
-            color: white;
-            border-color: #be185d;
-        }
-
-        /* 气泡尺寸变化 */
-        .identity-bubble.size-lg {
-            padding: 16px 32px;
-            font-size: 1.1rem;
-        }
-        .identity-bubble.size-md {
-            padding: 12px 24px;
-            font-size: 0.95rem;
-        }
-        .identity-bubble.size-sm {
-            padding: 8px 16px;
-            font-size: 0.85rem;
-        }
-
-        /* 气泡提示框 */
+        .identity-bubble.to-b { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border-color: #93c5fd; }
+        .identity-bubble.to-b:hover { background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%); }
+        .identity-bubble.to-b.selected { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border-color: #1d4ed8; }
+        .identity-bubble.to-c { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); color: #be185d; border-color: #f9a8d4; }
+        .identity-bubble.to-c:hover { background: linear-gradient(135deg, #fbcfe8 0%, #f9a8d4 100%); }
+        .identity-bubble.to-c.selected { background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; border-color: #be185d; }
+        .identity-bubble.size-lg { padding: 16px 32px; font-size: 1.1rem; }
+        .identity-bubble.size-md { padding: 12px 24px; font-size: 0.95rem; }
+        .identity-bubble.size-sm { padding: 8px 16px; font-size: 0.85rem; }
         .bubble-tooltip {
             display: none;
             position: absolute;
@@ -456,29 +1380,12 @@
             border: 5px solid transparent;
             border-top-color: rgba(0,0,0,0.85);
         }
-        .identity-bubble:hover .bubble-tooltip {
-            display: block;
-        }
-
-        /* 折叠组样式 */
-        .identity-group {
-            transition: all 0.3s ease;
-        }
-        .identity-group.collapsed .identity-bubble {
-            opacity: 0.2;
-            transform: scale(0.8);
-            pointer-events: none;
-        }
-
-        .btn-group-toggle.active {
-            background: var(--primary) !important;
-            color: white !important;
-        }
-
-        .btn-group-toggle:not(.active) {
-            opacity: 0.6;
-        }
-
+        .identity-bubble:hover .bubble-tooltip { display: block; }
+        .identity-group { transition: all 0.3s ease; }
+        .identity-group.collapsed .identity-bubble { opacity: 0.2; transform: scale(0.8); pointer-events: none; }
+        .btn-group-toggle.active { background: var(--primary) !important; color: white !important; }
+        .btn-group-toggle:not(.active) { opacity: 0.6; }
+        
         /* 问题类型卡片样式 */
         .problem-type-card {
             background: white;
@@ -489,351 +1396,16 @@
             transition: all 0.3s;
             position: relative;
         }
-
         .problem-type-card:hover {
             border-color: var(--primary);
             box-shadow: 0 4px 16px rgba(99,102,241,0.15);
             transform: translateY(-2px);
         }
-
         .problem-type-card.selected {
             border-color: var(--primary);
             background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
             box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
         }
-
-        .problem-card {
-            background: white;
-            border-radius: 12px;
-            padding: 18px 20px 16px;
-            border: 2px solid #e5e7eb;
-            transition: all 0.3s;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-        }
-
-        .problem-card:hover {
-            border-color: var(--primary);
-            box-shadow: 0 4px 16px rgba(99,102,241,0.15);
-            transform: translateY(-2px);
-        }
-
-        .problem-card.selected {
-            border-color: var(--primary);
-            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
-        }
-
-        .problem-card.selected::after {
-            content: '✓';
-            position: absolute;
-            top: 10px;
-            right: 12px;
-            width: 22px;
-            height: 22px;
-            background: var(--primary);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-            z-index: 2;
-        }
-
-        /* 市场洞察 · 问题卡片：标题独占一行；标签区自动换行 */
-        .pc-header {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            padding-right: 28px;
-            margin-bottom: 10px;
-            min-width: 0;
-        }
-
-        /* 问题类型 + 身份标签同排 */
-        .pc-title-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 8px 10px;
-            min-width: 0;
-        }
-
-        .pc-type {
-            display: block;
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: #3730a3;
-            line-height: 1.45;
-            letter-spacing: -0.02em;
-            word-break: break-word;
-            flex: 1 1 auto;
-            min-width: 0;
-        }
-
-        /* 三盘 + 双标签换行展示 */
-        .pc-tags-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 8px 10px;
-            min-width: 0;
-            width: 100%;
-        }
-
-        .pc-severity-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-            padding-right: 28px;
-        }
-
-        .pc-severity-label {
-            font-size: 0.75rem;
-            color: #a8a29e;
-            font-weight: 500;
-            flex-shrink: 0;
-        }
-
-        .pc-star {
-            font-size: 0.75rem;
-            line-height: 1.3;
-            letter-spacing: 0.02em;
-            opacity: 0.92;
-        }
-
-        .pc-id-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            padding: 5px 12px;
-            border-radius: 999px;
-            white-space: nowrap;
-            flex-shrink: 0;
-            max-width: 100%;
-        }
-
-        .pc-id-badge.id-user {
-            color: #4338ca;
-            background: #eef2ff;
-            border: 1px solid #c7d2fe;
-        }
-
-        .pc-id-badge.id-buyer {
-            color: #0f766e;
-            background: #f0fdf4;
-            border: 1px solid #a7f3d0;
-        }
-
-        /* 三盘标签 */
-        .pc-base-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 999px;
-            margin-left: 0;
-            border: 1px solid;
-            line-height: 1.35;
-            max-width: 100%;
-        }
-        .pc-base-badge.base-urgent {
-            color: #b91c1c;
-            background: #fef2f2;
-            border-color: #fecaca;
-        }
-        .pc-base-badge.base-watch {
-            color: #92400e;
-            background: #fffbeb;
-            border-color: #fde68a;
-        }
-        .pc-base-badge.base-peripheral {
-            color: #166534;
-            background: #f0fdf4;
-            border-color: #bbf7d0;
-        }
-
-        /* 双标签：consume_type + demand_attr */
-        .pc-dual-badge {
-            font-size: 11px;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-weight: 600;
-            margin-left: 0;
-            display: inline-flex;
-            align-items: center;
-            line-height: 1.35;
-            max-width: 100%;
-        }
-        .pc-consume-type.label-required {
-            background: #fee2e2;
-            color: #b91c1c;
-        }
-        .pc-consume-type.label-incremental {
-            background: #f0fdf4;
-            color: #166534;
-        }
-        .pc-demand-attr.label-function {
-            background: #fff7ed;
-            color: #c2410c;
-        }
-        .pc-demand-attr.label-emotion {
-            background: #fdf4ff;
-            color: #7e22ce;
-        }
-        .pc-dual-badge.label-unknown {
-            background: #f3f4f6;
-            color: #6b7280;
-        }
-
-        .pc-desc {
-            font-size: 0.8125rem;
-            color: #57534e;
-            line-height: 1.55;
-            margin-bottom: 12px;
-            padding: 10px 12px;
-            background: #fafaf9;
-            border-radius: 8px;
-            border-left: 3px solid #818cf8;
-        }
-
-        .pc-keywords-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 14px;
-            align-items: flex-start;
-        }
-
-        .pc-kw-tag {
-            font-size: 0.75rem;
-            padding: 6px 10px;
-            border-radius: 8px;
-            font-weight: 500;
-            display: inline-block;
-            max-width: 100%;
-            line-height: 1.4;
-            white-space: normal;
-            word-break: break-word;
-            transition: all 0.2s;
-        }
-
-        .pc-kw-tag.kw-blue {
-            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-            color: #1d4ed8;
-            border: 1px solid #93c5fd;
-        }
-
-        .pc-kw-tag.kw-red {
-            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-            color: #dc2626;
-            border: 1px solid #fca5a5;
-        }
-
-        .pc-kw-tag:hover {
-            transform: translateY(-1px);
-            filter: brightness(0.95);
-        }
-
-        .pc-kw-more {
-            font-size: 0.7rem;
-            color: #9ca3af;
-            padding: 4px 6px;
-            align-self: center;
-            background: #f3f4f6;
-            border-radius: 4px;
-        }
-
-        .pc-foot {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px 12px;
-            margin-top: 4px;
-            padding-top: 12px;
-            border-top: 1px solid #f1f5f9;
-        }
-
-        .pc-status {
-            font-size: 0.75rem;
-            color: #78716c;
-            line-height: 1.45;
-            flex: 1 1 140px;
-            min-width: 0;
-        }
-
-        .pc-status.done {
-            color: #15803d;
-            font-weight: 500;
-        }
-
-        /* 画像标签样式 */
-        .portrait-tag {
-            display: inline-block;
-            font-size: 0.75rem;
-            padding: 3px 10px;
-            border-radius: 999px;
-            font-weight: 500;
-            white-space: nowrap;
-        }
-        .portrait-tag.age-tag {
-            background: #ede9fe;
-            color: #6d28d9;
-            border: 1px solid #ddd6fe;
-        }
-        .portrait-tag.occ-tag {
-            background: #fce7f3;
-            color: #be185d;
-            border: 1px solid #fbcfe8;
-        }
-        .portrait-tag.income-tag {
-            background: #dcfce7;
-            color: #15803d;
-            border: 1px solid #bbf7d0;
-        }
-        .portrait-tag.loc-tag {
-            background: #e0f2fe;
-            color: #0369a1;
-            border: 1px solid #bae6fd;
-        }
-        .portrait-tag.family-tag {
-            background: #fef3c7;
-            color: #b45309;
-            border: 1px solid #fde68a;
-        }
-        .portrait-tag.buyer-tag {
-            background: #fef2f2;
-            color: #b91c1c;
-            border: 1px solid #fecaca;
-        }
-        .portrait-tag.user-tag {
-            background: #eff6ff;
-            color: #1d4ed8;
-            border: 1px solid #bfdbfe;
-        }
-
-        /* 画像：标签下方的自然语言摘要（不与「使用者/付费者」区块混放） */
-        .portrait-summary-natural {
-            font-size: 0.875rem;
-            line-height: 1.65;
-            color: #374151;
-            margin-bottom: 0.85rem;
-            padding: 0.65rem 0.75rem;
-            background: rgba(255, 255, 255, 0.92);
-            border-radius: 10px;
-            border: 1px solid rgba(0, 0, 0, 0.06);
-        }
-
         .problem-type-card.selected::after {
             content: '✓';
             position: absolute;
@@ -850,326 +1422,841 @@
             font-size: 12px;
             font-weight: bold;
         }
-
-        .problem-type-name {
-            font-weight: 600;
-            font-size: 15px;
-            color: #1f2937;
-            margin-bottom: 4px;
-        }
-
-        .problem-type-desc {
-            font-size: 13px;
-            color: #6b7280;
-            margin-bottom: 8px;
-        }
-
-        .problem-type-count {
-            font-size: 12px;
-            color: var(--primary);
-            font-weight: 500;
-        }
-
-        /* 问题导向词：重点突出，大标签 */
-        .kw-section-title {
+        .problem-type-name { font-weight: 600; font-size: 15px; color: #1f2937; margin-bottom: 4px; }
+        .problem-type-desc { font-size: 13px; color: #6b7280; margin-bottom: 8px; }
+        .problem-type-count { font-size: 12px; color: var(--primary); font-weight: 500; }
+        
+        /* 问题卡片样式 - iPod Classic 专辑封面风格 */
+        .problem-card {
+            background: white;
+            border-radius: 16px;
+            border: 2px solid #e5e7eb;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.6rem;
+            flex-direction: column;
         }
-        .kw-section-title .kw-icon {
-            font-size: 1.4rem;
-            line-height: 1;
+        .problem-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+            z-index: 1;
         }
-        .kw-section-title .kw-label {
-            font-size: 1rem;
-            font-weight: 700;
-            color: #4338ca;
-            letter-spacing: 0.02em;
+        .problem-card:hover {
+            border-color: #007AFF;
+            box-shadow: 0 8px 30px rgba(0, 122, 255, 0.2);
+            transform: translateY(-4px) scale(1.02);
         }
-        .kw-section-title .kw-count {
-            font-size: 0.75rem;
-            padding: 0.15em 0.5em;
-            border-radius: 20px;
+        .problem-card.selected {
+            border-color: #007AFF;
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3), 0 12px 40px rgba(0, 122, 255, 0.25);
+            transform: translateY(-6px) scale(1.03);
         }
-        .kw-subtitle {
-            font-size: 0.78rem;
-            color: #6b7280;
-            margin-bottom: 0.6rem;
-            line-height: 1.4;
+        .problem-card.selected::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50px;
+            height: 50px;
+            transform: translate(-50%, -50%);
+            border: 3px solid rgba(0, 122, 255, 0.4);
+            border-radius: 50%;
+            z-index: 2;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
         }
-        .problem-keywords-wrap {
+        
+        /* PC问题卡片内部结构 */
+        .pc-header {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 16px 18px 12px;
+            position: relative;
+            z-index: 2;
+        }
+        .pc-title-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem 0.6rem;
             align-items: center;
+            gap: 10px 12px;
+            min-width: 0;
         }
-        .problem-keyword-chip {
-            display: inline-block;
-            padding: 0.4rem 0.9rem;
-            font-size: 0.9rem;
-            font-weight: 600;
-            line-height: 1.3;
-            color: #3730a3;
-            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-            border: 1px solid #a5b4fc;
-            border-radius: 20px;
-            box-shadow: 0 1px 3px rgba(99, 102, 241, 0.15);
-            word-break: break-all;
-            transition: all 0.15s;
+        .pc-type {
+            display: block;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1a1a1a;
+            line-height: 1.45;
+            letter-spacing: -0.01em;
+            word-break: break-word;
+            flex: 1 1 auto;
+            min-width: 0;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
         }
-        .problem-keyword-chip:hover {
-            background: linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 3px 8px rgba(99, 102, 241, 0.25);
+        .pc-tags-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 10px;
+            min-width: 0;
+            width: 100%;
         }
-
-        /* 市场标签（蓝海/红海特征）：紧凑横排胶囊 */
-        .market-tag {
+        .pc-severity-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px 14px;
+            position: relative;
+            z-index: 2;
+        }
+        .pc-severity-label { font-size: 0.7rem; color: #8e8e93; font-weight: 500; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.05em; }
+        .pc-severity-bar { flex: 1; height: 4px; background: #e5e5ea; border-radius: 2px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); }
+        .pc-severity-fill { height: 100%; background: linear-gradient(90deg, #34c759, #ffcc00, #ff3b30); border-radius: 2px; transition: width 0.3s ease; }
+        .pc-star { font-size: 0.7rem; line-height: 1.3; letter-spacing: 0.02em; opacity: 0.92; filter: sepia(30%); }
+        .pc-id-badge {
             display: inline-flex;
             align-items: center;
-            gap: 0.25rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            line-height: 1.4;
-            max-width: 100%;
-        }
-        .market-tag .tag-icon {
-            font-size: 0.85rem;
+            gap: 5px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 16px;
+            white-space: nowrap;
             flex-shrink: 0;
+            max-width: 100%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
         }
-        .market-tag .tag-text {
-            word-break: break-all;
+        .pc-id-badge.id-user { color: #007AFF; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 1px solid #90caf9; }
+        .pc-id-badge.id-buyer { color: #34c759; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 1px solid #a5d6a7; }
+        .pc-base-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            margin-left: 0;
+            border: 1px solid;
+            line-height: 1.35;
+            max-width: 100%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
         }
-        .market-tag.blue-tag {
-            background: #dcfce7;
-            color: #15803d;
-            border: 1px solid #86efac;
+        .pc-base-badge.base-urgent { color: #ff3b30; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); border-color: #ef9a9a; }
+        .pc-base-badge.base-watch { color: #ff9500; background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); border-color: #ffe082; }
+        .pc-base-badge.base-peripheral { color: #34c759; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-color: #a5d6a7; }
+        .pc-dual-badge {
+            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-left: 0;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1.35;
+            max-width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
-        .market-tag.red-tag {
-            background: #fee2e2;
-            color: #b91c1c;
-            border: 1px solid #fca5a5;
+        .pc-consume-type.label-required { background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #d32f2f; }
+        .pc-consume-type.label-incremental { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #388e3c; }
+        .pc-demand-attr.label-function { background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); color: #e65100; }
+        .pc-demand-attr.label-emotion { background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #7b1fa2; }
+        .pc-dual-badge.label-unknown { background: #f5f5f5; color: #757575; }
+        .pc-body { display: flex; flex-direction: column; gap: 10px; padding: 0 18px; position: relative; z-index: 2; }
+        .pc-desc {
+            font-size: 0.8rem;
+            color: #3c3c43;
+            line-height: 1.55;
+            margin-bottom: 12px;
+            padding: 12px 14px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            border-left: 3px solid #007AFF;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
         }
-
+        .pc-keywords-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+            align-items: flex-start;
+        }
+        .pc-kw-tag {
+            font-size: 0.7rem;
+            padding: 6px 10px;
+            border-radius: 14px;
+            font-weight: 500;
+            display: inline-block;
+            max-width: 100%;
+            line-height: 1.4;
+            white-space: normal;
+            word-break: break-word;
+            transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        .pc-kw-tag.kw-blue { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; }
+        .pc-kw-tag.kw-red { background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; }
+        .pc-kw-tag:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+        .pc-kw-more { font-size: 0.65rem; color: #8e8e93; padding: 4px 8px; align-self: center; background: #f0f0f0; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
+        .pc-foot {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px 12px;
+            padding: 14px 18px 16px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.02) 100%);
+            position: relative;
+            z-index: 2;
+        }
+        .pc-question-count { font-size: 0.7rem; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.05em; }
+        .pc-status { font-size: 0.75rem; color: #8e8e93; line-height: 1.45; flex: 1 1 140px; min-width: 0; font-weight: 500; }
+        .pc-status.done { color: #34c759; font-weight: 600; }
+        
         /* 选题卡片样式 */
         .topic-card {
             background: white;
-            border: 1px solid #e5e7eb;
             border-radius: 12px;
-            padding: 1rem;
-            cursor: pointer;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
             transition: all 0.2s;
+            cursor: pointer;
             height: 100%;
+            display: flex;
+            flex-direction: column;
         }
-        .topic-card:hover {
-            border-color: var(--primary);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
-            transform: translateY(-2px);
+        .topic-card:hover { border-color: var(--primary); box-shadow: 0 4px 16px rgba(99,102,241,0.1); transform: translateY(-2px); }
+        .topic-card.selected { border-color: var(--primary); background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+        .topic-type-badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-bottom: 12px;
         }
-        .topic-card.selected {
-            border-color: var(--primary);
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(129, 140, 248, 0.05) 100%);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
-        }
-        .topic-card-header {
+        .topic-type-badge.diagnosis { background: #fee2e2; color: #dc2626; }
+        .topic-type-badge.avoid { background: #fef3c7; color: #d97706; }
+        .topic-type-badge.sow { background: #dbeafe; color: #2563eb; }
+        .topic-type-badge.convert { background: #dcfce7; color: #16a34a; }
+        .topic-title { font-weight: 600; font-size: 0.95rem; color: #1f2937; margin-bottom: 8px; line-height: 1.4; }
+        .topic-reason { font-size: 0.8rem; color: #6b7280; line-height: 1.5; flex: 1; }
+        .topic-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f3f4f6; }
+        .topic-target { font-size: 0.75rem; color: #9ca3af; }
+        .topic-select-btn { font-size: 0.75rem; color: var(--primary); font-weight: 500; }
+        
+        /* 问题导向词样式 */
+        .kw-section-title {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #374151;
         }
-        .topic-number {
-            width: 28px;
-            height: 28px;
-            background: var(--primary);
+        .kw-icon { font-size: 1rem; }
+        .kw-label { flex: 1; }
+        .kw-count { font-size: 0.75rem; padding: 2px 8px; background: var(--apple-gray6); color: var(--text-secondary); border-radius: 10px; }
+        .kw-subtitle { font-size: 0.8rem; color: #9ca3af; margin-bottom: 12px; }
+        .problem-keywords-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+        .problem-keyword-chip {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1.5px solid transparent;
+            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+            color: #3730a3;
+            border-color: #a5b4fc;
+            box-shadow: 0 1px 3px rgba(99, 102, 241, 0.15);
+        }
+        .problem-keyword-chip:hover { background: linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(99, 102, 241, 0.25); }
+        
+        /* 结果卡片样式 */
+        .result-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e5e7eb;
+        }
+        .result-card h5 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        .result-content {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .btn-copy {
+            background: var(--secondary);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
             color: white;
-            border-radius: 50%;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        .btn-copy:hover { background: #059669; }
+        .hover-border-primary:hover { border-color: var(--primary) !important; box-shadow: 0 2px 8px rgba(99,102,241,.15); }
+        .transition-all { transition: all 0.2s ease; }
+        .selected-topic-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .selected-topic-title {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        /* 市场机会标签 */
+        .market-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .market-tag.blue-tag { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; }
+        .market-tag.red-tag { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #991b1b; }
+        .market-tag .tag-icon { font-size: 0.85rem; }
+        .market-tag .tag-text { word-break: break-all; }
+        
+        /* 已保存画像列表样式 - iPod Classic 专辑封面风格 */
+        .saved-portrait-item {
+            padding: 16px;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            border-radius: 12px;
+            margin-bottom: 8px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        .saved-portrait-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+        }
+        .saved-portrait-item:last-child { border-bottom: none; margin-bottom: 0; }
+        .saved-portrait-item:hover { 
+            border-color: #007AFF; 
+            box-shadow: 0 6px 20px rgba(0,122,255,0.15);
+            transform: translateY(-2px);
+        }
+        .saved-portrait-item.active { 
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); 
+            border-color: #007AFF; 
+            box-shadow: 0 0 0 3px rgba(0,122,255,0.2), 0 6px 20px rgba(0,122,255,0.15);
+        }
+        .saved-portrait-item .portrait-name { font-weight: 700; color: #1a1a1a; text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
+
+        /* ================================================
+           Cover Flow 样式 - iPod Classic 风格
+           ================================================ */
+
+        #portrait-cards-list {
+            overflow: hidden;
+        }
+
+        /* Cover Flow 单独占满一行（勿用双列 grid，否则舞台只有半宽、卡片被裁切） */
+        #portrait-cards-list.portrait-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .cf-empty {
+            grid-column: 1 / -1;
+        }
+
+        .cf-stage {
+            position: relative;
+            width: 100%;
+            height: 380px;
+            overflow: hidden;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .cf-stage:active {
+            cursor: grabbing;
+        }
+
+        .cf-track {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 20px;
+            width: 100%;
+            max-width: 1020px;
+            height: 300px;
+            margin-left: auto;
+            margin-right: auto;
+            transform-style: preserve-3d;
+            perspective: 1200px;
+        }
+
+        .cf-card {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            margin-left: 0;
+            width: 340px;
+            height: 300px;
+            transform-style: preserve-3d;
+            transition: transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                        opacity 0.3s ease,
+                        box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .cf-card-inner {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #e5e7eb;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .cf-card.active .cf-card-inner {
+            border-color: #007AFF;
+            box-shadow: 0 0 0 3px rgba(0,122,255,0.15), 0 12px 40px rgba(0,122,255,0.18);
+        }
+
+        .cf-header {
+            padding: 14px 14px 10px;
+            background: linear-gradient(135deg, #f8f7ff 0%, #f0f4ff 100%);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .cf-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        .topic-type-badge {
-            font-size: 0.7rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 20px;
-            background: #f3f4f6;
-            color: #6b7280;
-        }
-        .topic-dir-badge {
-            font-size: 0.65rem;
-            padding: 1px 6px;
-            border-radius: 10px;
-            margin-left: 4px;
-            font-weight: 600;
-        }
-        .topic-dir-badge.dir-convert {
-            background: #fef2f2;
-            color: #b91c1c;
-            border: 1px solid #fecaca;
-        }
-        .topic-dir-badge.dir-sow {
-            background: #fffbeb;
-            color: #92400e;
-            border: 1px solid #fde68a;
-        }
-        .topic-title {
-            font-weight: 600;
-            font-size: 0.95rem;
-            color: #1f2937;
-            margin-bottom: 0.5rem;
-            line-height: 1.4;
-        }
-        .topic-reason {
-            font-size: 0.8rem;
-            color: #6b7280;
-            line-height: 1.4;
-        }
-        .topic-target {
-            font-size: 0.75rem;
-            color: #9ca3af;
-            margin-top: 0.5rem;
+            flex-shrink: 0;
+            box-shadow: 0 3px 8px rgba(102,126,234,0.3);
         }
 
-        /* Toast 通知 */
+        .cf-icon i { color: white; font-size: 18px; }
+
+        .cf-title-area {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .cf-name {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #1a1a1a;
+            display: block;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .cf-industry {
+            font-size: 0.75rem;
+            color: #8e8e93;
+            display: block;
+            margin-top: 2px;
+        }
+
+        .cf-body {
+            flex: 1;
+            padding: 10px 14px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .cf-badges {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .cf-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: default;
+        }
+
+        .cf-badge.kw {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+            cursor: pointer;
+        }
+
+        .cf-badge.topic {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #1565c0;
+            border: 1px solid #90caf9;
+            cursor: pointer;
+        }
+
+        .cf-badge.generating {
+            background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+            color: #f57f17;
+            border: 1px solid #ffe082;
+        }
+
+        .cf-badge.failed {
+            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+            cursor: pointer;
+        }
+
+        .cf-badge.pending {
+            background: #f5f5f5;
+            color: #8e8e93;
+            border: 1px solid #e5e7eb;
+        }
+
+        .cf-footer {
+            padding: 10px 14px;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            gap: 8px;
+        }
+
+        .cf-btn {
+            flex: 1;
+            padding: 7px 8px;
+            border: 1px solid #e5e7eb;
+            background: white;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #3c3c43;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cf-btn:hover {
+            background: #f5f5f7;
+            border-color: #007AFF;
+            color: #007AFF;
+        }
+
+        .cf-btn.primary {
+            background: linear-gradient(135deg, #007AFF 0%, #0056cc 100%);
+            border: none;
+            color: white;
+        }
+
+        .cf-btn.primary:hover {
+            box-shadow: 0 4px 12px rgba(0,122,255,0.3);
+            color: white;
+        }
+
+        /* Cover Flow 导航：固定在舞台底部 */
+        .cf-nav {
+            position: absolute;
+            bottom: 8px;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 8px 0;
+        }
+
+        .cf-arrow {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 1px solid #e5e7eb;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            color: #3c3c43;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+        }
+
+        .cf-arrow:hover {
+            background: #007AFF;
+            border-color: #007AFF;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,122,255,0.25);
+        }
+
+        .cf-arrow:active {
+            transform: scale(0.95);
+        }
+
+        .cf-counter {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #8e8e93;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .cf-stage { height: 340px; }
+            .cf-track { top: 16px; max-width: 100%; height: 260px; }
+            .cf-card { width: 280px; height: 240px; }
+            .cf-card-inner { border-radius: 12px; }
+            .cf-header { padding: 10px 10px 8px; gap: 8px; }
+            .cf-icon { width: 34px; height: 34px; border-radius: 10px; }
+            .cf-icon i { font-size: 14px; }
+            .cf-name { font-size: 0.85rem; }
+            .cf-footer { padding: 8px 10px; gap: 6px; }
+            .cf-btn { font-size: 0.7rem; padding: 5px 6px; }
+        }
+
         .toast-container {
             position: fixed;
-            top: 20px;
+            bottom: 20px;
             right: 20px;
             z-index: 9999;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 16px;
+            }
+            
+            .mac-window {
+                border-radius: var(--radius-lg);
+            }
+            
+            .mac-window-body {
+                padding: 16px;
+            }
+            
+            .col-md-6 {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+
+            .problem-grid {
+                grid-template-columns: 1fr;
+            }
+            .problem-grid .col-md-6 {
+                width: 100%;
+                max-width: 100%;
+            }
+            
+            .portrait-grid {
+                grid-template-columns: 1fr;
+            }
+            .portrait-grid > .col-md-6 {
+                width: 100%;
+                max-width: 100%;
+            }
+            
+            .col-lg-3 {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+            
+            .tab-item span {
+                font-size: 0.8125rem;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- 导航栏 -->
+    <!-- macOS 风格导航栏 -->
     <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="/public">
-                <span style="color: var(--primary);">AI</span>棱镜
+            <a class="navbar-brand" href="/public">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="margin-right: 8px; vertical-align: middle;">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="logoGrad" x1="2" y1="2" x2="22" y2="22">
+                            <stop stop-color="#007AFF"/>
+                            <stop offset="1" stop-color="#AF52DE"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                AI 棱镜
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item"><a class="nav-link" href="/public/#features">功能</a></li>
                     <li class="nav-item"><a class="nav-link" href="/public/pricing">定价</a></li>
                     <li class="nav-item" id="nav-login">
                         <a class="nav-link" href="/login?type=public" target="_self">登录</a>
                     </li>
-                    <li class="nav-item" id="nav-register">
-                        <a class="btn btn-primary ms-2" href="/login?type=public#register" target="_self">免费开始</a>
+                    <li class="nav-item ms-2" id="nav-register">
+                        <a class="btn btn-primary" href="/login?type=public#register" target="_self">
+                            免费开始
+                        </a>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <!-- 内容生成器 -->
-    <section id="generator" class="py-5">
-        <div class="container">
-            <div class="generator-section">
-                <h3 class="mb-4 text-center">快速生成内容</h3>
+    <!-- 主内容区域 -->
+    <main class="main-container">
+        <!-- macOS 窗口卡片 -->
+        <div class="mac-window" id="generator-window">
+            <!-- 窗口标题栏 -->
+            <div class="mac-window-header">
+                <div class="window-controls">
+                    <div class="window-control close" title="关闭"></div>
+                    <div class="window-control minimize" title="最小化"></div>
+                    <div class="window-control maximize" title="最大化"></div>
+                </div>
+                <div class="window-title">AI 棱镜 - 内容生成器</div>
+                <div style="width: 52px;"></div>
+            </div>
+            
+            <!-- 窗口内容 -->
+            <div class="mac-window-body">
+                <!-- 页面标题 -->
+                <h1 class="section-title">快速生成内容</h1>
+                <p class="section-subtitle">基于 AI 分析，精准定位目标用户，一键生成爆款内容</p>
 
                 <!-- 登录提示 -->
                 <div id="login-prompt" class="text-center py-5">
-                    <p class="text-muted">登录后即可开始生成内容</p>
-                    <a href="/login?type=public" class="btn btn-primary" target="_self">登录 / 注册</a>
+                    <div class="apple-card p-5">
+                        <div style="margin-bottom: 20px;">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="margin: 0 auto;">
+                                <circle cx="24" cy="24" r="24" fill="#E8F4FF"/>
+                                <path d="M24 14L14 19V29L24 34L34 29V19L24 14Z" stroke="#007AFF" stroke-width="2"/>
+                                <circle cx="24" cy="24" r="4" fill="#007AFF"/>
+                            </svg>
+                        </div>
+                        <h5 style="margin-bottom: 12px;">登录后即可开始使用</h5>
+                        <p class="text-secondary mb-3" style="font-size: 0.9375rem;">登录后可以保存画像、查看生成历史、管理关键词库</p>
+                        <a href="/login?type=public" class="btn btn-primary-apple" target="_self">登录 / 注册</a>
+                    </div>
                 </div>
 
                 <!-- 生成表单（登录后显示） -->
                 <div id="generator-form" style="display: none;">
                     <!-- 配额提示 -->
-                    <div id="quota-info" class="alert alert-info d-flex justify-content-between align-items-center mb-4">
-                        <span>今日剩余次数：<strong id="quota-count">2</strong> 次</span>
-                        <a href="/public/pricing" class="alert-link">升级获取更多次数 →</a>
+                    <div id="quota-info" class="apple-card p-3 mb-4" style="background: linear-gradient(135deg, #E8F4FF 0%, #F3E8FF 100%); border: none;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="#007AFF">
+                                    <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"/>
+                                </svg>
+                                <span>今日剩余次数：<strong id="quota-count">2</strong> 次</span>
+                            </div>
+                            <a href="/public/pricing" style="color: #007AFF; font-weight: 500; font-size: 0.875rem;">升级获取更多次数 →</a>
+                        </div>
                     </div>
 
-                    <!-- 快速生成内容两大Tab -->
-                    <div class="generator-tabs mb-4">
-                        <div class="generator-tab active" id="tab-super" onclick="switchGeneratorTab('super')">
-                            <i class="bi bi-crosshair"></i>
+                    <!-- Tab 切换 -->
+                    <div class="tab-group mb-4">
+                        <div class="tab-item active" id="tab-super" onclick="switchGeneratorTab('super')">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+                                <path d="M9 1L1 5V9C1 13.5 4.5 17.5 9 19C13.5 17.5 17 13.5 17 9V5L9 1Z"/>
+                            </svg>
                             <span>超级定位</span>
                         </div>
-                        <div class="generator-tab" id="tab-content" onclick="switchGeneratorTab('content')">
-                            <i class="bi bi-file-text"></i>
+                        <div class="tab-item" id="tab-content" onclick="switchGeneratorTab('content')">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+                                <path d="M14 1H4C2.9 1 2 1.9 2 3V15C2 16.1 2.9 17 4 17H14C15.1 17 16 16.1 16 15V3C16 1.9 15.1 1 14 1ZM14 15H4V3H14V15Z"/>
+                            </svg>
                             <span>生成内容</span>
                         </div>
                     </div>
 
-                    <style>
-                    .generator-tabs {
-                        display: flex;
-                        gap: 8px;
-                    }
-                    .generator-tab {
-                        flex: 1;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 8px;
-                        padding: 14px 20px;
-                        background: var(--color-bg-secondary, #f8f9fa);
-                        border: 2px solid var(--color-border, #dee2e6);
-                        border-radius: 12px;
-                        cursor: pointer;
-                        font-weight: 600;
-                        font-size: 16px;
-                        color: var(--color-text-secondary, #6c757d);
-                        transition: all 0.2s ease;
-                        user-select: none;
-                    }
-                    .generator-tab:hover {
-                        border-color: var(--color-primary, #0d6efd);
-                        color: var(--color-primary, #0d6efd);
-                    }
-                    .generator-tab.active {
-                        background: linear-gradient(135deg, var(--color-primary, #0d6efd), #5a7fff);
-                        border-color: var(--color-primary, #0d6efd);
-                        color: white;
-                        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
-                    }
-                    .generator-tab i {
-                        font-size: 20px;
-                    }
-                    .step-badge {
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        width: 24px;
-                        height: 24px;
-                        border-radius: 50%;
-                        background: var(--color-primary, #0d6efd);
-                        color: white;
-                        font-size: 12px;
-                        font-weight: 700;
-                    }
-                    .accordion-button:not(.collapsed) .step-badge {
-                        background: white;
-                        color: var(--color-primary, #0d6efd);
-                    }
-                    </style>
-
                     <!-- 画像专区（付费用户可见） -->
-                    <!-- 首次登录引导提示 -->
-                    <div id="portrait-onboarding-tip" class="alert alert-primary py-2 mb-2" style="display:none; font-size:13px; border-radius:8px;">
-                        <i class="bi bi-lightbulb me-1"></i>
-                        <strong>提示：</strong>点击任意画像卡片，可查看专属关键词库/选题库，点击「生成专属库」可一键生成！生成后可直接用于选题和内容创作。
+                    <div id="portrait-onboarding-tip" class="apple-card p-3 mb-3" style="display:none; background: linear-gradient(135deg, #FFF8E8 0%, #FFF4E5 100%); border-color: #FFD700;">
+                        <div class="d-flex align-items-center gap-2">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="#FF9500">
+                                <path d="M9 1L11 7H17L12 11L14 17L9 13L4 17L6 11L1 7H7L9 1Z"/>
+                            </svg>
+                            <span style="font-size: 0.875rem;"><strong>提示：</strong>点击任意画像卡片，可查看专属关键词库/选题库，点击「生成专属库」可一键生成！</span>
+                        </div>
                     </div>
 
                     <div id="portrait-section" class="mb-4" style="display: none;">
-                        <div class="card border-primary">
-                            <div class="card-header bg-primary text-white py-2">
-                                <span><i class="bi bi-person-badge me-1"></i>已保存画像</span>
+                        <div class="apple-card">
+                            <div class="apple-card-header blue" style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#portrait-cards-collapse" onclick="window._togglePortraitSection()">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="white">
+                                    <path d="M10 2C7.24 2 5 4.24 5 7C5 9.76 7.24 12 10 12C12.76 12 15 9.76 15 7C15 4.24 12.76 2 10 2ZM10 10C8.35 10 7 8.65 7 7C7 5.35 8.35 4 10 4C11.65 4 13 5.35 13 7C13 8.65 11.65 10 10 10Z"/>
+                                    <path d="M10 13C6.13 13 3 14.57 3 16V18H17V16C17 14.57 13.87 13 10 13Z"/>
+                                </svg>
+                                <span style="font-weight: 600;">已保存画像</span>
+                                <svg id="portrait-section-chevron" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-left:auto; transition: transform 0.25s;">
+                                    <path d="M4 6L8 10L12 6"/>
+                                </svg>
                             </div>
-                            <div class="card-body py-2" id="portrait-cards-container">
-                                <div id="portrait-cards-loading" class="text-center py-3">
-                                    <div class="spinner-border spinner-border-sm text-primary me-1"></div><span style="font-size:13px;">加载画像...</span>
+                            <div id="portrait-cards-collapse" class="collapse show">
+                                <div class="apple-card-body" id="portrait-cards-container">
+                                    <div id="portrait-cards-loading" class="text-center py-3">
+                                        <div class="apple-spinner mx-auto" style="width: 24px; height: 24px; border-width: 2px;"></div>
+                                        <span style="font-size: 0.875rem; color: var(--text-secondary); margin-left: 8px;">加载画像...</span>
+                                    </div>
+                                    <div class="portrait-grid" id="portrait-cards-list"></div>
                                 </div>
-                                <div id="portrait-cards-list" class="row g-2"></div>
                             </div>
                         </div>
                     </div>
@@ -1180,252 +2267,277 @@
                         <div class="accordion super-steps-accordion" id="super-steps-accordion">
 
                             <!-- 步骤1：描述业务 -->
-                            <div class="accordion-item border-0 super-step-item" id="super-step-form">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button" type="button" data-bs-toggle="collapse"
-                                            data-bs-target="#step-form-body" id="step-form-btn">
-                                        <span class="step-badge me-2">1</span>
-                                        <strong>描述业务</strong>
-                                    </button>
-                                </h2>
-                                <div id="step-form-body" class="accordion-collapse collapse show" data-bs-parent="#super-steps-accordion">
-                                    <div class="accordion-body pt-3">
-                                        <div class="row g-3">
-                                            <div class="col-12">
-                                                <label class="form-label">核心业务 <span class="text-danger">*</span></label>
-                                                <input type="text" 
-                                                       class="form-control" 
-                                                       id="business-desc" 
-                                                       maxlength="20"
-                                                       placeholder="请输入你的1个核心业务，例如：餐盘无痕修复、家具翻新、门窗维修">
-                                                <div class="form-text text-muted">仅填写1个主营服务，不写城市、不写广告语、不写多个业务</div>
-                                                <div class="invalid-feedback" id="business-desc-error"></div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label">经营范围 <span class="text-danger">*</span></label>
-                                                <div class="d-flex gap-3 flex-wrap">
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region" checked>
-                                                        <label class="form-check-label" for="range-cross">🌍 跨区域（全国）</label>
+                            <div class="apple-accordion mb-3" id="super-step-form">
+                                <div class="apple-accordion-item">
+                                    <div class="apple-accordion-header-wrapper d-flex align-items-center justify-content-between w-100">
+                                        <button class="apple-accordion-header collapsed" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#step-form-body" id="step-form-btn" style="flex: 1;">
+                                            <div class="step-num">1</div>
+                                            <span class="step-title">描述业务</span>
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="collapse-icon" style="transition: transform 0.2s;">
+                                                <path d="M4 6L8 10L12 6"/>
+                                            </svg>
+                                        </button>
+                                        <button class="btn-apple btn-sm ms-3" id="btn-reset-super" onclick="resetSuperSnapshot()">
+                                            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
+                                                <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                                                <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                            </svg>
+                                            重置
+                                        </button>
+                                    </div>
+                                    <div id="step-form-body" class="accordion-collapse collapse" data-bs-parent="#super-step-form">
+                                        <div class="apple-accordion-body" style="padding: 20px;">
+                                            <div class="form-content-wrapper" style="max-width: 680px; margin: 0 auto;">
+                                                <div class="row g-3">
+                                                    <div class="col-12">
+                                                    <label class="form-label">核心业务 <span class="text-danger">*</span></label>
+                                                    <input type="text" 
+                                                           class="form-control"
+                                                           id="business-desc" 
+                                                           maxlength="20"
+                                                           placeholder="请输入你的1个核心业务，例如：餐盘无痕修复、家具翻新、门窗维修">
+                                                    <div class="form-text text-muted">仅填写1个主营服务，不写城市、不写广告语、不写多个业务</div>
+                                                    <div class="invalid-feedback" id="business-desc-error"></div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">经营范围 <span class="text-danger">*</span></label>
+                                                    <div class="d-flex gap-3 flex-wrap">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region" checked>
+                                                            <label class="form-check-label" for="range-cross">🌍 跨区域（全国）</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
+                                                            <label class="form-check-label" for="range-local">🏠 本地</label>
+                                                        </div>
                                                     </div>
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
-                                                        <label class="form-check-label" for="range-local">🏠 本地</label>
+                                                </div>
+                                                <!-- 本地城市补充信息（选填） -->
+                                                <div class="col-12" id="local-city-wrapper" style="display: none;">
+                                                    <label class="form-label">补充城市信息（选填）</label>
+                                                    <input type="text" class="form-control" id="local-city" placeholder="例如：成都">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">经营类型 <span class="text-danger">*</span></label>
+                                                    <div class="d-flex gap-3 flex-wrap">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="business-type" id="type-product" value="product">
+                                                            <label class="form-check-label" for="type-product">📦 消费品</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="business-type" id="type-service" value="local_service">
+                                                            <label class="form-check-label" for="type-service">🔧 本地服务</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="business-type" id="type-personal" value="personal">
+                                                            <label class="form-check-label" for="type-personal">👤 个人品牌</label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="business-type" id="type-enterprise" value="enterprise">
+                                                            <label class="form-check-label" for="type-enterprise">🏢 企业服务</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12 mt-3">
+                                                    <label class="form-label">你的主要服务场景</label>
+                                                    <select class="form-select" id="service-scenario" onchange="handleServiceScenarioChange()">
+                                                        <option value="">请选择你的核心服务场景</option>
+                                                        <option value="hotel_restaurant">🏨 酒店 / 餐饮 / 茶楼 / 高端会所（正餐、民宿、婚宴、茶室、私人会所、餐饮后厨配套）</option>
+                                                        <option value="residential">🏠 家用 / 住宅 / 小区业主（家庭自住、二手房翻新、家装配套、个人自用）</option>
+                                                        <option value="office_enterprise">🏢 写字楼 / 企业 / 工厂 / 园区（公司办公、厂区后勤、园区物业、企业采购）</option>
+                                                        <option value="institutional">🏫 学校 / 医院 / 食堂 / 政企单位（公立单位、食堂后勤、总务物资配套）</option>
+                                                        <option value="retail_chain">🛒 实体店 / 连锁门店 / 加盟品牌（门店经营、连锁供应链、加盟店配套）</option>
+                                                        <option value="renovation">🔨 装修 / 工装 / 工程定制（装修施工、工地配套、工程接单）</option>
+                                                        <option value="other">📝 其他小众场景（以上没有，简单写自己专属场景）</option>
+                                                    </select>
+                                                    <!-- 其他场景补充输入 -->
+                                                    <div id="other-scenario-wrapper" class="mt-2" style="display: none;">
+                                                        <input type="text" class="form-control" id="other-scenario-input" 
+                                                               placeholder="简单备注你的使用场景（限15字内）" maxlength="15">
+                                                    </div>
+                                                    <div id="scenario-lock-hint" class="form-text text-muted" style="display: none;">
+                                                        <i class="bi bi-lock-fill me-1"></i>选择固定场景后，人群库已自动锁定
+                                                    </div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <div id="ai-upgrade-hint" class="alert alert-info mt-3" style="display: none;">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <div>
+                                                                <i class="bi bi-stars me-1"></i>
+                                                                <strong>升级解锁AI精准画像</strong>
+                                                                <p class="mb-0 small">免费用户使用基础画像，付费用户获得AI深度分析</p>
+                                                            </div>
+                                                            <a href="/public/pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="text-center mt-4">
+                                                        <button class="btn btn-generate btn-lg" id="btn-one-key-analyze" onclick="mineAndGenerate()" style="border: 2px solid rgba(99,102,241,0.4); box-shadow: 0 4px 16px rgba(99,102,241,0.2);">
+                                                            🚀 开始一键分析
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <!-- 本地城市补充信息（选填） -->
-                                            <div class="col-md-6" id="local-city-wrapper" style="display: none;">
-                                                <label class="form-label">补充城市信息（选填）</label>
-                                                <input type="text" class="form-control" id="local-city" placeholder="例如：成都">
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label">经营类型 <span class="text-danger">*</span></label>
-                                                <div class="d-flex gap-3 flex-wrap">
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="business-type" id="type-product" value="product">
-                                                        <label class="form-check-label" for="type-product">📦 消费品</label>
-                                                    </div>
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="business-type" id="type-service" value="local_service">
-                                                        <label class="form-check-label" for="type-service">🔧 本地服务</label>
-                                                    </div>
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="business-type" id="type-personal" value="personal">
-                                                        <label class="form-check-label" for="type-personal">👤 个人品牌</label>
-                                                    </div>
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="business-type" id="type-enterprise" value="enterprise">
-                                                        <label class="form-check-label" for="type-enterprise">🏢 企业服务</label>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- 服务场景选择 -->
-                                        <div class="mt-3">
-                                            <label class="form-label">你的主要服务场景</label>
-                                            <select class="form-select" id="service-scenario" onchange="handleServiceScenarioChange()">
-                                                <option value="">请选择你的核心服务场景</option>
-                                                <option value="hotel_restaurant">🏨 酒店 / 餐饮 / 茶楼 / 高端会所（正餐、民宿、婚宴、茶室、私人会所、餐饮后厨配套）</option>
-                                                <option value="residential">🏠 家用 / 住宅 / 小区业主（家庭自住、二手房翻新、家装配套、个人自用）</option>
-                                                <option value="office_enterprise">🏢 写字楼 / 企业 / 工厂 / 园区（公司办公、厂区后勤、园区物业、企业采购）</option>
-                                                <option value="institutional">🏫 学校 / 医院 / 食堂 / 政企单位（公立单位、食堂后勤、总务物资配套）</option>
-                                                <option value="retail_chain">🛒 实体店 / 连锁门店 / 加盟品牌（门店经营、连锁供应链、加盟店配套）</option>
-                                                <option value="renovation">🔨 装修 / 工装 / 工程定制（装修施工、工地配套、工程接单）</option>
-                                                <option value="other">📝 其他小众场景（以上没有，简单写自己专属场景）</option>
-                                            </select>
-                                            <!-- 其他场景补充输入 -->
-                                            <div id="other-scenario-wrapper" class="mt-2" style="display: none;">
-                                                <input type="text" class="form-control" id="other-scenario-input" 
-                                                       placeholder="简单备注你的使用场景（限15字内）" maxlength="15">
-                                            </div>
-                                            <div id="scenario-lock-hint" class="form-text text-muted" style="display: none;">
-                                                <i class="bi bi-lock-fill me-1"></i>选择固定场景后，人群库已自动锁定
-                                            </div>
-                                        </div>
-
-                                        <div id="ai-upgrade-hint" class="alert alert-info mt-3" style="display: none;">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <i class="bi bi-stars me-1"></i>
-                                                    <strong>升级解锁AI精准画像</strong>
-                                                    <p class="mb-0 small">免费用户使用基础画像，付费用户获得AI深度分析</p>
-                                                </div>
-                                                <a href="/public/pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
-                                            </div>
-                                        </div>
-
-                                        <div class="text-center mt-4 d-flex justify-content-center gap-3 flex-wrap">
-                                            <button class="btn btn-generate btn-lg" id="btn-one-key-analyze" onclick="mineAndGenerate()">
-                                                🚀 开始一键分析
-                                            </button>
-                                            <button class="btn btn-outline-secondary btn-lg" id="btn-reset-super" onclick="resetSuperSnapshot()">
-                                                🔄 重置
-                                            </button>
                                         </div>
                                     </div>
-                                </div>
                             </div>
 
                             <!-- 步骤2：问题识别 -->
-                            <div class="accordion-item border-0 super-step-item" id="super-step-problems">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                            data-bs-target="#step-problems-body" id="step-problems-btn">
-                                        <span class="step-badge me-2">2</span>
-                                        <strong>问题识别</strong>
-                                    </button>
-                                </h2>
-                                <div id="step-problems-body" class="accordion-collapse collapse" data-bs-parent="#super-steps-accordion">
-                                    <div class="accordion-body pt-3">
-                                        <!-- 局部加载状态：问题识别中 -->
-                                        <div id="problem-mining-loading" class="text-center py-5" style="display: none;">
-                                            <div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;" role="status"></div>
-                                            <h5 class="text-primary mb-2">🔍 正在深入分析市场问题</h5>
-                                            <p class="text-muted small mb-0">AI 正在从海量数据中挖掘目标用户的核心痛点...</p>
-                                        </div>
-                                        <div id="problems-section">
-                                            <div id="market-analysis-card" class="mb-3" style="display: none;">
-                                                <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
-                                                    <div class="card-header d-flex align-items-center py-2 px-3" style="background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);">
-                                                        <span style="font-size:1.1rem;">📊</span>
-                                                        <span class="fw-bold text-white ms-2">市场机会分析</span>
+                            <div class="apple-accordion mb-3" id="super-step-problems">
+                                <div class="apple-accordion-item">
+                                    <div class="apple-accordion-header-wrapper d-flex align-items-center justify-content-between w-100">
+                                        <button class="apple-accordion-header collapsed" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#step-problems-body" id="step-problems-btn" style="flex: 1;">
+                                            <div class="step-num">2</div>
+                                            <span class="step-title">问题识别</span>
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="collapse-icon" style="transition: transform 0.2s;">
+                                                <path d="M4 6L8 10L12 6"/>
+                                            </svg>
+                                        </button>
+                                        <button class="btn-apple btn-sm ms-3" id="btn-refresh-identities" onclick="refreshIdentities()">
+                                            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
+                                                <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                                                <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                            </svg>
+                                            换一批
+                                        </button>
+                                    </div>
+                                    <div id="step-problems-body" class="accordion-collapse collapse" data-bs-parent="#super-step-problems">
+                                        <div class="apple-accordion-body" style="padding: 20px;">
+                                            <!-- 局部加载状态：问题识别中 -->
+                                            <div id="problem-mining-loading" class="loading-state" style="display: none;">
+                                                <div class="apple-spinner mx-auto"></div>
+                                                <h5>正在深入分析市场问题</h5>
+                                                <p>AI 正在从海量数据中挖掘目标用户的核心痛点...</p>
+                                            </div>
+                                            <div id="problems-section">
+                                                <div id="market-analysis-card" class="apple-card mb-4" style="display: none;">
+                                                    <div class="apple-card-header blue">
+                                                        <svg width="20" height="20" viewBox="0 0 20 20" fill="white">
+                                                            <path d="M3 13h14M3 6h14M3 10h8"/>
+                                                        </svg>
+                                                        <span style="font-weight: 600;">市场机会分析</span>
                                                     </div>
-                                                    <div class="card-body p-2" style="background:#f8fafc;">
-                                                        <div id="market-tags-row" class="d-flex flex-wrap gap-1 mb-2 align-items-start">
+                                                    <div class="apple-card-body" style="background: var(--apple-gray6);">
+                                                        <div id="market-tags-row" class="d-flex flex-wrap gap-2 mb-3 align-items-start">
                                                             <div id="blue-ocean-tag" class="market-tag blue-tag" style="display:none;">
-                                                                <span class="tag-icon">🎯</span>
+                                                                <span class="tag-icon"></span>
                                                                 <span class="tag-text" id="blue-ocean-opportunity">—</span>
                                                             </div>
                                                             <div id="red-ocean-tags"></div>
                                                         </div>
                                                         <div id="problem-keywords-section" style="display:none;">
                                                             <div class="kw-section-title">
-                                                                <span class="kw-icon">🔍</span>
+                                                                <span class="kw-icon"></span>
                                                                 <span class="kw-label">问题导向词</span>
-                                                                <span class="badge bg-primary kw-count" id="keyword-count">0 个</span>
+                                                                <span class="apple-badge blue kw-count" id="keyword-count">0 个</span>
                                                             </div>
                                                             <p class="kw-subtitle">用户搜索时使用的问题词，可直接用于标题创作</p>
                                                             <div class="problem-keywords-wrap" id="problem-keywords-list"></div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <h5 class="mb-0">📊 问题洞察</h5>
-                                                <button class="btn btn-sm btn-outline-primary" id="btn-refresh-identities" onclick="refreshIdentities()">
-                                                    🔄 换一批
-                                                </button>
+                                                <div class="row g-3 problem-grid" id="user-pains-list"></div>
                                             </div>
-                                            <div class="row g-3" id="user-pains-list"></div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- 步骤3：生成画像 -->
-                            <div class="accordion-item border-0 super-step-item" id="super-step-portraits">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                            data-bs-target="#step-portraits-body" id="step-portraits-btn">
-                                        <span class="step-badge me-2">3</span>
-                                        <strong>生成画像</strong>
-                                    </button>
-                                </h2>
-                                <div id="step-portraits-body" class="accordion-collapse collapse" data-bs-parent="#super-steps-accordion">
-                                    <div class="accordion-body pt-3">
-                                        <!-- 局部加载状态：生成画像中 -->
-                                        <div id="portrait-generating-loading" class="text-center py-5" style="display: none;">
-                                            <div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;" role="status"></div>
-                                            <h5 class="text-primary mb-2">🎯 正在为您生成精准人群画像</h5>
-                                            <p class="text-muted small mb-0">AI 正在基于问题洞察构建目标用户画像...</p>
-                                        </div>
-                                        <div id="target-customers-section">
-                                            <h5 class="mb-3">👥 目标用户画像</h5>
-                                            <div id="portrait-quota-display" class="mb-3"></div>
-                                            <div class="d-flex justify-content-between align-items-center mb-3" id="portrait-actions-bar">
-                                                <div class="small text-muted">已生成 <span id="target-count">0</span> 个目标用户</div>
-                                                <div>
-                                                    <button class="btn btn-sm btn-outline-secondary" id="btn-refresh-targets" onclick="refreshTargetCustomers()">
-                                                        🔄 换一批
-                                                    </button>
-                                                </div>
+                            <div class="apple-accordion" id="super-step-portraits">
+                                <div class="apple-accordion-item">
+                                    <div class="apple-accordion-header-wrapper d-flex align-items-center justify-content-between w-100">
+                                        <button class="apple-accordion-header collapsed" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#step-portraits-body" id="step-portraits-btn" style="flex: 1;">
+                                            <div class="step-num">3</div>
+                                            <span class="step-title">生成画像</span>
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="collapse-icon" style="transition: transform 0.2s;">
+                                                <path d="M4 6L8 10L12 6"/>
+                                            </svg>
+                                        </button>
+                                        <button class="btn-apple btn-sm ms-3" id="btn-refresh-targets" onclick="refreshTargetCustomers()">
+                                            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
+                                                <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                                                <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                            </svg>
+                                            换一批
+                                        </button>
+                                    </div>
+                                    <div id="step-portraits-body" class="accordion-collapse collapse" data-bs-parent="#super-step-portraits">
+                                        <div class="apple-accordion-body" style="padding: 20px;">
+                                            <!-- 局部加载状态：生成画像中 -->
+                                            <div id="portrait-generating-loading" class="loading-state" style="display: none;">
+                                                <div class="apple-spinner mx-auto"></div>
+                                                <h5>正在为您生成精准人群画像</h5>
+                                                <p>AI 正在基于问题洞察构建目标用户画像...</p>
                                             </div>
-                                            <div class="row g-4" id="target-customers-list"></div>
+                                            <div id="target-customers-section">
+                                                <div id="portrait-quota-display" class="mb-3"></div>
+                                                <div class="small text-secondary mb-4">已生成 <span id="target-count" style="font-weight: 600; color: var(--apple-blue);">0</span> 个目标用户</div>
+                                                <div class="portrait-grid" id="target-customers-list"></div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
-                        </div><!-- /.accordion#super-steps-accordion -->
-                    </div><!-- /#tab-super-content -->
+                        </div><!-- /#tab-super-content -->
 
                         <!-- 生成内容 Tab 内容 -->
                         <div id="tab-content-content" style="display: none;">
                             <!-- 选题展示区域 -->
                             <div id="topics-section" class="mt-4" style="display: none;">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="mb-0">📋 推荐选题</h5>
-                                    <button class="btn btn-sm btn-outline-primary" id="btn-refresh-topics" onclick="refreshTopics()">
-                                        🔄 换一批
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h5 class="mb-0" style="font-size: 1.0625rem; font-weight: 600;">推荐选题</h5>
+                                    <button class="btn-apple btn-sm" id="btn-refresh-topics" onclick="refreshTopics()">
+                                        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
+                                            <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                                            <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                        </svg>
+                                        换一批
                                     </button>
                                 </div>
                                 <div class="row g-3" id="topics-list">
                                     <!-- 选题卡片将通过JS动态生成 -->
                                 </div>
                                 <!-- 付费用户专属提示 -->
-                                <div id="premium-topics-hint" class="alert alert-warning mt-3" style="display: none;">
+                                <div id="premium-topics-hint" class="apple-card p-4 mt-4" style="display: none; background: linear-gradient(135deg, #FFF8E8 0%, #FFF4E5 100%); border: 1px solid #FFD700;">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <i class="bi bi-star-fill me-1"></i>
-                                            <strong>付费用户专享</strong>
-                                            <p class="mb-0 small">升级后可换一批选题，获得更多精准选题推荐</p>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="#FF9500">
+                                                <path d="M10 1L12.5 7H19L13.5 11L15.5 17L10 13.5L4.5 17L6.5 11L1 7H7.5L10 1Z"/>
+                                            </svg>
+                                            <div>
+                                                <strong>付费用户专享</strong>
+                                                <p class="mb-0 small" style="color: var(--text-secondary);">升级后可换一批选题，获得更多精准选题推荐</p>
+                                            </div>
                                         </div>
-                                        <a href="/public/pricing" class="btn btn-sm btn-outline-warning">了解套餐</a>
+                                        <a href="/public/pricing" class="btn-apple" style="border-color: #FF9500; color: #FF9500;">了解套餐</a>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- 内容生成区域 -->
                             <div id="topic-content-section" class="mt-4" style="display: none;">
-                                <div class="result-card">
-                                    <h5>📝 选题内容预览</h5>
-                                    <div class="selected-topic-info mb-3 p-3 bg-light rounded">
+                                <div class="apple-card p-4">
+                                    <h5 style="font-size: 1.0625rem; font-weight: 600; margin-bottom: 16px;">选题内容预览</h5>
+                                    <div class="selected-topic-info mb-4 p-3" style="background: var(--apple-gray6); border-radius: var(--radius-md);">
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div>
-                                                <span class="badge bg-primary me-2" id="selected-topic-type"></span>
+                                                <span class="apple-badge blue me-2" id="selected-topic-type"></span>
                                                 <span class="selected-topic-title" id="selected-topic-title"></span>
                                             </div>
-                                            <button class="btn btn-sm btn-outline-secondary" onclick="changeTopic()">更换选题</button>
+                                            <button class="btn-apple btn-sm" onclick="changeTopic()">更换选题</button>
                                         </div>
                                     </div>
                                     <div id="topic-content-result">
                                         <!-- 内容将通过JS动态生成 -->
                                     </div>
-                                    <div class="mt-3 text-end">
-                                        <button class="btn btn-copy" onclick="copyTopicContent()">📋 复制全部内容</button>
+                                </div>
+                            </div>
                                     </div>
                                 </div>
                             </div>
@@ -1433,64 +2545,92 @@
                             <!-- 生成结果 -->
                             <div id="result" class="mt-4" style="display: none;">
                                 <!-- 标题 -->
-                                <div class="result-card">
-                                    <h5>📌 标题</h5>
-                                    <div class="result-content" id="result-titles"></div>
+                                <div class="apple-card p-4 mb-3">
+                                    <h5 style="font-size: 1.0625rem; font-weight: 600; margin-bottom: 16px;">
+                                        <svg width="18" height="18" viewBox="0 0 18 18" fill="var(--apple-blue)" style="margin-right: 8px; vertical-align: middle;">
+                                            <path d="M9 1L11 7H17L12 11L14 17L9 13L4 17L6 11L1 7H7L9 1Z"/>
+                                        </svg>
+                                        标题
+                                    </h5>
+                                    <div id="result-titles"></div>
                                 </div>
 
                                 <!-- 标签 -->
-                                <div class="result-card">
-                                    <h5>🏷️ 标签</h5>
-                                    <div class="result-content" id="result-tags"></div>
+                                <div class="apple-card p-4 mb-3">
+                                    <h5 style="font-size: 1.0625rem; font-weight: 600; margin-bottom: 16px;">
+                                        <svg width="18" height="18" viewBox="0 0 18 18" fill="var(--apple-green)" style="margin-right: 8px; vertical-align: middle;">
+                                            <path d="M1 9L9 1L17 9L9 17L1 9Z"/>
+                                            <circle cx="9" cy="9" r="3" fill="white"/>
+                                        </svg>
+                                        标签
+                                    </h5>
+                                    <div id="result-tags"></div>
                                 </div>
 
                                 <!-- 图文内容 -->
-                                <div class="result-card">
-                                    <h5>📄 图文内容</h5>
-                                    <div class="result-content" id="result-content"></div>
-                                    <div class="mt-3 text-end">
-                                        <button class="btn btn-copy" onclick="copyContent()">📋 复制全部内容</button>
-                                    </div>
+                                <div class="apple-card p-4">
+                                    <h5 style="font-size: 1.0625rem; font-weight: 600; margin-bottom: 16px;">
+                                        <svg width="18" height="18" viewBox="0 0 18 18" fill="var(--apple-purple)" style="margin-right: 8px; vertical-align: middle;">
+                                            <rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+                                            <path d="M6 6h6M6 10h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        图文内容
+                                    </h5>
+                                    <div id="result-content" style="padding: 16px; background: var(--apple-gray6); border-radius: var(--radius-md);"></div>
                                 </div>
                             </div>
 
                             <!-- 加载状态 -->
-                            <div id="loading" class="text-center py-5" style="display: none;">
-                                <div class="spinner-border text-primary" role="status"></div>
-                                <p class="mt-3 text-muted" id="loading-text">正在生成，请稍候...</p>
+                            <div id="loading" class="loading-state" style="display: none;">
+                                <div class="apple-spinner mx-auto"></div>
+                                <h5 id="loading-text" style="margin-top: 20px;">正在生成，请稍候...</h5>
                             </div>
                         </div><!-- /#tab-content-content -->
-                    </div>
-            </div>
-        </div>
-    </section>
+                    </div><!-- /#generator-form -->
+                </div><!-- /.mac-window-body -->
+            </div><!-- /.mac-window -->
+        </div><!-- /.main-container -->
+    </main>
 
-    <!-- Footer -->
+    <!-- macOS 风格 Footer -->
     <footer>
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <h6 class="mb-3">关于 AI 棱镜</h6>
-                    <p class="small opacity-75 mb-0">
+                    <h6 style="font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="url(#footerGrad)">
+                            <path d="M10 2L2 6L10 10L18 6L10 2Z"/>
+                            <path d="M2 14L10 18L18 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M2 10L10 14L18 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <defs>
+                                <linearGradient id="footerGrad" x1="2" y1="2" x2="18" y2="18">
+                                    <stop stop-color="#007AFF"/>
+                                    <stop offset="1" stop-color="#AF52DE"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        AI 棱镜
+                    </h6>
+                    <p class="small mb-0" style="color: var(--text-secondary); line-height: 1.6;">
                         AI时代创作者的内容生产引擎，基于大语言模型和爆款数据分析，
                         帮助内容被 AI 收录引用，打造专属内容获客资产。
                     </p>
                 </div>
                 <div class="col-md-3">
-                    <h6 class="mb-3">快速链接</h6>
-                    <ul class="list-unstyled small opacity-75">
-                        <li><a href="/public/#features" class="text-white text-decoration-none">功能介绍</a></li>
-                        <li><a href="/public/pricing" class="text-white text-decoration-none">定价方案</a></li>
-                        <li><a href="/public/register" class="text-white text-decoration-none">免费注册</a></li>
+                    <h6>快速链接</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><a href="/public/#features">功能介绍</a></li>
+                        <li class="mb-2"><a href="/public/pricing">定价方案</a></li>
+                        <li class="mb-2"><a href="/public/register">免费注册</a></li>
                     </ul>
                 </div>
                 <div class="col-md-3">
-                    <h6 class="mb-3">联系方式</h6>
-                    <p class="small opacity-75 mb-0">商务合作请联系</p>
+                    <h6>联系方式</h6>
+                    <p class="small mb-0" style="color: var(--text-secondary);">商务合作请联系</p>
                 </div>
             </div>
-            <hr class="my-4 opacity-25">
-            <p class="text-center mb-0 small opacity-75">© 2024 AI 棱镜 - 让内容创作更智能</p>
+            <hr style="margin: 32px 0 24px; border-color: var(--apple-gray5);">
+            <p class="text-center mb-0 small" style="color: var(--text-secondary);">© 2024 AI 棱镜 - 让内容创作更智能</p>
         </div>
     </footer>
 
@@ -1498,6 +2638,104 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
             crossorigin="anonymous"></script>
+    <script>
+        // ================================================================
+        // Mac 风格交互增强
+        // ================================================================
+        
+        // 气泡标签单选框处理
+        document.addEventListener('DOMContentLoaded', function() {
+            // 为所有气泡标签内的 radio 添加点击处理
+            document.querySelectorAll('.bubble-tag input[type="radio"]').forEach(function(radio) {
+                const bubble = radio.closest('.bubble-tag');
+                if (bubble) {
+                    // 点击气泡时选中 radio
+                    bubble.addEventListener('click', function() {
+                        // 移除同组其他选中状态
+                        const name = radio.name;
+                        document.querySelectorAll(`input[name="${name}"]`).forEach(function(r) {
+                            r.closest('.bubble-tag')?.classList.remove('selected');
+                        });
+                        // 添加选中状态
+                        bubble.classList.add('selected');
+                    });
+                }
+            });
+            
+            // 初始化已选中的气泡标签
+            document.querySelectorAll('input[type="radio"]:checked').forEach(function(radio) {
+                const bubble = radio.closest('.bubble-tag');
+                if (bubble) {
+                    bubble.classList.add('selected');
+                }
+            });
+            
+            // 手风琴图标旋转
+            document.querySelectorAll('.apple-accordion-header').forEach(function(header) {
+                const collapse = document.querySelector(header.getAttribute('data-bs-target'));
+                if (collapse) {
+                    const icon = header.querySelector('.collapse-icon');
+                    collapse.addEventListener('show.bs.collapse', function() {
+                        header.classList.add('active');
+                        if (icon) icon.style.transform = 'rotate(180deg)';
+                    });
+                    collapse.addEventListener('hide.bs.collapse', function() {
+                        header.classList.remove('active');
+                        if (icon) icon.style.transform = 'rotate(0deg)';
+                    });
+                    // 初始化状态：默认全部折叠（已保存画像除外）
+                    if (collapse.classList.contains('show')) {
+                        header.classList.add('active');
+                        if (icon) icon.style.transform = 'rotate(180deg)';
+                    } else {
+                        // 强制折叠，确保三步默认折叠
+                        collapse.classList.remove('show');
+                        header.classList.remove('active');
+                        if (icon) icon.style.transform = 'rotate(0deg)';
+                    }
+                }
+            });
+
+            // 描述业务步骤展开时，折叠已保存画像区域
+            const stepFormBody = document.getElementById('step-form-body');
+            if (stepFormBody) {
+                stepFormBody.addEventListener('shown.bs.collapse', _collapsePortraitSection);
+            }
+        });
+        
+        // 步骤指示器更新函数（供其他JS调用）
+        function updateStepIndicator(step) {
+            const indicators = [
+                document.getElementById('step-1-indicator'),
+                document.getElementById('step-2-indicator'),
+                document.getElementById('step-3-indicator')
+            ];
+            const lines = [
+                document.getElementById('step-line-1'),
+                document.getElementById('step-line-2')
+            ];
+            
+            indicators.forEach(function(ind, i) {
+                if (ind) {
+                    ind.classList.remove('active', 'completed');
+                    if (i + 1 < step) {
+                        ind.classList.add('completed');
+                    } else if (i + 1 === step) {
+                        ind.classList.add('active');
+                    }
+                }
+            });
+            
+            lines.forEach(function(line, i) {
+                if (line) {
+                    line.classList.remove('active');
+                    if (i + 1 < step) {
+                        line.classList.add('active');
+                    }
+                }
+            });
+        }
+    </script>
     <script>
         let currentUser = null;
         let generatedContent = null;
@@ -1633,9 +2871,10 @@
             document.getElementById('target-customers-list').innerHTML = '';
             _allProblems = [];
             _allPortraits = {};
-            // 折叠所有步骤，打开第一步
+            // 默认进来三块都是折叠的
+            // 折叠所有步骤
             const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-form-body'), {toggle: false});
-            bsCollapse1.show();
+            bsCollapse1.hide();
             const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
             bsCollapse2.hide();
             const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
@@ -1649,9 +2888,9 @@
             if (superSection) {
                 superSection.style.display = 'block';
             }
-            // 折叠第二、三步，打开第一步
+            // 三块默认折叠
             const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-form-body'), {toggle: false});
-            bsCollapse1.show();
+            bsCollapse1.hide();
             const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
             bsCollapse2.hide();
             const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
@@ -1711,6 +2950,9 @@
             const tabContent = document.getElementById('tab-content');
             const superContent = document.getElementById('tab-super-content');
             const contentContent = document.getElementById('tab-content-content');
+
+            // 折叠已保存画像区域
+            _collapsePortraitSection();
 
             if (tab === 'super') {
                 tabSuper?.classList.add('active');
@@ -1984,10 +3226,12 @@
         
         // 显示已保存画像区域和保存按钮（登录后）
         function showSavedPortraitsSection() {
-            const section = document.getElementById('saved-portraits-section');
+            const section = document.getElementById('portrait-section');
             if (section) {
                 section.style.display = 'block';
             }
+            // 重置为展开状态
+            _expandPortraitSection();
             // 根据套餐显示保存按钮
             const planName = currentUser?.quota?.plan_name || '';
             const btn = document.getElementById('btn-save-portrait');
@@ -2023,10 +3267,66 @@
         let _isGeneratingPortraits = false;  // 防止多卡片同时点「生成」
 
         // ================================================================
+        // 问题卡片 Cover Flow 状态
+        // ================================================================
+        let _probCfContainer = null;
+        let _probCfIndex = 0;
+        let _probCfCardWidth = 450;
+        let _probCfDragging = false;
+        let _probCfStartX = 0;
+        let _probCfCurrentX = 0;
+        let _probCfThreshold = 90;
+        let _probCfBoundHandlers = null;
+        let _probCfProblems = [];  // 当前问题列表数据
+        let _probCfSelectedIndex = 0;
+
+        // 折叠已保存画像区域（超级定位流程开始时调用）
+        function _collapsePortraitSection() {
+            const collapseEl = document.getElementById('portrait-cards-collapse');
+            const chevron = document.getElementById('portrait-section-chevron');
+            if (collapseEl) {
+                collapseEl.classList.remove('show');
+            }
+            if (chevron) {
+                chevron.style.transform = 'rotate(-90deg)';
+            }
+        }
+
+        // 展开已保存画像区域
+        function _expandPortraitSection() {
+            const collapseEl = document.getElementById('portrait-cards-collapse');
+            const chevron = document.getElementById('portrait-section-chevron');
+            if (collapseEl) {
+                collapseEl.classList.add('show');
+            }
+            if (chevron) {
+                chevron.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // 点击已保存画像标题栏切换折叠/展开
+        window._togglePortraitSection = function() {
+            const collapseEl = document.getElementById('portrait-cards-collapse');
+            const chevron = document.getElementById('portrait-section-chevron');
+            if (!collapseEl) return;
+            const isCollapsed = !collapseEl.classList.contains('show');
+            if (isCollapsed) {
+                collapseEl.classList.add('show');
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+            } else {
+                collapseEl.classList.remove('show');
+                if (chevron) chevron.style.transform = 'rotate(-90deg)';
+            }
+        };
+
+        // ================================================================
         // 一键分析：问题挖掘 + 画像生成
         // ================================================================
 
         async function mineAndGenerate() {
+            // 折叠已保存画像区域，避免干扰流程
+            _collapsePortraitSection();
+
             // 保存快照
             saveSuperSnapshot();
 
@@ -2260,33 +3560,258 @@
                 return;
             }
 
-            problems.forEach((type, index) => {
+            // 保存问题数据供 Cover Flow 使用
+            _probCfProblems = problems;
+
+            // Cover Flow 模式
+            _probCfContainer = userList;
+            userList.innerHTML = _buildProblemCfHTML(problems);
+            _initProblemCf();
+        }
+
+        // 构建问题 Cover Flow HTML
+        function _buildProblemCfHTML(problems) {
+            const cards = problems.map((type, index) => {
                 const identity = type.identity || '';
                 const problemType = type.problem_type || '';
-                // 统一使用后端 id；若仍缺省则带下标兜底，避免多张卡 data-key 相同被同时选中
                 const rawId = type.id != null ? String(type.id).trim() : '';
                 const key = rawId || ('_p_' + index + '_' + identity + problemType);
                 const portraitCount = _allPortraits[key] ? _allPortraits[key].length : 0;
-                const card = buildProblemCard(key, identity, problemType, type.severity || '', portraitCount, type);
-                userList.appendChild(card);
+                const severity = type.severity || '';
+                const stars = severity === '极高' ? '⭐⭐⭐⭐⭐' : severity === '高' ? '⭐⭐⭐⭐' : '⭐⭐⭐';
+                const hasPortraits = portraitCount > 0;
+                const cardBody = _buildProblemCardContent(type, key, identity, problemType, portraitCount);
+                return `<div class="prob-cf-card${index === 0 ? ' active' : ''}" data-index="${index}" data-key="${escHtml(key)}">
+                    <div class="prob-cf-inner">
+                        ${cardBody}
+                    </div>
+                </div>`;
+            }).join('');
+
+            return `<div class="prob-cf-stage">
+                <div class="prob-cf-nav">
+                    <button class="cf-arrow" onclick="_probCfPrev()" id="prob-cf-prev">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10 3L5 8L10 13"/></svg>
+                    </button>
+                    <button class="cf-arrow" onclick="_probCfNext()" id="prob-cf-next">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3L11 8L6 13"/></svg>
+                    </button>
+                </div>
+                <div class="prob-cf-track">${cards}</div>
+                <span class="prob-cf-counter" id="prob-cf-counter">1 / ${problems.length}</span>
+            </div>`;
+        }
+
+        // 构建单张问题卡片的内部内容
+        function _buildProblemCardContent(type, key, identity, problemType, portraitCount) {
+            const severity = type.severity || '';
+            const stars = severity === '极高' ? '⭐⭐⭐⭐⭐' : severity === '高' ? '⭐⭐⭐⭐' : '⭐⭐⭐';
+            const hasPortraits = portraitCount > 0;
+
+            const tagIcon = identity.includes('宝') || identity.includes('宝宝') ? '👶' :
+                           identity.includes('老') || identity.includes('老人') || identity.includes('爸妈') ? '👴' :
+                           identity.includes('女') ? '👩' :
+                           identity.includes('新郎') ? '🤵' :
+                           identity.includes('宾') ? '🎉' :
+                           identity.includes('企') || identity.includes('公司') || identity.includes('酒店') ? '🏢' : '👤';
+
+            const isUser = !identity.includes('企业') && !identity.includes('公司') && !identity.includes('采购');
+            const badgeClass = isUser ? 'id-user' : 'id-buyer';
+
+            // 问题关键词
+            const keywords = type.problem_keywords || [];
+            const kwHtml = keywords.slice(0, 5).map(k => {
+                const kwText = typeof k === 'object' ? (k.keyword || '') : (k || '');
+                if (!kwText) return '';
+                const isMarket = type.market_keywords && (Array.isArray(type.market_keywords) ? type.market_keywords.some(mk => typeof mk === 'string' ? mk === kwText : (typeof mk === 'object' && (mk.keyword || mk) === kwText)) : false);
+                const kwClass = isMarket ? 'prob-kw blue' : 'prob-kw red';
+                return `<span class="${kwClass}">${escHtml(kwText)}</span>`;
+            }).join('');
+
+            // 问题底盘标签
+            const baseTag = type.problem_base || '';
+            const baseTagClass = baseTag.includes('刚需痛点盘') ? 'base-tag red' :
+                                baseTag.includes('前置观望种草盘') ? 'base-tag yellow' :
+                                baseTag.includes('使用配套搜后种草盘') ? 'base-tag green' : 'base-tag';
+
+            const baseBadge = baseTag ? `<span class="${baseTagClass}">${escHtml(baseTag)}</span>` : '';
+
+            // 双标签
+            let dualBadges = '';
+            const consumeType = type.consume_type || '';
+            const demandAttr = type.demand_attr || '';
+            if (consumeType || demandAttr) {
+                dualBadges += consumeType ? `<span class="prob-tag ${consumeType === '必需' ? 'red' : consumeType === '增量' ? 'green' : 'gray'}">${escHtml(consumeType)}</span>` : '';
+                dualBadges += demandAttr ? `<span class="prob-tag ${demandAttr === '功能驱动' ? 'orange' : demandAttr === '场景情绪驱动' ? 'purple' : 'gray'}">${escHtml(demandAttr)}</span>` : '';
+            }
+
+            const problemJson = encodeURIComponent(JSON.stringify(type));
+
+            let content = `<div class="prob-cf-header">
+                <div class="prob-cf-title-row">
+                    <span class="prob-cf-type">${escHtml(problemType)}</span>
+                    <span class="prob-cf-identity ${badgeClass}">${tagIcon} ${escHtml(identity)}</span>
+                </div>
+                <div class="prob-cf-tags-row">
+                    ${baseBadge}
+                    ${dualBadges}
+                </div>
+            </div>
+            <div class="prob-cf-severity">
+                <span class="prob-stars">${stars}</span>
+                <span class="prob-severity-label">${severity}严重</span>
+            </div>`;
+
+            const desc = type.description || '';
+            if (desc) {
+                const cleanDesc = desc.replace(/^【[^】]*】/, '').trim();
+                if (cleanDesc) {
+                    content += `<div class="prob-cf-desc">${escHtml(cleanDesc)}</div>`;
+                }
+            }
+
+            if (kwHtml) {
+                content += `<div class="prob-cf-kw-row">${kwHtml}</div>`;
+            }
+
+            content += `<div class="prob-cf-footer">
+                <span class="prob-cf-status ${hasPortraits ? 'done' : ''}">
+                    ${hasPortraits ? '✓ 已生成画像' : '点击下方按钮生成人群画像'}
+                </span>
+                <button class="btn btn-primary prob-cf-generate"
+                    data-key="${escHtml(key)}"
+                    data-problem="${problemJson}">
+                    ${hasPortraits ? '查看画像' : '生成画像'}
+                </button>
+            </div>`;
+
+            return content;
+        }
+
+        // 初始化问题 Cover Flow
+        function _initProblemCf() {
+            _probCfIndex = 0;
+            _probCfCardWidth = 450;
+            _probCfDragging = false;
+            _probCfStartX = 0;
+            _probCfCurrentX = 0;
+            _probCfThreshold = 90;
+
+            const stage = _probCfContainer?.querySelector('.prob-cf-stage');
+            const track = _probCfContainer?.querySelector('.prob-cf-track');
+            const prevBtn = null;
+            const nextBtn = null;
+            if (!stage || !track) return;
+
+            // 移除旧事件
+            if (_probCfBoundHandlers) {
+                document.removeEventListener('mousemove', _probCfBoundHandlers.onMove);
+                document.removeEventListener('mouseup', _probCfBoundHandlers.onEnd);
+                document.removeEventListener('touchmove', _probCfBoundHandlers.onMove);
+                document.removeEventListener('touchend', _probCfBoundHandlers.onEnd);
+            }
+
+            const onStart = function(e) {
+                _probCfDragging = true;
+                _probCfStartX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+                _probCfCurrentX = 0;
+                track.style.transition = 'none';
+            };
+            const onMove = function(e) {
+                if (!_probCfDragging) return;
+                if (e.type === 'touchmove') e.preventDefault();
+                const clientX = e.type.includes('mouse') ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+                _probCfCurrentX = clientX - _probCfStartX;
+                _updateProblemCfTransform(_probCfIndex, _probCfCurrentX);
+            };
+            const onEnd = function() {
+                if (!_probCfDragging) return;
+                _probCfDragging = false;
+                track.style.transition = '';
+                const delta = _probCfCurrentX;
+                if (delta < -_probCfThreshold && _probCfIndex < _probCfProblems.length - 1) {
+                    _probCfIndex++;
+                } else if (delta > _probCfThreshold && _probCfIndex > 0) {
+                    _probCfIndex--;
+                }
+                _updateProblemCfTransform(_probCfIndex, 0);
+                _updateProbCfCounter();
+            };
+
+            _probCfBoundHandlers = { onMove, onEnd };
+
+            track.addEventListener('mousedown', onStart);
+            track.addEventListener('touchstart', onStart, { passive: true });
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('touchmove', onMove, { passive: false });
+            document.addEventListener('mouseup', onEnd);
+            document.addEventListener('touchend', onEnd);
+
+            // 键盘导航
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft') _probCfPrev();
+                if (e.key === 'ArrowRight') _probCfNext();
             });
 
-            // 事件委托：处理生成按钮点击
-            userList.onclick = function(e) {
-                const btn = e.target.closest('.btn-primary[data-key]');
+            // 生成按钮点击
+            _probCfContainer.addEventListener('click', function(e) {
+                const btn = e.target.closest('.prob-cf-generate');
                 if (btn) {
                     e.stopPropagation();
                     const key = btn.dataset.key;
                     const problemJson = btn.dataset.problem;
                     try {
-                        const problemData = JSON.parse(decodeURIComponent(escape(atob(problemJson))));
+                        const problemData = JSON.parse(decodeURIComponent(problemJson));
                         generatePortraitsForProblem(key, problemData);
                     } catch (err) {
                         console.error('解析问题数据失败:', err);
                         showToast('数据解析失败', 'error');
                     }
                 }
-            };
+            });
+
+            _updateProblemCfTransform(_probCfIndex, 0);
+        }
+
+        function _updateProblemCfTransform(index, offset) {
+            const track = _probCfContainer?.querySelector('.prob-cf-track');
+            if (!track) return;
+            const cards = track.querySelectorAll('.prob-cf-card');
+            cards.forEach((card, i) => {
+                const pos = i - index;
+                const x = pos * _probCfCardWidth + offset;
+                const rotateY = pos * -22;
+                const scale = i === index ? 1.05 : 0.85;
+                const zIndex = 100 - Math.abs(pos);
+                const opacity = Math.abs(pos) > 2 ? 0 : 1;
+                card.style.transform = `translateX(${x}px) rotateY(${rotateY}deg) scale(${scale})`;
+                card.style.zIndex = zIndex;
+                card.style.opacity = opacity;
+                card.classList.toggle('active', i === index);
+            });
+        }
+
+        function _probCfPrev() {
+            if (_probCfIndex > 0) {
+                _probCfIndex--;
+                _updateProblemCfTransform(_probCfIndex, 0);
+                _updateProbCfCounter();
+            }
+        }
+
+        function _probCfNext() {
+            if (_probCfIndex < _probCfProblems.length - 1) {
+                _probCfIndex++;
+                _updateProblemCfTransform(_probCfIndex, 0);
+                _updateProbCfCounter();
+            }
+        }
+
+        function _updateProbCfCounter() {
+            const counter = _probCfContainer?.querySelector('#prob-cf-counter');
+            if (counter) {
+                counter.textContent = `${_probCfIndex + 1} / ${_probCfProblems.length}`;
+            }
         }
 
         // 选择问题卡片，显示对应画像
@@ -2350,7 +3875,7 @@
 
             portraits.forEach((target, index) => {
                 const card = document.createElement('div');
-                card.className = 'col-md-6 col-12 mb-3';
+                card.className = 'col-md-6';
 
                 // 画像名称（标题）
                 const displayTitle = target.name || '用户画像';
@@ -2528,8 +4053,9 @@
                     cardContent += `<div style="margin-top:0.5rem; padding:0.5rem; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">`;
                     cardContent += `<div style="font-size:11px; font-weight:600; color:#475569; margin-bottom:4px;">🔍 搜索行为预判</div>`;
                     searchBehaviors.forEach(function(behavior) {
-                        if (behavior && String(behavior).trim()) {
-                            cardContent += `<div style="font-size:11px; color:#64748b; padding:2px 0; padding-left:8px; border-left:2px solid #cbd5e1;">${escHtml(String(behavior))}</div>`;
+                        const text = typeof behavior === 'object' ? (behavior.keyword || behavior.text || '') : (behavior || '');
+                        if (text && String(text).trim()) {
+                            cardContent += `<div style="font-size:11px; color:#64748b; padding:2px 0; padding-left:8px; border-left:2px solid #cbd5e1;">${escHtml(String(text))}</div>`;
                         }
                     });
                     cardContent += `</div>`;
@@ -2576,7 +4102,7 @@
         // 构建单张问题卡片（顶部一行 = 问题类型 + 身份标签们）
         function buildProblemCard(key, identity, problemType, severity, portraitCount, problemData) {
             const col = document.createElement('div');
-            col.className = 'col-md-4 col-sm-6';
+            col.className = 'col-md-6';
             col.dataset.key = key;
             col.dataset.problemData = JSON.stringify(problemData);
 
@@ -2725,7 +4251,7 @@
         function commitPortraitsResult(saveKey, problemData, portraits) {
             _allPortraits[saveKey] = portraits;
             console.log('[commitPortraitsResult] saveKey=' + saveKey + ', 当前 _allPortraits keys=' + Object.keys(_allPortraits));
-            const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-4')).find(function (c) {
+            const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-6')).find(function (c) {
                 return String(c.dataset.key || '') === String(saveKey || '');
             });
             if (card) {
@@ -2771,7 +4297,7 @@
             document.getElementById('target-customers-section').style.display = 'none';
 
             // 找到问题对应的卡片，添加 loading 状态
-            const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-4')).find(function (c) {
+            const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-6')).find(function (c) {
                 return String(c.dataset.key || '') === String(key || '');
             });
             const btn = card?.querySelector('.pc-foot button');
@@ -2781,7 +4307,7 @@
             }
 
             // 禁用所有未生成卡片的「生成」按钮
-            document.querySelectorAll('#user-pains-list .col-md-4').forEach(function (c) {
+            document.querySelectorAll('#user-pains-list .col-md-6').forEach(function (c) {
                 const b = c.querySelector('.pc-foot button');
                 if (b && !b.disabled) b.disabled = true;
             });
@@ -2790,7 +4316,7 @@
 
             function resetBtn() {
                 _isGeneratingPortraits = false;
-                document.querySelectorAll('#user-pains-list .col-md-4').forEach(function (c) {
+                document.querySelectorAll('#user-pains-list .col-md-6').forEach(function (c) {
                     const b = c.querySelector('.pc-foot button');
                     if (b) {
                         b.disabled = false;
@@ -2928,7 +4454,7 @@
                     } finally {
                         if (mySeq !== _refreshSeq) return;
                         _isGeneratingPortraits = false;
-                        document.querySelectorAll('#user-pains-list .col-md-4').forEach(function (c) {
+                        document.querySelectorAll('#user-pains-list .col-md-6').forEach(function (c) {
                             var b = c.querySelector('.pc-foot button');
                             if (b) {
                                 b.disabled = false;
@@ -3122,8 +4648,9 @@
             // 显示标签
             var tagsHtml = '<div class="d-flex flex-wrap gap-2">';
             data.tags.forEach(function(tag) {
-                var escapedTag = tag.replace(/'/g, "\\'");
-                tagsHtml += '<span class="badge bg-transparent border border-secondary text-secondary me-2 mb-2" style="cursor:pointer" onclick="copyText(\'' + escapedTag + '\')">' + tag + '</span>';
+                var tagText = typeof tag === 'object' ? (tag.name || tag.text || '') : (tag || '');
+                var escapedTag = String(tagText).replace(/'/g, "\\'");
+                tagsHtml += '<span class="badge bg-transparent border border-secondary text-secondary me-2 mb-2" style="cursor:pointer" onclick="copyText(\'' + escapedTag + '\')">' + escHtml(String(tagText)) + '</span>';
             });
             tagsHtml += '</div>';
             document.getElementById('result-tags').innerHTML = tagsHtml;
@@ -3349,7 +4876,8 @@
                 html += '<h6 class="text-muted mb-2">标签</h6>';
                 html += '<div class="d-flex flex-wrap gap-2">';
                 content.tags.forEach(tag => {
-                    html += `<span class="badge bg-secondary">${tag}</span>`;
+                    const tagText = typeof tag === 'object' ? (tag.name || tag.text || '') : (tag || '');
+                    if (tagText) html += `<span class="badge bg-secondary">${escHtml(String(tagText))}</span>`;
                 });
                 html += '</div></div>';
             }
@@ -3359,10 +4887,13 @@
                 html += '<div class="mb-3">';
                 html += '<h6 class="text-muted mb-2">图文详情</h6>';
                 content.slides.forEach(slide => {
+                    const slideKws = Array.isArray(slide.keywords)
+                        ? slide.keywords.map(k => typeof k === 'object' ? (k.keyword || k.text || '') : (k || '')).filter(Boolean).join(', ')
+                        : '';
                     html += `<div class="card mb-2">
                         <div class="card-header py-1 px-2 bg-light d-flex justify-content-between align-items-center">
                             <span><span class="badge bg-primary me-1">图${slide.index}</span><strong>${slide.role}</strong></span>
-                            ${slide.keywords && slide.keywords.length ? `<small class="text-muted">关键词: ${slide.keywords.join(', ')}</small>` : ''}
+                            ${slideKws ? `<small class="text-muted">关键词: ${slideKws}</small>` : ''}
                         </div>
                         <div class="card-body py-2 px-2">
                             ${slide.main_title ? `<div class="mb-1"><strong>标题：</strong>${slide.main_title}</div>` : ''}
@@ -3380,7 +4911,8 @@
                 html += '<h6 class="text-muted mb-2">话题标签</h6>';
                 html += '<div class="d-flex flex-wrap gap-2">';
                 content.hashtags.forEach(tag => {
-                    html += `<span class="badge bg-primary">${tag}</span>`;
+                    const tagText = typeof tag === 'object' ? (tag.name || tag.text || '') : (tag || '');
+                    if (tagText) html += `<span class="badge bg-primary">${escHtml(String(tagText))}</span>`;
                 });
                 html += '</div></div>';
             }

@@ -230,14 +230,16 @@ STEP1_PROBLEM_TYPES_PROMPT = """## 角色
 ## 核心原则
 场景+身份+问题 三位一体，共同构建用户痛点。不要单独推导场景，要在具体场景下理解身份的问题。
 
-**简洁为王！保持简短！每个问题至少1个关键词，最多3个。**"""
+**简洁为王！保持简短！每个问题至少1个关键词，最多3个。**
+
+**必须生成正好 {count} 个问题类型，不要少于也不要多于。**"""
 
 
 # ========== 分级模板生成提示词 ==========
 
 # 免费用户 - 极简4字段模板
 FREE_PORTRAIT_TEMPLATE = """## 任务
-基于【场景+身份+问题】，生成精准人群画像。
+基于【场景+身份+问题】，生成精准人群画像，**必须生成正好 {count} 个画像**。
 
 ## 场景
 {scene}
@@ -254,11 +256,11 @@ FREE_PORTRAIT_TEMPLATE = """## 任务
 示例：
 {identity}|25-35岁|担心效果不好|找到靠谱的服务
 
-直接输出 {count} 行，格式正确，不要其他文字。"""
+**必须生成正好 {count} 行**，格式正确，不要其他文字。"""
 
 # 付费用户 - 丰富8字段模板
 PAID_PORTRAIT_TEMPLATE = """## 任务
-基于【场景+身份+问题】，生成精准人群画像。
+基于【场景+身份+问题】，生成精准人群画像，**必须生成正好 {count} 个画像**。
 
 ## 场景
 {scene}
@@ -275,7 +277,7 @@ PAID_PORTRAIT_TEMPLATE = """## 任务
 示例：
 {identity}|28-35岁|都市白领|担心效果|找到放心的服务|怕被坑|{scene}|附近洗鞋店推荐
 
-直接输出 {count} 行，格式正确，不要其他文字。"""
+**必须生成正好 {count} 行**，格式正确，不要其他文字。"""
 
 STEP2_PORTRAIT_PROMPT = """## 任务
 基于以下问题，生成精准人群画像。
@@ -366,10 +368,10 @@ def step1_identify_problem_types():
     try:
         response, stats = PersonaLLMManager.call_llm(
             user=public_user,
-            prompt=prompt,
+            prompt=prompt.format(count=limits.max_problem_types),
             call_type='step1_problem_types',
             temperature=0.5,
-            max_tokens=1000
+            max_tokens=2000  # 付费6个+免费2个问题类型，每个含完整JSON结构，需要充足输出空间
         )
 
         if not response:
@@ -500,17 +502,19 @@ def step2_generate_portraits():
     if not scene:
         scene = "日常场景"
 
-    # 根据用户等级选择模板
+    # 根据用户等级选择模板和 max_tokens
     is_paid = public_user and public_user.is_paid_user()
 
     if is_paid:
-        # 付费用户 - 丰富8字段
+        # 付费用户 - 丰富8字段，每类型5个
         template = PAID_PORTRAIT_TEMPLATE
+        max_tokens = 2000  # 5个画像×8字段约需400-600 tokens，留足余量
     else:
-        # 免费用户 - 极简4字段
+        # 免费用户 - 极简4字段，每类型2个
         template = FREE_PORTRAIT_TEMPLATE
+        max_tokens = 1200  # 2个画像×4字段约需150-250 tokens
 
-    # 传入 scene、identity、problem，让 LLM 更精准生成
+    # 传入 scene、identity、problem 和明确的数量要求
     prompt = template.format(
         scene=scene,
         identity=identity,
@@ -524,7 +528,7 @@ def step2_generate_portraits():
             prompt=prompt,
             call_type='step2_portraits',
             temperature=0.7,
-            max_tokens=800
+            max_tokens=max_tokens
         )
 
         if not response:
@@ -647,7 +651,7 @@ def step2_generate_all_portraits():
                 prompt=prompt,
                 call_type='step2_portraits_batch',
                 temperature=0.7,
-                max_tokens=800
+                max_tokens=2000
             )
 
             if response:
@@ -701,7 +705,7 @@ COMBINED_MINING_PROMPT = """## 角色
 }}
 ```
 
-### 人群画像（精简版，每个问题类型 {portrait_count} 个）
+### 人群画像（精简版，每个问题类型 {{portrait_count}} 个）
 ```json
 {{
   "portraits_by_type": {{
@@ -717,6 +721,8 @@ COMBINED_MINING_PROMPT = """## 角色
 }}
 ```
 
+**必须生成正好 {problem_count} 个问题类型，不要少于也不要多于。**
+**每个问题类型必须生成正好 {portrait_count} 个画像。**
 **简洁为王！每个画像不超过50字！**"""
 
 
@@ -1326,13 +1332,15 @@ def mine_and_generate():
         description=input_data.get('description', ''),
         buyer_relationship=buyer_relationship,
         business_model=business_model,
-        target_users=target_users
+        target_users=target_users,
+        problem_count=limits.max_problem_types,
+        portrait_count=limits.portraits_per_type
     )
 
     # 调用 LLM
     try:
         llm_service = get_llm_service()
-        response = llm_service.chat([{"role": "user", "content": prompt}])
+        response = llm_service.chat([{"role": "user", "content": prompt}], max_tokens=3000)  # 一键完成输出量大
 
         # 解析 JSON 响应
         try:

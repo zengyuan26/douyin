@@ -184,55 +184,59 @@ const PortraitManager = {
 
             // 生成状态
             const genStatus = p.generation_status || 'pending';
-            // 关键词库状态
+            // 关键词库状态 - iPod Classic 风格
             let kwBadge = '';
             if (kwCount > 0) {
-                kwBadge = `<span class="badge bg-info me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})" title="点击查看关键词库">📚 关键词库 ${kwCount} 个</span>`;
+                kwBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; box-shadow: 0 2px 6px rgba(46,125,50,0.15); font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})" title="点击查看关键词库">📚 关键词库 ${kwCount} 个</span>`;
             } else if (genStatus === 'generating') {
-                kwBadge = `<span class="badge bg-warning me-1" id="kw-status-badge-${p.id}">📚 关键词库 <span class="spinner-border spinner-border-sm" style="width:10px;height:10px;"></span> 生成中</span>`;
+                kwBadge = `<span class="badge me-1" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); color: #f57f17; border: 1px solid #ffe082; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="kw-status-badge-${p.id}">📚 关键词库 <span class="spinner-border spinner-border-sm" style="width:10px;height:10px;"></span> 生成中</span>`;
             } else if (genStatus === 'failed') {
-                kwBadge = `<span class="badge bg-danger me-1" id="kw-status-badge-${p.id}" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})" title="点击重试">📚 关键词库 生成失败（点击重试）</span>`;
+                kwBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="kw-status-badge-${p.id}" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})" title="点击重试">📚 关键词库 生成失败（点击重试）</span>`;
             } else {
-                kwBadge = `<span class="badge bg-secondary me-1" id="kw-status-badge-${p.id}">📚 关键词库 待生成</span>`;
+                kwBadge = `<span class="badge me-1" style="background: #f5f5f5; color: #8e8e93; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="kw-status-badge-${p.id}">📚 关键词库 待生成</span>`;
             }
-            // 选题库状态
+            // 选题库状态 - iPod Classic 风格
             let topicBadge = '';
             if (topicCount > 0) {
-                topicBadge = `<span class="badge bg-success me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})" title="点击查看选题库 Markdown">📋 选题库 ${topicCount} 个</span>`;
+                topicBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; box-shadow: 0 2px 6px rgba(21,101,192,0.15); font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})" title="点击查看选题库 Markdown">📋 选题库 ${topicCount} 个</span>`;
             } else if (genStatus === 'generating') {
-                topicBadge = `<span class="badge bg-warning me-1" id="topic-status-badge-${p.id}">📋 选题库 <span class="spinner-border spinner-border-sm" style="width:10px;height:10px;"></span> 生成中</span>`;
+                topicBadge = `<span class="badge me-1" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); color: #f57f17; border: 1px solid #ffe082; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="topic-status-badge-${p.id}">📋 选题库 <span class="spinner-border spinner-border-sm" style="width:10px;height:10px;"></span> 生成中</span>`;
             } else if (genStatus === 'failed') {
-                topicBadge = `<span class="badge bg-danger me-1" id="topic-status-badge-${p.id}" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})" title="点击重试">📋 选题库 生成失败（点击重试）</span>`;
+                topicBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="topic-status-badge-${p.id}" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})" title="点击重试">📋 选题库 生成失败（点击重试）</span>`;
             } else {
-                topicBadge = `<span class="badge bg-secondary me-1" id="topic-status-badge-${p.id}">📋 选题库 待生成</span>`;
+                topicBadge = `<span class="badge me-1" style="background: #f5f5f5; color: #8e8e93; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="topic-status-badge-${p.id}">📋 选题库 待生成</span>`;
             }
 
             container.innerHTML = `
             <div class="col-12">
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 p-3 border rounded bg-light" style="cursor:default;">
-                    <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
-                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;">
-                            <i class="bi bi-person text-white fs-4"></i>
-                        </div>
-                        <div class="min-w-0">
-                            <div class="fw-bold text-dark" id="pm-badge-name-${p.id}">${this.escapeHtml(p.portrait_name || '用户画像')}</div>
-                            <div class="small text-muted" id="pm-badge-industry-${p.id}">${this.escapeHtml(p.industry || '')}</div>
-                            <div class="mt-1" id="pm-badge-container-${p.id}">
-                                ${kwBadge}
-                                ${topicBadge}
+                <div class="portrait-card" style="cursor:default;">
+                    <div class="card-body" style="position: relative; z-index: 2;">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:56px;height:56px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 4px 12px rgba(102,126,234,0.3);">
+                                    <i class="bi bi-person text-white fs-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="fw-bold" style="color: #1a1a1a; text-shadow: 0 1px 0 rgba(255,255,255,0.5); font-size: 1.1rem;" id="pm-badge-name-${p.id}">${this.escapeHtml(p.portrait_name || '用户画像')}</div>
+                                    <div class="small" style="color: #8e8e93;" id="pm-badge-industry-${p.id}">${this.escapeHtml(p.industry || '')}</div>
+                                    <div class="mt-2 d-flex flex-wrap gap-2" id="pm-badge-container-${p.id}">
+                                        ${kwBadge}
+                                        ${topicBadge}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-shrink-0 flex-wrap justify-content-end">
+                                <button class="btn btn-sm" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); border: none; color: white; border-radius: 10px; font-weight: 600; box-shadow: 0 2px 8px rgba(52,199,89,0.25); padding: 0.4rem 1rem;" onclick="PortraitManager.showRecommendedTopicsModal(${p.id})" title="推荐选题">
+                                    <i class="bi bi-lightbulb me-1"></i>推荐选题
+                                </button>
+                                <button class="btn btn-sm" style="background: linear-gradient(135deg, #007AFF 0%, #0056cc 100%); border: none; color: white; border-radius: 10px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,122,255,0.25); padding: 0.4rem 1rem;" onclick="PortraitManager.showTopicSelectAndGenerate(${p.id})" title="生成内容">
+                                    <i class="bi bi-lightning-charge me-1"></i>生成内容
+                                </button>
+                                <button class="btn btn-sm" style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.06); padding: 0.4rem 1rem;" onclick="PortraitManager.showPortraitDetail(${p.id})" title="查看详情">
+                                    <i class="bi bi-eye me-1"></i>查看详情
+                                </button>
                             </div>
                         </div>
-                    </div>
-                    <div class="d-flex align-items-center gap-2 flex-shrink-0 flex-wrap justify-content-end ms-auto">
-                        <button class="btn btn-success btn-sm" onclick="PortraitManager.showRecommendedTopicsModal(${p.id})" title="推荐选题">
-                            <i class="bi bi-lightbulb me-1"></i>推荐选题
-                        </button>
-                        <button class="btn btn-primary btn-sm" onclick="PortraitManager.showTopicSelectAndGenerate(${p.id})" title="生成内容">
-                            <i class="bi bi-lightning-charge me-1"></i>生成内容
-                        </button>
-                        <button class="btn btn-sm btn-outline-primary" onclick="PortraitManager.showPortraitDetail(${p.id})" title="查看详情">
-                            <i class="bi bi-eye me-1"></i>查看详情
-                        </button>
                     </div>
                 </div>
             </div>`;
@@ -369,31 +373,31 @@ const PortraitManager = {
         <div class="modal fade" id="topicSelectModal" tabindex="-1">
             <div class="modal-dialog modal-dialog-scrollable">
                 <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #007AFF 0%, #0056cc 100%); color: white;">
                         <h5 class="modal-title"><i class="bi bi-lightning-charge me-2"></i>选择选题生成内容</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="text-muted small mb-3">从选题库中随机推荐5个，选择一个后点击生成内容</p>
+                        <p class="small mb-3" style="color: #8e8e93;">从选题库中随机推荐5个，选择一个后点击生成内容</p>
                         <div class="list-group" id="topic-list">
                             ${recommended.map((t, idx) => `
-                                <label class="list-group-item list-group-item-action d-flex gap-3 py-3" style="cursor:pointer;">
+                                <label class="list-group-item list-group-item-action d-flex gap-3 py-3" style="cursor:pointer; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 8px; background: white;">
                                     <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="topicSelect" value="${idx}" id="topic-${idx}">
                                     <div class="flex-grow-1">
-                                        <div class="d-flex align-items-center gap-2 mb-1">
-                                            <span class="badge bg-secondary" style="font-size:10px;">${this.escapeHtml(t.type_name || t.type || '选题')}</span>
-                                            ${t.priority ? `<span class="badge ${this._priorityBadgeClass(t.priority)}" style="font-size:10px;">${t.priority}</span>` : ''}
+                                        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                            <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${this.escapeHtml(t.type_name || t.type || '选题')}</span>
+                                            ${t.priority ? `<span class="badge" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${t.priority}</span>` : ''}
                                         </div>
-                                        <div class="fw-medium">${this.escapeHtml(t.title || '')}</div>
-                                        ${t.reason ? `<div class="small text-muted mt-1">${this.escapeHtml(t.reason)}</div>` : ''}
+                                        <div class="fw-medium" style="color: #1a1a1a;">${this.escapeHtml(t.title || '')}</div>
+                                        ${t.reason ? `<div class="small mt-1" style="color: #8e8e93;">${this.escapeHtml(t.reason)}</div>` : ''}
                                     </div>
                                 </label>
                             `).join('')}
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
-                        <button type="button" class="btn btn-primary" onclick="PortraitManager.generateWithSelectedTopic(${portraitId})">
+                        <button type="button" class="btn" style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600;" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn" style="background: linear-gradient(135deg, #007AFF 0%, #0056cc 100%); border: none; color: white; border-radius: 10px; font-weight: 600;" onclick="PortraitManager.generateWithSelectedTopic(${portraitId})">
                             <i class="bi bi-lightning-charge me-1"></i>生成内容
                         </button>
                     </div>
@@ -444,31 +448,31 @@ const PortraitManager = {
         <div class="modal fade" id="topicRecommendModal" tabindex="-1">
             <div class="modal-dialog modal-dialog-scrollable">
                 <div class="modal-content">
-                    <div class="modal-header bg-success text-white">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); color: white;">
                         <h5 class="modal-title"><i class="bi bi-lightbulb me-2"></i>推荐选题</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="text-muted small mb-3">从选题库中随机推荐5个，可选择一个后生成内容</p>
+                        <p class="small mb-3" style="color: #8e8e93;">从选题库中随机推荐5个，可选择一个后生成内容</p>
                         <div class="list-group">
                             ${recommended.map((t, idx) => `
-                                <label class="list-group-item list-group-item-action d-flex gap-3 py-3" style="cursor:pointer;">
+                                <label class="list-group-item list-group-item-action d-flex gap-3 py-3" style="cursor:pointer; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 8px; background: white;">
                                     <input class="form-check-input flex-shrink-0 mt-1" type="radio" name="topicSelect" value="${idx}" id="topic-${idx}">
                                     <div class="flex-grow-1">
-                                        <div class="d-flex align-items-center gap-2 mb-1">
-                                            <span class="badge bg-secondary" style="font-size:10px;">${this.escapeHtml(t.type_name || t.type || '选题')}</span>
-                                            ${t.priority ? `<span class="badge ${this._priorityBadgeClass(t.priority)}" style="font-size:10px;">${t.priority}</span>` : ''}
+                                        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                            <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${this.escapeHtml(t.type_name || t.type || '选题')}</span>
+                                            ${t.priority ? `<span class="badge" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${t.priority}</span>` : ''}
                                         </div>
-                                        <div class="fw-medium">${this.escapeHtml(t.title || '')}</div>
-                                        ${t.reason ? `<div class="small text-muted mt-1">${this.escapeHtml(t.reason)}</div>` : ''}
+                                        <div class="fw-medium" style="color: #1a1a1a;">${this.escapeHtml(t.title || '')}</div>
+                                        ${t.reason ? `<div class="small mt-1" style="color: #8e8e93;">${this.escapeHtml(t.reason)}</div>` : ''}
                                     </div>
                                 </label>
                             `).join('')}
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">关闭</button>
-                        <button type="button" class="btn btn-success" onclick="PortraitManager.generateWithSelectedTopic(${portraitId})">
+                        <button type="button" class="btn" style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600;" data-bs-dismiss="modal">关闭</button>
+                        <button type="button" class="btn" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); border: none; color: white; border-radius: 10px; font-weight: 600;" onclick="PortraitManager.generateWithSelectedTopic(${portraitId})">
                             <i class="bi bi-lightning-charge me-1"></i>生成内容
                         </button>
                     </div>
@@ -524,17 +528,17 @@ const PortraitManager = {
         const modalHtml = `
         <div class="modal fade" id="portraitDetailModal" tabindex="-1">
             <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
+                <div class="modal-content" style="border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
                         <h5 class="modal-title"><i class="bi bi-person-badge me-2"></i>${this.escapeHtml(portrait.portrait_name || '用户画像')}</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-body" style="background: #f8f9fa;">
                         ${this._renderPortraitDetailContent(portrait)}
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">关闭</button>
-                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="PortraitManager.deletePortrait(${portrait.id})">
+                    <div class="modal-footer" style="background: white; border-top: 1px solid rgba(0,0,0,0.06);">
+                        <button type="button" class="btn" style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600;" data-bs-dismiss="modal">关闭</button>
+                        <button type="button" class="btn btn-delete-portrait" data-portrait-id="${portrait.id}" style="background: linear-gradient(135deg, #ff3b30 0%, #d32f2f 100%); border: none; color: white; border-radius: 10px; font-weight: 600;">
                             <i class="bi bi-trash me-1"></i>删除此画像
                         </button>
                     </div>
@@ -548,6 +552,14 @@ const PortraitManager = {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         const modal = new bootstrap.Modal(document.getElementById('portraitDetailModal'));
         modal.show();
+
+        // 事件委托处理删除按钮，避免闭包和动态元素问题
+        const deleteBtn = document.getElementById('portraitDetailModal').querySelector('.btn-delete-portrait');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                this.deletePortrait(portrait.id);
+            });
+        }
 
         document.getElementById('portraitDetailModal').addEventListener('hidden.bs.modal', function () {
             this.remove();
@@ -567,15 +579,24 @@ const PortraitManager = {
         // 基本信息
         if (portrait.target_customer) {
             html += `
-                <div class="mb-2">
-                    <span class="badge bg-info"><i class="bi bi-people me-1"></i>${this.escapeHtml(portrait.target_customer)}</span>
-                    ${portrait.industry ? `<span class="badge bg-secondary ms-1"><i class="bi bi-briefcase me-1"></i>${this.escapeHtml(portrait.industry)}</span>` : ''}
+                <div class="mb-3">
+                    <span class="badge" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; font-size: 12px; padding: 6px 14px; border-radius: 14px; font-weight: 600; box-shadow: 0 2px 6px rgba(21,101,192,0.15);"><i class="bi bi-people me-1"></i>${this.escapeHtml(portrait.target_customer)}</span>
+                    ${portrait.industry ? `<span class="badge" style="background: #f5f5f5; color: #8e8e93; border: 1px solid #e5e7eb; font-size: 12px; padding: 6px 14px; border-radius: 14px; font-weight: 600; margin-left: 8px;"><i class="bi bi-briefcase me-1"></i>${this.escapeHtml(portrait.industry)}</span>` : ''}
+                </div>`;
+        }
+
+        // 画像名称和简介（顶层信息兜底）
+        if (portrait.portrait_name) {
+            html += `
+                <div class="mb-3">
+                    <h6 style="color: #1a1a1a; font-weight: 700; margin-bottom: 4px;">${this.escapeHtml(portrait.portrait_name)}</h6>
+                    ${portrait.business_description ? `<p class="small mb-0" style="color: #8e8e93;">${this.escapeHtml(portrait.business_description)}</p>` : ''}
                 </div>`;
         }
 
         // 人群画像列表
         if (portraits.length > 0) {
-            html += `<h6 class="text-primary mb-3 mt-3"><i class="bi bi-person-badge me-1"></i>人群画像</h6>`;
+            html += `<h6 class="mb-3 mt-4" style="color: #007AFF; font-weight: 700; display: flex; align-items: center; gap: 8px;"><i class="bi bi-person-badge me-1"></i>人群画像</h6>`;
             portraits.forEach((p, idx) => {
                 const colors = [
                     { bg: '#f8f7ff', border: '#667eea', accent: '#667eea' },
@@ -602,86 +623,118 @@ const PortraitManager = {
                 const buyerObstacles = buyerPersp.obstacles || '';
                 const buyerPsych = buyerPersp.psychology || '';
 
-                // 自然语言摘要
-                let summaryNatural = (p.portrait_summary || '').trim();
-                if (!summaryNatural) {
-                    const obs = (buyerObstacles || '').replace(/；/g, '，').replace(/;/g, '，').trim();
-                    if (userProblem && buyerTag) {
-                        if (obs) {
-                            summaryNatural = `${userProblem}，${buyerTag}自个儿扛着，想解决可又${obs}。`;
-                        } else if (buyerGoal) {
-                            summaryNatural = `${userProblem}，${buyerTag}自个儿扛着，${buyerGoal}。`;
-                        }
-                    } else if (userProblem) {
-                        summaryNatural = userProblem + (obs ? `，可又${obs}。` : '。');
-                    } else if (buyerGoal) {
-                        summaryNatural = buyerGoal + (obs ? `，可又${obs}。` : '。');
-                    }
-                }
+                // 兼容旧格式字段
+                const name = p.name || p.portrait_name || '画像' + (idx + 1);
+                const summary = p.portrait_summary || p.summary || '';
+                const goals = p.goals || p.goal || '';
+                const obstacles = p.obstacles || p.fears || '';
+                const psychology = p.psychology || '';
+                const contentTopics = p.content_topics || '';
+                const searchKeywords = p.search_keywords || '';
 
                 html += `
-                    <div class="card mb-3 border" style="border: 2px solid ${c.border}; background: ${c.bg}; border-radius: 12px;">
+                    <div class="card mb-3 border" style="border: 2px solid ${c.border} !important; background: ${c.bg}; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
                         <div class="card-body p-3">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <span class="badge" style="background: ${c.accent}; color: white; font-size: 13px;">${this.escapeHtml(p.name || '用户画像' + (idx+1))}</span>
-                                    ${buyerTag ? `<span class="badge bg-warning text-dark ms-1" style="font-size:11px;">💰 ${this.escapeHtml(buyerTag)}</span>` : ''}
-                                    ${userTag ? `<span class="badge bg-secondary ms-1" style="font-size:11px;">👤 ${this.escapeHtml(userTag)}</span>` : ''}
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span class="badge" style="background: linear-gradient(135deg, ${c.accent} 0%, ${c.border} 100%); color: white; font-size: 13px; padding: 6px 14px; border-radius: 14px; font-weight: 700; box-shadow: 0 2px 8px ${c.accent}40;">${this.escapeHtml(name)}</span>
+                                    ${buyerTag ? `<span class="badge" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); color: #f57f17; border: 1px solid #ffe082; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600; box-shadow: 0 2px 6px rgba(245,127,23,0.15);">💰 ${this.escapeHtml(buyerTag)}</span>` : ''}
+                                    ${userTag ? `<span class="badge" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600; box-shadow: 0 2px 6px rgba(21,101,192,0.15);">👤 ${this.escapeHtml(userTag)}</span>` : ''}
                                 </div>
                             </div>`;
-
-                // 自然语言摘要
-                if (summaryNatural) {
-                    html += `<div class="mb-3 p-2 rounded" style="background: white; font-size: 14px; line-height: 1.6;">${this.escapeHtml(summaryNatural)}</div>`;
-                }
 
                 // 使用者视角
                 if (userProblem || userState || userImpact) {
                     html += `
-                        <div style="background: white; border-radius: 8px; padding: 0.75rem; margin-bottom: 0.75rem; border-left: 3px solid #4facfe;">
-                            <div class="small text-muted mb-1"><i class="bi bi-person me-1"></i>使用者视角</div>
-                            ${userProblem ? `<div class="mb-1"><strong>问题：</strong>${this.escapeHtml(userProblem)}</div>` : ''}
-                            ${userState ? `<div class="mb-1"><strong>现状：</strong>${this.escapeHtml(userState)}</div>` : ''}
-                            ${userImpact ? `<div><strong>影响：</strong>${this.escapeHtml(userImpact)}</div>` : ''}
+                        <div style="background: white; border-radius: 12px; padding: 0.85rem; margin-bottom: 0.85rem; border-left: 4px solid #4facfe; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                            <div class="small mb-2" style="color: #8e8e93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;"><i class="bi bi-person me-1"></i>使用者视角</div>
+                            ${userProblem ? `<div class="mb-2"><strong>问题：</strong><span style="color: #3c3c43;">${this.escapeHtml(userProblem)}</span></div>` : ''}
+                            ${userState ? `<div class="mb-2"><strong>现状：</strong><span style="color: #3c3c43;">${this.escapeHtml(userState)}</span></div>` : ''}
+                            ${userImpact ? `<div><strong>影响：</strong><span style="color: #3c3c43;">${this.escapeHtml(userImpact)}</span></div>` : ''}
                         </div>`;
                 }
 
                 // 付费者视角
                 if (buyerGoal || buyerObstacles || buyerPsych) {
                     html += `
-                        <div style="background: white; border-radius: 8px; padding: 0.75rem; margin-bottom: 0.75rem; border-left: 3px solid #fbbf24;">
-                            <div class="small text-muted mb-1"><i class="bi bi-currency-dollar me-1"></i>付费者视角</div>
-                            ${buyerGoal ? `<div class="mb-1"><strong>目标：</strong>${this.escapeHtml(buyerGoal)}</div>` : ''}
-                            ${buyerObstacles ? `<div class="mb-1"><strong>顾虑：</strong>${this.escapeHtml(buyerObstacles)}</div>` : ''}
-                            ${buyerPsych ? `<div><strong>心理：</strong>${this.escapeHtml(buyerPsych)}</div>` : ''}
+                        <div style="background: white; border-radius: 12px; padding: 0.85rem; margin-bottom: 0.85rem; border-left: 4px solid #fbbf24; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                            <div class="small mb-2" style="color: #8e8e93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;"><i class="bi bi-currency-dollar me-1"></i>付费者视角</div>
+                            ${buyerGoal ? `<div class="mb-2"><strong>目标：</strong><span style="color: #3c3c43;">${this.escapeHtml(buyerGoal)}</span></div>` : ''}
+                            ${buyerObstacles ? `<div class="mb-2"><strong>顾虑：</strong><span style="color: #3c3c43;">${this.escapeHtml(buyerObstacles)}</span></div>` : ''}
+                            ${buyerPsych ? `<div><strong>心理：</strong><span style="color: #3c3c43;">${this.escapeHtml(buyerPsych)}</span></div>` : ''}
+                        </div>`;
+                }
+
+                // 兼容旧格式的展示
+                if (summary) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 0.85rem; margin-bottom: 0.85rem; border-left: 4px solid #667eea; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                            <div class="small mb-2" style="color: #8e8e93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;"><i class="bi bi-card-text me-1"></i>画像摘要</div>
+                            <div style="color: #3c3c43;">${this.escapeHtml(summary)}</div>
+                        </div>`;
+                }
+                if (goals) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 0.85rem; margin-bottom: 0.85rem; border-left: 4px solid #34c759; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                            <div class="small mb-2" style="color: #8e8e93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;"><i class="bi bi-bullseye me-1"></i>核心目标</div>
+                            <div style="color: #3c3c43;">${this.escapeHtml(goals)}</div>
+                        </div>`;
+                }
+                if (obstacles) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 0.85rem; margin-bottom: 0.85rem; border-left: 4px solid #ff3b30; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                            <div class="small mb-2" style="color: #8e8e93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;"><i class="bi bi-shield-exclamation me-1"></i>核心障碍</div>
+                            <div style="color: #3c3c43;">${this.escapeHtml(obstacles)}</div>
+                        </div>`;
+                }
+                if (contentTopics) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 0.85rem; margin-bottom: 0.85rem; border-left: 4px solid #af52de; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                            <div class="small mb-2" style="color: #8e8e93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;"><i class="bi bi-chat-quote me-1"></i>内容选题</div>
+                            <div style="color: #3c3c43;">${this.escapeHtml(contentTopics)}</div>
+                        </div>`;
+                }
+                if (searchKeywords) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 0.85rem; margin-bottom: 0.85rem; border-left: 4px solid #ff9500; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                            <div class="small mb-2" style="color: #8e8e93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;"><i class="bi bi-search me-1"></i>搜索关键词</div>
+                            <div style="color: #3c3c43;">${this.escapeHtml(searchKeywords)}</div>
                         </div>`;
                 }
 
                 html += `</div></div>`;
             });
+        } else if (!portrait.portrait_name && !portrait.target_customer && !portrait.business_description) {
+            // 完全没有画像数据时给出提示
+            html += `
+                <div class="text-center py-4" style="color: #8e8e93;">
+                    <i class="bi bi-info-circle" style="font-size: 2rem;"></i>
+                    <p class="mt-2 mb-0">该画像暂无详细的画像信息</p>
+                    <p class="small">画像的核心信息（人群、痛点、目标）将在下次重新生成时保存</p>
+                </div>`;
         }
 
         // 关键词库
         if (portrait.keyword_library) {
-            html += `<h6 class="text-primary mb-3 mt-4"><i class="bi bi-key me-1"></i>关键词库</h6>`;
+            html += `<h6 class="mb-3 mt-4" style="color: #007AFF; font-weight: 700; display: flex; align-items: center; gap: 8px;"><i class="bi bi-key me-1"></i>关键词库</h6>`;
             const kl = portrait.keyword_library;
             if (kl.categories && kl.categories.length > 0) {
                 kl.categories.forEach(cat => {
                     html += `
-                        <div class="mb-2">
-                            <span class="badge bg-secondary mb-1">${this.escapeHtml(cat.name || '未分类')}</span>
-                            <div class="ms-2">
-                                ${(cat.keywords || []).map(k => `<span class="badge bg-light text-dark me-1 mb-1">${this.escapeHtml(k)}</span>`).join('')}
+                        <div class="mb-3">
+                            <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">${this.escapeHtml(cat.name || '未分类')}</span>
+                            <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
+                                ${(cat.keywords || []).map(k => `<span class="badge" style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #7b1fa2; border: 1px solid #ce93d8; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500; box-shadow: 0 1px 4px rgba(123,31,162,0.1);">${this.escapeHtml(k)}</span>`).join('')}
                             </div>
                         </div>`;
                 });
             }
             if (kl.blue_ocean && kl.blue_ocean.length > 0) {
                 html += `
-                    <div class="mb-2">
-                        <span class="badge bg-success mb-1">蓝海关键词</span>
-                        <div class="ms-2">
-                            ${kl.blue_ocean.map(k => `<span class="badge bg-light text-dark me-1 mb-1">${this.escapeHtml(k)}</span>`).join('')}
+                    <div class="mb-3">
+                        <span class="badge" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600; box-shadow: 0 1px 4px rgba(46,125,50,0.1);">蓝海关键词</span>
+                        <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
+                            ${kl.blue_ocean.map(k => `<span class="badge" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500; box-shadow: 0 1px 4px rgba(21,101,192,0.1);">${this.escapeHtml(k)}</span>`).join('')}
                         </div>
                     </div>`;
             }
@@ -689,28 +742,28 @@ const PortraitManager = {
 
         // 选题库
         if (portrait.topic_library && portrait.topic_library.topics && portrait.topic_library.topics.length > 0) {
-            html += `<h6 class="text-primary mb-3 mt-4"><i class="bi bi-lightbulb me-1"></i>选题库</h6>`;
+            html += `<h6 class="mb-3 mt-4" style="color: #007AFF; font-weight: 700; display: flex; align-items: center; gap: 8px;"><i class="bi bi-lightbulb me-1"></i>选题库</h6>`;
             portrait.topic_library.topics.slice(0, 10).forEach(t => {
                 html += `
-                    <div class="card mb-2 border">
+                    <div class="card mb-2 border" style="border-radius: 12px !important; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
                         <div class="card-body py-2 px-3">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <span class="badge bg-secondary me-1" style="font-size:10px;">${this.escapeHtml(t.type_name || t.type || '')}</span>
-                                    ${t.priority ? `<span class="badge ${this._priorityBadgeClass(t.priority)} me-1" style="font-size:10px;">${t.priority}</span>` : ''}
-                                    <strong class="small">${this.escapeHtml(t.title || '')}</strong>
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${this.escapeHtml(t.type_name || t.type || '')}</span>
+                                    ${t.priority ? `<span class="badge" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${t.priority}</span>` : ''}
+                                    <strong class="small" style="color: #1a1a1a;">${this.escapeHtml(t.title || '')}</strong>
                                 </div>
                             </div>
-                            ${t.reason ? `<div class="small text-muted mt-1">${this.escapeHtml(t.reason)}</div>` : ''}
+                            ${t.reason ? `<div class="small mt-1" style="color: #8e8e93;">${this.escapeHtml(t.reason)}</div>` : ''}
                         </div>
                     </div>`;
             });
             if (portrait.topic_library.topics.length > 10) {
-                html += `<div class="text-center text-muted small">还有 ${portrait.topic_library.topics.length - 10} 个选题...</div>`;
+                html += `<div class="text-center small mt-2" style="color: #8e8e93;">还有 ${portrait.topic_library.topics.length - 10} 个选题...</div>`;
             }
         }
 
-        return html || '<p class="text-muted text-center">暂无详情</p>';
+        return html || '<p class="text-center" style="color: #8e8e93;">暂无详情</p>';
     },
 
     // ========================================================================
@@ -1024,26 +1077,26 @@ const PortraitManager = {
         const shown = filtered.slice(0, count);
 
         list.innerHTML = shown.length === 0
-            ? `<div class="col-12 text-center text-muted py-3 small">暂无此类选题</div>`
+            ? `<div class="col-12 text-center py-3" style="color: #8e8e93;">暂无此类选题</div>`
             : shown.map(t => {
                 const contentDir = t.content_direction || '';
                 const dirClass = contentDir === '转化型' ? 'dir-convert' : contentDir === '种草型' ? 'dir-sow' : '';
                 const dirIcon = contentDir === '转化型' ? '🔴' : contentDir === '种草型' ? '🟡' : '';
-                const dirBadge = contentDir ? `<span class="badge ${dirClass}" style="font-size:10px;border:1px solid;background:${contentDir==='转化型'?'#fef2f2':'#fffbeb'};color:${contentDir==='转化型'?'#b91c1c':'#92400e'};">${dirIcon}${contentDir}</span>` : '';
+                const dirBadge = contentDir ? `<span class="badge" style="font-size:10px; border:1px solid; background: ${contentDir==='转化型'?'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)':'linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%)'}; color: ${contentDir==='转化型'?'#c62828':'#f57f17'}; padding: 3px 8px; border-radius: 8px; font-weight: 600; margin-left: 4px;">${dirIcon}${contentDir}</span>` : '';
                 return `
                 <div class="col-md-6 col-lg-4">
-                    <div class="card border">
-                        <div class="card-body py-2 px-2">
-                            <div class="d-flex align-items-start gap-1 mb-1 flex-wrap">
-                                <span class="badge bg-secondary" style="font-size:10px;white-space:normal;">${this.escapeHtml(t.type_name || t.type || '')}</span>
+                    <div class="card border" style="border-radius: 12px !important; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex align-items-start gap-1 mb-2 flex-wrap">
+                                <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600; white-space: normal;">${this.escapeHtml(t.type_name || t.type || '')}</span>
                                 ${dirBadge}
-                                ${t.priority ? `<span class="badge ${this._priorityBadgeClass(t.priority)}" style="font-size:10px;">${t.priority}</span>` : ''}
+                                ${t.priority ? `<span class="badge" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${t.priority}</span>` : ''}
                             </div>
-                            <div class="small fw-bold mb-1" style="line-height:1.3;">${this.escapeHtml(t.title || '')}</div>
-                            ${t.reason ? `<div class="small text-muted" style="line-height:1.2;font-size:11px;">${this.escapeHtml(t.reason)}</div>` : ''}
+                            <div class="small fw-bold mb-2" style="line-height:1.3; color: #1a1a1a;">${this.escapeHtml(t.title || '')}</div>
+                            ${t.reason ? `<div class="small" style="line-height:1.2;font-size:11px; color: #8e8e93;">${this.escapeHtml(t.reason)}</div>` : ''}
                             ${t.keywords && t.keywords.length ? `
-                                <div class="mt-1">
-                                    ${t.keywords.slice(0,3).map(k => `<span class="badge bg-light text-muted" style="font-size:10px;">${this.escapeHtml(k)}</span>`).join('')}
+                                <div class="mt-2 d-flex flex-wrap gap-1">
+                                    ${t.keywords.slice(0,3).map(k => `<span class="badge" style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #7b1fa2; border: 1px solid #ce93d8; font-size: 10px; padding: 2px 6px; border-radius: 6px;">${this.escapeHtml(k)}</span>`).join('')}
                                 </div>` : ''}
                         </div>
                     </div>
@@ -1131,24 +1184,24 @@ const PortraitManager = {
 
     renderTopicsSelectList(topics, fromLibrary = false) {
         const container = document.getElementById('topics-select-list');
-        const fromLibBadge = fromLibrary ? '<span class="badge bg-success ms-1" style="font-size:10px;"><i class="bi bi-bookmark"></i>专属库</span>' : '';
+        const fromLibBadge = fromLibrary ? '<span class="badge me-1" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">📚 专属库</span>' : '';
 
         container.innerHTML = topics.map((t, i) => `
-            <div class="form-check mb-2 p-3 border rounded topic-select-item" style="cursor:pointer;">
+            <div class="form-check mb-2 p-3 topic-select-item" style="cursor:pointer; border-radius: 12px; border: 2px solid #e5e7eb; background: white; transition: all 0.3s;">
                 <input class="form-check-input" type="radio" name="topic-select-radio" id="topic-select-${i}" value="${i}">
                 <label class="form-check-label w-100" for="topic-select-${i}" style="cursor:pointer;">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <span class="badge bg-secondary me-2" style="font-size:11px;">${t.type_name || t.type || ''}</span>
-                            <span class="badge bg-warning text-dark me-2" style="font-size:11px;">${t.priority || 'P2'}</span>
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 600;">${t.type_name || t.type || ''}</span>
+                            <span class="badge" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 600;">${t.priority || 'P2'}</span>
                             ${fromLibBadge}
-                            <strong>${this.escapeHtml(t.title || '')}</strong>
+                            <strong style="color: #1a1a1a;">${this.escapeHtml(t.title || '')}</strong>
                         </div>
                     </div>
-                    ${t.reason ? `<div class="small text-muted mt-1">${this.escapeHtml(t.reason)}</div>` : ''}
+                    ${t.reason ? `<div class="small mt-2" style="color: #8e8e93;">${this.escapeHtml(t.reason)}</div>` : ''}
                     ${t.keywords && t.keywords.length ? `
-                        <div class="mt-1">
-                            ${t.keywords.slice(0,4).map(k => `<span class="badge bg-light text-muted" style="font-size:10px;">${this.escapeHtml(k)}</span>`).join('')}
+                        <div class="mt-2 d-flex flex-wrap gap-1">
+                            ${t.keywords.slice(0,4).map(k => `<span class="badge" style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #7b1fa2; border: 1px solid #ce93d8; font-size: 10px; padding: 3px 8px; border-radius: 8px;">${this.escapeHtml(k)}</span>`).join('')}
                         </div>` : ''}
                 </label>
             </div>`).join('');
@@ -1221,24 +1274,24 @@ const PortraitManager = {
         const genStatus = p.generation_status || 'pending';
         let kwBadge = '';
         if (kwCount > 0) {
-            kwBadge = `<span class="badge bg-info me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})" title="点击查看关键词库">📚 关键词库 ${kwCount} 个</span>`;
+            kwBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; box-shadow: 0 2px 6px rgba(46,125,50,0.15); font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})" title="点击查看关键词库">📚 关键词库 ${kwCount} 个</span>`;
         } else if (genStatus === 'generating') {
-            kwBadge = `<span class="badge bg-warning me-1" data-kw-status="generating">📚 关键词库 生成中...</span>`;
+            kwBadge = `<span class="badge me-1" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); color: #f57f17; border: 1px solid #ffe082; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-kw-status="generating">📚 关键词库 生成中...</span>`;
         } else if (genStatus === 'failed') {
-            kwBadge = `<span class="badge bg-danger me-1" data-kw-status="failed" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})">📚 关键词库 生成失败（点击重试）</span>`;
+            kwBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-kw-status="failed" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})">📚 关键词库 生成失败（点击重试）</span>`;
         } else {
-            kwBadge = `<span class="badge bg-secondary me-1" data-kw-status="pending">📚 关键词库 待生成</span>`;
+            kwBadge = `<span class="badge me-1" style="background: #f5f5f5; color: #8e8e93; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-kw-status="pending">📚 关键词库 待生成</span>`;
         }
 
         let topicBadge = '';
         if (topicCount > 0) {
-            topicBadge = `<span class="badge bg-success me-1" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})" title="点击查看选题库 Markdown">📋 选题库 ${topicCount} 个</span>`;
+            topicBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; box-shadow: 0 2px 6px rgba(21,101,192,0.15); font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})" title="点击查看选题库 Markdown">📋 选题库 ${topicCount} 个</span>`;
         } else if (genStatus === 'generating') {
-            topicBadge = `<span class="badge bg-warning me-1" data-topic-status="generating">📋 选题库 生成中...</span>`;
+            topicBadge = `<span class="badge me-1" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); color: #f57f17; border: 1px solid #ffe082; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-topic-status="generating">📋 选题库 生成中...</span>`;
         } else if (genStatus === 'failed') {
-            topicBadge = `<span class="badge bg-danger me-1" data-topic-status="failed" style="cursor:pointer;" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})">📋 选题库 生成失败（点击重试）</span>`;
+            topicBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-topic-status="failed" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})">📋 选题库 生成失败（点击重试）</span>`;
         } else {
-            topicBadge = `<span class="badge bg-secondary me-1" data-topic-status="pending">📋 选题库 待生成</span>`;
+            topicBadge = `<span class="badge me-1" style="background: #f5f5f5; color: #8e8e93; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-topic-status="pending">📋 选题库 待生成</span>`;
         }
 
         container.innerHTML = kwBadge + ' ' + topicBadge;
@@ -1486,22 +1539,22 @@ const PortraitManager = {
         <div class="modal fade" id="topicListModal" tabindex="-1">
             <div class="modal-dialog modal-lg modal-dialog-scrollable">
                 <div class="modal-content">
-                    <div class="modal-header bg-success text-white">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); color: white;">
                         <h5 class="modal-title"><i class="bi bi-list-ul me-2"></i>选题库（共 ${topics.length} 个）</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="row g-2" id="topic-list-content">
+                        <div class="row g-3" id="topic-list-content">
                             ${topics.map(t => `
                                 <div class="col-md-6 col-lg-4">
-                                    <div class="card border h-100">
+                                    <div class="card border h-100" style="border-radius: 12px !important; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
                                         <div class="card-body py-2 px-3">
-                                            <div class="d-flex align-items-start gap-1 mb-1 flex-wrap">
-                                                <span class="badge bg-secondary" style="font-size:10px;">${this.escapeHtml(t.type_name || t.type || '')}</span>
-                                                ${t.priority ? `<span class="badge ${this._priorityBadgeClass(t.priority)}" style="font-size:10px;">${t.priority}</span>` : ''}
+                                            <div class="d-flex align-items-start gap-1 mb-2 flex-wrap">
+                                                <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${this.escapeHtml(t.type_name || t.type || '')}</span>
+                                                ${t.priority ? `<span class="badge" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 10px; padding: 3px 8px; border-radius: 8px; font-weight: 600;">${t.priority}</span>` : ''}
                                             </div>
-                                            <div class="small fw-bold mb-1" style="line-height:1.3;">${this.escapeHtml(t.title || '')}</div>
-                                            ${t.reason ? `<div class="small text-muted" style="line-height:1.2;font-size:11px;">${this.escapeHtml(t.reason)}</div>` : ''}
+                                            <div class="small fw-bold mb-1" style="line-height:1.3; color: #1a1a1a;">${this.escapeHtml(t.title || '')}</div>
+                                            ${t.reason ? `<div class="small" style="line-height:1.2;font-size:11px; color: #8e8e93;">${this.escapeHtml(t.reason)}</div>` : ''}
                                         </div>
                                     </div>
                                 </div>
@@ -1510,7 +1563,7 @@ const PortraitManager = {
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">关闭</button>
-                        <button type="button" class="btn btn-success" onclick="PortraitManager.generateWithRandomTopic(${portraitId})">
+                        <button type="button" class="btn" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); border: none; color: white; border-radius: 10px; font-weight: 600;" onclick="PortraitManager.generateWithRandomTopic(${portraitId})">
                             <i class="bi bi-shuffle me-1"></i>随机选一个生成
                         </button>
                     </div>
@@ -1598,7 +1651,242 @@ const PortraitManager = {
 
         // 标记已看过
         localStorage.setItem(key, '1');
-    }
+    },
+
+    // ========================================================================
+    // Cover Flow 模式 - iPod Classic 风格
+    // ========================================================================
+
+    _cfContainer: null,
+    _cfIndex: 0,
+    _cfCardWidth: 280,
+    _cfDragging: false,
+    _cfStartX: 0,
+    _cfCurrentX: 0,
+    _cfThreshold: 80,
+    _cfBoundHandlers: null,
+
+    renderPortraitCards() {
+        const container = document.getElementById('portrait-cards-list');
+        const loading = document.getElementById('portrait-cards-loading');
+        if (!container) {
+            console.error('[PortraitManager] 未找到画像卡片容器 #portrait-cards-list');
+            return;
+        }
+        if (loading) loading.style.display = 'none';
+
+        if (this._savedPortraits.length === 0) {
+            container.innerHTML = `
+                <div class="cf-empty text-center py-5">
+                    <i class="bi bi-inbox" style="font-size:3rem;color:#d1d1d6;"></i>
+                    <p class="mt-3 text-muted">暂无已保存的画像</p>
+                    <p class="small text-secondary">在下方超级定位流程中生成并保存画像后，可在此快速访问</p>
+                </div>`;
+            return;
+        }
+
+        // Cover Flow 模式：有多张画像时启用
+        this._cfContainer = container;
+        container.innerHTML = this._buildCoverFlowHTML();
+        this._initCoverFlow();
+    },
+
+    _buildCoverFlowHTML() {
+        const cards = this._savedPortraits.map((p, i) => {
+            const isActive = (p.id === this._currentPortraitId) || (!this._currentPortraitId && i === 0);
+            const name = this.escapeHtml(p.portrait_name || '画像' + (i + 1));
+            const industry = this.escapeHtml(p.industry || '');
+            const bodyHtml = this._getCoverFlowCardBody(p);
+            return `
+                <div class="cf-card${isActive ? ' active' : ''}" data-index="${i}" data-id="${p.id}">
+                    <div class="cf-card-inner">
+                        <div class="cf-header">
+                            <div class="cf-icon">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <div class="cf-title-area">
+                                <span class="cf-name">${name}</span>
+                                ${industry ? `<span class="cf-industry">${industry}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="cf-body">${bodyHtml}</div>
+                        <div class="cf-footer">
+                            <button class="cf-btn" onclick="event.stopPropagation(); PortraitManager.showRecommendedTopicsModal(${p.id})">
+                                <i class="bi bi-lightbulb me-1"></i>推荐选题
+                            </button>
+                            <button class="cf-btn primary" onclick="event.stopPropagation(); PortraitManager.showTopicSelectAndGenerate(${p.id})">
+                                <i class="bi bi-lightning-charge me-1"></i>生成内容
+                            </button>
+                            <button class="cf-btn" onclick="event.stopPropagation(); PortraitManager.showPortraitDetail(${p.id})">
+                                <i class="bi bi-eye me-1"></i>查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+
+        return `
+            <div class="cf-stage">
+                <div class="cf-track">${cards}</div>
+            </div>
+            <div class="cf-nav">
+                <button class="cf-arrow" id="cf-prev-btn" title="上一张">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <span class="cf-counter" id="cf-counter">${this._cfIndex + 1} / ${this._savedPortraits.length}</span>
+                <button class="cf-arrow" id="cf-next-btn" title="下一张">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>`;
+    },
+
+    _getCoverFlowCardBody(p) {
+        const genStatus = p.generation_status || 'pending';
+        let kwCount = 0;
+        if (p.keyword_library?.categories) {
+            p.keyword_library.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            if (p.keyword_library.blue_ocean) kwCount += p.keyword_library.blue_ocean.length;
+        }
+        let topicCount = 0;
+        if (p.topic_library?.topics) topicCount = p.topic_library.topics.length;
+
+        let kwBadge = '', topicBadge = '';
+        if (kwCount > 0) {
+            kwBadge = `<span class="cf-badge kw" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})">📚 关键词库 ${kwCount} 个</span>`;
+        } else if (genStatus === 'generating') {
+            kwBadge = `<span class="cf-badge generating">📚 关键词库 <span class="spinner-border spinner-border-sm" style="width:10px;height:10px;"></span> 生成中</span>`;
+        } else if (genStatus === 'failed') {
+            kwBadge = `<span class="cf-badge failed" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})">📚 生成失败（点击重试）</span>`;
+        } else {
+            kwBadge = `<span class="cf-badge pending">📚 关键词库 待生成</span>`;
+        }
+
+        if (topicCount > 0) {
+            topicBadge = `<span class="cf-badge topic" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})">📋 选题库 ${topicCount} 个</span>`;
+        } else if (genStatus === 'generating') {
+            topicBadge = `<span class="cf-badge generating">📋 选题库 <span class="spinner-border spinner-border-sm" style="width:10px;height:10px;"></span> 生成中</span>`;
+        } else if (genStatus === 'failed') {
+            topicBadge = `<span class="cf-badge failed" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})">📋 生成失败（点击重试）</span>`;
+        } else {
+            topicBadge = `<span class="cf-badge pending">📋 选题库 待生成</span>`;
+        }
+
+        return `<div class="cf-badges">${kwBadge}${topicBadge}</div>`;
+    },
+
+    _initCoverFlow() {
+        const ci = this._savedPortraits.findIndex(p => p.id === this._currentPortraitId);
+        this._cfIndex = ci >= 0 ? ci : 0;
+        this._cfCardWidth = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches ? 280 : 340;
+        this._cfDragging = false;
+        this._cfStartX = 0;
+        this._cfCurrentX = 0;
+        this._cfThreshold = 80;
+
+        const stage = this._cfContainer?.querySelector('.cf-stage');
+        const track = this._cfContainer?.querySelector('.cf-track');
+        if (!stage || !track) return;
+
+        // 移除旧事件监听
+        if (this._cfBoundHandlers) {
+            document.removeEventListener('mousemove', this._cfBoundHandlers.onMove);
+            document.removeEventListener('mouseup', this._cfBoundHandlers.onEnd);
+            document.removeEventListener('touchmove', this._cfBoundHandlers.onMove);
+            document.removeEventListener('touchend', this._cfBoundHandlers.onEnd);
+        }
+
+        const self = this;
+        const onStart = function(e) {
+            self._cfDragging = true;
+            self._cfStartX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            self._cfCurrentX = 0;
+            track.style.transition = 'none';
+        };
+        const onMove = function(e) {
+            if (!self._cfDragging) return;
+            if (e.type === 'touchmove') e.preventDefault();
+            const clientX = e.type.includes('mouse') ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+            self._cfCurrentX = clientX - self._cfStartX;
+            self._updateCoverFlowTransform(self._cfIndex, self._cfCurrentX);
+        };
+        const onEnd = function() {
+            if (!self._cfDragging) return;
+            self._cfDragging = false;
+            track.style.transition = '';
+            const delta = self._cfCurrentX;
+            if (delta < -self._cfThreshold && self._cfIndex < self._savedPortraits.length - 1) {
+                self._cfIndex++;
+            } else if (delta > self._cfThreshold && self._cfIndex > 0) {
+                self._cfIndex--;
+            }
+            self._updateCoverFlowTransform(self._cfIndex, 0);
+            self._updateCounter();
+        };
+
+        this._cfBoundHandlers = { onMove, onEnd };
+
+        stage.addEventListener('mousedown', onStart);
+        stage.addEventListener('touchstart', onStart, { passive: true });
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchend', onEnd);
+
+        // 左右箭头按钮
+        const prevBtn = this._cfContainer?.querySelector('#cf-prev-btn');
+        const nextBtn = this._cfContainer?.querySelector('#cf-next-btn');
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => this.cfPrev());
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => this.cfNext());
+        }
+
+        this._updateCoverFlowTransform(this._cfIndex, 0);
+    },
+
+    _updateCoverFlowTransform(index, offset) {
+        const track = this._cfContainer?.querySelector('.cf-track');
+        if (!track) return;
+        const cards = track.querySelectorAll('.cf-card');
+        const w = this._cfCardWidth;
+        cards.forEach((card, i) => {
+            const pos = i - index;
+            const x = pos * w + offset;
+            const rotateY = pos * -25;
+            const scale = i === index ? 1.08 : 0.88;
+            const zIndex = 100 - Math.abs(pos);
+            const opacity = Math.abs(pos) > 2 ? 0 : 1;
+            /* left:50% + translateX(calc(-50%+x))：卡片以自身中心为锚点平移；勿再写 margin-left:-半宽，否则会双重左移 */
+            card.style.transform = `translateX(calc(-50% + ${x}px)) rotateY(${rotateY}deg) scale(${scale})`;
+            card.style.zIndex = zIndex;
+            card.style.opacity = opacity;
+            card.classList.toggle('active', i === index);
+        });
+    },
+
+    cfPrev() {
+        if (this._cfIndex > 0) {
+            this._cfIndex--;
+            this._updateCoverFlowTransform(this._cfIndex, 0);
+            this._updateCounter();
+        }
+    },
+
+    cfNext() {
+        if (this._cfIndex < this._savedPortraits.length - 1) {
+            this._cfIndex++;
+            this._updateCoverFlowTransform(this._cfIndex, 0);
+            this._updateCounter();
+        }
+    },
+
+    _updateCounter() {
+        const counter = this._cfContainer?.querySelector('#cf-counter');
+        if (counter) {
+            counter.textContent = `${this._cfIndex + 1} / ${this._savedPortraits.length}`;
+        }
+    },
 };
 
 // 页面初始化
