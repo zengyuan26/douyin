@@ -1,157 +1,19 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 棱镜 - AI时代创作者的内容生产引擎</title>
-    <!-- Bootstrap 5.1.3 CSS (SRI) -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3"
-          crossorigin="anonymous">
-    <!-- Bootstrap Icons 1.10.0 (unpkg CDN) -->
-    <link href="https://unpkg.com/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
-          rel="stylesheet">
-    <script src="/static/public/js/portrait-manager.js"></script>
-    <style>
-        /* ================================================
-           Mac OS 风格设计系统 - Apple Human Interface Guidelines
-           ================================================ */
-        
-        :root {
-            /* Apple 系统颜色 */
-            --apple-blue: #007AFF;
-            --apple-blue-hover: #0056CC;
-            --apple-green: #34C759;
-            --apple-red: #FF3B30;
-            --apple-orange: #FF9500;
-            --apple-yellow: #FFCC00;
-            --apple-purple: #AF52DE;
-            --apple-pink: #FF2D55;
-            --apple-gray: #8E8E93;
-            --apple-gray2: #AEAEB2;
-            --apple-gray3: #C7C7CC;
-            --apple-gray4: #D1D1D6;
-            --apple-gray5: #E5E5EA;
-            --apple-gray6: #F2F2F7;
-            
-            /* 主题色 */
-            --primary: var(--apple-blue);
-            --primary-hover: var(--apple-blue-hover);
-            --success: var(--apple-green);
-            --warning: var(--apple-orange);
-            --danger: var(--apple-red);
-            
-            /* 背景色 - macOS Big Sur+ 风格 */
-            --bg-primary: #FFFFFF;
-            --bg-secondary: #F5F5F7;
-            --bg-tertiary: #F0F0F5;
-            --bg-elevated: rgba(255, 255, 255, 0.8);
-            
-            /* 文字颜色 */
-            --text-primary: #1D1D1F;
-            --text-secondary: #86868B;
-            --text-tertiary: #6E6E73;
-            
-            /* 边框和阴影 */
-            --border-color: rgba(0, 0, 0, 0.1);
-            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);
-            
-            /* 圆角 - Apple 风格 */
-            --radius-sm: 6px;
-            --radius-md: 10px;
-            --radius-lg: 14px;
-            --radius-xl: 20px;
-            
-            /* 过渡动画 */
-            --transition-fast: 0.15s ease;
-            --transition-normal: 0.25s ease;
-            --transition-slow: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
+{% extends "public/public_layout.html" %}
 
-        /* 基础样式重置 */
-        * {
-            box-sizing: border-box;
-        }
+{% block title %}AI 棱镜 - AI时代创作者的内容生产引擎{% endblock %}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            line-height: 1.5;
-        }
+{% block layout_extra_head %}
+{% endblock %}
 
-        /* ================================================
-           macOS 导航栏
-           ================================================ */
-        .navbar {
-            background: var(--bg-elevated);
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-            border-bottom: 1px solid var(--border-color);
-            padding: 0 24px;
-            height: 52px;
-        }
-
-        .navbar-brand {
-            font-weight: 600;
-            font-size: 1.1rem;
-            color: var(--text-primary) !important;
-            letter-spacing: -0.02em;
-        }
-
-        .navbar-brand span {
-            background: linear-gradient(135deg, var(--apple-blue), var(--apple-purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .navbar-nav .nav-link {
-            color: var(--text-secondary) !important;
-            font-size: 0.875rem;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: var(--radius-sm);
-            transition: all var(--transition-fast);
-        }
-
-        .navbar-nav .nav-link:hover {
-            color: var(--text-primary) !important;
-            background: rgba(0, 0, 0, 0.05);
-        }
-
-        .navbar .btn {
-            border-radius: var(--radius-md);
-            font-weight: 500;
-            font-size: 0.875rem;
-            padding: 6px 16px;
-            transition: all var(--transition-fast);
-        }
-
-        .navbar .btn-primary {
-            background: var(--apple-blue);
-            border-color: var(--apple-blue);
-        }
-
-        .navbar .btn-primary:hover {
-            background: var(--apple-blue-hover);
-            border-color: var(--apple-blue-hover);
-            transform: scale(1.02);
-        }
-
-        /* ================================================
-           主内容区（网易云 Mac 式：与侧栏一体，无套窗）
-           ================================================ */
+{% block layout_extra_css %}
+<style>
+    /* ================================================
+       index.html 页面专属样式（补充 public_layout.html）
+       ================================================ */
         .main-container {
             max-width: none;
             margin: 0;
-            padding: 20px 28px 32px;
+            padding: 24px 32px 40px;
         }
 
         .workspace-main {
@@ -163,16 +25,18 @@
            ================================================ */
         .section-title {
             font-size: 1.5rem;
-            font-weight: 700;
+            font-weight: 600;
             color: var(--text-primary);
-            letter-spacing: -0.02em;
+            letter-spacing: -0.03em;
             margin-bottom: 6px;
         }
 
         .section-subtitle {
             font-size: 0.9375rem;
             color: var(--text-secondary);
-            margin-bottom: 20px;
+            margin-bottom: 24px;
+            font-weight: 400;
+            line-height: 1.45;
         }
 
         /* ================================================
@@ -793,6 +657,10 @@
            个性皮肤：跟随系统 / 经典红 / 酷炫黑
            ================================================ */
         @media (prefers-color-scheme: dark) {
+            html[data-skin="system"] body {
+                background: #000000;
+            }
+
             html[data-skin="system"] {
                 color-scheme: dark;
                 --apple-blue: #0A84FF;
@@ -812,9 +680,51 @@
             }
             html[data-skin="system"] .public-topbar {
                 border-bottom-color: rgba(255, 255, 255, 0.08);
+                background: var(--bg-primary);
+            }
+            html[data-skin="system"] .topbar-settings-menu {
+                background: rgba(44, 44, 46, 0.96);
+                border-color: rgba(255, 255, 255, 0.12);
+                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+            }
+            html[data-skin="system"] .topbar-settings-divider {
+                background: rgba(255, 255, 255, 0.12);
+            }
+            html[data-skin="system"] .topbar-settings-menu button.topbar-settings-item:hover {
+                background: rgba(255, 255, 255, 0.08) !important;
+            }
+            html[data-skin="system"] .mac-quota-strip {
+                border-bottom-color: rgba(255, 255, 255, 0.08);
             }
             html[data-skin="system"] .topbar-separator {
                 background: rgba(255, 255, 255, 0.15);
+            }
+
+            html[data-skin="system"] .public-app-layout {
+                background: var(--bg-primary);
+                box-shadow: none;
+                --sidebar-bg: #1c1c1e;
+                --sidebar-border: rgba(255, 255, 255, 0.08);
+                --sidebar-text: rgba(255, 255, 255, 0.88);
+                --sidebar-text-muted: rgba(255, 255, 255, 0.5);
+                --sidebar-section: rgba(255, 255, 255, 0.32);
+                --sidebar-hover: rgba(255, 255, 255, 0.08);
+                --sidebar-brand-hover: rgba(255, 255, 255, 0.08);
+                --sidebar-active-bg: #ec4141;
+                --sidebar-active-text: #ffffff;
+                --sidebar-divider: rgba(255, 255, 255, 0.08);
+            }
+
+            html[data-skin="system"] .public-content {
+                background: var(--bg-primary);
+            }
+
+            html[data-skin="system"] .public-sidebar::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.22);
+            }
+
+            html[data-skin="system"] .public-content-scroll::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.22);
             }
         }
 
@@ -843,12 +753,17 @@
         }
 
         html[data-skin="classic-red"] .public-sidebar-link.is-active {
-            color: #FF8A8A;
-            background: rgba(236, 65, 65, 0.22);
+            background: #ec4141;
+            color: #ffffff;
+            box-shadow: 0 1px 3px rgba(236, 65, 65, 0.4);
         }
 
         html[data-skin="classic-red"] .public-sidebar-link.is-active i {
-            color: #FF8A8A;
+            color: #ffffff;
+        }
+
+        html[data-skin="cool-black"] body {
+            background: #000000;
         }
 
         html[data-skin="cool-black"] {
@@ -875,6 +790,34 @@
 
         html[data-skin="cool-black"] .public-topbar {
             border-bottom-color: rgba(255, 255, 255, 0.08);
+            background: var(--bg-primary);
+        }
+
+        html[data-skin="cool-black"] .public-app-layout {
+            background: var(--bg-primary);
+            box-shadow: none;
+            --sidebar-bg: #1c1c1e;
+            --sidebar-border: rgba(255, 255, 255, 0.08);
+            --sidebar-text: rgba(255, 255, 255, 0.88);
+            --sidebar-text-muted: rgba(255, 255, 255, 0.5);
+            --sidebar-section: rgba(255, 255, 255, 0.32);
+            --sidebar-hover: rgba(255, 255, 255, 0.08);
+            --sidebar-brand-hover: rgba(255, 255, 255, 0.08);
+            --sidebar-active-bg: #ec4141;
+            --sidebar-active-text: #ffffff;
+            --sidebar-divider: rgba(255, 255, 255, 0.08);
+        }
+
+        html[data-skin="cool-black"] .public-content {
+            background: var(--bg-primary);
+        }
+
+        html[data-skin="cool-black"] .public-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
+        }
+
+        html[data-skin="cool-black"] .public-content-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
         }
 
         html[data-skin="cool-black"] .topbar-separator {
@@ -935,8 +878,21 @@
         }
 
         .skin-modal-header {
-            padding: 20px 20px 0;
+            padding: 16px 20px 0;
             border: none;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .skin-modal-header .skin-modal-tabs-wrap {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .skin-modal-header .btn-close {
+            flex-shrink: 0;
+            margin-top: 4px;
         }
 
         .skin-modal-tabs {
@@ -1051,9 +1007,37 @@
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            opacity: 0.35;
+            opacity: 0.55;
             pointer-events: none;
             z-index: 1;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* 参考网易云：唱片纹理圆标 */
+        .skin-card-deco::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: repeating-conic-gradient(
+                from 0deg,
+                rgba(255, 255, 255, 0.55) 0deg 8deg,
+                rgba(255, 255, 255, 0.08) 8deg 16deg
+            );
+            opacity: 0.85;
+        }
+
+        .skin-card-deco::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 8px;
+            height: 8px;
+            margin: -4px 0 0 -4px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.12);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
         }
 
         .skin-card-label {
@@ -1078,12 +1062,28 @@
             background: #FFB6C4;
         }
 
+        .skin-card-default .skin-card-deco::before {
+            background: repeating-conic-gradient(
+                from 0deg,
+                rgba(255, 255, 255, 0.5) 0deg 8deg,
+                rgba(236, 65, 65, 0.15) 8deg 16deg
+            );
+        }
+
         .skin-card-red {
             background: linear-gradient(145deg, #EC4141 0%, #C62828 100%);
         }
 
         .skin-card-red .skin-card-deco {
             background: rgba(255, 255, 255, 0.45);
+        }
+
+        .skin-card-red .skin-card-deco::before {
+            background: repeating-conic-gradient(
+                from 0deg,
+                rgba(255, 255, 255, 0.65) 0deg 8deg,
+                rgba(255, 255, 255, 0.12) 8deg 16deg
+            );
         }
 
         .skin-card-black {
@@ -1094,11 +1094,36 @@
             background: rgba(255, 255, 255, 0.12);
         }
 
-        .skin-modal-pane-pendant {
-            text-align: center;
-            padding: 32px 16px;
+        .skin-card-black .skin-card-deco::before {
+            background: repeating-conic-gradient(
+                from 0deg,
+                rgba(255, 255, 255, 0.22) 0deg 8deg,
+                rgba(0, 0, 0, 0.35) 8deg 16deg
+            );
+        }
+
+        .skin-card-black .skin-card-deco::after {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+        }
+
+        /* 右上角换肤入口 */
+        .topbar-skin-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            font-size: 1.05rem;
             color: var(--text-secondary);
-            font-size: 0.9375rem;
+        }
+
+        .topbar-skin-btn:hover {
+            color: var(--netease-red, #EC4141);
+            background: rgba(236, 65, 65, 0.08);
+        }
+
+        html[data-skin="cool-black"] .topbar-skin-btn:hover {
+            color: #FF6B6B;
+            background: rgba(255, 107, 107, 0.12);
         }
 
         .public-topbar-inner {
@@ -1509,22 +1534,6 @@
         }
         .prob-cf-nav .cf-arrow {
             pointer-events: auto;
-        }
-
-        /* 问题 Cover Flow 计数器 */
-        .prob-cf-counter {
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-weight: 600;
-            font-size: 0.875rem;
-            color: #8e8e93;
-            min-width: 50px;
-            text-align: center;
-            background: rgba(255,255,255,0.8);
-            padding: 2px 10px;
-            border-radius: 12px;
         }
 
         /* 问题卡片 Cover Flow 响应式 */
@@ -2614,39 +2623,63 @@
             max-height: 100vh;
             overflow: hidden;
             align-items: stretch;
+            background: #ffffff;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+            /* 浅色 App 壳（网易云桌面端：灰侧栏 + 白主区） */
+            --sidebar-bg: #f7f8fa;
+            --sidebar-border: #e8e8e8;
+            --sidebar-text: #333333;
+            --sidebar-text-muted: rgba(0, 0, 0, 0.52);
+            --sidebar-section: rgba(0, 0, 0, 0.38);
+            --sidebar-hover: rgba(0, 0, 0, 0.05);
+            --sidebar-brand-hover: rgba(0, 0, 0, 0.04);
+            --sidebar-active-bg: #ec4141;
+            --sidebar-active-text: #ffffff;
+            --sidebar-divider: rgba(0, 0, 0, 0.06);
         }
 
         .public-sidebar {
-            flex: 0 0 240px;
-            width: 240px;
+            flex: 0 0 200px;
+            width: 200px;
             max-width: 100%;
-            background: #1D1D1F;
-            border-right: 1px solid rgba(255,255,255,0.08);
-            padding: 20px 12px 24px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            padding: 18px 10px 22px;
             display: flex;
             flex-direction: column;
             gap: 4px;
             z-index: 20;
             overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+        }
+
+        .public-sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .public-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.18);
+            border-radius: 10px;
         }
 
         .public-sidebar-brand {
             display: flex;
             align-items: center;
             gap: 10px;
-            font-weight: 600;
-            font-size: 1.05rem;
-            color: #FFFFFF !important;
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: var(--sidebar-text) !important;
             text-decoration: none;
             letter-spacing: -0.02em;
-            padding: 8px 10px;
-            border-radius: var(--radius-md);
-            margin-bottom: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 10px;
         }
 
         .public-sidebar-brand:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: #FFFFFF !important;
+            background: var(--sidebar-brand-hover);
+            color: var(--sidebar-text) !important;
         }
 
         /* 分组样式已移至侧栏分组区域 */
@@ -2657,40 +2690,47 @@
             gap: 2px;
             margin-top: auto;
             padding-top: 16px;
-            border-top: 1px solid rgba(255,255,255,0.08);
+            border-top: 1px solid var(--sidebar-divider);
         }
 
         .public-sidebar-link {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 10px 12px;
-            border-radius: var(--radius-md);
-            font-size: 0.875rem;
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-size: 1rem;
             font-weight: 500;
-            color: rgba(255, 255, 255, 0.7);
+            color: var(--sidebar-text);
             text-decoration: none;
             transition: background var(--transition-fast), color var(--transition-fast);
         }
 
         .public-sidebar-link i {
-            font-size: 1rem;
-            opacity: 0.75;
+            font-size: 1.15rem;
+            opacity: 0.88;
+            color: var(--sidebar-text-muted);
         }
 
         .public-sidebar-link:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: #FFFFFF;
+            background: var(--sidebar-hover);
+            color: var(--sidebar-text);
+        }
+
+        .public-sidebar-link:hover i {
+            color: var(--sidebar-text);
         }
 
         .public-sidebar-link.is-active {
-            background: rgba(0, 122, 255, 0.25);
-            color: #0A84FF;
+            background: var(--sidebar-active-bg);
+            color: var(--sidebar-active-text);
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(236, 65, 65, 0.35);
         }
 
         .public-sidebar-link.is-active i {
             opacity: 1;
-            color: #0A84FF;
+            color: var(--sidebar-active-text);
         }
 
         /* ================================================
@@ -2703,19 +2743,18 @@
         }
 
         .public-sidebar-section-label {
-            font-size: 0.65rem;
+            font-size: 0.8125rem;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: rgba(255, 255, 255, 0.35);
-            margin: 12px 10px 6px;
+            letter-spacing: 0.04em;
+            color: var(--sidebar-section);
+            margin: 14px 12px 8px;
             padding: 0 4px;
         }
 
         .sidebar-group-bottom {
             margin-top: auto;
             padding-top: 16px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: 1px solid var(--sidebar-divider);
         }
 
         .sidebar-badge {
@@ -2734,102 +2773,25 @@
             margin-left: auto;
             font-size: 0.6rem;
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.3);
-            background: rgba(255, 255, 255, 0.08);
+            color: var(--sidebar-text-muted);
+            background: var(--sidebar-hover);
             padding: 1px 6px;
             border-radius: 4px;
         }
 
         .sidebar-new-badge {
             margin-left: auto;
-            font-size: 0.55rem;
+            font-size: 0.65rem;
             font-weight: 700;
             color: #fff;
             background: linear-gradient(135deg, #FF6B35, #FF2D55);
-            padding: 1px 6px;
+            padding: 2px 7px;
             border-radius: 4px;
             letter-spacing: 0.5px;
         }
 
         /* ================================================
-           超级定位三 Tab 样式
-           ================================================ */
-        .super-workspace-new {
-            background: transparent;
-            border-radius: 0;
-            box-shadow: none;
-            overflow: visible;
-            margin-bottom: 0;
-            border-top: 1px solid rgba(0, 0, 0, 0.06);
-            margin-top: 8px;
-            padding-top: 16px;
-        }
-
-        .super-tabs-bar {
-            display: flex;
-            align-items: center;
-            gap: 0;
-            padding: 0 4px;
-            background: transparent;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-            flex-shrink: 0;
-        }
-
-        .super-tab-btn {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 14px 18px;
-            background: transparent;
-            border: none;
-            border-bottom: 2.5px solid transparent;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin-bottom: -1px;
-        }
-
-        .super-tab-btn i {
-            font-size: 0.9375rem;
-        }
-
-        .super-tab-btn:hover {
-            color: var(--text-primary);
-        }
-
-        .super-tab-btn.active {
-            color: var(--apple-red, #FF3B30);
-            border-bottom-color: var(--apple-red, #FF3B30);
-            font-weight: 600;
-        }
-
-        .super-tabs-actions {
-            margin-left: auto;
-            padding: 8px 0;
-        }
-
-        .super-tab-content-wrapper {
-            min-height: 0;
-            overflow-y: auto;
-        }
-
-        .super-tab-panel {
-            display: none;
-        }
-
-        .super-tab-panel.active {
-            display: block;
-        }
-
-        .tab-panel-inner {
-            padding: 0;
-            max-height: calc(100vh - 200px);
-            overflow-y: auto;
-        }
-
-        /* Mac 风格：表单区域无嵌套框，扁平化设计 */
+           已保存画像列表样式
         .form-content-wrapper {
             max-width: 680px;
             margin: 0 auto;
@@ -2899,10 +2861,6 @@
             color: var(--text-secondary);
             font-size: 0.875rem;
             text-align: center;
-        }
-
-        .super-empty-icon {
-            opacity: 0.6;
         }
 
         /* ================================================
@@ -3052,20 +3010,20 @@
             min-height: 0;
             display: flex;
             flex-direction: column;
-            background: var(--bg-primary);
+            background: #ffffff;
         }
 
         .public-topbar {
             flex-shrink: 0;
-            min-height: 52px;
-            padding: 8px 32px;
+            min-height: 56px;
+            padding: 10px 28px 10px 32px;
             display: flex;
             align-items: center;
             justify-content: flex-end;
             flex-wrap: wrap;
             gap: 12px 16px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-            background: var(--bg-primary);
+            border-bottom: 1px solid #f0f0f0;
+            background: #ffffff;
         }
 
         .public-topbar-actions {
@@ -3077,7 +3035,7 @@
 
         .public-topbar-actions .nav-link {
             padding: 6px 12px;
-            font-size: 0.875rem;
+            font-size: 0.9375rem;
             font-weight: 500;
             color: var(--text-secondary) !important;
             text-decoration: none;
@@ -3090,19 +3048,19 @@
         }
 
         .public-topbar-actions .btn-primary {
-            border-radius: var(--radius-md);
+            border-radius: 999px;
             font-weight: 600;
-            font-size: 0.875rem;
-            padding: 7px 18px;
-            background: var(--apple-blue);
+            font-size: 0.9375rem;
+            padding: 8px 20px;
+            background: var(--netease-red, #ec4141);
             border: none;
             transition: all var(--transition-fast);
         }
 
         .public-topbar-actions .btn-primary:hover {
-            background: var(--apple-blue-hover);
+            background: var(--netease-red-hover, #d93a3a);
             transform: translateY(-1px);
-            box-shadow: 0 3px 12px rgba(0, 122, 255, 0.35);
+            box-shadow: 0 4px 14px rgba(236, 65, 65, 0.35);
         }
 
         /* ================================================
@@ -3111,15 +3069,15 @@
         .topbar-user {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             flex-shrink: 0;
         }
 
         .topbar-avatar {
-            width: 28px;
-            height: 28px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--apple-blue), #5856D6);
+            background: linear-gradient(135deg, var(--netease-red, #ec4141), #ff6b6b);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -3128,7 +3086,7 @@
         }
 
         #topbar-avatar-letter {
-            font-size: 0.75rem;
+            font-size: 1rem;
             font-weight: 700;
             color: #fff;
             line-height: 1;
@@ -3136,10 +3094,10 @@
         }
 
         .topbar-nickname {
-            font-size: 0.875rem;
+            font-size: 1rem;
             font-weight: 600;
             color: var(--text-primary);
-            max-width: 120px;
+            max-width: 180px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -3147,9 +3105,9 @@
         }
 
         .topbar-plan-badge {
-            font-size: 0.6875rem;
+            font-size: 0.8125rem;
             font-weight: 600;
-            padding: 2px 8px;
+            padding: 3px 10px;
             border-radius: 4px;
             line-height: 1.4;
             white-space: nowrap;
@@ -3161,14 +3119,14 @@
 
         .topbar-separator {
             width: 1px;
-            height: 18px;
+            height: 22px;
             background: rgba(0, 0, 0, 0.12);
             flex-shrink: 0;
         }
 
         .topbar-icon-btn {
-            width: 28px;
-            height: 28px;
+            width: 36px;
+            height: 36px;
             border-radius: 6px;
             border: none;
             background: transparent;
@@ -3177,7 +3135,7 @@
             justify-content: center;
             cursor: pointer;
             color: var(--text-secondary);
-            font-size: 0.875rem;
+            font-size: 1rem;
             transition: all var(--transition-fast);
             padding: 0;
         }
@@ -3192,23 +3150,171 @@
             color: #ef4444;
         }
 
+        /* 设置下拉：macOS 菜单风格（覆盖全局 button 样式） */
+        .topbar-settings-dropdown {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .topbar-settings-menu {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            z-index: 300;
+            min-width: 192px;
+            padding: 6px;
+            margin: 0;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow:
+                0 12px 40px rgba(0, 0, 0, 0.12),
+                0 0 0 1px rgba(0, 0, 0, 0.04);
+            backdrop-filter: saturate(180%) blur(24px);
+            -webkit-backdrop-filter: saturate(180%) blur(24px);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-6px);
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+        }
+
+        .topbar-settings-dropdown.is-open .topbar-settings-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .topbar-settings-divider {
+            height: 1px;
+            margin: 4px 6px;
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .topbar-settings-menu button.topbar-settings-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 6px;
+            background: transparent !important;
+            font-family: inherit;
+            font-size: 0.9375rem;
+            font-weight: 400;
+            line-height: 1.3;
+            color: var(--text-primary) !important;
+            text-align: left;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            box-shadow: none !important;
+            text-shadow: none !important;
+            transition: background 0.12s ease, color 0.12s ease;
+        }
+
+        .topbar-settings-menu button.topbar-settings-item i {
+            font-size: 1.05rem;
+            opacity: 0.72;
+            color: inherit;
+        }
+
+        .topbar-settings-menu button.topbar-settings-item:hover {
+            background: rgba(0, 0, 0, 0.06) !important;
+        }
+
+        .topbar-settings-menu button.topbar-settings-item.danger {
+            color: #d70015 !important;
+        }
+
+        .topbar-settings-menu button.topbar-settings-item.danger:hover {
+            background: rgba(215, 0, 21, 0.08) !important;
+        }
+
+        html[data-skin="cool-black"] .topbar-settings-menu {
+            background: rgba(44, 44, 46, 0.96);
+            border-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+        }
+
+        html[data-skin="cool-black"] .topbar-settings-divider {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        html[data-skin="cool-black"] .topbar-settings-menu button.topbar-settings-item:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+        }
+
+        .mac-quota-strip {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px 16px;
+            padding: 10px 0 14px;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .mac-quota-strip strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .mac-quota-strip a {
+            color: var(--apple-blue);
+            font-weight: 500;
+            font-size: 0.8125rem;
+            text-decoration: none;
+        }
+
+        .mac-quota-strip a:hover {
+            text-decoration: underline;
+        }
+
+        .mac-quota-strip > .d-flex svg {
+            flex-shrink: 0;
+            width: 18px;
+            height: 18px;
+            color: var(--apple-blue);
+            opacity: 0.85;
+        }
+
+        html[data-skin="cool-black"] .mac-quota-strip {
+            border-bottom-color: rgba(255, 255, 255, 0.08);
+        }
+
         .public-content-scroll {
             flex: 1;
             min-height: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+        }
+
+        .public-content-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .public-content-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 10px;
+        }
+
+        .public-content-scroll::-webkit-scrollbar-track {
+            background: transparent;
         }
 
         /* ================================================
            NetEase 风格增强：红色强调色 + 卡片角标
            ================================================ */
-
-        /* 红色主强调色（网易云风格） */
-        :root {
-            --netease-red: #EC4141;
-            --netease-red-hover: #D93A3A;
-            --netease-red-light: #FFF0F0;
-        }
 
         /* 画像卡片：红色角标（播放量风格） */
         .netease-badge {
@@ -3377,16 +3483,6 @@
             color: var(--netease-red) !important;
         }
 
-        /* 侧栏选中项：红色高亮 */
-        .public-sidebar-link.is-active {
-            background: rgba(236, 65, 65, 0.18);
-            color: #FF6B6B;
-        }
-
-        .public-sidebar-link.is-active i {
-            color: #FF6B6B;
-        }
-
         /* 标签：红色小标签 */
         .netease-tag {
             display: inline-flex;
@@ -3427,9 +3523,9 @@
             .public-sidebar {
                 flex: none;
                 width: 100%;
-                background: #1D1D1F;
+                background: var(--sidebar-bg);
                 border-right: none;
-                border-bottom: 1px solid rgba(255,255,255,0.08);
+                border-bottom: 1px solid var(--sidebar-border);
                 flex-direction: row;
                 flex-wrap: wrap;
                 align-items: center;
@@ -3472,341 +3568,190 @@
         }
 
         /* ================================================
-           精选展示区 - Cover Flow（大卡片 + 3D 旋转）
-           ================================================ */
-        .featured-section {
-            padding: 0 0 20px;
-        }
-
-        .featured-section-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-
-        .featured-section-title {
-            font-size: 1.0625rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .featured-section-title::before {
-            content: '';
-            display: inline-block;
-            width: 4px;
-            height: 18px;
-            background: linear-gradient(180deg, var(--apple-blue), var(--apple-purple));
-            border-radius: 2px;
-        }
-
-        .featured-section-meta {
-            font-size: 0.8125rem;
-            color: var(--text-secondary);
-        }
-
-        /* Cover Flow 容器 */
-        .featured-coverflow-wrap {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .featured-coverflow-stage {
-            position: relative;
-            height: 360px;
-            overflow: hidden;
-            user-select: none;
-        }
-
-        .featured-coverflow-track {
-            position: absolute;
-            left: 50%;
-            top: 10px;
-            width: 100%;
-            height: 300px;
-            pointer-events: none;
-        }
-
-        .featured-coverflow-card {
-            position: absolute;
-            width: 220px;
-            top: 0;
-            border-radius: var(--radius-xl);
-            background: var(--bg-primary);
-            border: 1px solid var(--apple-gray5);
-            box-shadow: var(--shadow-md);
-            cursor: pointer;
-            overflow: hidden;
-            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                        box-shadow 0.5s ease,
-                        border-color 0.3s ease;
-        }
-
-        .featured-coverflow-card:hover {
-            border-color: var(--apple-blue);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .featured-coverflow-card.is-center {
-            box-shadow: var(--shadow-lg);
-            border-color: var(--apple-blue);
-        }
-
-        .featured-coverflow-card.is-center .fc-card-inner {
-            border: 2px solid var(--apple-blue);
-            border-radius: calc(var(--radius-xl) - 2px);
-        }
-
-        .fc-card-inner {
-            height: 100%;
-            border: 1px solid transparent;
-            border-radius: calc(var(--radius-xl) - 1px);
-            overflow: hidden;
-        }
-
-        .fc-card-cover {
-            height: 160px;
-            background: linear-gradient(135deg, #E8F4FF 0%, #F3E8FF 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
-            color: var(--apple-blue);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .fc-card-cover::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, rgba(0, 122, 255, 0.08), rgba(175, 82, 222, 0.08));
-        }
-
-        .fc-card-body {
-            padding: 12px 14px;
-        }
-
-        .fc-card-name {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 6px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .fc-card-desc {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            line-height: 1.5;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .fc-card-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-            margin-top: 8px;
-        }
-
-        .fc-tag {
-            font-size: 0.6875rem;
-            padding: 2px 7px;
-            background: var(--apple-gray6);
-            color: var(--text-secondary);
-            border-radius: 8px;
-        }
-
-        .fc-card-footer {
-            padding: 8px 14px;
-            border-top: 1px solid var(--apple-gray5);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .fc-card-date {
-            font-size: 0.6875rem;
-            color: var(--text-secondary);
-        }
-
-        .fc-card-actions {
-            display: flex;
-            gap: 4px;
-        }
-
-        .fc-btn-icon {
-            width: 26px;
-            height: 26px;
-            border-radius: 6px;
-            border: 1px solid var(--apple-gray4);
-            background: transparent;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            font-size: 0.75rem;
-        }
-
-        .fc-btn-icon:hover {
-            background: var(--apple-gray6);
-            color: var(--text-primary);
-        }
-
-        .fc-btn-icon.delete:hover {
-            background: #FFF0F0;
-            border-color: var(--apple-red);
-            color: var(--apple-red);
-        }
-
-        /* Cover Flow 导航 */
-        .featured-coverflow-nav {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            padding: 12px 0 4px;
-        }
-
-        .fc-nav-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: 1px solid var(--apple-gray4);
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            font-size: 0.875rem;
-        }
-
-        .fc-nav-btn:hover {
-            background: var(--apple-gray6);
-            border-color: var(--apple-gray3);
-        }
-
-        .fc-nav-btn:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-        }
-
-        .fc-nav-dots {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-
-        .fc-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--apple-gray4);
-            transition: all var(--transition-normal);
-            cursor: pointer;
-        }
-
-        .fc-dot.is-active {
-            width: 20px;
-            border-radius: 3px;
-            background: var(--apple-blue);
-        }
-
-        /* ================================================
-           画像横铺区 - 横向滚动卡片行
+           画像横铺区 - 网易云「精选 / 官方歌单」式横向卡片
            ================================================ */
         .portraits-row-section {
-            padding: 20px 0 0;
+            padding: 8px 0 0;
+            margin-bottom: 40px;
         }
 
         .portraits-row-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 16px;
+            margin-bottom: 18px;
+            padding-left: 28px;
         }
 
         .portraits-row-title {
-            font-size: 0.9375rem;
-            font-weight: 600;
-            color: var(--text-primary);
+            font-size: 1.0625rem;
+            font-weight: 700;
+            color: #1a1a1a;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            letter-spacing: -0.02em;
+        }
+        .portraits-row-title::after {
+            content: '›';
+            font-size: 1.125rem;
+            font-weight: 500;
+            color: #999;
+            margin-left: 2px;
+            line-height: 1;
+        }
+        .portraits-row-title span {
+            font-size: 0.8125rem;
+            color: #888;
+            font-weight: 400;
         }
 
         .portraits-row-scroll {
             display: flex;
-            gap: 12px;
+            gap: 18px;
             overflow-x: auto;
-            padding-bottom: 8px;
+            padding: 4px 0 14px 28px;
             scroll-snap-type: x mandatory;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
-            scrollbar-color: var(--apple-gray4) transparent;
+            scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
         }
 
         .portraits-row-scroll::-webkit-scrollbar {
-            height: 4px;
+            height: 5px;
         }
 
         .portraits-row-scroll::-webkit-scrollbar-thumb {
-            background: var(--apple-gray4);
-            border-radius: 2px;
+            background: rgba(0, 0, 0, 0.18);
+            border-radius: 4px;
         }
 
         .pr-card {
-            flex: 0 0 200px;
+            flex: 0 0 clamp(158px, 22vw, 200px);
+            width: clamp(158px, 22vw, 200px);
             scroll-snap-align: start;
-            background: var(--bg-primary);
-            border: 1px solid var(--apple-gray5);
-            border-radius: var(--radius-lg);
-            overflow: hidden;
+            border-radius: 10px;
             cursor: pointer;
-            transition: all var(--transition-fast);
+            transition: all 0.2s;
+            position: relative;
+            background: transparent;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
         }
 
         .pr-card:hover {
-            border-color: var(--apple-gray4);
-            box-shadow: var(--shadow-sm);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+            border-color: var(--primary);
+        }
+
+        .pr-card.selected {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .pr-card-surface {
+            border-radius: 9px;
+            overflow: hidden;
+            aspect-ratio: 3 / 4;
+            display: flex;
+            flex-direction: column;
+            background: #111;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
         .pr-card-cover {
-            height: 80px;
-            background: linear-gradient(135deg, #E8F4FF, #F3E8FF);
+            flex: 1;
+            min-height: 0;
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
-            color: var(--apple-blue);
+            font-size: 2rem;
+            color: rgba(255, 255, 255, 0.92);
         }
 
-        .pr-card-body {
-            padding: 10px 12px;
+        .pr-card:nth-child(4n + 1) .pr-card-cover {
+            background: linear-gradient(160deg, #3d6b5c 0%, #1e3d32 45%, #0f241c 100%);
+        }
+        .pr-card:nth-child(4n + 2) .pr-card-cover {
+            background: linear-gradient(160deg, #4a6fa5 0%, #2a4570 45%, #152a45 100%);
+        }
+        .pr-card:nth-child(4n + 3) .pr-card-cover {
+            background: linear-gradient(160deg, #a85a6a 0%, #6b3040 45%, #3a1822 100%);
+        }
+        .pr-card:nth-child(4n + 4) .pr-card-cover {
+            background: linear-gradient(160deg, #6b5c8f 0%, #3d3458 45%, #221c38 100%);
+        }
+
+        .pr-card-stat {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 2;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.25));
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            max-width: calc(100% - 16px);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pr-card-footer {
+            flex: 0 0 26%;
+            min-height: 0;
+            padding: 10px 12px 11px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .pr-card:nth-child(4n + 1) .pr-card-footer {
+            background: linear-gradient(180deg, #1a3329, #0f221a);
+        }
+        .pr-card:nth-child(4n + 2) .pr-card-footer {
+            background: linear-gradient(180deg, #1a2d48, #0f1928);
+        }
+        .pr-card:nth-child(4n + 3) .pr-card-footer {
+            background: linear-gradient(180deg, #3a1e26, #241018);
+        }
+        .pr-card:nth-child(4n + 4) .pr-card-footer {
+            background: linear-gradient(180deg, #2a2438, #18141f);
         }
 
         .pr-card-name {
             font-size: 0.8125rem;
-            font-weight: 600;
-            color: var(--text-primary);
+            font-weight: 700;
+            color: #fff;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-bottom: 4px;
+            line-height: 1.25;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
         }
 
         .pr-card-meta {
             font-size: 0.6875rem;
-            color: var(--text-secondary);
+            color: rgba(255, 255, 255, 0.72);
+            line-height: 1.35;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .pr-card-date {
+            font-size: 0.625rem;
+            color: rgba(255, 255, 255, 0.45);
+            margin-top: 1px;
         }
 
         .pr-empty {
@@ -3815,6 +3760,107 @@
             padding: 40px 20px;
             color: var(--text-secondary);
             font-size: 0.875rem;
+        }
+
+        /* ================================================
+           画像卡片悬停选题预览层
+           ================================================ */
+        .pr-hover-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.92) 100%);
+            padding: 36px 10px 12px;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            border-radius: 0 0 10px 10px;
+            z-index: 10;
+        }
+
+        .pr-card:hover .pr-hover-overlay {
+            transform: translateY(0);
+        }
+
+        .pr-hover-topics {
+            list-style: none;
+            margin: 0 0 8px;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .pr-hover-topic {
+            font-size: 0.6875rem;
+            color: rgba(255,255,255,0.85);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-left: 12px;
+            position: relative;
+            line-height: 1.3;
+        }
+
+        .pr-hover-topic::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: rgba(236,65,65,0.8);
+        }
+
+        .pr-hover-generating {
+            font-size: 0.6875rem;
+            color: rgba(255,255,255,0.6);
+            text-align: center;
+            padding: 4px 0;
+        }
+
+        .pr-hover-play {
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            width: 48px;
+            height: 48px;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.45);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+            color: #fff;
+            font-size: 1.6rem;
+            line-height: 1;
+            cursor: pointer;
+            transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .pr-hover-play i {
+            margin-left: 3px;
+        }
+
+        .pr-hover-play:hover {
+            background: rgba(0, 0, 0, 0.55);
+            transform: scale(1.07);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+        }
+
+        .pr-hover-play:focus-visible {
+            outline: 2px solid rgba(255, 255, 255, 0.85);
+            outline-offset: 2px;
+        }
+
+        .pr-card.selected .pr-card-surface {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
         }
 
         /* ================================================
@@ -3858,142 +3904,104 @@
             .tab-item span {
                 font-size: 0.8125rem;
             }
+
+            .pr-card {
+                flex: 0 0 148px;
+                width: 148px;
+            }
+
+            .portraits-row-scroll {
+                gap: 14px;
+            }
         }
     </style>
-</head>
-<body>
-    <script>
-        (function () {
-            try {
-                var v = localStorage.getItem('public_ui_skin') || 'system';
-                if (v !== 'system' && v !== 'classic-red' && v !== 'cool-black') v = 'system';
-                document.documentElement.setAttribute('data-skin', v);
-            } catch (e) {
-                document.documentElement.setAttribute('data-skin', 'system');
-            }
-        })();
-    </script>
-    <div class="public-app-layout">
-        <aside class="public-sidebar" aria-label="主导航">
-            <!-- Logo -->
-            <a class="public-sidebar-brand" href="/public">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#logoGradSidebar)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 17L12 22L22 17" stroke="url(#logoGradSidebar)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 12L12 17L22 12" stroke="url(#logoGradSidebar)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <defs>
-                        <linearGradient id="logoGradSidebar" x1="2" y1="2" x2="22" y2="22">
-                            <stop stop-color="#007AFF"/>
-                            <stop offset="1" stop-color="#AF52DE"/>
-                        </linearGradient>
-                    </defs>
-                </svg>
-                AI 棱镜
-            </a>
+{% endblock %}
 
-            <!-- 分组1：快速生成 -->
-            <div class="sidebar-group">
-                <div class="public-sidebar-section-label">快速生成</div>
-                <a class="public-sidebar-link is-active" href="#" data-sidebar-tab="tab-super"
-                   onclick="sidebarNavClick(event, 'tab-super')">
-                    <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
-                    开始创作
-                </a>
-            </div>
+{% block sidebar_nav %}
+<!-- 分组1：快速生成 -->
+<div class="sidebar-group">
+    <div class="public-sidebar-section-label">快速生成</div>
+        <a class="public-sidebar-link" href="/public" id="sidebar-super-link">
+        <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+        开始创作
+    </a>
+    <a class="public-sidebar-link" href="/public/galaxy" id="sidebar-galaxy-link"
+       onclick="sidebarNavLink(event, this)" data-page="galaxy">
+        <i class="bi bi-stars" aria-hidden="true"></i>
+        内容星球
+    </a>
+</div>
 
-            <!-- 分组2：我的 -->
-            <div class="sidebar-group">
-                <div class="public-sidebar-section-label">我的</div>
-                <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-portraits"
-                   onclick="sidebarNavClick(event, 'tab-portraits')">
-                    <i class="bi bi-people-fill" aria-hidden="true"></i>
-                    客户画像
-                    <span class="sidebar-badge" id="sidebar-portrait-count" style="display:none;">0</span>
-                </a>
-                <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-topics"
-                   onclick="sidebarNavClick(event, 'tab-topics')">
-                    <i class="bi bi-card-list" aria-hidden="true"></i>
-                    选题清单
-                </a>
-                <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-contents"
-                   onclick="sidebarNavClick(event, 'tab-contents')">
-                    <i class="bi bi-collection-play-fill" aria-hidden="true"></i>
-                    内容清单
-                </a>
-            </div>
+<!-- 分组2：我的 -->
+<div class="sidebar-group">
+    <div class="public-sidebar-section-label">我的</div>
+    <a class="public-sidebar-link" href="/public/portraits" id="sidebar-portraits-link"
+       onclick="sidebarNavLink(event, this)" data-page="portraits">
+        <i class="bi bi-people-fill" aria-hidden="true"></i>
+        客户画像
+    </a>
+    <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-topics"
+       onclick="sidebarNavClick(event, 'tab-topics')">
+        <i class="bi bi-card-list" aria-hidden="true"></i>
+        选题清单
+    </a>
+    <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-contents"
+       onclick="sidebarNavClick(event, 'tab-contents')">
+        <i class="bi bi-collection-play-fill" aria-hidden="true"></i>
+        内容清单
+    </a>
+</div>
+{% endblock %}
 
-            <!-- 分组3：工具 -->
-            <div class="sidebar-group sidebar-group-bottom">
-                <div class="public-sidebar-section-label">工具</div>
-                <a class="public-sidebar-link" href="/public/galaxy" id="sidebar-galaxy-link"
-                   onclick="sidebarNavLink(event, this)" data-page="galaxy">
-                    <i class="bi bi-stars" aria-hidden="true"></i>
-                    内容星球
-                    <span class="sidebar-new-badge">NEW</span>
-                </a>
-                <a class="public-sidebar-link" href="/public/pricing" onclick="sidebarNavLink(event, this)">
-                    <i class="bi bi-tag-fill" aria-hidden="true"></i>
-                    定价
-                </a>
-            </div>
-        </aside>
-        <div class="public-content">
-            <header class="public-topbar">
-                <div class="public-topbar-inner">
-                    <div class="public-topbar-actions" id="topbar-auth">
-                        <span id="nav-login">
-                            <a class="nav-link" href="/login?type=public" target="_self">登录</a>
-                        </span>
-                        <span id="nav-register">
-                            <a class="btn btn-primary" href="/login?type=public#register" target="_self">免费开始</a>
-                        </span>
-                    </div>
-                    <!-- 登录后顶栏（默认隐藏）Mac 风格横向布局 -->
-                    <div class="topbar-user" id="topbar-user" style="display:none;">
-                        <!-- 头像 -->
-                        <div class="topbar-avatar" id="topbar-avatar">
-                            <span id="topbar-avatar-letter"></span>
-                        </div>
-                        <!-- 昵称 -->
-                        <span class="topbar-nickname" id="topbar-nickname"></span>
-                        <!-- 账号类型标签 -->
-                        <span class="topbar-plan-badge" id="topbar-plan-badge"></span>
-                        <!-- 分隔线 -->
-                        <span class="topbar-separator"></span>
-                        <!-- 设置下拉菜单 -->
-                        <div class="topbar-settings-dropdown" id="topbar-settings-dropdown">
-                            <button type="button" class="topbar-icon-btn" id="topbar-settings-btn" onclick="toggleSettingsDropdown(event)" title="设置">
-                                <i class="bi bi-gear"></i>
-                            </button>
-                            <div class="topbar-settings-menu" id="topbar-settings-menu">
-                                <button class="topbar-settings-item" onclick="openAccountSettings(event, 'profile'); toggleSettingsDropdown(event);">
-                                    <i class="bi bi-pencil-square"></i>
-                                    修改账号
-                                </button>
-                                <button class="topbar-settings-item" onclick="openAccountSettings(event, 'password'); toggleSettingsDropdown(event);">
-                                    <i class="bi bi-key"></i>
-                                    修改密码
-                                </button>
-                                <div class="topbar-settings-divider"></div>
-                                <button class="topbar-settings-item danger" onclick="logout(event)">
-                                    <i class="bi bi-box-arrow-right"></i>
-                                    退出登录
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <button type="button" class="topbar-icon-btn" id="topbar-skin-btn" onclick="openSkinModal(event)" title="个性皮肤">
-                        <i class="bi bi-palette-fill"></i>
-                    </button>
-                </div>
-            </header>
-            <div class="public-content-scroll">
-    <!-- 主内容区域 -->
-    <main class="main-container">
+{% block topbar_title %}
+{% endblock %}
+
+{% block topbar_right %}
+<div class="public-topbar-actions" id="topbar-auth">
+    <span id="nav-login">
+        <a class="nav-link" href="/login?type=public" target="_self">登录</a>
+    </span>
+    <span id="nav-register">
+        <a class="btn btn-primary" href="/login?type=public#register" target="_self">免费开始</a>
+    </span>
+</div>
+<div class="topbar-user" id="topbar-user" style="display:none;">
+    <div class="topbar-avatar" id="topbar-avatar">
+        <span id="topbar-avatar-letter"></span>
+    </div>
+    <span class="topbar-nickname" id="topbar-nickname"></span>
+    <span class="topbar-plan-badge" id="topbar-plan-badge"></span>
+    <span class="topbar-separator"></span>
+    <div class="topbar-settings-dropdown" id="topbar-settings-dropdown">
+        <button type="button" class="topbar-icon-btn" id="topbar-settings-btn" onclick="toggleSettingsDropdown(event)" title="设置" aria-expanded="false" aria-haspopup="true" aria-controls="topbar-settings-menu">
+            <i class="bi bi-gear" aria-hidden="true"></i>
+        </button>
+        <div class="topbar-settings-menu" id="topbar-settings-menu" role="menu">
+            <button type="button" class="topbar-settings-item" role="menuitem" onclick="openAccountSettings(event, 'profile'); toggleSettingsDropdown(event);">
+                <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                个人资料维护
+            </button>
+            <button type="button" class="topbar-settings-item" role="menuitem" onclick="openAccountSettings(event, 'password'); toggleSettingsDropdown(event);">
+                <i class="bi bi-key" aria-hidden="true"></i>
+                修改密码
+            </button>
+            <div class="topbar-settings-divider"></div>
+            <button type="button" class="topbar-settings-item danger" role="menuitem" onclick="logout(event)">
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                退出登录
+            </button>
+        </div>
+    </div>
+</div>
+<button type="button" class="topbar-icon-btn topbar-skin-btn" id="topbar-skin-btn" onclick="openSkinWorkspace(event)" title="个性皮肤" aria-label="个性皮肤">
+    <svg class="topbar-skin-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+        <path d="M16.25 3.5c-.35 0-.68.18-.87.48L14 6h-4L8.62 3.98a1 1 0 00-.87-.48H5.75L3 6.25V9h2v11h14V9h2V6.25L18.25 3.5h-2zM7 9h10v9H7V9zm11-1H6V6.7L6.92 5.5h1.45l1.51 2.02a1 1 0 001.24.28.98.98 0 00.28-.28L12.91 5.5h1.45L16 6.7V8z"/>
+    </svg>
+</button>
+{% endblock %}
+
+{% block content %}
         <div class="workspace-main" id="generator-window">
-                <h1 class="section-title">快速生成内容</h1>
-                <p class="section-subtitle">基于 AI 分析，精准定位目标用户，一键生成爆款内容</p>
-
                 <!-- 登录提示 -->
                 <div id="login-prompt" class="text-center py-5">
                     <div class="apple-card p-5">
@@ -4012,50 +4020,12 @@
 
                 <!-- 生成表单（登录后显示） -->
                 <div id="generator-form" style="display: none;">
-                    <!-- 配额提示 -->
-                    <div id="quota-info" class="apple-card p-3 mb-4" style="background: linear-gradient(135deg, #E8F4FF 0%, #F3E8FF 100%); border: none;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center gap-2">
-                                <svg width="20" height="20" viewBox="0 0 20 20" fill="#007AFF">
-                                    <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"/>
-                                </svg>
-                                <span>今日剩余次数：<strong id="quota-count">2</strong> 次</span>
-                            </div>
-                            <a href="/public/pricing" style="color: #007AFF; font-weight: 500; font-size: 0.875rem;">升级获取更多次数 →</a>
-                        </div>
-                    </div>
-
-                    <!-- ================================================
-                         精选展示区 - Cover Flow（视觉冲击，3D 旋转卡片）
-                         ================================================ -->
-                    <div id="featured-section" class="featured-section" style="display: none;">
-                        <div class="featured-section-header">
-                            <div class="featured-section-title">精选画像</div>
-                            <div class="featured-section-meta" id="featured-count"></div>
-                        </div>
-                        <div class="featured-coverflow-wrap">
-                            <div class="featured-coverflow-stage" id="featured-coverflow-stage">
-                                <div class="featured-coverflow-track" id="featured-coverflow-track"></div>
-                                <div class="featured-coverflow-nav">
-                                    <button class="fc-nav-btn" id="fc-nav-prev" aria-label="上一张">
-                                        <i class="bi bi-chevron-left"></i>
-                                    </button>
-                                    <div class="fc-nav-dots" id="fc-nav-dots"></div>
-                                    <button class="fc-nav-btn" id="fc-nav-next" aria-label="下一张">
-                                        <i class="bi bi-chevron-right"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- ================================================
                          画像横铺区 - 横向滚动卡片行（效率浏览）
                          ================================================ -->
                     <div id="portraits-row-section" class="portraits-row-section" style="display: none;">
                         <div class="portraits-row-header">
-                            <div class="portraits-row-title">最近使用</div>
-                            <button class="btn-apple btn-sm" onclick="showAllPortraits()">查看全部</button>
+                            <div class="portraits-row-title">精选区 <span>最近创作</span></div>
                         </div>
                         <div class="portraits-row-scroll" id="portraits-row-scroll">
                             <div id="portraits-row-loading" style="flex:1; text-align:center; padding: 24px 0;">
@@ -4074,7 +4044,7 @@
                         </div>
                     </div>
 
-                    <div id="portrait-section" class="mt-4" style="display: none;">
+                    <div id="portrait-section" class="mt-4" style="display: none !important;">
                         <!-- 已保存画像区域（标题在左侧，箭头在右侧，卡片在下方） -->
                         <div class="portrait-section-wrapper apple-accordion">
                             <!-- 顶部导航栏：左侧标题 + 右侧折叠箭头 -->
@@ -4106,178 +4076,27 @@
                         </div>
                     </div>
 
-                    <!-- 超级定位三 Tab 切换区 -->
-                    <!-- 超级定位三 Tab -->
-                    <div class="super-workspace-new" id="super-workspace-new" style="display: none;">
-                        <!-- 顶部 Tab 栏 -->
-                        <div class="super-tabs-bar">
-                            <button class="super-tab-btn active" data-super-tab="tab-form" onclick="switchSuperTab('tab-form')">
-                                <i class="bi bi-card-text"></i>描述业务
-                            </button>
-                            <button class="super-tab-btn" data-super-tab="tab-problems" onclick="switchSuperTab('tab-problems')">
-                                <i class="bi bi-search"></i>问题识别
-                            </button>
-                            <button class="super-tab-btn" data-super-tab="tab-portraits" onclick="switchSuperTab('tab-portraits')">
-                                <i class="bi bi-people"></i>生成画像
-                            </button>
-                            <div class="super-tabs-actions">
-                                <button class="btn-apple btn-sm" id="btn-reset-super" onclick="resetSuperSnapshot()">
-                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
-                                        <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                                        <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                    </svg>
-                                    重置
-                                </button>
-                            </div>
+                    <!-- 超级定位引导区 - 已移至客户画像页面 -->
+                    <div id="super-position-section" class="apple-card p-5 mt-4 text-center" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; display: none;">
+                        <div style="margin-bottom: 20px;">
+                            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" style="margin: 0 auto;">
+                                <circle cx="28" cy="28" r="28" fill="#EEF2FF"/>
+                                <path d="M28 16L20 22V34L28 40L36 34V22L28 16Z" stroke="#6366F1" stroke-width="2" fill="none"/>
+                                <circle cx="28" cy="28" r="6" fill="#6366F1"/>
+                                <path d="M28 8V12M28 44V48M48 28H52M4 28H8" stroke="#6366F1" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
                         </div>
-
-                        <!-- Tab 内容面板容器 -->
-                        <div class="super-tab-content-wrapper">
-
-                            <!-- Tab1：描述业务 -->
-                            <div class="super-tab-panel active" id="super-tab-form">
-                                <div class="tab-panel-inner">
-                                    <div class="form-content-wrapper" style="max-width: 680px; margin: 0 auto;">
-                                        <div class="row g-3">
-                                            <div class="col-12">
-                                            <label class="form-label">核心业务 <span class="text-danger">*</span></label>
-                                            <input type="text"
-                                                   class="form-control"
-                                                   id="business-desc"
-                                                   maxlength="20"
-                                                   placeholder="请输入你的1个核心业务，例如：餐盘无痕修复、家具翻新、门窗维修">
-                                            <div class="form-text text-muted">仅填写1个主营服务，不写城市、不写广告语、不写多个业务</div>
-                                            <div class="invalid-feedback" id="business-desc-error"></div>
-                                            </div>
-                                            <div class="col-12">
-                                            <label class="form-label">经营范围 <span class="text-danger">*</span></label>
-                                            <div class="d-flex gap-3 flex-wrap">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region" checked>
-                                                    <label class="form-check-label" for="range-cross">🌍 跨区域（全国）</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
-                                                    <label class="form-check-label" for="range-local">🏠 本地</label>
-                                                </div>
-                                            </div>
-                                            </div>
-                                            <!-- 本地城市补充信息（选填） -->
-                                            <div class="col-12" id="local-city-wrapper" style="display: none;">
-                                                <label class="form-label">补充城市信息（选填）</label>
-                                                <input type="text" class="form-control" id="local-city" placeholder="例如：成都">
-                                            </div>
-                                            <div class="col-12">
-                                            <label class="form-label">经营类型 <span class="text-danger">*</span></label>
-                                            <div class="d-flex gap-3 flex-wrap">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="business-type" id="type-product" value="product">
-                                                    <label class="form-check-label" for="type-product">📦 消费品</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="business-type" id="type-service" value="local_service">
-                                                    <label class="form-check-label" for="type-service">🔧 本地服务</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="business-type" id="type-personal" value="personal">
-                                                    <label class="form-check-label" for="type-personal">👤 个人品牌</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="business-type" id="type-enterprise" value="enterprise">
-                                                    <label class="form-check-label" for="type-enterprise">🏢 企业服务</label>
-                                                </div>
-                                            </div>
-                                            </div>
-                                            <div class="col-12">
-                                            <label class="form-label">你的主要服务场景</label>
-                                            <select class="form-select" id="service-scenario" onchange="handleServiceScenarioChange()">
-                                                <option value="">请选择你的核心服务场景</option>
-                                                <option value="hotel_restaurant">🏨 酒店 / 餐饮 / 茶楼 / 高端会所（正餐、民宿、婚宴、茶室、私人会所、餐饮后厨配套）</option>
-                                                <option value="residential">🏠 家用 / 住宅 / 小区业主（家庭自住、二手房翻新、家装配套、个人自用）</option>
-                                                <option value="office_enterprise">🏢 写字楼 / 企业 / 工厂 / 园区（公司办公、厂区后勤、园区物业、企业采购）</option>
-                                                <option value="institutional">🏫 学校 / 医院 / 食堂 / 政企单位（公立单位、食堂后勤、总务物资配套）</option>
-                                                <option value="retail_chain">🛒 实体店 / 连锁门店 / 加盟品牌（门店经营、连锁供应链、加盟店配套）</option>
-                                                <option value="renovation">🔨 装修 / 工装 / 工程定制（装修施工、工地配套、工程接单）</option>
-                                                <option value="other">📝 其他小众场景（以上没有，简单写自己专属场景）</option>
-                                            </select>
-                                            <!-- 其他场景补充输入 -->
-                                            <div id="other-scenario-wrapper" class="mt-2" style="display: none;">
-                                                <input type="text" class="form-control" id="other-scenario-input"
-                                                       placeholder="简单备注你的使用场景（限15字内）" maxlength="15">
-                                            </div>
-                                            <div id="scenario-lock-hint" class="form-text text-muted" style="display: none;">
-                                                <i class="bi bi-lock-fill me-1"></i>选择固定场景后，人群库已自动锁定
-                                            </div>
-                                            </div>
-                                            <div class="col-12">
-                                            <div id="ai-upgrade-hint" class="alert alert-info mt-3" style="display: none;">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <i class="bi bi-stars me-1"></i>
-                                                        <strong>升级解锁AI精准画像</strong>
-                                                        <p class="mb-0 small">免费用户使用基础画像，付费用户获得AI深度分析</p>
-                                                    </div>
-                                                    <a href="/public/pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
-                                                </div>
-                                            </div>
-                                            </div>
-                                            <div class="col-12 text-center mt-4">
-                                                <button class="btn btn-generate btn-lg" id="btn-one-key-analyze" onclick="mineAndGenerate()">
-                                                    🚀 开始一键分析
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div><!-- /#super-tab-form -->
-
-                            <!-- Tab2：问题识别 -->
-                            <div class="super-tab-panel" id="super-tab-problems">
-                                <div class="tab-panel-inner">
-                                    <!-- 问题列表区域 -->
-                                    <div id="problems-section" class="mt-2" style="display: none;">
-                                        <!-- 问题卡片由JS动态生成 -->
-                                    </div>
-                                    <!-- 问题空状态 -->
-                                    <div id="problems-empty-hint" class="super-empty-hint">
-                                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="opacity: 0.4;">
-                                            <circle cx="24" cy="24" r="20" stroke="#8E8E93" stroke-width="2" fill="none"/>
-                                            <path d="M24 14V26M24 32V34" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round"/>
-                                        </svg>
-                                        <div>
-                                            <strong>请先在「描述业务」中填写信息</strong>
-                                            <p class="mb-0">点击上方 Tab1 填写业务描述后<br>系统将自动识别目标客户的核心痛点</p>
-                                        </div>
-                                        <button class="btn-apple btn-sm mt-2" onclick="switchSuperTab('tab-form')">去填写</button>
-                                    </div>
-                                </div>
-                            </div><!-- /#super-tab-problems -->
-
-                            <!-- Tab3：生成画像 -->
-                            <div class="super-tab-panel" id="super-tab-portraits">
-                                <div class="tab-panel-inner">
-                                    <!-- 画像列表区域 -->
-                                    <div id="target-customers-section" class="mt-2" style="display: none;">
-                                        <!-- 画像卡片由JS动态生成 -->
-                                    </div>
-                                    <!-- 画像空状态 -->
-                                    <div id="portraits-empty-hint" class="super-empty-hint">
-                                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="opacity: 0.4;">
-                                            <circle cx="18" cy="16" r="6" stroke="#8E8E93" stroke-width="2" fill="none"/>
-                                            <circle cx="30" cy="16" r="6" stroke="#8E8E93" stroke-width="2" fill="none"/>
-                                            <path d="M8 38C8 31.4 12.5 26 18 26M30 26C35.5 26 40 31.4 40 38" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" fill="none"/>
-                                        </svg>
-                                        <div>
-                                            <strong>请先完成问题识别</strong>
-                                            <p class="mb-0">点击上方 Tab2 等待问题分析完成后<br>系统将根据问题生成目标客户画像</p>
-                                        </div>
-                                        <button class="btn-apple btn-sm mt-2" onclick="switchSuperTab('tab-problems')">去识别</button>
-                                    </div>
-                                </div>
-                            </div><!-- /#super-tab-portraits -->
-
-                        </div><!-- /.super-tab-content-wrapper -->
-                    </div><!-- /.super-workspace-new -->
+                        <h4 style="margin-bottom: 12px; color: var(--text-primary);">超级定位</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px; max-width: 400px; margin-left: auto; margin-right: auto;">
+                            描述你的核心业务，系统将自动分析目标客户的痛点和需求，生成精准客户画像
+                        </p>
+                        <a href="/public/portraits/create" class="btn btn-primary" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; padding: 12px 32px; font-weight: 600;">
+                            <i class="bi bi-rocket-takeoff me-2"></i>开始超级定位
+                        </a>
+                        <div style="margin-top: 16px;">
+                            <span class="small text-muted">或 <a href="/public/portraits" style="color: #6366f1; text-decoration: none;">查看已保存画像</a></span>
+                        </div>
+                    </div>
 
                         <!-- 生成内容 Tab 内容 -->
                         <div id="tab-content-content" style="display: none;">
@@ -4378,16 +4197,52 @@
                         </div><!-- /#tab-content-content -->
                     </div><!-- /#generator-form -->
         </div><!-- /.workspace-main -->
-    </main>
-            </div><!-- /.public-content-scroll -->
-        </div><!-- /.public-content -->
-    </div><!-- /.public-app-layout -->
 
-    <!-- Bootstrap 5.1.3 JS (SRI) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
-            crossorigin="anonymous"></script>
-    <script>
+        <!-- 个性皮肤（主内容区全页，非弹窗） -->
+        <div id="skin-workspace-page" class="skin-workspace-page" style="display: none;" aria-hidden="true">
+            <div class="skin-workspace-inner">
+                <h1 class="section-title">外观</h1>
+                <p class="section-subtitle">选择界面配色风格，可随时切换</p>
+
+                <div id="skin-page-pane-skins">
+                    <div class="skin-workspace-subrow">
+                        <span class="skin-official-tag">官方</span>
+                    </div>
+                    <div class="skin-card-grid skin-card-grid-page">
+                        <div class="skin-card-col">
+                            <div class="skin-card skin-card-default" data-skin-card="system" role="button" tabindex="0" onclick="pickPublicSkin('system')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickPublicSkin('system');}">
+                                <div class="skin-card-deco" aria-hidden="true"></div>
+                                <span class="skin-card-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                            </div>
+                            <div class="skin-card-label">默认<span class="skin-card-label-sub"> — 跟随系统</span></div>
+                        </div>
+                        <div class="skin-card-col">
+                            <div class="skin-card skin-card-red" data-skin-card="classic-red" role="button" tabindex="0" onclick="pickPublicSkin('classic-red')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickPublicSkin('classic-red');}">
+                                <div class="skin-card-deco" aria-hidden="true"></div>
+                                <span class="skin-card-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                            </div>
+                            <div class="skin-card-label">经典红</div>
+                        </div>
+                        <div class="skin-card-col">
+                            <div class="skin-card skin-card-black" data-skin-card="cool-black" role="button" tabindex="0" onclick="pickPublicSkin('cool-black')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickPublicSkin('cool-black');}">
+                                <div class="skin-card-deco" aria-hidden="true"></div>
+                                <span class="skin-card-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                            </div>
+                            <div class="skin-card-label">酷炫黑</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}
+
+{% block layout_extra_js %}
+<!-- Bootstrap 5.1.3 JS (SRI) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
+        crossorigin="anonymous"></script>
+<script>
         // ================================================================
         // Mac 风格交互增强
         // ================================================================
@@ -4445,9 +4300,6 @@
                 }
             });
 
-            // 初始化已保存画像区域的折叠箭头动画
-            initPortraitSectionCollapse();
-
             // 描述业务步骤展开时，折叠已保存画像区域
             const stepFormBody = document.getElementById('step-form-body');
             if (stepFormBody) {
@@ -4487,13 +4339,16 @@
                 }
             });
         }
-    </script>
-    <script>
+        
+        // ================================================================
+        // 全局变量声明
+        // ================================================================
         let currentUser = null;
         let generatedContent = null;
         let currentAiEnhanced = false;
         let _currentMarketAnalysis = {};  // 当前市场分析数据（用于快照）
         let _isPremium = false;  // 是否付费用户（提前声明，避免 checkAuth 中赋值时 TDZ）
+        let _isFormLocked = false;  // 描述业务表单是否已锁定（一键分析后锁定）
 
         // ================================================================
         // 超级定位 Tab 快照（localStorage + 服务端）
@@ -4593,8 +4448,58 @@
             } catch(e) { return null; }
         }
 
+        // ================================================================
+        // 描述业务表单锁定/解锁功能（一键分析后锁定）
+        // ================================================================
+
+        // 锁定描述业务表单所有字段 + 禁用一键分析按钮
+        function lockBusinessForm() {
+            _isFormLocked = true;
+            // 禁用文本输入框
+            const textFields = ['business-desc', 'local-city', 'other-scenario-input'];
+            textFields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = true;
+            });
+            // 禁用 radio
+            document.querySelectorAll('input[name="business-range"]').forEach(r => r.disabled = true);
+            document.querySelectorAll('input[name="business-type"]').forEach(r => r.disabled = true);
+            // 禁用下拉框
+            const scenarioSelect = document.getElementById('service-scenario');
+            if (scenarioSelect) scenarioSelect.disabled = true;
+            // 禁用一键分析按钮
+            const btn = document.getElementById('btn-one-key-analyze');
+            if (btn) btn.disabled = true;
+        }
+
+        // 解锁描述业务表单所有字段 + 恢复一键分析按钮
+        function unlockBusinessForm() {
+            _isFormLocked = false;
+            // 启用文本输入框
+            const textFields = ['business-desc', 'local-city', 'other-scenario-input'];
+            textFields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = false;
+            });
+            // 启用 radio
+            document.querySelectorAll('input[name="business-range"]').forEach(r => r.disabled = false);
+            document.querySelectorAll('input[name="business-type"]').forEach(r => r.disabled = false);
+            // 启用下拉框
+            const scenarioSelect = document.getElementById('service-scenario');
+            if (scenarioSelect) scenarioSelect.disabled = false;
+            // 恢复一键分析按钮
+            const btn = document.getElementById('btn-one-key-analyze');
+            if (btn) btn.disabled = false;
+        }
+
         function resetSuperSnapshot() {
-            if (!confirm('确定要重置超级定位吗？当前输入的所有信息将被清除。')) return;
+            // 已锁定时，增加警告提示
+            if (_isFormLocked) {
+                if (!confirm('重置业务信息将失去已经存在的画像和选题，确定要重置吗？')) return;
+                unlockBusinessForm();
+            } else {
+                if (!confirm('确定要重置超级定位吗？当前输入的所有信息将被清除。')) return;
+            }
             try { localStorage.removeItem(SNAPSHOT_KEY); } catch(e) {}
             // 清空表单
             const fields = ['business-desc', 'local-city', 'other-scenario-input'];
@@ -4619,11 +4524,12 @@
                 if (el) el.style.display = 'none';
             });
             // 重置折叠状态：全部恢复折叠
-            document.getElementById('user-pains-list').innerHTML = '';
-            document.getElementById('target-customers-list').innerHTML = '';
+            const upl = document.getElementById('user-pains-list');
+            const tcl = document.getElementById('target-customers-list');
+            if (upl) upl.innerHTML = '';
+            if (tcl) tcl.innerHTML = '';
             _allProblems = [];
             _allPortraits = {};
-            // 默认进来三块都是折叠的
             // 折叠所有步骤
             const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-form-body'), {toggle: false});
             bsCollapse1.hide();
@@ -4822,13 +4728,26 @@
                     }
                     // 渲染问题卡片（带"生成画像"按钮）
                     renderProblemCards(_allProblems);
-                    // 展开步骤区域
-                    const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-form-body'), {toggle: false});
-                    const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
-                    const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
-                    bsCollapse1.hide();
-                    bsCollapse2.show();
-                    bsCollapse3.show();
+                    // 展开步骤区域（容错处理，防止元素缺失导致崩溃）
+                    try {
+                        const stepFormBody = document.getElementById('step-form-body');
+                        const stepProblemsBody = document.getElementById('step-problems-body');
+                        const stepPortraitsBody = document.getElementById('step-portraits-body');
+                        if (stepFormBody) {
+                            const bsCollapse1 = bootstrap.Collapse.getOrCreateInstance(stepFormBody, {toggle: false});
+                            bsCollapse1.hide();
+                        }
+                        if (stepProblemsBody) {
+                            const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(stepProblemsBody, {toggle: false});
+                            bsCollapse2.show();
+                        }
+                        if (stepPortraitsBody) {
+                            const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(stepPortraitsBody, {toggle: false});
+                            bsCollapse3.show();
+                        }
+                    } catch (e) {
+                        console.warn('[initSnapshotRestore] Collapse 操作失败:', e);
+                    }
                     // 自动选中之前选中的问题
                     if (serverSnap.selected_problem_id) {
                         const p = _allProblems.find(x => String(x.id) === String(serverSnap.selected_problem_id));
@@ -4867,6 +4786,25 @@
         async function checkAuth() {
             console.log('[checkAuth] 开始检查登录状态');
             try {
+                const PUBLIC_NAV_INTENT_KEY = 'publicIntent';
+                try {
+                    const intent = sessionStorage.getItem(PUBLIC_NAV_INTENT_KEY);
+                    if (intent === 'skin') {
+                        sessionStorage.removeItem(PUBLIC_NAV_INTENT_KEY);
+                        switchSidebarTab('tab-skin');
+                    } else if (intent && intent.startsWith('account:')) {
+                        const tab = intent.split(':')[1] || 'profile';
+                        sessionStorage.removeItem(PUBLIC_NAV_INTENT_KEY);
+                        openAccountSettings(null, tab);
+                    } else if (intent === 'tab-topics') {
+                        sessionStorage.removeItem(PUBLIC_NAV_INTENT_KEY);
+                        switchSidebarTab('tab-topics');
+                    } else if (intent === 'tab-contents') {
+                        sessionStorage.removeItem(PUBLIC_NAV_INTENT_KEY);
+                        switchSidebarTab('tab-contents');
+                    }
+                } catch (err) { /* ignore */ }
+
                 const resp = await fetch('/public/api/quota', { credentials: 'include' });
                 console.log('[checkAuth] 响应状态:', resp.status);
                 if (resp.ok) {
@@ -4877,17 +4815,40 @@
                         console.log('[checkAuth] 登录成功，currentUser:', currentUser);
                         // 同步设置 _isPremium：任何非 free 套餐均为付费用户
                         _isPremium = currentUser && currentUser.quota && currentUser.quota.plan_name && currentUser.quota.plan_name !== '免费版';
-                        console.log('[checkAuth] _isPremium:', _isPremium, 'plan_name:', currentUser?.quota?.plan_name);
                         showGenerator();
                         updateQuotaInfo();
-                        // 恢复超级定位快照 + 绑定自动保存
-                        await initSnapshotRestore();
-                        bindSnapshotAutoSave();
+                        // 恢复超级定位快照 + 绑定自动保存（错误独立处理，防止阻塞后续模块）
+                        try {
+                            await initSnapshotRestore();
+                        } catch (e) {
+                            console.warn('[checkAuth] initSnapshotRestore 失败（不影响画像加载）:', e);
+                        }
+                        try {
+                            bindSnapshotAutoSave();
+                        } catch (e) {
+                            console.warn('[checkAuth] bindSnapshotAutoSave 失败:', e);
+                        }
 
-                        // 登录成功后初始化画像管理模块
+                        // 登录成功后初始化画像管理模块（独立错误处理）
                         if (PortraitManager) {
-                            await PortraitManager.init();
-                            showSavedPortraitsSection();
+                            console.log('[checkAuth] 开始初始化 PortraitManager');
+                            PortraitManager.init()
+                                .then(() => {
+                                    console.log('[checkAuth] PortraitManager.init() 完成');
+                                    // 新用户无画像时重定向至画像创建流程（强制走超级定位）
+                                    if (PortraitManager._savedPortraits.length === 0) {
+                                        console.log('[checkAuth] 无画像，重定向到 /public/portraits/create');
+                                        window.location.href = '/public/portraits/create';
+                                        return;
+                                    }
+                                    showSavedPortraitsSection();
+                                })
+                                .catch(e => {
+                                    console.error('[checkAuth] PortraitManager.init() 失败:', e);
+                                    showSavedPortraitsSection();
+                                });
+                        } else {
+                            console.error('[checkAuth] PortraitManager 未定义');
                         }
                     } else {
                         console.log('[checkAuth] 未登录或登录失效');
@@ -4909,14 +4870,26 @@
                 topbarUser.style.display = 'flex';
 
                 // 填充昵称和头像
-                const email = currentUser.quota && currentUser.quota.email ? currentUser.quota.email : '用户';
-                const emailLetter = email.charAt(0).toUpperCase();
-                document.getElementById('topbar-nickname').textContent = email;
-                document.getElementById('topbar-avatar-letter').textContent = emailLetter;
+                const nickname = currentUser.nickname || '';
+                const email = currentUser.email || '用户';
+                const displayName = nickname || email;
+                document.getElementById('topbar-nickname').textContent = displayName;
+
+                const avatarUrl = currentUser.avatar || '';
+                if (avatarUrl) {
+                    document.getElementById('topbar-avatar').innerHTML =
+                        `<img src="${avatarUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+                } else {
+                    const firstChar = displayName.charAt(0).toUpperCase();
+                    document.getElementById('topbar-avatar').innerHTML =
+                        `<span style="color: #fff; font-weight: 600;">${firstChar}</span>`;
+                }
 
                 // 填充套餐徽章
                 const planName = currentUser.quota && currentUser.quota.plan_name ? currentUser.quota.plan_name : '';
                 const badge = document.getElementById('topbar-plan-badge');
+                badge.style.display = '';
+                badge.className = 'topbar-plan-badge';
                 if (planName === '企业版') {
                     badge.textContent = '企业版';
                     badge.className = 'topbar-plan-badge ent';
@@ -4932,11 +4905,11 @@
 
                 // 登录后显示保存按钮
                 showSavedPortraitsSection();
-                // 显示超级定位工作区
-                const superWs = document.getElementById('super-workspace-new');
-                if (superWs) superWs.style.display = 'block';
-                // 默认切换到超级定位 Tab
-                switchSidebarTab('tab-super');
+            } else {
+                document.getElementById('topbar-auth').style.display = 'flex';
+                document.getElementById('topbar-user').style.display = 'none';
+                const skinBtn = document.getElementById('topbar-skin-btn');
+                if (skinBtn) skinBtn.style.display = '';
             }
         }
 
@@ -4969,15 +4942,11 @@
             applyPublicSkin(getPublicSkin(), false);
         }
 
-        function openSkinModal(e) {
+        function openSkinWorkspace(e) {
             if (e) e.preventDefault();
             document.getElementById('topbar-settings-dropdown')?.classList.remove('is-open');
-            syncSkinModalTab('skins');
-            syncSkinPickerSelection();
-            var el = document.getElementById('skinModal');
-            if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
-            var modal = bootstrap.Modal.getOrCreateInstance(el);
-            modal.show();
+            document.getElementById('topbar-settings-btn')?.setAttribute('aria-expanded', 'false');
+            switchSidebarTab('tab-skin');
         }
 
         function pickPublicSkin(skinId) {
@@ -4987,34 +4956,13 @@
             }
         }
 
-        function switchSkinModalTab(tab) {
-            var paneSkins = document.getElementById('skin-modal-pane-skins');
-            var panePendant = document.getElementById('skin-modal-pane-pendant');
-            var btnSkins = document.getElementById('skin-tab-skins');
-            var btnPendant = document.getElementById('skin-tab-pendant');
-            if (!paneSkins || !panePendant) return;
-            if (tab === 'pendant') {
-                paneSkins.style.display = 'none';
-                panePendant.style.display = 'block';
-                if (btnSkins) { btnSkins.classList.remove('active'); }
-                if (btnPendant) { btnPendant.classList.add('active'); }
-            } else {
-                paneSkins.style.display = 'block';
-                panePendant.style.display = 'none';
-                if (btnSkins) { btnSkins.classList.add('active'); }
-                if (btnPendant) { btnPendant.classList.remove('active'); }
-            }
+        function switchSkinPageTab() {
+            var paneSkins = document.getElementById('skin-page-pane-skins');
+            if (paneSkins) paneSkins.style.display = 'block';
         }
 
-        function syncSkinModalTab(tab) {
-            switchSkinModalTab(tab || 'skins');
-        }
-
-        // 账号设置相关变量
-        let _currentAccountTab = 'profile';
-        let _avatarChanged = false;
-        let _avatarBase64 = '';
-        let _avatarType = 'image/png';
+        // 账号设置相关变量（已在 public_layout.html 中声明，此处直接使用，不重复声明）
+        // 注意：_currentAccountTab、_avatarChanged、_avatarBase64 已由 public_layout.html 全局提供
 
         // 打开账号设置模态框
         function openAccountSettings(e, tab) {
@@ -5188,6 +5136,8 @@
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中...';
 
             try {
+                let newAvatarUrl = null;
+
                 // 如果头像有变化，先上传头像
                 if (_avatarChanged && _avatarBase64) {
                     const avatarFormData = new FormData();
@@ -5202,8 +5152,14 @@
 
                     if (!avatarResult.success) {
                         showToast(avatarResult.message || '头像上传失败', 'error');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>保存';
                         return;
                     }
+
+                    // 保存新头像 URL
+                    newAvatarUrl = avatarResult.data.avatar;
+                    console.log('[DEBUG] 头像上传成功:', newAvatarUrl);
                 }
 
                 // 更新资料
@@ -5215,14 +5171,25 @@
                 const result = await resp.json();
 
                 if (result.success) {
-                    // 更新顶栏显示
-                    if (result.data.nickname) {
-                        document.getElementById('topbar-nickname').textContent = result.data.nickname;
+                    // 同步更新 currentUser（刷新后数据才一致）
+                    if (result.data.nickname !== undefined) {
+                        currentUser.nickname = result.data.nickname;
+                    }
+                    const finalAvatar = newAvatarUrl || result.data.avatar;
+                    if (finalAvatar) {
+                        currentUser.avatar = finalAvatar;
                     }
 
-                    // 更新头像
-                    if (result.data.avatar) {
-                        updateTopbarAvatar(result.data.avatar, result.data.nickname);
+                    // 更新顶栏显示
+                    const finalNickname = result.data.nickname || nickname;
+                    if (finalNickname) {
+                        document.getElementById('topbar-nickname').textContent = finalNickname;
+                    }
+
+                    // 更新头像（优先使用新上传的头像 URL）
+                    console.log('[DEBUG] 更新头像 - newAvatarUrl:', newAvatarUrl, 'result.data.avatar:', result.data.avatar, 'finalAvatar:', finalAvatar);
+                    if (finalAvatar) {
+                        updateTopbarAvatar(finalAvatar, finalNickname);
                     }
 
                     showToast('资料保存成功', 'success');
@@ -5236,14 +5203,16 @@
                     _avatarBase64 = '';
                 } else {
                     showToast(result.message || '保存失败', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>保存';
                 }
             } catch (err) {
                 console.error('保存资料失败:', err);
                 showToast('保存失败，请重试', 'error');
-            } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>保存';
             }
+            // 注意：成功情况下按钮在关闭模态框前已禁用，无需在finally中重复处理
         }
 
         // 提交密码修改
@@ -5338,8 +5307,11 @@
         function logout(e) {
             if (e) e.preventDefault();
             document.getElementById('topbar-settings-dropdown')?.classList.remove('is-open');
+            document.getElementById('topbar-settings-btn')?.setAttribute('aria-expanded', 'false');
             document.getElementById('topbar-auth').style.display = 'flex';
             document.getElementById('topbar-user').style.display = 'none';
+            const skinBtnOut = document.getElementById('topbar-skin-btn');
+            if (skinBtnOut) skinBtnOut.style.display = '';
             currentUser = null;
             document.getElementById('login-prompt').style.display = 'block';
             document.getElementById('generator-form').style.display = 'none';
@@ -5352,16 +5324,20 @@
         function toggleSettingsDropdown(e) {
             if (e) e.stopPropagation();
             const dropdown = document.getElementById('topbar-settings-dropdown');
+            const btn = document.getElementById('topbar-settings-btn');
             if (dropdown) {
                 dropdown.classList.toggle('is-open');
+                if (btn) btn.setAttribute('aria-expanded', dropdown.classList.contains('is-open') ? 'true' : 'false');
             }
         }
 
         // 点击下拉菜单外部关闭
         document.addEventListener('click', function(e) {
             const dropdown = document.getElementById('topbar-settings-dropdown');
+            const btn = document.getElementById('topbar-settings-btn');
             if (dropdown && !dropdown.contains(e.target)) {
                 dropdown.classList.remove('is-open');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
             }
         });
 
@@ -5490,16 +5466,11 @@
             }
         }
         
-        // 显示已保存画像区域和保存按钮（登录后）
+        // 显示已保存画像区域和保存按钮（登录后）- 已禁用，移至客户画像页面
         function showSavedPortraitsSection() {
-            const section = document.getElementById('portrait-section');
-            if (section) {
-                section.style.display = 'block';
-            }
-            // 新版精选 + 横铺区也显示
-            const featured = document.getElementById('featured-section');
+            // portrait-section 已移至客户画像页面，不再在此处显示
+            // 新版横铺区也显示
             const row = document.getElementById('portraits-row-section');
-            if (featured) featured.style.display = 'block';
             if (row) row.style.display = 'block';
             // 重置为展开状态
             _expandPortraitSection();
@@ -5524,6 +5495,11 @@
                 const remaining = currentUser.quota.quota.remaining;
                 el.textContent = remaining < 0 ? '∞' : remaining;
             }
+        }
+
+        // 查看全部画像 → 跳转到画像管理页
+        function showAllPortraits() {
+            window.location.href = '/public/portraits';
         }
 
         // ================================================================
@@ -5626,6 +5602,11 @@
             }
         }
 
+        // DOMContentLoaded 之后才调用，确保函数已定义
+        document.addEventListener('DOMContentLoaded', function() {
+            initPortraitSectionCollapse();
+        });
+
         // ================================================================
         // 一键分析：问题挖掘 + 画像生成
         // ================================================================
@@ -5692,6 +5673,7 @@
                     console.error('API error:', resp.status, errorText);
                     document.getElementById('problem-mining-loading').style.display = 'none';
                     document.getElementById('problems-section').style.display = 'block';
+                    document.getElementById('btn-one-key-analyze').disabled = false;
                     return;
                 }
 
@@ -5735,6 +5717,12 @@
                         saveSnapshotToServer();
                     }
 
+                    // 锁定描述业务表单，防止用户随意修改
+                    lockBusinessForm();
+
+                    // 自动切换到"识别问题" Tab
+                    switchSuperTab('tab-problems');
+
                     showToast('问题挖掘完成！点击"生成画像"查看人群画像', 'success');
                 } else {
                     document.getElementById('problem-mining-loading').style.display = 'none';
@@ -5747,7 +5735,10 @@
                 alert('生成失败，请稍后重试');
                 console.error(e);
             } finally {
-                document.getElementById('btn-one-key-analyze').disabled = false;
+                // 只有在表单未锁定时才恢复按钮（锁定由 lockBusinessForm 处理）
+                if (!_isFormLocked) {
+                    document.getElementById('btn-one-key-analyze').disabled = false;
+                }
             }
         }
 
@@ -5860,6 +5851,7 @@
         // 渲染问题卡片（统一数组，不再分 user/buyer）
         function renderProblemCards(problems) {
             const userList = document.getElementById('user-pains-list');
+            if (!userList) return;
             userList.innerHTML = '';
 
             if (!problems || problems.length === 0) {
@@ -5905,7 +5897,6 @@
                     </button>
                 </div>
                 <div class="prob-cf-track">${cards}</div>
-                <span class="prob-cf-counter" id="prob-cf-counter">1 / ${problems.length}</span>
             </div>`;
         }
 
@@ -6042,7 +6033,6 @@
                     _probCfIndex--;
                 }
                 _updateProblemCfTransform(_probCfIndex, 0);
-                _updateProbCfCounter();
             };
 
             _probCfBoundHandlers = { onMove, onEnd };
@@ -6088,7 +6078,7 @@
                 const pos = i - index;
                 const x = pos * _probCfCardWidth + offset;
                 const rotateY = pos * -22;
-                const scale = i === index ? 1.05 : 0.85;
+                const scale = 0.85;
                 const zIndex = 100 - Math.abs(pos);
                 const opacity = Math.abs(pos) > 2 ? 0 : 1;
                 card.style.transform = `translateX(${x}px) rotateY(${rotateY}deg) scale(${scale})`;
@@ -6102,7 +6092,6 @@
             if (_probCfIndex > 0) {
                 _probCfIndex--;
                 _updateProblemCfTransform(_probCfIndex, 0);
-                _updateProbCfCounter();
             }
         }
 
@@ -6110,14 +6099,6 @@
             if (_probCfIndex < _probCfProblems.length - 1) {
                 _probCfIndex++;
                 _updateProblemCfTransform(_probCfIndex, 0);
-                _updateProbCfCounter();
-            }
-        }
-
-        function _updateProbCfCounter() {
-            const counter = _probCfContainer?.querySelector('#prob-cf-counter');
-            if (counter) {
-                counter.textContent = `${_probCfIndex + 1} / ${_probCfProblems.length}`;
             }
         }
 
@@ -6126,11 +6107,10 @@
             _selectedTypeKey = key;
             const keyStr = String(key == null ? '' : key);
 
-            // 仅市场洞察列表内的卡片，避免与其它区域同类名冲突；用字符串比较避免类型不一致
-            document.querySelectorAll('#user-pains-list .problem-card').forEach(card => {
+            // Cover Flow 卡片选中状态
+            document.querySelectorAll('#user-pains-list .prob-cf-card').forEach(card => {
                 card.classList.remove('selected');
-                const col = card.closest('.col-md-4');
-                const k = col ? String(col.dataset.key || '') : '';
+                const k = String(card.dataset.key || '');
                 if (k === keyStr) {
                     card.classList.add('selected');
                 }
@@ -6558,17 +6538,19 @@
         function commitPortraitsResult(saveKey, problemData, portraits) {
             _allPortraits[saveKey] = portraits;
             console.log('[commitPortraitsResult] saveKey=' + saveKey + ', 当前 _allPortraits keys=' + Object.keys(_allPortraits));
-            const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-6')).find(function (c) {
+            const card = Array.from(document.querySelectorAll('#user-pains-list .prob-cf-card')).find(function (c) {
                 return String(c.dataset.key || '') === String(saveKey || '');
             });
             if (card) {
-                const statusSpan = card.querySelector('.pc-status');
+                const statusSpan = card.querySelector('.prob-cf-status');
                 if (statusSpan) {
                     statusSpan.classList.add('done');
                     statusSpan.textContent = '✓ 已生成画像（' + portraits.length + ' 个）';
                 }
-                const genBtn = card.querySelector('.pc-foot button');
-                if (genBtn) genBtn.remove();
+                const genBtn = card.querySelector('.prob-cf-generate');
+                if (genBtn) {
+                    genBtn.textContent = '查看画像';
+                }
             }
             selectProblemCard(saveKey,
                 problemData.identity || '',
@@ -6604,31 +6586,27 @@
             document.getElementById('target-customers-section').style.display = 'none';
 
             // 找到问题对应的卡片，添加 loading 状态
-            const card = Array.from(document.querySelectorAll('#user-pains-list .col-md-6')).find(function (c) {
+            const card = Array.from(document.querySelectorAll('#user-pains-list .prob-cf-card')).find(function (c) {
                 return String(c.dataset.key || '') === String(key || '');
             });
-            const btn = card?.querySelector('.pc-foot button');
+            const btn = card?.querySelector('.prob-cf-generate');
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>生成中';
             }
 
             // 禁用所有未生成卡片的「生成」按钮
-            document.querySelectorAll('#user-pains-list .col-md-6').forEach(function (c) {
-                const b = c.querySelector('.pc-foot button');
-                if (b && !b.disabled) b.disabled = true;
+            document.querySelectorAll('#user-pains-list .prob-cf-generate').forEach(function (b) {
+                if (!b.disabled) b.disabled = true;
             });
 
             _isGeneratingPortraits = true;
 
             function resetBtn() {
                 _isGeneratingPortraits = false;
-                document.querySelectorAll('#user-pains-list .col-md-6').forEach(function (c) {
-                    const b = c.querySelector('.pc-foot button');
-                    if (b) {
-                        b.disabled = false;
-                        if (b.querySelector('.spinner-border')) b.innerHTML = '生成';
-                    }
+                document.querySelectorAll('#user-pains-list .prob-cf-generate').forEach(function (b) {
+                    b.disabled = false;
+                    if (b.innerHTML.includes('spinner-border')) b.textContent = '生成画像';
                 });
             }
 
@@ -6761,15 +6739,10 @@
                     } finally {
                         if (mySeq !== _refreshSeq) return;
                         _isGeneratingPortraits = false;
-                        document.querySelectorAll('#user-pains-list .col-md-6').forEach(function (c) {
-                            var b = c.querySelector('.pc-foot button');
-                            if (b) {
-                                b.disabled = false;
-                                if (b.querySelector('.spinner-border')) b.innerHTML = '生成';
-                            }
+                        document.querySelectorAll('#user-pains-list .prob-cf-generate').forEach(function (b) {
+                            b.disabled = false;
+                            if (b.innerHTML.includes('spinner-border')) b.textContent = '生成画像';
                         });
-                        btn.disabled = false;
-                        btn.innerHTML = originalText;
                     }
                 })();
                 return;
@@ -7400,7 +7373,7 @@
             if (!currentUser) {
                 showToast('请先登录后再保存画像', 'warning');
                 setTimeout(() => {
-                    window.location.href = '/public/login';
+                    window.location.href = '/login?type=public';
                 }, 1500);
                 return;
             }
@@ -7550,7 +7523,7 @@
             if (!currentUser) {
                 showToast('请先登录后再保存画像', 'warning');
                 setTimeout(() => {
-                    window.location.href = '/public/login';
+                    window.location.href = '/login?type=public';
                 }, 1500);
                 resetSaveButtons();
                 return;
@@ -7641,7 +7614,7 @@
             if (!currentUser) {
                 showToast('请先登录后再保存画像', 'warning');
                 setTimeout(() => {
-                    window.location.href = '/public/login';
+                    window.location.href = '/login?type=public';
                 }, 1500);
                 resetSaveButtons();
                 return;
@@ -7819,6 +7792,10 @@
         
         // 初始化时检查登录状态并显示相关UI
         document.addEventListener('DOMContentLoaded', async function() {
+            // 同步皮肤选择器勾选状态（与 localStorage / data-skin 一致）
+            if (typeof syncSkinPickerSelection === 'function') {
+                syncSkinPickerSelection();
+            }
             // 检查登录状态
             await checkAuth();
         });
@@ -7872,6 +7849,26 @@
                 link.classList.toggle('is-active', link.dataset.sidebarTab === tabName);
             });
 
+            const gw = document.getElementById('generator-window');
+            const swp = document.getElementById('skin-workspace-page');
+
+            if (tabName === 'tab-skin') {
+                if (gw) gw.style.display = 'none';
+                if (swp) {
+                    swp.style.display = 'block';
+                    swp.setAttribute('aria-hidden', 'false');
+                }
+                syncSkinPickerSelection();
+                switchSkinPageTab('skins');
+                return;
+            }
+
+            if (gw) gw.style.display = 'block';
+            if (swp) {
+                swp.style.display = 'none';
+                swp.setAttribute('aria-hidden', 'true');
+            }
+
             // 隐藏所有内容面板
             document.getElementById('super-workspace-new').style.display = 'none';
             document.getElementById('tab-content-content').style.display = 'none';
@@ -7883,10 +7880,9 @@
                 switchSuperTab('tab-form');
             } else if (tabName === 'tab-portraits') {
                 // 客户画像
-                // 隐藏选题/内容区域，显示画像区
+                // 隐藏选题/内容区域，画像区已移至客户画像页面
                 document.getElementById('tab-content-content').style.display = 'none';
-                document.getElementById('portrait-section').style.display = 'block';
-                document.getElementById('featured-section').style.display = 'none';
+                document.getElementById('portrait-section').style.display = 'none';
                 document.getElementById('portraits-row-section').style.display = 'none';
                 document.getElementById('portrait-onboarding-tip').style.display = 'none';
                 // 加载画像列表
@@ -7895,7 +7891,6 @@
                 // 选题清单
                 // 隐藏画像区域，显示选题区
                 document.getElementById('portrait-section').style.display = 'none';
-                document.getElementById('featured-section').style.display = 'none';
                 document.getElementById('portraits-row-section').style.display = 'none';
                 document.getElementById('tab-content-content').style.display = 'block';
                 document.getElementById('topics-section').style.display = 'block';
@@ -7905,7 +7900,6 @@
             } else if (tabName === 'tab-contents') {
                 // 内容清单
                 document.getElementById('portrait-section').style.display = 'none';
-                document.getElementById('featured-section').style.display = 'none';
                 document.getElementById('portraits-row-section').style.display = 'none';
                 document.getElementById('tab-content-content').style.display = 'block';
                 document.getElementById('topics-section').style.display = 'none';
@@ -7986,7 +7980,7 @@
 
             if (tabName === 'tab-problems') {
                 // 问题识别 Tab：检查是否有数据
-                const hasProblems = problemsSection && problemsSection.querySelector('.problem-card');
+                const hasProblems = problemsSection && problemsSection.querySelector('.prob-cf-card');
                 if (problemsSection) problemsSection.style.display = hasProblems ? 'block' : 'none';
                 if (problemsEmptyHint) problemsEmptyHint.style.display = hasProblems ? 'none' : 'flex';
             } else if (tabName === 'tab-portraits') {
@@ -8020,72 +8014,9 @@
         const _origLoadSavedPortraits = PortraitManager.loadSavedPortraits;
         PortraitManager.loadSavedPortraits = async function(savedPortraitId) {
             await _origLoadSavedPortraits.call(this, savedPortraitId);
-            updateSidebarPortraitCount();
         };
 
-        function updateSidebarPortraitCount() {
-            const count = PortraitManager._savedPortraits.length;
-            const badge = document.getElementById('sidebar-portrait-count');
-            if (badge) {
-                if (count > 0) {
-                    badge.textContent = count;
-                    badge.style.display = 'inline-block';
-                } else {
-                    badge.style.display = 'none';
-                }
-            }
-        }
-
     </script>
-
-    <!-- 个性皮肤 -->
-    <div class="modal fade skin-modal" id="skinModal" tabindex="-1" aria-labelledby="skinModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header skin-modal-header border-0 pb-0">
-                    <div class="w-100">
-                        <div class="skin-modal-tabs" role="tablist">
-                            <button type="button" class="skin-modal-tab active" id="skin-tab-skins" data-skin-tab="skins" onclick="switchSkinModalTab('skins')">个性皮肤</button>
-                            <button type="button" class="skin-modal-tab" id="skin-tab-pendant" data-skin-tab="pendant" onclick="switchSkinModalTab('pendant')">头像挂件</button>
-                        </div>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
-                </div>
-                <div class="modal-body pt-3">
-                    <div id="skin-modal-pane-skins">
-                        <div class="skin-official-tag">官方</div>
-                        <div class="skin-card-grid">
-                            <div class="skin-card-col">
-                                <div class="skin-card skin-card-default" data-skin-card="system" role="button" tabindex="0" onclick="pickPublicSkin('system')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickPublicSkin('system');}">
-                                    <div class="skin-card-deco" aria-hidden="true"></div>
-                                    <span class="skin-card-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
-                                </div>
-                                <div class="skin-card-label">默认<span class="skin-card-label-sub"> - 跟随系统</span></div>
-                            </div>
-                            <div class="skin-card-col">
-                                <div class="skin-card skin-card-red" data-skin-card="classic-red" role="button" tabindex="0" onclick="pickPublicSkin('classic-red')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickPublicSkin('classic-red');}">
-                                    <div class="skin-card-deco" aria-hidden="true"></div>
-                                    <span class="skin-card-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
-                                </div>
-                                <div class="skin-card-label">经典红</div>
-                            </div>
-                            <div class="skin-card-col">
-                                <div class="skin-card skin-card-black" data-skin-card="cool-black" role="button" tabindex="0" onclick="pickPublicSkin('cool-black')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickPublicSkin('cool-black');}">
-                                    <div class="skin-card-deco" aria-hidden="true"></div>
-                                    <span class="skin-card-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
-                                </div>
-                                <div class="skin-card-label">酷炫黑</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="skin-modal-pane-pendant" class="skin-modal-pane-pendant" style="display: none;">
-                        <i class="bi bi-gem" style="font-size: 2.5rem; opacity: 0.35; display: block; margin-bottom: 12px;"></i>
-                        头像挂件功能即将上线，敬请期待。
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- 账号设置模态框 -->
     <div class="modal fade account-settings-modal" id="accountSettingsModal" tabindex="-1">
@@ -8403,10 +8334,9 @@
             <div id="content-type-recommendation-display"></div>
         </div>
     </template>
-    
+
     <!-- Toast容器 -->
     <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050;">
         <div id="toast-container"></div>
     </div>
-</body>
-</html>
+{% endblock %}

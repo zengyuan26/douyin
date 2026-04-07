@@ -227,15 +227,15 @@ const GalaxyUniverse = {
                 label: {
                     show: true,
                     position: 'bottom',
-                    distance: 6,
+                    distance: 8,
                     formatter: '{b}',
-                    fontSize: 11,
+                    fontSize: 14,
                     color: 'rgba(255,255,255,0.75)',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-                    lineHeight: 14,
+                    lineHeight: 18,
                     backgroundColor: 'rgba(0,0,0,0.4)',
                     borderRadius: 4,
-                    padding: [3, 6, 3, 6],
+                    padding: [4, 8, 4, 8],
                 },
 
                 // 连线样式
@@ -267,7 +267,7 @@ const GalaxyUniverse = {
                     },
                     label: {
                         show: true,
-                        fontSize: 12,
+                        fontSize: 15,
                         fontWeight: 600,
                     },
                 },
@@ -377,13 +377,13 @@ const GalaxyUniverse = {
             label: {
                 show: true,
                 position: 'bottom',
-                distance: 4,
+                distance: 6,
                 formatter: '{b}',
-                fontSize: 10,
+                fontSize: 13,
                 color: type === 'star' ? '#FFD700' : (type === 'planet' ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)'),
                 backgroundColor: type === 'planet' ? 'rgba(0,0,0,0.5)' : 'transparent',
                 borderRadius: 3,
-                padding: type === 'planet' ? [2, 5, 2, 5] : 0,
+                padding: type === 'planet' ? [3, 7, 3, 7] : 0,
             },
         };
     },
@@ -1075,9 +1075,25 @@ const GalaxyUniverse = {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;')
             .replace(/`/g, '&#96;')
-            .replace(/\$/g, '&#36;');
+            .replace(/\$/g, '&#36;')
+            .replace(/\//g, '&#47;')
+            .replace(/<\/script>/gi, '<\\/script>');
     },
 };
+
+/**
+ * 侧栏导航跳转（内容星球页面专用）
+ * 点击"选题清单"或"内容清单"时，跳转到首页并切换对应 Tab
+ * @param {Event} e - 点击事件
+ * @param {string} tabName - Tab 名称
+ */
+function galaxyNavToTab(e, tabName) {
+    e.preventDefault();
+    try {
+        sessionStorage.setItem('publicIntent', tabName);
+    } catch (err) { /* ignore */ }
+    window.location.href = '/public';
+}
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {

@@ -1,0 +1,1823 @@
+{# 
+  公共侧栏布局模板 - AI 棱镜
+  被 public/index.html、admin/dashboard.html 等页面继承
+  包含：CSS变量定义、侧栏、顶栏、公共脚本
+  子模板只需定义 {% block content %}
+#}
+<!DOCTYPE html>
+<html lang="zh-CN" data-skin="classic-red">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI 棱镜 - AI时代创作者的内容生产引擎{% endblock %}</title>
+    <!-- Bootstrap 5.1.3 CSS (SRI) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3"
+          crossorigin="anonymous">
+    <!-- Bootstrap Icons 1.10.0 -->
+    <link href="https://unpkg.com/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+          rel="stylesheet">
+
+    <!-- 画像管理器（公共功能依赖） -->
+    <script src="/static/public/js/portrait-manager.js"></script>
+
+    {% block layout_extra_css %}{% endblock %}
+
+    <style>
+    /* ================================================
+       账号设置模态框
+       ================================================ */
+    .account-settings-modal .modal-dialog {
+        max-width: 480px;
+    }
+
+    .account-settings-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--apple-gray5);
+        margin-bottom: 20px;
+    }
+
+    .account-settings-tab {
+        flex: 1;
+        padding: 12px 16px;
+        text-align: center;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        border: none;
+        background: none;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.2s ease;
+    }
+
+    .account-settings-tab:hover {
+        color: var(--text-primary);
+    }
+
+    .account-settings-tab.active {
+        color: var(--apple-blue);
+        font-weight: 600;
+    }
+
+    .account-settings-tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--apple-blue);
+        border-radius: 2px 2px 0 0;
+    }
+
+    .account-settings-content {
+        display: none;
+    }
+
+    .account-settings-content.active {
+        display: block;
+    }
+
+    .avatar-upload-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .avatar-upload-preview {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #E8F4FF 0%, #F3E8FF 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 600;
+        color: var(--apple-blue);
+        overflow: hidden;
+        margin-bottom: 12px;
+        border: 3px solid var(--apple-gray5);
+        transition: border-color 0.2s;
+    }
+
+    .avatar-upload-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-upload-preview:hover {
+        border-color: var(--apple-blue);
+    }
+
+    .avatar-upload-btn {
+        padding: 8px 20px;
+        font-size: 0.875rem;
+        border-radius: var(--radius-md);
+        border: 1px dashed var(--apple-gray4);
+        background: var(--apple-gray6);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .avatar-upload-btn:hover {
+        border-color: var(--apple-blue);
+        color: var(--apple-blue);
+    }
+
+    .password-strength-bar {
+        height: 4px;
+        border-radius: 2px;
+        margin-top: 8px;
+        transition: all 0.3s;
+    }
+
+    .password-strength-bar.weak {
+        width: 33%;
+        background: var(--apple-red);
+    }
+
+    .password-strength-bar.medium {
+        width: 66%;
+        background: var(--apple-orange);
+    }
+
+    .password-strength-bar.strong {
+        width: 100%;
+        background: var(--apple-green);
+    }
+
+    .password-error {
+        color: var(--apple-red);
+        font-size: 0.8125rem;
+        margin-top: 4px;
+        display: none;
+    }
+
+    .password-error.show {
+        display: block;
+    }
+
+    /* 皮肤选择器 */
+    .skin-picker-modal .modal-dialog {
+        max-width: 400px;
+    }
+
+    .skin-picker-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+
+    .skin-picker-item {
+        position: relative;
+        aspect-ratio: 16/10;
+        border-radius: 10px;
+        cursor: pointer;
+        overflow: hidden;
+        border: 2px solid transparent;
+        transition: all 0.2s;
+    }
+
+    .skin-picker-item:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .skin-picker-item.active {
+        border-color: var(--apple-blue);
+        box-shadow: 0 0 0 3px rgba(0,122,255,0.3);
+    }
+
+    .skin-picker-item .skin-name {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 6px 8px;
+        background: linear-gradient(transparent, rgba(0,0,0,0.7));
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .skin-picker-item .skin-check {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--apple-blue);
+        color: white;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .skin-picker-item.active .skin-check {
+        display: flex;
+    }
+
+    .topbar-settings-dropdown {
+        position: relative;
+    }
+
+    .topbar-settings-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        min-width: 180px;
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+        border: 1px solid var(--apple-gray5);
+        padding: 6px 0;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-8px);
+        transition: all 0.2s ease;
+        z-index: 1000;
+    }
+
+    .topbar-settings-dropdown.is-open .topbar-settings-menu {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    .topbar-settings-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 10px 16px;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        background: none;
+        border: none;
+        cursor: pointer;
+        transition: background 0.15s;
+        text-align: left;
+    }
+
+    .topbar-settings-item:hover {
+        background: var(--apple-gray6);
+    }
+
+    .topbar-settings-item.danger {
+        color: var(--apple-red);
+    }
+
+    .topbar-settings-divider {
+        height: 1px;
+        background: var(--apple-gray5);
+        margin: 6px 0;
+    }
+    </style>
+
+    <style>
+        /* ================================================
+           CSS 变量与全局基础样式
+           ================================================ */
+        :root {
+            --netease-red: #EC4141;
+            --netease-red-hover: #D93A3A;
+            --netease-red-light: #FFF0F0;
+            --apple-blue: #007AFF;
+            --apple-blue-hover: #0056CC;
+            --apple-green: #34C759;
+            --apple-red: #FF3B30;
+            --apple-orange: #FF9500;
+            --apple-yellow: #FFCC00;
+            --apple-purple: #AF52DE;
+            --apple-pink: #FF2D55;
+            --apple-gray: #8E8E93;
+            --apple-gray2: #AEAEB2;
+            --apple-gray3: #C7C7CC;
+            --apple-gray4: #D1D1D6;
+            --apple-gray5: #E5E5EA;
+            --apple-gray6: #F2F2F7;
+            --primary: var(--apple-blue);
+            --primary-hover: var(--apple-blue-hover);
+            --success: var(--apple-green);
+            --warning: var(--apple-orange);
+            --danger: var(--apple-red);
+            --bg-primary: #FFFFFF;
+            --bg-secondary: #F5F5F7;
+            --bg-tertiary: #F0F0F5;
+            --bg-elevated: rgba(255, 255, 255, 0.8);
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --text-tertiary: #6E6E73;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.12);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --radius-xl: 20px;
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.25s ease;
+            --transition-slow: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            /* 侧栏颜色 */
+            --sidebar-bg: #f7f8fa;
+            --sidebar-border: #e8e8e8;
+            --sidebar-text: #333333;
+            --sidebar-text-muted: rgba(0, 0, 0, 0.52);
+            --sidebar-section: rgba(0, 0, 0, 0.38);
+            --sidebar-hover: rgba(0, 0, 0, 0.05);
+            --sidebar-brand-hover: rgba(0, 0, 0, 0.04);
+            --sidebar-active-bg: #ec4141;
+            --sidebar-active-text: #ffffff;
+            --sidebar-divider: rgba(0, 0, 0, 0.06);
+        }
+
+        * { box-sizing: border-box; }
+
+        html {
+            font-size: 20px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: #ececec;
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ================================================
+           macOS 导航栏
+           ================================================ */
+        .navbar {
+            background: var(--bg-elevated);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 24px;
+            height: 52px;
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--text-primary) !important;
+            letter-spacing: -0.02em;
+        }
+
+        .navbar-brand span {
+            background: linear-gradient(135deg, var(--apple-blue), var(--apple-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .navbar-nav .nav-link {
+            color: var(--text-secondary) !important;
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+        }
+
+        .navbar-nav .nav-link:hover {
+            color: var(--text-primary) !important;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .navbar .btn {
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            font-size: 0.875rem;
+            padding: 6px 16px;
+            transition: all var(--transition-fast);
+        }
+
+        .navbar .btn-primary {
+            background: var(--apple-blue);
+            border-color: var(--apple-blue);
+        }
+
+        .navbar .btn-primary:hover {
+            background: var(--apple-blue-hover);
+            border-color: var(--apple-blue-hover);
+            transform: scale(1.02);
+        }
+
+        /* ================================================
+           macOS 表单元素
+           ================================================ */
+        .form-control, .form-select {
+            border: 1px solid var(--apple-gray4);
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
+            font-size: 0.9375rem;
+            background: var(--bg-primary);
+            transition: all var(--transition-fast);
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--apple-blue);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+            outline: none;
+        }
+
+        .form-label {
+            font-weight: 500;
+            font-size: 0.9375rem;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        /* ================================================
+           卡片样式
+           ================================================ */
+        .apple-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+
+        .card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* ================================================
+           按钮样式
+           ================================================ */
+        .btn-primary-apple {
+            background: var(--apple-blue);
+            border: none;
+            border-radius: var(--radius-md);
+            padding: 10px 24px;
+            font-weight: 500;
+            font-size: 0.9375rem;
+            color: white;
+            transition: all var(--transition-fast);
+        }
+
+        .btn-primary-apple:hover {
+            background: var(--apple-blue-hover);
+            transform: scale(1.02);
+            color: white;
+        }
+
+        .btn-apple {
+            background: var(--apple-blue);
+            border: none;
+            border-radius: var(--radius-md);
+            padding: 8px 18px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: white;
+            transition: all var(--transition-fast);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-apple:hover {
+            background: var(--apple-blue-hover);
+            transform: scale(1.02);
+            color: white;
+        }
+
+        .btn-apple.btn-sm {
+            padding: 5px 12px;
+            font-size: 0.8125rem;
+        }
+
+        /* ================================================
+           弹性布局
+           ================================================ */
+        .main-container {
+            max-width: none;
+            margin: 0;
+            padding: 28px 36px 40px;
+        }
+
+        .workspace-main {
+            min-width: 0;
+            padding-left: 40px;
+            padding-right: 20px;
+        }
+
+        /* ================================================
+           页面标题
+           ================================================ */
+        .section-title {
+            font-size: 1.375rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.03em;
+            margin-bottom: 6px;
+        }
+
+        .section-subtitle {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            font-weight: 400;
+            line-height: 1.45;
+        }
+
+        /* ================================================
+           弹性 Spinner
+           ================================================ */
+        .apple-spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid var(--apple-gray5);
+            border-top-color: var(--apple-blue);
+            border-radius: 50%;
+            animation: apple-spin 0.7s linear infinite;
+        }
+
+        @keyframes apple-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ================================================
+           公共 App 外壳布局（灰侧栏 + 白主区）
+           ================================================ */
+        .public-app-layout {
+            display: flex;
+            height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
+            align-items: stretch;
+            background: #ffffff;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+        }
+
+        /* ── 侧栏 ── */
+        .public-sidebar {
+            flex: 0 0 200px;
+            width: 200px;
+            max-width: 100%;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            padding: 18px 0 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 20;
+            overflow: hidden;
+        }
+
+        .public-sidebar-scroll {
+            flex: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+            padding: 0 10px;
+        }
+
+        .public-sidebar::-webkit-scrollbar { width: 6px; }
+        .public-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.18);
+            border-radius: 10px;
+        }
+
+        .public-sidebar-scroll::-webkit-scrollbar { width: 6px; }
+        .public-sidebar-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.18);
+            border-radius: 10px;
+        }
+
+        .public-sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: var(--sidebar-text) !important;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .public-sidebar-brand:hover {
+            background: var(--sidebar-brand-hover);
+            color: var(--sidebar-text) !important;
+        }
+
+        .public-sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-top: auto;
+            padding-top: 16px;
+            border-top: 1px solid var(--sidebar-divider);
+        }
+
+        .public-sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            transition: background var(--transition-fast), color var(--transition-fast);
+            cursor: pointer;
+        }
+
+        .public-sidebar-link i {
+            font-size: 1.15rem;
+            opacity: 0.88;
+            color: var(--sidebar-text-muted);
+        }
+
+        .public-sidebar-link:hover {
+            background: var(--sidebar-hover);
+            color: var(--sidebar-text);
+        }
+
+        .public-sidebar-link:hover i {
+            color: var(--sidebar-text);
+        }
+
+        .public-sidebar-link.is-active {
+            background: var(--sidebar-active-bg);
+            color: var(--sidebar-active-text);
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(236, 65, 65, 0.35);
+        }
+
+        .public-sidebar-link.is-active i {
+            opacity: 1;
+            color: var(--sidebar-active-text);
+        }
+
+        /* ── 侧栏分组样式 ── */
+        .sidebar-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .public-sidebar-section-label {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            color: var(--sidebar-section);
+            margin: 14px 12px 8px;
+            padding: 0 4px;
+        }
+
+        .sidebar-badge {
+            margin-left: auto;
+            background: var(--apple-red, #FF3B30);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 10px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        .sidebar-new-badge {
+            margin-left: auto;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #FF6B35, #FF2D55);
+            padding: 2px 7px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── 主内容区 ── */
+        .public-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .public-content-scroll {
+            flex: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+            height: 100%;
+        }
+
+        .public-content-scroll::-webkit-scrollbar { width: 8px; }
+        .public-content-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 10px;
+        }
+
+        /* ── 顶栏 ── */
+        .public-topbar {
+            min-height: 56px;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .public-topbar-inner {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .public-topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .public-topbar-actions .nav-link {
+            color: var(--text-secondary) !important;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            padding: 6px 14px;
+            border-radius: var(--radius-md);
+            transition: all var(--transition-fast);
+        }
+
+        .public-topbar-actions .nav-link:hover {
+            color: var(--text-primary) !important;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .public-topbar-actions .btn-primary {
+            background: var(--netease-red);
+            border-color: var(--netease-red);
+            border-radius: var(--radius-md);
+            padding: 8px 18px;
+            font-weight: 500;
+            font-size: 0.9375rem;
+            transition: all var(--transition-fast);
+        }
+
+        .public-topbar-actions .btn-primary:hover {
+            background: var(--netease-red-hover);
+            border-color: var(--netease-red-hover);
+            transform: scale(1.02);
+        }
+
+        /* 登录后用户信息 */
+        .topbar-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .topbar-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--netease-red), #FF6B6B);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .topbar-nickname {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text-primary);
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* 套餐角标：与首页 /public 一致（浅色底 + 语义色文字） */
+        .topbar-plan-badge {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 4px;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+
+        .topbar-plan-badge.pro { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
+        .topbar-plan-badge.ent { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
+        .topbar-plan-badge.basic { background: rgba(0, 122, 255, 0.12); color: #007aff; }
+
+        .topbar-separator {
+            width: 1px;
+            height: 22px;
+            background: rgba(0, 0, 0, 0.12);
+            flex-shrink: 0;
+        }
+
+        .topbar-icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            transition: all var(--transition-fast);
+            padding: 0;
+        }
+
+        .topbar-icon-btn:hover {
+            background: rgba(0, 0, 0, 0.08);
+            color: var(--text-primary);
+        }
+
+        .topbar-skin-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+        }
+
+        .topbar-skin-btn:hover {
+            color: var(--netease-red, #EC4141);
+            background: rgba(236, 65, 65, 0.08);
+        }
+
+        html[data-skin="cool-black"] .topbar-skin-btn:hover {
+            color: #FF6B6B;
+            background: rgba(255, 107, 107, 0.12);
+        }
+
+        .topbar-settings-dropdown {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .topbar-settings-menu {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            z-index: 300;
+            min-width: 192px;
+            padding: 6px;
+            margin: 0;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow:
+                0 12px 40px rgba(0, 0, 0, 0.12),
+                0 0 0 1px rgba(0, 0, 0, 0.04);
+            backdrop-filter: saturate(180%) blur(24px);
+            -webkit-backdrop-filter: saturate(180%) blur(24px);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-6px);
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+        }
+
+        .topbar-settings-dropdown.is-open .topbar-settings-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .topbar-settings-divider {
+            height: 1px;
+            margin: 4px 6px;
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .topbar-settings-menu button.topbar-settings-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 6px;
+            background: transparent !important;
+            font-family: inherit;
+            font-size: 0.9375rem;
+            font-weight: 400;
+            line-height: 1.3;
+            color: var(--text-primary) !important;
+            text-align: left;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            box-shadow: none !important;
+            text-shadow: none !important;
+            transition: background 0.12s ease, color 0.12s ease;
+        }
+
+        .topbar-settings-menu button.topbar-settings-item i {
+            font-size: 1.05rem;
+            opacity: 0.72;
+            color: inherit;
+        }
+
+        .topbar-settings-menu button.topbar-settings-item:hover {
+            background: rgba(0, 0, 0, 0.06) !important;
+        }
+
+        .topbar-settings-menu button.topbar-settings-item.danger {
+            color: #d70015 !important;
+        }
+
+        .topbar-settings-menu button.topbar-settings-item.danger:hover {
+            background: rgba(215, 0, 21, 0.08) !important;
+        }
+
+        html[data-skin="cool-black"] .topbar-settings-menu {
+            background: rgba(44, 44, 46, 0.96);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        html[data-skin="cool-black"] .topbar-settings-menu button.topbar-settings-item {
+            color: rgba(255, 255, 255, 0.9) !important;
+        }
+
+        html[data-skin="cool-black"] .topbar-settings-menu button.topbar-settings-item:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+        }
+
+        html[data-skin="cool-black"] .topbar-settings-divider {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        /* 配额提示条 */
+        .mac-quota-strip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, #FFF5F5, #FFF8F8);
+            border: 1px solid #FFE5E5;
+            border-radius: var(--radius-md);
+            padding: 10px 16px;
+            margin-bottom: 20px;
+            font-size: 0.9375rem;
+            color: var(--text-primary);
+        }
+
+        .mac-quota-strip a {
+            color: var(--netease-red);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .mac-quota-strip a:hover {
+            text-decoration: underline;
+        }
+
+        /* ================================================
+           画像横铺区
+           ================================================ */
+        .portraits-row-section {
+            margin-bottom: 40px;
+        }
+
+        .portraits-row-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            padding-left: 4px;
+        }
+
+        .portraits-row-title {
+            font-size: 1.0625rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .portraits-row-scroll {
+            display: flex;
+            gap: 18px;
+            overflow-x: auto;
+            padding: 4px 0 14px 4px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+        }
+
+        /* ================================================
+           超级定位 Tab 样式
+           ================================================ */
+        .super-workspace-new {
+            background: transparent;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: visible;
+            margin-bottom: 0;
+            border-top: 1px solid #f0f0f0;
+            margin-top: 12px;
+            padding-top: 20px;
+        }
+
+        .super-tabs-bar {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            padding: 0 4px;
+            background: transparent;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            flex-shrink: 0;
+        }
+
+        .super-tab-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+        }
+
+        .super-tab-btn i {
+            font-size: 0.875rem;
+        }
+
+        .super-tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .super-tab-btn.active {
+            color: var(--netease-red);
+            border-bottom-color: var(--netease-red);
+        }
+
+        .super-tabs-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+            padding-bottom: 2px;
+        }
+
+        .super-tab-content-wrapper {
+            padding-top: 24px;
+        }
+
+        .super-tab-panel {
+            display: none;
+        }
+
+        .super-tab-panel.active {
+            display: block;
+        }
+
+        .tab-panel-inner {
+            padding: 0 4px;
+        }
+
+        .step-title {
+            font-size: 1.0625rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* ================================================
+           画像专区
+           ================================================ */
+        .portrait-section-wrapper {
+            margin-bottom: 16px;
+        }
+
+        .portrait-section-header {
+            padding: 14px 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .portrait-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        /* ================================================
+           皮肤切换
+           ================================================ */
+        html[data-skin="system"] .public-sidebar {
+            background: #1C1C1E;
+            --sidebar-bg: #1C1C1E;
+            --sidebar-border: rgba(255,255,255,0.1);
+            --sidebar-text: rgba(255,255,255,0.85);
+            --sidebar-text-muted: rgba(255,255,255,0.5);
+            --sidebar-section: rgba(255,255,255,0.35);
+            --sidebar-hover: rgba(255,255,255,0.06);
+            --sidebar-brand-hover: rgba(255,255,255,0.06);
+            --sidebar-active-bg: #FF375F;
+            --sidebar-active-text: #ffffff;
+            --sidebar-divider: rgba(255,255,255,0.08);
+        }
+
+        html[data-skin="system"] .public-sidebar-brand {
+            color: #fff !important;
+        }
+
+        html[data-skin="system"] .public-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.22);
+        }
+
+        html[data-skin="system"] .public-sidebar-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.22);
+        }
+
+        html[data-skin="system"] .public-content-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.22);
+        }
+
+        html[data-skin="system"] body {
+            background: #000000;
+        }
+
+        html[data-skin="system"] .public-topbar {
+            background: rgba(29,29,31,0.92);
+        }
+
+        html[data-skin="system"] .topbar-nickname {
+            color: rgba(255,255,255,0.9);
+        }
+
+        html[data-skin="system"] .topbar-icon-btn {
+            color: rgba(255,255,255,0.7);
+        }
+
+        html[data-skin="system"] .topbar-icon-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,1);
+        }
+
+        html[data-skin="system"] .public-content-scroll {
+            background: #1C1C1E;
+        }
+
+        html[data-skin="system"] .main-container {
+            color: rgba(255,255,255,0.9);
+        }
+
+        html[data-skin="system"] .public-content {
+            background: #1C1C1E;
+        }
+
+        /* ================================================
+           响应式：移动端侧栏折叠
+           ================================================ */
+        @media (max-width: 768px) {
+            .public-sidebar {
+                flex: none;
+                width: 100%;
+                background: var(--sidebar-bg);
+                border-right: none;
+                border-bottom: 1px solid var(--sidebar-border);
+                flex-direction: row;
+                flex-wrap: wrap;
+                height: auto;
+                max-height: none;
+                overflow: visible;
+                padding: 10px;
+            }
+
+            .public-sidebar-scroll {
+                display: contents;
+            }
+
+            .public-sidebar-brand {
+                margin-bottom: 0;
+            }
+
+            .public-sidebar-nav {
+                flex-direction: row;
+                flex-wrap: wrap;
+                flex: 1;
+                gap: 4px;
+                border-top: none;
+                padding-top: 0;
+                margin-top: 0;
+            }
+
+            .public-sidebar-section-label {
+                display: none;
+            }
+
+            .public-sidebar-link {
+                padding: 8px 12px;
+                font-size: 0.8125rem;
+            }
+
+            .public-app-layout {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .public-content-scroll {
+                overflow: visible;
+            }
+
+            .main-container {
+                padding: 20px 16px;
+            }
+        }
+    </style>
+
+    {% block layout_extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="public-app-layout">
+        {# ── 侧栏 ── #}
+        <aside class="public-sidebar" aria-label="主导航">
+            <div class="public-sidebar-scroll">
+                {# Logo #}
+                <a class="public-sidebar-brand" href="/public">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#logoGradSidebar)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="url(#logoGradSidebar)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="url(#logoGradSidebar)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="logoGradSidebar" x1="2" y1="2" x2="22" y2="22">
+                            <stop stop-color="#EC4141"/>
+                            <stop offset="1" stop-color="#FF6B6B"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                AI 棱镜
+            </a>
+
+            {# 侧栏导航 - 由子模板填充 #}
+            {% block sidebar_nav %}{% endblock %}
+            </div>{# /.public-sidebar-scroll #}
+        </aside>
+
+        {# ── 主内容区 ── #}
+        <div class="public-content">
+            <header class="public-topbar">
+                <div class="public-topbar-inner">
+                    {# 顶栏左侧：页面标题（由子模板填充） #}
+                    <div class="topbar-page-title" style="margin-right: auto; font-weight: 600; font-size: 1rem; color: var(--text-primary);">
+                        {% block topbar_title %}{% endblock %}
+                    </div>
+
+                    {# 顶栏右侧：登录/用户信息 #}
+                    {% block topbar_right %}{% endblock %}
+                </div>
+            </header>
+
+            <div class="public-content-scroll">
+                {# 主内容 - 由子模板填充 #}
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    {# Bootstrap JS #}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
+            crossorigin="anonymous"></script>
+
+    <script>
+    // 公共常量
+    const PUBLIC_NAV_INTENT_KEY = 'publicIntent';
+
+    // 公共工具函数
+    function toggleSettingsDropdown(event) {
+        if (event) event.stopPropagation();
+        const dropdown = document.getElementById('topbar-settings-dropdown');
+        const btn = document.getElementById('topbar-settings-btn');
+        if (dropdown) {
+            dropdown.classList.toggle('is-open');
+            if (btn) {
+                btn.setAttribute('aria-expanded', dropdown.classList.contains('is-open') ? 'true' : 'false');
+            }
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('topbar-settings-dropdown');
+        const btn = document.getElementById('topbar-settings-btn');
+        if (dropdown && !dropdown.contains(e.target)) {
+            dropdown.classList.remove('is-open');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    // 公共 AJAX 封装
+    async function apiFetch(url, options) {
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(options.headers || {})
+            }
+        });
+        const data = await response.json();
+        if (!response.ok && response.status === 401) {
+            // 未登录，重定向
+            window.location.href = '/login?type=public&next=' + encodeURIComponent(window.location.pathname);
+            return null;
+        }
+        return data;
+    }
+
+    // ================================================================
+    // 账号设置相关
+    // ================================================================
+    let _currentAccountTab = 'profile';
+    let _avatarChanged = false;
+    let _avatarBase64 = '';
+    let _avatarType = 'image/png';
+
+    async function logout(e) {
+        if (e) e.preventDefault();
+        document.getElementById('topbar-settings-dropdown')?.classList.remove('is-open');
+        document.getElementById('topbar-settings-btn')?.setAttribute('aria-expanded', 'false');
+
+        try {
+            await fetch('/public/api/logout', { method: 'POST', credentials: 'include' });
+        } catch (err) {}
+
+        document.getElementById('topbar-auth').style.display = 'flex';
+        document.getElementById('topbar-user').style.display = 'none';
+        const skinBtnOut = document.getElementById('topbar-skin-btn');
+        if (skinBtnOut) skinBtnOut.style.display = '';
+
+        // 清除皮肤设置
+        try {
+            localStorage.removeItem('publicSkin');
+        } catch (e) {}
+
+        window.location.href = '/login?type=public';
+    }
+
+    function openAccountSettings(e, tab) {
+        if (e) e.preventDefault();
+        _currentAccountTab = tab || 'profile';
+        _avatarChanged = false;
+        _avatarBase64 = '';
+
+        switchAccountTab(_currentAccountTab);
+        loadUserProfile();
+
+        const modal = new bootstrap.Modal(document.getElementById('accountSettingsModal'));
+        modal.show();
+    }
+
+    function switchAccountTab(tab) {
+        _currentAccountTab = tab;
+
+        document.querySelectorAll('.account-settings-tab').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+
+        document.querySelectorAll('.account-settings-content').forEach(function(content) {
+            content.classList.toggle('active', content.id === 'account-tab-' + tab);
+        });
+
+        const submitBtn = document.getElementById('account-settings-submit');
+        if (submitBtn) {
+            submitBtn.innerHTML = tab === 'password'
+                ? '<i class="bi bi-check-lg me-1"></i>修改密码'
+                : '<i class="bi bi-check-lg me-1"></i>保存';
+        }
+    }
+
+    async function loadUserProfile() {
+        try {
+            const resp = await fetch('/public/api/account/profile');
+            const result = await resp.json();
+
+            if (result.success) {
+                const data = result.data;
+
+                document.getElementById('profile-email').value = data.email || '';
+                document.getElementById('profile-nickname').value = data.nickname || '';
+
+                const planNames = {
+                    'free': '免费版',
+                    'basic': '基础版',
+                    'professional': '专业版',
+                    'enterprise': '企业版'
+                };
+                document.getElementById('profile-plan').value = planNames[data.premium_plan] || '免费版';
+
+                updateAccountAvatarPreview(data.avatar, data.nickname || data.email || '?');
+            }
+        } catch (err) {
+            console.error('加载用户资料失败:', err);
+        }
+    }
+
+    function updateAccountAvatarPreview(avatarUrl, name) {
+        const preview = document.getElementById('avatar-preview');
+        if (avatarUrl) {
+            preview.innerHTML = '<img src="' + avatarUrl + '" alt="头像">';
+        } else {
+            const firstChar = (name || '?').charAt(0).toUpperCase();
+            preview.innerHTML = '<span>' + firstChar + '</span>';
+        }
+    }
+
+    function triggerAvatarUpload() {
+        document.getElementById('avatar-file-input').click();
+    }
+
+    function handleAvatarFileSelect(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            showToast('请选择图片文件', 'error');
+            return;
+        }
+
+        _avatarType = file.type;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            _avatarBase64 = ev.target.result;
+            _avatarChanged = true;
+            const preview = document.getElementById('avatar-preview');
+            preview.innerHTML = '<img src="' + _avatarBase64 + '" alt="头像">';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function submitAccountSettings() {
+        if (_currentAccountTab === 'profile') {
+            await submitProfileSettings();
+        } else {
+            await submitPasswordSettings();
+        }
+    }
+
+    async function submitProfileSettings() {
+        const nickname = document.getElementById('profile-nickname').value.trim();
+        const submitBtn = document.getElementById('account-settings-submit');
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中...';
+
+        try {
+            let newAvatarUrl = null;
+
+            if (_avatarChanged && _avatarBase64) {
+                const avatarResp = await fetch('/public/api/account/avatar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ avatar: _avatarBase64, type: _avatarType })
+                });
+                const avatarResult = await avatarResp.json();
+                if (avatarResult.success) {
+                    newAvatarUrl = avatarResult.url;
+                }
+            }
+
+            const resp = await fetch('/public/api/account/profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nickname: nickname, avatar: newAvatarUrl })
+            });
+
+            const result = await resp.json();
+
+            if (result.success) {
+                showToast('保存成功', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('accountSettingsModal')).hide();
+                if (typeof updateTopbarUserInfo === 'function') {
+                    updateTopbarUserInfo(result.data);
+                }
+            } else {
+                showToast(result.message || '保存失败', 'error');
+            }
+        } catch (err) {
+            console.error('保存失败:', err);
+            showToast('保存失败', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>保存';
+        }
+    }
+
+    async function submitPasswordSettings() {
+        const oldPwd = document.getElementById('pwd-old').value;
+        const newPwd = document.getElementById('pwd-new').value;
+        const confirmPwd = document.getElementById('pwd-confirm').value;
+
+        document.getElementById('pwd-old-error').classList.remove('show');
+        document.getElementById('pwd-new-error').classList.remove('show');
+        document.getElementById('pwd-confirm-error').classList.remove('show');
+
+        if (!oldPwd) {
+            document.getElementById('pwd-old-error').textContent = '请输入原密码';
+            document.getElementById('pwd-old-error').classList.add('show');
+            return;
+        }
+
+        if (newPwd.length < 6) {
+            document.getElementById('pwd-new-error').textContent = '新密码至少6位';
+            document.getElementById('pwd-new-error').classList.add('show');
+            return;
+        }
+
+        if (newPwd !== confirmPwd) {
+            document.getElementById('pwd-confirm-error').textContent = '两次输入的密码不一致';
+            document.getElementById('pwd-confirm-error').classList.add('show');
+            return;
+        }
+
+        const submitBtn = document.getElementById('account-settings-submit');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>修改中...';
+
+        try {
+            const resp = await fetch('/public/api/account/password', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_password: oldPwd, new_password: newPwd })
+            });
+
+            const result = await resp.json();
+
+            if (result.success) {
+                showToast('密码修改成功', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('accountSettingsModal')).hide();
+                document.getElementById('pwd-old').value = '';
+                document.getElementById('pwd-new').value = '';
+                document.getElementById('pwd-confirm').value = '';
+            } else {
+                showToast(result.message || '修改失败', 'error');
+            }
+        } catch (err) {
+            console.error('修改密码失败:', err);
+            showToast('修改失败', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>修改密码';
+        }
+    }
+
+    function checkPasswordStrength(pwd) {
+        const bar = document.getElementById('pwd-strength-bar');
+        const hint = document.getElementById('pwd-strength-hint');
+        if (!bar || !hint || !pwd) {
+            if (bar) bar.style.width = '0';
+            return;
+        }
+
+        let strength = 0;
+        if (pwd.length >= 6) strength++;
+        if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) strength++;
+        if (/\d/.test(pwd)) strength++;
+        if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) strength++;
+
+        if (pwd.length < 6) {
+            bar.className = 'password-strength-bar';
+            bar.style.width = '0';
+            hint.textContent = '';
+        } else if (strength <= 2) {
+            bar.className = 'password-strength-bar weak';
+            hint.textContent = '密码强度：弱';
+        } else if (strength <= 3) {
+            bar.className = 'password-strength-bar medium';
+            hint.textContent = '密码强度：中等';
+        } else {
+            bar.className = 'password-strength-bar strong';
+            hint.textContent = '密码强度：强';
+        }
+    }
+
+    // 皮肤选择相关
+    var _skinPickerModal = null;
+
+    function openSkinPicker(e) {
+        if (e) e.preventDefault();
+        document.getElementById('topbar-settings-dropdown')?.classList.remove('is-open');
+        document.getElementById('topbar-settings-btn')?.setAttribute('aria-expanded', 'false');
+
+        if (!_skinPickerModal) {
+            _skinPickerModal = new bootstrap.Modal(document.getElementById('skinPickerModal'));
+        }
+
+        syncSkinPickerSelection();
+        _skinPickerModal.show();
+    }
+
+    function syncSkinPickerSelection() {
+        const currentSkin = document.documentElement.getAttribute('data-skin') || 'classic-red';
+        document.querySelectorAll('.skin-picker-item').forEach(function(item) {
+            item.classList.toggle('active', item.dataset.skin === currentSkin);
+        });
+    }
+
+    function pickSkin(skinId) {
+        applyPublicSkin(skinId, true);
+        if (typeof showToast === 'function') {
+            showToast('已切换皮肤', 'success');
+        }
+        if (_skinPickerModal) {
+            _skinPickerModal.hide();
+        }
+    }
+
+    function applyPublicSkin(skinId, persist) {
+        if (!skinId) return;
+        document.documentElement.setAttribute('data-skin', skinId);
+
+        if (persist) {
+            try {
+                localStorage.setItem('publicSkin', skinId);
+            } catch (e) {}
+        }
+    }
+
+    function getPublicSkin() {
+        try {
+            return localStorage.getItem('publicSkin') || 'classic-red';
+        } catch (e) {
+            return 'classic-red';
+        }
+    }
+
+    // 页面加载时应用保存的皮肤
+    (function() {
+        const savedSkin = getPublicSkin();
+        if (savedSkin) {
+            applyPublicSkin(savedSkin, false);
+        }
+    })();
+    </script>
+
+    <script>
+    // 侧栏 new 徽章处理：如果当前在内容星球页面，隐藏所有 new 徽章
+    (function() {
+        if (window.location.pathname === '/public/galaxy') {
+            document.querySelectorAll('.sidebar-new-badge').forEach(function(badge) {
+                badge.style.display = 'none';
+            });
+        }
+    })();
+    </script>
+
+    {% block layout_extra_js %}{% endblock %}
+
+    <!-- 账号设置模态框 -->
+    <div class="modal fade account-settings-modal" id="accountSettingsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-badge me-2"></i>账号设置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="account-settings-tabs">
+                        <button class="account-settings-tab active" data-tab="profile" onclick="switchAccountTab('profile')">
+                            <i class="bi bi-person me-1"></i>基础资料
+                        </button>
+                        <button class="account-settings-tab" data-tab="password" onclick="switchAccountTab('password')">
+                            <i class="bi bi-key me-1"></i>修改密码
+                        </button>
+                    </div>
+
+                    <!-- Tab: 基础资料 -->
+                    <div class="account-settings-content active" id="account-tab-profile">
+                        <div class="avatar-upload-wrapper">
+                            <div class="avatar-upload-preview" id="avatar-preview" onclick="triggerAvatarUpload()">
+                                <span>?</span>
+                            </div>
+                            <button type="button" class="avatar-upload-btn" onclick="triggerAvatarUpload()">
+                                <i class="bi bi-upload me-1"></i>上传头像
+                            </button>
+                            <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="handleAvatarFileSelect(event)">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">邮箱</label>
+                            <input type="email" class="form-control" id="profile-email" readonly>
+                            <div class="form-text">邮箱不可修改</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">昵称</label>
+                            <input type="text" class="form-control" id="profile-nickname" maxlength="20" placeholder="输入昵称">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">当前版本</label>
+                            <input type="text" class="form-control" id="profile-plan" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Tab: 修改密码 -->
+                    <div class="account-settings-content" id="account-tab-password">
+                        <div class="mb-3">
+                            <label class="form-label">原密码</label>
+                            <input type="password" class="form-control" id="pwd-old" placeholder="输入原密码">
+                            <div class="password-error" id="pwd-old-error"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">新密码</label>
+                            <input type="password" class="form-control" id="pwd-new" placeholder="输入新密码（至少6位）" oninput="checkPasswordStrength(this.value)">
+                            <div class="password-strength-bar" id="pwd-strength-bar"></div>
+                            <div class="form-text" id="pwd-strength-hint"></div>
+                            <div class="password-error" id="pwd-new-error"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">确认新密码</label>
+                            <input type="password" class="form-control" id="pwd-confirm" placeholder="再次输入新密码">
+                            <div class="password-error" id="pwd-confirm-error"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="account-settings-submit" onclick="submitAccountSettings()">
+                        <i class="bi bi-check-lg me-1"></i>保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 皮肤选择器模态框 -->
+    <div class="modal fade skin-picker-modal" id="skinPickerModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-palette me-2"></i>选择皮肤</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="skin-picker-grid">
+                        <div class="skin-picker-item" data-skin="classic-red" onclick="pickSkin('classic-red')" style="background: linear-gradient(135deg, #EC4141, #FF6B6B);">
+                            <span class="skin-name">经典红</span>
+                            <span class="skin-check"><i class="bi bi-check"></i></span>
+                        </div>
+                        <div class="skin-picker-item" data-skin="ocean-blue" onclick="pickSkin('ocean-blue')" style="background: linear-gradient(135deg, #007AFF, #5856D6);">
+                            <span class="skin-name">海洋蓝</span>
+                            <span class="skin-check"><i class="bi bi-check"></i></span>
+                        </div>
+                        <div class="skin-picker-item" data-skin="forest-green" onclick="pickSkin('forest-green')" style="background: linear-gradient(135deg, #34C759, #30D158);">
+                            <span class="skin-name">森林绿</span>
+                            <span class="skin-check"><i class="bi bi-check"></i></span>
+                        </div>
+                        <div class="skin-picker-item" data-skin="sunset-orange" onclick="pickSkin('sunset-orange')" style="background: linear-gradient(135deg, #FF9500, #FF6B00);">
+                            <span class="skin-name">日落橙</span>
+                            <span class="skin-check"><i class="bi bi-check"></i></span>
+                        </div>
+                        <div class="skin-picker-item" data-skin="royal-purple" onclick="pickSkin('royal-purple')" style="background: linear-gradient(135deg, #AF52DE, #BF5AF2);">
+                            <span class="skin-name">皇家紫</span>
+                            <span class="skin-check"><i class="bi bi-check"></i></span>
+                        </div>
+                        <div class="skin-picker-item" data-skin="system" onclick="pickSkin('system')" style="background: linear-gradient(135deg, #1C1C1E, #3A3A3C);">
+                            <span class="skin-name">跟随系统</span>
+                            <span class="skin-check"><i class="bi bi-check"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

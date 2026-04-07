@@ -134,6 +134,8 @@ class PublicGeneration(db.Model):
     portrait_id = db.Column(db.Integer, nullable=True)
     # 关联行星（核心问题ID）
     problem_id = db.Column(db.Integer, nullable=True)
+    # 关联选题ID（来自画像专属选题库的 UUID）
+    topic_id = db.Column(db.String(36), nullable=True)
 
     # 生成参数
     industry = db.Column(db.String(50))

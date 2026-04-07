@@ -11,6 +11,7 @@
 import json
 import logging
 import threading
+import datetime
 from flask import Blueprint, request, jsonify, session
 from functools import wraps
 from services.portrait_save_service import portrait_save_service
@@ -496,13 +497,11 @@ def generate_portrait_library(user, portrait_id):
 @login_required
 def get_portrait_topics(user, portrait_id):
     """
-    从专属选题库获取选题列表（用于选题选择）
+    从专属选题库获取选题列表（分页版本）
 
     Query params:
-        count: 数量，默认5
-        type: 选题类型筛选
-        keyword_hint: 关键词筛选
-        source: 选题来源 'library' / 'realtime' / 'mixed'
+        page: 页码，默认1
+        per_page: 每页数量，默认10
     """
     portrait = portrait_save_service.get_saved_portrait(portrait_id)
     if not portrait:
@@ -514,55 +513,224 @@ def get_portrait_topics(user, portrait_id):
     if not row or row[0] != user.id:
         return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
 
-    count = int(request.args.get('count', 5))
-    topic_type = request.args.get('type')
-    keyword_hint = request.args.get('keyword_hint', '')
-    source = request.args.get('source', 'mixed')  # mixed=混合
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 10))
+
+    topic_library = portrait.get('topic_library')
+    all_topics = []
+
+    if topic_library and 'topics' in topic_library:
+        all_topics = topic_library.get('topics', [])
+
+    # 按 created_at 倒序排列
+    def sort_key(t):
+        created = t.get('created_at', '')
+        return created if created else ''
+
+    all_topics = sorted(all_topics, key=sort_key, reverse=True)
+
+    # 分页
+    total = len(all_topics)
+    start = (page - 1) * per_page
+    end = start + per_page
+    page_topics = all_topics[start:end]
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'topics': page_topics,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'pages': (total + per_page - 1) // per_page if per_page > 0 else 0,
+            'portrait_id': portrait_id,
+        }
+    })
+
+
+@portrait_bp.route('/<int:portrait_id>/topics/quick', methods=['GET'])
+@login_required
+def get_portrait_topics_quick(user, portrait_id):
+    """
+    快速随机抽取选题（用于卡片悬停展示，抽取3条）
+
+    Query params:
+        count: 数量，默认3
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    count = int(request.args.get('count', 3))
+    topic_library = portrait.get('topic_library')
 
     topics = []
     from_portrait = False
 
-    # 优先从专属选题库取
-    topic_library = portrait.get('topic_library')
-    if topic_library and source in ('library', 'mixed'):
+    if topic_library and 'topics' in topic_library:
         from services.topic_library_generator import topic_library_generator
         topics = topic_library_generator.select_topics(
             topic_library=topic_library,
             count=count,
-            topic_type=topic_type,
-            keyword_hint=keyword_hint,
         )
         from_portrait = True
-
-    # 如果专属库为空或要求实时，实时生成
-    if not topics or source == 'realtime':
-        from services.topic_generator import TopicGenerator
-        portrait_data = portrait.get('portrait_data', {})
-        generator = TopicGenerator()
-        result = generator.generate_topics(
-            business_description=portrait.get('business_description', ''),
-            business_range='',
-            business_type=portrait.get('industry', ''),
-            portraits=[portrait_data],
-            problem_keywords=[],
-            is_premium=user.is_paid_user(),
-        )
-        if result.get('success'):
-            realtime_topics = result.get('topics', [])
-            if topics:
-                # 混合：实时选题放后面
-                topics = (topics + realtime_topics)[:count]
-            else:
-                topics = realtime_topics[:count]
 
     return jsonify({
         'success': True,
         'data': {
             'topics': topics,
             'from_portrait_library': from_portrait,
+            'has_topics': bool(topics),
             'portrait_id': portrait_id,
         }
     })
+
+
+@portrait_bp.route('/<int:portrait_id>/topics/regenerate', methods=['POST'])
+@login_required
+def regenerate_portrait_topics(user, portrait_id):
+    """
+    重新生成画像专属选题库（增量：保留原有选题，新增一批新选题）
+
+    Body: {
+        count: 新增数量，默认10
+    }
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    # 检查付费状态
+    if not user.is_paid_user():
+        return jsonify({
+            'success': False,
+            'message': '此功能仅对付费用户开放'
+        }), 403
+
+    data = request.get_json() or {}
+    extra_count = int(data.get('count', 10))
+
+    portrait_data = portrait.get('portrait_data', {})
+    business_info = {
+        'business_description': portrait.get('business_description', ''),
+        'industry': portrait.get('industry', ''),
+        'products': [],
+        'region': '',
+        'target_customer': portrait.get('target_customer', ''),
+    }
+    plan_type = user.premium_plan or 'basic'
+
+    try:
+        # 获取现有选题库
+        topic_library = portrait.get('topic_library') or {}
+        existing_topics = topic_library.get('topics', [])
+
+        # 生成新增选题
+        from services.topic_library_generator import topic_library_generator
+        result = topic_library_generator.generate(
+            portrait_data=portrait_data,
+            business_info=business_info,
+            keyword_library=None,
+            plan_type=plan_type,
+            topic_count=extra_count,
+            portrait_id=portrait_id,
+        )
+
+        if not result.get('success'):
+            return jsonify({
+                'success': False,
+                'message': result.get('error', '选题生成失败')
+            }), 500
+
+        new_topics = result.get('topic_library', {}).get('topics', [])
+
+        # 合并：保留原有 + 新增
+        merged_topics = existing_topics + new_topics
+        topic_library['topics'] = merged_topics
+        topic_library['generated_at'] = datetime.utcnow().isoformat()
+
+        # 保存
+        topic_library_generator.save_to_portrait(
+            portrait_id=portrait_id,
+            topic_library=topic_library,
+            user_id=user.id,
+            plan_type=plan_type,
+        )
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'total': len(merged_topics),
+                'new_count': len(new_topics),
+                'existing_count': len(existing_topics),
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        logger.error("[regenerate_topics] 异常: %s", e)
+        logger.debug("[regenerate_topics] 堆栈: %s", traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'生成失败: {str(e)}'
+        }), 500
+
+
+@portrait_bp.route('/<int:portrait_id>/topics/increment', methods=['POST'])
+@login_required
+def increment_topic_generation_count(user, portrait_id):
+    """
+    选题生成次数+1（当内容生成完成后调用）
+
+    Body: {
+        topic_id: 选题UUID字符串
+    }
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '无权访问'}), 403
+
+    data = request.get_json() or {}
+    topic_id = data.get('topic_id')
+
+    if not topic_id:
+        return jsonify({'success': False, 'message': '缺少 topic_id'}), 400
+
+    topic_library = portrait.get('topic_library') or {}
+    topics = topic_library.get('topics', [])
+
+    for topic in topics:
+        if topic.get('id') == topic_id:
+            topic['generation_count'] = topic.get('generation_count', 0) + 1
+            break
+    else:
+        return jsonify({'success': False, 'message': '选题不存在'}), 404
+
+    topic_library['topics'] = topics
+    portrait_model = SavedPortrait.query.get(portrait_id)
+    if portrait_model:
+        portrait_model.topic_library = topic_library
+        db.session.commit()
+
+    return jsonify({'success': True})
 
 
 @portrait_bp.route('/library/quota', methods=['GET'])

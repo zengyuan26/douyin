@@ -1,181 +1,202 @@
-{% extends "base.html" %}
+{% extends "public/public_layout.html" %}
 
-{% block title %}控制台 - AI棱镜{% endblock %}
+{% block title %}管理中心 - AI棱镜{% endblock %}
 
+{# 侧栏导航 #}
+{% block sidebar_nav %}
+    {# 分组：管理中心 #}
+    <div class="sidebar-group">
+        <div class="public-sidebar-section-label">管理中心</div>
+        <a class="public-sidebar-link is-active" href="{{ url_for('admin.dashboard') }}">
+            <i class="bi bi-grid-1x2"></i>
+            总览
+        </a>
+        <a class="public-sidebar-link" href="{{ url_for('admin.templates', type='report') }}">
+            <i class="bi bi-file-earmark-text"></i>
+            模板管理
+        </a>
+        <a class="public-sidebar-link" href="{{ url_for('admin.public_users') }}">
+            <i class="bi bi-people"></i>
+            客户管理
+        </a>
+        <a class="public-sidebar-link" href="{{ url_for('admin.public_pending_industries') }}">
+            <i class="bi bi-hourglass-split"></i>
+            待处理行业
+        </a>
+        <a class="public-sidebar-link" href="{{ url_for('admin.public_cost_stats') }}">
+            <i class="bi bi-currency-yen"></i>
+            成本统计
+        </a>
+        <a class="public-sidebar-link" href="{{ url_for('admin.analysis_dimensions_page') }}">
+            <i class="bi bi-grid"></i>
+            分析维度
+        </a>
+    </div>
+
+    {# 分组：返回前台 #}
+    <div class="sidebar-group" style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--sidebar-divider);">
+        <a class="public-sidebar-link" href="/public">
+            <i class="bi bi-arrow-left-circle"></i>
+            返回前台
+        </a>
+    </div>
+{% endblock %}
+
+{# 顶栏左侧标题 #}
+{% block topbar_title %}
+    管理中心
+{% endblock %}
+
+{# 顶栏右侧：用户信息 #}
+{% block topbar_right %}
+    <div class="topbar-user">
+        {# 头像 #}
+        <div class="topbar-avatar">
+            {{ (current_user.nickname or current_user.username or '管')[0] }}
+        </div>
+        {# 昵称 #}
+        <span class="topbar-nickname">{{ current_user.nickname or current_user.username or '管理员' }}</span>
+        {# 角色标签 #}
+        <span class="topbar-plan-badge" style="background: linear-gradient(135deg, #8E8E93, #AEAEB2);">
+            {% if current_user.role == 'super_admin' %}超级管理员
+            {% elif current_user.role == 'admin' %}管理员
+            {% else %}用户{% endif %}
+        </span>
+        {# 分隔线 #}
+        <span class="topbar-separator"></span>
+        {# 设置下拉菜单 #}
+        <div class="topbar-settings-dropdown">
+            <button type="button" class="topbar-icon-btn" onclick="toggleSettingsDropdown(event)" title="设置">
+                <i class="bi bi-gear"></i>
+            </button>
+            <div class="topbar-settings-menu" id="topbar-settings-menu">
+                <button type="button" class="topbar-settings-item" onclick="location.href='{{ url_for('auth.logout') }}'">
+                    <i class="bi bi-box-arrow-right"></i>
+                    退出登录
+                </button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{# 主内容 #}
 {% block content %}
-<div class="container-fluid py-4">
+<main class="main-container">
+    <div class="workspace-main">
 
-    <!-- 页面标题 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center page-header-animate">
-                <div>
-                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">管理中心</h4>
-                    <p class="text-muted mb-0" style="font-size: 16px;">系统概览与数据统计</p>
-                </div>
-                <div>
-                    <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-secondary btn-sm">
-                        <i class="bi bi-box-arrow-right me-1"></i>退出登录
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
+        {# 页面标题 #}
+        <h1 class="section-title">系统概览</h1>
+        <p class="section-subtitle">查看系统整体数据统计与快捷入口</p>
 
-    <!-- 快捷操作：竖向滚动显示 -->
-    <style>
-        /* 入口卡片容器：竖向滚动，设置固定高度 */
-        .knowledge-cards-container {
-            height: calc(100vh - 280px);
-            min-height: 400px;
-            overflow-y: auto;
-            padding-right: 8px;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(0,0,0,0.2) transparent;
-        }
-        .knowledge-cards-container::-webkit-scrollbar {
-            width: 6px;
-        }
-        .knowledge-cards-container::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .knowledge-cards-container::-webkit-scrollbar-thumb {
-            background: rgba(0,0,0,0.2);
-            border-radius: 3px;
-        }
-        .knowledge-cards-container::-webkit-scrollbar-thumb:hover {
-            background: rgba(0,0,0,0.3);
-        }
-        
-        /* 网格布局：每行4列 */
-        .knowledge-cards-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-        }
-        
-        /* 平板端：显示3列 */
-        @media (max-width: 1199px) {
-            .knowledge-cards-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-        
-        /* 小平板端：显示2列 */
-        @media (max-width: 767px) {
-            .knowledge-cards-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-        
-        /* 手机端：显示1列 */
-        @media (max-width: 480px) {
-            .knowledge-cards-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        /* 入口卡片样式 */
-        .knowledge-entry-cards .stat-card {
-            display: block;
-        }
-        .knowledge-entry-cards .knowledge-entry-card .card-body {
-            display: flex !important;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
-        .knowledge-entry-cards .knowledge-entry-card .stat-icon {
-            width: 72px;
-            height: 72px;
-            font-size: 2rem;
-            color: var(--stat-color) !important;
-        }
-        .knowledge-entry-cards .knowledge-entry-card .stat-icon i {
-            font-size: 2rem;
-        }
-    </style>
-    
-    <div class="knowledge-cards-container">
-        <div class="knowledge-cards-grid knowledge-entry-cards">
-            <!-- 模板管理 -->
-            <div>
+        {# 入口卡片 #}
+        <div class="row g-3">
+            {# 模板管理 #}
+            <div class="col-md-2 col-sm-4">
                 <a href="{{ url_for('admin.templates', type='report') }}" class="text-decoration-none">
-                    <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #6c757d;">
-                        <div class="card-body py-4 d-flex flex-column align-items-center justify-content-center text-center">
-                            <div class="stat-icon mb-3">
-                                <i class="bi bi-file-earmark-text"></i>
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(108,117,125,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-file-earmark-text" style="font-size:1.25rem;color:#6c757d;"></i>
                             </div>
-                            <h6 class="mb-1 w-100">模板管理</h6>
-                            <p class="text-muted mb-0 small w-100">报告/文案/脚本模板</p>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">模板管理</h6>
+                            <p class="text-muted mb-0 small">报告/文案/脚本</p>
                         </div>
                     </div>
                 </a>
             </div>
 
-            <!-- 客户管理 -->
-            <div>
+            {# 客户管理 #}
+            <div class="col-md-2 col-sm-4">
                 <a href="{{ url_for('admin.public_users') }}" class="text-decoration-none">
-                    <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #e91e63;">
-                        <div class="card-body py-4 d-flex flex-column align-items-center justify-content-center text-center">
-                            <div class="stat-icon mb-3">
-                                <i class="bi bi-people"></i>
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(233,30,99,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-people" style="font-size:1.25rem;color:#e91e63;"></i>
                             </div>
-                            <h6 class="mb-1 w-100">客户管理</h6>
-                            <p class="text-muted mb-0 small w-100">客户账号/套餐/配额</p>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">客户管理</h6>
+                            <p class="text-muted mb-0 small">账号/套餐/配额</p>
                         </div>
                     </div>
                 </a>
             </div>
 
-            <!-- 待处理行业 -->
-            <div>
+            {# 待处理行业 #}
+            <div class="col-md-2 col-sm-4">
                 <a href="{{ url_for('admin.public_pending_industries') }}" class="text-decoration-none">
-                    <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #ff9800;">
-                        <div class="card-body py-4 d-flex flex-column align-items-center justify-content-center text-center">
-                            <div class="stat-icon mb-3">
-                                <i class="bi bi-hourglass-split"></i>
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(255,152,0,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-hourglass-split" style="font-size:1.25rem;color:#ff9800;"></i>
                             </div>
-                            <h6 class="mb-1 w-100">待处理行业</h6>
-                            <p class="text-muted mb-0 small w-100">审核新增行业分类</p>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">待处理行业</h6>
+                            <p class="text-muted mb-0 small">审核新增分类</p>
                         </div>
                     </div>
                 </a>
             </div>
 
-            <!-- 成本统计 -->
-            <div>
+            {# 成本统计 #}
+            <div class="col-md-2 col-sm-4">
                 <a href="{{ url_for('admin.public_cost_stats') }}" class="text-decoration-none">
-                    <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #9c27b0;">
-                        <div class="card-body py-4 d-flex flex-column align-items-center justify-content-center text-center">
-                            <div class="stat-icon mb-3">
-                                <i class="bi bi-currency-yen"></i>
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(156,39,176,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-currency-yen" style="font-size:1.25rem;color:#9c27b0;"></i>
                             </div>
-                            <h6 class="mb-1 w-100">成本统计</h6>
-                            <p class="text-muted mb-0 small w-100">LLM调用成本分析</p>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">成本统计</h6>
+                            <p class="text-muted mb-0 small">LLM调用成本</p>
                         </div>
                     </div>
                 </a>
             </div>
 
-            <!-- 分析维度管理 -->
-            <div>
+            {# 分析维度 #}
+            <div class="col-md-2 col-sm-4">
                 <a href="{{ url_for('admin.analysis_dimensions_page') }}" class="text-decoration-none">
-                    <div class="card border-0 shadow-sm h-100 stat-card knowledge-entry-card" style="--stat-color: #17a2b8;">
-                        <div class="card-body py-4 d-flex flex-column align-items-center justify-content-center text-center">
-                            <div class="stat-icon mb-3">
-                                <i class="bi bi-grid"></i>
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(23,162,184,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-grid" style="font-size:1.25rem;color:#17a2b8;"></i>
                             </div>
-                            <h6 class="mb-1 w-100">分析维度管理</h6>
-                            <p class="text-muted mb-0 small w-100">配置爆款拆解维度</p>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">分析维度</h6>
+                            <p class="text-muted mb-0 small">爆款拆解维度</p>
                         </div>
                     </div>
                 </a>
             </div>
 
+            {# 返回前台 #}
+            <div class="col-md-2 col-sm-4">
+                <a href="/public" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(0,122,255,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-arrow-left-circle" style="font-size:1.25rem;color:#007AFF;"></i>
+                            </div>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">返回前台</h6>
+                            <p class="text-muted mb-0 small">回到内容创作</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
         </div>
-    </div>
 
-</div>
+    </div>
+</main>
+
+<style>
+    /* 卡片悬浮效果 */
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* 响应式：平板2列，手机1列 */
+    @media (max-width: 767px) {
+        .col-md-2 { width: 50%; }
+    }
+    @media (max-width: 480px) {
+        .col-md-2 { width: 100%; }
+    }
+</style>
 {% endblock %}

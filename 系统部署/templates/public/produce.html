@@ -1,0 +1,1159 @@
+{% extends "public/public_layout.html" %}
+
+{% block title %}生成内容 - AI棱镜{% endblock %}
+
+{% block layout_extra_css %}
+<style>
+    /* ================================================
+       生成内容页 - 网易云播放列表风格
+       ================================================ */
+
+    /* 页面标题区 */
+    .produce-page-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .produce-page-header .back-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid var(--apple-gray4);
+        background: var(--bg-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--text-secondary);
+        transition: all var(--transition-fast);
+        text-decoration: none;
+    }
+
+    .produce-page-header .back-btn:hover {
+        background: var(--apple-gray6);
+        color: var(--text-primary);
+    }
+
+    .produce-page-header h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    /* 画像信息区 */
+    .portrait-info-panel {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 20px 24px;
+        margin-bottom: 20px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .portrait-info-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+
+    .portrait-info-name {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .portrait-info-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.8125rem;
+        color: var(--apple-gray);
+    }
+
+    .portrait-info-meta .dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--apple-gray3);
+    }
+
+    .portrait-info-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .portrait-info-actions .btn-sm {
+        font-size: 0.8125rem;
+        padding: 5px 12px;
+        border-radius: var(--radius-sm);
+    }
+
+    .btn-delete-portrait {
+        background: #FFF0F0;
+        border: 1px solid #FFD0D0;
+        color: var(--apple-red);
+    }
+
+    .btn-delete-portrait:hover {
+        background: #FFE0E0;
+        border-color: #FFB0B0;
+        color: var(--apple-red);
+    }
+
+    /* 播放列表区 */
+    .playlist-container {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+    }
+
+    /* 列表头部 */
+    .playlist-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--apple-gray6);
+        background: var(--bg-secondary);
+    }
+
+    .playlist-title {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .playlist-title .count-badge {
+        background: var(--netease-red);
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 10px;
+    }
+
+    /* 列表列头 */
+    .playlist-cols {
+        display: grid;
+        grid-template-columns: 60px 1fr 100px 80px;
+        gap: 12px;
+        padding: 10px 20px;
+        background: var(--bg-tertiary);
+        border-bottom: 1px solid var(--apple-gray6);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--apple-gray);
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+
+    /* 列表内容 */
+    .playlist-body {
+        max-height: 480px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+    }
+
+    .playlist-body::-webkit-scrollbar { width: 6px; }
+    .playlist-body::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 10px;
+    }
+
+    .playlist-row {
+        display: grid;
+        grid-template-columns: 60px 1fr 100px 80px;
+        gap: 12px;
+        padding: 12px 20px;
+        align-items: center;
+        border-bottom: 1px solid var(--apple-gray6);
+        cursor: pointer;
+        transition: background var(--transition-fast);
+        position: relative;
+    }
+
+    .playlist-row:last-child {
+        border-bottom: none;
+    }
+
+    .playlist-row:hover {
+        background: var(--bg-secondary);
+    }
+
+    .playlist-row.selected {
+        background: #FFF5F5;
+    }
+
+    .playlist-row.selected::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: var(--netease-red);
+        border-radius: 0 2px 2px 0;
+    }
+
+    /* 序号列 */
+    .row-index {
+        text-align: center;
+        font-size: 0.875rem;
+        color: var(--apple-gray);
+        font-weight: 500;
+    }
+
+    .row-index.active {
+        color: var(--netease-red);
+        font-weight: 700;
+    }
+
+    /* 选题名称列 */
+    .row-title {
+        min-width: 0;
+    }
+
+    .row-title-text {
+        font-size: 0.9375rem;
+        color: var(--text-primary);
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+    }
+
+    .row-title-tags {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .topic-type-badge {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+
+    .topic-type-badge.p0 {
+        background: rgba(236, 65, 65, 0.1);
+        color: var(--netease-red);
+    }
+
+    .topic-type-badge.p1 {
+        background: rgba(255, 149, 0, 0.1);
+        color: var(--apple-orange);
+    }
+
+    .topic-type-badge.p2 {
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--apple-blue);
+    }
+
+    .topic-type-badge.p3 {
+        background: rgba(142, 142, 147, 0.1);
+        color: var(--apple-gray);
+    }
+
+    .topic-direction-badge {
+        font-size: 0.6875rem;
+        font-weight: 500;
+        padding: 2px 6px;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+
+    .topic-direction-badge.zhongcao {
+        background: rgba(0, 200, 83, 0.1);
+        color: #00C853;
+    }
+
+    .topic-direction-badge.zhuanhua {
+        background: rgba(176, 82, 222, 0.1);
+        color: var(--apple-purple);
+    }
+
+    /* 生成次数列 */
+    .row-count {
+        text-align: center;
+        font-size: 0.8125rem;
+        color: var(--apple-gray);
+    }
+
+    .row-count .count-num {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* 单选列 */
+    .row-radio {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .row-radio input[type="radio"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: var(--netease-red);
+    }
+
+    /* 选中行序号变红 */
+    .playlist-row.selected .row-index {
+        color: var(--netease-red);
+        font-weight: 700;
+    }
+
+    .playlist-row.selected .row-index::after {
+        content: '';
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        background: var(--netease-red);
+        border-radius: 50%;
+        vertical-align: middle;
+    }
+
+    .playlist-row.selected .row-index {
+        color: transparent;
+    }
+
+    /* 列表底部 */
+    .playlist-footer {
+        padding: 16px 20px;
+        border-top: 1px solid var(--apple-gray6);
+        background: var(--bg-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    /* 分页 */
+    .playlist-pagination {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-right: auto;
+    }
+
+    .page-btn {
+        min-width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        border: 1px solid var(--apple-gray4);
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        font-size: 0.8125rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        padding: 0 8px;
+    }
+
+    .page-btn:hover:not(:disabled) {
+        border-color: var(--apple-blue);
+        color: var(--apple-blue);
+    }
+
+    .page-btn.active {
+        background: var(--netease-red);
+        border-color: var(--netease-red);
+        color: white;
+        font-weight: 600;
+    }
+
+    .page-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .page-info {
+        font-size: 0.8125rem;
+        color: var(--apple-gray);
+        white-space: nowrap;
+    }
+
+    /* 生成按钮 */
+    .btn-generate {
+        background: var(--netease-red);
+        border: none;
+        border-radius: var(--radius-md);
+        padding: 10px 28px;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: white;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 2px 8px rgba(236, 65, 65, 0.3);
+    }
+
+    .btn-generate:hover:not(:disabled) {
+        background: var(--netease-red-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(236, 65, 65, 0.4);
+    }
+
+    .btn-generate:disabled {
+        background: var(--apple-gray4);
+        box-shadow: none;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-regenerate-topics {
+        background: var(--bg-primary);
+        border: 1px solid var(--apple-gray4);
+        border-radius: var(--radius-md);
+        padding: 10px 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-regenerate-topics:hover {
+        border-color: var(--apple-blue);
+        color: var(--apple-blue);
+    }
+
+    /* 空状态 */
+    .playlist-empty {
+        padding: 60px 20px;
+        text-align: center;
+    }
+
+    .playlist-empty-icon {
+        font-size: 3rem;
+        color: var(--apple-gray3);
+        margin-bottom: 16px;
+    }
+
+    .playlist-empty h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+
+    .playlist-empty p {
+        font-size: 0.875rem;
+        color: var(--apple-gray);
+        margin-bottom: 20px;
+    }
+
+    /* 加载状态 */
+    .playlist-loading {
+        padding: 40px 20px;
+        text-align: center;
+    }
+
+    /* 删除确认弹窗 */
+    .delete-confirm-toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 12px 20px;
+        border-radius: var(--radius-md);
+        font-size: 0.875rem;
+        z-index: 9999;
+        opacity: 0;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .delete-confirm-toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+        .playlist-cols,
+        .playlist-row {
+            grid-template-columns: 40px 1fr 70px 50px;
+            gap: 8px;
+            padding: 10px 12px;
+        }
+
+        .row-count {
+            font-size: 0.75rem;
+        }
+
+        .topic-type-badge,
+        .topic-direction-badge {
+            font-size: 0.625rem;
+            padding: 1px 4px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block sidebar_nav %}
+    {# 分组1：快速生成 #}
+    <div class="sidebar-group">
+        <div class="public-sidebar-section-label">快速生成</div>
+        <a class="public-sidebar-link" href="/public">
+            <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+            开始创作
+        </a>
+        <a class="public-sidebar-link" href="/public/galaxy">
+            <i class="bi bi-stars" aria-hidden="true"></i>
+            内容星球
+            <span class="sidebar-new-badge">NEW</span>
+        </a>
+    </div>
+
+    {# 分组2：我的 #}
+    <div class="sidebar-group">
+        <div class="public-sidebar-section-label">我的</div>
+        <a class="public-sidebar-link" href="/public/portraits">
+            <i class="bi bi-people-fill" aria-hidden="true"></i>
+            客户画像
+        </a>
+        <a class="public-sidebar-link" href="#" onclick="portraitsNavToTab(event, 'tab-topics')">
+            <i class="bi bi-card-list" aria-hidden="true"></i>
+            选题清单
+        </a>
+        <a class="public-sidebar-link" href="#" onclick="portraitsNavToTab(event, 'tab-contents')">
+            <i class="bi bi-collection-play-fill" aria-hidden="true"></i>
+            内容清单
+        </a>
+    </div>
+{% endblock %}
+
+{% block topbar_title %}
+    <i class="bi bi-play-circle-fill" style="color: var(--netease-red); margin-right: 6px;"></i>
+    生成内容
+{% endblock %}
+
+{% block topbar_right %}
+    {# 与首页 /public 顶栏右侧结构完全一致 #}
+    <div class="public-topbar-actions" id="topbar-auth">
+        <span id="nav-login">
+            <a class="nav-link" href="/login?type=public" target="_self">登录</a>
+        </span>
+        <span id="nav-register">
+            <a class="btn btn-primary" href="/login?type=public#register" target="_self">免费开始</a>
+        </span>
+    </div>
+    <div class="topbar-user" id="topbar-user" style="display:none;">
+        <div class="topbar-avatar" id="topbar-avatar">
+            <span id="topbar-avatar-letter"></span>
+        </div>
+        <span class="topbar-nickname" id="topbar-nickname"></span>
+        <span class="topbar-plan-badge" id="topbar-plan-badge"></span>
+        <span class="topbar-separator"></span>
+        <div class="topbar-settings-dropdown" id="topbar-settings-dropdown">
+            <button type="button" class="topbar-icon-btn" id="topbar-settings-btn"
+                    onclick="toggleSettingsDropdown(event)" title="设置"
+                    aria-expanded="false" aria-haspopup="true" aria-controls="topbar-settings-menu">
+                <i class="bi bi-gear" aria-hidden="true"></i>
+            </button>
+            <div class="topbar-settings-menu" id="topbar-settings-menu" role="menu">
+                <button type="button" class="topbar-settings-item" role="menuitem"
+                        onclick="openAccountSettings(event, 'profile'); toggleSettingsDropdown(event);">
+                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    个人资料维护
+                </button>
+                <button type="button" class="topbar-settings-item" role="menuitem"
+                        onclick="openAccountSettings(event, 'password'); toggleSettingsDropdown(event);">
+                    <i class="bi bi-key" aria-hidden="true"></i>
+                    修改密码
+                </button>
+                <div class="topbar-settings-divider"></div>
+                <button type="button" class="topbar-settings-item danger" role="menuitem" onclick="logout(event)">
+                    <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                    退出登录
+                </button>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="topbar-icon-btn topbar-skin-btn" id="topbar-skin-btn"
+            onclick="openSkinPicker(event)" title="个性皮肤" aria-label="个性皮肤">
+        <svg class="topbar-skin-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+            <path d="M16.25 3.5c-.35 0-.68.18-.87.48L14 6h-4L8.62 3.98a1 1 0 00-.87-.48H5.75L3 6.25V9h2v11h14V9h2V6.25L18.25 3.5h-2zM7 9h10v9H7V9zm11-1H6V6.7L6.92 5.5h1.45l1.51 2.02a1 1 0 001.24.28.98.98 0 00.28-.28L12.91 5.5h1.45L16 6.7V8z"/>
+        </svg>
+    </button>
+{% endblock %}
+
+{% block content %}
+    <div class="main-container">
+        {# 页面标题 #}
+        <div class="produce-page-header">
+            <a class="back-btn" href="/public" title="返回">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h1>生成内容</h1>
+        </div>
+
+        {# 画像信息区 #}
+        <div class="portrait-info-panel" id="portrait-info-panel">
+            <div class="portrait-info-header">
+                <div>
+                    <div class="portrait-info-name" id="portrait-name">加载中...</div>
+                    <div class="portrait-info-meta" id="portrait-meta">
+                        <span>保存时间</span>
+                        <span class="dot"></span>
+                        <span id="portrait-created-at">--</span>
+                    </div>
+                </div>
+                <div class="portrait-info-actions">
+                    <button class="btn-regenerate-topics" id="btn-regenerate-topics" onclick="regenerateTopics()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        重新生成选题
+                    </button>
+                    <button class="btn-delete-portrait btn-sm" id="btn-delete-portrait" onclick="confirmDeletePortrait()">
+                        <i class="bi bi-trash"></i>
+                        删除画像
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {# 播放列表区 #}
+        <div class="playlist-container" id="playlist-container">
+            {# 列表头部 #}
+            <div class="playlist-header">
+                <div class="playlist-title">
+                    <i class="bi bi-list-ul"></i>
+                    选题列表
+                    <span class="count-badge" id="topics-total-badge">0</span>
+                </div>
+            </div>
+
+            {# 列表列头 #}
+            <div class="playlist-cols">
+                <div style="text-align:center;">#</div>
+                <div>选题名称</div>
+                <div style="text-align:center;">生成次数</div>
+                <div style="text-align:center;">选择</div>
+            </div>
+
+            {# 列表内容 #}
+            <div class="playlist-body" id="playlist-body">
+                {# 加载状态 #}
+                <div class="playlist-loading" id="playlist-loading">
+                    <div class="apple-spinner mx-auto" style="width:28px;height:28px;border-width:3px;"></div>
+                    <p style="margin-top: 12px; color: var(--apple-gray); font-size: 0.875rem;">加载选题中...</p>
+                </div>
+
+                {# 空状态 #}
+                <div class="playlist-empty" id="playlist-empty" style="display:none;">
+                    <div class="playlist-empty-icon">&#128203;</div>
+                    <h3>暂无选题</h3>
+                    <p>该画像还没有生成选题库，请先生成选题</p>
+                    <button class="btn-generate" onclick="regenerateTopics()" style="margin: 0 auto;">
+                        <i class="bi bi-lightning-charge-fill"></i>
+                        生成选题库
+                    </button>
+                </div>
+
+                {# 列表内容（由 JS 渲染） #}
+                <div id="playlist-rows" style="display:none;"></div>
+            </div>
+
+            {# 列表底部 #}
+            <div class="playlist-footer">
+                {# 分页 #}
+                <div class="playlist-pagination" id="playlist-pagination">
+                    <button class="page-btn" id="page-prev" onclick="changePage(-1)" disabled>
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span class="page-info" id="page-info">第 1 页，共 1 页</span>
+                    <button class="page-btn" id="page-next" onclick="changePage(1)" disabled>
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+
+                {# 生成按钮 #}
+                <button class="btn-generate" id="btn-generate" onclick="generateContent()" disabled>
+                    <i class="bi bi-play-circle-fill"></i>
+                    <span id="btn-generate-text">请先选择选题</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# 删除确认 Toast #}
+    <div class="delete-confirm-toast" id="delete-confirm-toast">
+        <span>确定要删除这个画像吗？</span>
+        <button onclick="doDeletePortrait()" style="background:var(--apple-red);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.8125rem;">删除</button>
+        <button onclick="hideDeleteToast()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.8125rem;">取消</button>
+    </div>
+{% endblock %}
+
+{% block layout_extra_js %}
+<script>
+var _portraitId = null;
+var _portrait = null;
+var _topics = [];
+var _selectedTopicId = null;
+var _currentPage = 1;
+var _perPage = 10;
+var _totalPages = 0;
+
+// ── 初始化 ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserAuth();
+    loadPortraitData();
+});
+
+async function loadUserAuth() {
+    try {
+        const resp = await fetch('/public/api/quota', { credentials: 'include' });
+        const data = await resp.json();
+        if (data.success && data.data) {
+            const user = data.data;
+            document.getElementById('topbar-auth').style.display = 'none';
+            const topbarUser = document.getElementById('topbar-user');
+            topbarUser.style.display = 'flex';
+
+            const displayName = user.nickname || user.email || '用户';
+            document.getElementById('topbar-nickname').textContent = displayName;
+
+            const avatarEl = document.getElementById('topbar-avatar');
+            const avatarUrl = user.avatar || '';
+            if (avatarUrl) {
+                avatarEl.innerHTML = '<img src="' + avatarUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+            } else {
+                avatarEl.innerHTML = '<span style="color:#fff;font-weight:600;">' + displayName.charAt(0).toUpperCase() + '</span>';
+            }
+
+            const planName = user.quota && user.quota.plan_name ? user.quota.plan_name : '';
+            const badge = document.getElementById('topbar-plan-badge');
+            if (planName === '企业版') {
+                badge.textContent = '企业版';
+                badge.className = 'topbar-plan-badge ent';
+            } else if (planName === '专业版') {
+                badge.textContent = '专业版';
+                badge.className = 'topbar-plan-badge pro';
+            } else if (planName === '基础版') {
+                badge.textContent = '基础版';
+                badge.className = 'topbar-plan-badge basic';
+            } else {
+                badge.style.display = 'none';
+            }
+        } else {
+            window.location.href = '/login?type=public&next=' + encodeURIComponent(window.location.pathname + window.location.search);
+        }
+    } catch (e) {
+        window.location.href = '/login?type=public&next=' + encodeURIComponent(window.location.pathname + window.location.search);
+    }
+}
+
+async function loadPortraitData() {
+    const params = new URLSearchParams(window.location.search);
+    const portraitId = params.get('portraitId');
+
+    if (!portraitId) {
+        showToast('缺少画像ID参数', 'error');
+        return;
+    }
+
+    _portraitId = parseInt(portraitId);
+
+    try {
+        const resp = await fetch('/public/api/portraits/' + _portraitId, {
+            credentials: 'include'
+        });
+        const data = await resp.json();
+
+        if (!data.success) {
+            showToast(data.message || '画像不存在', 'error');
+            return;
+        }
+
+        _portrait = data.data;
+        renderPortraitInfo();
+        await loadTopics();
+    } catch (e) {
+        showToast('加载画像失败', 'error');
+    }
+}
+
+function renderPortraitInfo() {
+    document.getElementById('portrait-name').textContent = _portrait.portrait_name || '未命名画像';
+
+    const createdAt = _portrait.created_at;
+    if (createdAt) {
+        const d = new Date(createdAt);
+        document.getElementById('portrait-created-at').textContent =
+            d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
+            pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+}
+
+async function loadTopics(page) {
+    if (page === undefined) page = 1;
+    _currentPage = page;
+
+    const loadingEl = document.getElementById('playlist-loading');
+    const emptyEl = document.getElementById('playlist-empty');
+    const rowsEl = document.getElementById('playlist-rows');
+
+    loadingEl.style.display = 'block';
+    emptyEl.style.display = 'none';
+    rowsEl.style.display = 'none';
+
+    try {
+        const resp = await fetch(
+            '/public/api/portraits/' + _portraitId + '/topics?page=' + page + '&per_page=' + _perPage,
+            { credentials: 'include' }
+        );
+        const data = await resp.json();
+
+        if (!data.success) {
+            showToast(data.message || '加载选题失败', 'error');
+            loadingEl.style.display = 'none';
+            return;
+        }
+
+        const result = data.data;
+        _topics = result.topics || [];
+        const total = result.total || 0;
+        _totalPages = result.pages || 1;
+
+        document.getElementById('topics-total-badge').textContent = total;
+
+        loadingEl.style.display = 'none';
+
+        if (_topics.length === 0) {
+            emptyEl.style.display = 'block';
+            rowsEl.style.display = 'none';
+        } else {
+            emptyEl.style.display = 'none';
+            rowsEl.style.display = 'block';
+            renderTopicRows(_topics);
+            renderPagination();
+        }
+
+        updateGenerateButton();
+    } catch (e) {
+        showToast('加载选题失败', 'error');
+        loadingEl.style.display = 'none';
+    }
+}
+
+function renderTopicRows(topics) {
+    const rowsEl = document.getElementById('playlist-rows');
+    const startIndex = (_currentPage - 1) * _perPage;
+
+    if (topics.length === 0) {
+        rowsEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--apple-gray);font-size:0.875rem;">暂无数据</div>';
+        return;
+    }
+
+    let html = '';
+    topics.forEach(function(topic, idx) {
+        const globalIdx = startIndex + idx + 1;
+        const isSelected = topic.id === _selectedTopicId;
+        const selectedClass = isSelected ? 'selected' : '';
+        const priorityClass = 'p' + (topic.priority || 'P2').replace('P', '');
+
+        const directionBadgeClass = topic.content_direction === '转化型' ? 'zhuanhua' : 'zhongcao';
+        const directionLabel = topic.content_direction === '转化型' ? '转化' : '种草';
+
+        const genCount = topic.generation_count || 0;
+
+        html +=
+            '<div class="playlist-row ' + selectedClass + '" data-topic-id="' + topic.id + '" onclick="selectTopic(\'' + topic.id + '\')">' +
+                '<div class="row-index' + (isSelected ? ' active' : '') + '">' + globalIdx + '</div>' +
+                '<div class="row-title">' +
+                    '<div class="row-title-text" title="' + escHtml(topic.title || '') + '">' + escHtml(topic.title || '') + '</div>' +
+                    '<div class="row-title-tags">' +
+                        '<span class="topic-type-badge ' + priorityClass + '">' + escHtml(topic.type_name || topic.type_key || '') + '</span>' +
+                        '<span class="topic-direction-badge ' + directionBadgeClass + '">' + directionLabel + '</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="row-count"><span class="count-num">' + genCount + '</span> 次</div>' +
+                '<div class="row-radio">' +
+                    '<input type="radio" name="topic-radio" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); selectTopic(\'' + topic.id + '\')">' +
+                '</div>' +
+            '</div>';
+    });
+
+    rowsEl.innerHTML = html;
+}
+
+function renderPagination() {
+    const prevBtn = document.getElementById('page-prev');
+    const nextBtn = document.getElementById('page-next');
+    const infoEl = document.getElementById('page-info');
+
+    prevBtn.disabled = _currentPage <= 1;
+    nextBtn.disabled = _currentPage >= _totalPages;
+    infoEl.textContent = '第 ' + _currentPage + ' 页，共 ' + _totalPages + ' 页';
+}
+
+function changePage(delta) {
+    const newPage = _currentPage + delta;
+    if (newPage < 1 || newPage > _totalPages) return;
+    loadTopics(newPage);
+}
+
+function selectTopic(topicId) {
+    _selectedTopicId = topicId;
+    // 重新渲染以更新选中态
+    renderTopicRows(_topics);
+    updateGenerateButton();
+}
+
+function updateGenerateButton() {
+    const btn = document.getElementById('btn-generate');
+    const btnText = document.getElementById('btn-generate-text');
+
+    if (_selectedTopicId) {
+        btn.disabled = false;
+        btnText.textContent = '开始生成';
+    } else {
+        btn.disabled = true;
+        btnText.textContent = '请先选择选题';
+    }
+}
+
+// ── 生成内容 ──────────────────────────────────────
+async function generateContent() {
+    if (!_selectedTopicId) return;
+
+    const topic = _topics.find(function(t) { return t.id === _selectedTopicId; });
+    if (!topic) return;
+
+    const btn = document.getElementById('btn-generate');
+    const btnText = document.getElementById('btn-generate-text');
+    btn.disabled = true;
+    btnText.innerHTML = '<span class="apple-spinner" style="display:inline-block;width:14px;height:14px;border-width:2px;margin-right:4px;"></span> 生成中...';
+
+    try {
+        const payload = {
+            topic_id: topic.id,
+            topic_title: topic.title,
+            topic_type: topic.type_name || topic.type_key || '',
+            business_description: _portrait.business_description || '',
+            business_range: 'local',
+            business_type: _portrait.industry || 'local_service',
+            portrait: _portrait.portrait_data || {},
+            portrait_id: _portraitId,
+            problem_id: _portrait.session_id || null,
+        };
+
+        // 如果画像有关联的 session，携带 problem_id
+        if (_portrait.session_id) {
+            payload.problem_id = _portrait.session_id;
+        }
+
+        const resp = await fetch('/public/api/content/generate', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            // 成功后回写 generation_count
+            await incrementTopicCount(topic.id);
+            showToast('生成成功！', 'success');
+            // 重置按钮
+            btnText.innerHTML = '<i class="bi bi-check-lg"></i> 生成成功';
+            setTimeout(function() {
+                btn.disabled = false;
+                btnText.textContent = '继续生成';
+            }, 2000);
+        } else {
+            showToast(data.message || '生成失败', 'error');
+            btn.disabled = false;
+            btnText.textContent = '开始生成';
+        }
+    } catch (e) {
+        showToast('生成失败，请重试', 'error');
+        btn.disabled = false;
+        btnText.textContent = '开始生成';
+    }
+}
+
+async function incrementTopicCount(topicId) {
+    try {
+        await fetch('/public/api/portraits/' + _portraitId + '/topics/increment', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic_id: topicId })
+        });
+        // 本地更新
+        var topic = _topics.find(function(t) { return t.id === topicId; });
+        if (topic) {
+            topic.generation_count = (topic.generation_count || 0) + 1;
+            renderTopicRows(_topics);
+        }
+    } catch (e) { /* ignore */ }
+}
+
+// ── 重新生成选题 ──────────────────────────────────────
+async function regenerateTopics() {
+    const btn = document.getElementById('btn-regenerate-topics');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="apple-spinner" style="display:inline-block;width:14px;height:14px;border-width:2px;border-color:rgba(0,0,0,0.2);border-top-color:var(--apple-blue);"></span> 生成中...';
+
+    try {
+        const resp = await fetch('/public/api/portraits/' + _portraitId + '/topics/regenerate', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ count: 10 })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            showToast('选题已新增 ' + (data.data.new_count || 0) + ' 条', 'success');
+            _selectedTopicId = null;
+            loadTopics(1);
+        } else {
+            showToast(data.message || '生成失败', 'error');
+        }
+    } catch (e) {
+        showToast('生成失败', 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> 重新生成选题';
+}
+
+// ── 删除画像 ──────────────────────────────────────
+function confirmDeletePortrait() {
+    var toast = document.getElementById('delete-confirm-toast');
+    toast.classList.add('show');
+}
+
+function hideDeleteToast() {
+    var toast = document.getElementById('delete-confirm-toast');
+    toast.classList.remove('show');
+}
+
+async function doDeletePortrait() {
+    hideDeleteToast();
+    try {
+        var resp = await fetch('/public/api/portraits/' + _portraitId, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        var data = await resp.json();
+        if (data.success) {
+            showToast('画像已删除', 'success');
+            setTimeout(function() { window.location.href = '/public/portraits'; }, 800);
+        } else {
+            showToast(data.message || '删除失败', 'error');
+        }
+    } catch (e) {
+        showToast('删除失败', 'error');
+    }
+}
+
+// ── 工具函数 ──────────────────────────────────────
+function escHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function pad(n) {
+    return n < 10 ? '0' + n : '' + n;
+}
+
+function showToast(message, type) {
+    var el = document.createElement('div');
+    el.style.cssText = 'position:fixed;bottom:80px;right:24px;background:' +
+        (type === 'error' ? '#FF3B30' : '#34C759') +
+        ';color:white;padding:10px 16px;border-radius:8px;font-size:0.875rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+    el.textContent = message;
+    document.body.appendChild(el);
+    setTimeout(function() { el.remove(); }, 2500);
+}
+
+// 登出
+// ── 皮肤选择相关 ──────────────────────────────────────
+var _skinPickerModal = null;
+
+function openSkinPicker(e) {
+    if (e) e.preventDefault();
+    document.getElementById('topbar-settings-dropdown')?.classList.remove('is-open');
+    document.getElementById('topbar-settings-btn')?.setAttribute('aria-expanded', 'false');
+
+    if (!_skinPickerModal) {
+        _skinPickerModal = new bootstrap.Modal(document.getElementById('skinPickerModal'));
+    }
+
+    syncSkinPickerSelection();
+    _skinPickerModal.show();
+}
+
+function syncSkinPickerSelection() {
+    const currentSkin = document.documentElement.getAttribute('data-skin') || 'classic-red';
+    document.querySelectorAll('.skin-picker-item').forEach(function(item) {
+        item.classList.toggle('active', item.dataset.skin === currentSkin);
+    });
+}
+
+function pickSkin(skinId) {
+    applyPublicSkin(skinId, true);
+    if (typeof showToast === 'function') {
+        showToast('已切换皮肤', 'success');
+    }
+    if (_skinPickerModal) {
+        _skinPickerModal.hide();
+    }
+}
+
+function applyPublicSkin(skinId, persist) {
+    if (!skinId) return;
+    document.documentElement.setAttribute('data-skin', skinId);
+
+    if (persist) {
+        try {
+            localStorage.setItem('publicSkin', skinId);
+        } catch (e) {}
+    }
+}
+
+function getPublicSkin() {
+    try {
+        return localStorage.getItem('publicSkin') || 'classic-red';
+    } catch (e) {
+        return 'classic-red';
+    }
+}
+</script>
+{% endblock %}

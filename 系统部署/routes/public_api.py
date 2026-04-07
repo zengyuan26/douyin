@@ -75,6 +75,24 @@ def galaxy_page():
     return render_template('public/galaxy.html')
 
 
+@public_bp.route('/produce')
+def produce_page():
+    """生成内容页 - 网易云播放列表风格"""
+    return render_template('public/produce.html')
+
+
+@public_bp.route('/portraits')
+def portraits_page():
+    """客户画像管理页"""
+    return render_template('public/portraits.html')
+
+
+@public_bp.route('/portraits/create')
+def portraits_create_page():
+    """生成画像独立页面（无客户画像/为你推荐）"""
+    return render_template('public/portraits_create.html')
+
+
 # =============================================================================
 # 认证相关 API
 # =============================================================================
@@ -765,6 +783,8 @@ def api_get_quota():
         'success': True,
         'data': {
             'email': user.email,
+            'nickname': user.nickname or '',
+            'avatar': user.avatar or '',
             'plan_type': user.premium_plan or 'free',
             'plan_name': quota_info.get('plan_name', '免费版'),
             'is_premium': user.is_premium,
@@ -1470,11 +1490,36 @@ def api_generate_content_from_topic():
                     tags=','.join(result['content'].get('tags', [])),
                     content=result['content'].get('body', ''),
                     used_tokens=result.get('tokens_used', 0),
+                    topic_id=params.get('topic_id', '') or None,
+                    portrait_id=params.get('portrait_id'),
+                    problem_id=params.get('problem_id'),
                 )
                 db.session.add(generation)
                 # 扣减配额
                 quota_manager.use_quota(user, result.get('tokens_used', 0))
                 db.session.commit()
+
+                # 回写 generation_count（选题被使用次数 +1）
+                portrait_id = params.get('portrait_id')
+                topic_id_str = params.get('topic_id', '')
+                if portrait_id and topic_id_str:
+                    try:
+                        portrait = SavedPortrait.query.filter_by(
+                            id=portrait_id, user_id=user.id
+                        ).first()
+                        if portrait and portrait.topic_library:
+                            topics = portrait.topic_library.get('topics', [])
+                            updated = False
+                            for t in topics:
+                                if t.get('id') == topic_id_str:
+                                    t['generation_count'] = t.get('generation_count', 0) + 1
+                                    updated = True
+                                    break
+                            if updated:
+                                portrait.topic_library = portrait.topic_library
+                                db.session.commit()
+                    except Exception as e:
+                        app.logger.warning('回写 generation_count 失败: %s', e)
 
             return jsonify({
                 'success': True,
@@ -1876,7 +1921,7 @@ def api_upload_avatar():
 
             # 保存到 static/uploads/avatars/
             upload_dir = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                os.path.dirname(os.path.dirname(__file__)),
                 'static', 'uploads', 'avatars'
             )
             os.makedirs(upload_dir, exist_ok=True)
@@ -1904,7 +1949,7 @@ def api_upload_avatar():
 
             # 保存到 static/uploads/avatars/
             upload_dir = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                os.path.dirname(os.path.dirname(__file__)),
                 'static', 'uploads', 'avatars'
             )
             os.makedirs(upload_dir, exist_ok=True)

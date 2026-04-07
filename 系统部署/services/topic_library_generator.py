@@ -11,6 +11,7 @@
 import json
 import random
 import logging
+import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from models.public_models import SavedPortrait, db
@@ -1167,6 +1168,7 @@ class TopicLibraryGenerator:
             type_name = list({k: v for v, k in type_name_to_key.items()}.get(type_name, (type_name,)))[0] if False else type_name
 
         return {
+            'id': str(uuid.uuid4()),
             'title': item.get('标题') or item.get('title') or item.get('选题') or '',
             'type_key': type_key,
             'type_name': type_name or raw_type or type_key,
@@ -1177,6 +1179,8 @@ class TopicLibraryGenerator:
             'publish_timing': item.get('发布时间') or item.get('publish_timing', ''),
             'content_hints': item.get('内容提示') or item.get('content_hints', ''),
             'content_direction': item.get('content_direction') or type_key_to_direction.get(type_key, '种草型'),
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         }
 
     def _validate_and_fill(self, result: Dict, portrait_data: Dict = None, business_description: str = '', topic_count: int = 20) -> Dict:
@@ -1332,7 +1336,7 @@ class TopicLibraryGenerator:
                 if ft['type_key'] in existing_keys:
                     continue
                 topic = {
-                    # 基于画像痛点生成具体标题，禁止使用「XXX的正确认知」等无实质格式
+                    'id': str(uuid.uuid4()),
                     'title': ft.get('title_template', '').format(pain_point=pain_point, customer_role=customer_role, worry_desc=worry_desc) or f'{pain_point}怎么办？',
                     'type_key': ft['type_key'],
                     'type_name': ft['type_name'],
@@ -1343,6 +1347,8 @@ class TopicLibraryGenerator:
                     'publish_timing': '',
                     'content_hints': '',
                     'content_direction': ft['content_direction'],
+                    'generation_count': 0,
+                    'created_at': datetime.utcnow().isoformat(),
                 }
                 # 包含关键词关联
                 if keywords_text:
@@ -1516,6 +1522,7 @@ class TopicLibraryGenerator:
         # 标题原则：必须包含「身份」+ 「具体痛点场景」+ 「用户真正会搜的表达」
         # 禁止：「XXX的正确认知」「XXX的底层逻辑」「XXX的真相」等无实质的标题格式
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'{customer_role}面对{pain_point}，到底该怎么办？',
             'type_key': 'cause',
             'type_name': '原因分析类',
@@ -1525,11 +1532,14 @@ class TopicLibraryGenerator:
             'reason': f'直面{customer_role}核心困惑，认知教育，种草型',
             'publish_timing': '周末晚间',
             'content_direction': '种草型',
-            'content_hints': '痛点场景 + 原因拆解'
+            'content_hints': '痛点场景 + 原因拆解',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 2. 对比选型类 - 围绕痛点的不同解决方案对比
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'{pain_point}怎么办？不同方案各有什么优缺点？',
             'type_key': 'compare',
             'type_name': '对比选型类',
@@ -1539,11 +1549,14 @@ class TopicLibraryGenerator:
             'reason': f'帮助{customer_role}做选择对比，种草型',
             'publish_timing': '周末晚间',
             'content_direction': '种草型',
-            'content_hints': '方案对比 + 优缺点分析'
+            'content_hints': '方案对比 + 优缺点分析',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 3. 原因分析类 - 深入根因
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'为什么{customer_role}总是{pain_point}？看完就知道了',
             'type_key': 'cause',
             'type_name': '原因分析类',
@@ -1553,11 +1566,14 @@ class TopicLibraryGenerator:
             'reason': f'深入分析{customer_role}遇到问题的根因，种草型',
             'publish_timing': '工作日下午',
             'content_direction': '种草型',
-            'content_hints': '原因拆解 + 机理说明'
+            'content_hints': '原因拆解 + 机理说明',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 4. 避坑指南类 - 常见误区
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'处理{pain_point}，这几种做法千万别用',
             'type_key': 'pitfall',
             'type_name': '避坑指南类',
@@ -1567,11 +1583,14 @@ class TopicLibraryGenerator:
             'reason': f'帮助{customer_role}避免常见错误，种草型',
             'publish_timing': '周末晚间',
             'content_direction': '种草型',
-            'content_hints': '反面案例 + 正确做法'
+            'content_hints': '反面案例 + 正确做法',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 5. 避坑指南类 - 选购误区
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'关于{pain_point}，90%的{customer_role}都踩过这些坑',
             'type_key': 'pitfall',
             'type_name': '避坑指南类',
@@ -1581,11 +1600,14 @@ class TopicLibraryGenerator:
             'reason': f'高共鸣避坑内容，易引发转发，种草型',
             'publish_timing': '周末晚间',
             'content_direction': '种草型',
-            'content_hints': '踩坑场景 + 避坑指南'
+            'content_hints': '踩坑场景 + 避坑指南',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 6. 认知颠覆类 - 打破常见误解
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'处理{pain_point}，这么多年你可能都做错了',
             'type_key': 'rethink',
             'type_name': '认知颠覆类',
@@ -1595,11 +1617,14 @@ class TopicLibraryGenerator:
             'reason': f'颠覆{customer_role}的固有认知，种草型',
             'publish_timing': '周末晚间',
             'content_direction': '种草型',
-            'content_hints': '错误认知 + 正确认知对比'
+            'content_hints': '错误认知 + 正确认知对比',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 7. 认知颠覆类
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'别再误解了！{pain_point}其实没那么复杂',
             'type_key': 'rethink',
             'type_name': '认知颠覆类',
@@ -1609,11 +1634,14 @@ class TopicLibraryGenerator:
             'reason': f'打破偏见，建立正确认知，种草型',
             'publish_timing': '周末晚间',
             'content_direction': '种草型',
-            'content_hints': '打破误解 + 真相说明'
+            'content_hints': '打破误解 + 真相说明',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 8. 场景细分类 - 精准人群
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'{customer_role}遇到{pain_point}，不同情况怎么处理？',
             'type_key': 'scene',
             'type_name': '场景细分类',
@@ -1623,11 +1651,14 @@ class TopicLibraryGenerator:
             'reason': f'精准人群细分，提高代入感，种草型',
             'publish_timing': '工作日下午',
             'content_direction': '种草型',
-            'content_hints': '场景分类 + 针对性方案'
+            'content_hints': '场景分类 + 针对性方案',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 9. 知识教程类 - 知识科普
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'关于{pain_point}，一篇文章讲透底层逻辑',
             'type_key': 'tutorial',
             'type_name': '知识教程类',
@@ -1637,11 +1668,14 @@ class TopicLibraryGenerator:
             'reason': f'系统性知识科普，种草型',
             'publish_timing': '工作日午间',
             'content_direction': '种草型',
-            'content_hints': '系统性知识 + 新手友好'
+            'content_hints': '系统性知识 + 新手友好',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 10. 知识教程类
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'{pain_point}完全指南，看完从小白变专家',
             'type_key': 'tutorial',
             'type_name': '知识教程类',
@@ -1651,11 +1685,14 @@ class TopicLibraryGenerator:
             'reason': f'知识科普，种草型',
             'publish_timing': '工作日午间',
             'content_direction': '种草型',
-            'content_hints': '系统知识 + 实操指南'
+            'content_hints': '系统知识 + 实操指南',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 11. 地域精准类（如果有地域信息）
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'{pain_point}本地攻略，这几个地方最靠谱',
             'type_key': 'region',
             'type_name': '地域精准类',
@@ -1665,11 +1702,14 @@ class TopicLibraryGenerator:
             'reason': f'本地流量，种草型',
             'publish_timing': '周末晚间',
             'content_direction': '种草型',
-            'content_hints': '本地化 + 地域特色'
+            'content_hints': '本地化 + 地域特色',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 12. 价格行情类
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'{pain_point}需要花多少钱？这笔账给你算清楚了',
             'type_key': 'price',
             'type_name': '行情价格类',
@@ -1679,12 +1719,15 @@ class TopicLibraryGenerator:
             'reason': f'价格透明度，种草型',
             'publish_timing': '周末晚间',
             'content_direction': '种草型',
-            'content_hints': '价格构成 + 性价比分析'
+            'content_hints': '价格构成 + 性价比分析',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # ── 刚需痛点盘（5条） ──
         # 13. 痛点解决类 - 核心痛点解决方案
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'{pain_point}，看完这篇你就知道怎么办了',
             'type_key': 'pain_point',
             'type_name': '痛点解决类',
@@ -1694,11 +1737,14 @@ class TopicLibraryGenerator:
             'reason': f'直面{customer_role}核心痛点，转化型',
             'publish_timing': '工作日午间',
             'content_direction': '转化型',
-            'content_hints': '痛点场景 + 解决方案 + 引导行动'
+            'content_hints': '痛点场景 + 解决方案 + 引导行动',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 14. 痛点解决类
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'面对{pain_point}，最有效的解决方法是什么？',
             'type_key': 'pain_point',
             'type_name': '痛点解决类',
@@ -1708,11 +1754,14 @@ class TopicLibraryGenerator:
             'reason': f'提供解决方案，转化型',
             'publish_timing': '工作日下午',
             'content_direction': '转化型',
-            'content_hints': '方案推荐 + 使用效果'
+            'content_hints': '方案推荐 + 使用效果',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 15. 决策安心类 - 解决顾虑
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'{worry_desc}？看完你就彻底放心了',
             'type_key': 'decision_encourage',
             'type_name': '决策安心类',
@@ -1722,11 +1771,14 @@ class TopicLibraryGenerator:
             'reason': f'打消{customer_role}付费顾虑，转化型',
             'publish_timing': '工作日下午',
             'content_direction': '转化型',
-            'content_hints': '顾虑解答 + 安心保障'
+            'content_hints': '顾虑解答 + 安心保障',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 16. 决策安心类
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'担心{worry_desc}？看完这篇不再纠结',
             'type_key': 'decision_encourage',
             'type_name': '决策安心类',
@@ -1736,11 +1788,14 @@ class TopicLibraryGenerator:
             'reason': f'消除决策障碍，临门一脚，转化型',
             'publish_timing': '工作日下午',
             'content_direction': '转化型',
-            'content_hints': '打消顾虑 + 建立信心'
+            'content_hints': '打消顾虑 + 建立信心',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 17. 效果验证类
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'{pain_point}处理效果好吗？真实案例告诉你',
             'type_key': 'effect_proof',
             'type_name': '效果验证类',
@@ -1750,12 +1805,15 @@ class TopicLibraryGenerator:
             'reason': f'效果验证，建立信任，转化型',
             'publish_timing': '周末晚间',
             'content_direction': '转化型',
-            'content_hints': '前后对比 + 真实案例'
+            'content_hints': '前后对比 + 真实案例',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # ── 使用配套搜后种草盘（3条） ──
         # 18. 实操技巧类
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'{pain_point}处理心得，看完少走弯路',
             'type_key': 'skill',
             'type_name': '实操技巧类',
@@ -1765,11 +1823,14 @@ class TopicLibraryGenerator:
             'reason': f'实操方法，种草型',
             'publish_timing': '工作日下午',
             'content_direction': '种草型',
-            'content_hints': '实操经验 + 注意事项'
+            'content_hints': '实操经验 + 注意事项',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 19. 工具耗材类
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'处理{pain_point}，这些工具和办法少不了',
             'type_key': 'tools',
             'type_name': '工具耗材类',
@@ -1779,11 +1840,14 @@ class TopicLibraryGenerator:
             'reason': f'配套工具推荐，种草型',
             'publish_timing': '工作日下午',
             'content_direction': '种草型',
-            'content_hints': '工具推荐 + 使用方法'
+            'content_hints': '工具推荐 + 使用方法',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 20. 情感故事类
         topics.append({
+            'id': str(uuid.uuid4()),
             'title': f'作为一个{customer_role}，处理{pain_point}这些年的真实感受',
             'type_key': 'emotional',
             'type_name': '情感故事类',
@@ -1793,7 +1857,9 @@ class TopicLibraryGenerator:
             'reason': f'情感共鸣，种草型',
             'publish_timing': '周末晚间',
             'content_direction': '种草型',
-            'content_hints': '个人故事 + 情感触动'
+            'content_hints': '个人故事 + 情感触动',
+            'generation_count': 0,
+            'created_at': datetime.utcnow().isoformat(),
         })
 
         # 清理标题中的无效占位符
@@ -1827,90 +1893,110 @@ class TopicLibraryGenerator:
         return {
             'topics': [
                 # ── 前置观望种草盘（12条） ──
-                {'title': f'{core}好不好？真实用户反馈来了', 'type_key': 'compare',
+                {'id': str(uuid.uuid4()), 'title': f'{core}好不好？真实用户反馈来了', 'type_key': 'compare',
                  'type_name': '对比选型类', 'source': '对比选型系列', 'priority': 'P0',
                  'keywords': [], 'reason': '专抓前期迷茫客户，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '真实反馈 + 客观分析'},
-                {'title': f'为什么越来越多人选择{core}？3个原因说透了', 'type_key': 'cause',
+                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '真实反馈 + 客观分析',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'为什么越来越多人选择{core}？3个原因说透了', 'type_key': 'cause',
                  'type_name': '原因分析类', 'source': '原因分析系列', 'priority': 'P1',
                  'keywords': [], 'reason': '认知教育，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '原因拆解 + 行业趋势'},
-                {'title': f'{core}怎么选不踩坑？过来人经验分享', 'type_key': 'pitfall',
+                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '原因拆解 + 行业趋势',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'{core}怎么选不踩坑？过来人经验分享', 'type_key': 'pitfall',
                  'type_name': '避坑指南类', 'source': '避坑指南系列', 'priority': 'P1',
                  'keywords': [], 'reason': '行业防骗，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '避坑场景 + 正确做法'},
-                {'title': f'选{core}前，先搞懂这几点不花冤枉钱', 'type_key': 'upstream',
+                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '避坑场景 + 正确做法',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'选{core}前，先搞懂这几点不花冤枉钱', 'type_key': 'upstream',
                  'type_name': '上游科普类', 'source': '上游科普系列', 'priority': 'P1',
                  'keywords': [], 'reason': '上游原料科普，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '原料/材质科普'},
-                {'title': f'{core}的价格猫腻，这篇文章全说清了', 'type_key': 'price',
+                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '原料/材质科普',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'{core}的价格猫腻，这篇文章全说清了', 'type_key': 'price',
                  'type_name': '行情价格类', 'source': '行情价格系列', 'priority': 'P2',
                  'keywords': [], 'reason': '价格透明度，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '价格构成 + 行情分析'},
-                {'title': f'别再被误导了！{core}的真相是这样的', 'type_key': 'rethink',
+                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '价格构成 + 行情分析',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'别再被误导了！{core}的真相是这样的', 'type_key': 'rethink',
                  'type_name': '认知颠覆类', 'source': '认知颠覆系列', 'priority': 'P2',
                  'keywords': [], 'reason': '打破认知误区，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '颠覆认知 + 正确认知'},
-                {'title': f'{core}入门指南，看完从小白变内行', 'type_key': 'tutorial',
+                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '颠覆认知 + 正确认知',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'{core}入门指南，看完从小白变内行', 'type_key': 'tutorial',
                  'type_name': '知识教程类', 'source': '知识教程系列', 'priority': 'P1',
                  'keywords': [], 'reason': '知识科普，种草型',
-                 'publish_timing': '工作日午间', 'content_direction': '种草型', 'content_hints': '系统性知识 + 新手友好'},
-                {'title': f'什么样的人最适合{core}？看完就知道了', 'type_key': 'scene',
+                 'publish_timing': '工作日午间', 'content_direction': '种草型', 'content_hints': '系统性知识 + 新手友好',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'什么样的人最适合{core}？看完就知道了', 'type_key': 'scene',
                  'type_name': '场景细分类', 'source': '场景细分系列', 'priority': 'P2',
                  'keywords': [], 'reason': '精准人群细分，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '人群画像 + 场景匹配'},
-                {'title': f'本地找{core}，这几个地方最靠谱', 'type_key': 'region',
+                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '人群画像 + 场景匹配',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'本地找{core}，这几个地方最靠谱', 'type_key': 'region',
                  'type_name': '地域精准类', 'source': '地域精准系列', 'priority': 'P3',
                  'keywords': [], 'reason': '本地流量，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '本地化 + 地域特色'},
-                {'title': f'这几种{core}千万别买，后悔都来不及', 'type_key': 'pitfall',
+                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '本地化 + 地域特色',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'这几种{core}千万别买，后悔都来不及', 'type_key': 'pitfall',
                  'type_name': '避坑指南类', 'source': '避坑指南系列', 'priority': 'P0',
                  'keywords': [], 'reason': '防骗警示，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '反面案例 + 正确选择'},
-                {'title': f'关于{core}，80%的人都搞错了这几点', 'type_key': 'rethink',
+                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '反面案例 + 正确选择',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'关于{core}，80%的人都搞错了这几点', 'type_key': 'rethink',
                  'type_name': '认知颠覆类', 'source': '认知颠覆系列', 'priority': 'P2',
                  'keywords': [], 'reason': '认知纠正，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '纠正误区 + 正确认知'},
-                {'title': f'{core}怎么判断好不好？教你三招快速鉴别', 'type_key': 'cause',
+                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '纠正误区 + 正确认知',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'{core}怎么判断好不好？教你三招快速鉴别', 'type_key': 'cause',
                  'type_name': '原因分析类', 'source': '原因分析系列', 'priority': 'P1',
                  'keywords': [], 'reason': '判断标准，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '判断标准 + 实用技巧'},
+                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '判断标准 + 实用技巧',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
 
                 # ── 刚需痛点盘（5条） ──
-                {'title': f'选择{core}前，先看完这篇少走弯路', 'type_key': 'pain_point',
+                {'id': str(uuid.uuid4()), 'title': f'选择{core}前，先看完这篇少走弯路', 'type_key': 'pain_point',
                  'type_name': '痛点解决类', 'source': '刚需痛点盘', 'priority': 'P0',
                  'keywords': [], 'reason': '直面核心痛点，转化型',
-                 'publish_timing': '工作日午间', 'content_direction': '转化型', 'content_hints': '展示痛点场景 + 解决方案 + 引导成交'},
-                {'title': f'{core}到底靠不靠谱？看完你就明白了', 'type_key': 'decision_encourage',
+                 'publish_timing': '工作日午间', 'content_direction': '转化型', 'content_hints': '展示痛点场景 + 解决方案 + 引导成交',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'{core}到底靠不靠谱？看完你就明白了', 'type_key': 'decision_encourage',
                  'type_name': '决策安心类', 'source': '刚需痛点盘', 'priority': 'P0',
                  'keywords': [], 'reason': '打消付费顾虑，临门一脚，转化型',
-                 'publish_timing': '工作日下午', 'content_direction': '转化型', 'content_hints': '靠谱验证 + 售后保障 + 口碑案例'},
-                {'title': f'{core}效果真的好吗？真实案例告诉你', 'type_key': 'effect_proof',
+                 'publish_timing': '工作日下午', 'content_direction': '转化型', 'content_hints': '靠谱验证 + 售后保障 + 口碑案例',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'{core}效果真的好吗？真实案例告诉你', 'type_key': 'effect_proof',
                  'type_name': '效果验证类', 'source': '刚需痛点盘', 'priority': 'P1',
                  'keywords': [], 'reason': '效果验证，建立信任，转化型',
-                 'publish_timing': '周末晚间', 'content_direction': '转化型', 'content_hints': '前后对比 + 真实案例'},
-                {'title': f'{core}值不值？算完这笔账就知道了', 'type_key': 'pain_point',
+                 'publish_timing': '周末晚间', 'content_direction': '转化型', 'content_hints': '前后对比 + 真实案例',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'{core}值不值？算完这笔账就知道了', 'type_key': 'pain_point',
                  'type_name': '痛点解决类', 'source': '刚需痛点盘', 'priority': 'P1',
                  'keywords': [], 'reason': '性价比分析，转化型',
-                 'publish_timing': '工作日下午', 'content_direction': '转化型', 'content_hints': '成本分析 + 价值对比'},
-                {'title': f'选{core}怕被坑？看完这期彻底放心了', 'type_key': 'decision_encourage',
+                 'publish_timing': '工作日下午', 'content_direction': '转化型', 'content_hints': '成本分析 + 价值对比',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'选{core}怕被坑？看完这期彻底放心了', 'type_key': 'decision_encourage',
                  'type_name': '决策安心类', 'source': '刚需痛点盘', 'priority': 'P0',
                  'keywords': [], 'reason': '打消顾虑，转化型',
-                 'publish_timing': '工作日下午', 'content_direction': '转化型', 'content_hints': '防坑指南 + 靠谱推荐'},
+                 'publish_timing': '工作日下午', 'content_direction': '转化型', 'content_hints': '防坑指南 + 靠谱推荐',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
 
                 # ── 使用配套搜后种草盘（3条） ──
-                {'title': f'{core}使用心得，看完少走弯路', 'type_key': 'skill',
+                {'id': str(uuid.uuid4()), 'title': f'{core}使用心得，看完少走弯路', 'type_key': 'skill',
                  'type_name': '实操技巧类', 'source': '使用配套盘', 'priority': 'P1',
                  'keywords': [], 'reason': '实操方法，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '实操经验 + 注意事项'},
-                {'title': f'用了{core}才发现，这些工具少不了', 'type_key': 'tools',
+                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '实操经验 + 注意事项',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'用了{core}才发现，这些工具少不了', 'type_key': 'tools',
                  'type_name': '工具耗材类', 'source': '使用配套盘', 'priority': 'P2',
                  'keywords': [], 'reason': '配套工具推荐，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '工具推荐 + 使用方法'},
-                {'title': f'做{core}这些年，最深的感悟是什么', 'type_key': 'emotional',
+                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '工具推荐 + 使用方法',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
+                {'id': str(uuid.uuid4()), 'title': f'做{core}这些年，最深的感悟是什么', 'type_key': 'emotional',
                  'type_name': '情感故事类', 'source': '使用配套盘', 'priority': 'P3',
                  'keywords': [], 'reason': '情感共鸣，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '个人故事 + 情感触动'},
+                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '个人故事 + 情感触动',
+                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
             ],
             'by_type': {
                 'compare': 1, 'cause': 2, 'pitfall': 2, 'upstream': 1,

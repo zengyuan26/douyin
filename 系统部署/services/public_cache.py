@@ -227,49 +227,57 @@ class PublicCache:
             if self._warmed:
                 return
 
-            try:
-                from models.public_models import (
-                    PublicTargetCustomer,
-                    PublicContentTemplate
-                )
+            def _do_warmup():
+                try:
+                    from models.public_models import (
+                        PublicTargetCustomer,
+                        PublicContentTemplate
+                    )
 
-                # 预热目标客户
-                customers_query = PublicTargetCustomer.query.filter_by(
-                    is_active=True
-                ).order_by(PublicTargetCustomer.priority.desc()).all()
+                    # 预热目标客户
+                    customers_query = PublicTargetCustomer.query.filter_by(
+                        is_active=True
+                    ).order_by(PublicTargetCustomer.priority.desc()).all()
 
-                # 按行业分组缓存
-                customer_groups = {}
-                for c in customers_query:
-                    if c.applicable_industries:
-                        for ind in c.applicable_industries:
-                            if ind not in customer_groups:
-                                customer_groups[ind] = []
-                            customer_groups[ind].append({
-                                'customer_type': c.customer_type,
-                                'customer_name': c.customer_name,
-                                'description': c.description,
-                                'icon': c.icon,
-                            })
+                    # 按行业分组缓存
+                    customer_groups = {}
+                    for c in customers_query:
+                        if c.applicable_industries:
+                            for ind in c.applicable_industries:
+                                if ind not in customer_groups:
+                                    customer_groups[ind] = []
+                                customer_groups[ind].append({
+                                    'customer_type': c.customer_type,
+                                    'customer_name': c.customer_name,
+                                    'description': c.description,
+                                    'icon': c.icon,
+                                })
 
-                for ind, customers in customer_groups.items():
-                    self.set_customers(ind, customers)
+                    for ind, customers in customer_groups.items():
+                        self.set_customers(ind, customers)
 
-                # 预热内容模板
-                templates_query = PublicContentTemplate.query.filter_by(
-                    is_active=True
-                ).order_by(PublicContentTemplate.priority.desc()).limit(100).all()
+                    # 预热内容模板
+                    templates_query = PublicContentTemplate.query.filter_by(
+                        is_active=True
+                    ).order_by(PublicContentTemplate.priority.desc()).limit(100).all()
 
-                self.set_templates('all_active', [
-                    {'code': t.template_code, 'name': t.template_name}
-                    for t in templates_query
-                ])
+                    self.set_templates('all_active', [
+                        {'code': t.template_code, 'name': t.template_name}
+                        for t in templates_query
+                    ])
 
-                self._warmed = True
-                logger.info("[Cache] 缓存预热完成：%s 个行业，%s 个模板", len(customer_groups), len(templates_query))
+                    self._warmed = True
+                    logger.info("[Cache] 缓存预热完成：%s 个行业，%s 个模板", len(customer_groups), len(templates_query))
 
-            except Exception as e:
-                logger.error("[Cache] 缓存预热失败: %s", e)
+                except Exception as e:
+                    logger.error("[Cache] 缓存预热失败: %s", e)
+
+            # 如果传入了 app，在其应用上下文中执行；否则假设已处于上下文中
+            if app is not None:
+                with app.app_context():
+                    _do_warmup()
+            else:
+                _do_warmup()
 
     def refresh_cache(self, cache_name: str) -> None:
         """手动刷新指定缓存"""

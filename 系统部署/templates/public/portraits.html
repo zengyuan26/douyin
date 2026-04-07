@@ -1,0 +1,2283 @@
+{% extends "public/public_layout.html" %}
+
+{% block title %}客户画像 - AI棱镜{% endblock %}
+
+{% block layout_extra_css %}
+<style>
+    /* ================================================
+       超级定位三 Tab 样式
+       ================================================ */
+    .super-workspace-new {
+        background: transparent;
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
+        margin-bottom: 0;
+        border-top: 1px solid #f0f0f0;
+        margin-top: 24px;
+        padding-top: 20px;
+    }
+
+    .super-tabs-bar {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        padding: 0 4px;
+        background: transparent;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        flex-shrink: 0;
+    }
+
+    .super-tab-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 14px 18px;
+        background: transparent;
+        border: none;
+        border-bottom: 2.5px solid transparent;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-bottom: -1px;
+    }
+
+    .super-tab-btn i {
+        font-size: 0.9375rem;
+    }
+
+    .super-tab-btn:hover {
+        color: var(--text-primary);
+    }
+
+    .super-tab-btn.active {
+        color: var(--apple-red, #FF3B30);
+        border-bottom-color: var(--apple-red, #FF3B30);
+        font-weight: 600;
+    }
+
+    .super-tabs-actions {
+        margin-left: auto;
+        padding: 8px 0;
+    }
+
+    .super-tab-content-wrapper {
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    .super-tab-panel {
+        display: none;
+    }
+
+    .super-tab-panel.active {
+        display: block;
+    }
+
+    .tab-panel-inner {
+        padding: 0;
+        max-height: calc(100vh - 280px);
+        overflow-y: auto;
+    }
+
+    /* Mac 风格：表单区域无嵌套框，扁平化设计 */
+    .form-content-wrapper {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 32px 0 48px;
+    }
+
+    .form-content-wrapper .form-label {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .form-content-wrapper .form-control,
+    .form-content-wrapper .form-select {
+        background: var(--bg-primary);
+        border: 1.5px solid var(--apple-gray4);
+        border-radius: var(--radius-md);
+        padding: 12px 16px;
+        font-size: 0.9375rem;
+        transition: all var(--transition-fast);
+        box-shadow: none;
+    }
+
+    .form-content-wrapper .form-control:focus,
+    .form-content-wrapper .form-select:focus {
+        border-color: var(--apple-blue);
+        box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+    }
+
+    .form-content-wrapper .form-check-label {
+        font-size: 0.9375rem;
+        cursor: pointer;
+    }
+
+    .form-content-wrapper .btn-generate {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border: none;
+        border-radius: var(--radius-lg);
+        padding: 16px 48px;
+        font-size: 1rem;
+        font-weight: 600;
+        color: white;
+        transition: all var(--transition-fast);
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+    }
+
+    .form-content-wrapper .btn-generate:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 24px rgba(99, 102, 241, 0.4);
+    }
+
+    /* 问题识别和画像生成区域：无嵌套框 */
+    .problems-content-wrapper,
+    .portraits-content-wrapper {
+        padding: 20px 0;
+    }
+
+    .super-empty-hint {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 24px;
+        gap: 12px;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        text-align: center;
+    }
+
+    .super-empty-icon {
+        opacity: 0.6;
+    }
+
+    /* ================================================
+       为你推荐 · 网易云风 + iPod Cover Flow（精选区 pr-card）
+       ================================================ */
+    .portraits-recommend-section {
+        padding: 8px 0 32px;
+        margin-bottom: 8px;
+    }
+
+    .pp-rec-header {
+        margin-bottom: 20px;
+        padding-left: 8px;
+    }
+
+    .pp-rec-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .pp-rec-title {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #1a1a1a;
+        letter-spacing: -0.02em;
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    .pp-rec-sub {
+        font-size: 0.75rem;
+        color: #888;
+        font-weight: 400;
+    }
+
+    /* 空空如也 */
+    .pp-empty-netease {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 24px 56px;
+        text-align: center;
+    }
+
+    .pp-empty-illu {
+        width: min(200px, 52vw);
+        height: auto;
+        margin-bottom: 20px;
+        opacity: 0.92;
+    }
+
+    .pp-empty-text {
+        font-size: 1.0625rem;
+        font-weight: 600;
+        color: #b0b0b5;
+        letter-spacing: 0.12em;
+        margin: 0;
+    }
+
+    .pp-empty-hint {
+        font-size: 0.8125rem;
+        color: #aaa;
+        margin-top: 10px;
+        max-width: 280px;
+        line-height: 1.5;
+    }
+
+    #portrait-recommend-body {
+        min-height: 200px;
+        position: relative;
+    }
+
+    /* Cover Flow 舞台（专辑轮播） */
+    .pp-cf-wrap {
+        position: relative;
+        width: 100%;
+        height: 360px;
+    }
+
+    .pp-cf-stage {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 360px;
+        cursor: grab;
+        user-select: none;
+    }
+
+    /* 生成新画像卡片（作为普通卡片参与 Cover Flow 轮播） */
+    .pp-cf-new-card {
+        width: 200px;
+        height: 300px;
+        pointer-events: auto;
+        border-radius: 10px;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+        transition: box-shadow 0.3s ease;
+        background: transparent;
+        border: none;
+        overflow: hidden;
+    }
+
+    /* 复用 section 下卡片的样式结构 */
+    .pp-cf-new-card .pr-card-surface {
+        border-radius: 10px;
+        overflow: hidden;
+        aspect-ratio: 3 / 4;
+        display: flex;
+        flex-direction: column;
+        background: #111;
+    }
+
+    .pp-cf-new-card .pr-card-cover {
+        flex: 1;
+        min-height: 0;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        color: rgba(255, 255, 255, 0.92);
+        background: linear-gradient(160deg, #4a4a52 0%, #2a2a30 45%, #161618 100%);
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .pp-cf-new-card .pr-card-stat {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 2;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: #fff;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.25));
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+    }
+
+    .pp-cf-new-card .pr-card-footer {
+        flex: 0 0 26%;
+        min-height: 0;
+        padding: 10px 12px 11px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        background: linear-gradient(180deg, #1a1a1e, #0f0f12);
+    }
+
+    .pp-cf-new-card .pr-card-name {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.72);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.25;
+    }
+
+    .pp-cf-new-card:hover .pr-card-name {
+        color: #fff;
+    }
+
+    .pp-cf-new-card .pr-card-meta {
+        font-size: 0.6875rem;
+        color: rgba(255, 255, 255, 0.45);
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .pp-cf-new-card:hover {
+        box-shadow: 0 0 0 2px #ec4141, 0 12px 32px rgba(236, 65, 65, 0.22);
+    }
+
+    /* 左右导航箭头 */
+    .pp-cf-side-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 30;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 16px;
+        color: #333;
+        transition: opacity 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .pp-cf-side-arrow:hover {
+        background: #fff;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+    }
+
+    .pp-cf-prev { left: 8px; }
+    .pp-cf-next { right: 8px; }
+    .pp-cf-next:hover {
+        background: var(--netease-red);
+        border-color: var(--netease-red);
+        color: #fff;
+    }
+
+    .pp-cf-hidden { opacity: 0; pointer-events: none; }
+    .pp-cf-visible { opacity: 1; pointer-events: auto; }
+
+    @media (max-width: 768px) {
+        .pp-cf-new-card { width: 168px; height: 260px; }
+        .pp-cf-new-card .pr-card-cover { font-size: 1.5rem; }
+    }
+
+    .pp-cf-new-card:hover {
+        box-shadow: 0 0 0 2px #ec4141, 0 12px 32px rgba(236, 65, 65, 0.22);
+    }
+
+    .pp-cf-new-card:hover {
+        box-shadow: 0 0 0 2px #ec4141, 0 12px 32px rgba(236, 65, 65, 0.22);
+    }
+
+    .pp-cf-new-card .pr-card-name {
+        color: rgba(255, 255, 255, 0.72);
+    }
+
+    .pp-cf-new-card:hover .pr-card-name {
+        color: #fff;
+    }
+
+    .pp-cf-new-card .pr-card-meta {
+        color: rgba(255, 255, 255, 0.45);
+    }
+
+    @media (max-width: 768px) {
+        .pp-cf-new-card { width: 168px; }
+    }
+
+    .pp-cf-stage:active {
+        cursor: grabbing;
+    }
+
+    .pp-cf-track {
+        position: absolute;
+        left: 0;
+        top: 24px;
+        width: calc(100% + 200px);
+        height: 300px;
+        transform-style: preserve-3d;
+        perspective: 1200px;
+    }
+
+    .portraits-recommend-section .pr-card {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        margin-left: 0;
+        width: 200px;
+        flex: none;
+        scroll-snap-align: unset;
+        border-radius: 10px;
+        cursor: pointer;
+        background: transparent;
+        border: none;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+        transition: transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                    opacity 0.3s ease,
+                    box-shadow 0.3s ease;
+        transform-style: preserve-3d;
+        overflow: hidden;
+    }
+
+    .portraits-recommend-section .pr-card-surface {
+        border-radius: 10px;
+        overflow: hidden;
+        aspect-ratio: 3 / 4;
+        display: flex;
+        flex-direction: column;
+        background: #111;
+    }
+
+    .portraits-recommend-section .pr-card-cover {
+        flex: 1;
+        min-height: 0;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        color: rgba(255, 255, 255, 0.92);
+    }
+
+    .portraits-recommend-section .pr-card-stat {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 2;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: #fff;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.25));
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        max-width: calc(100% - 16px);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .portraits-recommend-section .pr-card-footer {
+        flex: 0 0 26%;
+        min-height: 0;
+        padding: 10px 12px 11px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+    }
+
+    .portraits-recommend-section .pr-card-name {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.25;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+
+    .portraits-recommend-section .pr-card-meta {
+        font-size: 0.6875rem;
+        color: rgba(255, 255, 255, 0.72);
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .portraits-recommend-section .pr-card-date {
+        font-size: 0.625rem;
+        color: rgba(255, 255, 255, 0.45);
+        margin-top: 1px;
+    }
+
+    .portraits-recommend-section .pr-card.pr-cf-active {
+        box-shadow: 0 0 0 2px #ec4141, 0 12px 32px rgba(236, 65, 65, 0.22);
+    }
+
+    .pr-tone-1 .pr-card-cover {
+        background: linear-gradient(160deg, #3d6b5c 0%, #1e3d32 45%, #0f241c 100%);
+    }
+    .pr-tone-2 .pr-card-cover {
+        background: linear-gradient(160deg, #4a6fa5 0%, #2a4570 45%, #152a45 100%);
+    }
+    .pr-tone-3 .pr-card-cover {
+        background: linear-gradient(160deg, #a85a6a 0%, #6b3040 45%, #3a1822 100%);
+    }
+    .pr-tone-4 .pr-card-cover {
+        background: linear-gradient(160deg, #6b5c8f 0%, #3d3458 45%, #221c38 100%);
+    }
+
+    .pr-tone-1 .pr-card-footer {
+        background: linear-gradient(180deg, #1a3329, #0f221a);
+    }
+    .pr-tone-2 .pr-card-footer {
+        background: linear-gradient(180deg, #1a2d48, #0f1928);
+    }
+    .pr-tone-3 .pr-card-footer {
+        background: linear-gradient(180deg, #3a1e26, #241018);
+    }
+    .pr-tone-4 .pr-card-footer {
+        background: linear-gradient(180deg, #2a2438, #18141f);
+    }
+
+    .pr-card-delete {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        z-index: 20;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(0, 0, 0, 0.45);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.2s, background 0.2s;
+        font-size: 0.85rem;
+    }
+
+    .portraits-recommend-section .pr-card:hover .pr-card-delete {
+        opacity: 1;
+    }
+
+    .pr-card-delete:hover {
+        background: rgba(215, 0, 21, 0.9);
+    }
+
+    /* 与首页精选区一致的悬停层（选题预览 + 播放） */
+    .portraits-recommend-section .pr-hover-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.88) 100%);
+        padding: 36px 10px 12px;
+        transform: translateY(100%);
+        transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        border-radius: 0 0 10px 10px;
+        z-index: 10;
+    }
+
+    .portraits-recommend-section .pr-card:hover .pr-hover-overlay {
+        transform: translateY(0);
+    }
+
+    .portraits-recommend-section .pr-hover-topics {
+        list-style: none;
+        margin: 0 0 8px;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .portraits-recommend-section .pr-hover-topic {
+        font-size: 0.6875rem;
+        color: rgba(255,255,255,0.85);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-left: 12px;
+        position: relative;
+        line-height: 1.3;
+    }
+
+    .portraits-recommend-section .pr-hover-topic::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: rgba(236,65,65,0.8);
+    }
+
+    .portraits-recommend-section .pr-hover-generating {
+        font-size: 0.6875rem;
+        color: rgba(255,255,255,0.6);
+        text-align: center;
+        padding: 4px 0;
+    }
+
+    .portraits-recommend-section .pr-hover-play {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        width: 48px;
+        height: 48px;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.45);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+        color: #fff;
+        font-size: 1.6rem;
+        line-height: 1;
+        cursor: pointer;
+        transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .portraits-recommend-section .pr-hover-play i {
+        margin-left: 3px;
+    }
+
+    .portraits-recommend-section .pr-hover-play:hover {
+        background: rgba(0, 0, 0, 0.55);
+        transform: scale(1.07);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+
+    .portraits-recommend-section .pr-hover-play:focus-visible {
+        outline: 2px solid rgba(255, 255, 255, 0.85);
+        outline-offset: 2px;
+    }
+
+    .portraits-recommend-section .pr-card:hover .pr-card-cover::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.12);
+        pointer-events: none;
+    }
+
+    .pp-cf-counter {
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: #8e8e93;
+        min-width: 52px;
+        text-align: center;
+    }
+
+    /* 平台推荐占位（后续接数据） */
+    .pp-platform-placeholder {
+        margin-top: 28px;
+        padding: 20px 16px;
+        border-radius: 12px;
+        background: var(--apple-gray6, #f2f2f7);
+        border: 1px dashed rgba(0,0,0,0.08);
+        text-align: center;
+        font-size: 0.8125rem;
+        color: #aaa;
+        display: none;
+    }
+
+    @media (max-width: 768px) {
+        .pp-cf-stage { height: 320px; }
+        .pp-cf-track { top: 16px; height: 260px; }
+        .portraits-recommend-section .pr-card { width: 168px; }
+    }
+
+    /* 画像卡片网格（保留类名供兼容，当前推荐区已改用 Cover Flow） */
+    .portrait-grid-new {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 16px;
+    }
+
+    .portrait-card-new {
+        background: white;
+        border-radius: 16px;
+        border: 2px solid #e5e7eb;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: visible;
+    }
+
+    .portrait-card-new:hover {
+        border-color: #007AFF;
+        box-shadow: 0 8px 24px rgba(0, 122, 255, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .portrait-card-new .card-name {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .portrait-card-new .card-meta {
+        font-size: 0.8125rem;
+        color: var(--apple-gray);
+        margin-bottom: 12px;
+    }
+
+    .portrait-card-new .card-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .portrait-card-new .card-actions .btn {
+        font-size: 0.8125rem;
+        padding: 5px 12px;
+        border-radius: 6px;
+    }
+
+    .btn-play-card {
+        background: var(--netease-red);
+        border: none;
+        color: white;
+        font-weight: 600;
+    }
+
+    .btn-play-card:hover {
+        background: var(--netease-red-hover);
+        color: white;
+    }
+
+    .btn-delete-card {
+        background: #FFF0F0;
+        border: 1px solid #FFD0D0;
+        color: var(--apple-red);
+    }
+
+    .btn-delete-card:hover {
+        background: #FFE0E0;
+        border-color: #FFB0B0;
+    }
+
+    /* 空状态 */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        color: var(--apple-gray3);
+        margin-bottom: 16px;
+    }
+
+    .empty-state h3 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+
+    .empty-state p {
+        font-size: 0.875rem;
+        color: var(--apple-gray);
+        margin-bottom: 24px;
+    }
+
+    .btn-create-portrait {
+        background: var(--netease-red);
+        border: none;
+        border-radius: 10px;
+        padding: 12px 28px;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: white;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        box-shadow: 0 2px 8px rgba(236, 65, 65, 0.3);
+    }
+
+    .btn-create-portrait:hover {
+        background: var(--netease-red-hover);
+        transform: translateY(-1px);
+    }
+
+    /* 加载状态 */
+    .loading-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    /* 删除确认 */
+    .delete-confirm-toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 12px 20px;
+        border-radius: var(--radius-md);
+        font-size: 0.875rem;
+        z-index: 9999;
+        opacity: 0;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .delete-confirm-toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    /* 问题卡片样式 */
+    .problem-mining-loading {
+        text-align: center;
+        padding: 40px 20px;
+    }
+
+    .portrait-generating-loading {
+        text-align: center;
+        padding: 40px 20px;
+    }
+
+    /* 目标客户画像卡片 */
+    .target-customer-card {
+        background: white;
+        border-radius: 16px;
+        border: 1.5px solid #e5e7eb;
+        padding: 20px;
+        margin-bottom: 16px;
+        transition: all 0.3s;
+    }
+
+    .target-customer-card:hover {
+        border-color: var(--apple-blue);
+        box-shadow: 0 4px 16px rgba(0, 122, 255, 0.1);
+    }
+
+    .target-customer-card.selected {
+        border-color: var(--apple-red);
+        background: linear-gradient(135deg, #FFF8F8 0%, #FFF5F5 100%);
+    }
+
+    /* 页面标题 */
+    .page-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .page-header .back-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid var(--apple-gray4);
+        background: var(--bg-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--text-secondary);
+        transition: all var(--transition-fast);
+        text-decoration: none;
+    }
+    .page-header .back-btn:hover {
+        background: var(--apple-gray6);
+        color: var(--text-primary);
+    }
+    .page-header h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    /* 保存画像模态框样式 */
+    .save-portrait-modal .modal-content {
+        border-radius: 16px;
+        border: none;
+    }
+    .save-portrait-modal .modal-header {
+        border-bottom: 1px solid var(--apple-gray6);
+        padding: 20px 24px;
+    }
+    .save-portrait-modal .modal-body {
+        padding: 24px;
+    }
+    .save-portrait-modal .modal-footer {
+        border-top: 1px solid var(--apple-gray6);
+        padding: 16px 24px;
+    }
+</style>
+{% endblock %}
+
+{% block sidebar_nav %}
+    {# 分组1：快速生成 #}
+    <div class="sidebar-group">
+        <div class="public-sidebar-section-label">快速生成</div>
+        <a class="public-sidebar-link" href="/public" id="sidebar-super-link">
+            <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+            开始创作
+        </a>
+        <a class="public-sidebar-link" href="/public/galaxy" id="sidebar-galaxy-link">
+            <i class="bi bi-stars" aria-hidden="true"></i>
+            内容星球
+        </a>
+    </div>
+
+    {# 分组2：我的 #}
+    <div class="sidebar-group">
+        <div class="public-sidebar-section-label">我的</div>
+        <a class="public-sidebar-link is-active" href="/public/portraits" id="sidebar-portraits-link">
+            <i class="bi bi-people-fill" aria-hidden="true"></i>
+            客户画像
+        </a>
+        <a class="public-sidebar-link" href="#" onclick="portraitsNavToTab(event, 'tab-topics')">
+            <i class="bi bi-card-list" aria-hidden="true"></i>
+            选题清单
+        </a>
+        <a class="public-sidebar-link" href="#" onclick="portraitsNavToTab(event, 'tab-contents')">
+            <i class="bi bi-collection-play-fill" aria-hidden="true"></i>
+            内容清单
+        </a>
+    </div>
+{% endblock %}
+
+{% block topbar_title %}{% endblock %}
+
+{% block topbar_right %}
+    {# 与首页 /public 顶栏右侧结构完全一致 #}
+    <div class="public-topbar-actions" id="topbar-auth">
+        <span id="nav-login">
+            <a class="nav-link" href="/login?type=public" target="_self">登录</a>
+        </span>
+        <span id="nav-register">
+            <a class="btn btn-primary" href="/login?type=public#register" target="_self">免费开始</a>
+        </span>
+    </div>
+    <div class="topbar-user" id="topbar-user" style="display:none;">
+        <div class="topbar-avatar" id="topbar-avatar">
+            <span id="topbar-avatar-letter"></span>
+        </div>
+        <span class="topbar-nickname" id="topbar-nickname"></span>
+        <span class="topbar-plan-badge" id="topbar-plan-badge"></span>
+        <span class="topbar-separator"></span>
+        <div class="topbar-settings-dropdown" id="topbar-settings-dropdown">
+            <button type="button" class="topbar-icon-btn" id="topbar-settings-btn"
+                    onclick="toggleSettingsDropdown(event)" title="设置"
+                    aria-expanded="false" aria-haspopup="true" aria-controls="topbar-settings-menu">
+                <i class="bi bi-gear" aria-hidden="true"></i>
+            </button>
+            <div class="topbar-settings-menu" id="topbar-settings-menu" role="menu">
+                <button type="button" class="topbar-settings-item" role="menuitem"
+                        onclick="openAccountSettings(event, 'profile'); toggleSettingsDropdown(event);">
+                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    个人资料维护
+                </button>
+                <button type="button" class="topbar-settings-item" role="menuitem"
+                        onclick="openAccountSettings(event, 'password'); toggleSettingsDropdown(event);">
+                    <i class="bi bi-key" aria-hidden="true"></i>
+                    修改密码
+                </button>
+                <div class="topbar-settings-divider"></div>
+                <button type="button" class="topbar-settings-item danger" role="menuitem" onclick="logout(event)">
+                    <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                    退出登录
+                </button>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="topbar-icon-btn topbar-skin-btn" id="topbar-skin-btn"
+            onclick="openSkinPicker(event)" title="个性皮肤" aria-label="个性皮肤">
+        <svg class="topbar-skin-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+            <path d="M16.25 3.5c-.35 0-.68.18-.87.48L14 6h-4L8.62 3.98a1 1 0 00-.87-.48H5.75L3 6.25V9h2v11h14V9h2V6.25L18.25 3.5h-2zM7 9h10v9H7V9zm11-1H6V6.7L6.92 5.5h1.45l1.51 2.02a1 1 0 001.24.28.98.98 0 00.28-.28L12.91 5.5h1.45L16 6.7V8z"/>
+        </svg>
+    </button>
+{% endblock %}
+
+{% block content %}
+    <div class="main-container">
+
+        {# ================================================
+           客户画像区（当前画像 · Cover Flow）
+           ================================================ #}
+        <section class="portraits-recommend-section" aria-label="客户画像">
+            <div class="pp-rec-header">
+                <div class="pp-rec-title-wrap">
+                    <h2 class="pp-rec-title">客户画像</h2>
+                    <span class="pp-rec-sub"></span>
+                </div>
+            </div>
+            <div id="portrait-recommend-body">
+                <div class="loading-state" id="loading-state">
+                    <div class="apple-spinner mx-auto" style="width:32px;height:32px;border-width:3px;"></div>
+                    <p style="margin-top:12px;color:var(--apple-gray);font-size:0.875rem;">加载画像中...</p>
+                </div>
+            </div>
+        </section>
+
+        {# ================================================
+           为你推荐
+           ================================================ #}
+        <section class="portraits-recommend-section" aria-label="为你推荐" style="padding-top: 0;">
+            <div class="pp-rec-header">
+                <div class="pp-rec-title-wrap">
+                    <h2 class="pp-rec-title">为你推荐</h2>
+                    <span class="pp-rec-sub"></span>
+                </div>
+            </div>
+            <div class="pp-platform-placeholder" id="pp-platform-placeholder">
+                暂无平台精选内容
+            </div>
+        </section>
+
+        {# ================================================
+           模式2：生成新画像（超级定位流程）
+           ================================================ #}
+        <div id="create-mode-section" style="display: none;">
+            <div class="super-workspace-new" id="super-workspace-new">
+                <!-- 顶部 Tab 栏 -->
+                <div class="super-tabs-bar">
+                    <button class="super-tab-btn active" data-super-tab="tab-form" onclick="switchSuperTab('tab-form')">
+                        <i class="bi bi-card-text"></i>描述业务
+                    </button>
+                    <button class="super-tab-btn" data-super-tab="tab-problems" onclick="switchSuperTab('tab-problems')">
+                        <i class="bi bi-search"></i>问题识别
+                    </button>
+                    <button class="super-tab-btn" data-super-tab="tab-portraits" onclick="switchSuperTab('tab-portraits')">
+                        <i class="bi bi-people"></i>生成画像
+                    </button>
+                    <div class="super-tabs-actions">
+                        <button class="btn-apple btn-sm" id="btn-reset-super" onclick="resetSuperPortraitFlow()">
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
+                                <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                                <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                            重置
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab 内容面板容器 -->
+                <div class="super-tab-content-wrapper">
+
+                    <!-- Tab1：描述业务 -->
+                    <div class="super-tab-panel active" id="super-tab-form">
+                        <div class="tab-panel-inner">
+                            <div class="form-content-wrapper" style="max-width: 680px; margin: 0 auto;">
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label">核心业务 <span class="text-danger">*</span></label>
+                                        <input type="text"
+                                               class="form-control"
+                                               id="business-desc"
+                                               maxlength="20"
+                                               placeholder="请输入你的1个核心业务，例如：餐盘无痕修复、家具翻新、门窗维修">
+                                        <div class="form-text text-muted">仅填写1个主营服务，不写城市、不写广告语、不写多个业务</div>
+                                        <div class="invalid-feedback" id="business-desc-error"></div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">经营范围 <span class="text-danger">*</span></label>
+                                        <div class="d-flex gap-3 flex-wrap">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region" checked>
+                                                <label class="form-check-label" for="range-cross">🌍 跨区域（全国）</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
+                                                <label class="form-check-label" for="range-local">🏠 本地</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- 本地城市补充信息（选填） -->
+                                    <div class="col-12" id="local-city-wrapper" style="display: none;">
+                                        <label class="form-label">补充城市信息（选填）</label>
+                                        <input type="text" class="form-control" id="local-city" placeholder="例如：成都">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">经营类型 <span class="text-danger">*</span></label>
+                                        <div class="d-flex gap-3 flex-wrap">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="business-type" id="type-product" value="product">
+                                                <label class="form-check-label" for="type-product">📦 消费品</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="business-type" id="type-service" value="local_service">
+                                                <label class="form-check-label" for="type-service">🔧 本地服务</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="business-type" id="type-personal" value="personal">
+                                                <label class="form-check-label" for="type-personal">👤 个人品牌</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="business-type" id="type-enterprise" value="enterprise">
+                                                <label class="form-check-label" for="type-enterprise">🏢 企业服务</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">你的主要服务场景</label>
+                                        <select class="form-select" id="service-scenario" onchange="handleServiceScenarioChange()">
+                                            <option value="">请选择你的核心服务场景</option>
+                                            <option value="hotel_restaurant">🏨 酒店 / 餐饮 / 茶楼 / 高端会所（正餐、民宿、婚宴、茶室、私人会所、餐饮后厨配套）</option>
+                                            <option value="residential">🏠 家用 / 住宅 / 小区业主（家庭自住、二手房翻新、家装配套、个人自用）</option>
+                                            <option value="office_enterprise">🏢 写字楼 / 企业 / 工厂 / 园区（公司办公、厂区后勤、园区物业、企业采购）</option>
+                                            <option value="institutional">🏫 学校 / 医院 / 食堂 / 政企单位（公立单位、食堂后勤、总务物资配套）</option>
+                                            <option value="retail_chain">🛒 实体店 / 连锁门店 / 加盟品牌（门店经营、连锁供应链、加盟店配套）</option>
+                                            <option value="renovation">🔨 装修 / 工装 / 工程定制（装修施工、工地配套、工程接单）</option>
+                                            <option value="other">📝 其他小众场景（以上没有，简单写自己专属场景）</option>
+                                        </select>
+                                        <!-- 其他场景补充输入 -->
+                                        <div id="other-scenario-wrapper" class="mt-2" style="display: none;">
+                                            <input type="text" class="form-control" id="other-scenario-input"
+                                                   placeholder="简单备注你的使用场景（限15字内）" maxlength="15">
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div id="ai-upgrade-hint" class="alert alert-info mt-3" style="display: none;">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <i class="bi bi-stars me-1"></i>
+                                                    <strong>升级解锁AI精准画像</strong>
+                                                    <p class="mb-0 small">免费用户使用基础画像，付费用户获得AI深度分析</p>
+                                                </div>
+                                                <a href="/public/pricing" class="btn btn-sm btn-outline-primary">了解套餐</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 text-center mt-4">
+                                        <button class="btn btn-generate btn-lg" id="btn-one-key-analyze" onclick="portraitMineAndGenerate()">
+                                            🚀 开始一键分析
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div><!-- /#super-tab-form -->
+
+                    <!-- Tab2：问题识别 -->
+                    <div class="super-tab-panel" id="super-tab-problems">
+                        <div class="tab-panel-inner">
+                            <!-- 问题列表区域 -->
+                            <div id="problems-section" class="mt-2" style="display: none;">
+                                <!-- 问题卡片由JS动态生成 -->
+                            </div>
+                            <!-- 问题空状态 -->
+                            <div id="problems-empty-hint" class="super-empty-hint">
+                                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="opacity: 0.4;">
+                                    <circle cx="24" cy="24" r="20" stroke="#8E8E93" stroke-width="2" fill="none"/>
+                                    <path d="M24 14V26M24 32V34" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round"/>
+                                </svg>
+                                <div>
+                                    <strong>请先在「描述业务」中填写信息</strong>
+                                    <p class="mb-0">点击上方 Tab1 填写业务描述后<br>系统将自动识别目标客户的核心痛点</p>
+                                </div>
+                                <button class="btn-apple btn-sm mt-2" onclick="switchSuperTab('tab-form')">去填写</button>
+                            </div>
+                            <!-- 问题挖掘加载状态 -->
+                            <div class="problem-mining-loading" id="problem-mining-loading" style="display: none;">
+                                <div class="apple-spinner mx-auto" style="width: 36px; height: 36px; border-width: 3px;"></div>
+                                <p style="margin-top: 16px; color: var(--text-secondary);">正在分析目标客户痛点...</p>
+                            </div>
+                        </div>
+                    </div><!-- /#super-tab-problems -->
+
+                    <!-- Tab3：生成画像 -->
+                    <div class="super-tab-panel" id="super-tab-portraits">
+                        <div class="tab-panel-inner">
+                            <!-- 画像生成加载状态 -->
+                            <div class="portrait-generating-loading" id="portrait-generating-loading" style="display: none;">
+                                <div class="apple-spinner mx-auto" style="width: 36px; height: 36px; border-width: 3px;"></div>
+                                <p style="margin-top: 16px; color: var(--text-secondary);">正在生成目标客户画像...</p>
+                            </div>
+                            <!-- 画像列表区域 -->
+                            <div id="target-customers-section" class="portraits-content-wrapper" style="display: none;">
+                                <!-- 画像卡片由JS动态生成 -->
+                            </div>
+                            <!-- 画像空状态 -->
+                            <div id="portraits-empty-hint" class="super-empty-hint">
+                                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="opacity: 0.4;">
+                                    <circle cx="18" cy="16" r="6" stroke="#8E8E93" stroke-width="2" fill="none"/>
+                                    <circle cx="30" cy="16" r="6" stroke="#8E8E93" stroke-width="2" fill="none"/>
+                                    <path d="M8 38C8 31.4 12.5 26 18 26M30 26C35.5 26 40 31.4 40 38" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" fill="none"/>
+                                </svg>
+                                <div>
+                                    <strong>请先完成问题识别</strong>
+                                    <p class="mb-0">点击上方 Tab2 等待问题分析完成后<br>系统将根据问题生成目标客户画像</p>
+                                </div>
+                                <button class="btn-apple btn-sm mt-2" onclick="switchSuperTab('tab-problems')">去识别</button>
+                            </div>
+                        </div>
+                    </div><!-- /#super-tab-portraits -->
+
+                </div><!-- /.super-tab-content-wrapper -->
+            </div><!-- /.super-workspace-new -->
+        </div><!-- /#create-mode-section -->
+
+    </div>
+
+    {# 保存画像模态框 #}
+    <div class="modal fade save-portrait-modal" id="savePortraitModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-bookmark-plus me-2"></i>保存画像</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">画像名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="portrait-name-input" placeholder="给这个画像起个名字，如：30-40岁装修业主">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">业务描述</label>
+                        <input type="text" class="form-control" id="portrait-business-input" placeholder="描述这个画像对应的业务场景（选填）">
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="portrait-default-check">
+                        <label class="form-check-label" for="portrait-default-check">设为默认画像</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="btn-confirm-save-portrait" onclick="portraitConfirmSave()">
+                        <i class="bi bi-check-lg me-1"></i>保存画像
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# 删除确认 Toast #}
+    <div class="delete-confirm-toast" id="delete-confirm-toast">
+        <span>确定要删除这个画像吗？</span>
+        <button onclick="doDeletePortrait()" style="background:var(--apple-red);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.8125rem;">删除</button>
+        <button onclick="hideDeleteToast()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.8125rem;">取消</button>
+    </div>
+{% endblock %}
+
+{% block layout_extra_js %}
+<script>
+// 全局变量
+var _portraits = [];
+var _deleteTargetId = null;
+/** 推荐区 Cover Flow 状态（与首页 PortraitManager 逻辑对齐，独立状态避免冲突） */
+var _ppCfIndex = 0;
+var _ppCfCardWidth = 200;
+var _ppCfContainer = null;
+var _ppCfDragging = false;
+var _ppCfStartX = 0;
+var _ppCfCurrentX = 0;
+var _ppCfThreshold = 80;
+var _ppCfBoundHandlers = null;
+var _ppQuickTopicsCache = {};
+var _currentPortraitData = null;
+var _isSavingPortrait = false;
+
+// 超级定位流程相关变量
+var _allProblems = [];
+var _allPortraits = {};
+var _selectedProblemKey = null;
+var _currentMarketAnalysis = {};
+var _isPremium = false;
+var _refreshSeq = 0;
+var _isGeneratingPortraits = false;
+
+// ── 初始化 ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserAuth();
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('create') === '1') {
+        var createSection = document.getElementById('create-mode-section');
+        if (createSection) createSection.style.display = 'block';
+        var body = document.getElementById('portrait-recommend-body');
+        if (body) body.style.display = 'none';
+    } else {
+        loadPortraits();
+    }
+});
+
+/**
+ * 侧栏导航跳转（客户画像页面专用）
+ * 点击"选题清单"或"内容清单"时，跳转到首页并切换对应 Tab
+ * @param {Event} e - 点击事件
+ * @param {string} tabName - Tab 名称
+ */
+const PUBLIC_NAV_INTENT_KEY_PORTRAITS = 'publicIntent';
+
+function openSkinPicker(e) {
+    if (e) e.preventDefault();
+    document.getElementById('topbar-settings-dropdown')?.classList.remove('is-open');
+    document.getElementById('topbar-settings-btn')?.setAttribute('aria-expanded', 'false');
+
+    var _skinPickerModal = null;
+    if (!_skinPickerModal) {
+        _skinPickerModal = new bootstrap.Modal(document.getElementById('skinPickerModal'));
+    }
+
+    syncSkinPickerSelection();
+    _skinPickerModal.show();
+}
+
+function syncSkinPickerSelection() {
+    const currentSkin = document.documentElement.getAttribute('data-skin') || 'classic-red';
+    document.querySelectorAll('.skin-picker-item').forEach(function(item) {
+        item.classList.toggle('active', item.dataset.skin === currentSkin);
+    });
+}
+
+function pickSkin(skinId) {
+    applyPublicSkin(skinId, true);
+    if (typeof showToast === 'function') {
+        showToast('已切换皮肤', 'success');
+    }
+    if (_skinPickerModal) {
+        _skinPickerModal.hide();
+    }
+}
+
+function applyPublicSkin(skinId, persist) {
+    if (!skinId) return;
+    document.documentElement.setAttribute('data-skin', skinId);
+
+    if (persist) {
+        try {
+            localStorage.setItem('publicSkin', skinId);
+        } catch (e) {}
+    }
+}
+
+function getPublicSkin() {
+    try {
+        return localStorage.getItem('publicSkin') || 'classic-red';
+    } catch (e) {
+        return 'classic-red';
+    }
+}
+
+function portraitsNavToTab(e, tabName) {
+    e.preventDefault();
+    try {
+        sessionStorage.setItem(PUBLIC_NAV_INTENT_KEY_PORTRAITS, tabName);
+    } catch (err) { /* ignore */ }
+    window.location.href = '/public';
+}
+
+// 从index.html复制的超级定位相关函数
+function switchSuperTab(tabName) {
+    // Tab名称映射：按钮 data-super-tab="tab-xxx" -> 面板 id="super-tab-xxx"
+    const panelIdMap = {
+        'tab-form': 'super-tab-form',
+        'tab-problems': 'super-tab-problems',
+        'tab-portraits': 'super-tab-portraits'
+    };
+
+    // 更新Tab按钮状态
+    document.querySelectorAll('.super-tab-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.superTab === tabName);
+    });
+
+    // 更新Tab面板显示
+    const targetPanelId = panelIdMap[tabName] || ('super-tab-' + tabName);
+    document.querySelectorAll('.super-tab-panel').forEach(function(panel) {
+        panel.classList.toggle('active', panel.id === targetPanelId);
+    });
+}
+
+function resetSuperPortraitFlow() {
+    if (!confirm('确定要重置吗？当前输入的所有信息将被清除。')) return;
+    
+    // 清空表单
+    document.getElementById('business-desc').value = '';
+    document.getElementById('local-city').value = '';
+    document.getElementById('service-scenario').value = '';
+    document.getElementById('other-scenario-input').value = '';
+    document.querySelector('input[name="business-range"][value="cross_region"]').checked = true;
+    document.querySelector('input[name="business-type"]').checked = false;
+    
+    // 隐藏本地城市输入
+    document.getElementById('local-city-wrapper').style.display = 'none';
+    document.getElementById('other-scenario-wrapper').style.display = 'none';
+    
+    // 清空数据
+    _allProblems = [];
+    _allPortraits = {};
+    _selectedProblemKey = null;
+    
+    // 清空问题区域
+    document.getElementById('problems-section').innerHTML = '';
+    document.getElementById('problems-section').style.display = 'none';
+    document.getElementById('problems-empty-hint').style.display = 'flex';
+    
+    // 清空画像区域
+    document.getElementById('target-customers-section').innerHTML = '';
+    document.getElementById('target-customers-section').style.display = 'none';
+    document.getElementById('portraits-empty-hint').style.display = 'flex';
+    document.getElementById('portrait-generating-loading').style.display = 'none';
+    
+    // 切换到第一个Tab
+    switchSuperTab('tab-form');
+}
+
+// 处理服务场景变更
+function handleServiceScenarioChange() {
+    const select = document.getElementById('service-scenario');
+    const otherWrapper = document.getElementById('other-scenario-wrapper');
+    
+    if (select.value === 'other') {
+        otherWrapper.style.display = 'block';
+    } else {
+        otherWrapper.style.display = 'none';
+        document.getElementById('other-scenario-input').value = '';
+    }
+}
+
+// 核心业务校验
+function validateCoreBusiness(businessDesc) {
+    if (!businessDesc) {
+        return { valid: false, message: '请输入核心业务描述' };
+    }
+    if (businessDesc.length < 2) {
+        return { valid: false, message: '核心业务描述至少需要2个字符' };
+    }
+    if (businessDesc.length > 20) {
+        return { valid: false, message: '核心业务描述不能超过20个字符' };
+    }
+    return { valid: true };
+}
+
+function showBusinessDescError(message) {
+    const errorEl = document.getElementById('business-desc-error');
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.style.display = 'block';
+    }
+}
+
+// 一键分析：问题挖掘 + 画像生成
+async function portraitMineAndGenerate() {
+    const businessDesc = document.getElementById('business-desc').value.trim();
+    const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
+    const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
+    const serviceScenario = document.getElementById('service-scenario')?.value || '';
+    const otherScenario = document.getElementById('other-scenario-input')?.value?.trim() || '';
+    const localCity = document.getElementById('local-city')?.value?.trim() || '';
+
+    // 核心业务校验
+    const validation = validateCoreBusiness(businessDesc);
+    if (!validation.valid) {
+        showBusinessDescError(validation.message);
+        document.getElementById('business-desc').focus();
+        return;
+    }
+    if (!businessRange) {
+        alert('请选择经营范围');
+        return;
+    }
+    if (!businessType) {
+        alert('请选择经营类型');
+        return;
+    }
+
+    // 显示加载状态
+    document.getElementById('problem-mining-loading').style.display = 'block';
+    document.getElementById('problems-section').style.display = 'none';
+    document.getElementById('problems-empty-hint').style.display = 'none';
+    document.getElementById('btn-one-key-analyze').disabled = true;
+
+    try {
+        const resp = await fetch('/public/api/targets/problems', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                business_description: businessDesc,
+                business_range: businessRange,
+                business_type: businessType,
+                service_scenario: serviceScenario,
+                other_scenario: otherScenario,
+                local_city: localCity,
+                refresh_nonce: Date.now(),
+            })
+        });
+
+        if (!resp.ok) {
+            const errorText = await resp.text();
+            showToast('挖掘问题失败，请稍后重试', 'error');
+            console.error('API error:', resp.status, errorText);
+            document.getElementById('problem-mining-loading').style.display = 'none';
+            document.getElementById('problems-empty-hint').style.display = 'flex';
+            return;
+        }
+
+        const data = await resp.json();
+
+        if (data.success && data.problems) {
+            const problems = data.problems.problems || data.problems || [];
+            const marketAnalysis = data.problems.market_analysis || {};
+            _currentMarketAnalysis = marketAnalysis;
+            _allProblems = problems;
+            _allPortraits = {};
+            _isPremium = data.is_premium || false;
+
+            document.getElementById('problem-mining-loading').style.display = 'none';
+            document.getElementById('problems-section').style.display = 'block';
+
+            renderProblemCards(_allProblems);
+
+            // 切换到问题识别Tab
+            switchSuperTab('tab-problems');
+
+            showToast('问题挖掘完成！点击"生成画像"查看人群画像', 'success');
+        } else {
+            document.getElementById('problem-mining-loading').style.display = 'none';
+            document.getElementById('problems-empty-hint').style.display = 'flex';
+            alert(data.message || '问题挖掘失败');
+        }
+    } catch (e) {
+        document.getElementById('problem-mining-loading').style.display = 'none';
+        document.getElementById('problems-empty-hint').style.display = 'flex';
+        alert('生成失败，请稍后重试');
+        console.error(e);
+    } finally {
+        document.getElementById('btn-one-key-analyze').disabled = false;
+    }
+}
+
+// 渲染问题卡片
+function renderProblemCards(problems) {
+    const container = document.getElementById('problems-section');
+    if (!container) return;
+
+    if (!problems || problems.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-4">暂无问题数据</div>';
+        return;
+    }
+
+    container.innerHTML = problems.map((problem, index) => {
+        const identity = problem.identity || '目标客户';
+        const problemType = problem.problem_type || problem.concern_type || '';
+        const severity = problem.severity || '';
+        const stars = severity === '极高' ? '⭐⭐⭐⭐⭐' : severity === '高' ? '⭐⭐⭐⭐' : '⭐⭐⭐';
+        const key = problem.id || ('_p_' + index);
+        const portraitCount = _allPortraits[key] ? _allPortraits[key].length : 0;
+
+        return `
+            <div class="target-customer-card" data-key="${escHtml(key)}" onclick="selectProblemCardAndGenerate('${escHtml(key)}', ${index})">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="badge bg-primary me-2">${escHtml(identity)}</span>
+                        <span class="badge bg-warning text-dark">${escHtml(problemType)}</span>
+                    </div>
+                    ${severity ? `<span class="small text-muted">${stars}</span>` : ''}
+                </div>
+                <p class="mb-2" style="font-size: 0.9375rem; color: var(--text-primary);">${escHtml(problem.description || problem.problem || '')}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="small text-muted">${portraitCount > 0 ? `已生成 ${portraitCount} 个画像` : '点击生成画像'}</span>
+                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); generatePortraitsForProblem('${escHtml(key)}', ${index})">
+                        <i class="bi bi-magic me-1"></i>生成画像
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function selectProblemCardAndGenerate(key, index) {
+    const problem = _allProblems[index];
+    if (problem) {
+        _selectedProblemKey = key;
+        generatePortraitsForProblem(key, index);
+    }
+}
+
+async function generatePortraitsForProblem(key, index) {
+    if (_isGeneratingPortraits) {
+        showToast('画像正在生成中，请稍候...', 'warning');
+        return;
+    }
+    _isGeneratingPortraits = true;
+
+    const problem = _allProblems[index];
+    if (!problem) {
+        showToast('未找到问题数据', 'error');
+        _isGeneratingPortraits = false;
+        return;
+    }
+
+    // 显示加载状态
+    document.getElementById('portrait-generating-loading').style.display = 'block';
+    document.getElementById('target-customers-section').style.display = 'none';
+    document.getElementById('portraits-empty-hint').style.display = 'none';
+
+    try {
+        const businessDesc = document.getElementById('business-desc').value.trim();
+        
+        const resp = await fetch('/public/api/targets/generate-portraits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                business_description: businessDesc,
+                problem: problem,
+                is_premium: _isPremium,
+            })
+        });
+
+        if (!resp.ok) {
+            throw new Error('API请求失败');
+        }
+
+        const data = await resp.json();
+        const portraits = data.portraits || [];
+
+        if (portraits.length === 0) {
+            showToast('该问题暂无画像数据', 'warning');
+        } else {
+            _allPortraits[key] = portraits;
+            _currentPortraitData = portraits[0];
+            
+            // 渲染画像卡片
+            renderTargetCustomerCards(key);
+            
+            // 切换到画像Tab
+            switchSuperTab('tab-portraits');
+            
+            showToast('生成成功！获得 ' + portraits.length + ' 个画像', 'success');
+        }
+    } catch (e) {
+        showToast('生成失败，请稍后重试', 'error');
+        console.error(e);
+    } finally {
+        document.getElementById('portrait-generating-loading').style.display = 'none';
+        document.getElementById('target-customers-section').style.display = 'block';
+        _isGeneratingPortraits = false;
+    }
+}
+
+function renderTargetCustomerCards(key) {
+    const container = document.getElementById('target-customers-section');
+    if (!container) return;
+
+    const portraits = _allPortraits[key] || [];
+    if (portraits.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-4">暂无画像数据</div>';
+        return;
+    }
+
+    container.innerHTML = portraits.map((portrait, index) => {
+        const name = portrait.name || '目标客户' + (index + 1);
+        const description = portrait.description || portrait.persona_description || '';
+        const age = portrait.age || '';
+        const occupation = portrait.occupation || '';
+        const painPoints = portrait.pain_points || portrait.core_needs || [];
+        const consumption = portrait.consumption_level || portrait.consumption_habit || '';
+
+        return `
+            <div class="target-customer-card ${index === 0 ? 'selected' : ''}" data-index="${index}" onclick="selectPortraitCard(this, '${key}', ${index})">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 style="font-size: 1.0625rem; font-weight: 600; margin-bottom: 4px;">${escHtml(name)}</h5>
+                        <div class="d-flex gap-2 flex-wrap">
+                            ${age ? `<span class="badge bg-secondary">${escHtml(age)}</span>` : ''}
+                            ${occupation ? `<span class="badge bg-info">${escHtml(occupation)}</span>` : ''}
+                            ${consumption ? `<span class="badge bg-warning text-dark">${escHtml(consumption)}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                ${description ? `<p class="mb-3" style="font-size: 0.9375rem; color: var(--text-secondary);">${escHtml(description)}</p>` : ''}
+                ${painPoints.length > 0 ? `
+                    <div class="mb-3">
+                        <div class="small text-muted mb-2">核心痛点：</div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            ${painPoints.slice(0, 3).map(p => `<span class="badge bg-danger">${escHtml(typeof p === 'string' ? p : (p.point || p))}</span>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                <div class="d-flex justify-content-end">
+                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); openSavePortraitModal('${key}', ${index})">
+                        <i class="bi bi-bookmark-plus me-1"></i>保存画像
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function selectPortraitCard(card, key, index) {
+    document.querySelectorAll('.target-customer-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    
+    const portraits = _allPortraits[key] || [];
+    if (portraits[index]) {
+        _currentPortraitData = portraits[index];
+    }
+}
+
+function openSavePortraitModal(key, index) {
+    const portraits = _allPortraits[key] || [];
+    if (portraits[index]) {
+        _currentPortraitData = portraits[index];
+    }
+    
+    if (!_currentPortraitData) {
+        showToast('请先生成画像', 'warning');
+        return;
+    }
+
+    // 预填画像名称
+    const portraitName = _currentPortraitData.name || '画像' + (index + 1);
+    document.getElementById('portrait-name-input').value = portraitName;
+    document.getElementById('portrait-business-input').value = document.getElementById('business-desc').value || '';
+    document.getElementById('portrait-default-check').checked = false;
+
+    const modal = new bootstrap.Modal(document.getElementById('savePortraitModal'));
+    modal.show();
+}
+
+async function portraitConfirmSave() {
+    if (_isSavingPortrait) {
+        showToast('正在保存中，请稍候...', 'warning');
+        return;
+    }
+    _isSavingPortrait = true;
+
+    const btn = document.getElementById('btn-confirm-save-portrait');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中...';
+
+    const name = document.getElementById('portrait-name-input').value.trim();
+    const business = document.getElementById('portrait-business-input').value.trim();
+    const setDefault = document.getElementById('portrait-default-check').checked;
+
+    if (!_currentPortraitData) {
+        showToast('没有可保存的画像数据', 'error');
+        resetSavePortraitBtn(btn, originalText);
+        return;
+    }
+
+    if (!name) {
+        showToast('请输入画像名称', 'warning');
+        resetSavePortraitBtn(btn, originalText);
+        return;
+    }
+
+    try {
+        const resp = await fetch('/public/api/portraits/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                portrait_data: _currentPortraitData,
+                portrait_name: name,
+                business_description: business || document.getElementById('business-desc').value.trim(),
+                industry: '',
+                target_customer: _currentPortraitData.name || '',
+                source_session_id: '',
+                set_as_default: setDefault
+            })
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('savePortraitModal'));
+            modal.hide();
+
+            document.getElementById('portrait-name-input').value = '';
+            document.getElementById('portrait-business-input').value = '';
+            document.getElementById('portrait-default-check').checked = false;
+
+            showToast('✓ 画像保存成功！', 'success');
+
+            // 跳转到查看已保存模式
+            setTimeout(() => {
+                loadPortraits();
+            }, 1500);
+        } else {
+            showToast(data.message || '保存失败', 'error');
+        }
+    } catch (e) {
+        showToast('保存出错', 'error');
+        console.error(e);
+    } finally {
+        resetSavePortraitBtn(btn, originalText);
+        _isSavingPortrait = false;
+    }
+}
+
+function resetSavePortraitBtn(btn, originalText) {
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalText || '<i class="bi bi-check-lg me-1"></i>保存画像';
+    }
+}
+
+async function loadUserAuth() {
+    try {
+        const resp = await fetch('/public/api/quota', { credentials: 'include' });
+        const data = await resp.json();
+        if (data.success && data.data) {
+            const user = data.data;
+            document.getElementById('topbar-auth').style.display = 'none';
+            const topbarUser = document.getElementById('topbar-user');
+            topbarUser.style.display = 'flex';
+            const displayName = user.nickname || user.email || '用户';
+            document.getElementById('topbar-nickname').textContent = displayName;
+            const avatarEl = document.getElementById('topbar-avatar');
+            const avatarUrl = user.avatar || '';
+            if (avatarUrl) {
+                avatarEl.innerHTML = '<img src="' + avatarUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+            } else {
+                avatarEl.innerHTML = '<span style="color:#fff;font-weight:600;">' + displayName.charAt(0).toUpperCase() + '</span>';
+            }
+            const planName = user.quota && user.quota.plan_name ? user.quota.plan_name : '';
+            const badge = document.getElementById('topbar-plan-badge');
+            if (planName === '企业版') {
+                badge.textContent = '企业版';
+                badge.className = 'topbar-plan-badge ent';
+            } else if (planName === '专业版') {
+                badge.textContent = '专业版';
+                badge.className = 'topbar-plan-badge pro';
+            } else if (planName === '基础版') {
+                badge.textContent = '基础版';
+                badge.className = 'topbar-plan-badge basic';
+            } else {
+                badge.style.display = 'none';
+            }
+        } else {
+            window.location.href = '/login?type=public&next=' + encodeURIComponent(window.location.pathname + window.location.search);
+        }
+    } catch (e) {
+        window.location.href = '/login?type=public&next=' + encodeURIComponent(window.location.pathname + window.location.search);
+    }
+}
+
+function getPortraitBrief(p) {
+    var bd = p.business_description || '';
+    var industry = p.industry || '';
+    var parts = [];
+    if (industry) parts.push(industry);
+    if (bd) {
+        var short = bd.length > 30 ? bd.substring(0, 30) + '…' : bd;
+        parts.push(short);
+    }
+    return parts.join(' · ') || '暂无描述';
+}
+
+function renderEmptyNetease() {
+    return (
+        '<div class="pp-empty-netease">' +
+        '<svg class="pp-empty-illu" viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+        '<ellipse cx="100" cy="165" rx="72" ry="10" fill="#e8e8ed" opacity="0.6"/>' +
+        '<circle cx="100" cy="88" r="48" fill="#c4a574"/>' +
+        '<path d="M70 62 Q100 38 130 62 L125 78 Q100 58 75 78 Z" fill="#e8a0b8"/>' +
+        '<ellipse cx="100" cy="95" rx="38" ry="32" fill="#d4a574"/>' +
+        '<circle cx="88" cy="88" r="5" fill="#2c2c2e"/><circle cx="112" cy="88" r="5" fill="#2c2c2e"/>' +
+        '<path d="M92 98 Q100 104 108 98" stroke="#2c2c2e" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+        '<path d="M52 78 L48 58 Q46 48 52 42 L58 48 L62 72 Z" fill="#e8a0b8"/>' +
+        '<path d="M148 78 L152 58 Q154 48 148 42 L142 48 L138 72 Z" fill="#e8a0b8"/>' +
+        '<rect x="78" y="48" width="44" height="14" rx="4" fill="#3c3c43"/>' +
+        '<path d="M82 55 L118 55" stroke="#8e8e93" stroke-width="2"/>' +
+        '<circle cx="100" cy="55" r="4" fill="#636366"/>' +
+        '</svg>' +
+        '<p class="pp-empty-text">空空如也</p>' +
+        '<p class="pp-empty-hint">还没有保存的客户画像</p>' +
+        '<a href="/public/portraits/create" class="btn-create-portrait" style="margin-top:16px;text-decoration:none;">' +
+        '<i class="bi bi-plus-lg"></i> 开始创作' +
+        '</a>' +
+        '</div>'
+    );
+}
+
+function buildRecommendPrCard(p, i) {
+    var tone = (i % 4) + 1;
+    var name = escHtml(p.portrait_name || ('画像' + (i + 1)));
+    var brief = escHtml(getPortraitBrief(p));
+    var dateStr = p.created_at ? formatDate(p.created_at) : '';
+    var topicCount = 0;
+    if (p.topic_library && p.topic_library.topics) topicCount = p.topic_library.topics.length;
+    var statText = topicCount > 0 ? ('🎧 ' + topicCount + ' 个选题') : '🎧 选题待生成';
+    var pid = p.id;
+    return (
+        '<div class="pr-card pr-tone-' + tone + '" data-portrait-id="' + pid + '" data-pp-index="' + i + '"' +
+        ' onmouseenter="ppOnCardHover(' + pid + ')"' +
+        ' onclick="ppOnCardClick(' + i + ')">' +
+        '<button type="button" class="pr-card-delete" title="删除"' +
+        ' onclick="event.stopPropagation(); confirmDelete(' + pid + ')"><i class="bi bi-trash"></i></button>' +
+        '<div class="pr-card-surface">' +
+        '<div class="pr-card-cover">' +
+        '<span class="pr-card-stat">' + escHtml(statText) + '</span>' +
+        '<i class="bi bi-person-fill" aria-hidden="true"></i>' +
+        '</div>' +
+        '<div class="pr-card-footer">' +
+        '<div class="pr-card-name">' + name + '</div>' +
+        '<div class="pr-card-meta">' + brief + '</div>' +
+        (dateStr ? '<div class="pr-card-date">' + escHtml(dateStr) + '</div>' : '') +
+        '</div></div>' +
+        '<div class="pr-hover-overlay">' +
+        '<div class="pr-hover-content" id="pp-pr-overlay-' + pid + '">' +
+        '<div class="pr-hover-generating" style="text-align:center;padding:8px 0;">' +
+        '<span style="color:rgba(255,255,255,0.5);font-size:0.6875rem;">加载中...</span></div>' +
+        '</div>' +
+        '<button type="button" class="pr-hover-play" aria-label="进入生成" title="进入生成"' +
+        ' onclick="event.stopPropagation(); ppOnPlayClick(' + pid + ')">' +
+        '<i class="bi bi-play-fill" aria-hidden="true"></i></button>' +
+        '</div></div>'
+    );
+}
+
+function renderRecommendCoverflow(portraits) {
+    var newCard = (
+        '<div class="pr-card pr-tone-1 pp-cf-new-card" id="pp-cf-new-card"' +
+        ' onclick="window.location.href=\'/public/portraits/create\'">' +
+        '<button type="button" class="pr-card-delete" style="display:none;"></button>' +
+        '<div class="pr-card-surface">' +
+        '<div class="pr-card-cover">' +
+        '<span class="pr-card-stat">🎧 开始创作</span>' +
+        '<i class="bi bi-plus-lg" aria-hidden="true"></i>' +
+        '</div>' +
+        '<div class="pr-card-footer">' +
+        '<div class="pr-card-name">生成新画像</div>' +
+        '<div class="pr-card-meta">点击进入超级定位</div>' +
+        '</div></div></div>'
+    );
+    var cards = (portraits || []).map(function(p, i) {
+        return buildRecommendPrCard(p, i);
+    }).join('');
+    return (
+        '<div class="pp-cf-wrap" id="pp-cf-wrap">' +
+        '<div class="pp-cf-stage" id="pp-cf-stage">' +
+        '<div class="pp-cf-track" id="pp-cf-track">' + newCard + cards + '</div>' +
+        '</div>' +
+        '<button type="button" class="pp-cf-side-arrow pp-cf-prev pp-cf-hidden" id="pp-cf-prev" onclick="ppCfPrev()" aria-label="上一张"><i class="bi bi-chevron-left"></i></button>' +
+        '<button type="button" class="pp-cf-side-arrow pp-cf-next" id="pp-cf-next" onclick="ppCfNext()" aria-label="下一张"><i class="bi bi-chevron-right"></i></button>' +
+        '</div>'
+    );
+}
+
+function ppOnCardClick(index) {
+    _ppCfIndex = index;
+    updatePpCoverFlowTransform(_ppCfIndex, 0);
+    updatePpCfArrowVisibility();
+}
+
+function ppOnCardHover(portraitId) {
+    if (!_ppQuickTopicsCache[portraitId]) {
+        _ppQuickTopicsCache[portraitId] = { topics: [], status: 'loading' };
+        ppFetchQuickTopics(portraitId);
+    }
+}
+
+function ppFetchQuickTopics(portraitId) {
+    fetch('/public/api/portraits/' + portraitId + '/topics/quick?count=3', { credentials: 'include' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success && data.data) {
+                var topics = data.data.topics || [];
+                var hasTopics = data.data.has_topics;
+                _ppQuickTopicsCache[portraitId] = { topics: topics, status: hasTopics ? 'done' : 'empty' };
+                ppRenderHoverOverlay(portraitId, topics);
+            } else {
+                _ppQuickTopicsCache[portraitId] = { topics: [], status: 'empty' };
+                ppRenderHoverOverlay(portraitId, []);
+            }
+        })
+        .catch(function() {
+            _ppQuickTopicsCache[portraitId] = { topics: [], status: 'empty' };
+            ppRenderHoverOverlay(portraitId, []);
+        });
+}
+
+function ppRenderHoverOverlay(portraitId, topics) {
+    var el = document.getElementById('pp-pr-overlay-' + portraitId);
+    if (!el) return;
+    if (!topics || topics.length === 0) {
+        el.innerHTML = '<div class="pr-hover-generating">暂无选题</div>';
+        return;
+    }
+    var html = '<ul class="pr-hover-topics">';
+    for (var t = 0; t < topics.length; t++) {
+        var title = escHtml(topics[t].title || '');
+        html += '<li class="pr-hover-topic" title="' + title + '">' + title + '</li>';
+    }
+    html += '</ul>';
+    el.innerHTML = html;
+}
+
+function ppOnPlayClick(portraitId) {
+    window.location.href = '/public/produce?portraitId=' + portraitId;
+}
+
+function updatePpCoverFlowTransform(index, offset) {
+    var track = document.getElementById('pp-cf-track');
+    if (!track) return;
+    var cards = track.querySelectorAll('.pr-card');
+    var w = _ppCfCardWidth;
+    // index 指的是画像数组中的下标；track[0] 是新卡片，track[i+1] 是第 i 张画像
+    cards.forEach(function(card, i) {
+        var pos = i - (index + 1);
+        var x = pos * w + offset;
+        var rotateY = pos * -25;
+        var scale = i === (index + 1) ? 1.08 : 0.88;
+        var zIndex = 100 - Math.abs(pos);
+        var opacity = Math.abs(pos) > 2 ? 0 : 1;
+        card.style.transform = 'translateX(calc(-50% + ' + x + 'px)) rotateY(' + rotateY + 'deg) scale(' + scale + ')';
+        card.style.zIndex = zIndex;
+        card.style.opacity = opacity;
+        card.classList.toggle('pr-cf-active', i === (index + 1));
+    });
+}
+
+function ppCfPrev() {
+    if (_ppCfIndex > -1) {
+        _ppCfIndex--;
+        updatePpCoverFlowTransform(_ppCfIndex, 0);
+        updatePpCfArrowVisibility();
+    }
+}
+
+function ppCfNext() {
+    if (_ppCfIndex < _portraits.length - 1) {
+        _ppCfIndex++;
+        updatePpCoverFlowTransform(_ppCfIndex, 0);
+        updatePpCfArrowVisibility();
+    }
+}
+
+function ppCfOnKeydown(e) {
+    if (e.key === 'ArrowLeft') { ppCfPrev(); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { ppCfNext(); e.preventDefault(); }
+}
+
+function updatePpCfArrowVisibility() {
+    var prevBtn = document.getElementById('pp-cf-prev');
+    var nextBtn = document.getElementById('pp-cf-next');
+    if (prevBtn) prevBtn.classList.toggle('pp-cf-visible', _ppCfIndex > -1);
+    if (nextBtn) nextBtn.classList.toggle('pp-cf-hidden', _ppCfIndex >= _portraits.length - 1);
+}
+
+function initPpCoverFlow() {
+    _ppCfContainer = document.getElementById('pp-cf-wrap');
+    _ppCfIndex = -1;  // -1 = 新建卡片居中
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+        _ppCfCardWidth = 168;
+    } else {
+        _ppCfCardWidth = 200;
+    }
+    _ppCfDragging = false;
+    var wrap = document.getElementById('pp-cf-wrap');
+    var stage = document.getElementById('pp-cf-stage');
+    var track = document.getElementById('pp-cf-track');
+    if (!stage || !track || !wrap) return;
+
+    if (_ppCfBoundHandlers) {
+        document.removeEventListener('mousemove', _ppCfBoundHandlers.onMove);
+        document.removeEventListener('mouseup', _ppCfBoundHandlers.onEnd);
+        document.removeEventListener('touchmove', _ppCfBoundHandlers.onMove);
+        document.removeEventListener('touchend', _ppCfBoundHandlers.onEnd);
+    }
+
+    var onStart = function(e) {
+        _ppCfDragging = true;
+        _ppCfStartX = e.type.indexOf('mouse') >= 0 ? e.clientX : e.touches[0].clientX;
+        _ppCfCurrentX = 0;
+        track.style.transition = 'none';
+    };
+    var onMove = function(e) {
+        if (!_ppCfDragging) return;
+        if (e.type === 'touchmove') e.preventDefault();
+        var clientX = e.type.indexOf('mouse') >= 0 ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        _ppCfCurrentX = clientX - _ppCfStartX;
+        updatePpCoverFlowTransform(_ppCfIndex, _ppCfCurrentX);
+    };
+    var onEnd = function() {
+        if (!_ppCfDragging) return;
+        _ppCfDragging = false;
+        track.style.transition = '';
+        var delta = _ppCfCurrentX;
+        if (delta < -_ppCfThreshold && _ppCfIndex < _portraits.length - 1) {
+            _ppCfIndex++;
+        } else if (delta > _ppCfThreshold && _ppCfIndex > -1) {
+            _ppCfIndex--;
+        }
+        updatePpCoverFlowTransform(_ppCfIndex, 0);
+        updatePpCfArrowVisibility();
+    };
+
+    _ppCfBoundHandlers = { onMove: onMove, onEnd: onEnd, onKeydown: ppCfOnKeydown };
+
+    stage.addEventListener('mousedown', onStart);
+    stage.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchend', onEnd);
+    document.addEventListener('keydown', ppCfOnKeydown);
+
+    updatePpCoverFlowTransform(_ppCfIndex, 0);
+    updatePpCfArrowVisibility();
+
+    Object.keys(_ppQuickTopicsCache).forEach(function(pid) {
+        var c = _ppQuickTopicsCache[pid];
+        if (c && (c.status === 'done' || c.status === 'empty')) {
+            ppRenderHoverOverlay(parseInt(pid, 10), c.topics);
+        }
+    });
+}
+
+function ensurePortraitLoadingEl() {
+    var el = document.getElementById('loading-state');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'loading-state';
+    el.className = 'loading-state';
+    el.innerHTML = '<div class="apple-spinner mx-auto" style="width:32px;height:32px;border-width:3px;"></div>' +
+        '<p style="margin-top:12px;color:var(--apple-gray);font-size:0.875rem;">加载画像中...</p>';
+    return el;
+}
+
+async function loadPortraits() {
+    var body = document.getElementById('portrait-recommend-body');
+    if (!body) return;
+
+    var loadingEl = ensurePortraitLoadingEl();
+    try {
+        loadingEl.style.display = 'block';
+        body.innerHTML = '';
+        body.appendChild(loadingEl);
+
+        var resp = await fetch('/public/api/portraits/saved?include_data=true', { credentials: 'include' });
+        var data = await resp.json();
+
+        loadingEl.style.display = 'none';
+
+        if (!data.success || !data.data || data.data.length === 0) {
+            _portraits = [];
+            _ppQuickTopicsCache = {};
+            body.innerHTML = renderEmptyNetease();
+            return;
+        }
+
+        _portraits = data.data;
+        body.innerHTML = renderRecommendCoverflow(_portraits);
+        initPpCoverFlow();
+    } catch (e) {
+        loadingEl.style.display = 'none';
+        body.innerHTML = '<div class="empty-state"><p style="color:var(--apple-red);">加载失败，请刷新重试</p></div>';
+    }
+}
+
+function goProduce(portraitId) {
+    window.location.href = '/public/produce?portraitId=' + portraitId;
+}
+
+function confirmDelete(portraitId) {
+    _deleteTargetId = portraitId;
+    var toast = document.getElementById('delete-confirm-toast');
+    toast.classList.add('show');
+}
+
+function hideDeleteToast() {
+    var toast = document.getElementById('delete-confirm-toast');
+    toast.classList.remove('show');
+}
+
+async function doDeletePortrait() {
+    hideDeleteToast();
+    if (!_deleteTargetId) return;
+
+    try {
+        var resp = await fetch('/public/api/portraits/' + _deleteTargetId, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        var data = await resp.json();
+        if (data.success) {
+            showToast('画像已删除', 'success');
+            delete _ppQuickTopicsCache[_deleteTargetId];
+            await loadPortraits();
+        } else {
+            showToast(data.message || '删除失败', 'error');
+        }
+    } catch (e) {
+        showToast('删除失败', 'error');
+    }
+
+    _deleteTargetId = null;
+}
+
+// ── 工具函数 ──────────────────────────────────────
+function escHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+function formatDate(isoString) {
+    try {
+        var d = new Date(isoString);
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    } catch (e) { return '--'; }
+}
+
+function showToast(message, type) {
+    var alertClass = 'alert-info';
+    if (type === 'success') alertClass = 'alert-success';
+    else if (type === 'error') alertClass = 'alert-danger';
+    else if (type === 'warning') alertClass = 'alert-warning';
+    
+    var toastContainer = document.querySelector('.toast-container') || createToastContainer();
+    var toast = document.createElement('div');
+    toast.className = 'alert ' + alertClass + ' alert-dismissible fade show';
+    toast.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 280px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+    toast.innerHTML = message + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+    toastContainer.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 3000);
+}
+
+function createToastContainer() {
+    var container = document.createElement('div');
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+    return container;
+}
+
+async function logout(e) {
+    if (e) e.preventDefault();
+    try { await fetch('/public/api/logout', { method: 'POST', credentials: 'include' }); }
+    catch (err) {}
+    window.location.href = '/login?type=public';
+}
+</script>
+{% endblock %}

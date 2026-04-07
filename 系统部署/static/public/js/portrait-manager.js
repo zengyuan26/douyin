@@ -22,14 +22,21 @@ const PortraitManager = {
     _totalTopicCount: 0,              // 选题库总数
     _selectedTopicIdx: null,          // 当前选中的选题索引
 
+    // 精选区卡片悬停选题缓存（每个画像随机抽3条，进页面只抽一次）
+    _quickTopicsCache: {},            // { portraitId: { topics: [], status: 'loading'|'done'|'empty' } }
+
     // ========================================================================
     // 一、初始化
     // ========================================================================
 
     async init() {
+        console.log('[PortraitManager.init] 开始');
         await this.loadQuota();
+        console.log('[PortraitManager.init] loadQuota 完成');
         await this.loadSavedPortraits();
+        console.log('[PortraitManager.init] loadSavedPortraits 完成');
         await this.loadLibraryQuota();
+        console.log('[PortraitManager.init] loadLibraryQuota 完成');
     },
 
     // 重置当前画像索引
@@ -48,11 +55,10 @@ const PortraitManager = {
             if (data.success) {
                 this._quota = data.data;
                 this.updateQuotaDisplay();
-                // 付费用户显示画像专区（新版精选 + 横铺）
+                // 付费用户显示画像专区（横铺）- portrait-section 已移至客户画像页面
                 if (this._quota && this._quota.can_save) {
-                    document.getElementById('featured-section').style.display = 'block';
                     document.getElementById('portraits-row-section').style.display = 'block';
-                    document.getElementById('portrait-section').style.display = 'block';
+                    // document.getElementById('portrait-section').style.display = 'block';
                 }
             }
         } catch (e) {
@@ -61,15 +67,7 @@ const PortraitManager = {
     },
 
     updateQuotaDisplay() {
-        const el = document.getElementById('quota-info');
-        if (!el || !this._quota) return;
-        const planType = this._quota.plan_type || 'free';
-
-        if (planType === 'free') {
-            el.innerHTML = '<span>今日剩余次数：<strong id="quota-count">2</strong> 次</span><a href="/public/pricing" class="alert-link">升级获取更多次数 →</a>';
-        } else {
-            el.innerHTML = '';  // 付费用户不显示配额信息
-        }
+        // 配额展示已移除
     },
 
     async loadLibraryQuota() {
@@ -131,7 +129,6 @@ const PortraitManager = {
                     }
                 }
 
-                this.renderFeaturedCoverFlow();
                 this.renderPortraitsRow();
                 this.renderPortraitCards();
                 // 有已保存画像时，隐藏超级定位步骤
@@ -151,12 +148,12 @@ const PortraitManager = {
     renderPortraitCards() {
         const container = document.getElementById('portrait-cards-list');
         const loading = document.getElementById('portrait-cards-loading');
+        // 先移除 loading，防止元素缺失时 loading 一直存在
+        if (loading) loading.style.display = 'none';
         if (!container) {
             console.error('[PortraitManager] 未找到画像卡片容器 #portrait-cards-list');
             return;
         }
-
-        if (loading) loading.style.display = 'none';
 
         if (this._savedPortraits.length === 0) {
             container.innerHTML = `
@@ -298,7 +295,6 @@ const PortraitManager = {
         if (currentIndex > 0) {
             this._currentPortraitIndex = currentIndex - 1;
             this.renderPortraitCards();
-            this.renderFeaturedCoverFlow();
             this.renderPortraitsRow();
         }
     },
@@ -308,7 +304,6 @@ const PortraitManager = {
         if (currentIndex < this._savedPortraits.length - 1) {
             this._currentPortraitIndex = currentIndex + 1;
             this.renderPortraitCards();
-            this.renderFeaturedCoverFlow();
             this.renderPortraitsRow();
         }
     },
@@ -393,7 +388,6 @@ const PortraitManager = {
                 if (idx >= 0) {
                     this._savedPortraits[idx].generation_status = 'generating';
                     this.renderPortraitCards();
-                    this.renderFeaturedCoverFlow();
                     this.renderPortraitsRow();
                     this._startLibraryPolling(portraitId);
                 }
@@ -1717,7 +1711,6 @@ const PortraitManager = {
                             Object.assign(localPortrait, status);
                         }
                         this.renderPortraitCards();
-                        this.renderFeaturedCoverFlow();
                         this.renderPortraitsRow();
 
                         if (genStatus === 'failed') {
@@ -2017,216 +2010,30 @@ const PortraitManager = {
         localStorage.setItem(key, '1');
     },
 
-    // ========================================================================
-    // Cover Flow 模式 - iPod Classic 风格
-    // ========================================================================
-
-    _cfContainer: null,
-    _cfIndex: 0,
-    _cfCardWidth: 280,
-    _cfDragging: false,
-    _cfStartX: 0,
-    _cfCurrentX: 0,
-    _cfThreshold: 80,
-    _cfBoundHandlers: null,
-
-    // 精选展示 Cover Flow（新版）
-    _fcContainer: null,
-    _fcIndex: 0,
-    _fcCardWidth: 220,
-    _fcDragging: false,
-    _fcStartX: 0,
-    _fcCurrentX: 0,
-    _fcThreshold: 60,
-    _fcBoundHandlers: null,
-
-    // ========================================================================
-    // 精选展示 Cover Flow
-    // ========================================================================
-    renderFeaturedCoverFlow() {
-        const section = document.getElementById('featured-section');
-        const track = document.getElementById('featured-coverflow-track');
-        const dots = document.getElementById('fc-nav-dots');
-        const count = document.getElementById('featured-count');
-        if (!section || !track) return;
-
-        const portraits = this._savedPortraits;
-        section.style.display = portraits.length > 0 ? 'block' : 'none';
-        if (count) count.textContent = portraits.length > 0 ? `${portraits.length} 个精选画像` : '';
-
-        if (portraits.length === 0) {
-            track.innerHTML = '';
-            if (dots) dots.innerHTML = '';
-            return;
-        }
-
-        const cards = portraits.map((p, i) => {
-            const name = this.escapeHtml(p.portrait_name || '画像' + (i + 1));
-            const desc = this._getPortraitBrief(p);
-            const tags = this._getPortraitTags(p).slice(0, 3);
-            const date = p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '';
-            const isCenter = (p.id === this._currentPortraitId) || (!this._currentPortraitId && i === 0);
-
-            return `
-                <div class="featured-coverflow-card${isCenter ? ' is-center' : ''}"
-                     data-index="${i}" data-id="${p.id}" onclick="PortraitManager.selectPortraitById(${p.id})">
-                    <div class="fc-card-inner">
-                        <div class="fc-card-cover">
-                            <i class="bi bi-person-fill"></i>
-                        </div>
-                        <div class="fc-card-body">
-                            <div class="fc-card-name">${name}</div>
-                            <div class="fc-card-desc">${desc}</div>
-                            ${tags.length ? `<div class="fc-card-tags">${tags.map(t => `<span class="fc-tag">${this.escapeHtml(t)}</span>`).join('')}</div>` : ''}
-                        </div>
-                        <div class="fc-card-footer">
-                            <span class="fc-card-date">${date}</span>
-                            <div class="fc-card-actions">
-                                <button class="fc-btn-icon delete" onclick="event.stopPropagation(); PortraitManager.confirmDeletePortrait(${p.id})" title="删除">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-        }).join('');
-
-        track.innerHTML = cards;
-        this._renderFcDots();
-
-        this._fcContainer = section;
-        this._initFeaturedCoverFlow();
-    },
-
+    // 画像摘要（用于横铺卡片）
     _getPortraitBrief(p) {
-        const pd = p.portrait_data;
-        if (!pd || !pd.personas || !pd.personas.length) {
-            return p.industry ? `行业：${p.industry}` : '暂无详细描述';
+        const bd = p.business_description || '';
+        const industry = p.industry || '';
+        const parts = [];
+        if (industry) parts.push(industry);
+        if (bd) {
+            const short = bd.length > 30 ? bd.substring(0, 30) + '…' : bd;
+            parts.push(short);
         }
-        const persona = pd.personas[0];
-        const segs = [];
-        if (persona.identity) segs.push(persona.identity);
-        if (persona.problem) segs.push(persona.problem);
-        return segs.slice(0, 2).join('；') || '暂无描述';
-    },
-
-    _getPortraitTags(p) {
-        const pd = p.portrait_data;
-        if (!pd || !pd.personas || !pd.personas.length) return [];
-        const tags = [];
-        const persona = pd.personas[0];
-        if (persona.buyer_perspective?.tags) tags.push(...persona.buyer_perspective.tags);
-        if (persona.occupation) tags.push(persona.occupation);
-        if (persona.demographic?.age) tags.push(persona.demographic.age);
-        return tags.slice(0, 5);
-    },
-
-    _renderFcDots() {
-        const dots = document.getElementById('fc-nav-dots');
-        if (!dots) return;
-        dots.innerHTML = this._savedPortraits.map((p, i) =>
-            `<span class="fc-dot${i === this._fcIndex ? ' is-active' : ''}" data-idx="${i}"></span>`
-        ).join('');
-        dots.querySelectorAll('.fc-dot').forEach(dot => {
-            dot.addEventListener('click', () => {
-                const idx = parseInt(dot.dataset.idx);
-                this._fcIndex = idx;
-                this._updateFeaturedTransform(this._fcIndex, 0);
-                this._renderFcDots();
-            });
-        });
-    },
-
-    _initFeaturedCoverFlow() {
-        const stage = this._fcContainer?.querySelector('.featured-coverflow-stage');
-        const track = document.getElementById('featured-coverflow-track');
-        if (!stage || !track) return;
-
-        const ci = this._savedPortraits.findIndex(p => p.id === this._currentPortraitId);
-        this._fcIndex = ci >= 0 ? ci : 0;
-
-        if (this._fcBoundHandlers) {
-            document.removeEventListener('mousemove', this._fcBoundHandlers.onMove);
-            document.removeEventListener('mouseup', this._fcBoundHandlers.onEnd);
-            document.removeEventListener('touchmove', this._fcBoundHandlers.onMove);
-            document.removeEventListener('touchend', this._fcBoundHandlers.onEnd);
-        }
-
-        const self = this;
-        const onStart = function(e) {
-            self._fcDragging = true;
-            self._fcStartX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-            self._fcCurrentX = 0;
-            track.style.transition = 'none';
-        };
-        const onMove = function(e) {
-            if (!self._fcDragging) return;
-            if (e.type === 'touchmove') e.preventDefault();
-            const clientX = e.type.includes('mouse') ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-            self._fcCurrentX = clientX - self._fcStartX;
-            self._updateFeaturedTransform(self._fcIndex, self._fcCurrentX);
-        };
-        const onEnd = function() {
-            if (!self._fcDragging) return;
-            self._fcDragging = false;
-            track.style.transition = '';
-            const delta = self._fcCurrentX;
-            if (delta < -self._fcThreshold && self._fcIndex < self._savedPortraits.length - 1) {
-                self._fcIndex++;
-            } else if (delta > self._fcThreshold && self._fcIndex > 0) {
-                self._fcIndex--;
-            }
-            self._updateFeaturedTransform(self._fcIndex, 0);
-            self._renderFcDots();
-        };
-
-        this._fcBoundHandlers = { onMove, onEnd };
-        stage.addEventListener('mousedown', onStart);
-        stage.addEventListener('touchstart', onStart, { passive: true });
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('touchmove', onMove, { passive: false });
-        document.addEventListener('mouseup', onEnd);
-        document.addEventListener('touchend', onEnd);
-
-        document.getElementById('fc-nav-prev')?.addEventListener('click', () => {
-            if (this._fcIndex > 0) { this._fcIndex--; this._updateFeaturedTransform(this._fcIndex, 0); this._renderFcDots(); }
-        });
-        document.getElementById('fc-nav-next')?.addEventListener('click', () => {
-            if (this._fcIndex < this._savedPortraits.length - 1) { this._fcIndex++; this._updateFeaturedTransform(this._fcIndex, 0); this._renderFcDots(); }
-        });
-
-        this._updateFeaturedTransform(this._fcIndex, 0);
-    },
-
-    _updateFeaturedTransform(index, offset) {
-        const track = document.getElementById('featured-coverflow-track');
-        if (!track) return;
-        const cards = track.querySelectorAll('.featured-coverflow-card');
-        const w = this._fcCardWidth;
-        cards.forEach((card, i) => {
-            const pos = i - index;
-            const x = pos * w + offset;
-            const rotateY = pos * -28;
-            const scale = i === index ? 1.06 : 0.86;
-            const zIndex = 100 - Math.abs(pos);
-            const opacity = Math.abs(pos) > 2 ? 0 : 1;
-            card.style.transform = `translateX(calc(-50% + ${x}px)) rotateY(${rotateY}deg) scale(${scale})`;
-            card.style.zIndex = zIndex;
-            card.style.opacity = opacity;
-            card.classList.toggle('is-center', i === index);
-        });
+        return parts.join(' · ') || '暂无描述';
     },
 
     // ========================================================================
-    // 画像横铺区（横向滚动卡片行）
+    // 画像横铺区（横向滚动卡片行）- 精选区风格
     // ========================================================================
     renderPortraitsRow() {
         const section = document.getElementById('portraits-row-section');
         const scroll = document.getElementById('portraits-row-scroll');
         const loading = document.getElementById('portraits-row-loading');
+        // 先移除 loading，防止元素缺失时 loading 一直存在
+        if (loading) loading.remove();
         if (!section || !scroll) return;
 
-        if (loading) loading.remove();
         section.style.display = this._savedPortraits.length > 0 ? 'block' : 'none';
 
         if (this._savedPortraits.length === 0) {
@@ -2239,25 +2046,101 @@ const PortraitManager = {
             const brief = this._getPortraitBrief(p);
             const date = p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '';
             const isActive = p.id === this._currentPortraitId;
+            let topicCount = 0;
+            if (p.topic_library && p.topic_library.topics) topicCount = p.topic_library.topics.length;
+            const statText = topicCount > 0 ? `🎧 ${topicCount} 个选题` : '🎧 选题待生成';
             return `
-                <div class="pr-card${isActive ? ' selected' : ''}" onclick="PortraitManager.selectPortraitById(${p.id})">
-                    <div class="pr-card-cover">
-                        <i class="bi bi-person-fill"></i>
+                <div class="pr-card${isActive ? ' selected' : ''}" data-portrait-id="${p.id}"
+                     onmouseenter="PortraitManager._onCardHover(${p.id})"
+                     onclick="PortraitManager.selectPortraitById(${p.id})">
+                    <div class="pr-card-surface">
+                        <div class="pr-card-cover">
+                            <span class="pr-card-stat">${this.escapeHtml(statText)}</span>
+                            <i class="bi bi-person-fill" aria-hidden="true"></i>
+                        </div>
+                        <div class="pr-card-footer">
+                            <div class="pr-card-name">${name}</div>
+                            <div class="pr-card-meta">${this.escapeHtml(brief)}</div>
+                            ${date ? `<div class="pr-card-date">${this.escapeHtml(date)}</div>` : ''}
+                        </div>
                     </div>
-                    <div class="pr-card-body">
-                        <div class="pr-card-name">${name}</div>
-                        <div class="pr-card-meta">${brief}</div>
-                        <div class="pr-card-meta" style="margin-top: 2px; color: var(--apple-gray);">${date}</div>
+                    <div class="pr-hover-overlay">
+                        <div class="pr-hover-content" id="pr-overlay-${p.id}">
+                            <div class="pr-hover-loading" style="text-align:center;padding:8px 0;">
+                                <span style="color:rgba(255,255,255,0.5);font-size:0.6875rem;">加载中...</span>
+                            </div>
+                        </div>
+                        <button type="button" class="pr-hover-play" aria-label="进入生成" title="进入生成"
+                                onclick="event.stopPropagation(); PortraitManager._onPlayClick(${p.id})">
+                            <i class="bi bi-play-fill" aria-hidden="true"></i>
+                        </button>
                     </div>
                 </div>`;
         }).join('');
 
         scroll.innerHTML = html;
+
+        // 渲染已缓存的选题（防止 hover 再次触发时闪烁）
+        Object.keys(this._quickTopicsCache).forEach(pid => {
+            const c = this._quickTopicsCache[pid];
+            if (c.status === 'done' || c.status === 'empty') {
+                this._renderHoverOverlay(parseInt(pid), c.topics);
+            }
+        });
+    },
+
+    _onCardHover(portraitId) {
+        if (!this._quickTopicsCache[portraitId]) {
+            this._quickTopicsCache[portraitId] = { topics: [], status: 'loading' };
+            this._fetchQuickTopics(portraitId);
+        }
+    },
+
+    _fetchQuickTopics(portraitId) {
+        fetch('/public/api/portraits/' + portraitId + '/topics/quick?count=3', {
+            credentials: 'include'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.data) {
+                const topics = data.data.topics || [];
+                const hasTopics = data.data.has_topics;
+                this._quickTopicsCache[portraitId] = { topics, status: hasTopics ? 'done' : 'empty' };
+                this._renderHoverOverlay(portraitId, topics);
+            } else {
+                this._quickTopicsCache[portraitId] = { topics: [], status: 'empty' };
+                this._renderHoverOverlay(portraitId, []);
+            }
+        })
+        .catch(() => {
+            this._quickTopicsCache[portraitId] = { topics: [], status: 'empty' };
+            this._renderHoverOverlay(portraitId, []);
+        });
+    },
+
+    _renderHoverOverlay(portraitId, topics) {
+        const el = document.getElementById('pr-overlay-' + portraitId);
+        console.log('[_renderHoverOverlay] portraitId=' + portraitId + ', topics=' + topics.length + ', el=', el);
+        if (!el) return;
+
+        if (topics.length === 0) {
+            el.innerHTML = '<div class="pr-hover-generating">暂无选题</div>';
+            return;
+        }
+
+        const html = '<ul class="pr-hover-topics">' +
+            topics.map(t => '<li class="pr-hover-topic" title="' + this.escapeHtml(t.title || '') + '">' +
+                this.escapeHtml(t.title || '') + '</li>').join('') +
+            '</ul>';
+        el.innerHTML = html;
+    },
+
+    _onPlayClick(portraitId) {
+        window.location.href = '/public/produce?portraitId=' + portraitId;
     },
 
     selectPortraitById(portraitId) {
         this._currentPortraitId = portraitId;
-        this.renderFeaturedCoverFlow();
         this.renderPortraitsRow();
         // 同时更新原 accordion 区（如果存在）
         if (typeof this.renderPortraitCards === 'function') {

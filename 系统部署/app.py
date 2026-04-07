@@ -10,7 +10,7 @@ load_dotenv()
 
 from flask import Flask
 from flask_login import LoginManager
-from config import config
+from config import config, BASE_DIR
 from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, KnowledgeAccount, KnowledgeAccountHistory
 
 # 配置日志
@@ -124,7 +124,8 @@ def create_app(config_name='default'):
     # 初始化公开平台缓存预热
     try:
         from services.public_cache import public_cache
-        public_cache.warm_up(app)
+        with app.app_context():
+            public_cache.warm_up(app)
         logging.info("公开平台缓存预热完成")
     except Exception as e:
         logging.warning(f"公开平台缓存预热失败: {e}")
@@ -134,6 +135,23 @@ def create_app(config_name='default'):
     upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
     if not os.path.exists(upload_folder):
         os.makedirs(upload_folder)
+
+    # 确保 static/uploads 目录存在（用于用户上传资源如头像）
+    static_uploads_dir = os.path.join(BASE_DIR, 'static', 'uploads')
+    if not os.path.exists(static_uploads_dir):
+        os.makedirs(static_uploads_dir, exist_ok=True)
+    avatars_dir = os.path.join(static_uploads_dir, 'avatars')
+    if not os.path.exists(avatars_dir):
+        os.makedirs(avatars_dir, exist_ok=True)
+
+    # 注册静态文件路由：/static/uploads/* -> static/uploads/
+    # 解决用户上传资源（如头像）无法访问的问题
+    from flask import send_from_directory
+    import re
+
+    @app.route('/static/uploads/<path:filename>')
+    def serve_uploads(filename):
+        return send_from_directory(os.path.join(BASE_DIR, 'static', 'uploads'), filename)
     
     # 初始化定时备份服务
     if os.environ.get('FLASK_RUN') or os.environ.get('WERKZEUG_RUN_MAIN'):
