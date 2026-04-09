@@ -11,6 +11,14 @@
             <i class="bi bi-grid-1x2"></i>
             总览
         </a>
+        <a class="public-sidebar-link" href="{{ url_for('admin.persona_generator') }}">
+            <i class="bi bi-person-badge"></i>
+            画像管理
+        </a>
+        <a class="public-sidebar-link" href="{{ url_for('admin.industries') }}">
+            <i class="bi bi-building"></i>
+            行业管理
+        </a>
         <a class="public-sidebar-link" href="{{ url_for('admin.templates', type='report') }}">
             <i class="bi bi-file-earmark-text"></i>
             模板管理
@@ -30,6 +38,18 @@
         <a class="public-sidebar-link" href="{{ url_for('admin.analysis_dimensions_page') }}">
             <i class="bi bi-grid"></i>
             分析维度
+        </a>
+        <a class="public-sidebar-link" href="{{ url_for('admin.scenarios') }}">
+            <i class="bi bi-collection"></i>
+            场景管理
+        </a>
+        <a class="public-sidebar-link" href="{{ url_for('admin.content_materials') }}">
+            <i class="bi bi-images"></i>
+            内容素材
+        </a>
+        <a class="public-sidebar-link" href="{{ url_for('admin.content_stage_config_page') }}">
+            <i class="bi bi-list-check"></i>
+            内容阶段配置
         </a>
     </div>
 
@@ -65,12 +85,12 @@
         {# 分隔线 #}
         <span class="topbar-separator"></span>
         {# 设置下拉菜单 #}
-        <div class="topbar-settings-dropdown">
-            <button type="button" class="topbar-icon-btn" onclick="toggleSettingsDropdown(event)" title="设置">
+        <div class="topbar-settings-dropdown" id="topbar-settings-dropdown">
+            <button type="button" class="topbar-icon-btn" id="topbar-settings-btn" onclick="toggleSettingsDropdown(event)" title="设置">
                 <i class="bi bi-gear"></i>
             </button>
             <div class="topbar-settings-menu" id="topbar-settings-menu">
-                <button type="button" class="topbar-settings-item" onclick="location.href='{{ url_for('auth.logout') }}'">
+                <button type="button" class="topbar-settings-item danger" onclick="window.location.href='{{ url_for('auth.logout') }}'">
                     <i class="bi bi-box-arrow-right"></i>
                     退出登录
                 </button>
@@ -160,6 +180,81 @@
                             </div>
                             <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">分析维度</h6>
                             <p class="text-muted mb-0 small">爆款拆解维度</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            {# 场景管理 #}
+            <div class="col-md-2 col-sm-4">
+                <a href="{{ url_for('admin.scenarios') }}" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(76,175,80,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-collection" style="font-size:1.25rem;color:#4CAF50;"></i>
+                            </div>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">场景管理</h6>
+                            <p class="text-muted mb-0 small">使用场景配置</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            {# 画像管理 #}
+            <div class="col-md-2 col-sm-4">
+                <a href="{{ url_for('admin.persona_generator') }}" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(255,193,7,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-person-badge" style="font-size:1.25rem;color:#FFC107;"></i>
+                            </div>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">画像管理</h6>
+                            <p class="text-muted mb-0 small">人群画像生成</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            {# 行业管理 #}
+            <div class="col-md-2 col-sm-4">
+                <a href="{{ url_for('admin.industries') }}" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(33,150,243,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-building" style="font-size:1.25rem;color:#2196F3;"></i>
+                            </div>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">行业管理</h6>
+                            <p class="text-muted mb-0 small">行业分类维护</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            {# 内容素材 #}
+            <div class="col-md-2 col-sm-4">
+                <a href="{{ url_for('admin.content_materials') }}" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(233,30,99,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-images" style="font-size:1.25rem;color:#e91e63;"></i>
+                            </div>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">内容素材</h6>
+                            <p class="text-muted mb-0 small">素材库管理</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            {# 内容阶段配置 #}
+            <div class="col-md-2 col-sm-4">
+                <a href="{{ url_for('admin.content_stage_config_page') }}" class="text-decoration-none">
+                    <div class="card border-0 shadow-sm h-100" style="transition: transform 0.15s, box-shadow 0.15s; cursor: pointer;">
+                        <div class="card-body py-3 d-flex flex-column align-items-center justify-content-center text-center">
+                            <div class="mb-2" style="width:44px;height:44px;background:rgba(0,150,136,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-list-check" style="font-size:1.25rem;color:#009688;"></i>
+                            </div>
+                            <h6 class="mb-0" style="font-size:0.875rem;font-weight:600;">内容阶段配置</h6>
+                            <p class="text-muted mb-0 small">阶段与步骤管理</p>
                         </div>
                     </div>
                 </a>

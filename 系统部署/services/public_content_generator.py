@@ -4921,6 +4921,164 @@ def infer_problem_category(
     return "体验/使用问题"
 
 
+def _detect_buyer_user_separation(business_desc: str, business_type: str) -> Dict[str, Any]:
+    """
+    检测是否存在买用分离，返回付费者视角的身份映射
+
+    Args:
+        business_desc: 业务描述
+        business_type: 经营类型
+
+    Returns:
+        {
+            'separation': bool,          # 是否存在买用分离
+            'buyer_identity': str,       # 付费者身份
+            'user_keywords': list,       # 使用者关键词列表（用于匹配）
+            'buyer_problem_prefix': str, # 付费者描述使用者问题时的前缀
+        }
+    """
+    desc = (business_desc or '').lower()
+
+    # 婴儿/儿童用品类
+    baby_keywords = ['奶粉', '尿不湿', '尿裤', '婴儿', '儿童', '宝宝', '儿童', '童装',
+                     '儿童玩具', '婴儿车', '儿童座椅', '奶瓶', '儿童餐椅', '儿童书',
+                     '早教', '胎教', '辅食', '儿童牙膏', '儿童牙刷', '儿童沐浴', '儿童霜']
+    # 养老/健康产品类
+    elderly_keywords = ['老人', '养老', '助听器', '轮椅', '拐杖', '护理', '敬老',
+                       '老花镜', '血压计', '血糖仪', '制氧机', '雾化器', '护腰带',
+                       '护膝', '足浴盆', '按摩椅', '保健', '中老年']
+    # 宠物类
+    pet_keywords = ['宠物', '猫粮', '狗粮', '猫砂', '宠物食品', '宠物用品', '猫窝', '狗窝',
+                   '宠物玩具', '宠物药品', '宠物美容', '宠物医院', '宠物保险']
+    # 礼品类
+    gift_keywords = ['礼品', '送礼', '礼物', '定制礼物', '企业礼品', '商务礼品', '节日礼品',
+                    '生日礼品', '婚礼礼品', '纪念品']
+
+    # 检测是否存在买用分离
+    if any(k in desc for k in baby_keywords):
+        return {
+            'separation': True,
+            'type': 'baby',
+            'buyer_identity': '新手父母/宝爸宝妈',
+            'user_keywords': ['宝宝', '孩子', '儿童', '男宝', '女宝', '婴儿', '幼儿', '小宝'],
+            'buyer_problem_prefix': '宝宝',
+            'buyer_problem_examples': ['宝宝拉肚子怎么回事', '宝宝不喝奶怎么办', '宝宝湿疹怎么护理'],
+        }
+    elif any(k in desc for k in elderly_keywords):
+        return {
+            'separation': True,
+            'type': 'elderly',
+            'buyer_identity': '子女（40-55岁）',
+            'user_keywords': ['老人', '老年人', '老爷子', '老太太', '老爸', '老妈'],
+            'buyer_problem_prefix': '老人',
+            'buyer_problem_examples': ['老人吃饭噎着怎么办', '老人听力不好怎么选助听器', '老人腿脚不便怎么护理'],
+        }
+    elif any(k in desc for k in pet_keywords):
+        return {
+            'separation': True,
+            'type': 'pet',
+            'buyer_identity': '宠物主人（25-40岁）',
+            'user_keywords': ['猫咪', '狗狗', '宠物', '猫', '狗', '汪星人', '喵星人'],
+            'buyer_problem_prefix': '宠物',
+            'buyer_problem_examples': ['猫咪拉肚子怎么回事', '狗狗不吃狗粮怎么办', '猫粮哪个牌子好'],
+        }
+    elif any(k in desc for k in gift_keywords):
+        return {
+            'separation': True,
+            'type': 'gift',
+            'buyer_identity': '送礼人',
+            'user_keywords': ['收礼人', '领导', '客户', '长辈', '朋友'],
+            'buyer_problem_prefix': '收礼人',
+            'buyer_problem_examples': ['领导喜欢什么礼品', '客户送礼怎么选', '送长辈什么礼物好'],
+        }
+
+    return {
+        'separation': False,
+        'type': None,
+        'buyer_identity': None,
+        'user_keywords': [],
+        'buyer_problem_prefix': None,
+        'buyer_problem_examples': [],
+    }
+
+
+def _convert_identity_to_buyer_view(identity: str, buyer_user_info: Dict) -> str:
+    """
+    将使用者身份转换为付费者视角
+
+    Args:
+        identity: 原有的使用者身份描述
+        buyer_user_info: 买用分离检测结果
+
+    Returns:
+        转换后的付费者视角身份
+    """
+    if not buyer_user_info.get('separation') or not identity:
+        return identity
+
+    identity_lower = identity.lower()
+    user_keywords = buyer_user_info.get('user_keywords', [])
+    buyer_identity = buyer_user_info.get('buyer_identity', '')
+
+    # 检查 identity 是否包含使用者关键词
+    for kw in user_keywords:
+        if kw in identity_lower:
+            # 找到了使用者关键词，返回付费者身份
+            return buyer_identity
+
+    # 检查 identity 是否是年龄描述（如"3岁"、"6个月"）
+    age_pattern = r'\d+岁|\d+个月|\d+周|\d+天'
+    if re.search(age_pattern, identity):
+        # 年龄描述通常就是使用者身份，需要转换为付费者视角
+        return buyer_identity
+
+    # 检查是否是动物/宠物描述
+    if buyer_user_info.get('type') == 'pet':
+        pet_keywords = ['猫', '狗', '宠', '汪', '喵']
+        for kw in pet_keywords:
+            if kw in identity_lower:
+                return buyer_identity
+
+    return identity
+
+
+def _convert_description_to_buyer_view(description: str, buyer_user_info: Dict) -> str:
+    """
+    将描述中的使用者视角转换为付费者视角
+
+    例如：
+    "3岁男宝吃奶粉拉肚子" → "宝宝吃奶粉拉肚子"
+    "老人使用助听器听不清" → "老人用助听器听不清"
+    """
+    if not buyer_user_info.get('separation') or not description:
+        return description
+
+    desc = description
+    prefix = buyer_user_info.get('buyer_problem_prefix', '')
+
+    # 婴儿/儿童类：将具体年龄描述转为"宝宝"
+    if buyer_user_info.get('type') == 'baby':
+        # 移除具体年龄描述
+        desc = re.sub(r'\d+岁(男|女)?宝', f'{prefix}', desc)
+        desc = re.sub(r'\d+个月(男|女)?宝', f'{prefix}', desc)
+        desc = re.sub(r'(男|女)宝', f'{prefix}', desc)
+        desc = re.sub(r'婴幼儿', f'{prefix}', desc)
+        # 统一改为"宝宝"
+        desc = re.sub(r'孩子', f'{prefix}', desc)
+
+    # 老年人类：保持"老人"描述，但确保格式一致
+    elif buyer_user_info.get('type') == 'elderly':
+        desc = re.sub(r'老爷子', '老人', desc)
+        desc = re.sub(r'老太太', '老人', desc)
+
+    # 宠物类：将宠物名统一
+    elif buyer_user_info.get('type') == 'pet':
+        desc = re.sub(r'猫咪', '宠物', desc)
+        desc = re.sub(r'狗狗', '宠物', desc)
+
+    return desc
+
+
 def mine_problems(params: Dict[str, Any]) -> Dict:
     """
     纯问题挖掘（不生成画像），供 api_identify_problems 路由调用。
@@ -4940,9 +5098,17 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
     user_problems = data.get('user_problem_types', [])
     buyer_problems = data.get('buyer_concern_types', [])
 
+    # 【买用分离检测】检测是否存在买用分离（如婴儿用品、老人用品等）
+    # 需要将使用者身份转换为付费者视角
+    business_desc = params.get('business_description', '')
+    business_type = (params.get('business_type') or '').strip()
+    buyer_user_info = _detect_buyer_user_separation(business_desc, business_type)
+    if buyer_user_info.get('separation'):
+        logger.info("[mine_problems] 检测到买用分离业务，类型=%s，付费者身份=%s",
+                    buyer_user_info.get('type'), buyer_user_info.get('buyer_identity'))
+
     # 买即用（消费品/本地服务）：使用者=付费者，模型仍常输出与使用方同维度的「付费方顾虑」，
     # 拼接后 UI 会出现上下两排质量/价格/服务重复。对 buyer 侧按 (身份, 问题类型) 去重。
-    business_type = (params.get('business_type') or '').strip()
     if business_type in ('product', 'local_service') and user_problems and buyer_problems:
 
         def _problem_axis_key(p: Dict) -> tuple:
@@ -4974,7 +5140,7 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         return uid
 
     def _enrich(problem: Dict, index: int, side: str) -> Dict:
-        """直接透传 LLM 输出字段"""
+        """直接透传 LLM 输出字段，并应用买用分离身份转换"""
         identity = problem.get('identity', '')
         problem_type = (
             problem.get('problem_type', '') or
@@ -4983,6 +5149,19 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         )
         # 细分类型的大类：user_problem_types 用 problem_category，buyer_concern_types 用 concern_category
         desc = problem.get('description', '')
+
+        # 【买用分离处理】如果是买用分离业务，且是 user 类型问题，转换 identity 和 description
+        original_identity = identity
+        original_desc = desc
+        if buyer_user_info.get('separation') and side in ('user', 'chronic'):
+            # 转换 identity 到付费者视角
+            identity = _convert_identity_to_buyer_view(identity, buyer_user_info)
+            # 转换 description 到付费者视角
+            desc = _convert_description_to_buyer_view(desc, buyer_user_info)
+            if identity != original_identity or desc != original_desc:
+                logger.debug("[mine_problems] 买用分离身份转换: identity '%s' → '%s', desc '%s' → '%s'",
+                            original_identity, identity, original_desc[:50] if original_desc else '', desc[:50] if desc else '')
+
         display_name_raw = problem.get('display_name', '') or f"{identity}{problem_type}"
         problem_category = (
             (problem.get('problem_category') or problem.get('concern_category') or '')
@@ -5027,6 +5206,8 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
             'consume_type': consume_type,
             'demand_attr': demand_attr,
             '_side': side,
+            # 【买用分离标记】保留原始身份用于调试
+            '_original_identity': original_identity if buyer_user_info.get('separation') else None,
             # 【新增】慢性体征标签
             'behavior_tags': problem.get('behavior_tags', []),
             'scene_tags': problem.get('scene_tags', []),

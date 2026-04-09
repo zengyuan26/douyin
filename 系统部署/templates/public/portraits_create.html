@@ -7,6 +7,9 @@
     /* ================================================
        生成画像独立页面样式
        ================================================ */
+    .main-container {
+        padding: 16px 36px 20px !important;
+    }
     .super-workspace-new {
         background: transparent;
         border-radius: 0;
@@ -14,8 +17,8 @@
         overflow: visible;
         margin-bottom: 0;
         border-top: 1px solid #f0f0f0;
-        margin-top: 24px;
-        padding-top: 20px;
+        margin-top: 8px;
+        padding-top: 12px;
     }
 
     .super-tabs-bar {
@@ -66,6 +69,7 @@
     .super-tab-content-wrapper {
         min-height: 0;
         overflow-y: auto;
+        flex: 1;
     }
 
     .super-tab-panel {
@@ -78,7 +82,7 @@
 
     .tab-panel-inner {
         padding: 0;
-        max-height: calc(100vh - 280px);
+        max-height: calc(100vh - 260px);
         overflow-y: auto;
     }
 
@@ -86,22 +90,22 @@
     .form-content-wrapper {
         max-width: 680px;
         margin: 0 auto;
-        padding: 32px 0 48px;
+        padding: 16px 0 32px;
     }
 
     .form-content-wrapper .form-label {
-        font-size: 0.9375rem;
+        font-size: 0.875rem;
         font-weight: 600;
         color: var(--text-primary);
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         display: block;
     }
 
     .form-content-wrapper .form-control {
-        border-radius: 10px;
+        border-radius: 8px;
         border: 1px solid var(--apple-gray4);
-        padding: 10px 14px;
-        font-size: 0.9375rem;
+        padding: 8px 12px;
+        font-size: 0.875rem;
         transition: border-color 0.2s, box-shadow 0.2s;
     }
 
@@ -123,13 +127,14 @@
     }
 
     .form-content-wrapper .form-text {
-        font-size: 0.8125rem;
+        font-size: 0.75rem;
         color: var(--apple-gray);
-        margin-top: 4px;
+        margin-top: 2px;
     }
 
     .form-content-wrapper .form-check {
-        padding-left: 1.6rem;
+        padding-left: 1.5rem;
+        margin-bottom: 0;
     }
 
     .form-content-wrapper .form-check-input {
@@ -265,6 +270,537 @@
         background: rgba(255, 59, 48, 0.04);
     }
 
+    /* ================================================
+       画像卡片样式 - 紧凑版（核心信息 + 详情引导）
+       ================================================ */
+
+    /* 画像列表容器 */
+    .portraits-list-container {
+        max-width: 100%;
+    }
+
+    /* 问题溯源头部 */
+    .problem-link-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: rgba(255, 59, 48, 0.08);
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        color: var(--apple-red, #FF3B30);
+        margin-bottom: 12px;
+    }
+
+    .portrait-source-problem {
+        padding: 10px 14px;
+        background: var(--apple-gray6, #f2f2f7);
+        border-radius: 8px;
+        margin-bottom: 16px;
+        border-left: 3px solid var(--apple-gray, #8e8e93);
+    }
+
+    .portrait-source-label {
+        font-size: 0.6875rem;
+        color: var(--apple-gray, #8e8e93);
+        margin-bottom: 2px;
+    }
+
+    .portrait-source-identity {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary, #1c1c1e);
+    }
+
+    .portrait-source-desc {
+        font-size: 0.75rem;
+        color: var(--text-secondary, #8e8e93);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+
+    /* ================================================
+       紧凑型画像卡片
+       ================================================ */
+    .portrait-card-compact {
+        background: var(--bg-primary, #fff);
+        border: 1.5px solid var(--apple-gray5, #e5e5ea);
+        border-radius: 12px;
+        padding: 0;
+        margin-bottom: 12px;
+        overflow: hidden;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .portrait-card-compact:hover {
+        border-color: var(--apple-red, #FF3B30);
+        box-shadow: 0 4px 12px rgba(255, 59, 48, 0.08);
+    }
+
+    .portrait-card-compact.selected {
+        border-color: var(--apple-red, #FF3B30);
+        background: rgba(255, 59, 48, 0.02);
+    }
+
+    .portrait-card-compact.is-focused {
+        border-color: var(--apple-blue, #007AFF);
+        box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.25);
+    }
+
+    .portrait-card-compact.is-focused .card-header {
+        background: linear-gradient(135deg, var(--apple-blue, #007AFF) 0%, #5ac8fa 100%);
+    }
+
+    .problem-source-badge {
+        font-size: 0.6875rem !important;
+        background: rgba(255, 255, 255, 0.35) !important;
+        color: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 10px !important;
+        padding: 2px 7px !important;
+        margin-top: 2px;
+    }
+
+    /* 紧凑卡片头部 */
+    .portrait-card-compact .card-header {
+        background: linear-gradient(135deg, var(--apple-red, #FF3B30) 0%, #ff6b6b 100%);
+        color: white;
+        padding: 10px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .portrait-card-compact .card-title {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: white;
+    }
+
+    .portrait-card-compact .card-badges {
+        display: flex;
+        gap: 6px;
+    }
+
+    .portrait-card-compact .card-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 8px;
+        background: rgba(255, 255, 255, 0.25);
+        border-radius: 10px;
+        font-size: 0.6875rem;
+        color: white;
+    }
+
+    .portrait-card-compact .card-source {
+        font-size: 0.625rem;
+        color: rgba(255, 255, 255, 0.8);
+        background: rgba(255, 255, 255, 0.15);
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+
+    /* 紧凑卡片主体 */
+    .portrait-card-compact .card-body {
+        padding: 12px 14px;
+    }
+
+    .portrait-card-compact .card-summary {
+        font-size: 0.8125rem;
+        line-height: 1.6;
+        color: var(--text-primary, #1c1c1e);
+        margin-bottom: 10px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .portrait-card-compact .card-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .portrait-card-compact .card-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.6875rem;
+        font-weight: 500;
+    }
+
+    .portrait-card-compact .card-tag.buyer {
+        background: rgba(255, 149, 0, 0.12);
+        color: #ff9500;
+    }
+
+    .portrait-card-compact .card-tag.user {
+        background: rgba(88, 86, 214, 0.12);
+        color: #5856d6;
+    }
+
+    .portrait-card-compact .card-tag.keyword {
+        background: rgba(52, 199, 189, 0.1);
+        color: #34c759;
+    }
+
+    /* 紧凑卡片底部 */
+    .portrait-card-compact .card-footer {
+        padding: 8px 14px;
+        border-top: 1px solid var(--apple-gray6, #f2f2f7);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.01);
+    }
+
+    .portrait-card-compact .card-index {
+        font-size: 0.75rem;
+        color: var(--text-secondary, #8e8e93);
+    }
+
+    .portrait-card-compact .card-actions {
+        display: flex;
+        gap: 6px;
+    }
+
+    /* 详情按钮样式 */
+    .btn-detail {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        background: transparent;
+        border: 1px solid var(--apple-gray4, #d1d1d6);
+        border-radius: 6px;
+        font-size: 0.75rem;
+        color: var(--text-secondary, #8e8e93);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-detail:hover {
+        border-color: var(--apple-red, #FF3B30);
+        color: var(--apple-red, #FF3B30);
+        background: rgba(255, 59, 48, 0.04);
+    }
+
+    .btn-detail i {
+        font-size: 0.875rem;
+    }
+
+    /* ================================================
+       详情 Modal 样式
+       ================================================ */
+    .portrait-detail-modal .modal-content {
+        border-radius: 16px;
+        border: none;
+        max-width: 680px;
+    }
+
+    .portrait-detail-modal .modal-header {
+        background: linear-gradient(135deg, var(--apple-red, #FF3B30) 0%, #ff6b6b 100%);
+        color: white;
+        border-radius: 16px 16px 0 0;
+        padding: 16px 20px;
+        border: none;
+    }
+
+    .portrait-detail-modal .modal-header .modal-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: white;
+    }
+
+    .portrait-detail-modal .modal-header .btn-close {
+        filter: brightness(0) invert(1);
+        opacity: 0.8;
+    }
+
+    .portrait-detail-modal .modal-body {
+        padding: 20px;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .portrait-detail-modal .modal-footer {
+        border-top: 1px solid var(--apple-gray6);
+        padding: 12px 20px;
+    }
+
+    /* 详情各区块 */
+    .portrait-detail-section {
+        margin-bottom: 16px;
+    }
+
+    .portrait-detail-section:last-child {
+        margin-bottom: 0;
+    }
+
+    .portrait-detail-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary, #8e8e93);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .portrait-detail-content {
+        font-size: 0.875rem;
+        color: var(--text-primary, #1c1c1e);
+        line-height: 1.6;
+    }
+
+    .portrait-detail-summary {
+        background: var(--apple-gray6, #f2f2f7);
+        border-radius: 8px;
+        padding: 12px;
+        border-left: 3px solid var(--apple-red, #FF3B30);
+    }
+
+    .portrait-detail-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .portrait-detail-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8125rem;
+    }
+
+    .portrait-detail-tag.buyer {
+        background: rgba(255, 149, 0, 0.12);
+        color: #ff9500;
+    }
+
+    .portrait-detail-tag.user {
+        background: rgba(88, 86, 214, 0.12);
+        color: #5856d6;
+    }
+
+    .portrait-detail-tag.keyword {
+        background: rgba(52, 199, 189, 0.1);
+        color: #34c759;
+    }
+
+    .portrait-detail-tag.trust {
+        background: rgba(99, 102, 241, 0.1);
+        color: #5856d6;
+    }
+
+    .portrait-detail-tag.psychology {
+        background: rgba(255, 59, 48, 0.08);
+        color: var(--apple-red, #FF3B30);
+    }
+
+    .portrait-detail-tag.behavior {
+        background: rgba(255, 138, 0, 0.1);
+        color: #ff8a00;
+    }
+
+    .portrait-detail-tag.scene {
+        background: rgba(52, 199, 189, 0.1);
+        color: #34c759;
+    }
+
+    .portrait-detail-tag.symptom {
+        background: rgba(255, 59, 48, 0.1);
+        color: var(--apple-red, #FF3B30);
+    }
+
+    /* 详情问题来源区块 */
+    .portrait-detail-source {
+        background: var(--apple-gray6, #f2f2f7);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 16px;
+    }
+
+    .portrait-detail-source .source-label {
+        font-size: 0.6875rem;
+        color: var(--apple-gray, #8e8e93);
+        margin-bottom: 4px;
+    }
+
+    .portrait-detail-source .source-identity {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary, #1c1c1e);
+    }
+
+    .portrait-detail-source .source-desc {
+        font-size: 0.8125rem;
+        color: var(--text-secondary, #8e8e93);
+        margin-top: 4px;
+    }
+
+    /* ================================================
+       概览列表样式
+       ================================================ */
+    .portraits-overview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--apple-gray6, #f2f2f7);
+    }
+
+    .portraits-overview-title {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-primary, #1c1c1e);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .portraits-overview-title .count-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        background: var(--apple-red, #FF3B30);
+        color: white;
+        border-radius: 10px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+    }
+
+    .problem-group-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .problem-group-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: var(--bg-primary, #fff);
+        border: 1px solid var(--apple-gray5, #e5e5ea);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .problem-group-item:hover {
+        border-color: var(--apple-red, #FF3B30);
+    }
+
+    .problem-group-item.active {
+        border-color: var(--apple-red, #FF3B30);
+        background: rgba(255, 59, 48, 0.04);
+    }
+
+    .problem-group-item.has-portraits {
+        border-left: 3px solid var(--apple-red, #FF3B30);
+    }
+
+    .problem-group-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .problem-group-identity {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary, #1c1c1e);
+        margin-bottom: 2px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .problem-group-meta {
+        font-size: 0.75rem;
+        color: var(--text-secondary, #8e8e93);
+    }
+
+    .problem-group-meta .type-badge {
+        padding: 1px 6px;
+        background: rgba(255, 149, 0, 0.1);
+        color: #ff9500;
+        border-radius: 4px;
+        font-size: 0.6875rem;
+    }
+
+    .generated-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 8px;
+        background: rgba(52, 199, 189, 0.1);
+        color: #34c759;
+        border-radius: 4px;
+        font-size: 0.6875rem;
+        font-weight: 500;
+    }
+
+    .generated-indicator::before {
+        content: '';
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        background: #34c759;
+        border-radius: 50%;
+    }
+
+    .problem-group-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .problem-group-arrow {
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary, #8e8e93);
+        transition: transform 0.2s;
+    }
+
+    .problem-group-item.active .problem-group-arrow {
+        transform: rotate(90deg);
+        color: var(--apple-red, #FF3B30);
+    }
+
+    /* ================================================
+       多卡片网格布局
+       ================================================ */
+    .portraits-grid-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 12px;
+        max-width: 100%;
+    }
+
+    .portraits-grid-container .portrait-card-compact {
+        margin-bottom: 0;
+    }
+
     /* 保存画像模态框样式 */
     .save-portrait-modal .modal-content {
         border-radius: 16px;
@@ -335,7 +871,7 @@
     .problems-carousel-track {
         position: relative;
         width: 100%;
-        min-height: 420px;
+        min-height: 360px;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -346,8 +882,8 @@
     /* 问题卡片 - 统一基准定位：所有卡片的 left/top 一致，位置由 CSS 类决定 */
     .problem-card {
         position: absolute;
-        width: 300px;
-        height: 380px;
+        width: 280px;
+        height: 340px;
         background: var(--bg-primary, #fff);
         border-radius: 16px;
         border: 1px solid var(--apple-gray5, #e5e5ea);
@@ -358,7 +894,8 @@
                     border-color 0.25s ease,
                     width 0.4s ease,
                     height 0.4s ease;
-        cursor: pointer;
+        /* 修复：卡片本身不可点击，只有点击按钮才触发生成 */
+        cursor: default;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -379,7 +916,7 @@
 
     /* 左侧第一张预览卡片 */
     .problem-card.is-left {
-        transform: translate(calc(-50% - 200px), -50%) scale(0.85);
+        transform: translate(calc(-50% - 180px), -50%) scale(0.85);
         opacity: 0.55;
         z-index: 5;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
@@ -388,7 +925,7 @@
 
     /* 左侧第二张预览卡片 */
     .problem-card.is-far-left {
-        transform: translate(calc(-50% - 400px), -50%) scale(0.72);
+        transform: translate(calc(-50% - 360px), -50%) scale(0.72);
         opacity: 0.3;
         z-index: 3;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
@@ -397,7 +934,7 @@
 
     /* 右侧第一张预览卡片 */
     .problem-card.is-right {
-        transform: translate(calc(-50% + 200px), -50%) scale(0.85);
+        transform: translate(calc(-50% + 180px), -50%) scale(0.85);
         opacity: 0.55;
         z-index: 5;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
@@ -406,7 +943,7 @@
 
     /* 右侧第二张预览卡片 */
     .problem-card.is-far-right {
-        transform: translate(calc(-50% + 400px), -50%) scale(0.72);
+        transform: translate(calc(-50% + 360px), -50%) scale(0.72);
         opacity: 0.3;
         z-index: 3;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
@@ -420,8 +957,8 @@
         z-index: 10;
         border-color: var(--apple-red, #FF3B30);
         box-shadow: 0 16px 56px rgba(255, 59, 48, 0.22);
-        width: 320px;
-        height: 400px;
+        width: 280px;
+        height: 340px;
     }
 
     /* 内容切换动画：中间卡片内部内容淡入 */
@@ -444,7 +981,6 @@
     }
 
     .problem-card:hover {
-        z-index: 15;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     }
 
@@ -453,6 +989,16 @@
     .problem-card.inactive { }
     .problem-card.side-left { }
     .problem-card.side-right { }
+
+    /* 已生成画像的卡片：可点击查看画像 */
+    .problem-card.has-portraits {
+        cursor: pointer;
+        border-color: #34c759;
+        box-shadow: 0 12px 48px rgba(52, 199, 89, 0.25);
+    }
+    .problem-card.has-portraits:hover {
+        box-shadow: 0 16px 56px rgba(52, 199, 89, 0.35);
+    }
 
     /* 卡片内部内容层 - 撑满整个卡片 */
     .problem-card-inner {
@@ -464,30 +1010,30 @@
 
     .problem-card-header {
         position: relative;
-        padding: 16px;
+        padding: 12px 14px;
         background: linear-gradient(135deg, var(--apple-red, #FF3B30) 0%, #ff6b6b 100%);
         color: white;
         flex-shrink: 0;
     }
 
     .problem-card.is-center .problem-card-header {
-        padding: 20px;
+        padding: 14px 16px;
     }
 
     .problem-card-identity {
-        font-size: 0.875rem;
+        font-size: 0.75rem;
         font-weight: 600;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
     }
 
     .problem-card-identity::before {
         content: '';
         display: inline-block;
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
         background: white;
         border-radius: 50%;
     }
@@ -495,21 +1041,21 @@
     .problem-card-type-badge {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        padding: 4px 10px;
+        gap: 3px;
+        padding: 3px 8px;
         background: rgba(255, 255, 255, 0.25);
-        border-radius: 20px;
-        font-size: 0.75rem;
+        border-radius: 16px;
+        font-size: 0.6875rem;
         font-weight: 500;
     }
 
     .problem-card-market-badge {
         position: absolute;
-        top: 12px;
-        right: 12px;
-        padding: 4px 8px;
-        border-radius: 8px;
-        font-size: 0.6875rem;
+        top: 10px;
+        right: 10px;
+        padding: 3px 6px;
+        border-radius: 6px;
+        font-size: 0.625rem;
         font-weight: 600;
         text-transform: uppercase;
     }
@@ -526,13 +1072,13 @@
 
     .problem-card-severity {
         display: flex;
-        gap: 3px;
-        margin-top: 10px;
+        gap: 2px;
+        margin-top: 8px;
     }
 
     .problem-card-severity .star {
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
         fill: white;
         opacity: 0.9;
     }
@@ -543,38 +1089,38 @@
 
     .problem-card-body {
         flex: 1;
-        padding: 16px;
+        padding: 12px 14px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
     }
 
     .problem-card.is-center .problem-card-body {
-        padding: 20px;
+        padding: 14px 16px;
     }
 
     .problem-card-description {
-        font-size: 0.875rem;
-        line-height: 1.5;
+        font-size: 0.8125rem;
+        line-height: 1.45;
         color: var(--text-primary, #1c1c1e);
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         flex: 1;
     }
 
     .problem-card-tags {
         display: flex;
         flex-wrap: wrap;
-        gap: 4px;
-        margin-bottom: 12px;
+        gap: 3px;
+        margin-bottom: 8px;
     }
 
     .problem-card-tag {
         display: inline-flex;
         align-items: center;
-        padding: 4px 10px;
+        padding: 3px 8px;
         background: var(--apple-gray6, #f2f2f7);
-        border-radius: 12px;
-        font-size: 0.75rem;
+        border-radius: 10px;
+        font-size: 0.6875rem;
         color: var(--text-secondary, #8e8e93);
     }
 
@@ -618,7 +1164,7 @@
     }
 
     .problem-card-footer {
-        padding: 12px 16px;
+        padding: 10px 14px;
         border-top: 1px solid var(--apple-gray6, #f2f2f7);
         display: flex;
         justify-content: space-between;
@@ -627,11 +1173,11 @@
     }
 
     .problem-card.is-center .problem-card-footer {
-        padding: 14px 20px;
+        padding: 12px 16px;
     }
 
     .problem-card-portrait-count {
-        font-size: 0.8125rem;
+        font-size: 0.75rem;
         color: var(--text-secondary, #8e8e93);
     }
 
@@ -642,13 +1188,13 @@
     .problem-card-btn {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
+        gap: 4px;
+        padding: 6px 12px;
         background: var(--apple-red, #FF3B30);
         color: white;
         border: none;
-        border-radius: 10px;
-        font-size: 0.8125rem;
+        border-radius: 8px;
+        font-size: 0.6875rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
@@ -661,6 +1207,14 @@
 
     .problem-card-btn:active {
         transform: translateY(0);
+    }
+
+    /* 已生成画像按钮：绿色查看 */
+    .problem-card-btn-view {
+        background: #34c759 !important;
+    }
+    .problem-card-btn-view:hover {
+        background: #2db84d !important;
     }
 
     /* 轮播导航按钮 */
@@ -851,12 +1405,12 @@
                     <i class="bi bi-people"></i>生成画像
                 </button>
                 <div class="super-tabs-actions">
-                    <button class="btn-apple btn-sm" id="btn-reset-super" onclick="resetSuperPortraitFlow()">
+                    <button class="btn-apple btn-sm" id="btn-reset-super" onclick="handleTabAction()">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="margin-right: 4px;">
                             <path d="M2 7a5 5 0 1010 0 5 5 0 00-5-5zm5 4a4 4 0 110-8 4 4 0 010 8z" fill="none" stroke="currentColor" stroke-width="1.5"/>
                             <path d="M1 7H3M11 7H13M7 1V3M7 11V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                         </svg>
-                        重置
+                        <span id="tab-action-text">重置</span>
                     </button>
                 </div>
             </div>
@@ -868,7 +1422,7 @@
                 <div class="super-tab-panel active" id="super-tab-form">
                     <div class="tab-panel-inner">
                         <div class="form-content-wrapper" style="max-width: 680px; margin: 0 auto;">
-                            <div class="row g-3">
+                            <div class="row g-2">
                                 <div class="col-12">
                                     <label class="form-label">核心业务 <span class="text-danger">*</span></label>
                                     <input type="text"
@@ -881,21 +1435,25 @@
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label">经营范围 <span class="text-danger">*</span></label>
-                                    <div class="d-flex gap-3 flex-wrap">
+                                    <div class="d-flex gap-3 flex-wrap align-items-center">
                                         <div class="form-check">
                                             <input class="form-check-input" type="radio" name="business-range" id="range-cross" value="cross_region" checked>
                                             <label class="form-check-label" for="range-cross">🌍 跨区域（全国）</label>
                                         </div>
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
-                                            <label class="form-check-label" for="range-local">🏠 本地</label>
+                                        <div class="form-check d-flex align-items-center gap-2">
+                                            <div>
+                                                <input class="form-check-input" type="radio" name="business-range" id="range-local" value="local">
+                                                <label class="form-check-label" for="range-local">🏠 本地</label>
+                                            </div>
+                                            <!-- 本地城市补充信息 -->
+                                            <div id="local-city-wrapper" style="display: none;">
+                                                <input type="text" class="form-control" id="local-city"
+                                                       placeholder="请输入你所在的城市，例如：成都"
+                                                       style="font-size: 0.875rem; padding: 0.375rem 0.75rem; width: auto; min-width: 180px;">
+                                                <div class="form-text" id="local-city-hint" style="color: #e67e22; font-size: 0.75rem;"></div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <!-- 本地城市补充信息（选填） -->
-                                <div class="col-12" id="local-city-wrapper" style="display: none;">
-                                    <label class="form-label">补充城市信息（选填）</label>
-                                    <input type="text" class="form-control" id="local-city" placeholder="例如：成都">
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label">经营类型 <span class="text-danger">*</span></label>
@@ -935,7 +1493,7 @@
                                     <label class="form-label">请描述具体场景</label>
                                     <input type="text" class="form-control" id="other-scenario-input" placeholder="请输入">
                                 </div>
-                                <div class="col-12" style="margin-top: 8px;">
+                                <div class="col-12" style="margin-top: 10px;">
                                     <button type="button" class="btn-apple btn-primary-apple" id="btn-one-key-analyze"
                                             onclick="portraitMineAndGenerate()"
                                             style="width: 100%; padding: 12px; font-size: 0.9375rem;">
@@ -1039,6 +1597,31 @@
         <button onclick="doDeletePortrait()" style="background:var(--apple-red);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.8125rem;">删除</button>
         <button onclick="hideDeleteToast()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.8125rem;">取消</button>
     </div>
+
+    {# 画像详情 Modal #}
+    <div class="modal fade portrait-detail-modal" id="portraitDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailModalTitle">
+                        <i class="bi bi-person-badge me-2"></i>画像详情
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body" id="portraitDetailBody">
+                    <!-- 详情内容由JS动态填充 -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyCurrentPortraitDetail()">
+                        <i class="bi bi-clipboard me-1"></i>复制信息
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="saveCurrentPortrait()">
+                        <i class="bi bi-bookmark-plus me-1"></i>保存画像
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block layout_extra_js %}
@@ -1064,32 +1647,99 @@ var _carouselProblems = [];
 // 超级定位相关函数
 const PUBLIC_NAV_INTENT_KEY_PORTRAITS = 'publicIntent';
 
-// 超级定位相关函数
 function switchSuperTab(tabName) {
-    const panelIdMap = {
-        'tab-form': 'super-tab-form',
-        'tab-problems': 'super-tab-problems',
-        'tab-portraits': 'super-tab-portraits'
-    };
-
+    // 更新 Tab 按钮状态
     document.querySelectorAll('.super-tab-btn').forEach(function(btn) {
-        btn.classList.toggle('active', btn.dataset.superTab === tabName);
+        const willBeActive = btn.dataset.superTab === tabName;
+        btn.classList.toggle('active', willBeActive);
     });
 
-    const targetPanelId = panelIdMap[tabName] || ('super-tab-' + tabName);
-    const targetPanel = document.getElementById(targetPanelId);
-
+    // 更新 Tab 面板显示
+    const panelId = 'super-tab-' + tabName.split('-').pop();
     document.querySelectorAll('.super-tab-panel').forEach(function(panel) {
-        panel.classList.toggle('active', panel.id === targetPanelId);
+        const isActive = panel.id === panelId;
+        panel.classList.toggle('active', isActive);
     });
+
+    // 更新Tab操作按钮状态
+    updateTabActionButton(tabName);
 
     // 切换后滚动到 tab 内容区域
+    const targetPanel = document.getElementById(panelId);
     if (targetPanel) {
-        // 使用 requestAnimationFrame 确保 DOM 更新完成后再滚动
         requestAnimationFrame(function() {
             targetPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     }
+
+    // 生成画像Tab：只显示画像列表，不显示问题卡片
+    if (tabName === 'tab-portraits' && _selectedProblemKey) {
+        renderTargetCustomerCards(_selectedProblemKey);
+    }
+}
+
+// 更新Tab操作按钮（根据当前Tab显示不同按钮）
+function updateTabActionButton(tabName) {
+    const btn = document.getElementById('tab-action-text');
+    if (!btn) return;
+
+    switch(tabName) {
+        case 'tab-form':
+            btn.textContent = '重置';
+            break;
+        case 'tab-problems':
+            btn.textContent = '换一批';
+            break;
+        case 'tab-portraits':
+            btn.textContent = '换一批';
+            break;
+        default:
+            btn.textContent = '重置';
+    }
+}
+
+// 根据当前Tab处理按钮点击
+function handleTabAction() {
+    const activeTab = document.querySelector('.super-tab-btn.active');
+    if (!activeTab) {
+        resetSuperPortraitFlow();
+        return;
+    }
+
+    const tabName = activeTab.dataset.superTab;
+    switch(tabName) {
+        case 'tab-form':
+            resetSuperPortraitFlow();
+            break;
+        case 'tab-problems':
+            refreshProblems();
+            break;
+        case 'tab-portraits':
+            refreshPortraits();
+            break;
+        default:
+            resetSuperPortraitFlow();
+    }
+}
+
+// 点击已生成画像的问题卡片 → 跳转查看
+function goToPortraitsTabWithKey(problemKey) {
+    _selectedProblemKey = problemKey;
+    _carouselCurrentIndex = 0;
+    switchSuperTab('tab-portraits');
+}
+
+// 经营范围切换：选中"本地"时显示城市输入框
+function bindBusinessRangeToggle() {
+    var radios = document.querySelectorAll('input[name="business-range"]');
+    radios.forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            var wrapper = document.getElementById('local-city-wrapper');
+            if (wrapper) {
+                wrapper.style.display = (this.value === 'local') ? 'block' : 'none';
+            }
+        });
+    });
 }
 
 function resetSuperPortraitFlow() {
@@ -1119,6 +1769,191 @@ function resetSuperPortraitFlow() {
     document.getElementById('portrait-generating-loading').style.display = 'none';
 
     switchSuperTab('tab-form');
+}
+
+// 换一批：重新挖掘问题
+let _refreshProblemsSeq = 0;
+async function refreshProblems() {
+    if (_allProblems.length === 0) {
+        showToast('请先在一键分析中挖掘问题', 'warning');
+        return;
+    }
+
+    const mySeq = ++_refreshProblemsSeq;
+    console.log('[换一批-问题] 点击了, seq=' + mySeq);
+
+    const btn = document.getElementById('tab-action-text');
+    if (btn) {
+        btn.textContent = '换一批...';
+    }
+
+    // 显示加载状态
+    document.getElementById('problem-mining-loading').style.display = 'block';
+    document.getElementById('problems-section').style.display = 'none';
+    document.getElementById('problems-empty-hint').style.display = 'none';
+
+    try {
+        const businessDesc = document.getElementById('business-desc').value.trim();
+        const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
+        const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
+        const serviceScenario = document.getElementById('service-scenario')?.value || '';
+        const otherScenario = document.getElementById('other-scenario-input')?.value?.trim() || '';
+        const localCity = document.getElementById('local-city')?.value?.trim() || '';
+
+        const resp = await fetch('/public/api/targets/problems', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                business_description: businessDesc,
+                business_range: businessRange,
+                business_type: businessType,
+                service_scenario: serviceScenario,
+                other_scenario: otherScenario,
+                local_city: localCity,
+                refresh_nonce: Date.now(),
+            })
+        });
+
+        if (mySeq !== _refreshProblemsSeq) {
+            console.log('[换一批-问题] 跳过过期响应 seq=' + mySeq);
+            return;
+        }
+
+        if (!resp.ok) {
+            throw new Error('API请求失败');
+        }
+
+        const data = await resp.json();
+
+        if (data.success && data.problems) {
+            const problems = data.problems.problems || data.problems || [];
+            const marketAnalysis = data.problems.market_analysis || {};
+            _currentMarketAnalysis = marketAnalysis;
+            _allProblems = problems;
+            _allPortraits = {};
+            _isPremium = data.is_premium || false;
+
+            document.getElementById('problem-mining-loading').style.display = 'none';
+            document.getElementById('problems-section').style.display = 'block';
+
+            renderProblemCards(_allProblems);
+
+            // 更新服务端快照
+            saveSnapshotToServer();
+
+            showToast('换一批成功！', 'success');
+        } else {
+            throw new Error(data.message || '问题挖掘失败');
+        }
+    } catch (e) {
+        if (mySeq !== _refreshProblemsSeq) return;
+        showToast('换一批失败，请稍后重试', 'error');
+        console.error('[换一批-问题] 异常', e);
+        document.getElementById('problem-mining-loading').style.display = 'none';
+        document.getElementById('problems-section').style.display = 'block';
+    } finally {
+        if (mySeq !== _refreshProblemsSeq) return;
+        if (btn) {
+            btn.textContent = '换一批';
+        }
+    }
+}
+
+// 换一批：重新生成画像
+let _refreshPortraitsSeq = 0;
+async function refreshPortraits() {
+    if (_allProblems.length === 0) {
+        showToast('请先在一键分析中挖掘问题', 'warning');
+        return;
+    }
+
+    if (_isGeneratingPortraits) {
+        showToast('画像正在生成中，请稍候...', 'warning');
+        return;
+    }
+
+    const mySeq = ++_refreshPortraitsSeq;
+    console.log('[换一批-画像] 点击了, seq=' + mySeq);
+
+    const btn = document.getElementById('tab-action-text');
+    if (btn) {
+        btn.textContent = '换一批...';
+    }
+
+    // 显示局部加载状态
+    document.getElementById('portrait-generating-loading').style.display = 'block';
+    document.getElementById('target-customers-section').style.display = 'none';
+    document.getElementById('portraits-empty-hint').style.display = 'none';
+
+    _isGeneratingPortraits = true;
+
+    try {
+        // 使用轮播当前索引获取当前问题
+        const currentIndex = _carouselCurrentIndex || 0;
+        const problem = _allProblems[currentIndex] || _allProblems[0];
+        const problemKey = problem.id || ('_p_' + _allProblems.indexOf(problem));
+
+        const businessDesc = document.getElementById('business-desc').value.trim();
+
+        const resp = await fetch('/public/api/targets/generate-portraits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                business_description: businessDesc,
+                problem: problem,
+                is_premium: _isPremium,
+            })
+        });
+
+        if (mySeq !== _refreshPortraitsSeq) {
+            console.log('[换一批-画像] 跳过过期响应 seq=' + mySeq);
+            return;
+        }
+
+        if (!resp.ok) {
+            throw new Error('API请求失败');
+        }
+
+        const data = await resp.json();
+        const portraits = data.portraits || [];
+
+        if (portraits.length === 0) {
+            document.getElementById('portrait-generating-loading').style.display = 'none';
+            document.getElementById('target-customers-section').style.display = 'block';
+            showToast('该问题暂无画像数据', 'warning');
+            return;
+        }
+
+        _allPortraits[problemKey] = portraits;
+        _currentPortraitData = portraits[0];
+
+        renderTargetCustomerCards(problemKey);
+
+        // 更新服务端快照
+        saveSnapshotToServer();
+
+        document.getElementById('portrait-generating-loading').style.display = 'none';
+        document.getElementById('target-customers-section').style.display = 'block';
+
+        showToast('换一批成功！获得 ' + portraits.length + ' 个画像', 'success');
+    } catch (e) {
+        if (mySeq !== _refreshPortraitsSeq) return;
+        showToast('换一批失败，请稍后重试', 'error');
+        console.error('[换一批-画像] 异常', e);
+        document.getElementById('portrait-generating-loading').style.display = 'none';
+        document.getElementById('target-customers-section').style.display = 'block';
+    } finally {
+        if (mySeq !== _refreshPortraitsSeq) return;
+        _isGeneratingPortraits = false;
+        if (btn) {
+            btn.textContent = '换一批';
+        }
+    }
 }
 
 function handleServiceScenarioChange() {
@@ -1223,6 +2058,8 @@ async function portraitMineAndGenerate() {
 
             renderProblemCards(_allProblems);
 
+            console.log('[portraitMineAndGenerate] renderProblemCards 完成，problems-section.innerHTML长度:', document.getElementById('problems-section').innerHTML.length);
+            console.log('[portraitMineAndGenerate] problems-section display:', document.getElementById('problems-section').style.display);
             console.log('[portraitMineAndGenerate] 开始切换到 tab-problems');
             switchSuperTab('tab-problems');
             console.log('[portraitMineAndGenerate] 切换完成，检查状态:', {
@@ -1266,7 +2103,7 @@ function renderProblemCards(problems) {
 
     // 保存问题数据用于轮播
     _carouselProblems = problems;
-    _carouselCurrentIndex = 0;
+    _carouselCurrentIndex = problems.length >= 3 ? 2 : 0;
 
     // 生成问题统计
     const totalProblems = problems.length;
@@ -1332,7 +2169,6 @@ function buildProblemCardHTML(problem, index) {
     const marketType = problem.market_type || 'red_ocean';
     const problemBase = problem.problem_base || '';
     const contentDirection = problem.content_direction || '种草型';
-    const keywords = problem.problem_keywords || [];
     const sceneTags = problem.scene_tags || [];
     const symptomTags = problem.symptom_tags || [];
 
@@ -1361,11 +2197,13 @@ function buildProblemCardHTML(problem, index) {
     const marketBadgeClass = marketType === 'blue_ocean' ? 'blue-ocean' : 'red-ocean';
     const marketBadgeText = marketType === 'blue_ocean' ? '蓝海' : '红海';
 
+    // 是否有已生成的画像
+    const hasPortraits = portraitCount > 0;
+
     return `
-        <div class="problem-card is-center"
+        <div class="problem-card is-center ${hasPortraits ? 'has-portraits' : ''}"
              data-index="${index}"
-             data-key="${escHtml(key)}"
-             onclick="selectProblemCardFromCarousel(${index})">
+             data-key="${escHtml(key)}">
             <div class="problem-card-inner">
                 <div class="problem-card-header">
                     <div class="problem-card-market-badge ${marketBadgeClass}">${marketBadgeText}</div>
@@ -1400,27 +2238,20 @@ function buildProblemCardHTML(problem, index) {
                             ${symptomTags.slice(0, 2).map(tag => `<span class="problem-card-tag">${escHtml(tag)}</span>`).join('')}
                         </div>
                     ` : ''}
-
-                    <!-- 关键词 -->
-                    ${keywords.length > 0 ? `
-                        <div class="problem-card-keywords">
-                            <div class="problem-card-keywords-label">搜索关键词</div>
-                            <div class="problem-card-keywords-list">
-                                ${keywords.slice(0, 4).map(kw => `<span class="problem-card-keyword">${escHtml(kw)}</span>`).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
                 </div>
                 <div class="problem-card-footer">
-                    <span class="problem-card-portrait-count ${portraitCount > 0 ? 'has-portraits' : ''}">
-                        ${portraitCount > 0
-                            ? `<i class="bi bi-check-circle-fill me-1"></i>已生成 ${portraitCount} 个画像`
+                    <span class="problem-card-portrait-count ${hasPortraits ? 'has-portraits' : ''}">
+                        ${hasPortraits
+                            ? `<i class="bi bi-check-circle-fill me-1"></i>${portraitCount} 个画像已生成`
                             : `<i class="bi bi-chat-dots me-1"></i>点击生成画像`}
                     </span>
-                    <button class="problem-card-btn" onclick="event.stopPropagation(); generatePortraitsFromCarousel(${index})">
-                        <i class="bi bi-magic"></i>
-                        生成画像
-                    </button>
+                    ${hasPortraits
+                        ? `<button class="problem-card-btn problem-card-btn-view" onclick="goToPortraitsTabWithKey('${escHtml(key)}')">
+                             <i class="bi bi-eye"></i>查看画像
+                           </button>`
+                        : `<button class="problem-card-btn" onclick="generatePortraitsFromCarousel(${index})">
+                             <i class="bi bi-magic"></i>生成画像
+                           </button>`}
                 </div>
             </div>
         </div>
@@ -1515,20 +2346,34 @@ function updateCarouselPosition(animate) {
     if (nextBtn) nextBtn.style.opacity = current === total - 1 ? '0.3' : '1';
 }
 
-// 从轮播中选择问题并生成画像
+// 从轮播中选择问题（仅切换轮播位置，不触发生成画像）
 function selectProblemCardFromCarousel(index) {
-    const problem = _carouselProblems[index];
-    if (!problem) return;
-
-    const key = problem.id || ('_p_' + index);
-    _selectedProblemKey = key;
-    generatePortraitsForProblem(key, index);
+    if (index >= 0 && index < _carouselProblems.length) {
+        _carouselCurrentIndex = index;
+        updateCarouselPosition(true);
+    }
 }
 
 // 从轮播中触发生成画像
-function generatePortraitsFromCarousel(index) {
+function generatePortraitsFromCarousel(index, event) {
+    // 阻止冒泡，防止触发卡片的点击事件
+    if (event) {
+        event.stopPropagation();
+    } else if (window.event) {
+        window.event.cancelBubble = true;
+    }
+
     const problem = _carouselProblems[index];
-    if (!problem) return;
+    if (!problem) {
+        showToast('未找到问题数据', 'error');
+        return;
+    }
+
+    // 先同步轮播位置到当前卡片
+    if (_carouselCurrentIndex !== index) {
+        _carouselCurrentIndex = index;
+        updateCarouselPosition(true);
+    }
 
     const key = problem.id || ('_p_' + index);
     _selectedProblemKey = key;
@@ -1590,7 +2435,6 @@ async function generatePortraitsForProblem(key, index) {
             _currentPortraitData = portraits[0];
 
             renderTargetCustomerCards(key);
-
             switchSuperTab('tab-portraits');
 
             saveSuperSnapshot();
@@ -1600,7 +2444,6 @@ async function generatePortraitsForProblem(key, index) {
         }
     } catch (e) {
         showToast('生成失败，请稍后重试', 'error');
-        console.error(e);
     } finally {
         document.getElementById('portrait-generating-loading').style.display = 'none';
         document.getElementById('target-customers-section').style.display = 'block';
@@ -1608,57 +2451,633 @@ async function generatePortraitsForProblem(key, index) {
     }
 }
 
-function renderTargetCustomerCards(key) {
+// ================================================================
+// 一对多关系支持 - 问题与画像概览
+// ================================================================
+
+// 当前选中的问题key（用于概览展开显示）
+var _activeProblemKeyInOverview = null;
+
+// 渲染所有问题与画像的概览（支持一对多关系）
+function renderPortraitsOverview() {
     const container = document.getElementById('target-customers-section');
     if (!container) return;
 
-    const portraits = _allPortraits[key] || [];
-    if (portraits.length === 0) {
+    // 如果没有任何问题，清空
+    if (!_allProblems || _allProblems.length === 0) {
         container.innerHTML = '<div class="text-center text-muted py-4">暂无画像数据</div>';
         return;
     }
 
-    container.innerHTML = portraits.map((portrait, index) => {
-        const name = portrait.name || '目标客户' + (index + 1);
-        const description = portrait.description || portrait.persona_description || '';
-        const age = portrait.age || '';
-        const occupation = portrait.occupation || '';
-        const painPoints = portrait.pain_points || portrait.core_needs || [];
-        const consumption = portrait.consumption_level || portrait.consumption_habit || '';
+    // 计算总画像数和已生成画像的问题数
+    let totalPortraits = 0;
+    let problemsWithPortraits = 0;
 
-        return `
-            <div class="target-customer-card ${index === 0 ? 'selected' : ''}" data-index="${index}" onclick="selectPortraitCard(this, '${key}', ${index})">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                    <div>
-                        <h5 style="font-size: 1.0625rem; font-weight: 600; margin-bottom: 4px;">${escHtml(name)}</h5>
-                        <div class="d-flex gap-2 flex-wrap">
-                            ${age ? `<span class="badge bg-secondary">${escHtml(age)}</span>` : ''}
-                            ${occupation ? `<span class="badge bg-info">${escHtml(occupation)}</span>` : ''}
-                            ${consumption ? `<span class="badge bg-warning text-dark">${escHtml(consumption)}</span>` : ''}
-                        </div>
+    _allProblems.forEach((problem, index) => {
+        const key = problem.id || ('_p_' + index);
+        const portraits = _allPortraits[key] || [];
+        if (portraits.length > 0) {
+            totalPortraits += portraits.length;
+            problemsWithPortraits++;
+        }
+    });
+
+    // 构建HTML
+    let html = '<div class="portraits-list-container">';
+
+    // 概览头部
+    html += `
+        <div class="portraits-overview-header">
+            <div class="portraits-overview-title">
+                <i class="bi bi-collection"></i> 问题画像总览
+                <span class="count-badge">${totalPortraits}</span>
+            </div>
+            <div class="small text-muted">
+                ${problemsWithPortraits}/${_allProblems.length} 个问题已生成画像
+            </div>
+        </div>
+    `;
+
+    // 问题组列表
+    html += '<div class="problem-group-list">';
+
+    _allProblems.forEach((problem, index) => {
+        const key = problem.id || ('_p_' + index);
+        const portraits = _allPortraits[key] || [];
+        const portraitCount = portraits.length;
+        const hasPortraits = portraitCount > 0;
+        const isActive = _activeProblemKeyInOverview === key;
+
+        const problemInfo = getProblemDisplayInfo(problem);
+        const severityText = problemInfo.severity === '极高' ? '⭐⭐⭐⭐⭐' :
+                           problemInfo.severity === '高' ? '⭐⭐⭐⭐' :
+                           problemInfo.severity === '中' ? '⭐⭐' : '⭐';
+
+        html += `
+            <div class="problem-group-item ${hasPortraits ? 'has-portraits' : ''} ${isActive ? 'active' : ''}"
+                 data-key="${escHtml(key)}"
+                 data-index="${index}"
+                 onclick="toggleProblemGroupInOverview('${escHtml(key)}', ${index})">
+                <div class="problem-group-info">
+                    <div class="problem-group-identity">
+                        ${escHtml(problemInfo.identity)}
+                        ${hasPortraits ? `<span class="generated-indicator ms-2">${portraitCount}个画像</span>` : ''}
+                    </div>
+                    <div class="problem-group-meta">
+                        ${problemInfo.problemType ? `<span class="type-badge">${escHtml(problemInfo.problemType)}</span>` : ''}
+                        ${severityText ? `<span class="severity-stars">${severityText}</span>` : ''}
                     </div>
                 </div>
-                ${description ? `<p class="mb-3" style="font-size: 0.9375rem; color: var(--text-secondary);">${escHtml(description)}</p>` : ''}
-                ${painPoints.length > 0 ? `
-                    <div class="mb-3">
-                        <div class="small text-muted mb-2">核心痛点：</div>
-                        <div class="d-flex gap-2 flex-wrap">
-                            ${painPoints.slice(0, 3).map(p => `<span class="badge bg-danger">${escHtml(typeof p === 'string' ? p : (p.point || p))}</span>`).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-                <div class="d-flex justify-content-end">
-                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); openSavePortraitModal('${key}', ${index})">
-                        <i class="bi bi-bookmark-plus me-1"></i>保存画像
-                    </button>
+                <div class="problem-group-portraits">
+                    ${hasPortraits ? `
+                        <span class="problem-group-portraits-count has-portraits">
+                            <i class="bi bi-check-circle-fill"></i> ${portraitCount}个
+                        </span>
+                    ` : `
+                        <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); generatePortraitsFromOverview('${escHtml(key)}', ${index})">
+                            <i class="bi bi-magic"></i> 生成
+                        </button>
+                    `}
+                </div>
+                <div class="problem-group-arrow">
+                    <i class="bi bi-chevron-right"></i>
                 </div>
             </div>
         `;
-    }).join('');
+    });
+
+    html += '</div>'; // .problem-group-list
+
+    // 如果有激活的问题，显示其画像列表
+    if (_activeProblemKeyInOverview && _allPortraits[_activeProblemKeyInOverview]) {
+        html += renderExpandedPortraitsList(_activeProblemKeyInOverview);
+    }
+
+    html += '</div>'; // .portraits-list-container
+    container.innerHTML = html;
+}
+
+// 展开/收起问题组（概览中的一对多关系展示）
+function toggleProblemGroupInOverview(key, index) {
+    // 如果点击的是当前展开的，则收起
+    if (_activeProblemKeyInOverview === key) {
+        _activeProblemKeyInOverview = null;
+    } else {
+        _activeProblemKeyInOverview = key;
+    }
+
+    // 更新UI
+    document.querySelectorAll('.problem-group-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.key === _activeProblemKeyInOverview);
+    });
+
+    // 重新渲染展开的画像列表
+    const container = document.getElementById('target-customers-section');
+    if (!container) return;
+
+    const listContainer = container.querySelector('.portraits-list-container');
+    if (!listContainer) return;
+
+    // 移除旧的展开区域
+    const oldExpanded = listContainer.querySelector('.expanded-portraits-section');
+    if (oldExpanded) {
+        oldExpanded.remove();
+    }
+
+    // 如果有激活的问题且有画像，添加展开区域
+    if (_activeProblemKeyInOverview && _allPortraits[_activeProblemKeyInOverview]) {
+        const expandedHtml = renderExpandedPortraitsList(_activeProblemKeyInOverview);
+        listContainer.insertAdjacentHTML('beforeend', expandedHtml);
+    }
+}
+
+// 渲染展开的画像列表（概览中点击问题后显示，支持网格布局）
+function renderExpandedPortraitsList(key) {
+    const portraits = _allPortraits[key] || [];
+    if (portraits.length === 0) return '';
+
+    const problem = getProblemByKey(key);
+    const problemInfo = getProblemDisplayInfo(problem);
+    const useGrid = portraits.length >= 3;
+
+    let html = `
+        <div class="expanded-portraits-section mt-3">
+    `;
+
+    // 多卡片时使用网格布局
+    if (useGrid) {
+        html += '<div class="portraits-grid-container">';
+    }
+
+    // 渲染画像卡片（紧凑版）
+    portraits.forEach((portrait, index) => {
+        html += buildCompactPortraitCard(portrait, key, index, problemInfo, portraits.length);
+    });
+
+    if (useGrid) {
+        html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+// 从概览中触发生成画像
+function generatePortraitsFromOverview(key, index) {
+    _selectedProblemKey = key;
+    generatePortraitsForProblem(key, index);
+}
+
+// 构建单个画像卡片的HTML（复用逻辑）
+// 获取问题信息（用于画像溯源）
+function getProblemByKey(key) {
+    if (!key || !_allProblems || _allProblems.length === 0) return null;
+    // 尝试多种匹配方式
+    if (_allProblems.find) {
+        const found = _allProblems.find(p => (p.id || '_p_' + _allProblems.indexOf(p)) === key);
+        if (found) return found;
+    }
+    // 尝试数字索引
+    const numIndex = parseInt(key);
+    if (!isNaN(numIndex) && numIndex >= 0 && numIndex < _allProblems.length) {
+        return _allProblems[numIndex];
+    }
+    // 尝试 _p_ 前缀
+    if (typeof key === 'string' && key.startsWith('_p_')) {
+        const idx = parseInt(key.replace('_p_', ''));
+        if (!isNaN(idx) && idx >= 0 && idx < _allProblems.length) {
+            return _allProblems[idx];
+        }
+    }
+    return null;
+}
+
+// 获取问题的显示信息（用于溯源展示）
+function getProblemDisplayInfo(problem) {
+    if (!problem) return { identity: '', problemType: '', description: '', severity: '', problemBase: '' };
+    return {
+        identity: problem.identity || '目标客户',
+        problemType: problem.problem_type || problem.concern_type || '',
+        description: problem.description || problem.problem || '',
+        severity: problem.severity || '',
+        problemBase: problem.problem_base || '',
+        marketType: problem.market_type || ''
+    };
+}
+
+// 格式化搜索关键词（处理各种数据格式）
+function formatSearchKeywords(keywords) {
+    if (!keywords) return [];
+    if (Array.isArray(keywords)) {
+        return keywords.map(kw => {
+            if (typeof kw === 'string') {
+                // 如果是"会搜索XXXX"的格式，提取出XXXX部分
+                if (kw.startsWith('会搜索')) {
+                    return kw.replace(/^会搜索/, '').replace(/相关内容$/, '').trim();
+                }
+                return kw;
+            }
+            if (typeof kw === 'object') {
+                return kw.keyword || kw.text || kw.word || '';
+            }
+            return String(kw);
+        }).filter(kw => kw && kw !== '[object Object]');
+    }
+    if (typeof keywords === 'string') {
+        return [keywords];
+    }
+    return [];
+}
+
+// 渲染画像卡片 - 始终展示所有画像，每个画像关联对应的问题溯源
+function renderTargetCustomerCards(focusKey) {
+    const container = document.getElementById('target-customers-section');
+    if (!container) return;
+
+    // 确保容器可见
+    container.style.display = 'block';
+
+    const allPortraitKeys = Object.keys(_allPortraits);
+    if (allPortraitKeys.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-4">暂无画像数据</div>';
+        return;
+    }
+
+    // 收集所有画像，按问题分组，每组带上问题溯源信息
+    const allPortraitsWithContext = [];
+    _allProblems.forEach((problem, idx) => {
+        const key = problem.id || ('_p_' + idx);
+        const portraits = _allPortraits[key] || [];
+        if (portraits.length > 0) {
+            const problemInfo = getProblemDisplayInfo(problem);
+            portraits.forEach((portrait, pIdx) => {
+                allPortraitsWithContext.push({
+                    portrait,
+                    key,
+                    index: pIdx,
+                    problemInfo,
+                    problem,
+                    totalForKey: portraits.length,
+                    isFocused: focusKey === key
+                });
+            });
+        }
+    });
+
+    // 如果没有任何画像
+    if (allPortraitsWithContext.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-4">暂无画像数据</div>';
+        return;
+    }
+
+    // 判断是否使用网格布局（3个及以上画像）
+    const useGrid = allPortraitsWithContext.length >= 3;
+
+    let html = '<div class="portraits-list-container">';
+
+    // 统计信息
+    html += `
+        <div class="portraits-overview-header" style="padding:8px 0 16px;">
+            <span class="badge bg-secondary me-2">${allPortraitsWithContext.length} 个画像</span>
+            <span class="badge bg-light text-dark">覆盖 ${allPortraitKeys.length} 个问题</span>
+        </div>
+    `;
+
+    if (useGrid) {
+        html += '<div class="portraits-grid-container">';
+    }
+
+    allPortraitsWithContext.forEach((ctx, i) => {
+        html += buildCompactPortraitCard(ctx.portrait, ctx.key, ctx.index, ctx.problemInfo, ctx.totalForKey, ctx.isFocused);
+    });
+
+    if (useGrid) {
+        html += '</div>';
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// 构建紧凑型画像卡片（可带问题溯源）
+function buildCompactPortraitCard(portrait, key, index, problemInfo, totalCount, isFocused) {
+    const name = portrait.name || '目标客户' + (index + 1);
+    const portraitSummary = portrait.portrait_summary || '';
+    const userStage = portrait.用户阶段标签 || '';
+    const usageScene = portrait.使用场景 || '';
+
+    // 身份标签
+    const identityTags = portrait.identity_tags || {};
+    const buyerTag = identityTags.buyer || '';
+    const userTag = identityTags.user || '';
+
+    // 搜索关键词（取前3个）
+    const searchKeywords = formatSearchKeywords(portrait.搜索行为预判 || portrait.search_behavior || []).slice(0, 3);
+
+    // 问题溯源标签
+    const problemSourceTag = problemInfo.identity
+        ? `<span class="card-badge problem-source-badge" title="来自问题：${escHtml(problemInfo.description || '')}"><i class="bi bi-link-45deg"></i>${escHtml(problemInfo.identity)}</span>`
+        : '';
+
+    return `
+        <div class="portrait-card-compact ${isFocused ? 'is-focused' : ''} ${index === 0 ? 'selected' : ''}"
+             data-key="${escHtml(key)}"
+             data-index="${index}"
+             onclick="selectPortraitCard(this, '${escHtml(key)}', ${index})">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">${escHtml(name)}</div>
+                    ${problemSourceTag}
+                </div>
+                <div class="card-badges">
+                    ${userStage ? `<span class="card-badge"><i class="bi bi-clock"></i>${escHtml(userStage)}</span>` : ''}
+                    ${usageScene ? `<span class="card-badge"><i class="bi bi-geo-alt"></i>${escHtml(usageScene)}</span>` : ''}
+                </div>
+            </div>
+            <div class="card-body">
+                ${portraitSummary ? `<div class="card-summary">${escHtml(portraitSummary)}</div>` : ''}
+                <div class="card-tags">
+                    ${buyerTag ? `<span class="card-tag buyer"><i class="bi bi-person-fill"></i>${escHtml(buyerTag)}</span>` : ''}
+                    ${userTag ? `<span class="card-tag user"><i class="bi bi-person"></i>${escHtml(userTag)}</span>` : ''}
+                    ${searchKeywords.slice(0, 2).map(kw => `<span class="card-tag keyword"><i class="bi bi-search"></i>${escHtml(kw)}</span>`).join('')}
+                </div>
+            </div>
+            <div class="card-footer">
+                <span class="card-index">第 ${index + 1} / ${totalCount} 个画像</span>
+                <div class="card-actions">
+                    <button type="button" class="btn-detail" onclick="event.stopPropagation(); openPortraitDetail('${escHtml(key)}', ${index})">
+                        <i class="bi bi-eye"></i> 详情
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="event.stopPropagation(); openSavePortraitModal('${escHtml(key)}', ${index})">
+                        <i class="bi bi-bookmark-plus"></i> 保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 打开画像详情 Modal
+function openPortraitDetail(key, index) {
+    const portraits = _allPortraits[key] || [];
+    const portrait = portraits[index];
+    if (!portrait) {
+        showToast('画像数据不存在', 'error');
+        return;
+    }
+
+    _currentPortraitData = portrait;
+
+    const problem = getProblemByKey(key);
+    const problemInfo = getProblemDisplayInfo(problem);
+
+    // 获取所有数据
+    const name = portrait.name || '未命名';
+    const portraitSummary = portrait.portrait_summary || '';
+    const userStage = portrait.用户阶段标签 || '';
+    const usageScene = portrait.使用场景 || '';
+    const industryScene = portrait.industry_scene || '';
+
+    const identityTags = portrait.identity_tags || {};
+    const buyerTag = identityTags.buyer || '';
+    const userTag = identityTags.user || '';
+
+    const searchKeywords = formatSearchKeywords(portrait.搜索行为预判 || portrait.search_behavior || []);
+
+    const trustDemand = portrait.trust_demand || {};
+    const trustDimension = trustDemand.dimension || '';
+    const trustDesc = trustDemand.description || '';
+
+    const buyerPerspective = portrait.buyer_perspective || {};
+    const psychology = buyerPerspective.psychology || '';
+    const buyerGoal = buyerPerspective.goal || '';
+    const buyerObstacles = buyerPerspective.obstacles || '';
+
+    const userPerspective = portrait.user_perspective || {};
+    const userProblem = userPerspective.problem || '';
+    const userCurrentState = userPerspective.current_state || '';
+    const userImpact = userPerspective.impact || '';
+
+    const behaviorTags = portrait.behavior_tags || [];
+    const sceneTags = portrait.scene_tags || [];
+    const symptomTags = portrait.symptom_tags || [];
+
+    // 构建详情HTML
+    let html = '';
+
+    // 问题来源
+    if (problemInfo.identity || problemInfo.description) {
+        html += `
+            <div class="portrait-detail-source">
+                <div class="source-label"><i class="bi bi-link-45deg"></i> 来源问题</div>
+                <div class="source-identity">${escHtml(problemInfo.identity)}</div>
+                <div class="source-desc">${escHtml(problemInfo.description)}</div>
+            </div>
+        `;
+    }
+
+    // 基本信息
+    html += `
+        <div class="portrait-detail-section">
+            <div class="portrait-detail-label"><i class="bi bi-info-circle"></i> 基本信息</div>
+            <div class="portrait-detail-tags">
+                ${userStage ? `<span class="portrait-detail-tag" style="background: rgba(255,59,48,0.08); color: var(--apple-red);">${escHtml(userStage)}</span>` : ''}
+                ${usageScene ? `<span class="portrait-detail-tag" style="background: rgba(52,199,189,0.1); color: #34c759;">${escHtml(usageScene)}</span>` : ''}
+                ${industryScene ? `<span class="portrait-detail-tag" style="background: rgba(99,102,241,0.1); color: #5856d6;">${escHtml(industryScene)}</span>` : ''}
+            </div>
+        </div>
+    `;
+
+    // 画像摘要
+    if (portraitSummary) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-card-text"></i> 画像摘要</div>
+                <div class="portrait-detail-summary">${escHtml(portraitSummary)}</div>
+            </div>
+        `;
+    }
+
+    // 身份标签
+    if (buyerTag || userTag) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-person-badge"></i> 身份标签</div>
+                <div class="portrait-detail-tags">
+                    ${buyerTag ? `<span class="portrait-detail-tag buyer"><i class="bi bi-person-fill"></i>付费者：${escHtml(buyerTag)}</span>` : ''}
+                    ${userTag ? `<span class="portrait-detail-tag user"><i class="bi bi-person"></i>使用者：${escHtml(userTag)}</span>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // 用户视角
+    if (userProblem || userCurrentState || userImpact) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-emoji-smile"></i> 用户视角</div>
+                ${userProblem ? `<div class="portrait-detail-content mb-2"><strong>遇到的问题：</strong>${escHtml(userProblem)}</div>` : ''}
+                ${userCurrentState ? `<div class="portrait-detail-content mb-2"><strong>当前状态：</strong>${escHtml(userCurrentState)}</div>` : ''}
+                ${userImpact ? `<div class="portrait-detail-content"><strong>对生活的影响：</strong>${escHtml(userImpact)}</div>` : ''}
+            </div>
+        `;
+    }
+
+    // 深层心理
+    if (psychology || buyerGoal || buyerObstacles) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-heart-pulse"></i> 深层心理</div>
+                ${psychology ? `<div class="portrait-detail-content mb-2">${escHtml(psychology)}</div>` : ''}
+                ${buyerGoal ? `<div class="portrait-detail-content mb-1"><strong>目标：</strong>${escHtml(buyerGoal)}</div>` : ''}
+                ${buyerObstacles ? `<div class="portrait-detail-content"><strong>困境：</strong>${escHtml(buyerObstacles)}</div>` : ''}
+            </div>
+        `;
+    }
+
+    // 搜索行为
+    if (searchKeywords.length > 0) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-search"></i> 搜索行为预判</div>
+                <div class="portrait-detail-tags">
+                    ${searchKeywords.map(kw => `<span class="portrait-detail-tag keyword">${escHtml(kw)}</span>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // 信任诉求
+    if (trustDimension || trustDesc) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-shield-check"></i> 信任诉求</div>
+                ${trustDimension ? `<div class="portrait-detail-content mb-1"><strong>${escHtml(trustDimension)}</strong></div>` : ''}
+                ${trustDesc ? `<div class="portrait-detail-content">${escHtml(trustDesc)}</div>` : ''}
+            </div>
+        `;
+    }
+
+    // 行为/场景/体征标签
+    if (behaviorTags.length > 0 || sceneTags.length > 0 || symptomTags.length > 0) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-tags"></i> 标签</div>
+                <div class="portrait-detail-tags">
+                    ${behaviorTags.map(t => `<span class="portrait-detail-tag behavior">${escHtml(t)}</span>`).join('')}
+                    ${sceneTags.map(t => `<span class="portrait-detail-tag scene">${escHtml(t)}</span>`).join('')}
+                    ${symptomTags.map(t => `<span class="portrait-detail-tag symptom">${escHtml(t)}</span>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // 更新 Modal 内容
+    document.getElementById('detailModalTitle').innerHTML = `<i class="bi bi-person-badge me-2"></i>${escHtml(name)}`;
+    document.getElementById('portraitDetailBody').innerHTML = html;
+
+    // 显示 Modal
+    const modal = new bootstrap.Modal(document.getElementById('portraitDetailModal'));
+    modal.show();
+}
+
+// 复制当前详情
+function copyCurrentPortraitDetail() {
+    if (!_currentPortraitData) {
+        showToast('没有可复制的画像数据', 'error');
+        return;
+    }
+
+    const selectedCard = document.querySelector('.portrait-card-compact.selected');
+    const key = selectedCard?.dataset.key || '';
+    const index = parseInt(selectedCard?.dataset.index || '0');
+    copyPortraitToClipboard(key, index);
+}
+
+// 保存当前画像
+function saveCurrentPortrait() {
+    if (!_currentPortraitData) {
+        showToast('没有可保存的画像数据', 'error');
+        return;
+    }
+    const modal = bootstrap.Modal.getInstance(document.getElementById('portraitDetailModal'));
+    if (modal) modal.hide();
+    const selectedCard = document.querySelector('.portrait-card-compact.selected');
+    const key = selectedCard?.dataset.key || '';
+    const index = parseInt(selectedCard?.dataset.index || '0');
+    openSavePortraitModal(key, index);
+}
+
+// 复制画像信息到剪贴板
+function copyPortraitToClipboard(key, index) {
+    const portraits = _allPortraits[key] || [];
+    const portrait = portraits[index];
+    if (!portrait) {
+        showToast('画像数据不存在', 'error');
+        return;
+    }
+
+    const problem = getProblemByKey(key);
+    const problemInfo = getProblemDisplayInfo(problem);
+    const searchKeywords = formatSearchKeywords(portrait.搜索行为预判 || portrait.search_behavior || []);
+    const userPerspective = portrait.user_perspective || {};
+    const buyerPerspective = portrait.buyer_perspective || {};
+    const trustDemand = portrait.trust_demand || {};
+
+    const text = `
+【画像名称】${portrait.name || '未命名'}
+
+【来源问题】
+  身份：${problemInfo.identity}
+  问题类型：${problemInfo.problemType}
+  问题描述：${problemInfo.description}
+
+【画像摘要】
+  ${portrait.portrait_summary || '暂无'}
+
+【基本信息】
+  用户阶段：${portrait.用户阶段标签 || '未知'}
+  使用场景：${portrait.使用场景 || '未知'}
+  行业场景：${portrait.industry_scene || '未知'}
+
+【身份标签】
+  付费者：${(portrait.identity_tags || {}).buyer || '未知'}
+  使用者：${(portrait.identity_tags || {}).user || '未知'}
+
+【用户视角】
+  遇到的问题：${userPerspective.problem || '暂无'}
+  当前状态：${userPerspective.current_state || '暂无'}
+  对生活的影响：${userPerspective.impact || '暂无'}
+
+【深层心理】
+  ${buyerPerspective.psychology || '暂无'}
+  目标：${buyerPerspective.goal || '暂无'}
+  困境：${buyerPerspective.obstacles || '暂无'}
+
+【搜索行为预判】
+  ${searchKeywords.length > 0 ? searchKeywords.map(kw => '  - ' + kw).join('\n') : '  暂无'}
+
+【信任诉求】
+  维度：${trustDemand.dimension || '暂无'}
+  描述：${trustDemand.description || '暂无'}
+
+【行为标签】
+  ${(portrait.behavior_tags || []).join('、') || '暂无'}
+【场景标签】
+  ${(portrait.scene_tags || []).join('、') || '暂无'}
+【体征标签】
+  ${(portrait.symptom_tags || []).join('、') || '暂无'}
+    `.trim();
+
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('画像信息已复制到剪贴板', 'success');
+    }).catch(() => {
+        showToast('复制失败，请手动复制', 'error');
+    });
 }
 
 function selectPortraitCard(card, key, index) {
-    document.querySelectorAll('.target-customer-card').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('.portrait-card-compact').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
 
     const portraits = _allPortraits[key] || [];
@@ -1871,6 +3290,16 @@ async function loadSnapshotFromServer() {
 // 保存快照到服务端
 async function saveSnapshotToServer() {
     var formData = collectFormData();
+    // 处理 selectedProblemKey：如果是纯数字则转整数，否则保留原字符串
+    var selectedProblemId = null;
+    if (_selectedProblemKey) {
+        if (typeof _selectedProblemKey === 'number' || /^\d+$/.test(String(_selectedProblemKey))) {
+            selectedProblemId = parseInt(_selectedProblemKey);
+        } else {
+            // 字符串形式的 key（如 _p_0），也保留为字符串用于恢复匹配
+            selectedProblemId = _selectedProblemKey;
+        }
+    }
     var payload = {
         session_id: getSnapshotSessionId(),
         form_data: formData,
@@ -1881,7 +3310,7 @@ async function saveSnapshotToServer() {
             return Object.assign({}, p, { _market_analysis: _currentMarketAnalysis });
         }),
         portraits_data: _allPortraits,
-        selected_problem_id: _selectedProblemKey ? parseInt(_selectedProblemKey) : null,
+        selected_problem_id: selectedProblemId,
         selected_portrait_index: null
     };
     try {
@@ -1945,6 +3374,11 @@ function applySnapshotToForm(snapshot) {
     if (snapshot.business_range) {
         var rangeRadio = document.querySelector('input[name="business-range"][value="' + snapshot.business_range + '"]');
         if (rangeRadio) rangeRadio.checked = true;
+        // 同步城市输入框显示状态
+        var wrapper = document.getElementById('local-city-wrapper');
+        if (wrapper) {
+            wrapper.style.display = (snapshot.business_range === 'local') ? 'block' : 'none';
+        }
     }
 
     // 恢复单选按钮 - 经营类型
@@ -1965,40 +3399,123 @@ function applySnapshotToForm(snapshot) {
 
 // 初始化快照恢复
 async function initSnapshotRestore() {
-    // 优先从服务端恢复
-    var serverSnap = await loadSnapshotFromServer();
-    if (serverSnap) {
-        _snapshotSessionId = serverSnap.session_id;
-        applySnapshotToForm(serverSnap.form_data);
-        if (serverSnap.problems_data && serverSnap.problems_data.length > 0) {
-            _allProblems = serverSnap.problems_data;
-            _allPortraits = serverSnap.portraits_data || {};
-            if (_allProblems[0] && _allProblems[0]._market_analysis) {
-                _currentMarketAnalysis = _allProblems[0]._market_analysis;
-                _allProblems = _allProblems.map(function(p) {
-                    var copy = Object.assign({}, p);
-                    delete copy._market_analysis;
-                    return copy;
-                });
-                if (typeof displayMarketAnalysis === 'function') {
-                    displayMarketAnalysis(_currentMarketAnalysis);
-                }
-            }
-            renderProblemCards(_allProblems);
-            if (serverSnap.selected_problem_id) {
-                var p = _allProblems.find(function(x) { return String(x.id) === String(serverSnap.selected_problem_id); });
-                if (p && typeof selectProblemCardAndGenerate === 'function') {
-                    selectProblemCardAndGenerate(p.id, _allProblems.indexOf(p));
-                }
-            }
-            switchSuperTab('tab-problems');
-            return;
-        }
+    console.log('[initSnapshotRestore] 开始恢复快照...');
+    try {
+    // 判断是否从画像列表页"新建"跳转过来，是则跳过快照恢复直接到描述业务Tab
+    var isNewCreate = localStorage.getItem('portrait_new_create') &&
+        (Date.now() - parseInt(localStorage.getItem('portrait_new_create')) < 30000);
+    if (isNewCreate) {
+        console.log('[initSnapshotRestore] 从画像列表页新建，清除标记，跳转到描述业务Tab');
+        localStorage.removeItem('portrait_new_create');
+        switchSuperTab('tab-form');
+        return;
     }
+
+    // 优先从服务端恢复
+    var serverSnap = isNewCreate ? null : await loadSnapshotFromServer();
+    if (serverSnap) {
+            console.log('[initSnapshotRestore] 找到服务端快照:', {
+                session_id: serverSnap.session_id,
+                has_problems: !!(serverSnap.problems_data && serverSnap.problems_data.length > 0),
+                has_portraits: !!(serverSnap.portraits_data && Object.keys(serverSnap.portraits_data).length > 0),
+                form_data: serverSnap.form_data ? Object.keys(serverSnap.form_data) : []
+            });
+
+            _snapshotSessionId = serverSnap.session_id;
+            applySnapshotToForm(serverSnap.form_data);
+
+            if (serverSnap.problems_data && serverSnap.problems_data.length > 0) {
+                _allProblems = serverSnap.problems_data;
+                _allPortraits = serverSnap.portraits_data || {};
+
+                // 提取市场分析数据
+                if (_allProblems[0] && _allProblems[0]._market_analysis) {
+                    _currentMarketAnalysis = _allProblems[0]._market_analysis;
+                    console.log('[initSnapshotRestore] 恢复市场分析:', _currentMarketAnalysis);
+                    // 从问题中移除 _market_analysis 字段（只保留在内存中）
+                    _allProblems = _allProblems.map(function(p) {
+                        var copy = Object.assign({}, p);
+                        delete copy._market_analysis;
+                        return copy;
+                    });
+                    if (typeof displayMarketAnalysis === 'function') {
+                        displayMarketAnalysis(_currentMarketAnalysis);
+                    }
+                }
+
+                // 渲染问题卡片（无论是否有画像，都需要渲染）
+                renderProblemCards(_allProblems);
+                console.log('[initSnapshotRestore] 渲染问题卡片完成:', _allProblems.length, '个问题');
+
+                // 如果有已生成的画像（且有明确的问题ID），恢复到画像Tab
+                if (serverSnap.selected_problem_id && _allPortraits && Object.keys(_allPortraits).length > 0) {
+                    // 尝试多种 key 格式匹配：数字、字符串、带 _p_ 前缀
+                    var selectedId = serverSnap.selected_problem_id;
+                    var foundKey = null;
+
+                    // 直接匹配
+                    if (_allPortraits[selectedId]) {
+                        foundKey = selectedId;
+                    } else if (typeof selectedId === 'string' && _allPortraits[selectedId]) {
+                        foundKey = selectedId;
+                    } else if (typeof selectedId === 'number') {
+                        // 尝试字符串形式
+                        var strKey = String(selectedId);
+                        if (_allPortraits[strKey]) {
+                            foundKey = strKey;
+                        }
+                        // 尝试 _p_ 前缀形式
+                        var prefixedKey = '_p_' + selectedId;
+                        if (_allPortraits[prefixedKey]) {
+                            foundKey = prefixedKey;
+                        }
+                    }
+
+                    if (foundKey) {
+                        _selectedProblemKey = foundKey;
+                        renderTargetCustomerCards(foundKey);
+                        switchSuperTab('tab-portraits');
+                        console.log('[initSnapshotRestore] 恢复到画像Tab，problemKey:', foundKey);
+                        return;
+                    } else {
+                        console.log('[initSnapshotRestore] 未找到匹配的画像key，可用keys:', Object.keys(_allPortraits), '，selectedId:', selectedId);
+                        // 无匹配的画像key，切到问题识别Tab
+                        switchSuperTab('tab-problems');
+                        console.log('[initSnapshotRestore] 切换到问题识别Tab（无匹配画像）');
+                        return;
+                    }
+                }
+
+                // 无画像数据，默认切换到问题识别Tab
+                switchSuperTab('tab-problems');
+                console.log('[initSnapshotRestore] 恢复到问题识别Tab（无画像）');
+                return;
+            }
+        } else {
+            console.log('[initSnapshotRestore] 未找到服务端快照');
+        }
+    } catch (e) {
+        console.error('[initSnapshotRestore] 恢复快照异常:', e);
+    }
+
     // 回退到 localStorage
     var localSnap = loadSuperSnapshot();
     if (localSnap) {
+        console.log('[initSnapshotRestore] 使用localStorage快照');
         applySnapshotToForm(localSnap);
+    } else {
+        // 从画像列表页点击"生成新画像"时，用 localStorage 标记，跳过快照恢复直接到描述业务Tab
+        function markNewPortrait() {
+            localStorage.setItem('portrait_new_create', Date.now().toString());
+        }
+        window.markNewPortrait = markNewPortrait;
+
+        // 画像列表页的"生成新画像"按钮绑定此方法
+        function goNewPortrait() {
+            markNewPortrait();
+            window.location.href = '/public/portraits/create';
+        }
+        window.goNewPortrait = goNewPortrait;
     }
 }
 
@@ -2073,5 +3590,16 @@ function getPublicSkin() {
         return 'classic-red';
     }
 }
+
+// ── 页面初始化 ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async function() {
+    // 初始化顶栏用户信息
+    await loadUserAuth();
+    // 用户验证通过后，初始化快照恢复和自动保存
+    initSnapshotRestore();
+    bindSnapshotAutoSave();
+    // 绑定经营范围切换逻辑
+    bindBusinessRangeToggle();
+});
 </script>
 {% endblock %}
