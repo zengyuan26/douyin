@@ -5094,6 +5094,9 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
     result = mine_problems_and_generate_personas(params)
     if not result.get('success'):
         return result
+
+    # 透传 refresh_round 到结果中，供前端"换一批"逻辑使用
+    result['refresh_round'] = params.get('refresh_round', 0)
     data = result.get('data') or {}
     user_problems = data.get('user_problem_types', [])
     buyer_problems = data.get('buyer_concern_types', [])
@@ -6638,6 +6641,82 @@ buyer_concern_types：
 5. **【必填】market_analysis.problem_oriented_keywords 必须返回至少8个**，由所有问题的 problem_keywords **汇总去重**填入；汇总中不得混入与任一问题条无关的「孤儿词」。
 6. 只返回 JSON，不要其他文字。
 """
+
+    # ── 【方案一】多样性注入：扩展为 6 套策略池，每次随机选 1-2 套组合 ──
+    refresh_round = params.get('refresh_round', 0)
+    if refresh_round > 0:
+        # 6 套差异化策略，各自侧重的角度不同
+        diversity_strategies = [
+            (
+                "【策略A·细分人群】"
+                "重点挖掘：上一轮高频人群之外的细分用户群体，如特殊职业（外卖骑手/自由摄影师/夜班护士）、"
+                "边缘年龄段（50岁+初老人群/18岁准成人）、特殊体质/健康状态、特殊地域（下沉市场/边境县城）。"
+            ),
+            (
+                "【策略B·边缘场景】"
+                "重点挖掘：非主流使用环境、极端使用条件、特殊时间节点（节后/雨季/深夜/清晨）、"
+                "特殊组合场景（同时使用竞品时、多人共用场景、临时替代方案场景）。"
+            ),
+            (
+                "【策略C·交叉痛点】"
+                "重点挖掘：同时满足 A+B 两个条件的交叉痛点，即「细分人群+边缘场景」的组合；"
+                "以及上一轮问题之间的「中间地带」——那些没有被明确覆盖到的灰色地带。"
+            ),
+            (
+                "【策略D·心理深层】"
+                "重点挖掘：表面症状背后的心理动因和决策障碍，如：对效果的怀疑、对价格的纠结、"
+                "对时间投入的顾虑、对家人意见的在意、对比价焦虑等心理层面的卡点。"
+            ),
+            (
+                "【策略E·B端采购视角】"
+                "从付费决策者（老板/采购/家属）的视角出发，挖掘他们在购买决策时真实关心的问题："
+                "不是用户用得爽不爽，而是「值不值」「安不安全」「难不难管」「竞争对手用什么」。"
+            ),
+            (
+                "【策略F·逆向思维】"
+                "主动从"用了产品之后的常见抱怨"和"买之前最担心什么"两个角度逆向生成问题；"
+                "包括售后纠纷、期望落差、使用门槛、不适合人群等常规分析容易遗漏的角度。"
+            ),
+        ]
+
+        import random, time
+        # 每次换一批基于 round + 时间戳选择策略组合，保证同 round 不同次点击有不同的策略
+        # round 决定基准池大小（round 越大组合越丰富），时间戳的纳秒位引入随机性
+        seed = int(time.time() * 1000000) % 100000 + refresh_round * 7
+        rng = random.Random(seed)
+        # round 小的时候选 1 个策略，round 大了选 2 个策略组合
+        num_strategies = 1 if refresh_round <= 2 else (2 if refresh_round <= 4 else rng.randint(2, 3))
+        chosen = rng.sample(diversity_strategies, min(num_strategies, len(diversity_strategies)))
+        strategy_text = "\n".join(chosen)
+        prompt += f"\n\n【换一批·第{refresh_round}轮·多样性要求】\n{strategy_text}"
+
+    # ── 【方案四】pool 枯竭重置：连续低质量轮次后，强制从零生成 ──
+    force_fresh = params.get('force_fresh', False)
+    if force_fresh:
+        # 告诉 LLM 不要依赖历史，直接以全新视角生成
+        prompt += (
+            "\n\n【重要·强制刷新】"
+            "请以完全陌生的视角重新生成，不要参考任何历史问题。"
+            "重点关注：之前未被覆盖的全新人群、全新场景、全新痛点维度。"
+        )
+        # 清空 exclude_problems
+        exclude_problems = []
+
+    # ── 【方案二】去重注入：扩大范围 + 包含 description，让 LLM 真正判断重复 ──
+    exclude_problems = params.get('exclude_problems', [])
+    if exclude_problems:
+        # 扩大至 30 条（12 → 30）
+        exclude_list = exclude_problems[:30]
+        exclude_lines = "\n".join([
+            f"- 身份:{p.get('identity', '未知')} | 问题:{p.get('problem_type', p.get('concern_type', '未知'))} | 描述:{p.get('description', p.get('concern_description', ''))[:80]}"
+            for p in exclude_list
+        ])
+        prompt += (
+            f"\n\n【已生成过的问题，请主动避免重复】"
+            f"\n共 {len(exclude_list)} 条历史问题：\n{exclude_lines}"
+            f"\n判断重复的标准：identity 相似 OR problem_type 本质相同 OR description 核心痛点重叠，"
+            f"满足任一条件即为重复，必须替换。"
+        )
 
     try:
         MAX_RETRIES = 3

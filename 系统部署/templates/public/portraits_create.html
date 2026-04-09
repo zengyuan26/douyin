@@ -1637,7 +1637,9 @@ var _allPortraits = {};
 var _selectedProblemKey = null;
 var _currentMarketAnalysis = {};
 var _isPremium = false;
-var _refreshSeq = 0;
+var _refreshRound = 0;  // 换一批轮次计数器（方案一）
+var _allProblemsPool = [];  // 候选问题池（方案二：维护更大的候选集）
+var _consecutiveNoNewRounds = 0;  // 连续无新问题轮次（方案四：pool 清空阈值）
 var _isGeneratingPortraits = false;
 
 // Cover Flow 轮播相关变量
@@ -1756,6 +1758,8 @@ function resetSuperPortraitFlow() {
     document.getElementById('other-scenario-wrapper').style.display = 'none';
 
     _allProblems = [];
+    _allProblemsPool = [];  // 重置候选池
+    _refreshRound = 0;     // 重置轮次计数器
     _allPortraits = {};
     _selectedProblemKey = null;
 
@@ -1774,13 +1778,13 @@ function resetSuperPortraitFlow() {
 // 换一批：重新挖掘问题
 let _refreshProblemsSeq = 0;
 async function refreshProblems() {
-    if (_allProblems.length === 0) {
+    if (_allProblems.length === 0 && _allProblemsPool.length === 0) {
         showToast('请先在一键分析中挖掘问题', 'warning');
         return;
     }
 
     const mySeq = ++_refreshProblemsSeq;
-    console.log('[换一批-问题] 点击了, seq=' + mySeq);
+    console.log('[换一批-问题] 点击了, seq=' + mySeq + ', round=' + _refreshRound);
 
     const btn = document.getElementById('tab-action-text');
     if (btn) {
@@ -1800,6 +1804,25 @@ async function refreshProblems() {
         const otherScenario = document.getElementById('other-scenario-input')?.value?.trim() || '';
         const localCity = document.getElementById('local-city')?.value?.trim() || '';
 
+        // 递增轮次（方案一）
+        _refreshRound++;
+
+        // ── 方案四：pool 清空阈值 ──
+        // 当连续两轮问题极少（≤2条）时，清空 pool，让后端从零生成全新候选集
+        // 这避免了 pool 越积越多导致新问题枯竭的问题
+        const candidateCount = (_allProblems || []).length + (_allProblemsPool || []).length;
+        const shouldResetPool = _consecutiveNoNewRounds >= 2 && candidateCount >= 20;
+        let forceFresh = false;  // 告诉后端忽略 exclude_problems，从零生成
+        if (shouldResetPool) {
+            console.log('[换一批-问题] 连续', _consecutiveNoNewRounds, '轮无新问题，候选池共', candidateCount, '条 → 清空候选池，从零生成');
+            forceFresh = true;
+            _allProblemsPool = [];
+            _consecutiveNoNewRounds = 0;
+        }
+
+        // 收集已显示过的问题作为去重上下文（方案二：扩大至 30 条）
+        const excludeProblems = (_allProblems || []).concat(_allProblemsPool || []).slice(0, 30);
+
         const resp = await fetch('/public/api/targets/problems', {
             method: 'POST',
             headers: {
@@ -1815,6 +1838,10 @@ async function refreshProblems() {
                 other_scenario: otherScenario,
                 local_city: localCity,
                 refresh_nonce: Date.now(),
+                // 方案一：透传轮次和去重上下文给后端（force_fresh 为 true 时跳过去重）
+                refresh_round: _refreshRound,
+                exclude_problems: forceFresh ? [] : excludeProblems,
+                force_fresh: forceFresh,
             })
         });
 
@@ -1833,7 +1860,30 @@ async function refreshProblems() {
             const problems = data.problems.problems || data.problems || [];
             const marketAnalysis = data.problems.market_analysis || {};
             _currentMarketAnalysis = marketAnalysis;
+
+            // 方案二：将旧一批移入候选池，再追加新一批
+            if (_allProblems.length > 0) {
+                _allProblemsPool = _allProblemsPool.concat(_allProblems);
+            }
             _allProblems = problems;
+
+            // ── 方案四：检测是否为"有效换一批" ──
+            // 判断依据：新问题和候选池中已有问题的 identity+problem_type 重叠程度
+            // 如果超过 60% 的新问题都能在 pool 里找到相似项，说明这批没有带来足够多新信息
+            const newCount = problems.length;
+            const poolIdentities = new Set((_allProblemsPool || []).map(p => (p.identity || '') + '|' + (p.problem_type || p.concern_type || '')));
+            const trulyNew = problems.filter(p => {
+                const key = (p.identity || '') + '|' + (p.problem_type || p.concern_type || '');
+                return !poolIdentities.has(key);
+            }).length;
+            const newRatio = newCount > 0 ? (trulyNew / newCount) : 0;
+
+            if (newRatio < 0.4) {
+                _consecutiveNoNewRounds++;
+                console.log('[换一批-问题] 新鲜度不足: ' + newRatio.toFixed(1) + '（新' + trulyNew + '/' + newCount + '条），_consecutiveNoNewRounds=' + _consecutiveNoNewRounds);
+            } else {
+                _consecutiveNoNewRounds = 0; // 有效换一批，重置计数器
+            }
             _allPortraits = {};
             _isPremium = data.is_premium || false;
 
@@ -2031,6 +2081,7 @@ async function portraitMineAndGenerate() {
                 other_scenario: otherScenario,
                 local_city: localCity,
                 refresh_nonce: Date.now(),
+                refresh_round: 0,
             })
         });
 
@@ -2050,6 +2101,8 @@ async function portraitMineAndGenerate() {
             const marketAnalysis = data.problems.market_analysis || {};
             _currentMarketAnalysis = marketAnalysis;
             _allProblems = problems;
+            _allProblemsPool = [];  // 重置候选池
+            _refreshRound = 0;     // 重置轮次计数器
             _allPortraits = {};
             _isPremium = data.is_premium || false;
 
