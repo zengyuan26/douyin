@@ -5704,7 +5704,13 @@
                     // 自动切换到"识别问题" Tab
                     switchSuperTab('tab-problems');
 
-                    showToast('问题挖掘完成！点击"生成画像"查看人群画像', 'success');
+                    // 问题挖掘完成后，自动触发批量生成所有问题的画像（方案B）
+                    // 延迟500ms等待UI渲染完成
+                    setTimeout(() => {
+                        generatePortraitsBatch();
+                    }, 500);
+
+                    showToast('问题挖掘完成！正在批量生成所有画像...', 'success');
                 } else {
                     document.getElementById('problem-mining-loading').style.display = 'none';
                     document.getElementById('problems-section').style.display = 'block';
@@ -5965,6 +5971,214 @@
             </div>`;
 
             return content;
+        }
+
+        // ================================================================
+        // 批量生成画像功能（方案B）
+        // ================================================================
+
+        // 批量生成所有问题的画像
+        async function generatePortraitsBatch() {
+            if (!_allProblems || _allProblems.length === 0) {
+                showToast('请先完成问题挖掘', 'warning');
+                return;
+            }
+
+            // 检查是否已有未生成的问题
+            const ungeneratedProblems = _allProblems.filter(p => {
+                const rawId = p.id != null ? String(p.id).trim() : '';
+                const identity = p.identity || '';
+                const problemType = p.problem_type || '';
+                const idx = _allProblems.indexOf(p);
+                const key = rawId || ('_p_' + idx + '_' + identity + problemType);
+                return !_allPortraits[key] || _allPortraits[key].length === 0;
+            });
+
+            if (ungeneratedProblems.length === 0) {
+                showToast('所有问题都已生成画像，可以直接查看', 'success');
+                return;
+            }
+
+            if (_isGeneratingPortraits) {
+                showToast('画像正在生成中，请稍候…', 'warning');
+                return;
+            }
+
+            const businessDesc = _currentBusinessDesc || document.getElementById('business-desc').value.trim();
+            if (!businessDesc) {
+                showToast('请先填写业务描述', 'error');
+                return;
+            }
+
+            // 折叠问题区域，展开画像区域，显示加载状态
+            const bsCollapse2 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-problems-body'), {toggle: false});
+            bsCollapse2.hide();
+            const bsCollapse3 = bootstrap.Collapse.getOrCreateInstance(document.getElementById('step-portraits-body'), {toggle: false});
+            bsCollapse3.show();
+            document.getElementById('portrait-generating-loading').style.display = 'block';
+            document.getElementById('target-customers-section').style.display = 'none';
+
+            // 更新批量生成按钮状态
+            const batchBtn = document.getElementById('btn-batch-generate-portraits');
+            if (batchBtn) {
+                batchBtn.disabled = true;
+                batchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>生成中...';
+            }
+
+            // 禁用所有单独的生成按钮
+            document.querySelectorAll('#user-pains-list .prob-cf-generate').forEach(function (b) {
+                b.disabled = true;
+            });
+
+            _isGeneratingPortraits = true;
+
+            // 显示批量生成进度
+            const progressEl = document.getElementById('batch-generate-progress');
+            if (progressEl) {
+                progressEl.style.display = 'block';
+                progressEl.innerHTML = `<div class="text-center py-2">
+                    <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                    正在批量生成画像 (0/${ungeneratedProblems.length})...
+                </div>`;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            try {
+                // 并行生成（最多3个并发）
+                const results = await Promise.allSettled(
+                    ungeneratedProblems.map(async (problem, index) => {
+                        // 更新进度
+                        if (progressEl) {
+                            progressEl.innerHTML = `<div class="text-center py-2">
+                                <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                                正在批量生成画像 (${index + 1}/${ungeneratedProblems.length})...
+                            </div>`;
+                        }
+
+                        // key生成逻辑必须与 _buildProblemCfHTML 完全一致
+                        const rawId = problem.id != null ? String(problem.id).trim() : '';
+                        const identity = problem.identity || '';
+                        const problemType = problem.problem_type || '';
+                        const key = rawId || ('_p_' + index + '_' + identity + problemType);
+                        
+                        const result = await requestGeneratePortraits(problem);
+
+                        if (result.ok && result.data && result.data.portraits) {
+                            return { success: true, key, problem, portraits: result.data.portraits };
+                        } else {
+                            return { success: false, key, problem, error: result.message };
+                        }
+                    })
+                );
+
+                // 汇总结果
+                for (const result of results) {
+                    if (result.status === 'fulfilled' && result.value.success) {
+                        successCount++;
+                        const { key, problem, portraits } = result.value;
+                        _allPortraits[key] = portraits;
+                        // 更新对应卡片的状态
+                        updateProblemCardStatus(key, portraits.length);
+                    } else {
+                        failCount++;
+                        if (result.status === 'rejected') {
+                            console.error('[generatePortraitsBatch] 问题生成失败:', result.reason);
+                        } else if (result.value && result.value.error) {
+                            console.error('[generatePortraitsBatch] 问题生成失败:', result.value.error);
+                        }
+                    }
+                }
+
+                // 隐藏进度条
+                if (progressEl) {
+                    progressEl.style.display = 'none';
+                }
+
+                // 显示结果
+                document.getElementById('portrait-generating-loading').style.display = 'none';
+                document.getElementById('target-customers-section').style.display = 'block';
+
+                // 切换到画像Tab
+                switchSuperTab('tab-portraits');
+                document.getElementById('step-portraits-body').addEventListener('shown.bs.collapse', () => {
+                    document.getElementById('target-customers-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, { once: true });
+
+                // 如果有成功的，显示第一个有画像的问题
+                const firstSuccessProblem = _allProblems.find(p => {
+                    const rawId = p.id != null ? String(p.id).trim() : '';
+                    const identity = p.identity || '';
+                    const problemType = p.problem_type || '';
+                    const idx = _allProblems.indexOf(p);
+                    const key = rawId || ('_p_' + idx + '_' + identity + problemType);
+                    return _allPortraits[key] && _allPortraits[key].length > 0;
+                });
+
+                if (firstSuccessProblem) {
+                    const rawId = firstSuccessProblem.id != null ? String(firstSuccessProblem.id).trim() : '';
+                    const identity = firstSuccessProblem.identity || '';
+                    const problemType = firstSuccessProblem.problem_type || '';
+                    const idx = _allProblems.indexOf(firstSuccessProblem);
+                    const key = rawId || ('_p_' + idx + '_' + identity + problemType);
+                    selectProblemCard(key,
+                        identity,
+                        problemType || firstSuccessProblem.concern_type || '',
+                        firstSuccessProblem
+                    );
+                }
+
+                // 保存快照
+                if (currentUser) {
+                    saveSnapshotToServer();
+                }
+
+                // 显示汇总提示
+                if (successCount > 0) {
+                    showToast(`批量生成完成！成功 ${successCount} 个问题，失败 ${failCount} 个`, successCount > 0 ? 'success' : 'error');
+                } else {
+                    showToast(`批量生成失败，请稍后重试`, 'error');
+                }
+
+            } catch (e) {
+                console.error('[generatePortraitsBatch] 异常:', e);
+                if (progressEl) {
+                    progressEl.style.display = 'none';
+                }
+                document.getElementById('portrait-generating-loading').style.display = 'none';
+                document.getElementById('target-customers-section').style.display = 'block';
+                showToast('批量生成失败，请稍后重试', 'error');
+            } finally {
+                _isGeneratingPortraits = false;
+
+                // 恢复所有按钮状态
+                if (batchBtn) {
+                    batchBtn.disabled = false;
+                    batchBtn.innerHTML = '<i class="bi bi-collection me-1"></i>一键生成全部画像';
+                }
+                document.querySelectorAll('#user-pains-list .prob-cf-generate').forEach(function (b) {
+                    b.disabled = false;
+                });
+            }
+        }
+
+        // 更新问题卡片的生成状态
+        function updateProblemCardStatus(key, portraitCount) {
+            const card = Array.from(document.querySelectorAll('#user-pains-list .prob-cf-card')).find(function (c) {
+                return String(c.dataset.key || '') === String(key || '');
+            });
+            if (card) {
+                const statusSpan = card.querySelector('.prob-cf-status');
+                if (statusSpan) {
+                    statusSpan.classList.add('done');
+                    statusSpan.textContent = portraitCount > 0 ? `✓ 已生成画像（${portraitCount} 个）` : '✓ 已生成画像';
+                }
+                const genBtn = card.querySelector('.prob-cf-generate');
+                if (genBtn) {
+                    genBtn.textContent = '查看画像';
+                }
+            }
         }
 
         // 初始化问题 Cover Flow
