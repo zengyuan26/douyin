@@ -1,0 +1,423 @@
+{#
+  内容详情页 - AI棱镜
+  展示生成内容的完整内容
+#}
+{% extends "public/public_layout.html" %}
+
+{% block title %}内容详情 - AI棱镜{% endblock %}
+
+{% block layout_extra_css %}
+<style>
+    /* 页面标题区 */
+    .detail-page-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .detail-page-header .back-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid var(--apple-gray4);
+        background: var(--bg-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--text-secondary);
+        transition: all var(--transition-fast);
+        text-decoration: none;
+    }
+
+    .detail-page-header .back-btn:hover {
+        background: var(--apple-gray6);
+        color: var(--text-primary);
+    }
+
+    .detail-page-header h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    /* 内容卡片 */
+    .detail-content-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+    }
+
+    /* 卡片头部 */
+    .detail-card-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--apple-gray6);
+        background: var(--bg-secondary);
+    }
+
+    .detail-meta-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 0.8125rem;
+        color: var(--apple-gray);
+        margin-bottom: 12px;
+    }
+
+    .detail-meta-row .dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--apple-gray3);
+    }
+
+    .detail-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 12px 0;
+        line-height: 1.4;
+    }
+
+    .detail-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .detail-tag {
+        font-size: 0.75rem;
+        padding: 3px 10px;
+        border-radius: 12px;
+        background: var(--apple-gray7);
+        color: var(--apple-gray);
+    }
+
+    /* 卡片内容 */
+    .detail-card-body {
+        padding: 24px;
+    }
+
+    .detail-content-text {
+        font-size: 0.9375rem;
+        line-height: 1.8;
+        color: var(--text-primary);
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    /* 卡片底部操作栏 */
+    .detail-card-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--apple-gray6);
+        background: var(--bg-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .detail-action-group {
+        display: flex;
+        gap: 12px;
+    }
+
+    .detail-action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: var(--radius-sm);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        border: 1px solid var(--border-color);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+    }
+
+    .detail-action-btn:hover {
+        background: var(--apple-gray7);
+    }
+
+    .detail-action-btn.primary {
+        background: var(--apple-blue);
+        border-color: var(--apple-blue);
+        color: white;
+    }
+
+    .detail-action-btn.primary:hover {
+        background: #0070E0;
+    }
+
+    .detail-timestamp {
+        font-size: 0.8125rem;
+        color: var(--apple-gray);
+    }
+
+    /* 加载状态 */
+    .detail-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 20px;
+    }
+
+    .detail-loading p {
+        margin-top: 16px;
+        color: var(--apple-gray);
+        font-size: 0.875rem;
+    }
+
+    /* 错误状态 */
+    .detail-error {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 20px;
+        text-align: center;
+    }
+
+    .detail-error-icon {
+        font-size: 3rem;
+        margin-bottom: 16px;
+    }
+
+    .detail-error h3 {
+        font-size: 1.125rem;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+
+    .detail-error p {
+        color: var(--apple-gray);
+        font-size: 0.875rem;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-container">
+    {# 页面标题 #}
+    <div class="detail-page-header">
+        <a class="back-btn" href="javascript:void(0)" id="back-btn" title="返回">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <h1>内容详情</h1>
+    </div>
+
+    {# 内容卡片 #}
+    <div class="detail-content-card" id="content-card">
+        {# 加载中 #}
+        <div class="detail-loading" id="loading-state">
+            <div class="apple-spinner mx-auto" style="width:32px;height:32px;border-width:3px;"></div>
+            <p>加载内容中...</p>
+        </div>
+
+        {# 错误状态 #}
+        <div class="detail-error" id="error-state" style="display:none;">
+            <div class="detail-error-icon">&#9888;</div>
+            <h3 id="error-title">加载失败</h3>
+            <p id="error-message">内容不存在或已删除</p>
+            <a href="/public" class="detail-action-btn primary">返回首页</a>
+        </div>
+
+        {# 内容展示 #}
+        <div id="content-state" style="display:none;">
+            <div class="detail-card-header">
+                <div class="detail-meta-row">
+                    <span id="content-type">图文</span>
+                    <span class="dot"></span>
+                    <span id="content-portrait">--</span>
+                    <span class="dot"></span>
+                    <span id="content-tokens">--</span>
+                </div>
+                <h2 class="detail-title" id="content-title">--</h2>
+                <div class="detail-tags" id="content-tags"></div>
+            </div>
+            <div class="detail-card-body">
+                <div class="detail-content-text" id="content-body">--</div>
+            </div>
+            <div class="detail-card-footer">
+                <div class="detail-action-group">
+                    <button class="detail-action-btn" onclick="copyContent()">
+                        <i class="bi bi-clipboard"></i>
+                        复制内容
+                    </button>
+                    <button class="detail-action-btn" onclick="regenerateContent()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        重新生成
+                    </button>
+                </div>
+                <div class="detail-timestamp">
+                    生成于 <span id="content-time">--</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block layout_extra_js %}
+<script>
+var _generationId = null;
+var _portraitId = null;
+var _generationData = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserAuth();
+    loadContentDetail();
+});
+
+async function loadUserAuth() {
+    try {
+        const resp = await fetch('/public/api/quota', { credentials: 'include' });
+        const data = await resp.json();
+        if (!data.success || !data.data) {
+            window.location.href = '/login?type=public&next=' + encodeURIComponent(window.location.pathname + window.location.search);
+        }
+    } catch (e) {
+        window.location.href = '/login?type=public&next=' + encodeURIComponent(window.location.pathname + window.location.search);
+    }
+}
+
+function loadContentDetail() {
+    const params = new URLSearchParams(window.location.search);
+    _generationId = params.get('id');
+
+    if (!_generationId) {
+        showError('参数错误', '缺少内容ID参数');
+        return;
+    }
+
+    fetch('/public/api/history/' + _generationId, { credentials: 'include' })
+        .then(function(resp) { return resp.json(); })
+        .then(function(data) {
+            if (data.success) {
+                _generationData = data.data;
+                _portraitId = data.data.portrait_id;
+                renderContentDetail(data.data);
+            } else {
+                showError('加载失败', data.message || '内容不存在或已删除');
+            }
+        })
+        .catch(function(e) {
+            showError('加载失败', '网络错误，请稍后重试');
+        });
+}
+
+function renderContentDetail(data) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('content-state').style.display = 'block';
+
+    // 元信息
+    document.getElementById('content-type').textContent = data.content_type === 'graphic' ? '图文' : '其他';
+    document.getElementById('content-portrait').textContent = data.target_customer || '--';
+
+    // tokens
+    if (data.used_tokens) {
+        document.getElementById('content-tokens').textContent = '消耗 ' + data.used_tokens + ' tokens';
+    } else {
+        document.getElementById('content-tokens').textContent = '';
+        var dot = document.querySelector('#content-tokens + .dot');
+        if (dot) dot.style.display = 'none';
+    }
+
+    // 标题
+    var titles = data.titles;
+    if (typeof titles === 'string') {
+        try { titles = JSON.parse(titles); } catch(e) { titles = [titles]; }
+    }
+    document.getElementById('content-title').textContent = Array.isArray(titles) ? titles[0] : (titles || '--');
+
+    // 标签
+    var tags = data.tags;
+    if (typeof tags === 'string') {
+        tags = tags.split(',').filter(function(t) { return t.trim(); });
+    }
+    var tagsEl = document.getElementById('content-tags');
+    tagsEl.innerHTML = '';
+    if (Array.isArray(tags) && tags.length > 0) {
+        tags.forEach(function(tag) {
+            var span = document.createElement('span');
+            span.className = 'detail-tag';
+            span.textContent = tag.trim();
+            tagsEl.appendChild(span);
+        });
+    }
+
+    // 内容正文
+    var content = data.content || '';
+    if (typeof content === 'object') {
+        content = JSON.stringify(content, null, 2);
+    }
+    document.getElementById('content-body').textContent = content;
+
+    // 时间
+    if (data.created_at) {
+        var d = new Date(data.created_at);
+        document.getElementById('content-time').textContent =
+            d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
+            pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+}
+
+function showError(title, message) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('error-state').style.display = 'flex';
+    document.getElementById('error-title').textContent = title;
+    document.getElementById('error-message').textContent = message;
+}
+
+function pad(n) {
+    return n < 10 ? '0' + n : '' + n;
+}
+
+function showToast(message, type) {
+    var el = document.createElement('div');
+    el.style.cssText = 'position:fixed;bottom:80px;right:24px;background:' +
+        (type === 'error' ? '#FF3B30' : '#34C759') +
+        ';color:white;padding:10px 16px;border-radius:8px;font-size:0.875rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+    el.textContent = message;
+    document.body.appendChild(el);
+    setTimeout(function() {
+        el.style.opacity = '0';
+        el.style.transition = 'opacity 0.3s';
+        setTimeout(function() { el.remove(); }, 300);
+    }, 2500);
+}
+
+function copyContent() {
+    var content = document.getElementById('content-body').textContent;
+    navigator.clipboard.writeText(content).then(function() {
+        showToast('内容已复制到剪贴板', 'success');
+    }).catch(function() {
+        showToast('复制失败，请手动选择复制', 'error');
+    });
+}
+
+function regenerateContent() {
+    if (_portraitId) {
+        window.location.href = '/public/produce?portraitId=' + _portraitId;
+    } else {
+        window.location.href = '/public';
+    }
+}
+
+// 返回按钮点击事件
+document.getElementById('back-btn').addEventListener('click', function() {
+    if (_portraitId) {
+        window.location.href = '/public/produce?portraitId=' + _portraitId;
+    } else {
+        window.history.back();
+    }
+});
+</script>
+{% endblock %}

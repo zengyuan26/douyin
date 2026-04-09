@@ -1873,6 +1873,8 @@ class ContentGenerator:
                 tags=result['tags'],
                 content=result['content'],
                 used_tokens=tokens_used,
+                # ── 星系增强：保存客户选择的场景组合 ──
+                selected_scenes=params.get('selected_scene'),
             )
             db.session.add(generation)
 

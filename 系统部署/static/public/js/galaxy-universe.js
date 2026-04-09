@@ -366,6 +366,19 @@ const GalaxyUniverse = {
             };
         }
 
+        // ── 星系增强：恒星缩略图（cover_thumb）──
+        // 有 cover_thumb 时用图片，保留边框光晕效果
+        if (type === 'star' && node.cover_thumb) {
+            symbol = 'image://' + node.cover_thumb;
+            size = 50;
+            itemStyle = {
+                borderColor: '#FFD700',
+                borderWidth: 2,
+                shadowBlur: 20,
+                shadowColor: 'rgba(255, 215, 0, 0.6)',
+            };
+        }
+
         return {
             id: node.id,
             name: this.truncateName(node.name || node.title || '未命名', 12),
@@ -571,6 +584,16 @@ const GalaxyUniverse = {
             bodyHTML += `</div>`;
 
             // 基本信息
+            const geoText = (() => {
+                const parts = [];
+                if (d.geo_city) parts.push(d.geo_city);
+                else if (d.geo_province) parts.push(d.geo_province);
+                const levelMap = { province: '省份', city: '城市', district: '区县', nationwide: '全国' };
+                if (d.geo_level && d.geo_level !== 'city') {
+                    parts.push(levelMap[d.geo_level] || d.geo_level);
+                }
+                return parts.join(' · ');
+            })();
             bodyHTML += `
                 <div class="panel-section">
                     <div class="panel-section-title">&#22522;&#26412;&#20449;&#24687;</div>
@@ -590,6 +613,16 @@ const GalaxyUniverse = {
                         <span class="panel-field-label">&#21019;&#24314;&#26102;&#38388;</span>
                         <span class="panel-field-value">${d.created_at || '&#26410;&#30693;'}</span>
                     </div>
+                    ${geoText ? `
+                    <div class="panel-field">
+                        <span class="panel-field-label">&#22320;&#22495;</span>
+                        <span class="panel-field-value" style="color:var(--apple-gold);">${this.escapeHtml(geoText)}</span>
+                    </div>` : ''}
+                    ${(d.geo_tags && d.geo_tags.length > 0) ? `
+                    <div class="panel-field">
+                        <span class="panel-field-label">&#22320;&#22495;&#26631;&#31614;</span>
+                        <span class="panel-field-value" style="font-size:0.8rem;">${d.geo_tags.map(t => `<span class="panel-tag">${this.escapeHtml(t)}</span>`).join('')}</span>
+                    </div>` : ''}
                 </div>`;
 
             this.setPanel({
@@ -678,6 +711,28 @@ const GalaxyUniverse = {
                             `).join('')}
                         </div>
                     </div>`;
+            }
+
+            // ── 星系增强：GEO 信息 ──
+            if ((d.geo_trigger_regions && d.geo_trigger_regions.length > 0) || d.geo_seasonal_factor) {
+                bodyHTML += `
+                    <div class="panel-section">
+                        <div class="panel-section-title">&#22320;&#22495;&#20449;&#24687;</div>`;
+                if (d.geo_trigger_regions && d.geo_trigger_regions.length > 0) {
+                    bodyHTML += `
+                        <div class="element-card">
+                            <div class="element-card-label">&#35380;&#21457;&#22320;&#22495;</div>
+                            <div class="panel-tags">${d.geo_trigger_regions.map(r => `<span class="panel-tag">${this.escapeHtml(r)}</span>`).join('')}</div>
+                        </div>`;
+                }
+                if (d.geo_seasonal_factor) {
+                    bodyHTML += `
+                        <div class="element-card">
+                            <div class="element-card-label">&#23395;&#33410;&#22240;&#32032;</div>
+                            <div class="element-card-value">${this.escapeHtml(d.geo_seasonal_factor)}</div>
+                        </div>`;
+                }
+                bodyHTML += `</div>`;
             }
 
             // 生成统计

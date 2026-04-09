@@ -13,7 +13,8 @@
         display: flex;
         align-items: center;
         gap: 16px;
-        margin-bottom: 24px;
+        margin-bottom: 12px;
+        flex-shrink: 0;
     }
 
     .produce-page-header .back-btn {
@@ -43,66 +44,100 @@
         margin: 0;
     }
 
+    /* 页面主容器 */
+    .main-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 120px);
+        min-height: 0;
+    }
+
     /* 画像信息区 */
     .portrait-info-panel {
         background: var(--bg-primary);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-lg);
-        padding: 20px 24px;
-        margin-bottom: 20px;
+        padding: 16px 20px;
+        margin-bottom: 12px;
         box-shadow: var(--shadow-sm);
+        flex-shrink: 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .portrait-info-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: var(--radius-md);
+        background: linear-gradient(135deg, var(--netease-red) 0%, #ff6b6b 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+
+    .portrait-info-content {
+        flex: 1;
+        min-width: 0;
     }
 
     .portrait-info-header {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
     }
 
     .portrait-info-name {
-        font-size: 1.125rem;
+        font-size: 1rem;
         font-weight: 600;
         color: var(--text-primary);
         margin-bottom: 4px;
     }
 
-    .portrait-info-meta {
+    .portrait-info-tags {
         display: flex;
-        align-items: center;
-        gap: 12px;
-        font-size: 0.8125rem;
-        color: var(--apple-gray);
+        gap: 8px;
+        flex-wrap: wrap;
     }
 
-    .portrait-info-meta .dot {
-        width: 3px;
-        height: 3px;
-        border-radius: 50%;
-        background: var(--apple-gray3);
+    .portrait-info-tag {
+        font-size: 0.6875rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+
+    .portrait-info-tag.business {
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--apple-blue);
+    }
+
+    .portrait-info-tag.problem {
+        background: rgba(255, 149, 0, 0.1);
+        color: var(--apple-orange);
+    }
+
+    .portrait-info-desc {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-bottom: 0;
     }
 
     .portrait-info-actions {
         display: flex;
         gap: 8px;
+        flex-shrink: 0;
     }
 
     .portrait-info-actions .btn-sm {
         font-size: 0.8125rem;
         padding: 5px 12px;
         border-radius: var(--radius-sm);
-    }
-
-    .btn-delete-portrait {
-        background: #FFF0F0;
-        border: 1px solid #FFD0D0;
-        color: var(--apple-red);
-    }
-
-    .btn-delete-portrait:hover {
-        background: #FFE0E0;
-        border-color: #FFB0B0;
-        color: var(--apple-red);
     }
 
     /* 播放列表区 */
@@ -112,6 +147,10 @@
         border-radius: var(--radius-lg);
         overflow: hidden;
         box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
     }
 
     /* 列表头部 */
@@ -119,13 +158,14 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 14px 20px;
+        padding: 10px 20px;
         border-bottom: 1px solid var(--apple-gray6);
         background: var(--bg-secondary);
+        flex-shrink: 0;
     }
 
     .playlist-title {
-        font-size: 0.9375rem;
+        font-size: 0.875rem;
         font-weight: 600;
         color: var(--text-primary);
         display: flex;
@@ -136,9 +176,9 @@
     .playlist-title .count-badge {
         background: var(--netease-red);
         color: white;
-        font-size: 0.75rem;
+        font-size: 0.6875rem;
         font-weight: 600;
-        padding: 2px 8px;
+        padding: 2px 6px;
         border-radius: 10px;
     }
 
@@ -147,7 +187,7 @@
         display: grid;
         grid-template-columns: 60px 1fr 100px 80px;
         gap: 12px;
-        padding: 10px 20px;
+        padding: 8px 20px;
         background: var(--bg-tertiary);
         border-bottom: 1px solid var(--apple-gray6);
         font-size: 0.8125rem;
@@ -155,14 +195,16 @@
         color: var(--apple-gray);
         letter-spacing: 0.5px;
         text-transform: uppercase;
+        flex-shrink: 0;
     }
 
     /* 列表内容 */
     .playlist-body {
-        max-height: 480px;
+        flex: 1;
         overflow-y: auto;
         scrollbar-width: thin;
         scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+        min-height: 0;
     }
 
     .playlist-body::-webkit-scrollbar { width: 6px; }
@@ -175,7 +217,7 @@
         display: grid;
         grid-template-columns: 60px 1fr 100px 80px;
         gap: 12px;
-        padding: 12px 20px;
+        padding: 8px 20px;
         align-items: center;
         border-bottom: 1px solid var(--apple-gray6);
         cursor: pointer;
@@ -335,13 +377,14 @@
 
     /* 列表底部 */
     .playlist-footer {
-        padding: 16px 20px;
+        padding: 10px 20px;
         border-top: 1px solid var(--apple-gray6);
         background: var(--bg-secondary);
         display: flex;
         align-items: center;
         justify-content: flex-end;
         gap: 12px;
+        flex-shrink: 0;
     }
 
     /* 分页 */
@@ -353,19 +396,19 @@
     }
 
     .page-btn {
-        min-width: 32px;
-        height: 32px;
+        min-width: 28px;
+        height: 28px;
         border-radius: 6px;
         border: 1px solid var(--apple-gray4);
         background: var(--bg-primary);
         color: var(--text-secondary);
-        font-size: 0.8125rem;
+        font-size: 0.75rem;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         transition: all var(--transition-fast);
-        padding: 0 8px;
+        padding: 0 6px;
     }
 
     .page-btn:hover:not(:disabled) {
@@ -396,15 +439,15 @@
         background: var(--netease-red);
         border: none;
         border-radius: var(--radius-md);
-        padding: 10px 28px;
-        font-size: 0.9375rem;
+        padding: 8px 20px;
+        font-size: 0.8125rem;
         font-weight: 600;
         color: white;
         cursor: pointer;
         transition: all var(--transition-fast);
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         box-shadow: 0 2px 8px rgba(236, 65, 65, 0.3);
     }
 
@@ -425,20 +468,168 @@
         background: var(--bg-primary);
         border: 1px solid var(--apple-gray4);
         border-radius: var(--radius-md);
-        padding: 10px 20px;
-        font-size: 0.875rem;
+        padding: 6px 14px;
+        font-size: 0.75rem;
         font-weight: 500;
         color: var(--text-primary);
         cursor: pointer;
         transition: all var(--transition-fast);
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 4px;
     }
 
     .btn-regenerate-topics:hover {
         border-color: var(--apple-blue);
         color: var(--apple-blue);
+    }
+
+    /* ================================================
+       星系增强：场景选择器
+       ================================================ */
+    .scene-selector {
+        margin-top: 10px;
+        padding: 10px 12px;
+        background: rgba(255, 215, 0, 0.04);
+        border: 1px solid rgba(255, 215, 0, 0.15);
+        border-radius: var(--radius-md);
+    }
+
+    .scene-selector-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+
+    .scene-selector-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #B8860B;
+    }
+
+    .scene-option {
+        display: block;
+        width: 100%;
+        padding: 7px 10px;
+        margin-bottom: 5px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        background: var(--bg-primary);
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.15s;
+        color: var(--text-primary);
+        font-size: 0.8125rem;
+    }
+
+    .scene-option:hover {
+        border-color: rgba(255, 215, 0, 0.4);
+        background: rgba(255, 215, 0, 0.03);
+    }
+
+    .scene-option.selected {
+        border-color: #FFD700;
+        background: rgba(255, 215, 0, 0.08);
+    }
+
+    .scene-option-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .scene-option-radio {
+        width: 13px;
+        height: 13px;
+        accent-color: #FFD700;
+        flex-shrink: 0;
+    }
+
+    .scene-option-label {
+        font-weight: 600;
+        font-size: 0.8125rem;
+    }
+
+    .scene-option.selected .scene-option-label {
+        color: #B8860B;
+    }
+
+    .scene-option-detail {
+        font-size: 0.75rem;
+        color: var(--apple-gray);
+        margin-left: 21px;
+        line-height: 1.4;
+        margin-top: 3px;
+    }
+
+    .scene-option-tags {
+        display: flex;
+        gap: 4px;
+        margin-left: 21px;
+        margin-top: 4px;
+        flex-wrap: wrap;
+    }
+
+    .scene-tag {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.6875rem;
+        font-weight: 500;
+    }
+
+    .scene-tag.style-emotion   { background: rgba(255,99,71,0.12);  color: #FF6347; }
+    .scene-tag.style-knowledge  { background: rgba(0,122,255,0.12);  color: #007AFF; }
+    .scene-tag.style-sarcasm    { background: rgba(138,43,226,0.12);  color: #8A2BE2; }
+    .scene-tag.style-story      { background: rgba(50,205,50,0.12);   color: #32CD32; }
+    .scene-tag.style-authority  { background: rgba(255,165,0,0.12);   color: #FFA500; }
+    .scene-tag.fallback         { background: var(--apple-gray6);     color: var(--apple-gray); }
+
+    /* 内容类型推荐样式 */
+    .content-type-option {
+        flex: 1;
+        padding: 10px 12px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+        background: var(--bg-primary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        text-align: center;
+    }
+    .content-type-option:hover {
+        border-color: var(--primary-color);
+        background: var(--bg-hover);
+    }
+    .content-type-option.selected {
+        border-color: var(--primary-color);
+        background: rgba(0, 122, 255, 0.08);
+    }
+    .content-type-option input[type="radio"] {
+        display: none;
+    }
+    .content-type-icon {
+        font-size: 1.5rem;
+        margin-bottom: 4px;
+    }
+    .content-type-name {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .content-type-desc {
+        font-size: 0.75rem;
+        color: var(--apple-gray);
+        margin-top: 2px;
+    }
+    .content-type-score {
+        display: inline-block;
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: var(--primary-color);
+        color: white;
+        margin-top: 6px;
     }
 
     /* 空状态 */
@@ -470,30 +661,6 @@
     .playlist-loading {
         padding: 40px 20px;
         text-align: center;
-    }
-
-    /* 删除确认弹窗 */
-    .delete-confirm-toast {
-        position: fixed;
-        bottom: 24px;
-        left: 50%;
-        transform: translateX(-50%) translateY(100px);
-        background: rgba(0, 0, 0, 0.85);
-        color: white;
-        padding: 12px 20px;
-        border-radius: var(--radius-md);
-        font-size: 0.875rem;
-        z-index: 9999;
-        opacity: 0;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .delete-confirm-toast.show {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
     }
 
     /* 响应式 */
@@ -529,7 +696,6 @@
         <a class="public-sidebar-link" href="/public/galaxy">
             <i class="bi bi-stars" aria-hidden="true"></i>
             内容星球
-            <span class="sidebar-new-badge">NEW</span>
         </a>
     </div>
 
@@ -608,35 +774,32 @@
 
 {% block content %}
     <div class="main-container">
-        {# 页面标题 #}
+        {# 页面标题（无返回按钮） #}
         <div class="produce-page-header">
-            <a class="back-btn" href="/public" title="返回">
-                <i class="bi bi-arrow-left"></i>
-            </a>
-            <h1>生成内容</h1>
         </div>
 
         {# 画像信息区 #}
         <div class="portrait-info-panel" id="portrait-info-panel">
-            <div class="portrait-info-header">
-                <div>
-                    <div class="portrait-info-name" id="portrait-name">加载中...</div>
-                    <div class="portrait-info-meta" id="portrait-meta">
-                        <span>保存时间</span>
-                        <span class="dot"></span>
-                        <span id="portrait-created-at">--</span>
+            <div class="portrait-info-avatar" id="portrait-avatar">
+                <i class="bi bi-person-fill"></i>
+            </div>
+            <div class="portrait-info-content">
+                <div class="portrait-info-header">
+                    <div>
+                        <div class="portrait-info-name" id="portrait-name">加载中...</div>
+                        <div class="portrait-info-tags">
+                            <span class="portrait-info-tag business" id="portrait-industry">--</span>
+                            <span class="portrait-info-tag problem" id="portrait-problem-type">--</span>
+                        </div>
+                    </div>
+                    <div class="portrait-info-actions">
+                        <button class="btn-regenerate-topics" id="btn-regenerate-topics" onclick="regenerateTopics()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                            重新生成选题
+                        </button>
                     </div>
                 </div>
-                <div class="portrait-info-actions">
-                    <button class="btn-regenerate-topics" id="btn-regenerate-topics" onclick="regenerateTopics()">
-                        <i class="bi bi-arrow-clockwise"></i>
-                        重新生成选题
-                    </button>
-                    <button class="btn-delete-portrait btn-sm" id="btn-delete-portrait" onclick="confirmDeletePortrait()">
-                        <i class="bi bi-trash"></i>
-                        删除画像
-                    </button>
-                </div>
+                <p class="portrait-info-desc" id="portrait-desc">--</p>
             </div>
         </div>
 
@@ -678,6 +841,27 @@
                     </button>
                 </div>
 
+                {# 星系增强：场景选择器（默认折叠，按需显示）#}
+                <div id="scene-selector-container" style="display:none;">
+                    <div class="scene-selector" id="scene-selector">
+                        <div class="scene-selector-header">
+                            <span class="scene-selector-title">&#22320;&#24335;&#36873;&#39033;</span>
+                        </div>
+                        <div id="scene-options-list"></div>
+                    </div>
+                </div>
+
+                {# ── 内容类型推荐 ── #}
+                <div id="content-type-recommender" style="display:none; margin-top: 12px;">
+                    <div class="scene-selector" style="background: var(--bg-secondary);">
+                        <div class="scene-selector-header">
+                            <span class="scene-selector-title">&#24314;&#35758;&#20869;&#23481;&#31867;&#22411;</span>
+                            <span id="content-type-recommend-tip" style="font-size:0.75rem; color: var(--apple-gray); font-weight: normal;">&#31995;&#32479;&#26681;&#25454;&#24744;&#30340;&#36873;&#39033;&#33258;&#21160;&#25512;&#33616;</span>
+                        </div>
+                        <div id="content-type-options" style="display: flex; gap: 12px; padding: 8px 0;"></div>
+                    </div>
+                </div>
+
                 {# 列表内容（由 JS 渲染） #}
                 <div id="playlist-rows" style="display:none;"></div>
             </div>
@@ -704,12 +888,6 @@
         </div>
     </div>
 
-    {# 删除确认 Toast #}
-    <div class="delete-confirm-toast" id="delete-confirm-toast">
-        <span>确定要删除这个画像吗？</span>
-        <button onclick="doDeletePortrait()" style="background:var(--apple-red);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.8125rem;">删除</button>
-        <button onclick="hideDeleteToast()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.8125rem;">取消</button>
-    </div>
 {% endblock %}
 
 {% block layout_extra_js %}
@@ -718,9 +896,12 @@ var _portraitId = null;
 var _portrait = null;
 var _topics = [];
 var _selectedTopicId = null;
+var _selectedScene = null;  // ── 星系增强：选中的场景组合
+var _selectedContentType = 'graphic';  // ── 默认图文类型
 var _currentPage = 1;
 var _perPage = 10;
 var _totalPages = 0;
+var _contentTypeRecommendation = null;  // 内容类型推荐结果
 
 // ── 初始化 ──────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
@@ -804,13 +985,18 @@ async function loadPortraitData() {
 function renderPortraitInfo() {
     document.getElementById('portrait-name').textContent = _portrait.portrait_name || '未命名画像';
 
-    const createdAt = _portrait.created_at;
-    if (createdAt) {
-        const d = new Date(createdAt);
-        document.getElementById('portrait-created-at').textContent =
-            d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
-            pad(d.getHours()) + ':' + pad(d.getMinutes());
-    }
+    // 行业标签
+    var industry = _portrait.industry || '';
+    document.getElementById('portrait-industry').textContent = industry || '未设置行业';
+
+    // 问题类型（从 portrait_data 中获取）
+    var portraitData = _portrait.portrait_data || {};
+    var problemType = portraitData.problem_type || portraitData.核心问题 || '';
+    document.getElementById('portrait-problem-type').textContent = problemType || '未设置问题';
+
+    // 业务描述
+    var businessDesc = _portrait.business_description || '';
+    document.getElementById('portrait-desc').textContent = businessDesc || '暂无简介';
 }
 
 async function loadTopics(page) {
@@ -923,9 +1109,207 @@ function changePage(delta) {
 
 function selectTopic(topicId) {
     _selectedTopicId = topicId;
+    _selectedScene = null; // 重置场景选择
     // 重新渲染以更新选中态
     renderTopicRows(_topics);
     updateGenerateButton();
+    // ── 星系增强：显示场景选择器 ──
+    renderSceneSelector(topicId);
+}
+
+// ── 星系增强：场景选择器 ──────────────────────────────────────
+function renderSceneSelector(topicId) {
+    const container = document.getElementById('scene-selector-container');
+    const listEl = document.getElementById('scene-options-list');
+    if (!container || !listEl) return;
+
+    const topic = _topics.find(function(t) { return t.id === topicId; });
+    const sceneOptions = topic && Array.isArray(topic.scene_options) ? topic.scene_options : [];
+
+    if (sceneOptions.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    let html = '';
+    sceneOptions.forEach(function(scene, idx) {
+        const selected = _selectedScene && _selectedScene.id === scene.id;
+        const styleClass = getSceneStyleClass(scene['\u98ce\u683c'] || '');
+        const sceneId = scene.id || ('scene_' + idx);
+        html +=
+            '<button class="scene-option' + (selected ? ' selected' : '') + '"' +
+            ' onclick="selectScene(\'' + sceneId + '\', \'' + topicId + '\')">' +
+                '<div class="scene-option-header">' +
+                    '<input type="radio" class="scene-option-radio"' +
+                    ' name="scene-radio" ' + (selected ? 'checked' : '') + '' +
+                    ' onclick="event.stopPropagation(); selectScene(\'' + sceneId + '\', \'' + topicId + '\')">' +
+                    '<span class="scene-option-label">' + escHtml(scene['\u6807\u7b7e'] || '\u672a\u77e5\u573a\u666f') + '</span>' +
+                '</div>' +
+                '<div class="scene-option-detail">' + escHtml(scene['\u7ec4\u5408'] || '') + '</div>' +
+                '<div class="scene-option-tags">' +
+                    '<span class="scene-tag ' + styleClass + '">' + escHtml(scene['\u98ce\u683c'] || '') + '</span>' +
+                '</div>' +
+            '</button>';
+    });
+    listEl.innerHTML = html;
+}
+
+function selectScene(sceneId, topicId) {
+    const topic = _topics.find(function(t) { return t.id === topicId; });
+    const sceneOptions = topic && Array.isArray(topic.scene_options) ? topic.scene_options : [];
+    const scene = sceneOptions.find(function(s) { return s.id === sceneId || sceneId.startsWith('scene_'); });
+    _selectedScene = scene || null;
+    renderSceneSelector(topicId);
+    updateGenerateButton();
+
+    // ── 星系增强：选择场景后自动推荐内容类型 ──
+    if (_selectedScene) {
+        recommendContentType();
+    }
+}
+
+function getSceneStyleClass(style) {
+    var map = {
+        '情绪共鸣': 'style-emotion',
+        '干货科普': 'style-knowledge',
+        '犀利吐槽': 'style-sarcasm',
+        '故事叙述': 'style-story',
+        '权威背书': 'style-authority',
+    };
+    return map[style] || 'fallback';
+}
+
+// ── 内容类型推荐 ──────────────────────────────────────
+async function recommendContentType() {
+    const container = document.getElementById('content-type-recommender');
+    const optionsEl = document.getElementById('content-type-options');
+    if (!container || !optionsEl) return;
+
+    // 获取选题信息
+    const topic = _topics.find(function(t) { return t.id === _selectedTopicId; });
+    if (!topic) {
+        container.style.display = 'none';
+        return;
+    }
+
+    try {
+        // 调用内容类型推荐 API
+        const resp = await fetch('/public/api/topics/recommend-type', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                topic: {
+                    title: topic.title,
+                    type: topic.type_name || topic.type_key || '',
+                },
+                portrait: _portrait.portrait_data || {},
+                business_info: {
+                    is_hot_topic: topic.type_key === 'hot',
+                    is_professional: topic.priority === 'P0',
+                    is_comparison: topic.type_key === 'compare',
+                    is_local_service: _portrait.industry === 'local_service',
+                },
+                // 额外传递场景信息
+                scene_style: _selectedScene ? _selectedScene['\u98ce\u683c'] || _selectedScene['风格'] || '' : ''
+            })
+        });
+        const data = await resp.json();
+
+        if (data.success && data.recommendation) {
+            _contentTypeRecommendation = data.recommendation;
+            // 默认选中推荐最高的类型
+            _selectedContentType = data.recommendation.recommended_type || 'graphic';
+            renderContentTypeOptions(data.recommendation);
+            container.style.display = 'block';
+        } else {
+            // API调用失败，使用默认选项
+            _contentTypeRecommendation = null;
+            _selectedContentType = 'graphic';
+            renderDefaultContentTypeOptions();
+            container.style.display = 'block';
+        }
+    } catch (e) {
+        console.error('推荐内容类型失败:', e);
+        _contentTypeRecommendation = null;
+        _selectedContentType = 'graphic';
+        renderDefaultContentTypeOptions();
+        container.style.display = 'block';
+    }
+}
+
+function renderContentTypeOptions(recommendation) {
+    const optionsEl = document.getElementById('content-type-options');
+    if (!optionsEl) return;
+
+    // 内容类型信息
+    const typeInfo = {
+        'graphic': {
+            icon: '🖼️',
+            name: '图文',
+            desc: '适合对比/步骤/清单'
+        },
+        'long_text': {
+            icon: '📝',
+            name: '长文',
+            desc: '适合深度分析/知识'
+        },
+        'short_video': {
+            icon: '🎬',
+            name: '短视频',
+            desc: '适合故事/演示/共鸣'
+        }
+    };
+
+    const scores = recommendation.scores || {};
+    const recommended = recommendation.recommended_type || 'graphic';
+
+    let html = '';
+    for (const [type, info] of Object.entries(typeInfo)) {
+        const score = scores[type] || 0;
+        const isRecommended = type === recommended;
+        const isSelected = type === _selectedContentType;
+
+        html +=
+            '<div class="content-type-option' + (isSelected ? ' selected' : '') + '"' +
+            ' onclick="selectContentType(\'' + type + '\')">' +
+                '<input type="radio" name="content-type-radio" ' + (isSelected ? 'checked' : '') + '>' +
+                '<div class="content-type-icon">' + info.icon + '</div>' +
+                '<div class="content-type-name">' + info.name + '</div>' +
+                '<div class="content-type-desc">' + info.desc + '</div>' +
+                (isRecommended ? '<span class="content-type-score">推荐</span>' : '') +
+            '</div>';
+    }
+    optionsEl.innerHTML = html;
+}
+
+function renderDefaultContentTypeOptions() {
+    // 默认显示图文选项
+    renderContentTypeOptions({
+        scores: { 'graphic': 0.9, 'short_video': 0.7, 'long_text': 0.5 },
+        recommended_type: 'graphic'
+    });
+}
+
+function selectContentType(type) {
+    _selectedContentType = type;
+    // 更新选中状态
+    const options = document.querySelectorAll('.content-type-option');
+    options.forEach(function(opt, idx) {
+        const types = ['graphic', 'long_text', 'short_video'];
+        if (types[idx] === type) {
+            opt.classList.add('selected');
+            opt.querySelector('input[type="radio"]').checked = true;
+        } else {
+            opt.classList.remove('selected');
+            opt.querySelector('input[type="radio"]').checked = false;
+        }
+    });
+}
+
+function escAttr(str) {
+    return String(str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
 
 function updateGenerateButton() {
@@ -971,6 +1355,20 @@ async function generateContent() {
             payload.problem_id = _portrait.session_id;
         }
 
+        // ── 星系增强：携带场景选择信息 ──
+        if (_selectedScene) {
+            payload.selected_scene = {
+                scene_id: _selectedScene.id || '',
+                '\u7ec4\u5408': _selectedScene['\u7ec4\u5408'] || '',
+                '\u6807\u7b7e': _selectedScene['\u6807\u7b7e'] || '',
+                '\u98ce\u683c': _selectedScene['\u98ce\u683c'] || '',
+            };
+            payload.content_style = _selectedScene['\u98ce\u683c'] || '';
+        }
+
+        // ── 星系增强：携带内容类型 ──
+        payload.content_type = _selectedContentType || 'graphic';
+
         const resp = await fetch('/public/api/content/generate', {
             method: 'POST',
             credentials: 'include',
@@ -983,12 +1381,19 @@ async function generateContent() {
             // 成功后回写 generation_count
             await incrementTopicCount(topic.id);
             showToast('生成成功！', 'success');
-            // 重置按钮
-            btnText.innerHTML = '<i class="bi bi-check-lg"></i> 生成成功';
-            setTimeout(function() {
-                btn.disabled = false;
-                btnText.textContent = '继续生成';
-            }, 2000);
+            // 跳转到详情页
+            if (data.generation_id) {
+                setTimeout(function() {
+                    window.location.href = '/public/content-detail?id=' + data.generation_id + '&portraitId=' + _portraitId;
+                }, 500);
+            } else {
+                // 重置按钮
+                btnText.innerHTML = '<i class="bi bi-check-lg"></i> 生成成功';
+                setTimeout(function() {
+                    btn.disabled = false;
+                    btnText.textContent = '继续生成';
+                }, 2000);
+            }
         } else {
             showToast(data.message || '生成失败', 'error');
             btn.disabled = false;
@@ -1046,36 +1451,6 @@ async function regenerateTopics() {
 
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> 重新生成选题';
-}
-
-// ── 删除画像 ──────────────────────────────────────
-function confirmDeletePortrait() {
-    var toast = document.getElementById('delete-confirm-toast');
-    toast.classList.add('show');
-}
-
-function hideDeleteToast() {
-    var toast = document.getElementById('delete-confirm-toast');
-    toast.classList.remove('show');
-}
-
-async function doDeletePortrait() {
-    hideDeleteToast();
-    try {
-        var resp = await fetch('/public/api/portraits/' + _portraitId, {
-            method: 'DELETE',
-            credentials: 'include'
-        });
-        var data = await resp.json();
-        if (data.success) {
-            showToast('画像已删除', 'success');
-            setTimeout(function() { window.location.href = '/public/portraits'; }, 800);
-        } else {
-            showToast(data.message || '删除失败', 'error');
-        }
-    } catch (e) {
-        showToast('删除失败', 'error');
-    }
 }
 
 // ── 工具函数 ──────────────────────────────────────

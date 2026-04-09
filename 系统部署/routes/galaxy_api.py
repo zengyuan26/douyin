@@ -81,6 +81,13 @@ def get_galaxy_graph(user):
             'portrait_data': p.portrait_data,
             'generation_status': p.generation_status or 'pending',
             'created_at': _dt_str(p.created_at),
+            # ── 星系增强：恒星缩略图与地域 ──
+            'cover_thumb': p.cover_thumb or '',
+            'geo_province': p.geo_province or '',
+            'geo_city': p.geo_city or '',
+            'geo_level': p.geo_level or 'city',
+            'geo_coverages': p.geo_coverages or [],
+            'geo_tags': p.geo_tags or [],
         })
 
     # ── 2. 收集所有行星（核心问题） ──
@@ -118,6 +125,9 @@ def get_galaxy_graph(user):
                     'trigger_scenario': prob.trigger_scenario or '',
                     'created_at': _dt_str(prob.created_at),
                     'star_portrait_id': portrait_id,
+                    # ── 星系增强：行星地域信息 ──
+                    'geo_trigger_regions': prob.geo_trigger_regions or [],
+                    'geo_seasonal_factor': prob.geo_seasonal_factor or '',
                 })
 
     # 方案B：从历史 generation 反推行星（仅用于展示，不创建 DB 记录）
@@ -400,6 +410,13 @@ def get_star_detail(user, portrait_id):
             'generation_count': gen_count,
             'generation_status': portrait.generation_status or 'pending',
             'created_at': _dt_str(portrait.created_at),
+            # ── 星系增强：恒星缩略图与地域 ──
+            'cover_thumb': portrait.cover_thumb or '',
+            'geo_province': portrait.geo_province or '',
+            'geo_city': portrait.geo_city or '',
+            'geo_level': portrait.geo_level or 'city',
+            'geo_coverages': portrait.geo_coverages or [],
+            'geo_tags': portrait.geo_tags or [],
         }
     })
 
@@ -447,6 +464,9 @@ def get_planet_detail(user, problem_id):
             'created_at': _dt_str(problem.created_at),
             'related_portraits': related_portraits,
             'generation_count': gen_count,
+            # ── 星系增强：行星地域信息 ──
+            'geo_trigger_regions': problem.geo_trigger_regions or [],
+            'geo_seasonal_factor': problem.geo_seasonal_factor or '',
         }
     })
 
@@ -550,10 +570,11 @@ def link_generation(user):
     请求体：
     {
         "generation_id": 123,
-        "portrait_id": 1,      # 可选
-        "problem_id": 2,        # 可选
+        "portrait_id": 1,          # 可选
+        "problem_id": 2,           # 可选
         "industry": "美妆",
-        "target_customer": "20-30岁女性"
+        "target_customer": "20-30岁女性",
+        "selected_scenes": {...}  # 星系增强：客户选择的场景组合
     }
     """
     data = request.get_json() or {}
@@ -562,6 +583,7 @@ def link_generation(user):
     problem_id = data.get('problem_id')
     industry = data.get('industry', '')
     target_customer = data.get('target_customer', '')
+    selected_scenes = data.get('selected_scenes')  # 星系增强
 
     if not generation_id:
         return jsonify({'success': False, 'message': '缺少 generation_id'}), 400
@@ -579,6 +601,8 @@ def link_generation(user):
         gen.industry = industry
     if target_customer:
         gen.target_customer = target_customer
+    if selected_scenes is not None:
+        gen.selected_scenes = selected_scenes  # 星系增强：保存场景选择
 
     db.session.commit()
 

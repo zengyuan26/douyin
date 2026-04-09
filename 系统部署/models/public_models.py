@@ -147,6 +147,11 @@ class PublicGeneration(db.Model):
     tags = db.Column(db.JSON)  # 标签列表
     content = db.Column(db.Text)  # 完整内容
 
+    # ── 星系增强：场景选择 ──
+    # 客户选择的具体场景组合（从 scene_options 中选取）
+    # 结构：{"scene_id": "...", "组合": "...", "标签": "...", "风格": "..."}
+    selected_scenes = db.Column(db.JSON)
+
     # 消耗
     used_tokens = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -158,6 +163,7 @@ class SavedPortrait(db.Model):
     __table_args__ = (
         db.Index('idx_portrait_user', 'user_id'),
         db.Index('idx_portrait_user_created', 'user_id', 'created_at'),
+        db.Index('idx_portrait_geo', 'user_id', 'geo_province', 'geo_city'),  # 地域查询优化
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -207,6 +213,16 @@ class SavedPortrait(db.Model):
     # 时间戳
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # ── 星系增强：恒星缩略图与地域 ──
+    # 恒星缩略图 URL（用于 ECharts 可视化）
+    cover_thumb = db.Column(db.String(255), default='')
+    # 地域信息
+    geo_province = db.Column(db.String(50))     # 主要省份
+    geo_city = db.Column(db.String(50))          # 主要城市
+    geo_level = db.Column(db.String(20), default='city')  # 地域粒度：province/city/district/nationwide
+    geo_coverages = db.Column(db.JSON)           # 覆盖地域列表
+    geo_tags = db.Column(db.JSON)                # 地域标签，如 ["高考大省", "西南地区"]
 
     @property
     def has_keyword_library(self):
@@ -323,6 +339,7 @@ class PublicIndustryTopic(db.Model):
     __table_args__ = (
         db.Index('idx_topic_industry', 'industry', 'is_active'),
         db.Index('idx_topic_priority', 'priority'),
+        db.Index('idx_topic_scene', 'industry', 'is_active'),  # 场景选项查询优化
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -333,7 +350,14 @@ class PublicIndustryTopic(db.Model):
     topic_type = db.Column(db.String(50))  # recommend/problem/hotspot
 
     applicable_customers = db.Column(db.JSON)
-    applicable_scenarios = db.Column(db.JSON)
+    applicable_scenarios = db.Column(db.JSON)  # 业务场景维度：["种草","带货","引流"]（营销策略）
+
+    # ── 星系增强：场景选项 ──
+    # 【内容策略】AI 自动生成的多维度场景组合（与 applicable_scenarios 业务场景维度正交）
+    # 结构：[{"id": "...", "组合": "...", "标签": "...", "风格": "..."}]
+    scene_options = db.Column(db.JSON)
+    # 内容风格类型（情绪共鸣/干货科普/犀利吐槽/故事叙述/权威背书）
+    content_style = db.Column(db.String(50))
 
     structure_type = db.Column(db.String(50))
     is_premium = db.Column(db.Boolean, default=False)

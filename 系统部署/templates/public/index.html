@@ -7208,12 +7208,8 @@
                     _isPremiumUser = result.is_premium || false;
                     renderTopicCards(result.topics);
 
-                    // 付费用户显示换一批按钮
-                    if (_isPremiumUser) {
-                        document.getElementById('premium-topics-hint').style.display = 'block';
-                    } else {
-                        document.getElementById('premium-topics-hint').style.display = 'none';
-                    }
+                    // 所有用户都显示换一批按钮（无付费限制）
+                    document.getElementById('premium-topics-hint').style.display = 'none';
 
                     showToast('选题生成完成！', 'success');
                 } else {

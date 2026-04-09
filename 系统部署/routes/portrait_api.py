@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 
+from services.galaxy_service import enrich_topics_with_scene_options
+
 portrait_bp = Blueprint('portrait', __name__, url_prefix='/public/api/portraits')
 
 
@@ -535,6 +537,9 @@ def get_portrait_topics(user, portrait_id):
     end = start + per_page
     page_topics = all_topics[start:end]
 
+    # ── 星系增强：补充 scene_options 和 content_style ──
+    page_topics = enrich_topics_with_scene_options(page_topics)
+
     return jsonify({
         'success': True,
         'data': {
@@ -612,15 +617,10 @@ def regenerate_portrait_topics(user, portrait_id):
     if not row or row[0] != user.id:
         return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
 
-    # 检查付费状态
-    if not user.is_paid_user():
-        return jsonify({
-            'success': False,
-            'message': '此功能仅对付费用户开放'
-        }), 403
-
     data = request.get_json() or {}
     extra_count = int(data.get('count', 10))
+
+    # 所有用户都可以重新生成选题（无付费限制）
 
     portrait_data = portrait.get('portrait_data', {})
     business_info = {

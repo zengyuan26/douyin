@@ -10,7 +10,7 @@ import logging
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, current_app
 from flask_login import current_user
 from sqlalchemy import text
-from models.public_models import PublicUser, PublicGeneration, PublicPricingPlan
+from models.public_models import PublicUser, PublicGeneration, PublicPricingPlan, SavedPortrait
 from models.models import db, AnalysisDimension
 from services.public_auth import auth_service
 from services.public_content_generator import content_generator
@@ -79,6 +79,12 @@ def galaxy_page():
 def produce_page():
     """生成内容页 - 网易云播放列表风格"""
     return render_template('public/produce.html')
+
+
+@public_bp.route('/content-detail')
+def content_detail_page():
+    """内容详情页"""
+    return render_template('public/content_detail.html')
 
 
 @public_bp.route('/portraits')
@@ -1173,9 +1179,12 @@ def api_get_generation_detail(generation_id):
             'id': generation.id,
             'industry': generation.industry,
             'target_customer': generation.target_customer,
+            'content_type': generation.content_type,
             'titles': generation.titles,
             'tags': generation.tags,
             'content': generation.content,
+            'used_tokens': generation.used_tokens or 0,
+            'portrait_id': generation.portrait_id,
             'created_at': generation.created_at.isoformat()
         }
     })
@@ -1367,7 +1376,7 @@ def api_generate_topics():
 @public_bp.route('/api/topics/regenerate', methods=['POST'])
 def api_regenerate_topics():
     """
-    换一批选题（付费用户专用）
+    换一批选题（所有用户可用）
 
     请求格式：
     {
@@ -1379,12 +1388,8 @@ def api_regenerate_topics():
     user_id = session.get('public_user_id')
     user = PublicUser.query.get(user_id) if user_id else None
 
-    # 检查付费状态
-    if not user or not user.is_paid_user():
-        return jsonify({
-            'success': False,
-            'message': '此功能仅对付费用户开放'
-        }), 403
+    # 所有用户都可以换一批选题（无付费限制）
+    is_premium = user and user.is_paid_user()
 
     params = request.get_json() or {}
 
@@ -1397,7 +1402,7 @@ def api_regenerate_topics():
             business_type=params.get('business_type', ''),
             portraits=params.get('portraits', []),
             problem_keywords=params.get('problem_keywords', []),
-            is_premium=True
+            is_premium=is_premium
         )
 
         if result.get('success'):
@@ -1465,18 +1470,54 @@ def api_generate_content_from_topic():
         }), 403
 
     try:
-        generator = TopicContentGenerator()
-        result = generator.generate_content(
-            topic_id=params.get('topic_id', ''),
-            topic_title=params.get('topic_title', ''),
-            topic_type=params.get('topic_type', ''),
-            business_description=params.get('business_description', ''),
-            business_range=params.get('business_range', ''),
-            business_type=params.get('business_type', ''),
-            portrait=params.get('portrait', {}),
-            is_premium=is_premium,
-            premium_plan=user.premium_plan if user else 'free'
-        )
+        # 获取内容类型和风格参数
+        content_type = params.get('content_type', 'graphic')
+        content_style = params.get('content_style', '')
+
+        # 根据内容类型调用不同的生成器
+        if content_type == 'short_video':
+            # 短视频脚本生成
+            from services.video_script_generator import VideoScriptGenerator
+            video_gen = VideoScriptGenerator()
+            result = video_gen.generate_content(
+                topic_title=params.get('topic_title', ''),
+                topic_type=params.get('topic_type', ''),
+                business_description=params.get('business_description', ''),
+                portrait=params.get('portrait', {}),
+                content_style=content_style,
+            )
+            result_type = 'short_video'
+        elif content_type == 'long_text':
+            # 长文生成
+            from services.long_text_generator import LongTextGenerator
+            longtext_gen = LongTextGenerator()
+            result = longtext_gen.generate_content(
+                topic_title=params.get('topic_title', ''),
+                topic_type=params.get('topic_type', ''),
+                business_description=params.get('business_description', ''),
+                portrait=params.get('portrait', {}),
+                content_style=content_style,
+            )
+            result_type = 'long_text'
+        else:
+            # 图文生成（默认）
+            generator = TopicContentGenerator()
+            # 调试日志
+            logger.info(f"[GEO调试] selected_scene: {params.get('selected_scene')}")
+            result = generator.generate_content(
+                topic_id=params.get('topic_id', ''),
+                topic_title=params.get('topic_title', ''),
+                topic_type=params.get('topic_type', ''),
+                business_description=params.get('business_description', ''),
+                business_range=params.get('business_range', ''),
+                business_type=params.get('business_type', ''),
+                portrait=params.get('portrait', {}),
+                is_premium=is_premium,
+                premium_plan=user.premium_plan if user else 'free',
+                content_style=content_style,
+                selected_scene=params.get('selected_scene'),
+            )
+            result_type = 'graphic'
 
         if result.get('success'):
             # 保存生成记录（所有用户都记录）
@@ -1485,7 +1526,7 @@ def api_generate_content_from_topic():
                     user_id=user.id,
                     industry=params.get('business_type', ''),
                     target_customer=params.get('portrait', {}).get('identity', ''),
-                    content_type='graphic',
+                    content_type=result_type,  # 使用实际生成的内容类型
                     titles=result['content'].get('title', ''),
                     tags=','.join(result['content'].get('tags', [])),
                     content=result['content'].get('body', ''),
@@ -1493,11 +1534,16 @@ def api_generate_content_from_topic():
                     topic_id=params.get('topic_id', '') or None,
                     portrait_id=params.get('portrait_id'),
                     problem_id=params.get('problem_id'),
+                    # ── 星系增强：保存客户选择的场景组合 ──
+                    selected_scenes=params.get('selected_scene'),
                 )
                 db.session.add(generation)
                 # 扣减配额
                 quota_manager.use_quota(user, result.get('tokens_used', 0))
                 db.session.commit()
+                
+                # 回写 generation_id 到返回结果
+                result_generation_id = generation.id
 
                 # 回写 generation_count（选题被使用次数 +1）
                 portrait_id = params.get('portrait_id')
@@ -1519,11 +1565,12 @@ def api_generate_content_from_topic():
                                 portrait.topic_library = portrait.topic_library
                                 db.session.commit()
                     except Exception as e:
-                        app.logger.warning('回写 generation_count 失败: %s', e)
+                        logger.warning('回写 generation_count 失败: %s', e)
 
             return jsonify({
                 'success': True,
-                'content': result.get('content', {})
+                'content': result.get('content', {}),
+                'generation_id': result_generation_id
             })
         else:
             return jsonify({
@@ -1536,6 +1583,248 @@ def api_generate_content_from_topic():
             'success': False,
             'message': f'内容生成失败: {str(e)}'
         }), 500
+
+
+@public_bp.route('/api/content/generate-multi', methods=['POST'])
+def api_generate_multi_version():
+    """
+    多版本生成：同一选题生成图文/短视频脚本/长文
+
+    请求格式：
+    {
+        "topic_id": "1",
+        "topic_title": "选题标题",
+        "topic_type": "问题诊断",
+        "business_description": "...",
+        "business_range": "local/cross_region",
+        "business_type": "...",
+        "portrait": {...},
+        "content_types": ["graphic", "short_video", "long_text"],  // 可选，默认全部
+        "recommend": true  // 是否先推荐内容类型
+    }
+    """
+    from services.content_generator import TopicContentGenerator
+    from services.video_script_generator import VideoScriptGenerator
+    from services.long_text_generator import LongTextGenerator
+    from services.content_type_router import content_type_router
+    from models.public_models import PublicGeneration
+
+    params = request.get_json() or {}
+
+    # 必填字段检查
+    if not params.get('topic_title'):
+        return jsonify({'success': False, 'message': '请选择选题'}), 400
+
+    if not params.get('business_description'):
+        return jsonify({'success': False, 'message': '请描述您的业务'}), 400
+
+    # 获取用户
+    user_id = session.get('public_user_id')
+    user = PublicUser.query.get(user_id) if user_id else None
+    is_premium = user and user.is_paid_user()
+
+    # 检查配额
+    can_generate, reason, quota_info = quota_manager.check_quota(user) if user else (True, 'anonymous', {})
+    if not can_generate:
+        return jsonify({
+            'success': False,
+            'message': quota_manager.get_user_quota_info(user).get('reason', '已达生成上限'),
+            'quota_info': quota_info,
+            'upgrade_url': '/pricing'
+        }), 403
+
+    # 确定要生成的内容类型
+    content_types = params.get('content_types', ['graphic', 'short_video', 'long_text'])
+    recommend_first = params.get('recommend', False)
+
+    portrait = params.get('portrait', {})
+    topic = {
+        'title': params.get('topic_title', ''),
+        'type': params.get('topic_type', ''),
+        'content_direction': params.get('content_direction', '种草型')
+    }
+
+    # 如果需要推荐，先进行智能路由
+    recommendation = None
+    if recommend_first:
+        business_info = {
+            'content_direction': params.get('content_direction', '种草型'),
+            'complexity': params.get('complexity', '中等复杂度'),
+        }
+        recommendation = content_type_router.route(topic, portrait, business_info)
+
+    results = {}
+    total_tokens = 0
+
+    try:
+        # 生成图文版本
+        if 'graphic' in content_types:
+            generator = TopicContentGenerator()
+            graphic_result = generator.generate_content(
+                topic_id=params.get('topic_id', ''),
+                topic_title=params.get('topic_title', ''),
+                topic_type=params.get('topic_type', ''),
+                business_description=params.get('business_description', ''),
+                business_range=params.get('business_range', ''),
+                business_type=params.get('business_type', ''),
+                portrait=portrait,
+                premium_plan=user.premium_plan if user else 'free'
+            )
+            if graphic_result.get('success'):
+                results['graphic'] = graphic_result.get('content', {})
+                total_tokens += graphic_result.get('tokens_used', 0)
+            else:
+                results['graphic'] = {'error': graphic_result.get('error', '生成失败')}
+
+        # 生成短视频脚本
+        if 'short_video' in content_types:
+            video_generator = VideoScriptGenerator()
+            video_result = video_generator.generate_content(
+                topic_title=params.get('topic_title', ''),
+                topic_type=params.get('topic_type', ''),
+                business_description=params.get('business_description', ''),
+                portrait=portrait,
+                content_style=params.get('content_style', '')
+            )
+            if video_result.get('success'):
+                results['short_video'] = video_result.get('content', {})
+                total_tokens += video_result.get('tokens_used', 0)
+            else:
+                results['short_video'] = {'error': video_result.get('error', '生成失败')}
+
+        # 生成长文版本
+        if 'long_text' in content_types:
+            longtext_generator = LongTextGenerator()
+            longtext_result = longtext_generator.generate_content(
+                topic_title=params.get('topic_title', ''),
+                topic_type=params.get('topic_type', ''),
+                business_description=params.get('business_description', ''),
+                portrait=portrait,
+                content_style=params.get('content_style', '')
+            )
+            if longtext_result.get('success'):
+                results['long_text'] = longtext_result.get('content', {})
+                total_tokens += longtext_result.get('tokens_used', 0)
+            else:
+                results['long_text'] = {'error': longtext_result.get('error', '生成失败')}
+
+        # 保存生成记录
+        if user:
+            generation = PublicGeneration(
+                user_id=user.id,
+                industry=params.get('business_type', ''),
+                target_customer=portrait.get('identity', ''),
+                content_type='multi_version',
+                titles=','.join([params.get('topic_title', '')]),
+                tags=','.join(content_types),
+                content=json.dumps(results, ensure_ascii=False),
+                used_tokens=total_tokens,
+                topic_id=params.get('topic_id', '') or None,
+                portrait_id=params.get('portrait_id'),
+                problem_id=params.get('problem_id'),
+                # ── 星系增强：保存客户选择的场景组合 ──
+                selected_scenes=params.get('selected_scene'),
+            )
+            db.session.add(generation)
+            # 扣减配额
+            quota_manager.use_quota(user, total_tokens)
+            db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'results': results,
+            'total_tokens': total_tokens,
+            'recommendation': recommendation
+        })
+
+    except Exception as e:
+        logger.exception("[MultiVersionGenerator Error] %s", e)
+        return jsonify({
+            'success': False,
+            'message': f'多版本生成失败: {str(e)}'
+        }), 500
+
+
+@public_bp.route('/api/content/route', methods=['POST'])
+def api_content_route():
+    """
+    智能路由：根据选题+画像推荐最佳内容类型
+
+    请求格式：
+    {
+        "topic": {
+            "title": "选题标题",
+            "type": "避坑指南",
+            "content_direction": "种草型"
+        },
+        "portrait": {...},
+        "business_info": {
+            "complexity": "中等复杂度",
+            "visual_needs": "需要展示效果"
+        }
+    }
+    """
+    from services.content_type_router import content_type_router
+
+    params = request.get_json() or {}
+
+    topic = params.get('topic', {})
+    portrait = params.get('portrait', {})
+    business_info = params.get('business_info', {})
+
+    if not topic.get('title'):
+        return jsonify({'success': False, 'message': '请提供选题信息'}), 400
+
+    try:
+        result = content_type_router.route(topic, portrait, business_info)
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        logger.exception("[ContentRoute Error] %s", e)
+        return jsonify({
+            'success': False,
+            'message': f'路由分析失败: {str(e)}'
+        }), 500
+
+
+@public_bp.route('/api/content/structures', methods=['GET'])
+def api_get_content_structures():
+    """
+    获取所有内容类型和结构
+    """
+    from services.content_generator import TopicContentGenerator
+    from services.video_script_generator import VideoScriptGenerator
+    from services.long_text_generator import LongTextGenerator
+
+    graphic_gen = TopicContentGenerator()
+    video_gen = VideoScriptGenerator()
+    longtext_gen = LongTextGenerator()
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'graphic': {
+                'name': '图文',
+                'icon': '🖼️',
+                'description': '适合展示对比、步骤、清单类内容，用户可快速浏览和收藏',
+                'structures': graphic_gen.get_all_structures()
+            },
+            'short_video': {
+                'name': '短视频',
+                'icon': '🎬',
+                'description': '适合故事讲述、场景演示，真人出镜，内容生动直观',
+                'structures': video_gen.get_structures()
+            },
+            'long_text': {
+                'name': '长文',
+                'icon': '📝',
+                'description': '适合深度分析，专业知识讲解，需要用户静下心来阅读',
+                'structures': longtext_gen.get_templates()
+            }
+        }
+    })
 
 
 # =============================================================================

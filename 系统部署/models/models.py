@@ -1115,6 +1115,12 @@ class PersonaUserProblem(db.Model):
     # 触发场景
     trigger_scenario = db.Column(db.Text)  # 问题触发场景
 
+    # ── 星系增强：行星地域信息 ──
+    # 触发问题的地域列表
+    geo_trigger_regions = db.Column(db.JSON)
+    # 季节性因素，如 "高考出分季（6月底-7月初）"
+    geo_seasonal_factor = db.Column(db.String(100))
+
     # 排序
     sort_order = db.Column(db.Integer, default=0)
 

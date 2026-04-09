@@ -1359,8 +1359,8 @@ class TopicLibraryGenerator:
                 filled += 1
             logger.info("[TopicLibraryGenerator] 补充后共%d条选题", len(topics))
 
-        # 最终裁剪到目标数量（防止意外多余）
-        result['topics'] = topics[:topic_count]
+        # 星系增强：为每个选题生成 scene_options
+        result['topics'] = self._enrich_topics_with_scene_options(result['topics'], portrait_data, business_description)
 
         if 'by_type' not in result:
             result['by_type'] = self._count_by_type(result['topics'])
@@ -1369,6 +1369,265 @@ class TopicLibraryGenerator:
             result['priorities'] = self._count_by_priority(result['topics'])
 
         return result
+
+    def _enrich_topics_with_scene_options(self, topics: List[Dict], portrait_data: Dict = None, business_description: str = '') -> List[Dict]:
+        """
+        为每个选题补充 scene_options（场景选项）。
+
+        scene_options 结构：[{"id": "...", "组合": "...", "标签": "...", "风格": "..."}]
+
+        Args:
+            topics: 选题列表
+            portrait_data: 画像数据（用于提取人群、痛点等）
+            business_description: 业务描述
+
+        Returns:
+            添加 scene_options 后的选题列表
+        """
+        portrait_data = portrait_data or {}
+
+        # 从画像提取关键信息
+        identity = portrait_data.get('identity', '') or portrait_data.get('目标客户身份', '')
+        if not identity:
+            identity_tags = portrait_data.get('identity_tags', {})
+            if isinstance(identity_tags, dict):
+                identity = identity_tags.get('user', '') or identity_tags.get('buyer', '')
+
+        pain_point = portrait_data.get('pain_point', '') or portrait_data.get('核心痛点', '')
+        if not pain_point:
+            user_persp = portrait_data.get('user_perspective', {})
+            if isinstance(user_persp, dict):
+                pain_point = user_persp.get('problem', '')
+
+        concern = portrait_data.get('concern', '') or portrait_data.get('核心顾虑', '')
+        if not concern:
+            buyer_persp = portrait_data.get('buyer_perspective', {})
+            if isinstance(buyer_persp, dict):
+                concern = buyer_persp.get('obstacles', '') or buyer_persp.get('psychology', '')
+
+        for topic in topics:
+            if isinstance(topic, dict) and 'scene_options' not in topic:
+                topic['scene_options'] = self._generate_scene_options_for_topic(
+                    topic=topic,
+                    identity=identity,
+                    pain_point=pain_point,
+                    concern=concern,
+                    business_description=business_description
+                )
+                # 设置默认 content_style（第一个场景的风格）
+                if topic['scene_options'] and not topic.get('content_style'):
+                    topic['content_style'] = topic['scene_options'][0].get('风格', '')
+
+        return topics
+
+    def _generate_scene_options_for_topic(
+        self,
+        topic: Dict,
+        identity: str = '',
+        pain_point: str = '',
+        concern: str = '',
+        business_description: str = '',
+    ) -> List[Dict]:
+        """
+        为单个选题生成 3-5 个场景选项。
+
+        场景选项 = 人群 + 时间/情境 + 心理状态 + 核心顾虑 的组合
+
+        Args:
+            topic: 选题信息
+            identity: 目标人群身份
+            pain_point: 核心痛点
+            concern: 核心顾虑
+            business_description: 业务描述
+
+        Returns:
+            场景选项列表
+        """
+        scene_options = []
+
+        # 风格类型
+        style_types = ['情绪共鸣', '干货科普', '犀利吐槽', '故事叙述', '权威背书']
+
+        # 从选题提取关键词
+        title = topic.get('title', '')
+        type_key = topic.get('type_key', '')
+        keywords = topic.get('keywords', [])
+        keywords_text = ' '.join(keywords) if isinstance(keywords, list) else ''
+
+        # 提取人群候选（从 identity 和 business_description 推断）
+        user_candidates = self._extract_user_candidates(identity, business_description)
+
+        # 提取时间/情境候选
+        time_candidates = self._extract_time_candidates(pain_point, business_description)
+
+        # 提取心理状态候选
+        emotion_candidates = self._extract_emotion_candidates(pain_point, concern, type_key)
+
+        # 组合场景（生成 3-5 个选项）
+        scene_count = min(5, max(3, len(user_candidates) * len(time_candidates) // 2))
+
+        # 场景1：情绪共鸣型
+        if user_candidates and time_candidates:
+            scene_options.append({
+                'id': f'scene_{uuid.uuid4().hex[:8]}',
+                '组合': f'{user_candidates[0]} + {time_candidates[0]} + {emotion_candidates[0] if emotion_candidates else "焦虑迷茫"}',
+                '标签': self._generate_scene_label(user_candidates[0], emotion_candidates[0] if emotion_candidates else '焦虑型'),
+                '风格': '情绪共鸣',
+            })
+
+        # 场景2：干货科普型
+        scene_options.append({
+            'id': f'scene_{uuid.uuid4().hex[:8]}',
+            '组合': f'{user_candidates[1] if len(user_candidates) > 1 else user_candidates[0]} + {time_candidates[1] if len(time_candidates) > 1 else time_candidates[0]} + {emotion_candidates[1] if len(emotion_candidates) > 1 else "信息不足"}',
+            '标签': self._generate_scene_label(user_candidates[1] if len(user_candidates) > 1 else user_candidates[0], '理性型'),
+            '风格': '干货科普',
+        })
+
+        # 场景3：犀利吐槽型
+        if emotion_candidates and len(emotion_candidates) >= 2:
+            scene_options.append({
+                'id': f'scene_{uuid.uuid4().hex[:8]}',
+                '组合': f'{user_candidates[0]} + {time_candidates[0] if time_candidates else "关键时刻"} + {emotion_candidates[2] if len(emotion_candidates) > 2 else "认知误区"}',
+                '标签': self._generate_scene_label(user_candidates[0], '吐槽型'),
+                '风格': '犀利吐槽',
+            })
+
+        # 场景4：故事叙述型
+        scene_options.append({
+            'id': f'scene_{uuid.uuid4().hex[:8]}',
+            '组合': f'{user_candidates[0]} + {time_candidates[-1] if time_candidates else "经历回顾"} + {pain_point or "真实经历"}',
+            '标签': self._generate_scene_label(user_candidates[0], '故事型'),
+            '风格': '故事叙述',
+        })
+
+        # 场景5：权威背书型
+        scene_options.append({
+            'id': f'scene_{uuid.uuid4().hex[:8]}',
+            '组合': f'{user_candidates[0]} + {time_candidates[0] if time_candidates else "决策前"} + {concern or "选择困难"}',
+            '标签': self._generate_scene_label(user_candidates[0], '决策型'),
+            '风格': '权威背书',
+        })
+
+        return scene_options[:scene_count]
+
+    def _extract_user_candidates(self, identity: str, business_description: str) -> List[str]:
+        """从 identity 和 business_description 提取人群候选"""
+        candidates = []
+
+        # 从 identity 提取
+        if identity:
+            # 常见人群模式
+            patterns = [
+                r'([\u4e00-\u9fa5]{2,8}家长)', r'([\u4e00-\u9fa5]{2,8}学生)',
+                r'([\u4e00-\u9fa5]{2,8}家长)', r'([\u4e00-\u9fa5]{2,6}人群)',
+                r'([\u4e00-\u9fa5]{2,8}用户)', r'([\u4e00-\u9fa5]{2,6}业主)',
+                r'([\u4e00-\u9fa5]{2,6}老板)', r'([\u4e00-\u9fa5]{2,6}员工)',
+            ]
+            import re
+            for pattern in patterns:
+                match = re.search(pattern, identity)
+                if match:
+                    candidates.append(match.group(1))
+
+        # 如果没有提取到，使用默认值
+        if not candidates:
+            if '高考' in business_description or '志愿' in business_description:
+                candidates = ['高三家长', '高三学生', '复读生家长']
+            elif '装修' in business_description:
+                candidates = ['业主', '装修业主', '新房业主']
+            elif '培训' in business_description or '教育' in business_description:
+                candidates = ['家长', '学生', '职场人士']
+            else:
+                candidates = ['用户', '消费者', '目标客户']
+
+        return candidates[:3]
+
+    def _extract_time_candidates(self, pain_point: str, business_description: str) -> List[str]:
+        """从 pain_point 和 business_description 提取时间/情境候选"""
+        candidates = []
+
+        # 常见时间/情境模式
+        patterns = [
+            (r'出分[前后]?', '出分后'),
+            (r'填报[期间]?', '填报期间'),
+            (r'截止[前夕]?', '截止前夕'),
+            (r'高考', '高考季'),
+            (r'毕业', '毕业季'),
+            (r'开学', '开学季'),
+            (r'暑假', '暑假期间'),
+            (r'寒假', '寒假期间'),
+            (r'年初|年初', '年初'),
+            (r'年底|年末', '年底'),
+        ]
+
+        import re
+        text = pain_point + business_description
+        for pattern, result in patterns:
+            if re.search(pattern, text):
+                candidates.append(result)
+
+        # 默认情境
+        if not candidates:
+            candidates = ['关键时刻', '决策前', '选择困难时', '日常关注']
+
+        return candidates[:4]
+
+    def _extract_emotion_candidates(self, pain_point: str, concern: str, type_key: str) -> List[str]:
+        """从 pain_point、concern 和 type_key 提取心理状态候选"""
+        candidates = []
+
+        # 基于 type_key 确定默认情绪
+        type_emotions = {
+            'compare': ['选择困难', '对比纠结', '信息过载'],
+            'cause': ['疑惑不解', '想找原因', '认知困惑'],
+            'pain_point': ['焦虑担心', '急需解决', '压力山大'],
+            'decision_encourage': ['犹豫不决', '担心风险', '信任不足'],
+            'pitfall': ['怕踩坑', '担心被骗', '疑虑重重'],
+            'effect_proof': ['效果怀疑', '担心无效', '需要验证'],
+            'seasonal': ['季节焦虑', '时间紧迫', '时机担忧'],
+            'default': ['焦虑迷茫', '信息不足', '认知误区'],
+        }
+
+        emotions = type_emotions.get(type_key, type_emotions['default'])
+
+        # 从 pain_point 和 concern 中提取情绪词
+        import re
+        emotion_patterns = [
+            r'(担心|怕|担忧|顾虑)', r'(焦虑|着急|急)', r'(纠结|犹豫)',
+            r'(迷茫|困惑|不解)', r'(后悔|遗憾)', r'(压力|紧张)',
+        ]
+
+        text = pain_point + concern
+        for pattern in emotion_patterns:
+            match = re.search(pattern, text)
+            if match:
+                candidates.append(match.group(1))
+
+        # 合并类型默认情绪
+        for em in emotions:
+            if em not in candidates:
+                candidates.append(em)
+
+        return candidates[:4]
+
+    def _generate_scene_label(self, user: str, emotion: str) -> str:
+        """生成场景标签"""
+        # 情绪到标签的映射
+        emotion_labels = {
+            '焦虑型': '焦虑型', '焦虑型': '焦虑型家长',
+            '理性型': '理性型', '吐槽型': '吐槽型',
+            '故事型': '经历分享型', '决策型': '决策型',
+            '担心型': '谨慎型', '迷茫型': '迷茫型',
+        }
+
+        label = emotion_labels.get(emotion, emotion)
+        if user and label:
+            # 如果标签不包含用户类型，拼接
+            for user_keyword in ['家长', '学生', '业主', '用户', '人群']:
+                if user_keyword in user and user_keyword not in label:
+                    return f'{user} - {label}'
+            return label
+        return user or '目标用户'
 
     def _infer_content_direction(self, topic_base: str) -> str:
         """从选题底盘推导内容方向（兼容新旧枚举）"""
