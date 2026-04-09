@@ -5484,6 +5484,8 @@
         // 状态变量
         // ================================================================
         let _refreshSeq = 0;
+        let _refreshRound = 0;       // 换一批轮次（方案一）
+        let _allProblemsPool = [];    // 候选问题池（方案二）
         let _currentProblems = null;
         let _allPortraits = {};  // 按问题类型 key 存储的画像
         let _selectedTypeKey = null;  // 当前选中的问题类型 key
@@ -5642,6 +5644,7 @@
                         other_scenario: otherScenario,
                         local_city: localCity,
                         refresh_nonce: Date.now(),
+                        refresh_round: 0,  // 首次生成
                     })
                 });
 

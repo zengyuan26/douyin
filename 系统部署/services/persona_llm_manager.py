@@ -27,17 +27,18 @@ class GenerationLimits:
     max_portrait_fields: int    # 画像最大字段数
     model: str                  # 使用的模型
 
-    # 默认限制（免费用户）
+    # 统一限制（所有用户一致）
     @classmethod
     def free_limits(cls):
+        # 所有用户统一为 6 个问题类型，每类型 5 张画像，最大总计 30 张
         return cls(
-            max_problem_types=2,
-            portraits_per_type=2,
-            max_portrait_fields=4,
+            max_problem_types=6,
+            portraits_per_type=5,
+            max_portrait_fields=8,
             model=os.environ.get('LLM_MODEL_TURBO', 'Qwen/Qwen2.5-7B-Instruct')
         )
 
-    # 付费用户限制
+    # 付费用户限制（与免费用户一致）
     @classmethod
     def paid_limits(cls):
         return cls(
