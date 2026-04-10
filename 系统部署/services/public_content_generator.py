@@ -5728,6 +5728,15 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         }
         scene_type_name = scene_type_map.get(svc_scenario, '各类人群')
 
+        # 业务类型名称映射
+        biz_type_name_map = {
+            'product': '消费品',
+            'local_service': '本地服务',
+            'personal': '个人账号/IP',
+            'enterprise': '企业服务',
+        }
+        biz_type_name = biz_type_name_map.get(biz_type, '通用业务')
+
         # 构建行为场景体征拆解的 prompt
         chronic_prompt = f"""你是用户行为与症状分析专家。请从以下业务描述中，深度挖掘常驻行为、固定场景和慢性体征。
 
@@ -6258,37 +6267,43 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
     # Few-shot 分行业：非「本地服务」时若仍用家政长示例，模型极易照抄「保姆/保洁/雇主」等词到奶粉等业务里
     if business_type == 'local_service':
         few_shot_section = """
-=== 示例：家政服务（仅当经营类型为本地服务时参考此套措辞）===
-业务：日常家政服务（保洁、保姆、月嫂、收纳等服务）
+=== 示例：本地服务类业务（按消费者决策链路分类）===
+业务：上门做饭/私厨到家服务（参照真实业务描述生成问题）
 
-输出示例（极高1个、高1个、中1个、付费方2个）：
+【重要】按消费者决策链路生成问题：
+- 阶段1（问题认知）：客户遇到什么问题？此时客户还不知道有"上门做饭"这个解决方案
+- 阶段2（方案搜索）：客户开始搜索解决方案
+- 阶段3（购买后）：客户选了方案后的担忧
+
+输出示例（阶段1问题3个、阶段2问题1个、阶段3问题1个、付费方顾虑2个）：
 {
     "market_analysis": {
         "market_type": "mixed",
         "market_type_display": "红海中的蓝海",
-        "competition_level": 7,
-        "competition_level_display": "竞争激烈",
-        "blue_ocean_opportunity": "差异化服务：专业甲醛治理/老人陪护/过敏家庭专护",
-        "red_ocean_features": ["传统保洁竞争白热化", "价格战激烈", "大型家政平台垄断流量"],
+        "competition_level": 6,
+        "competition_level_display": "有一定竞争",
+        "blue_ocean_opportunity": "差异化服务：家宴定制/老人陪护餐/特殊节日惊喜",
+        "red_ocean_features": ["普通家政竞争白热化", "价格透明化", "大型平台垄断流量"],
         "problem_oriented_keywords": [
-            {"keyword": "甲醛治理哪家靠谱", "type": "blue_ocean", "source": "场景痛点词"},
-            {"keyword": "新房怎么去甲醛最快", "type": "blue_ocean", "source": "长尾转化词"},
-            {"keyword": "家政保洁多少钱一小时", "type": "red_ocean", "source": "用户需求词"},
-            {"keyword": "过敏宝宝家里怎么清洁", "type": "blue_ocean", "source": "场景痛点词"},
-            {"keyword": "老人陪护服务哪里找", "type": "blue_ocean", "source": "长尾转化词"},
-            {"keyword": "成都武侯区专业家政保洁推荐", "type": "red_ocean", "source": "地域精准词"},
-            {"keyword": "专业除螨服务一次多少钱", "type": "red_ocean", "source": "用户需求词"},
-            {"keyword": "XX保洁公司正规吗", "type": "red_ocean", "source": "品牌核心词"}
+            {"keyword": "家里来客人了一个人做不了一桌菜怎么办", "type": "blue_ocean", "source": "阶段1问题认知词"},
+            {"keyword": "厨艺不行怕做出来在客人面前丢人", "type": "blue_ocean", "source": "阶段1问题认知词"},
+            {"keyword": "老人腿脚不便做饭太危险", "type": "blue_ocean", "source": "阶段1问题认知词"},
+            {"keyword": "上门做饭私厨到家多少钱", "type": "blue_ocean", "source": "阶段2方案搜索词"},
+            {"keyword": "家宴定制厨师上门服务", "type": "blue_ocean", "source": "阶段2方案搜索词"},
+            {"keyword": "成都武侯区上门做饭服务推荐", "type": "red_ocean", "source": "阶段2方案搜索词"},
+            {"keyword": "厨师上门做饭食材自己准备还是厨师带", "type": "blue_ocean", "source": "阶段3购买后担忧词"},
+            {"keyword": "陌生人来家里做饭安全吗", "type": "blue_ocean", "source": "阶段3购买后担忧词"}
         ]
     },
     "user_problem_types": [
-        {"identity": "有老人的家庭", "problem_base": "刚需痛点", "problem_category": "安全/质量问题", "problem_type": "老人独居风险", "display_name": "老人独自在家风险", "description": "摔倒没人发现、晚上无人陪伴、突发疾病", "severity": "极高", "scenarios": ["老人洗澡时摔倒", "晚上独自在家", "子女上班不在家"], "market_type": "blue_ocean", "market_reason": "细分人群+极高严重性", "problem_keywords": [{"keyword": "独居老人在家摔倒了没人发现怎么办", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "老人独自在家突发疾病怎么急救", "type": "blue_ocean", "source": "长尾转化词"}], "content_direction": "转化型"},
-        {"identity": "有娃家庭", "problem_base": "刚需痛点", "problem_category": "体验/使用问题", "problem_type": "家居卫生问题", "display_name": "家里清洁不到位", "description": "孩子反复生病、过敏起疹子、螨虫困扰", "severity": "高", "scenarios": ["流感季节孩子生病", "床品螨虫过敏", "沙发清洁不彻底"], "market_type": "blue_ocean", "market_reason": "细分人群+高严重性", "problem_keywords": [{"keyword": "过敏宝宝家里怎么除螨最有效", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "孩子反复生病是不是家里不干净", "type": "blue_ocean", "source": "长尾转化词"}], "content_direction": "转化型"},
-        {"identity": "双职工家庭", "problem_base": "使用配套", "problem_category": "成本/效率问题", "problem_type": "家务堆积", "display_name": "工作忙没时间打扫", "description": "家务太多做不完、没时间收拾", "severity": "中", "scenarios": ["早上赶着上班", "加班到很晚", "周末想休息"], "market_type": "red_ocean", "market_reason": "大众人群+中等严重性", "problem_keywords": [{"keyword": "家政保洁多少钱一小时", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "成都武侯区家政保洁推荐", "type": "red_ocean", "source": "地域精准词"}], "content_direction": "种草型"}
+        {"identity": "做生意的老板/常有待客需求的家庭", "problem_base": "前置观望", "problem_category": "时间问题", "problem_type": "没时间做饭", "display_name": "太忙了根本没时间做饭", "description": "做生意太忙/加班太晚/根本没时间自己下厨做饭", "severity": "极高", "scenarios": ["下班太晚来不及做饭", "做生意忙得没时间", "加班到很晚饿着肚子"], "market_type": "blue_ocean", "market_reason": "细分场景+极高严重性", "problem_keywords": [{"keyword": "太忙了没时间做饭怎么办", "type": "blue_ocean", "source": "阶段1问题认知词"}, {"keyword": "下班太晚来不及做饭", "type": "blue_ocean", "source": "阶段1问题认知词"}], "dimension": "时间问题", "content_direction": "种草型"},
+        {"identity": "厨艺不佳但常有社交需求的家庭", "problem_base": "前置观望", "problem_category": "能力问题", "problem_type": "厨艺不行怕丢人", "display_name": "厨艺不行怕在客人面前丢人", "description": "厨艺太差怕做出来不好吃/不会做硬菜/怕招待不周丢面子", "severity": "高", "scenarios": ["家里来客人了不知道做什么菜", "厨艺太差怕被笑话", "想做一桌好菜招待朋友"], "market_type": "blue_ocean", "market_reason": "细分人群+高严重性", "problem_keywords": [{"keyword": "家里来客人了不知道做什么菜", "type": "blue_ocean", "source": "阶段1问题认知词"}, {"keyword": "厨艺不行怕做出来丢人怎么办", "type": "blue_ocean", "source": "阶段1问题认知词"}], "dimension": "能力问题", "content_direction": "种草型"},
+        {"identity": "有老人/特殊人群的家庭", "problem_base": "前置观望", "problem_category": "便利问题", "problem_type": "老人/特殊人群不便做饭", "display_name": "老人腿脚不便自己做饭太危险", "description": "老人腿脚不便/身体不好/自己做饭太危险太辛苦", "severity": "极高", "scenarios": ["老人独居没人做饭", "老人腿脚不便进厨房危险", "子女不在家老人生日想给惊喜"], "market_type": "blue_ocean", "market_reason": "细分人群+极高严重性", "problem_keywords": [{"keyword": "老人腿脚不便怎么解决吃饭问题", "type": "blue_ocean", "source": "阶段1问题认知词"}, {"keyword": "独居老人没人做饭怎么办", "type": "blue_ocean", "source": "阶段1问题认知词"}], "dimension": "便利问题", "content_direction": "种草型"},
+        {"identity": "有临时待客需求的家庭", "problem_base": "前置观望", "problem_category": "场景问题", "problem_type": "临时来客人来不及准备", "display_name": "突然有客人来来不及准备", "description": "临时有客人来/来不及买菜准备/一个人做不了一桌菜", "severity": "高", "scenarios": ["突然有老朋友来", "临时要招待客户", "孩子带同学回家需要加菜"], "market_type": "blue_ocean", "market_reason": "细分场景+高严重性", "problem_keywords": [{"keyword": "临时有客人来怎么快速做一桌菜", "type": "blue_ocean", "source": "阶段1问题认知词"}, {"keyword": "一个人做不了一桌菜怎么办", "type": "blue_ocean", "source": "阶段1问题认知词"}], "dimension": "场景问题", "content_direction": "种草型"}
     ],
     "buyer_concern_types": [
-        {"identity": "雇主", "concern_base": "刚需痛点", "concern_category": "适配/兼容问题", "concern_type": "服务信任问题", "display_name": "怕服务人员不靠谱", "description": "怕遇到偷东西/虐童/虐待老人", "examples": ["新闻里的负面案例", "网上搜到的投诉"], "market_type": "blue_ocean", "market_reason": "信任痛点+细分人群", "problem_keywords": [{"keyword": "保姆虐童事件频发怎么筛选靠谱", "type": "blue_ocean", "source": "场景痛点词"}, {"keyword": "家政公司有资质审查吗", "type": "blue_ocean", "source": "长尾转化词"}]},
-        {"identity": "雇主", "concern_base": "前置观望", "concern_category": "功能/效果问题", "concern_type": "服务效果问题", "display_name": "怕花了钱没效果", "description": "阿姨走了还是脏的、说好的深度清洁就擦擦灰", "examples": ["清洁不到位", "敷衍了事"], "market_type": "red_ocean", "market_reason": "普遍顾虑+大众需求", "problem_keywords": [{"keyword": "深度清洁和普通保洁有什么区别", "type": "red_ocean", "source": "用户需求词"}, {"keyword": "家政保洁服务完成后怎么验收", "type": "red_ocean", "source": "品牌核心词"}]}
+        {"identity": "雇主", "concern_base": "前置观望", "concern_category": "场景问题", "concern_type": "临时需求不确定", "display_name": "需要用的时候能不能找到人", "description": "需要用的时候临时找不到人/预约不到厨师", "examples": ["周末要请客临时约不到厨师", "提前预约怕时间不确定"], "market_type": "blue_ocean", "market_reason": "细分顾虑", "problem_keywords": [{"keyword": "上门做饭服务能临时预约吗", "type": "blue_ocean", "source": "阶段2方案搜索词"}, {"keyword": "厨师上门做饭怎么预约", "type": "blue_ocean", "source": "阶段2方案搜索词"}]},
+        {"identity": "雇主", "concern_base": "使用配套", "concern_category": "信任问题", "concern_type": "陌生人上门安全", "display_name": "陌生人来家里做饭安不安全", "description": "陌生人来家里做饭安全吗/会不会有风险", "examples": ["担心财产安全", "担心人身安全"], "market_type": "blue_ocean", "market_reason": "信任顾虑", "problem_keywords": [{"keyword": "厨师上门做饭安全吗", "type": "blue_ocean", "source": "阶段3购买后担忧词"}, {"keyword": "上门做饭服务有没有监管", "type": "blue_ocean", "source": "阶段3购买后担忧词"}]}
     ]
 }
 """
@@ -6367,22 +6382,53 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 ✅ 只允许极少数（≤5%）收口用，且必须带具体症状前缀
 
-**二、全行业强制优先级（不允许跳过体感直接跳到买前顾虑）**
+**二、消费者决策链路问题挖掘框架（核心框架）**
 
-【第一优先级·强制·必须先挖】用户真实体感/身体反应/日常异常：
-1. 身体体感：用户身体上的直接感受（疼/痒/胀/晕/累/酸/麻/冷/热/恶心/食欲不振/消化不良等）
-2. 身体反应：肉眼可见的身体变化（大便异常/皮肤变化/体重变化/面色不好/浮肿/出汗异常等）
-3. 日常异常：日常生活行为变化（睡不好/吃不下/精力差/记性差/注意力不集中/情绪不稳/工作效率低等）
-4. 行为变化：具体可观察的行为改变（挑食/厌食/烦躁/哭闹/不爱动/嗜睡/早醒等）
-5. 肉眼可见细节：具体的、用户能直接观察到的问题（颜色不对/有异味/有杂质/变形/损坏等）
+【重要】用户从"遇到问题"到"选择服务/产品"，中间经历三个阶段：
 
-【第二优先级·从体感延伸】症状疑问/预防担心：
-6. 症状疑问：对身体异常的疑惑（这是什么问题/正常吗/什么原因）
-7. 预防担心：对潜在风险的担忧（会不会越来越严重/有什么后果）
+=== 【阶段1·问题认知】（第一优先级·必须先挖·占≥60%）
+客户在某个场景发生了问题 → 先了解"问题本身"+"问题造成的影响"
+- 这个时候客户还不知道有"上门做饭/我们的产品"这个解决方案
+- 搜索的是问题本身，比如"家里来客人了忙不过来"
+- 核心问题：什么场景/情况下会产生找解决方案的需求？
 
-【第三优先级·极少·严格控制】抽象决策类（≤5%）：
-8. 选型困难：仅限带症状前缀的（如：XX体质怎么选产品）
-9. 价格顾虑：仅限带症状前缀的（如：症状严重想用好的但预算有限）
+❌ 这个阶段禁止出现：
+- 直接搜索解决方案的词：如"上门做饭"、"厨师私厨"
+- 产品质量/体验问题：这是阶段3才考虑的
+
+✅ 正确格式：场景 + 具体问题 + 造成的困扰/影响
+- "家里来客人了，一个人做不了一桌菜，怕招待不周"
+- "厨艺不行怕做出来在客人面前丢人"
+- "最近太忙了根本没时间做饭"
+- "老人腿脚不便，自己做饭太危险"
+- "孩子升学宴/老人生日，想给惊喜但自己搞不定"
+
+=== 【阶段2·方案搜索】（第二优先级·占约20-30%）
+客户知道了可能有多种解决方案 → 开始搜索和比较解决方案
+- 搜索词包含具体的服务/产品类型，如"上门做饭"、"私厨到家"
+- 核心问题：客户会搜索哪些解决方案关键词？
+
+✅ 正确格式：具体解决方案搜索
+- "上门做饭多少钱"
+- "私厨到家服务"
+- "厨师上门做饭靠谱吗"
+
+❌ 禁止：宏观决策类问题（如"性价比"、"值不值"）
+
+=== 【阶段3·购买后】（第三优先级·严格控制≤15%）
+客户选择了某个方案 → 使用前/中/后的担忧
+- 仅保留与服务质量直接相关的担忧
+- 禁止：与找服务动机无关的问题（如"食物浪费"是用了服务后才考虑的）
+
+✅ 正确格式：使用服务时的具体担忧
+- "厨师做饭食材自己准备还是厨师带"
+- "陌生人来家里安全吗"
+- "厨师做饭不习惯口味怎么办"
+
+❌ 禁止格式（与找服务动机无关）：
+- "食物浪费怎么办"（用了服务才考虑，不是找服务的动机）
+- "食物变质问题"（服务提供方的责任）
+- "食物过敏问题"（服务提供方的责任）
 
 **三、严格按三层母维度 + 9大方向抠细节**
 
@@ -6402,38 +6448,50 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 ⑧ 营养/配套不足 → 必须具体：脸色发黄/指甲有白点/头发枯黄/比同龄人矮半头
 ⑨ 特殊场景细节 → 必须具体：（婴幼儿）不肯喝奶/换季就生病/（老人）走路不稳/吃饭呛咳
 
-**四、所有问题必须能落地到「个人能感受到的具体表现」**
+**四、按决策链路阶段输出问题（核心要求）**
 
-❌ 空泛评价词（禁止出现）：
-- 效果不好、质量不行、性价比低、值得吗
-- 怎么选、哪个好、靠谱吗、正规吗
-- 效果不明显、感觉一般、不满意
+【阶段1·问题认知问题格式要求】
+✅ 正确：场景 + 具体问题 + 造成的困扰/影响
+- "家里来客人了，一个人做不了一桌菜，怕招待不周"
+- "厨艺不行怕做出来在客人面前丢人"
+- "最近太忙了根本没时间做饭"
+- "老人腿脚不便，自己做饭太危险"
 
-✅ 具体可感表现（必须出现）：
-- 具体感受词：疼/痒/胀/酸/麻/晕/恶心/乏力
-- 具体观察词：大便异常/皮肤变化/体重变化/睡眠变化/食欲变化
-- 具体行为词：不肯吃/哭闹/烦躁/嗜睡/早醒/挑食
+❌ 错误：直接说解决方案或产品问题
+- "有没有上门做饭服务"（这是阶段2的问题）
+- "食物浪费怎么办"（这是阶段3的问题）
+- "食物变质问题"（这是产品问题，不是找服务的动机）
 
-**五、底盘强制分配规则**
+【阶段3·购买后问题格式要求】
+✅ 正确：使用服务时的具体担忧
+- "厨师做饭食材自己准备还是厨师带"
+- "陌生人来家里安全吗"
+- "厨师做饭不习惯口味怎么办"
 
-| 问题类型 | 底盘 | 判断 |
-|----------|------|------|
-| 身体体感/消化/皮肤/呼吸/过敏/状态/睡眠/情绪具体表现 | → 前置观望种草盘 | 用户当前真实症状 |
-| 肉眼可见的身体变化/行为异常 | → 前置观望种草盘 | 用户能直接观察到的 |
-| 症状疑问（这是什么问题/正常吗） | → 前置观望种草盘 | 对症状的疑惑 |
-| 已严重影响使用/产生不适/出现健康风险 | → 刚需痛点盘 | 已无法忍受 |
-| 配套工具/复购/升级需求 | → 使用配套搜后种草盘 | 使用后的周边 |
+❌ 错误：与找服务动机无关的问题
+- "食物浪费怎么办"（用了服务才考虑，不是找服务的动机）
+
+**五、底盘强制分配规则（按决策链路）**
+
+| 决策阶段 | 问题类型 | 底盘 | 判断 |
+|----------|---------|------|------|
+| 阶段1 | 场景问题：没时间/做不了/忙不过来 | 前置观望种草盘 | 找服务的原始动机 |
+| 阶段1 | 能力问题：不会做/做不好/怕丢人 | 前置观望种草盘 | 需要专业帮助 |
+| 阶段1 | 便利问题：不方便/不想动/身体原因 | 前置观望种草盘 | 需要上门服务 |
+| 阶段2 | 方案搜索：搜索具体解决方案 | 前置观望种草盘 | 开始找方案 |
+| 阶段3 | 使用前担忧：服务是否靠谱 | 刚需痛点盘 | 决策前的顾虑 |
+| 阶段3 | 使用中担忧：食材/专业度 | 使用配套搜后种草盘 | 使用中的问题 |
 
 **六、输出格式（严格按此格式）**
-- identity：具体人群+具体场景（如：3岁男宝/办公室久坐设计师/60岁老人）
-- problem_base：严格按上述规则填写
+- identity：具体人群+具体场景（如：做生意的老板/家里常有客人要招待的家庭/老人独居但常来客人的家庭）
+- problem_base：严格按上述决策链路规则填写
 - problem_category：从五类选一
-- problem_type：必须从9大细节方向选一类+具体描述
-- description：**必须写出3-5个具体可感的症状表现**，禁止泛泛而谈
+- problem_type：必须从决策链路方向选一类+具体描述
+- description：**必须写出"什么场景下遇到什么问题+想找什么解决方案"**
 - severity：⭐⭐⭐/⭐⭐⭐⭐/⭐⭐⭐⭐⭐
 - scenarios：2-3个具体场景
-- problem_keywords：**必须围绕具体症状写搜索词**，禁止写宏观购买词
-- dimension：身体体感/生活行为/心理情绪（**必填**）
+- problem_keywords：**必须围绕具体问题写搜索词，禁止写宏观购买词**
+- dimension：场景问题/能力问题/时间问题/便利问题（**必填**）
 - content_direction：从前置观望种草盘→种草型
 
 buyer_concern_types：

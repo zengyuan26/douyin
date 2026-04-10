@@ -1693,17 +1693,14 @@ const PUBLIC_NAV_INTENT_KEY_PORTRAITS = 'publicIntent';
 function switchSuperTab(tabName) {
     console.log('[switchSuperTab] 开始切换到:', tabName);
 
-    // 记录 tab 切换历史（用于调试）
-    if (!window._tabSwitchHistory) window._tabSwitchHistory = [];
-    window._tabSwitchHistory.push({ tab: tabName, time: Date.now(), stack: new Error().stack });
-    if (window._tabSwitchHistory.length > 10) window._tabSwitchHistory.shift();
-
-    // 如果当前已经有待执行的切换，且不是同一目标，阻止重复切换
-    if (window._pendingTabSwitch && window._pendingTabSwitch !== tabName) {
-        console.log('[switchSuperTab] 阻止重复切换，已有待执行 tab:', window._pendingTabSwitch, '，拒绝:', tabName);
+    // 防止快速重复调用（300ms 内只能切换一次）
+    var now = Date.now();
+    if (window._lastTabSwitchTime && (now - window._lastTabSwitchTime) < 300) {
+        console.log('[switchSuperTab] 拒绝快速重复切换（距上次切换', now - window._lastTabSwitchTime, 'ms）');
         return;
     }
-    window._pendingTabSwitch = tabName;
+    window._lastTabSwitchTime = now;
+
     // 直接操作对应的 tab 按钮和面板，不依赖复杂的选择器
     var tabMap = {
         'tab-form': 'super-tab-form',
@@ -1751,8 +1748,6 @@ function switchSuperTab(tabName) {
         renderTargetCustomerCards(_selectedProblemKey);
     }
 
-    // 清除待执行标记
-    window._pendingTabSwitch = null;
     console.log('[switchSuperTab] 完成切换:', tabName);
 }
 
@@ -2386,7 +2381,7 @@ function buildProblemCardHTML(problem, index) {
                         ? `<button class="problem-card-btn problem-card-btn-view" onclick="goToPortraitsTabWithKey('${escHtml(key)}')">
                              <i class="bi bi-eye"></i>查看画像
                            </button>`
-                        : `<button class="problem-card-btn" onclick="generatePortraitsFromCarousel(${index})">
+                        : `<button class="problem-card-btn" id="gen-btn-${key}" onclick="generatePortraitsFromCarousel(${index})">
                              <i class="bi bi-magic"></i>生成画像
                            </button>`}
                 </div>
@@ -2542,6 +2537,13 @@ async function generatePortraitsForProblem(key, index) {
         return;
     }
 
+    // 禁用当前按钮，防止重复点击
+    var btn = document.getElementById('gen-btn-' + key);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 生成中...';
+    }
+
     document.getElementById('portrait-generating-loading').style.display = 'block';
     document.getElementById('target-customers-section').style.display = 'none';
     document.getElementById('portraits-empty-hint').style.display = 'none';
@@ -2571,6 +2573,8 @@ async function generatePortraitsForProblem(key, index) {
 
         if (portraits.length === 0) {
             showToast('该问题暂无画像数据', 'warning');
+            if (portraits.length === 0) {
+            showToast('该问题暂无画像数据', 'warning');
             console.log('[generatePortraitsForProblem] 无画像数据，未切换 tab');
         } else {
             _allPortraits[key] = portraits;
@@ -2585,6 +2589,9 @@ async function generatePortraitsForProblem(key, index) {
             saveSuperSnapshot();
             saveSnapshotToServer();
 
+            // 重新渲染问题卡片，让按钮变成"查看画像"
+            renderProblemCards(_allProblems);
+
             showToast('生成成功！获得 ' + portraits.length + ' 个画像', 'success');
         }
     } catch (e) {
@@ -2594,6 +2601,12 @@ async function generatePortraitsForProblem(key, index) {
         document.getElementById('portrait-generating-loading').style.display = 'none';
         document.getElementById('target-customers-section').style.display = 'block';
         _isGeneratingPortraits = false;
+
+        // 恢复按钮状态（如果生成失败）
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-magic"></i>生成画像';
+        }
     }
 }
 
