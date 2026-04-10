@@ -6303,7 +6303,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - 阶段2（方案搜索）：客户开始搜索解决方案
 - 阶段3（购买后）：客户选了方案后的担忧
 
-输出示例（阶段1问题4个、阶段2问题2个、阶段3问题1个、付费方顾虑2个，共9个问题）：
+输出示例（阶段1问题5个（A类场景3个+B类体感2个）、阶段2问题2个、阶段3问题1个、付费方顾虑2个，共10个问题）：
 {
     "market_analysis": {
         "market_type": "mixed",
@@ -6313,21 +6313,23 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         "blue_ocean_opportunity": "差异化服务：家宴定制/老人陪护餐/特殊节日惊喜",
         "red_ocean_features": ["普通家政竞争白热化", "价格透明化", "大型平台垄断流量"],
         "problem_oriented_keywords": [
-            {"keyword": "家里来客人了一个人做不了一桌菜怎么办", "type": "blue_ocean", "source": "阶段1问题认知词"},
-            {"keyword": "厨艺不行怕做出来在客人面前丢人", "type": "blue_ocean", "source": "阶段1问题认知词"},
-            {"keyword": "老人腿脚不便做饭太危险", "type": "blue_ocean", "source": "阶段1问题认知词"},
+            {"keyword": "上了一天班累死了根本不想做饭", "type": "blue_ocean", "source": "阶段1B类体感词"},
+            {"keyword": "下班回家根本不想动更别说做饭", "type": "blue_ocean", "source": "阶段1B类体感词"},
+            {"keyword": "做了一天家务累得不行实在不想做饭", "type": "blue_ocean", "source": "阶段1B类体感词"},
+            {"keyword": "家里来客人了一个人做不了一桌菜怎么办", "type": "blue_ocean", "source": "阶段1A类场景词"},
+            {"keyword": "厨艺不行怕做出来在客人面前丢人", "type": "blue_ocean", "source": "阶段1A类场景词"},
+            {"keyword": "老人腿脚不便做饭太危险", "type": "blue_ocean", "source": "阶段1A类场景词"},
             {"keyword": "上门做饭私厨到家多少钱", "type": "blue_ocean", "source": "阶段2方案搜索词"},
             {"keyword": "家宴定制厨师上门服务", "type": "blue_ocean", "source": "阶段2方案搜索词"},
-            {"keyword": "成都武侯区上门做饭服务推荐", "type": "red_ocean", "source": "阶段2方案搜索词"},
-            {"keyword": "厨师上门做饭食材自己准备还是厨师带", "type": "blue_ocean", "source": "阶段3购买后担忧词"},
-            {"keyword": "陌生人来家里做饭安全吗", "type": "blue_ocean", "source": "阶段3购买后担忧词"}
+            {"keyword": "厨师上门做饭食材自己准备还是厨师带", "type": "blue_ocean", "source": "阶段3购买后担忧词"}
         ]
     },
     "user_problem_types": [
-        {"identity": "做生意的老板/常有待客需求的家庭", "problem_base": "前置观望", "problem_category": "时间问题", "problem_type": "没时间做饭", "display_name": "太忙了根本没时间做饭", "description": "做生意太忙/加班太晚/根本没时间自己下厨做饭", "severity": "极高", "scenarios": ["下班太晚来不及做饭", "做生意忙得没时间", "加班到很晚饿着肚子"], "market_type": "blue_ocean", "market_reason": "细分场景+极高严重性", "problem_keywords": [{"keyword": "太忙了没时间做饭怎么办", "type": "blue_ocean", "source": "阶段1问题认知词"}, {"keyword": "下班太晚来不及做饭", "type": "blue_ocean", "source": "阶段1问题认知词"}], "dimension": "时间问题", "content_direction": "种草型"},
-        {"identity": "厨艺不佳但常有社交需求的家庭", "problem_base": "前置观望", "problem_category": "能力问题", "problem_type": "厨艺不行怕丢人", "display_name": "厨艺不行怕在客人面前丢人", "description": "厨艺太差怕做出来不好吃/不会做硬菜/怕招待不周丢面子", "severity": "高", "scenarios": ["家里来客人了不知道做什么菜", "厨艺太差怕被笑话", "想做一桌好菜招待朋友"], "market_type": "blue_ocean", "market_reason": "细分人群+高严重性", "problem_keywords": [{"keyword": "家里来客人了不知道做什么菜", "type": "blue_ocean", "source": "阶段1问题认知词"}, {"keyword": "厨艺不行怕做出来丢人怎么办", "type": "blue_ocean", "source": "阶段1问题认知词"}], "dimension": "能力问题", "content_direction": "种草型"},
-        {"identity": "有老人/特殊人群的家庭", "problem_base": "前置观望", "problem_category": "便利问题", "problem_type": "老人/特殊人群不便做饭", "display_name": "老人腿脚不便自己做饭太危险", "description": "老人腿脚不便/身体不好/自己做饭太危险太辛苦", "severity": "极高", "scenarios": ["老人独居没人做饭", "老人腿脚不便进厨房危险", "子女不在家老人生日想给惊喜"], "market_type": "blue_ocean", "market_reason": "细分人群+极高严重性", "problem_keywords": [{"keyword": "老人腿脚不便怎么解决吃饭问题", "type": "blue_ocean", "source": "阶段1问题认知词"}, {"keyword": "独居老人没人做饭怎么办", "type": "blue_ocean", "source": "阶段1问题认知词"}], "dimension": "便利问题", "content_direction": "种草型"},
-        {"identity": "有临时待客需求的家庭", "problem_base": "前置观望", "problem_category": "场景问题", "problem_type": "临时来客人来不及准备", "display_name": "突然有客人来来不及准备", "description": "临时有客人来/来不及买菜准备/一个人做不了一桌菜", "severity": "高", "scenarios": ["突然有老朋友来", "临时要招待客户", "孩子带同学回家需要加菜"], "market_type": "blue_ocean", "market_reason": "细分场景+高严重性", "problem_keywords": [{"keyword": "临时有客人来怎么快速做一桌菜", "type": "blue_ocean", "source": "阶段1问题认知词"}, {"keyword": "一个人做不了一桌菜怎么办", "type": "blue_ocean", "source": "阶段1问题认知词"}], "dimension": "场景问题", "content_direction": "种草型"}
+        {"identity": "做生意的老板/常有待客需求的家庭", "problem_base": "前置观望", "problem_category": "时间问题", "problem_type": "没时间做饭", "display_name": "太忙了根本没时间做饭", "description": "做生意太忙/加班太晚/根本没时间自己下厨做饭", "severity": "极高", "scenarios": ["下班太晚来不及做饭", "做生意忙得没时间", "加班到很晚饿着肚子"], "market_type": "blue_ocean", "market_reason": "细分场景+极高严重性", "problem_keywords": [{"keyword": "太忙了没时间做饭怎么办", "type": "blue_ocean", "source": "阶段1A类场景词"}, {"keyword": "下班太晚来不及做饭", "type": "blue_ocean", "source": "阶段1A类场景词"}], "dimension": "阶段1-A类场景问题", "content_direction": "种草型"},
+        {"identity": "厨艺不佳但常有社交需求的家庭", "problem_base": "前置观望", "problem_category": "能力问题", "problem_type": "厨艺不行怕丢人", "display_name": "厨艺不行怕在客人面前丢人", "description": "厨艺太差怕做出来不好吃/不会做硬菜/怕招待不周丢面子", "severity": "高", "scenarios": ["家里来客人了不知道做什么菜", "厨艺太差怕被笑话", "想做一桌好菜招待朋友"], "market_type": "blue_ocean", "market_reason": "细分人群+高严重性", "problem_keywords": [{"keyword": "家里来客人了不知道做什么菜", "type": "blue_ocean", "source": "阶段1A类场景词"}, {"keyword": "厨艺不行怕做出来丢人怎么办", "type": "blue_ocean", "source": "阶段1A类场景词"}], "dimension": "阶段1-A类场景问题", "content_direction": "种草型"},
+        {"identity": "有老人/特殊人群的家庭", "problem_base": "前置观望", "problem_category": "便利问题", "problem_type": "老人/特殊人群不便做饭", "display_name": "老人腿脚不便自己做饭太危险", "description": "老人腿脚不便/身体不好/自己做饭太危险太辛苦", "severity": "极高", "scenarios": ["老人独居没人做饭", "老人腿脚不便进厨房危险", "子女不在家老人生日想给惊喜"], "market_type": "blue_ocean", "market_reason": "细分人群+极高严重性", "problem_keywords": [{"keyword": "老人腿脚不便怎么解决吃饭问题", "type": "blue_ocean", "source": "阶段1A类场景词"}, {"keyword": "独居老人没人做饭怎么办", "type": "blue_ocean", "source": "阶段1A类场景词"}], "dimension": "阶段1-A类场景问题", "content_direction": "种草型"},
+        {"identity": "上班族/打工人", "problem_base": "前置观望", "problem_category": "体感问题", "problem_type": "上班累了不想动", "display_name": "上了一天班累得要死根本不想做饭", "description": "上了一天班累得要死/回家根本不想动/更别说做饭了/只想躺着", "severity": "高", "scenarios": ["下班回家累瘫了", "周五加班后", "连续工作多天后"], "market_type": "blue_ocean", "market_reason": "大众人群+高体感", "problem_keywords": [{"keyword": "上了一天班累死了不想做饭怎么办", "type": "blue_ocean", "source": "阶段1B类体感词"}, {"keyword": "下班回家根本不想动更别说做饭", "type": "blue_ocean", "source": "阶段1B类体感词"}], "dimension": "阶段1-B类体感问题", "content_direction": "种草型"},
+        {"identity": "家庭主妇/全职妈妈", "problem_base": "前置观望", "problem_category": "体感问题", "problem_type": "做家务累了不想再做饭", "display_name": "做了一天家务已经精疲力竭", "description": "做了一天家务/带孩子/照顾老人已经精疲力竭/实在没精力再下厨/能凑合就凑合", "severity": "高", "scenarios": ["带了一天孩子累坏了", "做完大扫除后", "照顾老人一天后"], "market_type": "blue_ocean", "market_reason": "细分人群+高体感", "problem_keywords": [{"keyword": "做了一天家务累得不行实在不想做饭", "type": "blue_ocean", "source": "阶段1B类体感词"}, {"keyword": "带孩子累了一天根本不想进厨房", "type": "blue_ocean", "source": "阶段1B类体感词"}], "dimension": "阶段1-B类体感问题", "content_direction": "种草型"}
     ],
     "buyer_concern_types": [
         {"identity": "雇主", "concern_base": "前置观望", "concern_category": "场景问题", "concern_type": "临时需求不确定", "display_name": "需要用的时候能不能找到人", "description": "需要用的时候临时找不到人/预约不到厨师", "examples": ["周末要请客临时约不到厨师", "提前预约怕时间不确定"], "market_type": "blue_ocean", "market_reason": "细分顾虑", "problem_keywords": [{"keyword": "上门做饭服务能临时预约吗", "type": "blue_ocean", "source": "阶段2方案搜索词"}, {"keyword": "厨师上门做饭怎么预约", "type": "blue_ocean", "source": "阶段2方案搜索词"}]},
@@ -6340,7 +6342,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 === 示例：消费品/非本地服务（结构与字段必填项参考；问句须围绕「{product_name}」与上方业务描述）===
 业务：经营与销售「{product_name}」（对照真实业务描述，勿套用家政行业）
 
-输出示例（阶段1问题4个、阶段2问题2个、阶段3问题1个、购买者顾虑3个，共10个问题）：
+输出示例（阶段1问题5个（A类场景2个+B类体感3个）、阶段2问题2个、阶段3问题1个、付费方顾虑2个，共10个问题）：
 {{
     "market_analysis": {{
         "market_type": "mixed",
@@ -6350,14 +6352,14 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         "blue_ocean_opportunity": "（一句话写当前业务的差异化机会，勿写保洁家政）",
         "red_ocean_features": ["（2-3条与当前行业相关的红海特征）"],
         "problem_oriented_keywords": [
-            {{"keyword": "第一次买{product_name}要注意什么", "type": "blue_ocean", "source": "场景痛点词"}},
-            {{"keyword": "{product_name}用了不舒服怎么判断原因", "type": "blue_ocean", "source": "长尾转化词"}},
-            {{"keyword": "换了{product_name}后有不适反应正常吗", "type": "blue_ocean", "source": "场景痛点词"}},
-            {{"keyword": "{product_name}什么情况下要停用", "type": "blue_ocean", "source": "长尾转化词"}},
-            {{"keyword": "{product_name}成分安全吗有没有副作用", "type": "blue_ocean", "source": "场景痛点词"}},
-            {{"keyword": "长期用{product_name}有没有依赖性", "type": "blue_ocean", "source": "长尾转化词"}},
-            {{"keyword": "同城哪里有靠谱的{product_name}渠道", "type": "red_ocean", "source": "地域精准词"}},
-            {{"keyword": "{product_name}去哪里买比较放心", "type": "red_ocean", "source": "用户需求词"}}
+            {{"keyword": "腰酸背痛/久坐疲劳等体感问题", "type": "blue_ocean", "source": "阶段1B类体感词"}},
+            {{"keyword": "睡不好/精力差/没精神等日常异常", "type": "blue_ocean", "source": "阶段1B类体感词"}},
+            {{"keyword": "肠胃不适/没胃口/吃不下等体感", "type": "blue_ocean", "source": "阶段1B类体感词"}},
+            {{"keyword": "{product_name}用了不舒服怎么判断原因", "type": "blue_ocean", "source": "阶段1A类场景词"}},
+            {{"keyword": "换了{product_name}后有不适反应正常吗", "type": "blue_ocean", "source": "阶段1A类场景词"}},
+            {{"keyword": "{product_name}什么情况下要停用", "type": "blue_ocean", "source": "阶段2方案搜索词"}},
+            {{"keyword": "{product_name}成分安全吗有没有副作用", "type": "blue_ocean", "source": "阶段2方案搜索词"}},
+            {{"keyword": "同城哪里有靠谱的{product_name}渠道", "type": "red_ocean", "source": "地域精准词"}}
         ]
     }},
     "user_problem_types": [
@@ -6424,12 +6426,30 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - 直接搜索解决方案的词：如"上门做饭"、"厨师私厨"
 - 产品质量/体验问题：这是阶段3才考虑的
 
-✅ 正确格式：场景 + 具体问题 + 造成的困扰/影响
+✅ 阶段1包含两类问题：
+
+【A类·场景问题】场景+需求缺口（新增维度）：
+- 什么场景下需要找解决方案？
+- 核心词：没时间/来不及/做不了/太忙/临时有事
 - "家里来客人了，一个人做不了一桌菜，怕招待不周"
 - "厨艺不行怕做出来在客人面前丢人"
 - "最近太忙了根本没时间做饭"
 - "老人腿脚不便，自己做饭太危险"
 - "孩子升学宴/老人生日，想给惊喜但自己搞不定"
+
+【B类·体感问题】用户真实体感/身体反应/日常异常（保留原第一优先级）：
+1. 身体体感：用户身体上的直接感受（累/乏/困/腰酸背痛/站久了腿肿/手腕酸等）
+2. 身体反应：肉眼可见的身体变化（面色不好/精力差/体力跟不上等）
+3. 日常异常：日常生活行为变化（睡不好/吃不下/没胃口/不想动/懒得做等）
+4. 行为变化：具体可观察的行为改变（能点外卖就点外卖/能躺着不坐着等）
+5. 心理情绪：具体情绪词（烦躁/纠结/凑合/将就/图省事等）
+
+示例：
+- "上了一天班累得要死，回家根本不想动，更别说做饭了"
+- "腰酸背痛站久了就受不了，做一顿饭腰都直不起来"
+- "带孩子/照顾老人已经精疲力竭，实在没精力再下厨"
+- "天太热/太冷在厨房待不住，一做饭就满头大汗"
+- "懒得做饭/不想动/图省事/随便对付一口算了"
 
 === 【阶段2·方案搜索】（第二优先级·占约20-30%）
 客户知道了可能有多种解决方案 → 开始搜索和比较解决方案
@@ -6503,9 +6523,10 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 | 决策阶段 | 问题类型 | 底盘 | 判断 |
 |----------|---------|------|------|
-| 阶段1 | 场景问题：没时间/做不了/忙不过来 | 前置观望种草盘 | 找服务的原始动机 |
-| 阶段1 | 能力问题：不会做/做不好/怕丢人 | 前置观望种草盘 | 需要专业帮助 |
-| 阶段1 | 便利问题：不方便/不想动/身体原因 | 前置观望种草盘 | 需要上门服务 |
+| 阶段1-A | 场景问题：没时间/来不及/做不了/临时有事 | 前置观望种草盘 | 找服务的原始动机 |
+| 阶段1-B | 体感问题：身体累/乏/困/腰酸背痛/不想动/懒得做 | 前置观望种草盘 | 身体层面的原始痛点 |
+| 阶段1-A | 能力问题：不会做/做不好/怕丢人 | 前置观望种草盘 | 需要专业帮助 |
+| 阶段1-B | 便利问题：图省事/凑合/将就/不想动 | 前置观望种草盘 | 需要便捷方案 |
 | 阶段2 | 方案搜索：搜索具体解决方案 | 前置观望种草盘 | 开始找方案 |
 | 阶段3 | 使用前担忧：服务是否靠谱 | 刚需痛点盘 | 决策前的顾虑 |
 | 阶段3 | 使用中担忧：食材/专业度 | 使用配套搜后种草盘 | 使用中的问题 |
