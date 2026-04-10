@@ -871,6 +871,33 @@ const GalaxyUniverse = {
                     </div>
                 </div>`;
 
+            // 版本信息（选题 1:N）
+            if (d.version_number) {
+                const typeMap = {'graphic':'&#22270;&#25991;','short_video':'&#30701;&#35270;&#39057;','long_text':'&#38271;&#25991;'};
+                bodyHTML += `
+                    <div class="panel-section">
+                        <div class="panel-section-title">&#29256;&#26412;&#20449;&#24687;</div>
+                        <div class="panel-field">
+                            <span class="panel-field-label">&#24402;&#20869;&#23481;&#31867;&#22411;</span>
+                            <span class="panel-field-value">${typeMap[d.content_type] || d.content_type}</span>
+                        </div>
+                        <div class="panel-field">
+                            <span class="panel-field-label">&#29256;&#26412;&#21495;</span>
+                            <span class="panel-field-value">v${d.version_number}</span>
+                        </div>
+                        ${d.content_style ? `
+                        <div class="panel-field">
+                            <span class="panel-field-label">&#20869;&#23481;&#39118;&#26684;</span>
+                            <span class="panel-field-value">${this.escapeHtml(d.content_style)}</span>
+                        </div>` : ''}
+                        ${d.geo_mode ? `
+                        <div class="panel-field">
+                            <span class="panel-field-label">GEO&#27169;&#24335;</span>
+                            <span class="panel-field-value">${this.escapeHtml(d.geo_mode)}</span>
+                        </div>` : ''}
+                    </div>`;
+            }
+
             // 历史记录列表
             if (history.length > 0) {
                 bodyHTML += `
@@ -910,6 +937,12 @@ const GalaxyUniverse = {
                         <span class="panel-field-label">&#28040;&#32791;Tokens</span>
                         <span class="panel-field-value">${d.used_tokens || 0}</span>
                     </div>
+                </div>
+
+                <div class="panel-section" style="padding:16px 0 4px;">
+                    <a href="/public/content-detail?id=${generationId}" class="detail-action-btn primary" style="width:100%;text-align:center;justify-content:center;">
+                        <i class="bi bi-eye"></i> &#26597;&#30475;&#23436;&#25972;&#20869;&#23481;
+                    </a>
                 </div>`;
 
             this.setPanel({

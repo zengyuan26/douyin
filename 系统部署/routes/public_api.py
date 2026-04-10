@@ -10,7 +10,7 @@ import logging
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, current_app
 from flask_login import current_user
 from sqlalchemy import text
-from models.public_models import PublicUser, PublicGeneration, PublicPricingPlan, SavedPortrait
+from models.public_models import PublicUser, PublicGeneration, PublicPricingPlan, SavedPortrait, TopicGenerationLink
 from models.models import db, AnalysisDimension
 from services.public_auth import auth_service
 from services.public_content_generator import content_generator
@@ -1520,57 +1520,100 @@ def api_generate_content_from_topic():
             result_type = 'graphic'
 
         if result.get('success'):
-            # 保存生成记录（所有用户都记录）
+            topic_id_str = params.get('topic_id', '') or None
+            portrait_id_val = params.get('portrait_id')
+            link = None
+            version_number = 1
+            parent_version_id = None
+
+            # ── 1:N 选题关系：创建/更新 link ──
+            if user and topic_id_str and portrait_id_val:
+                try:
+                    # 查找或创建 link
+                    link = TopicGenerationLink.query.filter_by(
+                        user_id=user.id,
+                        portrait_id=portrait_id_val,
+                        topic_id=topic_id_str
+                    ).first()
+
+                    if not link:
+                        # 从选题库获取标题快照
+                        topic_title = params.get('topic_title', '')
+                        portrait = SavedPortrait.query.filter_by(
+                            id=portrait_id_val, user_id=user.id
+                        ).first()
+                        if portrait and portrait.topic_library:
+                            for t in portrait.topic_library.get('topics', []):
+                                if t.get('id') == topic_id_str:
+                                    topic_title = t.get('title', topic_title)
+                                    break
+
+                        link = TopicGenerationLink(
+                            user_id=user.id,
+                            portrait_id=portrait_id_val,
+                            problem_id=params.get('problem_id'),
+                            topic_id=topic_id_str,
+                            topic_title=topic_title,
+                            usage_count=0,
+                            generation_ids=[],
+                            created_at=datetime.datetime.utcnow(),
+                        )
+                        db.session.add(link)
+                        db.session.flush()
+                    else:
+                        # 有历史版本，记录父版本
+                        version_number = link.usage_count + 1
+                        if link.generation_ids:
+                            parent_version_id = link.generation_ids[-1]
+
+                except Exception as e:
+                    logger.warning('创建/查找 link 失败: %s', e)
+
+            # ── 保存 generation 记录 ──
             if user:
                 generation = PublicGeneration(
                     user_id=user.id,
                     industry=params.get('business_type', ''),
                     target_customer=params.get('portrait', {}).get('identity', ''),
-                    content_type=result_type,  # 使用实际生成的内容类型
-                    titles=result['content'].get('title', ''),
-                    tags=','.join(result['content'].get('tags', [])),
-                    content=result['content'].get('body', ''),
+                    content_type=result_type,
+                    titles=[result['content'].get('title', '')],
+                    tags=result['content'].get('tags', []),
+                    content_data=result['content'],  # 完整结构，含 slides
                     used_tokens=result.get('tokens_used', 0),
-                    topic_id=params.get('topic_id', '') or None,
-                    portrait_id=params.get('portrait_id'),
+                    topic_id=topic_id_str,
+                    portrait_id=portrait_id_val,
                     problem_id=params.get('problem_id'),
-                    # ── 星系增强：保存客户选择的场景组合 ──
                     selected_scenes=params.get('selected_scene'),
+                    link_id=link.id if link else None,
+                    version_number=version_number,
+                    parent_version_id=parent_version_id,
+                    geo_mode_used=result['content'].get('geo_mode', ''),
+                    content_style=content_style,
                 )
                 db.session.add(generation)
+                db.session.flush()
+
+                # ── 更新 link ──
+                if link:
+                    link.add_generation(generation.id)
+                    link.last_generated_at = datetime.datetime.utcnow()
+                    if link.first_generated_at is None:
+                        link.first_generated_at = generation.created_at
+
                 # 扣减配额
                 quota_manager.use_quota(user, result.get('tokens_used', 0))
                 db.session.commit()
-                
-                # 回写 generation_id 到返回结果
-                result_generation_id = generation.id
 
-                # 回写 generation_count（选题被使用次数 +1）
-                portrait_id = params.get('portrait_id')
-                topic_id_str = params.get('topic_id', '')
-                if portrait_id and topic_id_str:
-                    try:
-                        portrait = SavedPortrait.query.filter_by(
-                            id=portrait_id, user_id=user.id
-                        ).first()
-                        if portrait and portrait.topic_library:
-                            topics = portrait.topic_library.get('topics', [])
-                            updated = False
-                            for t in topics:
-                                if t.get('id') == topic_id_str:
-                                    t['generation_count'] = t.get('generation_count', 0) + 1
-                                    updated = True
-                                    break
-                            if updated:
-                                portrait.topic_library = portrait.topic_library
-                                db.session.commit()
-                    except Exception as e:
-                        logger.warning('回写 generation_count 失败: %s', e)
+                result_generation_id = generation.id
+                result_link_id = link.id if link else None
+                result_version = version_number
 
             return jsonify({
                 'success': True,
                 'content': result.get('content', {}),
-                'generation_id': result_generation_id
+                'generation_id': result_generation_id,
+                'link_id': result_link_id,
+                'version_number': result_version,
             })
         else:
             return jsonify({
@@ -1583,6 +1626,83 @@ def api_generate_content_from_topic():
             'success': False,
             'message': f'内容生成失败: {str(e)}'
         }), 500
+
+
+@public_bp.route('/api/content/<int:generation_id>', methods=['GET'])
+def api_content_detail(generation_id):
+    """
+    获取内容详情（支持版本切换）
+
+    返回：内容 + 选题信息 + 同选题所有版本摘要
+    """
+    from models.public_models import PublicGeneration, TopicGenerationLink
+
+    user_id = session.get('public_user_id')
+    user = PublicUser.query.get(user_id) if user_id else None
+
+    gen = PublicGeneration.query.filter_by(id=generation_id).first()
+    if not gen:
+        return jsonify({'success': False, 'message': '记录不存在'}), 404
+
+    # 权限校验
+    if user and gen.user_id != user.id:
+        return jsonify({'success': False, 'message': '无权访问'}), 403
+
+    # 同选题所有版本
+    sibling_versions = []
+    if gen.link_id:
+        siblings = PublicGeneration.query.filter_by(link_id=gen.link_id).order_by(
+            PublicGeneration.version_number.asc()
+        ).all()
+        for s in siblings:
+            sibling_versions.append({
+                'generation_id': s.id,
+                'version_number': s.version_number,
+                'content_type': s.content_type or 'graphic',
+                'content_style': s.content_style or '',
+                'title': (s.titles[0] if s.titles and isinstance(s.titles, list) else str(s.titles or '')),
+                'created_at': s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '',
+                'is_current': s.id == generation_id,
+            })
+
+    # link 信息
+    link_info = None
+    if gen.link_id:
+        link = TopicGenerationLink.query.get(gen.link_id)
+        if link:
+            link_info = {
+                'link_id': link.id,
+                'topic_id': link.topic_id,
+                'topic_title': link.topic_title or '',
+                'geo_mode': link.geo_mode or '',
+                'geo_mode_name': link.geo_mode_name or '',
+                'usage_count': link.usage_count or 0,
+            }
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'generation_id': gen.id,
+            'link_id': gen.link_id,
+            'version_number': gen.version_number,
+            'content_type': gen.content_type or 'graphic',
+            'content_style': gen.content_style or '',
+            'geo_mode': gen.geo_mode_used or '',
+            'industry': gen.industry or '',
+            'target_customer': gen.target_customer or '',
+            'portrait_id': gen.portrait_id,
+            'topic_id': gen.topic_id,
+            'selected_scenes': gen.selected_scenes,
+            'titles': gen.titles or [],
+            'tags': gen.tags or [],
+            'content_data': gen.content_data or {},
+            'content': (gen.content_data or {}).get('body', ''),
+            'created_at': gen.created_at.strftime('%Y-%m-%d %H:%M') if gen.created_at else '',
+            'used_tokens': gen.used_tokens or 0,
+            'link': link_info,
+            'sibling_versions': sibling_versions,
+        }
+    })
 
 
 @public_bp.route('/api/content/generate-multi', methods=['POST'])

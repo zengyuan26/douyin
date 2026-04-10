@@ -3771,8 +3771,8 @@
             left: 0;
             right: 0;
             background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.92) 100%);
-            padding: 36px 10px 12px;
-            transform: translateY(100%);
+            padding: 10px 10px 12px;
+            transform: translateY(calc(100% - 36px));
             transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             border-radius: 0 0 10px 10px;
             z-index: 10;
@@ -3780,15 +3780,40 @@
 
         .pr-card:hover .pr-hover-overlay {
             transform: translateY(0);
+            padding: 36px 10px 12px;
+        }
+
+        .pr-hover-core-business {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.95);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 2px 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+            margin-bottom: 6px;
+            text-align: center;
         }
 
         .pr-hover-topics {
             list-style: none;
-            margin: 0 0 8px;
+            margin: 0;
             padding: 0;
-            display: flex;
             flex-direction: column;
             gap: 4px;
+        }
+
+        .pr-hover-topics-container {
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: opacity 0.25s ease, max-height 0.25s ease;
+        }
+
+        .pr-card:hover .pr-hover-topics-container {
+            opacity: 1;
+            max-height: 200px;
         }
 
         .pr-hover-topic {
@@ -4816,6 +4841,8 @@
                                     // 新用户无画像时重定向至画像创建流程（强制走超级定位）
                                     if (PortraitManager._savedPortraits.length === 0) {
                                         console.log('[checkAuth] 无画像，重定向到 /public/portraits/create');
+                                        // 设置标记，确保进入超级定位时默认到描述业务tab
+                                        try { localStorage.setItem('portrait_new_create', Date.now().toString()); } catch(e) {}
                                         window.location.href = '/public/portraits/create';
                                         return;
                                     }

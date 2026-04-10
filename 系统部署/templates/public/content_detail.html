@@ -200,6 +200,58 @@
         font-size: 0.875rem;
         margin-bottom: 20px;
     }
+
+    /* ── 版本切换标签栏 ── */
+    .version-tabs-bar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 24px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--apple-gray6);
+        overflow-x: auto;
+        scrollbar-width: none;
+        flex-shrink: 0;
+    }
+    .version-tabs-bar::-webkit-scrollbar { display: none; }
+
+    .version-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 10px 14px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--apple-gray);
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s;
+    }
+    .version-tab:hover { color: var(--text-primary); }
+    .version-tab.active {
+        color: var(--apple-blue);
+        border-bottom-color: var(--apple-blue);
+        font-weight: 600;
+    }
+    .version-tab-badge {
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 0.6875rem;
+        font-weight: 700;
+    }
+    .version-tab-badge.graphic       { background: rgba(255,149,0,0.12);  color: #FF9500; }
+    .version-tab-badge.short_video   { background: rgba(255,59,48,0.12);  color: #FF3B30; }
+    .version-tab-badge.long_text     { background: rgba(142,142,147,0.12); color: #8E8E93; }
+
+    .version-meta-line {
+        margin-left: auto;
+        font-size: 0.75rem;
+        color: var(--apple-gray);
+        white-space: nowrap;
+        padding-left: 12px;
+    }
+
 </style>
 {% endblock %}
 
@@ -212,6 +264,9 @@
         </a>
         <h1>内容详情</h1>
     </div>
+
+    {# 版本切换标签栏（JS 动态渲染） #}
+    <div class="version-tabs-bar" id="version-tabs-bar" style="display:none;"></div>
 
     {# 内容卡片 #}
     <div class="detail-content-card" id="content-card">
@@ -271,6 +326,13 @@ var _generationId = null;
 var _portraitId = null;
 var _generationData = null;
 
+function escHtml(str) {
+    if (str == null) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m];
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     loadUserAuth();
     loadContentDetail();
@@ -297,12 +359,13 @@ function loadContentDetail() {
         return;
     }
 
-    fetch('/public/api/history/' + _generationId, { credentials: 'include' })
+    fetch('/public/api/content/' + _generationId, { credentials: 'include' })
         .then(function(resp) { return resp.json(); })
         .then(function(data) {
             if (data.success) {
                 _generationData = data.data;
                 _portraitId = data.data.portrait_id;
+                renderVersionTabs(data.data);
                 renderContentDetail(data.data);
             } else {
                 showError('加载失败', data.message || '内容不存在或已删除');
@@ -313,12 +376,46 @@ function loadContentDetail() {
         });
 }
 
+function renderVersionTabs(data) {
+    const tabsBar = document.getElementById('version-tabs-bar');
+    if (!tabsBar) return;
+
+    const siblings = data.sibling_versions || [];
+    if (siblings.length <= 1) {
+        tabsBar.style.display = 'none';
+        return;
+    }
+
+    let html = '';
+    siblings.forEach(function(v) {
+        const typeIcon = v.content_type === 'short_video' ? '🎬' : v.content_type === 'long_text' ? '📝' : '📄';
+        const isCurrent = v.generation_id == _generationId;
+        const activeClass = isCurrent ? ' active' : '';
+        const versionLabel = 'v' + v.version_number;
+
+        html +=
+            '<div class="version-tab' + activeClass + '" onclick="switchVersion(' + v.generation_id + ')">' +
+                '<span class="version-tab-badge ' + v.content_type + '">' + typeIcon + ' ' + versionLabel + '</span>' +
+                '<span style="font-size:0.75rem;">' + escHtml(v.content_style || '') + '</span>' +
+            '</div>';
+    });
+
+    tabsBar.innerHTML = html;
+    tabsBar.style.display = 'flex';
+}
+
+function switchVersion(genId) {
+    if (!genId || genId == _generationId) return;
+    window.location.href = '/public/content-detail?id=' + genId + '&portraitId=' + (_portraitId || '');
+}
+
 function renderContentDetail(data) {
     document.getElementById('loading-state').style.display = 'none';
     document.getElementById('content-state').style.display = 'block';
 
     // 元信息
-    document.getElementById('content-type').textContent = data.content_type === 'graphic' ? '图文' : '其他';
+    var typeMap = {'graphic':'图文','short_video':'短视频','long_text':'长文'};
+    document.getElementById('content-type').textContent = typeMap[data.content_type] || '图文';
     document.getElementById('content-portrait').textContent = data.target_customer || '--';
 
     // tokens
@@ -335,7 +432,8 @@ function renderContentDetail(data) {
     if (typeof titles === 'string') {
         try { titles = JSON.parse(titles); } catch(e) { titles = [titles]; }
     }
-    document.getElementById('content-title').textContent = Array.isArray(titles) ? titles[0] : (titles || '--');
+    var mainTitle = titles && titles[0] ? titles[0] : (data.content_data && data.content_data.title ? data.content_data.title : '--');
+    document.getElementById('content-title').textContent = mainTitle;
 
     // 标签
     var tags = data.tags;
@@ -351,12 +449,23 @@ function renderContentDetail(data) {
             span.textContent = tag.trim();
             tagsEl.appendChild(span);
         });
+    } else if (data.content_data && data.content_data.tags) {
+        var cdTags = data.content_data.tags;
+        if (typeof cdTags === 'string') cdTags = [cdTags];
+        cdTags.forEach(function(tag) {
+            var span = document.createElement('span');
+            span.className = 'detail-tag';
+            span.textContent = String(tag).trim();
+            tagsEl.appendChild(span);
+        });
     }
 
-    // 内容正文
+    // 内容正文（优先使用 content_data.body）
     var content = data.content || '';
-    if (typeof content === 'object') {
-        content = JSON.stringify(content, null, 2);
+    if (data.content_data && data.content_data.body) {
+        content = data.content_data.body;
+    } else if (data.content_data && typeof data.content_data === 'object') {
+        content = JSON.stringify(data.content_data, null, 2);
     }
     document.getElementById('content-body').textContent = content;
 

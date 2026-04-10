@@ -586,6 +586,73 @@
     .scene-tag.style-authority  { background: rgba(255,165,0,0.12);   color: #FFA500; }
     .scene-tag.fallback         { background: var(--apple-gray6);     color: var(--apple-gray); }
 
+    /* ── 选题历史版本面板样式 ── */
+    .version-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 10px;
+        margin-bottom: 5px;
+        border: 1px solid var(--apple-gray5);
+        border-radius: var(--radius-sm);
+        background: var(--bg-primary);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-size: 0.8125rem;
+        color: var(--text-primary);
+    }
+    .version-item:hover {
+        border-color: var(--apple-blue);
+        background: rgba(0,122,255,0.03);
+    }
+    .version-item .version-badge {
+        flex-shrink: 0;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-size: 0.6875rem;
+        font-weight: 700;
+    }
+    .version-badge.graphic     { background: rgba(255,149,0,0.12);  color: #FF9500; }
+    .version-badge.short_video { background: rgba(255,59,48,0.12);  color: #FF3B30; }
+    .version-badge.long_text   { background: rgba(142,142,147,0.12); color: #8E8E93; }
+    .version-item .version-meta {
+        flex: 1;
+        min-width: 0;
+    }
+    .version-item .version-title {
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.3;
+    }
+    .version-item .version-sub {
+        font-size: 0.6875rem;
+        color: var(--apple-gray);
+        margin-top: 1px;
+    }
+    .version-item .version-arrow {
+        flex-shrink: 0;
+        color: var(--apple-gray3);
+        font-size: 0.875rem;
+    }
+    .version-item.has-versions::after {
+        content: attr(data-count);
+        flex-shrink: 0;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--apple-blue);
+        background: rgba(0,122,255,0.1);
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+    .version-panel-empty {
+        padding: 12px;
+        text-align: center;
+        color: var(--apple-gray);
+        font-size: 0.8125rem;
+    }
+
     /* 内容类型推荐样式 */
     .content-type-option {
         flex: 1;
@@ -851,6 +918,17 @@
                     </div>
                 </div>
 
+                {# ── 选题历史版本面板 ──}
+                <div id="topic-versions-panel" style="display:none; margin-top: 12px;">
+                    <div class="scene-selector" style="background: rgba(0,122,255,0.03); border-color: rgba(0,122,255,0.15);">
+                        <div class="scene-selector-header">
+                            <span class="scene-selector-title" style="color: var(--apple-blue);">历史版本</span>
+                            <button onclick="toggleVersionsPanel()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--apple-gray);line-height:1;">&times;</button>
+                        </div>
+                        <div id="topic-versions-list"></div>
+                    </div>
+                </div>
+
                 {# ── 内容类型推荐 ── #}
                 <div id="content-type-recommender" style="display:none; margin-top: 12px;">
                     <div class="scene-selector" style="background: var(--bg-secondary);">
@@ -898,6 +976,8 @@ var _topics = [];
 var _selectedTopicId = null;
 var _selectedScene = null;  // ── 星系增强：选中的场景组合
 var _selectedContentType = 'graphic';  // ── 默认图文类型
+var _expandedTopicId = null;  // ── 选题 1:N：当前展开版本列表的选题 ID
+var _topicVersionsCache = {};  // ── 选题版本缓存 { topicId: versionsData }
 var _currentPage = 1;
 var _perPage = 10;
 var _totalPages = 0;
@@ -1070,6 +1150,12 @@ function renderTopicRows(topics) {
         const directionLabel = topic.content_direction === '转化型' ? '转化' : '种草';
 
         const genCount = topic.generation_count || 0;
+        // ── 选题 1:N：版本数量指示器 ──
+        const usageCount = topic._usage_count || 0;
+        const hasVersions = usageCount > 0;
+        const hasVersionsBadge = hasVersions
+            ? '<span class="topic-direction-badge" style="background:rgba(0,122,255,0.1);color:var(--apple-blue);">' + usageCount + 'v</span>'
+            : '';
 
         html +=
             '<div class="playlist-row ' + selectedClass + '" data-topic-id="' + topic.id + '" onclick="selectTopic(\'' + topic.id + '\')">' +
@@ -1079,6 +1165,7 @@ function renderTopicRows(topics) {
                     '<div class="row-title-tags">' +
                         '<span class="topic-type-badge ' + priorityClass + '">' + escHtml(topic.type_name || topic.type_key || '') + '</span>' +
                         '<span class="topic-direction-badge ' + directionBadgeClass + '">' + directionLabel + '</span>' +
+                        hasVersionsBadge +
                     '</div>' +
                 '</div>' +
                 '<div class="row-count"><span class="count-num">' + genCount + '</span> 次</div>' +
@@ -1115,6 +1202,8 @@ function selectTopic(topicId) {
     updateGenerateButton();
     // ── 星系增强：显示场景选择器 ──
     renderSceneSelector(topicId);
+    // ── 选题 1:N：加载该选题的版本历史 ──
+    loadTopicVersions(topicId);
 }
 
 // ── 星系增强：场景选择器 ──────────────────────────────────────
@@ -1178,6 +1267,87 @@ function getSceneStyleClass(style) {
         '权威背书': 'style-authority',
     };
     return map[style] || 'fallback';
+}
+
+// ── 选题 1:N：版本历史面板 ──────────────────────────────────────
+async function loadTopicVersions(topicId) {
+    const panel = document.getElementById('topic-versions-panel');
+    const listEl = document.getElementById('topic-versions-list');
+    if (!panel || !listEl) return;
+
+    // 有缓存则直接使用
+    if (_topicVersionsCache[topicId]) {
+        renderVersionsPanel(_topicVersionsCache[topicId]);
+        return;
+    }
+
+    listEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--apple-gray);font-size:0.8125rem;">加载中...</div>';
+    panel.style.display = 'block';
+
+    try {
+        const resp = await fetch(
+            '/public/api/portraits/' + _portraitId + '/topics/' + topicId + '/versions',
+            { credentials: 'include' }
+        );
+        const data = await resp.json();
+        if (data.success && data.data) {
+            _topicVersionsCache[topicId] = data.data;
+            renderVersionsPanel(data.data);
+        } else {
+            listEl.innerHTML = '<div class="version-panel-empty">暂无版本记录</div>';
+        }
+    } catch (e) {
+        listEl.innerHTML = '<div class="version-panel-empty">加载失败</div>';
+    }
+}
+
+function renderVersionsPanel(data) {
+    const panel = document.getElementById('topic-versions-panel');
+    const listEl = document.getElementById('topic-versions-list');
+    if (!panel || !listEl) return;
+
+    const versions = data.versions || [];
+    const topicTitle = data.topic_title || '';
+
+    if (versions.length === 0) {
+        panel.style.display = 'block';
+        listEl.innerHTML = '<div class="version-panel-empty">暂无版本记录<br><span style="font-size:0.75rem;">选择一个场景和内容类型，开始生成第一个版本</span></div>';
+        return;
+    }
+
+    let html = '<div style="margin-bottom:8px;font-size:0.75rem;color:var(--apple-gray);">选题：' + escHtml(topicTitle) + '（共 ' + versions.length + ' 个版本）</div>';
+
+    versions.forEach(function(v) {
+        const typeIcon = v.content_type === 'short_video' ? '🎬' : v.content_type === 'long_text' ? '📝' : '📄';
+        const typeLabel = v.content_type === 'short_video' ? '视频' : v.content_type === 'long_text' ? '长文' : '图文';
+        const versionLabel = 'v' + v.version_number;
+        const geoLabel = v.geo_mode ? '· ' + v.geo_mode : '';
+        const titleText = v.title || '版本 ' + v.version_number;
+
+        html +=
+            '<div class="version-item" onclick="viewVersion(' + v.generation_id + ')">' +
+                '<span class="version-badge ' + v.content_type + '">' + typeIcon + ' ' + versionLabel + '</span>' +
+                '<div class="version-meta">' +
+                    '<div class="version-title">' + escHtml(titleText) + '</div>' +
+                    '<div class="version-sub">' + escHtml(typeLabel) + geoLabel + ' · ' + escHtml(v.created_at || '') + '</div>' +
+                '</div>' +
+                '<span class="version-arrow">›</span>' +
+            '</div>';
+    });
+
+    listEl.innerHTML = html;
+    panel.style.display = 'block';
+}
+
+function toggleVersionsPanel() {
+    const panel = document.getElementById('topic-versions-panel');
+    if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function viewVersion(generationId) {
+    window.location.href = '/public/content-detail?id=' + generationId + '&portraitId=' + _portraitId;
 }
 
 // ── 内容类型推荐 ──────────────────────────────────────
@@ -1378,6 +1548,11 @@ async function generateContent() {
         const data = await resp.json();
 
         if (data.success) {
+            // 成功后刷新版本列表缓存
+            if (_selectedTopicId && _topicVersionsCache[_selectedTopicId]) {
+                delete _topicVersionsCache[_selectedTopicId];
+                loadTopicVersions(_selectedTopicId);
+            }
             // 成功后回写 generation_count
             await incrementTopicCount(topic.id);
             showToast('生成成功！', 'success');

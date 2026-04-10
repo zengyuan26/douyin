@@ -17,7 +17,7 @@ from functools import wraps
 from services.portrait_save_service import portrait_save_service
 from services.portrait_frequency_controller import portrait_frequency_controller
 from services.portrait_library_task_service import generate_with_semaphore
-from models.public_models import PublicUser, SavedPortrait
+from models.public_models import PublicUser, SavedPortrait, TopicGenerationLink, PublicGeneration
 from models.models import db
 from sqlalchemy import text
 
@@ -461,6 +461,7 @@ def generate_portrait_library(user, portrait_id):
                 keyword_library=kw_library,
                 plan_type=plan_type,
                 portrait_id=portrait_id,
+                user_id=user.id,
             )
             if topic_result.get('success') and not topic_result.get('_meta', {}).get('from_cache'):
                 topic_library_generator.save_to_portrait(
@@ -540,6 +541,21 @@ def get_portrait_topics(user, portrait_id):
     # ── 星系增强：补充 scene_options 和 content_style ──
     page_topics = enrich_topics_with_scene_options(page_topics)
 
+    # ── 补充 link 信息（版本数量、使用次数）──
+    topic_ids = [t.get('id') for t in page_topics if t.get('id')]
+    if topic_ids and portrait_id:
+        links = TopicGenerationLink.query.filter_by(
+            portrait_id=portrait_id, user_id=user.id
+        ).filter(TopicGenerationLink.topic_id.in_(topic_ids)).all()
+        link_map = {l.topic_id: l for l in links}
+        for t in page_topics:
+            tid = t.get('id')
+            if tid in link_map:
+                link = link_map[tid]
+                t['_link_id'] = link.id
+                t['_usage_count'] = link.usage_count or 0
+                t['_generation_ids'] = link.generation_ids or []
+
     return jsonify({
         'success': True,
         'data': {
@@ -586,6 +602,18 @@ def get_portrait_topics_quick(user, portrait_id):
         )
         from_portrait = True
 
+    # 获取核心业务词（从关键词库的第一个分类中提取）
+    core_business = ''
+    keyword_library = portrait.get('keyword_library')
+    if keyword_library and 'categories' in keyword_library:
+        categories = keyword_library.get('categories', [])
+        if categories and len(categories) > 0:
+            first_cat = categories[0]
+            keywords = first_cat.get('keywords', [])
+            if keywords and len(keywords) > 0:
+                # 取前3个关键词作为核心业务词展示
+                core_business = '、'.join(keywords[:3])
+
     return jsonify({
         'success': True,
         'data': {
@@ -593,8 +621,73 @@ def get_portrait_topics_quick(user, portrait_id):
             'from_portrait_library': from_portrait,
             'has_topics': bool(topics),
             'portrait_id': portrait_id,
+            'core_business': core_business,
         }
     })
+
+
+@portrait_bp.route('/<int:portrait_id>/topics/<topic_id>/versions', methods=['GET'])
+@login_required
+def get_topic_versions(user, portrait_id, topic_id):
+    """
+    查询选题的所有内容版本
+
+    Returns:
+        选题基本信息 + 所有版本列表
+    """
+    # 权限校验
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    # 查找 link
+    link = TopicGenerationLink.query.filter_by(
+        portrait_id=portrait_id,
+        topic_id=topic_id
+    ).filter(
+        TopicGenerationLink.user_id == user.id
+    ).first()
+
+    if not link:
+        return jsonify({'success': True, 'data': {
+            'topic_id': topic_id,
+            'topic_title': None,
+            'usage_count': 0,
+            'versions': []
+        }})
+
+    # 查询所有版本
+    gens = PublicGeneration.query.filter(
+        PublicGeneration.link_id == link.id,
+        PublicGeneration.user_id == user.id
+    ).order_by(PublicGeneration.version_number.asc()).all()
+
+    versions = [{
+        'generation_id': g.id,
+        'version_number': g.version_number,
+        'content_type': g.content_type or 'graphic',
+        'content_style': g.content_style or '',
+        'geo_mode': g.geo_mode_used or '',
+        'selected_scenes': g.selected_scenes,
+        'title': (g.titles[0] if g.titles and isinstance(g.titles, list) else str(g.titles or '')),
+        'tags': g.tags or [],
+        'created_at': g.created_at.strftime('%Y-%m-%d %H:%M') if g.created_at else '',
+    } for g in gens]
+
+    return jsonify({'success': True, 'data': {
+        'link_id': link.id,
+        'topic_id': topic_id,
+        'topic_title': link.topic_title or '',
+        'geo_mode': link.geo_mode or '',
+        'geo_mode_name': link.geo_mode_name or '',
+        'usage_count': link.usage_count or 0,
+        'first_generated_at': link.first_generated_at.strftime('%Y-%m-%d %H:%M') if link.first_generated_at else '',
+        'last_generated_at': link.last_generated_at.strftime('%Y-%m-%d %H:%M') if link.last_generated_at else '',
+        'versions': versions,
+    }})
 
 
 @portrait_bp.route('/<int:portrait_id>/topics/regenerate', methods=['POST'])
@@ -646,6 +739,7 @@ def regenerate_portrait_topics(user, portrait_id):
             plan_type=plan_type,
             topic_count=extra_count,
             portrait_id=portrait_id,
+            user_id=user.id,
         )
 
         if not result.get('success'):

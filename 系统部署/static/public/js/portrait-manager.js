@@ -2049,6 +2049,10 @@ const PortraitManager = {
             let topicCount = 0;
             if (p.topic_library && p.topic_library.topics) topicCount = p.topic_library.topics.length;
             const statText = topicCount > 0 ? `🎧 ${topicCount} 个选题` : '🎧 选题待生成';
+
+            // 直接从业务描述字段获取核心业务词
+            const coreBusinessText = p.business_description || '暂无核心业务词';
+
             return `
                 <div class="pr-card${isActive ? ' selected' : ''}" data-portrait-id="${p.id}"
                      onmouseenter="PortraitManager._onCardHover(${p.id})"
@@ -2066,9 +2070,7 @@ const PortraitManager = {
                     </div>
                     <div class="pr-hover-overlay">
                         <div class="pr-hover-content" id="pr-overlay-${p.id}">
-                            <div class="pr-hover-loading" style="text-align:center;padding:8px 0;">
-                                <span style="color:rgba(255,255,255,0.5);font-size:0.6875rem;">加载中...</span>
-                            </div>
+                            <div class="pr-hover-core-business">${this.escapeHtml(coreBusinessText)}</div>
                         </div>
                         <button type="button" class="pr-hover-play" aria-label="进入生成" title="进入生成"
                                 onclick="event.stopPropagation(); PortraitManager._onPlayClick(${p.id})">
@@ -2084,7 +2086,7 @@ const PortraitManager = {
         Object.keys(this._quickTopicsCache).forEach(pid => {
             const c = this._quickTopicsCache[pid];
             if (c.status === 'done' || c.status === 'empty') {
-                this._renderHoverOverlay(parseInt(pid), c.topics);
+                this._renderHoverOverlay(parseInt(pid), c.topics, c.core_business || '');
             }
         });
     },
@@ -2105,34 +2107,43 @@ const PortraitManager = {
             if (data.success && data.data) {
                 const topics = data.data.topics || [];
                 const hasTopics = data.data.has_topics;
-                this._quickTopicsCache[portraitId] = { topics, status: hasTopics ? 'done' : 'empty' };
-                this._renderHoverOverlay(portraitId, topics);
+                const coreBusiness = data.data.core_business || '';
+                this._quickTopicsCache[portraitId] = { topics, status: hasTopics ? 'done' : 'empty', core_business: coreBusiness };
+                this._renderHoverOverlay(portraitId, topics, coreBusiness);
             } else {
-                this._quickTopicsCache[portraitId] = { topics: [], status: 'empty' };
-                this._renderHoverOverlay(portraitId, []);
+                this._quickTopicsCache[portraitId] = { topics: [], status: 'empty', core_business: '' };
+                this._renderHoverOverlay(portraitId, [], '');
             }
         })
         .catch(() => {
-            this._quickTopicsCache[portraitId] = { topics: [], status: 'empty' };
-            this._renderHoverOverlay(portraitId, []);
+            this._quickTopicsCache[portraitId] = { topics: [], status: 'empty', core_business: '' };
+            this._renderHoverOverlay(portraitId, [], '');
         });
     },
 
-    _renderHoverOverlay(portraitId, topics) {
+    _renderHoverOverlay(portraitId, topics, coreBusiness) {
+        // 只更新选题列表区域，不覆盖核心业务词
+        // 核心业务词在卡片渲染时已从 business_description 字段获取
         const el = document.getElementById('pr-overlay-' + portraitId);
-        console.log('[_renderHoverOverlay] portraitId=' + portraitId + ', topics=' + topics.length + ', el=', el);
         if (!el) return;
 
-        if (topics.length === 0) {
-            el.innerHTML = '<div class="pr-hover-generating">暂无选题</div>';
-            return;
+        // 查找或创建选题列表容器
+        let topicsContainer = el.querySelector('.pr-hover-topics-container');
+        if (!topicsContainer) {
+            topicsContainer = document.createElement('div');
+            topicsContainer.className = 'pr-hover-topics-container';
+            el.appendChild(topicsContainer);
         }
 
-        const html = '<ul class="pr-hover-topics">' +
-            topics.map(t => '<li class="pr-hover-topic" title="' + this.escapeHtml(t.title || '') + '">' +
-                this.escapeHtml(t.title || '') + '</li>').join('') +
-            '</ul>';
-        el.innerHTML = html;
+        // 构建选题列表
+        if (!topics || topics.length === 0) {
+            topicsContainer.innerHTML = '';
+        } else {
+            topicsContainer.innerHTML = '<ul class="pr-hover-topics">' +
+                topics.map(t => '<li class="pr-hover-topic" title="' + this.escapeHtml(t.title || '') + '">' +
+                    this.escapeHtml(t.title || '') + '</li>').join('') +
+                '</ul>';
+        }
     },
 
     _onPlayClick(portraitId) {

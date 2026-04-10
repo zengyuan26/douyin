@@ -428,8 +428,8 @@
         left: 0;
         right: 0;
         background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.88) 100%);
-        padding: 36px 10px 12px;
-        transform: translateY(100%);
+        padding: 10px 10px 12px;
+        transform: translateY(calc(100% - 36px));
         transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         border-radius: 0 0 10px 10px;
         z-index: 10;
@@ -437,15 +437,40 @@
 
     .portraits-recommend-section .pr-card:hover .pr-hover-overlay {
         transform: translateY(0);
+        padding: 36px 10px 12px;
+    }
+
+    .portraits-recommend-section .pr-hover-core-business {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.95);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 2px 4px;
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+        margin-bottom: 6px;
+        text-align: center;
     }
 
     .portraits-recommend-section .pr-hover-topics {
         list-style: none;
-        margin: 0 0 8px;
+        margin: 0;
         padding: 0;
-        display: flex;
         flex-direction: column;
         gap: 4px;
+    }
+
+    .portraits-recommend-section .pr-hover-topics-container {
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: opacity 0.25s ease, max-height 0.25s ease;
+    }
+
+    .portraits-recommend-section .pr-card:hover .pr-hover-topics-container {
+        opacity: 1;
+        max-height: 200px;
     }
 
     .portraits-recommend-section .pr-hover-topic {
@@ -1035,6 +1060,10 @@ function portraitsNavToTab(e, tabName) {
 
 // 跳转到超级定位创建页面
 function goNewPortrait() {
+    // 标记为从画像列表页新建，确保进入超级定位时默认到描述业务tab
+    try {
+        localStorage.setItem('portrait_new_create', Date.now().toString());
+    } catch (e) {}
     window.location.href = '/public/portraits/create';
 }
 
@@ -1203,6 +1232,10 @@ function buildRecommendPrCard(p, i) {
     if (p.topic_library && p.topic_library.topics) topicCount = p.topic_library.topics.length;
     var statText = topicCount > 0 ? ('🎧 ' + topicCount + ' 个选题') : '🎧 选题待生成';
     var pid = p.id;
+
+    // 直接从业务描述字段获取核心业务词
+    var coreBusinessText = p.business_description || '暂无核心业务词';
+
     return (
         '<div class="pr-card pr-tone-' + tone + '" data-portrait-id="' + pid + '" data-pp-index="' + i + '"' +
         ' onmouseenter="ppOnCardHover(' + pid + ')"' +
@@ -1221,8 +1254,7 @@ function buildRecommendPrCard(p, i) {
         '</div></div>' +
         '<div class="pr-hover-overlay">' +
         '<div class="pr-hover-content" id="pp-pr-overlay-' + pid + '">' +
-        '<div class="pr-hover-generating" style="text-align:center;padding:8px 0;">' +
-        '<span style="color:rgba(255,255,255,0.5);font-size:0.6875rem;">加载中...</span></div>' +
+        '<div class="pr-hover-core-business">' + escHtml(coreBusinessText) + '</div>' +
         '</div>' +
         '<button type="button" class="pr-hover-play" aria-label="进入生成" title="进入生成"' +
         ' onclick="event.stopPropagation(); ppOnPlayClick(' + pid + ')">' +
@@ -1280,33 +1312,42 @@ function ppFetchQuickTopics(portraitId) {
             if (data.success && data.data) {
                 var topics = data.data.topics || [];
                 var hasTopics = data.data.has_topics;
-                _ppQuickTopicsCache[portraitId] = { topics: topics, status: hasTopics ? 'done' : 'empty' };
-                ppRenderHoverOverlay(portraitId, topics);
+                var coreBusiness = data.data.core_business || '';
+                _ppQuickTopicsCache[portraitId] = { topics: topics, status: hasTopics ? 'done' : 'empty', core_business: coreBusiness };
+                ppRenderHoverOverlay(portraitId, topics, coreBusiness);
             } else {
-                _ppQuickTopicsCache[portraitId] = { topics: [], status: 'empty' };
-                ppRenderHoverOverlay(portraitId, []);
+                _ppQuickTopicsCache[portraitId] = { topics: [], status: 'empty', core_business: '' };
+                ppRenderHoverOverlay(portraitId, [], '');
             }
         })
         .catch(function() {
-            _ppQuickTopicsCache[portraitId] = { topics: [], status: 'empty' };
-            ppRenderHoverOverlay(portraitId, []);
+            _ppQuickTopicsCache[portraitId] = { topics: [], status: 'empty', core_business: '' };
+            ppRenderHoverOverlay(portraitId, [], '');
         });
 }
 
-function ppRenderHoverOverlay(portraitId, topics) {
+function ppRenderHoverOverlay(portraitId, topics, coreBusiness) {
+    // 只更新选题列表区域，不覆盖核心业务词
+    // 核心业务词在卡片渲染时已从 business_description 字段获取
     var el = document.getElementById('pp-pr-overlay-' + portraitId);
     if (!el) return;
+
+    // 查找或创建选题列表容器
+    var topicsContainer = el.querySelector('.pr-hover-topics-container');
+    if (!topicsContainer) {
+        topicsContainer = document.createElement('div');
+        topicsContainer.className = 'pr-hover-topics-container';
+        el.appendChild(topicsContainer);
+    }
+
+    // 构建选题列表
     if (!topics || topics.length === 0) {
-        el.innerHTML = '<div class="pr-hover-generating">暂无选题</div>';
-        return;
+        topicsContainer.innerHTML = '';
+    } else {
+        topicsContainer.innerHTML = '<ul class="pr-hover-topics">' +
+            topics.map(function(t) { return '<li class="pr-hover-topic" title="' + escHtml(t.title || '') + '">' + escHtml(t.title || '') + '</li>'; }).join('') +
+            '</ul>';
     }
-    var html = '<ul class="pr-hover-topics">';
-    for (var t = 0; t < topics.length; t++) {
-        var title = escHtml(topics[t].title || '');
-        html += '<li class="pr-hover-topic" title="' + title + '">' + title + '</li>';
-    }
-    html += '</ul>';
-    el.innerHTML = html;
 }
 
 function ppOnPlayClick(portraitId) {
@@ -1425,7 +1466,7 @@ function initPpCoverFlow() {
     Object.keys(_ppQuickTopicsCache).forEach(function(pid) {
         var c = _ppQuickTopicsCache[pid];
         if (c && (c.status === 'done' || c.status === 'empty')) {
-            ppRenderHoverOverlay(parseInt(pid, 10), c.topics);
+            ppRenderHoverOverlay(parseInt(pid, 10), c.topics, c.core_business || '');
         }
     });
 }

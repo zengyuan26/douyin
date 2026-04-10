@@ -1,17 +1,21 @@
 """
-画像专属选题库生成服务
+画像专属选题库生成服务 + GEO 六模式全绑定系统
 
-功能：
-1. 读取模板配置，生成专属选题库
-2. 基于关键词库 + 实时上下文
-3. 持久化到 saved_portraits.topic_library
-4. 支持实时刷新 + 配额检查
+核心原则：
+- LLM 只负责生成：title、keywords、recommended_reason、scene_options、geo_mode、structure_rule
+- 本地代码控制：GEO 模式枚举、三盘映射、阶段配比、分配逻辑、校验、兜底、缓存
+- 每个选题强制归属一种 GEO 模式
+- 按三盘比例分配 GEO 模式
+- 后处理校验 GEO 模式合规性
 """
 
 import json
 import random
 import logging
 import uuid
+import time
+import threading
+import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from models.public_models import SavedPortrait, db
@@ -22,133 +26,364 @@ from services.template_config_service import template_config_service
 from services.llm import get_llm_service
 
 
+# =============================================================================
+# GEO 六模式枚举库（100% 本地控制）
+# =============================================================================
+
+class GEOMode:
+    """
+    GEO 六模式枚举
+
+    字段说明：
+    - key: 英文标识
+    - name: 中文名称
+    - weight: 权重（按权重排序决定优先级）
+    - title_rule: 标题生成规则（LLM 必须遵守）
+    - structure_rule: 内容结构规则（LLM 必须遵守）
+    - ban_patterns: 标题禁令正则列表
+    - ban_phrases: 标题禁令词列表
+    - compatible_types: 兼容的 type_key 列表
+    """
+    QA = 'qa'               # 问题-答案模式
+    DEFINE = 'define'        # 定义-解释模式
+    ARGUMENT = 'argument'    # 金句-论证模式
+    FRAMEWORK = 'framework'  # 框架-工具模式
+    LIST = 'list'            # 清单体
+    HERO = 'hero'           # 英雄之旅
+
+
+GEO_MODES = {
+    # ── 1. 问题-答案模式（权重最高）─────────────────────────────────────────────
+    GEOMode.QA: {
+        'key': GEOMode.QA,
+        'name': '问题-答案模式',
+        'weight': 6,
+        'title_rule': '标题必须是用户真实搜索的问题，格式：XX怎么办？/ XX怎么选？/ XX是什么？/ XX好不好？',
+        'title_examples': [
+            '桶装水有异味怎么办？',
+            '酒店餐具破损怎么处理？',
+            '高考志愿怎么填报最稳妥？',
+            '豆芽批发怎么找靠谱供应商？',
+        ],
+        'structure_rule': '首段直接给答案，不需要铺垫。结构：答案开门见山 → 原因分析 → 具体方法 → 行动指引',
+        'structure_template': '【开篇】直接给答案 | 【展开】原因拆解 | 【方法】具体步骤 | 【收尾】引导行动',
+        'ban_patterns': [
+            r'.*的正确认知',
+            r'.*的底层逻辑',
+            r'.*的真相',
+            r'.*全面解析',
+            r'.*完全指南',
+            r'.*入门.*',
+            r'春季.*|冬季.*|夏季.*',  # 季节拼接禁令
+        ],
+        'ban_phrases': ['正确认知', '底层逻辑', '真相', '全面解析', '完全指南', '原料', '供应链'],
+        'compatible_types': ['pain_point', 'decision_encourage', 'cause', 'compare', 'pitfall', 'scene'],
+    },
+
+    # ── 2. 定义-解释模式 ───────────────────────────────────────────────────
+    GEOMode.DEFINE: {
+        'key': GEOMode.DEFINE,
+        'name': '定义-解释模式',
+        'weight': 5,
+        'title_rule': '标题格式：什么是XX？/ XX是什么？/ 一文讲透XX / XX怎么选？',
+        'title_examples': [
+            '什么是真正的好桶装水？',
+            '酒店陶瓷餐具修复是什么服务？',
+            '高考志愿填报辅导怎么选？',
+            '桶装水配送服务是什么？',
+        ],
+        'structure_rule': '结构：定义 → 比喻/类比 → 核心要素 → 案例说明',
+        'structure_template': '【定义】XX是什么 | 【比喻】像YY一样 | 【要素】3个关键点 | 【案例】具体例子',
+        'ban_patterns': [
+            r'.*的正确认知',
+            r'.*底层逻辑',
+            r'.*真相',
+            r'.*全面解析',
+            r'春季.*|冬季.*|夏季.*',
+        ],
+        'ban_phrases': ['正确认知', '底层逻辑', '真相', '全面解析', '原料', '供应链'],
+        'compatible_types': ['tutorial', 'upstream', 'cause', 'scene', 'region'],
+    },
+
+    # ── 3. 金句-论证模式 ─────────────────────────────────────────────────────
+    GEOMode.ARGUMENT: {
+        'key': GEOMode.ARGUMENT,
+        'name': '金句-论证模式',
+        'weight': 4,
+        'title_rule': '标题格式：反常识金句开头，打破用户固有认知。格式：XX都错了！/ 别再XX了！/ 以为XX就行？',
+        'title_examples': [
+            '桶装水便宜就好？90%的人都选错了！',
+            '别再被误导了！酒店餐具修复不是小事',
+            '以为随便选就行？高考志愿填报3大误区',
+            '酒店采购只看价格？难怪年年亏钱',
+        ],
+        'structure_rule': '结构：反常识金句 → 破（打破旧认知）→ 立（新认知） → 方案指引',
+        'structure_template': '【金句】反常识开头 | 【破】打破旧认知 | 【立】建立新认知 | 【方案】具体行动',
+        'ban_patterns': [
+            r'.*的正确认知',
+            r'.*底层逻辑',
+            r'.*真相',
+            r'.*全面解析',
+            r'春季.*|冬季.*',
+        ],
+        'ban_phrases': ['正确认知', '底层逻辑', '真相', '全面解析', '原料', '供应链'],
+        'compatible_types': ['rethink', 'pitfall', 'decision_encourage', 'compare'],
+    },
+
+    # ── 4. 框架-工具模式 ─────────────────────────────────────────────────────
+    GEOMode.FRAMEWORK: {
+        'key': GEOMode.FRAMEWORK,
+        'name': '框架-工具模式',
+        'weight': 3,
+        'title_rule': '标题格式：框架名称 + 核心价值。格式：XX框架！3步搞定XX / XX工具，推荐收藏',
+        'title_examples': [
+            '酒店采购避坑框架！3步选出靠谱供应商',
+            '高考志愿填报框架！一张表搞定所有选择',
+            '桶装水选购框架！5分钟选出好水源',
+            '餐厅食材采购框架！成本降低30%的秘密',
+        ],
+        'structure_rule': '结构：框架概述 → 工具/清单 → 操作步骤 → 自检清单',
+        'structure_template': '【框架】是什么+解决什么问题 | 【工具】具体方法 | 【步骤】123操作 | 【自检】检查清单',
+        'ban_patterns': [
+            r'.*的正确认知',
+            r'.*底层逻辑',
+            r'.*全面解析',
+            r'.*完全指南',
+            r'春季.*|冬季.*',
+        ],
+        'ban_phrases': ['正确认知', '底层逻辑', '全面解析', '完全指南', '原料', '供应链'],
+        'compatible_types': ['tutorial', 'upstream', 'skill', 'effect_proof', 'price'],
+    },
+
+    # ── 5. 清单体 ────────────────────────────────────────────────────────────
+    GEOMode.LIST: {
+        'key': GEOMode.LIST,
+        'name': '清单体',
+        'weight': 2,
+        'title_rule': '标题格式：数字 + 结果导向。格式：X个XX / XX清单 / XX检查表 / XX指南',
+        'title_examples': [
+            '桶装水辨别指南！3步判断水质好坏',
+            '酒店采购必看！5个坑千万别踩',
+            '高考前必做清单！家长收藏',
+            '桶装水配送协议检查清单',
+        ],
+        'structure_rule': '结构：数字开头 → 分点清单 → 每个要点一句话说明 → 总结收尾',
+        'structure_template': '【数字】X个要点 | 【清单】逐条列出 | 【说明】每条一句话 | 【总结】核心建议',
+        'ban_patterns': [
+            r'.*的正确认知',
+            r'.*底层逻辑',
+            r'.*真相',
+            r'春季.*|冬季.*',
+        ],
+        'ban_phrases': ['正确认知', '底层逻辑', '真相', '原料', '供应链'],
+        'compatible_types': ['pitfall', 'skill', 'tutorial', 'upstream', 'effect_proof', 'price', 'seasonal', 'festival'],
+    },
+
+    # ── 6. 英雄之旅 ─────────────────────────────────────────────────────────
+    GEOMode.HERO: {
+        'key': GEOMode.HERO,
+        'name': '英雄之旅',
+        'weight': 1,
+        'title_rule': '标题格式：真实案例故事开头。格式：XX的真实故事 / 一个XX的经历 / XX案例分享',
+        'title_examples': [
+            '一个酒店老板踩坑的真实故事',
+            '客户退货3次才选对桶装水供应商',
+            '高考志愿填报的真实案例分享',
+            '餐饮老板选错豆芽供应商的血泪教训',
+        ],
+        'structure_rule': '结构：P（问题困境）→ C（冲突挑战）→ S（解决方案）→ R（结果启示）',
+        'structure_template': '【P困境】用户遇到什么问题 | 【C冲突】核心矛盾是什么 | 【S方案】如何解决 | 【R启示】经验教训',
+        'ban_patterns': [
+            r'.*的正确认知',
+            r'.*底层逻辑',
+            r'.*全面解析',
+        ],
+        'ban_phrases': ['正确认知', '底层逻辑', '全面解析', '原料', '供应链'],
+        'compatible_types': ['emotional', 'skill', 'scene', 'industry'],
+    },
+}
+
+# GEO 权重排序（权重越高优先级越高）
+GEO_WEIGHT_ORDER = sorted(GEO_MODES.keys(), key=lambda k: GEO_MODES[k]['weight'], reverse=True)
+
+# type_key → 推荐 GEO 模式映射
+TYPE_KEY_TO_GEO = {
+    'compare':            [GEOMode.QA, GEOMode.ARGUMENT, GEOMode.DEFINE],
+    'cause':             [GEOMode.QA, GEOMode.DEFINE, GEOMode.LIST],
+    'upstream':          [GEOMode.DEFINE, GEOMode.FRAMEWORK, GEOMode.LIST],
+    'pitfall':           [GEOMode.ARGUMENT, GEOMode.LIST, GEOMode.QA],
+    'price':             [GEOMode.FRAMEWORK, GEOMode.LIST, GEOMode.DEFINE],
+    'rethink':           [GEOMode.ARGUMENT, GEOMode.QA, GEOMode.HERO],
+    'tutorial':          [GEOMode.DEFINE, GEOMode.FRAMEWORK, GEOMode.LIST],
+    'scene':             [GEOMode.QA, GEOMode.HERO, GEOMode.DEFINE],
+    'region':            [GEOMode.QA, GEOMode.DEFINE, GEOMode.LIST],
+    'pain_point':        [GEOMode.QA, GEOMode.FRAMEWORK, GEOMode.LIST],
+    'decision_encourage': [GEOMode.QA, GEOMode.ARGUMENT, GEOMode.FRAMEWORK],
+    'effect_proof':      [GEOMode.FRAMEWORK, GEOMode.LIST, GEOMode.HERO],
+    'skill':             [GEOMode.FRAMEWORK, GEOMode.LIST, GEOMode.HERO],
+    'tools':             [GEOMode.LIST, GEOMode.FRAMEWORK, GEOMode.DEFINE],
+    'industry':          [GEOMode.HERO, GEOMode.LIST, GEOMode.DEFINE],
+    'seasonal':          [GEOMode.LIST, GEOMode.QA, GEOMode.DEFINE],
+    'festival':          [GEOMode.LIST, GEOMode.QA, GEOMode.DEFINE],
+    'emotional':         [GEOMode.HERO, GEOMode.ARGUMENT, GEOMode.QA],
+}
+
+
 class TopicLibraryGenerator:
     """
-    选题库生成器
+    选题库生成器 + GEO 六模式全绑定
 
-    复用 geo-seo skill 中的选题库模板逻辑：
-    - 10大选题来源（评论区挖痛点、颠覆常识、搜索框挖需求等）
-    - 选题优先级矩阵（P0-P3）
-    - B/C端区分
+    核心原则：
+    - LLM 只生成内容：title、keywords、recommended_reason、scene_options、geo_mode、structure_rule
+    - 所有规则由本地控制：GEO 模式枚举、三盘映射、阶段配比、分配逻辑、校验、兜底
     """
 
-    # 选题分类（严格对应三大需求底盘 + 强制固定归类）
-    # 三盘比例：前置观望搜前种草盘 50% / 刚需痛点盘 30% / 使用配套搜后种草盘 20%
-    # 内容方向：前置观望=种草型；刚需痛点=转化型；使用配套=种草型
-    # 强制规则：对比选型/决策安心/上下游/实操等全部固定归类，选题方向不得跨界
+    # =============================================================================
+    # 本地静态规则 - LLM 不参与计算
+    # =============================================================================
+
+    # 选题分类（严格对应三大需求底盘）
     TOPIC_TYPES = [
-        # ①前置观望搜前种草盘（50%，种草型）：专抓前期迷茫/做对比/查原因客户
-        {'name': '对比选型类', 'key': 'compare', 'base': '前置观望种草盘', 'content_direction': '种草型',
-         'desc': 'A与B区别/选型对比/哪种更好/划算对比，品牌分析，种草型 【P0】<br>'
-                 '<b>禁止格式</b>："XX的正确认知"、"XX的底层逻辑"、"XX的真相"、"XX全面解析"',
-         'priority': 'P0'},
-        {'name': '原因分析类', 'key': 'cause', 'base': '前置观望种草盘', 'content_direction': '种草型',
-         'desc': '为什么会/原因分析/形成机理，认知教育，种草型 【P1】<br>'
-                 '<b>禁止格式</b>："XX的原因找到了"、"XX的形成机理"',
-         'priority': 'P1'},
-        {'name': '上游科普类', 'key': 'upstream', 'base': '前置观望种草盘', 'content_direction': '种草型',
-         'desc': '选机构看什么/师资怎么辨别/课程内容怎么判断，行业上游，种草型 【P1】<br>'
-                 '<b>禁止格式</b>："XX的原料"、"XX的供应链"（除非业务真是制造业）',
-         'priority': 'P1'},
-        {'name': '避坑指南类', 'key': 'pitfall', 'base': '前置观望种草盘', 'content_direction': '种草型',
-         'desc': '避坑/误区/骗局/怎么分辨，行业防骗，种草型 【P1】<br>'
-                 '<b>禁止格式</b>："XX常见误区"（应改为具体场景如"XX千万别这么做"）',
-         'priority': 'P1'},
-        {'name': '行情价格类', 'key': 'price', 'base': '前置观望种草盘', 'content_direction': '种草型',
-         'desc': '价格/报价/行情/成本构成，预算参考，种草型 【P2】<br>'
-                 '<b>禁止格式</b>："XX价格行情"、"XX成本构成"',
-         'priority': 'P2'},
-        {'name': '认知颠覆类', 'key': 'rethink', 'base': '前置观望种草盘', 'content_direction': '种草型',
-         'desc': '打破用户固有偏见/颠覆常识，易传播，种草型 【P2】<br>'
-                 '<b>必须包含具体偏见描述</b>，如"以为XX就行？"、"XX是误区！"<br>'
-                 '<b>禁止格式</b>："XX的正确认知"、"XX的真相"、"XX90%都错了"',
-         'priority': 'P2'},
-        {'name': '知识教程类', 'key': 'tutorial', 'base': '前置观望种草盘', 'content_direction': '种草型',
-         'desc': '主动搜索，精准流量，种草型 【P1】<br>'
-                 '<b>禁止格式</b>："XX完全指南"、"XX入门"',
-         'priority': 'P1'},
-        {'name': '场景细分类', 'key': 'scene', 'base': '前置观望种草盘', 'content_direction': '种草型',
-         'desc': '精准人群细分，种草型 【P2】',
-         'priority': 'P2'},
-        {'name': '地域精准类', 'key': 'region', 'base': '前置观望种草盘', 'content_direction': '种草型',
-         'desc': '本地流量，种草型 【P3】',
-         'priority': 'P3'},
+        # ① 前置观望搜前种草盘（50%，种草型）
+        {'name': '对比选型类',     'key': 'compare',             'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P0'},
+        {'name': '原因分析类',     'key': 'cause',               'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P1'},
+        {'name': '上游科普类',     'key': 'upstream',             'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P1'},
+        {'name': '避坑指南类',     'key': 'pitfall',             'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P1'},
+        {'name': '行情价格类',     'key': 'price',               'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P2'},
+        {'name': '认知颠覆类',     'key': 'rethink',             'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P2'},
+        {'name': '知识教程类',     'key': 'tutorial',             'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P1'},
+        {'name': '场景细分类',     'key': 'scene',               'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P2'},
+        {'name': '地域精准类',     'key': 'region',              'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P3'},
 
-        # ②刚需痛点盘（30%，转化型）：强化决策安心，解决临门一脚
-        {'name': '痛点解决类', 'key': 'pain_point', 'base': '刚需痛点盘', 'content_direction': '转化型',
-         'desc': '直面核心痛点，提供解决方案，引导成交，转化型 【P0】<br>'
-                 '<b>禁止格式</b>："XX怎么办？"（应改为"XX怎么办？三步搞定"等具体方案）',
-         'priority': 'P0'},
-        {'name': '决策安心类', 'key': 'decision_encourage', 'base': '刚需痛点盘', 'content_direction': '转化型',
-         'desc': '靠谱吗/会不会坑/售后怎么样/别人怎么选，打消顾虑，转化型 【P0】<br>'
-                 '<b>禁止格式</b>："XX靠谱吗？"（应改为"XX靠不靠谱？看完你就明白了"）',
-         'priority': 'P0'},
-        {'name': '效果验证类', 'key': 'effect_proof', 'base': '刚需痛点盘', 'content_direction': '转化型',
-         'desc': '产品效果对比/使用前后对比/真实案例，建立信任，转化型 【P1】',
-         'priority': 'P1'},
+        # ② 刚需痛点盘（30%，转化型）
+        {'name': '痛点解决类',     'key': 'pain_point',          'base': '刚需痛点盘',         'direction': '转化型', 'priority': 'P0'},
+        {'name': '决策安心类',     'key': 'decision_encourage',   'base': '刚需痛点盘',         'direction': '转化型', 'priority': 'P0'},
+        {'name': '效果验证类',     'key': 'effect_proof',        'base': '刚需痛点盘',         'direction': '转化型', 'priority': 'P1'},
 
-        # ③使用配套搜后种草盘（20%，种草型）：使用后实操留存
-        {'name': '实操技巧类', 'key': 'skill', 'base': '使用配套搜后种草盘', 'content_direction': '种草型',
-         'desc': '使用后方法/步骤流程/实操经验，种草型 【P1】<br>'
-                 '<b>禁止格式</b>："XX技巧"、"XX5个技巧"',
-         'priority': 'P1'},
-        {'name': '工具耗材类', 'key': 'tools', 'base': '使用配套搜后种草盘', 'content_direction': '种草型',
-         'desc': '专用工具/周边耗材/后期养护推荐，种草型 【P2】<br>'
-                 '<b>注意</b>：服务业/教育类业务慎用此类型，避免生成"工具耗材"类标题',
-         'priority': 'P2'},
-        {'name': '行业关联系列类', 'key': 'industry', 'base': '使用配套搜后种草盘', 'content_direction': '种草型',
-         'desc': '上下游关联/复购引导/升级推荐，种草型 【P2】<br>'
-                 '<b>注意</b>：教育类业务慎用此类型',
-         'priority': 'P2'},
-        {'name': '季节营销类', 'key': 'seasonal', 'base': '使用配套搜后种草盘', 'content_direction': '种草型',
-         'desc': '时效性强，季节关联，种草型 【P2】<br>'
-                 '<b>禁止格式</b>："春季XX"、"冬季XX"（应改为"高考出分前家长要做什么"）<br>'
-                 '<b>注意</b>：教育/服务类业务慎用此类型，避免生成"春季高考志愿填报辅导"等机械拼接',
-         'priority': 'P2'},
-        {'name': '节日营销类', 'key': 'festival', 'base': '使用配套搜后种草盘', 'content_direction': '种草型',
-         'desc': '节日刚需，复购引导，种草型 【P1】',
-         'priority': 'P1'},
-        {'name': '情感故事类', 'key': 'emotional', 'base': '使用配套搜后种草盘', 'content_direction': '种草型',
-         'desc': '易引发转发，种草型 【P3】',
-         'priority': 'P3'},
+        # ③ 使用配套搜后种草盘（20%，种草型）
+        {'name': '实操技巧类',     'key': 'skill',               'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P1'},
+        {'name': '工具耗材类',     'key': 'tools',              'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P2'},
+        {'name': '行业关联系列类', 'key': 'industry',            'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P2'},
+        {'name': '季节营销类',     'key': 'seasonal',            'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P2'},
+        {'name': '节日营销类',     'key': 'festival',            'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P1'},
+        {'name': '情感故事类',     'key': 'emotional',           'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P3'},
     ]
 
-    # 三套选题配比（内容阶段联动）- 兼容新旧枚举
-    STAGE_TOPIC_RATIO_MAP = {
+    TYPE_KEY_MAP = {t['key']: t for t in TOPIC_TYPES}
+
+    # 三套选题配比（内容阶段联动）- 本地控制
+    STAGE_RATIO_MAP = {
         '起号阶段': {
-            '前置观望种草盘': 0.90,
-            '刚需痛点盘': 0.00,
-            '使用配套搜后种草盘': 0.10,
-            '前置观望搜前种草盘': 0.90,
-            '前置观望': 0.90,
-            '使用配套': 0.10,
+            '前置观望种草盘':      0.90,
+            '刚需痛点盘':          0.00,
+            '使用配套搜后种草盘':   0.10,
             'description': '90%前置种草 + 0%刚需转化 + 10%使用配套',
-            'tag_strategy': '种草标签为主，无转化标签',
         },
         '成长阶段': {
-            '前置观望种草盘': 0.60,
-            '刚需痛点盘': 0.15,
-            '使用配套搜后种草盘': 0.25,
-            '前置观望搜前种草盘': 0.60,
-            '前置观望': 0.60,
-            '使用配套': 0.25,
+            '前置观望种草盘':      0.60,
+            '刚需痛点盘':          0.15,
+            '使用配套搜后种草盘':   0.25,
             'description': '60%前置种草 + 15%刚需转化 + 25%使用配套',
-            'tag_strategy': '种草标签60% + 转化标签40%',
         },
         '成熟阶段': {
-            '前置观望种草盘': 0.30,
-            '刚需痛点盘': 0.50,
-            '使用配套搜后种草盘': 0.20,
-            '前置观望搜前种草盘': 0.30,
-            '前置观望': 0.30,
-            '使用配套': 0.20,
+            '前置观望种草盘':      0.30,
+            '刚需痛点盘':          0.50,
+            '使用配套搜后种草盘':   0.20,
             'description': '30%前置种草 + 50%刚需转化 + 20%使用配套',
-            'tag_strategy': '转化标签为主，种草标签30%',
         },
     }
 
+    # 底盘 → type_key 列表的本地映射
+    BASE_TO_TYPES = {
+        '前置观望种草盘':     [t['key'] for t in TOPIC_TYPES if t['base'] == '前置观望种草盘'],
+        '刚需痛点盘':         [t['key'] for t in TOPIC_TYPES if t['base'] == '刚需痛点盘'],
+        '使用配套搜后种草盘':  [t['key'] for t in TOPIC_TYPES if t['base'] == '使用配套搜后种草盘'],
+    }
+
+    # =============================================================================
+    # GEO 模式核心规则（100% 本地控制）
+    # =============================================================================
+
+    # 三盘 ↔ GEO 模式映射（固定比例）
+    BASE_GEO_RATIO = {
+        # 三盘内各 GEO 模式的固定比例（总和为 1.0）
+        '前置观望种草盘': {
+            GEOMode.QA:       0.30,   # 问题-答案模式（高权重，最常见）
+            GEOMode.DEFINE:   0.25,   # 定义-解释模式
+            GEOMode.LIST:     0.25,   # 清单体（种草型内容最适配）
+            GEOMode.ARGUMENT: 0.10,   # 金句-论证模式
+            GEOMode.FRAMEWORK: 0.07,  # 框架-工具模式
+            GEOMode.HERO:     0.03,   # 英雄之旅（较少使用）
+        },
+        '刚需痛点盘': {
+            GEOMode.QA:       0.35,   # 问题-答案模式（最适合转化）
+            GEOMode.ARGUMENT: 0.25,   # 金句-论证模式（打消顾虑）
+            GEOMode.FRAMEWORK: 0.25,  # 框架-工具模式（给出具体方案）
+            GEOMode.DEFINE:   0.08,   # 定义-解释模式
+            GEOMode.LIST:     0.05,   # 清单体
+            GEOMode.HERO:     0.02,   # 英雄之旅
+        },
+        '使用配套搜后种草盘': {
+            GEOMode.LIST:     0.35,   # 清单体（实用干货，易传播）
+            GEOMode.HERO:     0.30,   # 英雄之旅（情感故事，易转发）
+            GEOMode.FRAMEWORK: 0.20,  # 框架-工具模式
+            GEOMode.QA:       0.08,   # 问题-答案模式
+            GEOMode.DEFINE:   0.05,   # 定义-解释模式
+            GEOMode.ARGUMENT: 0.02,   # 金句-论证模式
+        },
+    }
+
+    # 账号阶段 ↔ GEO 模式配比（影响整体 GEO 分布）
+    STAGE_GEO_RATIO_MAP = {
+        '起号阶段': {
+            # 起号阶段：重种草，轻转化，多用清单/QA/DEFINE
+            GEOMode.QA:        0.30,
+            GEOMode.DEFINE:    0.25,
+            GEOMode.LIST:      0.25,
+            GEOMode.ARGUMENT:  0.10,
+            GEOMode.FRAMEWORK: 0.07,
+            GEOMode.HERO:      0.03,
+        },
+        '成长阶段': {
+            # 成长阶段：平衡种草和转化
+            GEOMode.QA:        0.28,
+            GEOMode.DEFINE:    0.18,
+            GEOMode.LIST:      0.20,
+            GEOMode.ARGUMENT:  0.15,
+            GEOMode.FRAMEWORK: 0.12,
+            GEOMode.HERO:      0.07,
+        },
+        '成熟阶段': {
+            # 成熟阶段：重转化，多用 FRAMEWORK/ARGUMENT/QA
+            GEOMode.QA:        0.30,
+            GEOMode.ARGUMENT:  0.25,
+            GEOMode.FRAMEWORK: 0.20,
+            GEOMode.DEFINE:    0.12,
+            GEOMode.LIST:      0.08,
+            GEOMode.HERO:      0.05,
+        },
+    }
+
+    # 缓存有效期（小时）
+    CACHE_TTL_HOURS = {
+        'basic': 24,
+        'professional': 168,
+        'enterprise': 720,
+    }
+
+    # 防抖锁
+    _generation_locks: Dict[str, float] = {}
+    _locks_lock = threading.Lock()
+
+    # LLM 并发控制
+    _semaphore = threading.Semaphore(3)
+
     def __init__(self):
         self.llm = get_llm_service()
+
+    # ===========================================================================
+    # 公开接口
+    # ===========================================================================
 
     def generate(
         self,
@@ -160,22 +395,24 @@ class TopicLibraryGenerator:
         topic_count: int = 20,
         portrait_id: Optional[int] = None,
         content_stage: Optional[str] = None,
+        user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        生成选题库（缓存优先）
+        生成选题库（GEO 六模式全绑定）
 
-        Args:
-            portrait_data: 画像数据
-            business_info: 业务信息
-            keyword_library: 关键词库（可选，用于精准选题）
-            plan_type: 套餐类型
-            use_template: 是否使用模板配置
-            topic_count: 选题数量
-            portrait_id: 画像ID（用于缓存检查）
-            content_stage: 内容阶段（起号阶段/成长阶段/成熟阶段），优先于 plan_type
+        核心流程：
+        1. 缓存检查 → 直接返回
+        2. 防抖检查（5分钟）
+        3. 调用 LLM → 生成含 geo_mode 的选题
+        4. 本地分配 GEO 模式（三盘比例 + 阶段配比）
+        5. 7层降级 JSON 解析
+        6. 兜底补全
+        7. 后处理 GEO 校验（合规性、禁令、修正）
+        8. 按 GEO 权重重排优先级
+        9. scene_options 处理
         """
         try:
-            # 缓存检查：如果画像有选题库且未过期，直接返回
+            # ── 1. 缓存检查 ──────────────────────────────
             if portrait_id:
                 portrait = SavedPortrait.query.get(portrait_id)
                 if portrait and not portrait.topic_library_expired:
@@ -186,68 +423,88 @@ class TopicLibraryGenerator:
                         'tokens_used': 0,
                         '_meta': {'from_cache': True},
                     }
-                # 读取画像的 content_stage 字段（优先使用）
                 if portrait and not content_stage:
                     content_stage = portrait.content_stage or '成长阶段'
 
-            # 防御性检查
+            # ── 2. 防抖检查（5分钟） ────────────────────
+            if portrait_id and user_id:
+                lock_key = f"{user_id}:{portrait_id}"
+                with self._locks_lock:
+                    last_time = self._generation_locks.get(lock_key, 0)
+                    if time.time() - last_time < 300:
+                        logger.info("[TopicLibraryGenerator] 防抖命中 portrait_id=%s", portrait_id)
+                        return {
+                            'success': False,
+                            'error': '选题库正在生成中或刚刚生成完成，请5分钟后再试',
+                            '_meta': {'from_debounce': True},
+                        }
+                    self._generation_locks[lock_key] = time.time()
+
+            # ── 3. 防御性检查 ───────────────────────────
             if not isinstance(portrait_data, dict):
                 portrait_data = {}
             if not isinstance(business_info, dict):
                 business_info = {}
 
-            # 获取实时上下文
-            realtime = template_config_service.get_realtime_context()
-
-            # 获取阶段配比
+            # ── 4. 获取阶段配置 ─────────────────────────
             stage = content_stage or '成长阶段'
-            stage_config = self.STAGE_TOPIC_RATIO_MAP.get(stage, self.STAGE_TOPIC_RATIO_MAP['成长阶段'])
-            logger.info("[TopicLibraryGenerator] 内容阶段: %s，配比: %s", stage, stage_config['description'])
+            stage_config = self.STAGE_RATIO_MAP.get(stage, self.STAGE_RATIO_MAP['成长阶段'])
+            stage_geo_config = self.STAGE_GEO_RATIO_MAP.get(stage, self.STAGE_GEO_RATIO_MAP['成长阶段'])
+            logger.info("[TopicLibraryGenerator] 阶段: %s | 三盘: %s | GEO配比: %s",
+                        stage, stage_config['description'], {k: v for k, v in stage_geo_config.items()})
 
-            # 构建变量上下文
-            context = self._build_context(portrait_data, business_info, keyword_library, realtime)
+            # ── 5. 构建上下文 ───────────────────────────
+            context = self._build_context(portrait_data, business_info, keyword_library)
 
-            # 构建 Prompt - 直接使用默认提示词，不使用数据库模板
-            prompt = self._build_default_prompt(context, keyword_library, topic_count, stage, stage_config)
-
-            # 调用 LLM
-            system_msg = (
-                "【强制要求】你必须严格按照用户提供的业务描述和画像信息生成选题！\n"
-                "禁止添加任何未提供的信息！禁止编造产品名称！\n"
-                "\n"
-                "你是一位抖音爆款选题策划专家，精通本地商家内容营销。\n"
-                "必须严格按照JSON格式输出，选题必须有差异化、能引发共鸣。\n"
-                "\n"
-                "【绝对禁止的标题格式】（违反将导致输出无效）\n"
-                '1. 禁止"XX的正确认知"格式 → 改为具体问题描述\n'
-                '2. 禁止"XX的底层逻辑"格式 → 改为用户实际问题\n'
-                '3. 禁止"XX的真相"格式 → 改为具体疑问\n'
-                '4. 禁止"XX全面解析"格式 → 改为具体角度\n'
-                '5. 禁止"XX原料/供应链" → 除非业务真是制造业\n'
-                '6. 禁止"春季XX/冬季XX"拼接 → 改为具体时间节点的用户问题\n'
-                "\n"
-                "【JSON格式强制约束】\n"
-                "1. 所有字符串值必须使用英文双引号 \"（严禁使用中文单引号 ' 或中文双引号 ""）\n"
-                "2. keywords 数组内的每个关键词也必须用英文双引号包裹\n"
-                "3. 输出必须是可直接被 Python json.loads() 解析的有效 JSON"
-            )
+            # ── 6. 构建 LLM 提示词 ───────────────────
+            prompt = self._build_llm_prompt(context, topic_count, stage)
+            system_msg = self._build_system_prompt()
             messages = [
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt}
             ]
 
-            logger.info("[TopicLibraryGenerator] 画像数据 portrait_data keys=%s", list(portrait_data.keys()) if isinstance(portrait_data, dict) else type(portrait_data))
-            logger.info("[TopicLibraryGenerator] 业务信息 business_description=%s", business_info.get('business_description', ''))
-            logger.info("[TopicLibraryGenerator] context keys=%s", list(context.keys()) if context else None)
-            logger.info("[TopicLibraryGenerator] 画像核心字段: 身份=%s, 痛点=%s, 顾虑=%s",
-                         context.get('目标客户身份', ''), context.get('核心痛点', ''), context.get('核心顾虑', ''))
-            response = self.llm.chat(messages)
-            logger.info("[TopicLibraryGenerator] LLM原始响应长度=%d, 前200字符=%r", len(response), response[:200])
+            # ── 7. 调用 LLM（带并发控制） ──────────────
+            with self._semaphore:
+                logger.info("[TopicLibraryGenerator] 画像: 身份=%s, 痛点=%s",
+                            context.get('目标客户身份', ''), context.get('核心痛点', ''))
+                response = self.llm.chat(messages)
+                logger.info("[TopicLibraryGenerator] LLM响应长度=%d", len(response))
 
-            # 解析结果
-            result = self._parse_response(response, portrait_data, business_info.get('business_description', ''), topic_count)
-            logger.info("[TopicLibraryGenerator] 解析后result topics数量=%d, by_type=%s",
-                         len(result.get('topics', [])), result.get('by_type', {}))
+            # ── 8. 7层降级 JSON 解析 ───────────────────
+            parsed_topics = self._parse_response_7layer(response)
+            logger.info("[TopicLibraryGenerator] 解析得到 %d 条", len(parsed_topics))
+
+            # ── 9. 本地分配 type_key（三盘比例） ────────
+            typed_topics = self._assign_type_keys(parsed_topics, stage_config, topic_count)
+
+            # ── 10. 本地分配 GEO 模式（三盘内比例 + 阶段配比） ──
+            geo_topics = self._assign_geo_modes(typed_topics, stage_config, stage_geo_config, topic_count)
+
+            # ── 11. 兜底补全 ────────────────────────────
+            filled_topics = self._fill_missing_topics(
+                geo_topics, topic_count, portrait_data, stage_config, stage_geo_config
+            )
+
+            # ── 12. 后处理 GEO 校验 ───────────────────
+            validated_topics = self._validate_and_fix_geo(filled_topics, stage_geo_config)
+
+            # ── 13. 按 GEO 权重重排优先级 ─────────────────
+            prioritized_topics = self._rerank_by_geo_weight(validated_topics)
+
+            # ── 14. scene_options 处理 ───────────────────
+            enriched_topics = self._enrich_scene_options(prioritized_topics, portrait_data)
+
+            # ── 15. 组装最终结构 ───────────────────────
+            result = {
+                'topics': enriched_topics,
+                'by_type': self._count_by_type(enriched_topics),
+                'by_geo': self._count_by_geo(enriched_topics),
+                'priorities': self._count_by_priority(enriched_topics),
+                'stage': stage,
+                'geo_ratio': {k: v for k, v in stage_geo_config.items()},
+                'generated_at': datetime.utcnow().isoformat(),
+            }
 
             return {
                 'success': True,
@@ -255,7 +512,6 @@ class TopicLibraryGenerator:
                 'tokens_used': self._estimate_tokens(prompt, response),
                 '_meta': {
                     'plan_type': plan_type,
-                    'realtime': realtime,
                     'used_template': use_template,
                     'based_on_keywords': bool(keyword_library),
                     'content_stage': stage,
@@ -263,11 +519,9 @@ class TopicLibraryGenerator:
             }
 
         except Exception as e:
-            # 追踪错误来源 - 用 print 绕过 logger 二次格式化问题
             import sys, traceback
-            print(f"[DEBUG TopicLibraryGenerator] === EXCEPTION CAUGHT AT generate() ===", file=sys.stderr)
-            print(f"[DEBUG] exception type: {type(e).__name__}", file=sys.stderr)
-            print(f"[DEBUG] exception msg: {str(e)[:500]}", file=sys.stderr)
+            print(f"[DEBUG TopicLibraryGenerator] === EXCEPTION ===", file=sys.stderr)
+            print(f"[DEBUG] type: {type(e).__name__}, msg: {str(e)[:500]}", file=sys.stderr)
             print(f"[DEBUG] traceback:\n{traceback.format_exc()}", file=sys.stderr)
             print(f"[DEBUG] === END ===", file=sys.stderr)
             error_str = str(e)
@@ -276,128 +530,411 @@ class TopicLibraryGenerator:
             logger.error("[TopicLibraryGenerator] Error: " + error_str)
             return {'success': False, 'error': error_str}
 
-    def save_to_portrait(
+    # ===========================================================================
+    # GEO 模式分配（核心规则，全部本地计算）
+    # ===========================================================================
+
+    def _assign_geo_modes(
         self,
-        portrait_id: int,
-        topic_library: Dict,
-        user_id: int,
-        plan_type: str = 'professional',
-    ) -> bool:
-        """保存选题库到画像记录"""
-        portrait = SavedPortrait.query.get(portrait_id)
-        if not portrait:
-            return False
-
-        ttl_hours = {
-            'basic': 24,
-            'professional': 168,
-            'enterprise': 720,
-        }.get(plan_type, 24)
-
-        portrait.topic_library = topic_library
-        portrait.topic_updated_at = datetime.utcnow()
-        portrait.topic_update_count = (portrait.topic_update_count or 0) + 1
-        portrait.topic_cache_expires_at = datetime.utcnow() + timedelta(hours=ttl_hours)
-
-        db.session.commit()
-        return True
-
-    def get_from_portrait(self, portrait_id: int) -> Optional[Dict]:
-        """从画像获取已保存的选题库"""
-        portrait = SavedPortrait.query.get(portrait_id)
-        if not portrait:
-            return None
-
-        if portrait.topic_library_expired:
-            return None
-
-        return portrait.topic_library
-
-    def select_topics(
-        self,
-        topic_library: Dict,
-        count: int = 5,
-        topic_type: str = None,
-        keyword_hint: str = None,
+        topics: List[Dict],
+        stage_config: Dict,
+        stage_geo_config: Dict,
+        topic_count: int,
     ) -> List[Dict]:
         """
-        从选题库中选择选题
+        本地按三盘比例 + 阶段配比分配 GEO 模式
 
-        Args:
-            topic_library: 选题库
-            count: 选择数量
-            topic_type: 指定类型
-            keyword_hint: 关键词提示（用于筛选相关选题）
-
-        Returns:
-            选中的选题列表
+        分配策略：
+        1. 先按三盘内 GEO 比例分配
+        2. 再参考账号阶段 GEO 配比微调
+        3. 确保每个选题的 GEO 与 type_key 兼容
         """
-        topics = topic_library.get('topics', [])
-
         if not topics:
-            return []
+            return topics
 
-        # 按关键词过滤
-        if keyword_hint and keyword_hint.strip():
-            keyword = keyword_hint.strip().lower()
-            topics = [
-                t for t in topics
-                if keyword in (t.get('title', '') + t.get('keywords', '')).lower()
-            ]
+        # 计算各底盘应分配的选题数
+        base_counts = {}
+        for base_name, ratio in stage_config.items():
+            if base_name == 'description':
+                continue
+            count = int(round(ratio * topic_count))
+            base_counts[base_name] = count
 
-        # 按类型筛选
-        if topic_type:
-            topics = [t for t in topics if t.get('type_key') == topic_type]
+        # 调整总数
+        total_assigned = sum(base_counts.values())
+        if total_assigned != topic_count:
+            diff = topic_count - total_assigned
+            base_counts['前置观望种草盘'] = base_counts.get('前置观望种草盘', 0) + diff
 
-        # 按优先级排序
+        logger.info("[TopicLibraryGenerator] GEO分配 - 三盘数量: %s", base_counts)
+
+        # 按底盘分配 GEO 模式
+        result = []
+        base_assigned = {base: 0 for base in base_counts}
+
+        for topic in topics:
+            if len(result) >= topic_count:
+                break
+
+            base = topic.get('base', '前置观望种草盘')
+            type_key = topic.get('type_key', '')
+
+            # 获取该底盘的 GEO 比例
+            base_geo_ratios = self.BASE_GEO_RATIO.get(base, {})
+
+            # 根据 type_key 获取兼容的 GEO 模式
+            compatible_geos = TYPE_KEY_TO_GEO.get(type_key, list(GEO_MODES.keys()))
+
+            # 按比例随机选择 GEO 模式
+            chosen_geo = self._select_geo_by_ratio(base_geo_ratios, compatible_geos, stage_geo_config)
+
+            # 获取 GEO 详细信息
+            geo_info = GEO_MODES.get(chosen_geo, GEO_MODES[GEOMode.QA])
+
+            topic['geo_mode'] = chosen_geo
+            topic['geo_mode_name'] = geo_info['name']
+            topic['title_rule'] = geo_info['title_rule']
+            topic['structure_rule'] = geo_info['structure_rule']
+            topic['weight'] = geo_info['weight']
+
+            result.append(topic)
+
+        return result
+
+    def _select_geo_by_ratio(
+        self,
+        base_geo_ratios: Dict[str, float],
+        compatible_geos: List[str],
+        stage_geo_config: Dict[str, float],
+    ) -> str:
+        """
+        按比例随机选择 GEO 模式
+
+        策略：
+        1. 优先从兼容的 GEO 模式中选择
+        2. 结合底盘比例（70%权重）和阶段比例（30%权重）计算最终概率
+        """
+        # 构建候选池，每个 GEO 的最终概率
+        candidates = {}
+        for geo_key, base_ratio in base_geo_ratios.items():
+            if geo_key not in compatible_geos:
+                continue
+            stage_ratio = stage_geo_config.get(geo_key, 0.1)
+            # 混合比例：底盘70% + 阶段30%
+            final_ratio = base_ratio * 0.7 + stage_ratio * 0.3
+            candidates[geo_key] = final_ratio
+
+        if not candidates:
+            # 兜底：返回权重最高的兼容模式
+            for geo in compatible_geos:
+                if geo in GEO_MODES:
+                    return geo
+            return GEOMode.QA
+
+        # 按概率随机选择
+        geo_keys = list(candidates.keys())
+        ratios = list(candidates.values())
+        total = sum(ratios)
+        probs = [r / total for r in ratios]
+
+        return random.choices(geo_keys, weights=probs, k=1)[0]
+
+    # ===========================================================================
+    # 后处理 GEO 校验
+    # ===========================================================================
+
+    def _validate_and_fix_geo(
+        self,
+        topics: List[Dict],
+        stage_geo_config: Dict[str, float],
+    ) -> List[Dict]:
+        """
+        后处理 GEO 校验（100% 本地）
+
+        校验规则：
+        1. 检查是否有 geo_mode，缺失则自动补为 qa（最高权重）
+        2. 检查标题是否符合 title_rule（禁令正则），违规则自动修正
+        3. 检查 structure_rule 是否匹配 GEO 模式，不匹配则覆盖
+        4. 注入完整的 GEO 规则（title_rule、structure_rule）
+        """
+        validated = []
+
+        for topic in topics:
+            if not isinstance(topic, dict):
+                continue
+
+            # ── 1. 校验 geo_mode ────────────────────
+            geo_mode = topic.get('geo_mode', '')
+            if not geo_mode or geo_mode not in GEO_MODES:
+                # 自动补为 qa（最高权重模式）
+                geo_mode = GEOMode.QA
+                topic['geo_mode'] = geo_mode
+
+            geo_info = GEO_MODES.get(geo_mode, GEO_MODES[GEOMode.QA])
+            topic['geo_mode_name'] = geo_info['name']
+            topic['weight'] = geo_info['weight']
+
+            # ── 2. 校验标题禁令 ──────────────────────
+            title = topic.get('title', '')
+            if title:
+                ban_triggered = False
+                for pattern in geo_info['ban_patterns']:
+                    if re.search(pattern, title):
+                        ban_triggered = True
+                        break
+                for phrase in geo_info['ban_phrases']:
+                    if phrase in title:
+                        ban_triggered = True
+                        break
+
+                if ban_triggered:
+                    # 自动修正标题（按 GEO 模式重新生成）
+                    topic['title'] = self._fix_title_by_geo(title, geo_mode, topic)
+                    logger.info("[TopicLibraryGenerator] 标题违禁已修正: %s → %s", title[:20], topic['title'][:20])
+
+            # ── 3. 注入 GEO 规则 ─────────────────────
+            topic['title_rule'] = geo_info['title_rule']
+            topic['structure_rule'] = geo_info['structure_rule']
+
+            # ── 4. 注入 GEO 结构模板 ──────────────────
+            topic['structure_template'] = geo_info.get('structure_template', '')
+
+            validated.append(topic)
+
+        return validated
+
+    def _fix_title_by_geo(self, title: str, geo_mode: str, topic: Dict) -> str:
+        """
+        按 GEO 模式修正违禁标题
+
+        策略：从标题中提取核心关键词，按 GEO 模式的标题规则重新组装
+        """
+        geo_info = GEO_MODES.get(geo_mode, GEO_MODES[GEOMode.QA])
+        type_key = topic.get('type_key', '')
+        pain_point = topic.get('title', '')[:20]  # 用原标题作为痛点参考
+
+        # 从原标题提取关键词（去除违禁词）
+        import re
+        keywords = re.findall(r'[\u4e00-\u9fa5]{2,8}', title)
+        keywords = [k for k in keywords if k not in geo_info['ban_phrases']]
+        core = keywords[0] if keywords else pain_point
+
+        # 按 GEO 模式生成新标题
+        if geo_mode == GEOMode.QA:
+            return self._clean_title(f'{core}怎么办？教你一招搞定')
+        elif geo_mode == GEOMode.DEFINE:
+            return self._clean_title(f'什么是{core}？一文讲透')
+        elif geo_mode == GEOMode.ARGUMENT:
+            return self._clean_title(f'别再误解了！{core}其实没那么复杂')
+        elif geo_mode == GEOMode.FRAMEWORK:
+            return self._clean_title(f'{core}处理框架！3步搞定')
+        elif geo_mode == GEOMode.LIST:
+            return self._clean_title(f'{core}处理清单！5个要点收藏')
+        elif geo_mode == GEOMode.HERO:
+            return self._clean_title(f'一个真实案例看懂{core}')
+        else:
+            return self._clean_title(f'{core}怎么处理？')
+
+    # ===========================================================================
+    # 按 GEO 权重重排优先级
+    # ===========================================================================
+
+    def _rerank_by_geo_weight(self, topics: List[Dict]) -> List[Dict]:
+        """
+        按 GEO 权重重排优先级
+
+        规则：按 GEO 权重排序（qa>list>define>framework>argument>hero）
+        同权重内保持原有优先级顺序
+        """
+        if not topics:
+            return topics
+
+        # GEO 权重顺序
+        geo_weight_order = GEO_WEIGHT_ORDER  # 已按权重降序排列
+
+        # 优先级映射
         priority_order = {'P0': 0, 'P1': 1, 'P2': 2, 'P3': 3}
-        topics = sorted(
-            topics,
-            key=lambda t: priority_order.get(t.get('priority', 'P3'), 3)
-        )
 
-        # 随机打乱同优先级
-        random.shuffle(topics)
+        def sort_key(topic):
+            geo = topic.get('geo_mode', '')
+            geo_idx = geo_weight_order.index(geo) if geo in geo_weight_order else len(geo_weight_order)
+            priority = priority_order.get(topic.get('priority', 'P2'), 2)
+            return (geo_idx, priority)
 
-        return topics[:count]
+        return sorted(topics, key=sort_key)
 
-    def _escape_fstring(self, s: str) -> str:
-        """转义字符串中的花括号，防止在 f-string 中被误解析为占位符"""
-        if not isinstance(s, str):
-            return ''
-        return s.replace('{', '{{').replace('}', '}}')
+    # ===========================================================================
+    # LLM 提示词构建
+    # ===========================================================================
+
+    def _build_system_prompt(self) -> str:
+        """构建 System Prompt（含 GEO 强制要求）"""
+        geo_rules_text = '\n'.join([
+            f"{i+1}. **{geo['name']}**（{key}）："
+            f"权重={geo['weight']} | "
+            f"标题规则：{geo['title_rule']} | "
+            f"结构规则：{geo['structure_rule']} | "
+            f"禁止：{', '.join(geo['ban_phrases'][:3])}"
+            for i, (key, geo) in enumerate(GEO_MODES.items())
+        ])
+
+        return f"""【GEO模式强制要求】
+每个选题必须严格遵循指定的GEO模式，不得跨界。
+必须按模式生成标题、结构、开篇逻辑。
+
+【GEO模式清单】
+{geo_rules_text}
+
+【绝对禁令】（违反直接判定为违规模式）
+禁止：正确认知、底层逻辑、真相、全面解析、完全指南
+禁止：原料/供应链（非制造业禁止出现）
+禁止：季节拼接（春季XX、冬季XX → 改为具体问题描述）
+
+【JSON格式强制约束】
+1. 所有字符串值必须使用英文双引号 "
+2. keywords 数组内的每个关键词也必须用英文双引号包裹
+3. geo_mode 必须填英文枚举：qa/define/argument/framework/list/hero
+4. 输出必须是可直接被 Python json.loads() 解析的有效 JSON"""
+
+    def _build_llm_prompt(
+        self,
+        context: Dict,
+        topic_count: int = 20,
+        stage: str = '成长阶段',
+    ) -> str:
+        """
+        构建 User Prompt（含 GEO 六模式强制绑定指令）
+
+        LLM 只负责生成：title、keywords、recommended_reason、scene_options、geo_mode、structure_rule
+        其他所有字段由本地根据 type_key 和 geo_mode 映射计算
+        """
+        geo_examples_text = '\n'.join([
+            f"- **{geo['name']}**（{key}）：标题示例 - {', '.join(geo['title_examples'][:2])}"
+            for key, geo in GEO_MODES.items()
+        ])
+
+        return f"""你是一位抖音爆款选题策划专家，精通GEO六模式内容结构。
+
+请为以下业务生成{topic_count}个选题，**每个选题强制绑定1种GEO模式**，严格按三盘分配：
+
+=== 三盘GEO分配（强制比例）===
+① 前置观望种草盘（50%）：
+  - 问题-答案模式（qa）：30%，标题=用户真实问题
+  - 定义-解释模式（define）：25%，标题=什么是XX
+  - 清单体（list）：25%，标题=数字+结果
+  - 金句-论证模式（argument）：10%，标题=反常识金句
+  - 框架-工具模式（framework）：7%，标题=XX框架
+  - 英雄之旅（hero）：3%，标题=真实案例故事
+
+② 刚需痛点盘（30%）：
+  - 问题-答案模式（qa）：35%，直接给答案解决犹豫
+  - 金句-论证模式（argument）：25%，打消顾虑
+  - 框架-工具模式（framework）：25%，给出具体方案
+  - 其他：15%
+
+③ 使用配套搜后种草盘（20%）：
+  - 清单体（list）：35%，实用干货易传播
+  - 英雄之旅（hero）：30%，情感故事易转发
+  - 框架-工具模式（framework）：20%
+  - 其他：15%
+
+=== 账号阶段：{stage} ===
+当前阶段的 GEO 配比已由系统自动调整（前置观望盘偏种草型，刚需盘偏转化型）
+
+=== 业务信息 ===
+行业：{context['行业']}
+业务：{context['业务描述']}
+客户：{context['目标客户']}
+痛点：{context['核心痛点']}
+顾虑：{context['核心顾虑']}
+
+=== 画像视角约束 ===
+画像摘要：{context['portrait_summary'] or '（无）'}
+用户视角：{context['用户视角描述'] or '（无）'}
+买单方视角：{context['买单方视角描述'] or '（无）'}
+用户当前状态：{context['用户当前状态'] or '（无）'}
+
+=== 实时上下文 ===
+当前季节：{context['当前季节']}（{context['月份名称']}）
+当前节日：{context['当前节日']}
+
+=== GEO 模式标题示例 ===
+{geo_examples_text}
+
+=== 选题格式禁令 ===
+1. ❌ "XX的正确认知" → ✅ "XX怎么办？"
+2. ❌ "XX的底层逻辑" → ✅ "什么是XX？"
+3. ❌ "XX的真相" → ✅ "别再误解了！XX"
+4. ❌ "XX全面解析" → ✅ "XX清单！3个要点"
+5. ❌ "春季XX/冬季XX" → ✅ "高考出分前家长要做什么"
+6. ❌ "XX原料/供应链"（非制造业禁止）
+
+=== GEO 模式结构规则 ===
+- 问题-答案（qa）：首段直接给答案，开门见山
+- 定义-解释（define）：结构=定义→比喻→核心要素→案例
+- 金句-论证（argument）：结构=反常识金句→破→立→方案
+- 框架-工具（framework）：结构=框架概述→工具清单→操作步骤→自检
+- 清单体（list）：结构=数字开头→分点清单→每条说明→总结
+- 英雄之旅（hero）：结构=P困境→C冲突→S方案→R启示
+
+=== LLM 输出字段（只生成这6个字段）===
+1. **title**：选题标题（严格按 geo_mode 的 title_rule 生成）
+2. **keywords**：关键词列表（与该选题强关联）
+3. **recommended_reason**：推荐理由
+4. **scene_options**：场景选项（3-5个）
+5. **geo_mode**：GEO 模式英文枚举（qa/define/argument/framework/list/hero）
+6. **structure_rule**：内容结构规则（按 geo_mode 填写）
+
+=== JSON输出格式（严格JSON，不要markdown代码块）
+```json
+[
+  {{
+    "title": "选题标题（必须符合geo_mode的title_rule）",
+    "keywords": ["关键词1", "关键词2"],
+    "recommended_reason": "推荐理由",
+    "scene_options": [
+      {{
+        "id": "scene_1",
+        "组合": "人群 + 时间/情境 + 心理状态",
+        "标签": "人群标签",
+        "风格": "情绪共鸣/干货科普/犀利吐槽/故事叙述/权威背书"
+      }}
+    ],
+    "geo_mode": "qa",
+    "structure_rule": "首段直接给答案，开门见山"
+  }},
+  ...共{topic_count}条
+]
+```
+
+请严格按上述JSON格式输出，直接返回JSON数组，不要有其他文字说明："""
+
+    # ===========================================================================
+    # 本地上下文构建
+    # ===========================================================================
 
     def _build_context(
         self,
         portrait_data: Dict,
         business_info: Dict,
         keyword_library: Dict = None,
-        realtime: Dict = None,
     ) -> Dict:
-        """构建模板变量上下文"""
-        # 防御性检查：确保所有输入都是字典
+        """构建模板变量上下文（本地计算）"""
         if not isinstance(portrait_data, dict):
             portrait_data = {}
         if not isinstance(business_info, dict):
             business_info = {}
         if not isinstance(keyword_library, dict):
             keyword_library = None
-        if not isinstance(realtime, dict):
-            realtime = {}
 
-        # 支持多种画像格式
-        # 新格式（超级定位）：portrait_summary, user_perspective, buyer_perspective, identity_tags
-        # 旧格式：identity, pain_point, concern, scenario
         identity_tags = portrait_data.get('identity_tags', {})
         user_persp = portrait_data.get('user_perspective', {})
         buyer_persp = portrait_data.get('buyer_perspective', {})
 
-        # 目标客户身份
         identity = portrait_data.get('identity', '')
         if not identity:
             identity = identity_tags.get('user', '') or identity_tags.get('buyer', '')
 
-        # 核心痛点
         pain_point = portrait_data.get('pain_point', '')
         if not pain_point:
             pain_point = user_persp.get('problem', '')
@@ -406,29 +943,24 @@ class TopicLibraryGenerator:
                 if summary and '，' in summary:
                     pain_point = summary.split('，')[0]
 
-        # 核心顾虑
         concern = portrait_data.get('concern', '')
         if not concern:
             concern = buyer_persp.get('obstacles', '')
             if not concern:
                 concern = buyer_persp.get('psychology', '')
 
-        # 使用场景
         scenario = portrait_data.get('scenario', '')
         if not scenario:
             scenario = user_persp.get('current_state', '')
 
-        # 完整画像摘要（注入 prompt 约束选题围绕此画像展开）
         portrait_summary = portrait_data.get('portrait_summary', '')
-        # 用户视角完整描述
         user_perspective_text = portrait_data.get('user_perspective', {}).get('problem', '')
-        # 买单方视角完整描述
-        buyer_perspective_text = portrait_data.get('buyer_perspective', {}).get('obstacles', '') or \
-                                 portrait_data.get('buyer_perspective', {}).get('psychology', '')
-        # 用户当前状态
+        buyer_perspective_text = (
+            portrait_data.get('buyer_perspective', {}).get('obstacles', '') or
+            portrait_data.get('buyer_perspective', {}).get('psychology', '')
+        )
         user_current_state = user_persp.get('current_state', '')
 
-        # 从关键词库提取关键词
         keywords_text = ''
         if keyword_library:
             all_kw = []
@@ -439,390 +971,281 @@ class TopicLibraryGenerator:
                         all_kw.extend(kws[:5])
             keywords_text = ', '.join(all_kw[:50])
 
-        context = {
-            # 画像（支持新旧格式）
-            '目标客户身份': self._escape_fstring(identity),
-            '核心痛点': self._escape_fstring(pain_point),
-            '核心顾虑': self._escape_fstring(concern),
-            '使用场景': self._escape_fstring(scenario),
-            # 完整画像摘要 + 用户视角（注入 prompt 强化选题与画像绑定）
-            'portrait_summary': self._escape_fstring(portrait_summary),
-            '用户视角描述': self._escape_fstring(user_perspective_text),
-            '买单方视角描述': self._escape_fstring(buyer_perspective_text),
-            '用户当前状态': self._escape_fstring(user_current_state),
-
-            # 业务
-            '业务描述': self._escape_fstring(business_info.get('business_description', '')),
-            '行业': self._escape_fstring(business_info.get('industry', '')),
-            '产品': self._escape_fstring(', '.join(business_info.get('products', []))),
-            '地域': self._escape_fstring(business_info.get('region', '')),
-            '目标客户': self._escape_fstring(business_info.get('target_customer', '')),
-
-            # 实时
-            '当前季节': self._escape_fstring(realtime.get('当前季节', '')),
-            '月份名称': self._escape_fstring(realtime.get('月份名称', '')),
-            '季节消费特点': self._escape_fstring(realtime.get('季节消费特点', '')),
-            '当前节日': self._escape_fstring(realtime.get('当前节日', '无')),
-            '当前节气': self._escape_fstring(realtime.get('当前节气', '无')),
-
-            # 关键词
-            '关键词库': self._escape_fstring(keywords_text),
-        }
-        return context
-
-    def _build_default_prompt(
-        self,
-        context: Dict,
-        keyword_library: Dict = None,
-        topic_count: int = 20,
-        content_stage: str = '成长阶段',
-        stage_config: Dict = None,
-    ) -> str:
-        """构建默认提示词
-
-        Args:
-            content_stage: 内容阶段（起号阶段/成长阶段/成熟阶段）
-            stage_config: 阶段配比配置
-        """
-        if stage_config is None:
-            stage_config = self.STAGE_TOPIC_RATIO_MAP.get(content_stage, self.STAGE_TOPIC_RATIO_MAP['成长阶段'])
-
-        type_rules = '\n'.join([
-            f"{i+1}. **{t['name']}**（底盘:{t['base']} 内容方向:{t['content_direction']}）：{t['desc']} 【{t['priority']}】"
-            for i, t in enumerate(self.TOPIC_TYPES)
-        ])
-
-        return f"""你是一位抖音爆款选题策划专家。请为以下业务生成{topic_count}个精准选题，严格遵循三大需求底盘结构，全链路执行：前期对比种草→中期安心转化→后期留存种草。
-
-=== 三大需求底盘（选题数量分配 + 内容方向，强制对应）===
-① **前置观望种草盘（50%，种草型）**：对比选型/原因分析/上游科普/避坑指南/行情价格，专抓前期迷茫、做对比、查原因的潜在客户。选题类型：对比选型类、原因分析类、上游科普类、避坑指南类、行情价格类、认知颠覆类、知识教程类、场景细分类、地域精准类
-② **刚需痛点盘（30%，转化型）**：痛点解决/决策安心/效果验证，临门一脚解决下单犹豫。选题类型：痛点解决类、决策安心类、效果验证类
-③ **使用配套搜后种草盘（20%，种草型）**：季节时间（旺季/淡季）/实操技巧干货（技巧/方法/秘方/数字型）/工具耗材，使用后实操留存。选题类型：实操技巧类、工具耗材类、行业关联系列类、季节营销类、节日营销类、情感故事类
-**强制规则：所有选题必须严格从上述分类中提取，对比选型/决策安心/上游/认知颠覆/实操技巧干货/季节时间等关键词已固定归入对应底盘，选题方向不得跨界。AI 禁止自行新增分类或自由归类**
-
-## 业务信息
-- 行业：{context['行业']}
-- 业务描述：{context['业务描述']}
-- 产品：{context['产品']}
-- 地域：{context['地域']}
-- 目标客户：{context['目标客户']}
-
-## 目标用户画像
-- 用户身份：{context['目标客户身份']}
-- 核心痛点：{context['核心痛点']}
-- 核心顾虑：{context['核心顾虑']}
-- 使用场景：{context['使用场景']}
-
-## 画像视角约束（所有选题必须绑定此画像，强制执行）
-- **画像摘要**：{context['portrait_summary'] or '（无）'}
-- **用户视角（这个用户遇到了什么问题）**：{context['用户视角描述'] or '（无）'}
-- **买单方视角（出钱的人担心什么）**：{context['买单方视角描述'] or '（无）'}
-- **用户当前状态**：{context['用户当前状态'] or '（无）'}
-
-**【强制约束】**：
-1. 所有选题必须从这个画像出发，选题的标题和内容角度必须服务于上述画像用户的具体问题
-2. 选题主角是"画像用户"，不是抽象的"客户"或泛化的"用户"
-3. 举例：如果画像是"信息不对称家长"，选题应该从"一个高三孩子的家长在志愿填报前遇到了XX困惑/焦虑/误区"角度切入，而不是泛泛讨论"高考志愿填报辅导"
-4. 同一业务不同画像，选题角度必须不同；画像决定了选题的第一人称视角和核心问题方向
-
-## 实时上下文
-- 当前季节：{context['当前季节']}（{context['月份名称']}）
-- 季节消费特点：{context['季节消费特点']}
-- 当前节日：{context['当前节日']}
-- 当前节气：{context['当前节气']}
-
-## 关键词参考（选题须与关键词关联）
-{context['关键词库'] or '（无关键词库，将根据业务描述生成）'}
-
-## 选题分类要求（严格对应三盘，各选题的 content_direction 已标注，强制归类）
-
-{type_rules}
-
-## 选题格式禁令（强制执行，LLM 必须遵守）
-**禁止以下标题格式：**
-1. ❌ "XX的正确认知"（如"专业选择的正确认知"）—— 应改为具体问题描述
-2. ❌ "XX的底层逻辑"（如"志愿填报的底层逻辑"）—— 应改为用户实际问题
-3. ❌ "XX的真相"（如"高考志愿填报辅导的真相"）—— 应改为具体疑问
-4. ❌ "XX全面解析" / "XX完全指南" —— 应改为具体角度
-5. ❌ "XX的原因找到了" —— 应改为"为什么XX？"格式
-6. ❌ "XX的原料" / "XX的供应链" —— 除非业务是制造业
-7. ❌ "春季XX" / "冬季XX" —— 应改为具体时间节点的用户问题
-8. ❌ "XX工具推荐" / "XX耗材推荐" —— 服务业/教育类慎用
-9. ❌ "XX上下游关联" —— 服务业/教育类慎用
-
-**正确标题示例：**
-- ✅ "孩子成绩一般怎么报志愿？"（而非"成绩一般学生志愿填报的正确认知"）
-- ✅ "压线生怎么选学校？"（而非"压线生志愿填报的底层逻辑"）
-- ✅ "以为随便选就行？历年家长血泪教训"（而非"志愿填报的真相"）
-- ✅ "高考出分前家长要做哪些准备？"（而非"春季高考志愿填报辅导"）
-
-## 选题要求
-1. 必须围绕用户真实痛点，差异化明显
-2. 优先选择高优先级（P0/P1）选题
-3. 融入季节、节日等实时因素
-4. 每条选题包含：标题、类型、来源、关键词、推荐理由、content_direction（**必须从底盘自动推导**）
-5. 涵盖至少5种以上选题类型
-6. **content_direction 强制规则**：痛点解决类/决策安心类/效果验证类=转化型；其余类型=种草型
-7. 选题必须与关键词库中的关键词形成关联
-8. **对比型选型类选题须映射自关键词库中的"对比型搜索关键词"分类**
-9. **决策安心类选题须映射自关键词库中的"决策鼓励关键词"和"安心保障关键词"分类**
-
-## 三套固定选题配比（管理员配置阶段，系统自动联动）
-**【当前生效阶段】：** **{content_stage}**（{stage_config['description']}）
-- 起号阶段（90%前置种草 + 10%使用配套）：无刚需转化选题
-  - 前置观望搜前种草盘：90%（对比选型类/原因分析类/上游科普类/避坑指南类/认知颠覆类/知识教程类/场景细分类/地域精准类）
-  - 使用配套搜后种草盘：10%（实操技巧类/工具耗材类/行业关联系列类/季节营销类/节日营销类/情感故事类）
-  - 刚需痛点盘：0%（无）
-- 成长阶段（60%前置种草 + 25%使用配套 + 15%刚需转化）
-  - 前置观望搜前种草盘：60%
-  - 使用配套搜后种草盘：25%
-  - 刚需痛点盘：15%（痛点解决类/决策安心类/效果验证类）
-- 成熟阶段（30%前置种草 + 20%使用配套 + 50%刚需转化）
-  - 前置观望搜前种草盘：30%
-  - 使用配套搜后种草盘：20%
-  - 刚需痛点盘：50%（痛点解决类/决策安心类/效果验证类）
-**【AI 强制执行】**：严格按照上述"当前生效阶段"的配比分配选题数量，不得偏离！标签策略：{stage_config['tag_strategy']}
-
-## 输出格式（每条选题必须包含以下字段）
-- title: 选题标题（中文，不抽象）
-- type_key: **类型键名，英文小写**，必须从以下枚举选取：`compare`/`cause`/`upstream`/`pitfall`/`price`/`rethink`/`tutorial`/`scene`/`region`/`pain_point`/`decision_encourage`/`effect_proof`/`skill`/`tools`/`industry`/`seasonal`/`festival`/`emotional`。**禁止填写中文类型名称如"对比选型类"**
-- type_name: 中文类型名称，如"对比选型类"
-- priority: 优先级（P0/P1/P2/P3）
-- source: 来源说明
-- keywords: 关键词列表（与该选题强关联）
-- content_direction: 内容方向，种草型 或 转化型
-- recommended_reason: 推荐理由
-
-## JSON输出示例（请严格参照此格式）
-```json
-{{
-  "topics": [
-    {{
-      "title": "进口奶粉 vs 国产奶粉，过敏宝宝该如何选择？",
-      "type_key": "compare",
-      "type_name": "对比选型类",
-      "priority": "P0",
-      "source": "用户需求调研",
-      "keywords": ["婴儿奶粉对比", "过敏奶粉推荐"],
-      "content_direction": "种草型",
-      "recommended_reason": "帮助过敏宝宝家长做出明智选择"
-    }}
-  ]
-}}
-```
-**注意：输出必须用 {{"topics": [ ... ]}} 对象包裹，不是纯数组！type_key 必须填英文枚举，禁止填中文！**
-
-## 输出数量要求（唯一指令，请严格执行）
-根据内容阶段 **{content_stage}** 的配比，生成恰好 **20个** 选题：
-- 前置观望种草盘（{stage_config.get('前置观望种草盘', 0.6)*100:.0f}%）：约 **{int(stage_config.get('前置观望种草盘', 0.6) * 20):d}个**
-- 刚需痛点盘（{stage_config.get('刚需痛点盘', 0.15)*100:.0f}%）：约 **{int(stage_config.get('刚需痛点盘', 0.15) * 20):d}个**
-- 使用配套搜后种草盘（{stage_config.get('使用配套搜后种草盘', 0.25)*100:.0f}%）：约 **{int(stage_config.get('使用配套搜后种草盘', 0.25) * 20):d}个**
-
-> 注意：输出必须是恰好20条JSON，不多不少，直接返回 {{\"topics\": [ ... ]}} 对象，不要有markdown代码块包裹。
-
-请严格按上述JSON格式输出，直接返回JSON，不要有其他文字说明："""
-
-    def _parse_response(self, response: str, portrait_data: Dict = None, business_description: str = '', topic_count: int = 20) -> Dict:
-        """解析 LLM 返回"""
-        import re
-        import json
-        
+        realtime = {}
         try:
-            # 预处理：去除 markdown 代码块
-            clean_response = response.strip()
-            if clean_response.startswith('```json'):
-                clean_response = clean_response[7:]
-            elif clean_response.startswith('```'):
-                clean_response = clean_response[3:]
-            if clean_response.endswith('```'):
-                clean_response = clean_response[:-3]
-            clean_response = clean_response.strip()
-            
-            # 尝试多种解析方式
-            result = None
-            
-            # 方法1：直接解析
-            if result is None:
-                try:
-                    result = json.loads(clean_response)
-                    if result:
-                        result = self._convert_to_standard_format(result)
-                        logger.info("[TopicLibraryGenerator] ✓ 方法1直接解析成功")
-                except json.JSONDecodeError:
-                    pass
-            
-            # 方法2：找到第一个完整的 JSON 对象（而非贪婪匹配到最后一个 }）
-            if result is None:
-                try:
-                    # 从第一个 { 开始，向后找第一个能完整解析的位置
-                    start = clean_response.find('{')
-                    if start == -1:
-                        raise ValueError("No JSON object found")
-                    # 从后向前尝试，找到第一个完整解析的位置
-                    end = len(clean_response)
-                    for try_end in range(end, start, -1):
-                        candidate = clean_response[start:try_end]
-                        candidate = candidate.replace('{{', '{').replace('}}', '}')
-                        try:
-                            parsed = json.loads(candidate)
-                            if parsed:
-                                result = self._convert_to_standard_format(parsed)
-                                logger.debug("[TopicLibraryGenerator] 方法2成功找到完整JSON对象")
-                                break
-                        except json.JSONDecodeError:
-                            continue
-                    if result is None:
-                        logger.debug("[TopicLibraryGenerator] 方法2未找到完整JSON对象")
-                except Exception as e:
-                    # e 可能是 KeyError（字符串含 { }），str(e) 不能再做 %-格式化
-                    logger.debug("[TopicLibraryGenerator] 方法2异常: " + str(e))
-            
-            # 方法3：修复常见 JSON 错误后重试
-            if result is None:
-                fixed = self._fix_json_errors(clean_response)
-                if fixed:
+            realtime = template_config_service.get_realtime_context()
+        except Exception:
+            pass
+
+        return {
+            '目标客户身份': self._escape(identity),
+            '核心痛点': self._escape(pain_point),
+            '核心顾虑': self._escape(concern),
+            '使用场景': self._escape(scenario),
+            'portrait_summary': self._escape(portrait_summary),
+            '用户视角描述': self._escape(user_perspective_text),
+            '买单方视角描述': self._escape(buyer_perspective_text),
+            '用户当前状态': self._escape(user_current_state),
+            '业务描述': self._escape(business_info.get('business_description', '')),
+            '行业': self._escape(business_info.get('industry', '')),
+            '产品': self._escape(', '.join(business_info.get('products', []))),
+            '地域': self._escape(business_info.get('region', '')),
+            '目标客户': self._escape(business_info.get('target_customer', '')),
+            '当前季节': self._escape(realtime.get('当前季节', '')),
+            '月份名称': self._escape(realtime.get('月份名称', '')),
+            '季节消费特点': self._escape(realtime.get('季节消费特点', '')),
+            '当前节日': self._escape(realtime.get('当前节日', '无')),
+            '关键词库': self._escape(keywords_text),
+        }
+
+    # ===========================================================================
+    # type_key 分配（本地计算）
+    # ===========================================================================
+
+    def _assign_type_keys(
+        self,
+        topics: List[Dict],
+        stage_config: Dict,
+        topic_count: int = 20,
+    ) -> List[Dict]:
+        """本地按三盘比例分配 type_key"""
+        if not topics:
+            return topics
+
+        base_keys = {
+            '前置观望种草盘':     [t['key'] for t in self.TOPIC_TYPES if t['base'] == '前置观望种草盘'],
+            '刚需痛点盘':         [t['key'] for t in self.TOPIC_TYPES if t['base'] == '刚需痛点盘'],
+            '使用配套搜后种草盘':  [t['key'] for t in self.TOPIC_TYPES if t['base'] == '使用配套搜后种草盘'],
+        }
+
+        base_counts = {}
+        for base_name, ratio in stage_config.items():
+            if base_name == 'description':
+                continue
+            count = int(round(ratio * topic_count))
+            base_counts[base_name] = count
+
+        total_assigned = sum(base_counts.values())
+        if total_assigned != topic_count:
+            base_counts['前置观望种草盘'] = base_counts.get('前置观望种草盘', 0) + (topic_count - total_assigned)
+
+        result = []
+        base_assignments = {base: 0 for base in base_counts}
+        used_keys = set()
+
+        for topic in topics:
+            if len(result) >= topic_count:
+                break
+
+            assigned = False
+            for base_name, count in base_counts.items():
+                if base_assignments[base_name] >= count:
+                    continue
+
+                available_keys = [k for k in base_keys[base_name] if k not in used_keys]
+                if not available_keys:
+                    available_keys = base_keys[base_name]
+
+                chosen_key = random.choice(available_keys)
+                type_info = self.TYPE_KEY_MAP[chosen_key]
+
+                topic['type_key'] = chosen_key
+                topic['type_name'] = type_info['name']
+                topic['priority'] = type_info['priority']
+                topic['base'] = type_info['base']
+                topic['content_direction'] = type_info['direction']
+                topic['source'] = self._get_source_by_type(chosen_key)
+                topic['id'] = str(uuid.uuid4())
+                topic['generation_count'] = 0
+                topic['created_at'] = datetime.utcnow().isoformat()
+                topic['title'] = self._clean_title(topic.get('title', ''))
+
+                result.append(topic)
+                base_assignments[base_name] += 1
+                used_keys.add(chosen_key)
+                assigned = True
+                break
+
+            if not assigned:
+                chosen_key = random.choice(base_keys['前置观望种草盘'])
+                type_info = self.TYPE_KEY_MAP[chosen_key]
+                topic['type_key'] = chosen_key
+                topic['type_name'] = type_info['name']
+                topic['priority'] = type_info['priority']
+                topic['base'] = type_info['base']
+                topic['content_direction'] = type_info['direction']
+                topic['source'] = self._get_source_by_type(chosen_key)
+                topic['id'] = str(uuid.uuid4())
+                topic['generation_count'] = 0
+                topic['created_at'] = datetime.utcnow().isoformat()
+                topic['title'] = self._clean_title(topic.get('title', ''))
+                result.append(topic)
+
+        return result
+
+    def _get_source_by_type(self, type_key: str) -> str:
+        """根据 type_key 返回来源说明"""
+        source_map = {
+            'compare':            '对比选型系列',
+            'cause':             '原因分析系列',
+            'upstream':          '上游科普系列',
+            'pitfall':           '避坑指南系列',
+            'price':             '行情价格系列',
+            'rethink':           '认知颠覆系列',
+            'tutorial':          '知识教程系列',
+            'scene':             '场景细分系列',
+            'region':            '地域精准系列',
+            'pain_point':         '刚需痛点盘',
+            'decision_encourage':  '刚需痛点盘',
+            'effect_proof':      '刚需痛点盘',
+            'skill':             '使用配套盘',
+            'tools':             '使用配套盘',
+            'industry':          '使用配套盘',
+            'seasonal':          '使用配套盘',
+            'festival':          '使用配套盘',
+            'emotional':          '使用配套盘',
+        }
+        return source_map.get(type_key, '选题推荐')
+
+    # ===========================================================================
+    # 7层降级 JSON 解析
+    # ===========================================================================
+
+    def _parse_response_7layer(self, response: str) -> List[Dict]:
+        """7层降级 JSON 解析"""
+        import json as _json
+
+        try:
+            clean = response.strip()
+            if clean.startswith('```json'):
+                clean = clean[7:]
+            elif clean.startswith('```'):
+                clean = clean[3:]
+            if clean.endswith('```'):
+                clean = clean[:-3]
+            clean = clean.strip()
+
+            # 第1层：直接解析
+            try:
+                result = _json.loads(clean)
+                if isinstance(result, list) and len(result) > 0:
+                    logger.info("[TopicLibraryGenerator] ✓ 第1层直接解析，得到 %d 条", len(result))
+                    return [self._normalize_llm_item(t) for t in result if isinstance(t, dict)]
+            except _json.JSONDecodeError:
+                pass
+
+            # 第2层：修复JSON后解析
+            fixed = self._fix_json_errors(clean)
+            try:
+                result = _json.loads(fixed)
+                if isinstance(result, list) and len(result) > 0:
+                    logger.info("[TopicLibraryGenerator] ✓ 第2层修复后成功，得到 %d 条", len(result))
+                    return [self._normalize_llm_item(t) for t in result if isinstance(t, dict)]
+            except _json.JSONDecodeError:
+                pass
+
+            # 第3层：找第一个完整JSON对象
+            start = clean.find('{')
+            if start != -1:
+                for end in range(len(clean), start, -1):
+                    candidate = clean[start:end].replace('{{', '{').replace('}}', '}')
                     try:
-                        result = json.loads(fixed)
-                        if result:
-                            result = self._convert_to_standard_format(result)
-                            logger.info("[TopicLibraryGenerator] ✓ 方法3修复JSON错误后成功")
-                    except json.JSONDecodeError as e:
-                        logger.debug("[TopicLibraryGenerator] 修复后仍解析失败: " + str(e))
+                        result = _json.loads(candidate)
+                        if isinstance(result, list) and len(result) > 0:
+                            logger.info("[TopicLibraryGenerator] ✓ 第3层找到数组，得到 %d 条", len(result))
+                            return [self._normalize_llm_item(t) for t in result if isinstance(t, dict)]
+                    except _json.JSONDecodeError:
+                        continue
 
-            # 方法4：更激进的修复
-            if result is None:
-                topics_match = re.search(r'"topics"\s*:\s*\[([\s\S]*)\]', clean_response)
-                if topics_match:
-                    topics_str = '[' + topics_match.group(1)
-                    bracket_count = 1
-                    for i, c in enumerate(topics_match.group(1)):
-                        if c == '[':
-                            bracket_count += 1
-                        elif c == ']':
-                            bracket_count -= 1
-                            if bracket_count == 0:
-                                topics_str = '[' + topics_match.group(1)[:i+1]
-                                break
-                    if topics_str.endswith(']'):
+            # 第4层：提取topics数组
+            topics_match = re.search(r'"topics"\s*:\s*\[([\s\S]*)\]', clean)
+            if topics_match:
+                inner = topics_match.group(1)
+                bracket_count = 1
+                for i, c in enumerate(inner):
+                    if c == '[':
+                        bracket_count += 1
+                    elif c == ']':
+                        bracket_count -= 1
+                        if bracket_count == 0:
+                            inner = '[' + inner[:i+1]
+                            break
+                if inner.endswith(']'):
+                    try:
+                        topics = _json.loads(inner)
+                        logger.info("[TopicLibraryGenerator] ✓ 第4层提取topics数组，得到 %d 条", len(topics))
+                        return [self._normalize_llm_item(t) for t in topics if isinstance(t, dict)]
+                    except _json.JSONDecodeError:
+                        pass
+
+            # 第5层：提取裸数组
+            array_match = re.search(r'\[\s*\{', clean)
+            if array_match:
+                start_pos = array_match.start()
+                for end_pos in range(len(clean), start_pos, -1):
+                    test_str = clean[start_pos:end_pos]
+                    try:
+                        parsed = _json.loads(test_str)
+                        if isinstance(parsed, list) and len(parsed) > 0:
+                            logger.info("[TopicLibraryGenerator] ✓ 第5层提取裸数组，得到 %d 条", len(parsed))
+                            return [self._normalize_llm_item(t) for t in parsed if isinstance(t, dict)]
+                    except _json.JSONDecodeError:
+                        continue
+
+            # 第6层：逐个提取JSON对象
+            topics = []
+            bracket_depth = 0
+            in_json = False
+            json_start = -1
+            for i, c in enumerate(clean):
+                if c == '{':
+                    if not in_json:
+                        json_start = i
+                        in_json = True
+                    bracket_depth += 1
+                elif c == '}':
+                    bracket_depth -= 1
+                    if in_json and bracket_depth == 0:
+                        json_str = clean[json_start:i+1]
                         try:
-                            result = {'topics': json.loads(topics_str)}
-                            logger.info("[TopicLibraryGenerator] ✓ 方法4提取topics数组成功")
-                        except:
+                            obj = _json.loads(json_str)
+                            if isinstance(obj, dict) and ('title' in obj or '标题' in obj):
+                                topics.append(obj)
+                        except _json.JSONDecodeError:
                             pass
+                        in_json = False
+                        json_start = -1
+            if topics:
+                logger.info("[TopicLibraryGenerator] ✓ 第6层逐个提取，得到 %d 条", len(topics))
+                return [self._normalize_llm_item(t) for t in topics]
 
-                if result is None:
-                    lib_match = re.search(r'"topic_library"\s*:\s*\{([\s\S]*)\}', clean_response)
-                    if lib_match:
-                        lib_str = '{"topic_library": {' + lib_match.group(1)
-                        bracket_count = 1
-                        for i, c in enumerate(lib_match.group(1)):
-                            if c == '{':
-                                bracket_count += 1
-                            elif c == '}':
-                                bracket_count -= 1
-                                if bracket_count == 0:
-                                    lib_str = '{"topic_library": {' + lib_match.group(1)[:i+1] + '}'
-                                    break
-                        if lib_str.endswith('}'):
-                            try:
-                                result = json.loads(lib_str)
-                                logger.info("[TopicLibraryGenerator] ✓ 方法4提取topic_library对象成功")
-                            except:
-                                pass
+            # 第7层：从后向前提取
+            topics = self._extract_valid_topics_backward(clean)
+            if topics:
+                logger.info("[TopicLibraryGenerator] ✓ 第7层从后向前提取，得到 %d 条", len(topics))
+                return [self._normalize_llm_item(t) for t in topics]
 
-            # 方法5：解析直接返回的选题数组（无外层包装）
-            if result is None:
-                try:
-                    array_match = re.search(r'\[\s*\{', clean_response)
-                    if array_match:
-                        start_pos = array_match.start()
-                        for end_pos in range(len(clean_response), start_pos, -1):
-                            test_str = clean_response[start_pos:end_pos]
-                            try:
-                                parsed = json.loads(test_str)
-                                if isinstance(parsed, list) and len(parsed) > 0:
-                                    result = {'topics': parsed}
-                                    logger.info("[TopicLibraryGenerator] ✓ 方法5成功提取%d条选题", len(parsed))
-                                    break
-                            except:
-                                continue
-                except Exception as e:
-                    logger.debug("[TopicLibraryGenerator] 方法5解析失败: " + str(e))
+            logger.warning("[TopicLibraryGenerator] 7层解析全部失败，使用兜底选题")
+            return self._get_fallback_topics(20)
 
-            # 方法6：逐个提取 JSON 对象并组合
-            if result is None:
-                try:
-                    topics = []
-                    bracket_depth = 0
-                    in_json = False
-                    json_start = -1
-                    for i, c in enumerate(clean_response):
-                        if c == '{':
-                            if not in_json:
-                                json_start = i
-                                in_json = True
-                            bracket_depth += 1
-                        elif c == '}':
-                            bracket_depth -= 1
-                            if in_json and bracket_depth == 0:
-                                json_str = clean_response[json_start:i+1]
-                                try:
-                                    obj = json.loads(json_str)
-                                    if isinstance(obj, dict) and ('title' in obj or '标题' in obj or '选题' in obj):
-                                        topics.append(obj)
-                                except:
-                                    pass
-                                in_json = False
-                                json_start = -1
-                    if topics:
-                        result = {'topics': topics}
-                        logger.info("[TopicLibraryGenerator] ✓ 方法6逐个提取成功，共%d个选题", len(topics))
-                except Exception as e:
-                    logger.debug("[TopicLibraryGenerator] 方法6解析失败: " + str(e))
-
-            # 方法7：从后向前提取完整对象（处理LLM返回被截断的情况）
-            if result is None:
-                try:
-                    topics = self._extract_valid_topics_backward(clean_response)
-                    if topics:
-                        result = {'topics': topics}
-                        logger.info("[TopicLibraryGenerator] 方法7从后向前提取到%d个选题", len(topics))
-                except Exception as e:
-                    logger.debug("[TopicLibraryGenerator] 方法7解析失败: " + str(e))
-
-            if result is None:
-                raise ValueError("所有JSON解析方式均失败")
-            
-            # 处理 emoji key（如 "📚选题库" -> "topic_library"）
-            result = self._normalize_keys(result)
-            
-            # 转换为标准格式
-            result = self._convert_to_standard_format(result)
-            
-            return self._validate_and_fill(result, portrait_data, business_description, topic_count)
-            
-        except json.JSONDecodeError as e:
-            logger.error("[TopicLibraryGenerator] JSON解析失败: " + str(e)[:200])
-            logger.error("[TopicLibraryGenerator] 原始响应前500字符: " + repr(response[:500]))
-            logger.warning("[TopicLibraryGenerator] 使用默认选题库兜底 (JSONDecodeError)")
-            return self._get_default_library(portrait_data, business_description)
-        except ValueError as e:
-            if "all parse" in str(e):
-                logger.warning("[TopicLibraryGenerator] 使用默认选题库兜底 (ValueError)")
-                return self._get_default_library(portrait_data, business_description)
-            raise
         except Exception as e:
-            # 使用 %(message)s 语法避免格式化冲突，或直接打印字符串
-            logger.error("[TopicLibraryGenerator] Exception: " + str(e)[:300])
-            logger.error("[TopicLibraryGenerator] 原始响应前500字符: %r", response[:500])
-            logger.warning("[TopicLibraryGenerator] 使用默认选题库兜底 (Exception)")
-            return self._get_default_library(portrait_data, business_description)
+            logger.warning("[TopicLibraryGenerator] 解析异常: %s", str(e)[:200])
+            return self._get_fallback_topics(20)
+
+    def _normalize_llm_item(self, item: Dict) -> Dict:
+        """规范化LLM返回的单条选题"""
+        return {
+            'title': item.get('title') or item.get('标题') or '',
+            'keywords': item.get('keywords') or item.get('关键词') or [],
+            'recommended_reason': item.get('recommended_reason') or item.get('推荐理由') or '',
+            'scene_options': item.get('scene_options') or item.get('场景选项') or [],
+            'geo_mode': item.get('geo_mode') or item.get('GEO模式') or '',
+            'structure_rule': item.get('structure_rule') or item.get('结构规则') or '',
+        }
 
     def _fix_json_errors(self, json_str: str) -> str:
-        """修复常见 JSON 格式错误"""
-        import re
-
-        # 预处理：去除 markdown 代码块标记（LLM 可能返回 ```json ... ```）
+        """修复常见JSON格式错误"""
+        # 去除markdown代码块
         json_str = json_str.strip()
         if json_str.startswith('```json'):
             json_str = json_str[7:]
@@ -832,11 +1255,7 @@ class TopicLibraryGenerator:
             json_str = json_str[:-3]
         json_str = json_str.strip()
 
-        # ── 修复1：中文单引号「'」和中文双引号「""」 ──
-        # LLM 常返回 Chinese single quote ' (U+2019) 替代 JSON 的 "
-        # 策略：先将所有中文引号替换为占位符，再在字符串值内正确还原
-        # 更安全的做法：逐行处理，在字符串值内替换，中文引号 → "
-        # 原理：JSON 字符串值内的中文引号一定成对出现（开/闭），且中间是中文内容
+        # 修复中文引号
         def replace_curly_quotes(text):
             result = []
             i = 0
@@ -846,26 +1265,23 @@ class TopicLibraryGenerator:
                 if c == '"' and (i == 0 or text[i-1] != '\\'):
                     in_string = not in_string
                     result.append(c)
-                elif not in_string and c in '\u2018\u2019\u201b':  # ' ' '
-                    result.append('"')  # 中文单引号 → "
-                elif not in_string and c in '\u201c\u201d\u201f':  # " " "
-                    result.append('"')  # 中文双引号 → "
+                elif not in_string and c in '\u2018\u2019\u201b':
+                    result.append('"')
+                elif not in_string and c in '\u201c\u201d\u201f':
+                    result.append('"')
                 else:
                     result.append(c)
                 i += 1
             return ''.join(result)
         json_str = replace_curly_quotes(json_str)
 
-        # ── 修复2：ASCII 单引号在字符串值内被误用作闭合引号 ──
-        # 如果某行有 "xxx' 这样的不完整字符串（双开单闭），补上双引号
-        # 匹配: 值以 " 开头但以 ' 结尾
+        # 修复ASCII单引号
         json_str = re.sub(r'("(?:[^"\\]|\\.)*)\'(?=[,\s\r\n\]}])', r'\1"', json_str)
-        # 如果字符串内容里出现混用引号，把 '..." 或 "...' 的中文引号区域替换
-        # 更简单粗暴：对每一行，统计引号对，修复奇数个引号的情况
+
+        # 逐行检查引号配对
         lines = json_str.split('\n')
         fixed_lines = []
         for line in lines:
-            # 检查引号配对是否正确
             quote_count = 0
             escape = False
             for ch in line:
@@ -877,17 +1293,15 @@ class TopicLibraryGenerator:
                     continue
                 if ch == '"':
                     quote_count += 1
-            # 如果有奇数个引号（不成对），且行末有内容，尝试补全
             if quote_count % 2 == 1:
                 line = line.rstrip() + '"'
             fixed_lines.append(line)
         json_str = '\n'.join(fixed_lines)
 
-        # ── 预处理：去除注释（// 开头的行）──
+        # 去除注释
         lines = json_str.split('\n')
         cleaned_lines = []
         for line in lines:
-            # 保留字符串中的 //，只移除代码注释
             if '//' in line:
                 in_string = False
                 escape = False
@@ -905,764 +1319,382 @@ class TopicLibraryGenerator:
             cleaned_lines.append(line)
         json_str = '\n'.join(cleaned_lines)
 
-        # 修复末尾多余逗号（如 "key": "value", } -> "key": "value" }）
+        # 修复末尾逗号
         json_str = re.sub(r',(\s*[\]}])', r'\1', json_str)
 
-        # 修复换行符在字符串值中的问题（JSON 字符串值不能有未转义的换行）
-        # 这是一个激进修复：尝试合并被意外拆分的行
-        lines = json_str.split('\n')
-        merged_lines = []
-        i = 0
-        while i < len(lines):
-            line = lines[i]
-            # 检查这一行是否有奇数个未闭合的引号（表示字符串值被换行中断）
-            quote_count = 0
-            escape = False
-            in_string = False
-            for c in line:
-                if escape:
-                    escape = False
-                    continue
-                if c == '\\':
-                    escape = True
-                    continue
-                if c == '"':
-                    in_string = not in_string
-                    quote_count += 1
-
-            # 如果引号数量是奇数，可能字符串被换行中断
-            if quote_count % 2 == 1 and not in_string:
-                # 尝试和下一行合并
-                if i + 1 < len(lines):
-                    next_line = lines[i + 1].strip()
-                    # 检查下一行是否以逗号、引号、花括号等结尾
-                    if next_line and (next_line[0] in '",}]' or next_line.startswith('"')):
-                        line = line + ' ' + next_line
-                        i += 1
-
-            merged_lines.append(line)
-            i += 1
-
-        json_str = '\n'.join(merged_lines)
-
-        # 修复被截断的字符串值（Unterminated string）
-        # 如果某行的最后一个非空字符是未闭合的字符串内容（无引号结尾），则截断该行
-        lines = json_str.split('\n')
-        fixed_lines = []
-        for line in lines:
-            # 检查行尾是否有未闭合的字符串
-            quote_count = 0
-            escape = False
-            in_string = False
-            trailing_content = ""
-            for c in line:
-                if escape:
-                    escape = False
-                    trailing_content += c
-                    continue
-                if c == '\\':
-                    escape = True
-                    trailing_content += c
-                    continue
-                if c == '"':
-                    in_string = not in_string
-                    quote_count += 1
-                    trailing_content += c
-                else:
-                    trailing_content += c
-
-            # 如果不在字符串中，且末尾有内容（可能是被截断的字符串值），检查是否需要截断
-            if not in_string:
-                # 行尾的内容应该是有效的 JSON 语法（逗号/括号等），否则截断
-                trailing = trailing_content.strip()
-                if trailing and trailing[-1] not in ',"}])':
-                    # 被截断的字符串内容，丢弃行尾的垃圾内容
-                    # 找到最后一个有效的 JSON 结束点
-                    cut_pos = len(line) - len(trailing_content.rstrip())
-                    # 找到最后一个合法的 JSON 字符
-                    valid_end = 0
-                    for j in range(len(line) - 1, -1, -1):
-                        if line[j] in '",}])':
-                            valid_end = j + 1
-                            break
-                    if valid_end > 0:
-                        line = line[:valid_end]
-            fixed_lines.append(line)
-        json_str = '\n'.join(fixed_lines)
-
-        # 移除不可见控制字符（除 \n, \r, \t 外）
+        # 移除不可见字符
         json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', json_str)
 
-        # 移除末尾的断裂内容（从最后一个完整对象后截断）
-        # 找到最后一个 } 或 ] 作为可能的结束点
+        # 从最后一个有效位置截断
         last_valid_pos = -1
         for i in range(len(json_str) - 1, -1, -1):
             c = json_str[i]
             if c in '}':
-                # 检查这个 } 能否形成有效的闭合
                 try:
-                    test = json_str[:i+1]
-                    import json as _json
-                    _json.loads(test)
+                    _json.loads(json_str[:i+1])
                     last_valid_pos = i + 1
                     break
-                except:
+                except _json.JSONDecodeError:
                     continue
             elif c == ']':
                 try:
-                    test = json_str[:i+1]
-                    import json as _json
-                    _json.loads(test)
+                    _json.loads(json_str[:i+1])
                     last_valid_pos = i + 1
                     break
-                except:
+                except _json.JSONDecodeError:
                     continue
         if last_valid_pos > 0 and last_valid_pos < len(json_str):
             json_str = json_str[:last_valid_pos]
-            logger.debug("[TopicLibraryGenerator] JSON被截断，保留到位置 %d", last_valid_pos)
 
         return json_str
 
-    def _normalize_keys(self, obj: Any) -> Any:
-        """规范化 JSON key，处理 emoji 等特殊字符"""
-        if isinstance(obj, dict):
-            new_obj = {}
-            for key, value in obj.items():
-                # 标准化 key：移除 emoji、统一为下划线格式
-                normalized_key = self._normalize_key(key)
-                new_obj[normalized_key] = self._normalize_keys(value)
-            return new_obj
-        elif isinstance(obj, list):
-            return [self._normalize_keys(item) for item in obj]
-        else:
-            return obj
-
-    def _normalize_key(self, key: str) -> str:
-        """将中文或 emoji key 转换为标准 key"""
-        import re
-        
-        # 移除 emoji
-        emoji_pattern = re.compile("["
-            u"\U0001F600-\U0001F64F"  # emoticons
-            u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-            u"\U0001F680-\U0001F6FF"  # transport & map symbols
-            u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
-            u"\U00002702-\U000027B0"
-            u"\U000024C2-\U0001F251"
-            "]+", flags=re.UNICODE)
-        cleaned = emoji_pattern.sub('', key)
-        
-        # 保留中文、英文、数字、下划线
-        # 如果清理后是空的或只剩中文，使用预设映射
-        if not cleaned.strip() or cleaned == key:
-            # 常见 emoji key 映射
-            key_map = {
-                '📚选题库': 'topic_library',
-                '📊数据': 'data',
-                '📈统计': 'statistics',
-                '🔢计数': 'count',
-                '✅成功': 'success',
-                '❌失败': 'failed',
-            }
-            if key in key_map:
-                return key_map[key]
-            # 移除所有非ASCII字符
-            cleaned = key.encode('ascii', 'ignore').decode('ascii')
-        
-        return cleaned.strip() if cleaned else key
-
-    def _convert_to_standard_format(self, result) -> Dict:
-        """将 LLM 返回的任意格式转换为标准格式"""
-        # 处理裸数组情况（如 LLM 直接返回 [{...}, {...}] 而不是 {"topics": [...]}）
-        if isinstance(result, list):
-            topics = []
-            for item in result:
-                if isinstance(item, dict):
-                    topics.append(self._normalize_topic_item(item))
-            if topics:
-                return {'topics': topics}
-            return {'topics': []}
-
-        if not isinstance(result, dict):
-            return {'topics': []}
-
-        # 已经是标准格式
-        if 'topics' in result and isinstance(result.get('topics'), list):
-            # 也对 topics 数组里每条做规范化
-            result['topics'] = [self._normalize_topic_item(t) for t in result['topics'] if isinstance(t, dict)]
-            return result
-
-        # 尝试转换 "选题库" 格式
-        converted = {'topics': []}
-        topics_data = None
-
-        # 结构1: {"选题库": {...}}
-        if '选题库' in result and isinstance(result['选题库'], dict):
-            topics_data = result['选题库']
-            if '选题' in topics_data:
-                topics_data = topics_data['选题']
-        # 结构2: {"选题": [...]} 或 {"topics": [...]}
-        elif '选题' in result:
-            topics_data = result['选题']
-        # 结构3: {"选题库": [...]}
-        elif '选题库' in result and isinstance(result['选题库'], list):
-            topics_data = result['选题库']
-
-        if topics_data and isinstance(topics_data, list):
-            for item in topics_data:
-                if isinstance(item, dict):
-                    converted['topics'].append(self._normalize_topic_item(item))
-
-        if not converted['topics']:
-            for key, value in result.items():
-                if isinstance(value, list) and len(value) > 0:
-                    first_item = value[0]
-                    if isinstance(first_item, dict) and ('标题' in first_item or 'title' in first_item or '选题' in first_item):
-                        for item in value:
-                            if isinstance(item, dict):
-                                converted['topics'].append(self._normalize_topic_item(item))
-                        break
-
-        return converted if converted['topics'] else result
-
-    def _normalize_topic_item(self, item: Dict) -> Dict:
-        """规范化单条选题字段，包括 type_key/type_name 映射"""
-        # type_name → type_key 映射（解决 LLM 填错字段的问题）
-        type_name_to_key = {
-            '对比选型类': 'compare',
-            '原因分析类': 'cause',
-            '上游科普类': 'upstream',
-            '避坑指南类': 'pitfall',
-            '行情价格类': 'price',
-            '认知颠覆类': 'rethink',
-            '知识教程类': 'tutorial',
-            '场景细分类': 'scene',
-            '地域精准类': 'region',
-            '痛点解决类': 'pain_point',
-            '决策安心类': 'decision_encourage',
-            '效果验证类': 'effect_proof',
-            '实操技巧类': 'skill',
-            '工具耗材类': 'tools',
-            '行业关联系列类': 'industry',
-            '季节营销类': 'seasonal',
-            '节日营销类': 'festival',
-            '情感故事类': 'emotional',
-        }
-        # content_direction 映射
-        type_key_to_direction = self._get_type_key_map()
-
-        raw_type = item.get('type') or item.get('分类', '')
-        raw_type_key = item.get('type_key', '')
-
-        # 优先用 type_key，如果它是 type_name 就转换
-        if raw_type_key and raw_type_key not in type_name_to_key:
-            type_key = raw_type_key
-        elif raw_type:
-            type_key = type_name_to_key.get(raw_type, raw_type_key or 'unknown')
-        else:
-            type_key = raw_type_key or 'unknown'
-
-        # type_name 标准化
-        type_name = item.get('type_name') or item.get('类型名称', '')
-        if type_name in type_name_to_key:
-            type_name = list({k: v for v, k in type_name_to_key.items()}.get(type_name, (type_name,)))[0] if False else type_name
-
-        return {
-            'id': str(uuid.uuid4()),
-            'title': item.get('标题') or item.get('title') or item.get('选题') or '',
-            'type_key': type_key,
-            'type_name': type_name or raw_type or type_key,
-            'priority': item.get('优先级') or item.get('priority', 'P2'),
-            'source': item.get('来源') or item.get('source', ''),
-            'keywords': item.get('关键词') or item.get('keywords', []),
-            'reason': item.get('原因') or item.get('reason') or item.get('说明') or item.get('recommended_reason') or '',
-            'publish_timing': item.get('发布时间') or item.get('publish_timing', ''),
-            'content_hints': item.get('内容提示') or item.get('content_hints', ''),
-            'content_direction': item.get('content_direction') or type_key_to_direction.get(type_key, '种草型'),
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        }
-
-    def _validate_and_fill(self, result: Dict, portrait_data: Dict = None, business_description: str = '', topic_count: int = 20) -> Dict:
-        """验证并补充选题库，确保最终输出恰好 topic_count 条"""
-        import re
-
-        portrait_data = portrait_data or {}
-        business_description = business_description or ''
-
-        # 从画像提取关键信息作为选题生成素材
-        # 优先级：pain_point > portrait_summary > business_description
-        pain_point = portrait_data.get('pain_point', '') or portrait_data.get('核心痛点', '')
-        if not pain_point:
-            user_persp = portrait_data.get('user_perspective', {})
-            if isinstance(user_persp, dict):
-                pain_point = user_persp.get('problem', '')
-        if not pain_point:
-            summary = portrait_data.get('portrait_summary', '')
-            if summary and isinstance(summary, str):
-                pain_point = summary.split('，')[0] if '，' in summary else summary.split(',')[0]
-
-        concern = portrait_data.get('concern', '') or portrait_data.get('核心顾虑', '')
-        if not concern:
-            buyer_persp = portrait_data.get('buyer_perspective', {})
-            if isinstance(buyer_persp, dict):
-                concern = buyer_persp.get('obstacles', '') or buyer_persp.get('psychology', '')
-
-        identity = portrait_data.get('identity', '') or portrait_data.get('目标客户身份', '')
-        if not identity:
-            identity_tags = portrait_data.get('identity_tags', {})
-            if isinstance(identity_tags, dict):
-                identity = identity_tags.get('user', '') or identity_tags.get('buyer', '')
-
-        # 清洗字符串中的引号
-        def clean(s):
-            if not isinstance(s, str):
-                return ''
-            s = s.replace('"', ' ').replace("'", ' ').strip()
-            s = re.sub(r'\s+', ' ', s)
-            return s[:50]
-
-        pain_point = clean(pain_point)
-        concern = clean(concern)
-        identity = clean(identity)
-
-        # 核心关键词用于生成标题
-        core = pain_point if pain_point else (identity if identity else business_description if business_description else '该业务')
-
-        # 提取 pain_point 中的关键词
-        pain_keywords = []
-        if pain_point:
-            pain_keywords = re.findall(r'[\u4e00-\u9fa5]{2,10}', pain_point)
-            pain_keywords = [k for k in pain_keywords if len(k) >= 2][:5]
-
-        # 处理可能的 key 变化
-        if 'topics' not in result:
-            for key in ['topics', '选题库', 'topic_list', 'items']:
-                if key in result:
-                    result['topics'] = result.pop(key)
-                    break
-
-        if 'topics' not in result or not isinstance(result.get('topics'), list):
-            result['topics'] = []
-
-        topics = result['topics']
-        current = len(topics)
-
-        # 补充缺失字段
-        base_to_direction = {
-            '刚需痛点盘': '转化型',
-            '前置观望种草盘': '种草型',
-            '使用配套搜后种草盘': '种草型',
-            '刚需痛点': '转化型',
-            '前置观望': '种草型',
-            '使用配套': '种草型',
-        }
-        type_key_to_direction = self._get_type_key_map()
-        for topic in topics:
-            if not isinstance(topic, dict):
+    def _extract_valid_topics_backward(self, text: str) -> list:
+        """从后向前查找有效topic对象"""
+        topics = []
+        n = len(text)
+        import json as _json
+        for start in range(n - 2, -1, -1):
+            if text[start] != '{':
                 continue
-            if 'type_key' not in topic:
-                topic['type_key'] = topic.get('type', topic.get('分类', 'unknown'))
-            if 'priority' not in topic:
-                topic['priority'] = topic.get('优先级', 'P2')
-            if 'type_name' not in topic:
-                topic['type_name'] = topic.get('type_name', topic.get('类型', ''))
-            if 'content_direction' not in topic or not topic['content_direction']:
-                topic['content_direction'] = type_key_to_direction.get(
-                    topic.get('type_key', ''),
-                    base_to_direction.get(topic.get('problem_base', ''), '种草型')
-                )
+            candidate = text[start:]
+            if not candidate.strip().startswith('{'):
+                continue
+            try:
+                obj = _json.loads(candidate)
+                if isinstance(obj, dict) and ('title' in obj or '标题' in obj):
+                    topics.insert(0, obj)
+            except _json.JSONDecodeError:
+                continue
+        return topics
 
-        # 统计现有 type_key，避免重复
-        existing_keys = {t.get('type_key') for t in topics if isinstance(t, dict)}
+    # ===========================================================================
+    # 兜底补全
+    # ===========================================================================
 
-        # 核心关键词提取（用于生成补充选题的原料）
-        keywords_text = ''
-        if isinstance(result.get('keywords_for_fill'), list):
-            keywords_text = '、'.join(result.pop('keywords_for_fill')[:10])
+    def _fill_missing_topics(
+        self,
+        topics: List[Dict],
+        topic_count: int,
+        portrait_data: Dict,
+        stage_config: Dict,
+        stage_geo_config: Dict,
+    ) -> List[Dict]:
+        """选题数量不足时本地补全"""
+        if len(topics) >= topic_count:
+            return topics[:topic_count]
 
-        # 补充缺失选题（从 topic_count 不足时）
-        if current < topic_count:
-            missing = topic_count - current
-            logger.info("[TopicLibraryGenerator] 仅提取到%d条选题，补充%d条以达到目标数量%d",
-                        current, missing, topic_count)
-            fill_types = [
-                {'type_key': 'cause', 'type_name': '原因分析类', 'priority': 'P1',
-                 'source': '原因分析系列', 'base': '前置观望种草盘',
-                 'content_direction': '种草型',
-                 'title_template': f'{pain_point}的原因找到了，看完恍然大悟',
-                 'desc': '为什么会、原因分析、形成机理'},
-                {'type_key': 'pain_point', 'type_name': '痛点解决类', 'priority': 'P0',
-                 'source': '刚需痛点盘', 'base': '刚需痛点盘',
-                 'content_direction': '转化型',
-                 'title_template': f'{pain_point}怎么办？教你一招搞定',
-                 'desc': '直面核心痛点，提供解决方案'},
-                {'type_key': 'pitfall', 'type_name': '避坑指南类', 'priority': 'P1',
-                 'source': '避坑指南系列', 'base': '前置观望种草盘',
-                 'content_direction': '种草型',
-                 'title_template': f'处理{pain_point}，这几种做法千万别用',
-                 'desc': '避坑、误区、骗局、怎么分辨'},
-                {'type_key': 'rethink', 'type_name': '认知颠覆类', 'priority': 'P2',
-                 'source': '认知颠覆系列', 'base': '前置观望种草盘',
-                 'content_direction': '种草型',
-                 'title_template': f'别再误解了！{pain_point}其实没那么复杂',
-                 'desc': '打破认知、颠覆常识'},
-                {'type_key': 'skill', 'type_name': '实操技巧类', 'priority': 'P1',
-                 'source': '使用配套盘', 'base': '使用配套搜后种草盘',
-                 'content_direction': '种草型',
-                 'title_template': f'{pain_point}处理心得，看完少走弯路',
-                 'desc': '使用后方法、步骤流程、实操经验'},
-                {'type_key': 'price', 'type_name': '行情价格类', 'priority': 'P2',
-                 'source': '行情价格系列', 'base': '前置观望种草盘',
-                 'content_direction': '种草型',
-                 'title_template': f'{pain_point}要花多少钱？这笔账给你算清楚了',
-                 'desc': '价格、报价、行情、成本构成'},
-                {'type_key': 'seasonal', 'type_name': '季节营销类', 'priority': 'P2',
-                 'source': '季节营销系列', 'base': '使用配套搜后种草盘',
-                 'content_direction': '种草型',
-                 'title_template': f'{pain_point}高峰期到了，这些事一定要知道',
-                 'desc': '季节关联、时效性强'},
-                {'type_key': 'upstream', 'type_name': '上游科普类', 'priority': 'P1',
-                 'source': '上游科普系列', 'base': '前置观望种草盘',
-                 'content_direction': '种草型',
-                 'title_template': f'关于{pain_point}，一篇文章讲透底层逻辑',
-                 'desc': '原料、材质、供应链、选材鉴别'},
-            ]
-            filled = 0
-            for ft in fill_types:
-                if filled >= missing:
-                    break
-                # 跳过已存在的 type_key（避免重复）
-                if ft['type_key'] in existing_keys:
-                    continue
-                topic = {
-                    'id': str(uuid.uuid4()),
-                    'title': ft.get('title_template', '').format(pain_point=pain_point, customer_role=customer_role, worry_desc=worry_desc) or f'{pain_point}怎么办？',
-                    'type_key': ft['type_key'],
-                    'type_name': ft['type_name'],
-                    'priority': ft['priority'],
-                    'source': ft['source'],
-                    'keywords': pain_keywords[:3] if pain_keywords else [],
-                    'reason': f'基于画像痛点「{pain_point}」生成，覆盖{ft["desc"]}维度',
-                    'publish_timing': '',
-                    'content_hints': '',
-                    'content_direction': ft['content_direction'],
-                    'generation_count': 0,
-                    'created_at': datetime.utcnow().isoformat(),
-                }
-                # 包含关键词关联
-                if keywords_text:
-                    topic['keywords'] = keywords_text.split('、')[:3]
-                    topic['reason'] = f'基于关键词「{keywords_text}」生成，覆盖{ft["desc"]}'
-                topics.append(topic)
-                existing_keys.add(ft['type_key'])
-                filled += 1
-            logger.info("[TopicLibraryGenerator] 补充后共%d条选题", len(topics))
+        missing = topic_count - len(topics)
+        logger.info("[TopicLibraryGenerator] 选题不足，补充 %d 条兜底", missing)
 
-        # 星系增强：为每个选题生成 scene_options
-        result['topics'] = self._enrich_topics_with_scene_options(result['topics'], portrait_data, business_description)
-
-        if 'by_type' not in result:
-            result['by_type'] = self._count_by_type(result['topics'])
-
-        if 'priorities' not in result:
-            result['priorities'] = self._count_by_priority(result['topics'])
-
-        return result
-
-    def _enrich_topics_with_scene_options(self, topics: List[Dict], portrait_data: Dict = None, business_description: str = '') -> List[Dict]:
-        """
-        为每个选题补充 scene_options（场景选项）。
-
-        scene_options 结构：[{"id": "...", "组合": "...", "标签": "...", "风格": "..."}]
-
-        Args:
-            topics: 选题列表
-            portrait_data: 画像数据（用于提取人群、痛点等）
-            business_description: 业务描述
-
-        Returns:
-            添加 scene_options 后的选题列表
-        """
-        portrait_data = portrait_data or {}
-
-        # 从画像提取关键信息
         identity = portrait_data.get('identity', '') or portrait_data.get('目标客户身份', '')
-        if not identity:
-            identity_tags = portrait_data.get('identity_tags', {})
-            if isinstance(identity_tags, dict):
-                identity = identity_tags.get('user', '') or identity_tags.get('buyer', '')
-
         pain_point = portrait_data.get('pain_point', '') or portrait_data.get('核心痛点', '')
-        if not pain_point:
-            user_persp = portrait_data.get('user_perspective', {})
-            if isinstance(user_persp, dict):
-                pain_point = user_persp.get('problem', '')
-
         concern = portrait_data.get('concern', '') or portrait_data.get('核心顾虑', '')
-        if not concern:
-            buyer_persp = portrait_data.get('buyer_perspective', {})
-            if isinstance(buyer_persp, dict):
-                concern = buyer_persp.get('obstacles', '') or buyer_persp.get('psychology', '')
+        existing_keys = {t.get('type_key') for t in topics if isinstance(t, dict)}
+        existing_geos = {t.get('geo_mode') for t in topics if isinstance(t, dict)}
 
-        for topic in topics:
-            if isinstance(topic, dict) and 'scene_options' not in topic:
-                topic['scene_options'] = self._generate_scene_options_for_topic(
-                    topic=topic,
-                    identity=identity,
-                    pain_point=pain_point,
-                    concern=concern,
-                    business_description=business_description
-                )
-                # 设置默认 content_style（第一个场景的风格）
-                if topic['scene_options'] and not topic.get('content_style'):
-                    topic['content_style'] = topic['scene_options'][0].get('风格', '')
+        fallback_types = [
+            ('cause',             '前置观望种草盘'),
+            ('compare',           '前置观望种草盘'),
+            ('pitfall',           '前置观望种草盘'),
+            ('pain_point',        '刚需痛点盘'),
+            ('decision_encourage', '刚需痛点盘'),
+            ('skill',             '使用配套搜后种草盘'),
+            ('seasonal',          '使用配套搜后种草盘'),
+            ('rethink',           '前置观望种草盘'),
+            ('tutorial',          '前置观望种草盘'),
+            ('effect_proof',      '刚需痛点盘'),
+        ]
+
+        for type_key, base in fallback_types:
+            if len(topics) >= topic_count:
+                break
+            if type_key in existing_keys:
+                continue
+
+            type_info = self.TYPE_KEY_MAP.get(type_key, {})
+            if not type_info:
+                continue
+
+            # 按比例选择 GEO 模式
+            base_geo_ratios = self.BASE_GEO_RATIO.get(base, {})
+            compatible_geos = TYPE_KEY_TO_GEO.get(type_key, list(GEO_MODES.keys()))
+            chosen_geo = self._select_geo_by_ratio(base_geo_ratios, compatible_geos, stage_geo_config)
+            geo_info = GEO_MODES.get(chosen_geo, GEO_MODES[GEOMode.QA])
+
+            title = self._generate_fallback_title(chosen_geo, pain_point, identity, concern)
+            topics.append({
+                'id': str(uuid.uuid4()),
+                'title': self._clean_title(title),
+                'type_key': type_key,
+                'type_name': type_info.get('name', type_key),
+                'priority': type_info.get('priority', 'P2'),
+                'base': type_info.get('base', ''),
+                'content_direction': type_info.get('direction', '种草型'),
+                'source': self._get_source_by_type(type_key),
+                'keywords': [],
+                'recommended_reason': f'基于画像「{pain_point or identity}」生成',
+                'generation_count': 0,
+                'created_at': datetime.utcnow().isoformat(),
+                'scene_options': [],
+                'geo_mode': chosen_geo,
+                'geo_mode_name': geo_info['name'],
+                'title_rule': geo_info['title_rule'],
+                'structure_rule': geo_info['structure_rule'],
+                'weight': geo_info['weight'],
+            })
+            existing_keys.add(type_key)
 
         return topics
 
-    def _generate_scene_options_for_topic(
+    def _generate_fallback_title(self, geo_mode: str, pain_point: str, identity: str, concern: str) -> str:
+        """按GEO模式生成兜底标题"""
+        core = pain_point or identity or '相关内容'
+        templates = {
+            GEOMode.QA:        f'{core}怎么办？教你一招搞定',
+            GEOMode.DEFINE:    f'什么是{core}？一文讲透',
+            GEOMode.ARGUMENT:  f'别再误解了！{core}其实没那么复杂',
+            GEOMode.FRAMEWORK: f'{core}处理框架！3步搞定',
+            GEOMode.LIST:      f'{core}清单！5个要点收藏',
+            GEOMode.HERO:      f'一个真实案例看懂{core}',
+        }
+        return templates.get(geo_mode, f'{core}怎么处理？')
+
+    # ===========================================================================
+    # scene_options 处理
+    # ===========================================================================
+
+    def _enrich_scene_options(
+        self,
+        topics: List[Dict],
+        portrait_data: Dict,
+    ) -> List[Dict]:
+        """处理 scene_options（直接使用 LLM 返回，不再重复生成）"""
+        identity = portrait_data.get('identity', '') or portrait_data.get('目标客户身份', '')
+        pain_point = portrait_data.get('pain_point', '') or portrait_data.get('核心痛点', '')
+        concern = portrait_data.get('concern', '') or portrait_data.get('核心顾虑', '')
+
+        for topic in topics:
+            if not isinstance(topic, dict):
+                continue
+
+            if topic.get('scene_options') and len(topic.get('scene_options', [])) > 0:
+                for scene in topic['scene_options']:
+                    if not scene.get('id'):
+                        scene['id'] = f'scene_{uuid.uuid4().hex[:8]}'
+                if not topic.get('content_style') and topic['scene_options']:
+                    topic['content_style'] = topic['scene_options'][0].get('风格', '')
+                continue
+
+            # 兜底：补充默认场景
+            topic['scene_options'] = self._generate_default_scene_options(
+                topic=topic,
+                identity=identity,
+                pain_point=pain_point,
+                concern=concern,
+            )
+            if topic['scene_options'] and not topic.get('content_style'):
+                topic['content_style'] = topic['scene_options'][0].get('风格', '')
+
+        return topics
+
+    def _generate_default_scene_options(
         self,
         topic: Dict,
         identity: str = '',
         pain_point: str = '',
         concern: str = '',
-        business_description: str = '',
     ) -> List[Dict]:
-        """
-        为单个选题生成 3-5 个场景选项。
+        """生成默认场景选项（本地计算）"""
+        user_candidates = self._extract_user_candidates(identity, '')
+        if not user_candidates:
+            user_candidates = ['目标用户']
+        time_candidates = self._extract_time_candidates(pain_point, '')
+        if not time_candidates:
+            time_candidates = ['日常关注']
+        emotion_candidates = self._extract_emotion_candidates(pain_point, concern, topic.get('type_key', ''))
+        if not emotion_candidates:
+            emotion_candidates = ['焦虑迷茫']
 
-        场景选项 = 人群 + 时间/情境 + 心理状态 + 核心顾虑 的组合
+        styles = ['情绪共鸣', '干货科普', '犀利吐槽', '故事叙述', '权威背书']
+        combinations = [
+            (user_candidates[0], time_candidates[0], emotion_candidates[0] if emotion_candidates else '焦虑迷茫', styles[0]),
+            (user_candidates[0], time_candidates[0], '信息不足', styles[1]),
+            (user_candidates[0], time_candidates[-1] if len(time_candidates) > 1 else time_candidates[0], '认知误区', styles[2]),
+            (user_candidates[0], '经历回顾', pain_point or '真实经历', styles[3]),
+        ]
 
-        Args:
-            topic: 选题信息
-            identity: 目标人群身份
-            pain_point: 核心痛点
-            concern: 核心顾虑
-            business_description: 业务描述
-
-        Returns:
-            场景选项列表
-        """
         scene_options = []
-
-        # 风格类型
-        style_types = ['情绪共鸣', '干货科普', '犀利吐槽', '故事叙述', '权威背书']
-
-        # 从选题提取关键词
-        title = topic.get('title', '')
-        type_key = topic.get('type_key', '')
-        keywords = topic.get('keywords', [])
-        keywords_text = ' '.join(keywords) if isinstance(keywords, list) else ''
-
-        # 提取人群候选（从 identity 和 business_description 推断）
-        user_candidates = self._extract_user_candidates(identity, business_description)
-
-        # 提取时间/情境候选
-        time_candidates = self._extract_time_candidates(pain_point, business_description)
-
-        # 提取心理状态候选
-        emotion_candidates = self._extract_emotion_candidates(pain_point, concern, type_key)
-
-        # 组合场景（生成 3-5 个选项）
-        scene_count = min(5, max(3, len(user_candidates) * len(time_candidates) // 2))
-
-        # 场景1：情绪共鸣型
-        if user_candidates and time_candidates:
+        for user, time_desc, emotion, style in combinations[:4]:
+            label = f'{user}'
+            for kw in ['家长', '学生', '业主', '用户', '人群']:
+                if kw in user:
+                    label = f'{user} - {style.replace("情绪共鸣","焦虑型").replace("干货科普","理性型").replace("犀利吐槽","吐槽型").replace("故事叙述","经历型").replace("权威背书","决策型")}'
+                    break
             scene_options.append({
                 'id': f'scene_{uuid.uuid4().hex[:8]}',
-                '组合': f'{user_candidates[0]} + {time_candidates[0]} + {emotion_candidates[0] if emotion_candidates else "焦虑迷茫"}',
-                '标签': self._generate_scene_label(user_candidates[0], emotion_candidates[0] if emotion_candidates else '焦虑型'),
-                '风格': '情绪共鸣',
+                '组合': f'{user} + {time_desc} + {emotion}',
+                '标签': label,
+                '风格': style,
             })
 
-        # 场景2：干货科普型
-        scene_options.append({
-            'id': f'scene_{uuid.uuid4().hex[:8]}',
-            '组合': f'{user_candidates[1] if len(user_candidates) > 1 else user_candidates[0]} + {time_candidates[1] if len(time_candidates) > 1 else time_candidates[0]} + {emotion_candidates[1] if len(emotion_candidates) > 1 else "信息不足"}',
-            '标签': self._generate_scene_label(user_candidates[1] if len(user_candidates) > 1 else user_candidates[0], '理性型'),
-            '风格': '干货科普',
-        })
-
-        # 场景3：犀利吐槽型
-        if emotion_candidates and len(emotion_candidates) >= 2:
-            scene_options.append({
-                'id': f'scene_{uuid.uuid4().hex[:8]}',
-                '组合': f'{user_candidates[0]} + {time_candidates[0] if time_candidates else "关键时刻"} + {emotion_candidates[2] if len(emotion_candidates) > 2 else "认知误区"}',
-                '标签': self._generate_scene_label(user_candidates[0], '吐槽型'),
-                '风格': '犀利吐槽',
-            })
-
-        # 场景4：故事叙述型
-        scene_options.append({
-            'id': f'scene_{uuid.uuid4().hex[:8]}',
-            '组合': f'{user_candidates[0]} + {time_candidates[-1] if time_candidates else "经历回顾"} + {pain_point or "真实经历"}',
-            '标签': self._generate_scene_label(user_candidates[0], '故事型'),
-            '风格': '故事叙述',
-        })
-
-        # 场景5：权威背书型
-        scene_options.append({
-            'id': f'scene_{uuid.uuid4().hex[:8]}',
-            '组合': f'{user_candidates[0]} + {time_candidates[0] if time_candidates else "决策前"} + {concern or "选择困难"}',
-            '标签': self._generate_scene_label(user_candidates[0], '决策型'),
-            '风格': '权威背书',
-        })
-
-        return scene_options[:scene_count]
+        return scene_options
 
     def _extract_user_candidates(self, identity: str, business_description: str) -> List[str]:
-        """从 identity 和 business_description 提取人群候选"""
         candidates = []
-
-        # 从 identity 提取
-        if identity:
-            # 常见人群模式
-            patterns = [
-                r'([\u4e00-\u9fa5]{2,8}家长)', r'([\u4e00-\u9fa5]{2,8}学生)',
-                r'([\u4e00-\u9fa5]{2,8}家长)', r'([\u4e00-\u9fa5]{2,6}人群)',
-                r'([\u4e00-\u9fa5]{2,8}用户)', r'([\u4e00-\u9fa5]{2,6}业主)',
-                r'([\u4e00-\u9fa5]{2,6}老板)', r'([\u4e00-\u9fa5]{2,6}员工)',
-            ]
-            import re
-            for pattern in patterns:
-                match = re.search(pattern, identity)
-                if match:
-                    candidates.append(match.group(1))
-
-        # 如果没有提取到，使用默认值
+        patterns = [
+            r'([\u4e00-\u9fa5]{2,8}家长)', r'([\u4e00-\u9fa5]{2,8}学生)',
+            r'([\u4e00-\u9fa5]{2,6}人群)', r'([\u4e00-\u9fa5]{2,8}用户)',
+            r'([\u4e00-\u9fa5]{2,6}业主)', r'([\u4e00-\u9fa5]{2,6}老板)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, identity)
+            if match:
+                candidates.append(match.group(1))
         if not candidates:
             if '高考' in business_description or '志愿' in business_description:
-                candidates = ['高三家长', '高三学生', '复读生家长']
+                candidates = ['高三家长', '高三学生']
             elif '装修' in business_description:
-                candidates = ['业主', '装修业主', '新房业主']
+                candidates = ['业主', '装修业主']
             elif '培训' in business_description or '教育' in business_description:
-                candidates = ['家长', '学生', '职场人士']
+                candidates = ['家长', '学生']
             else:
-                candidates = ['用户', '消费者', '目标客户']
-
+                candidates = ['用户', '消费者']
         return candidates[:3]
 
     def _extract_time_candidates(self, pain_point: str, business_description: str) -> List[str]:
-        """从 pain_point 和 business_description 提取时间/情境候选"""
         candidates = []
-
-        # 常见时间/情境模式
         patterns = [
-            (r'出分[前后]?', '出分后'),
-            (r'填报[期间]?', '填报期间'),
-            (r'截止[前夕]?', '截止前夕'),
-            (r'高考', '高考季'),
-            (r'毕业', '毕业季'),
-            (r'开学', '开学季'),
-            (r'暑假', '暑假期间'),
-            (r'寒假', '寒假期间'),
-            (r'年初|年初', '年初'),
-            (r'年底|年末', '年底'),
+            (r'出分[前后]?', '出分后'), (r'填报[期间]?', '填报期间'),
+            (r'截止[前夕]?', '截止前夕'), (r'高考', '高考季'),
+            (r'毕业', '毕业季'), (r'暑假', '暑假期间'),
+            (r'年初', '年初'), (r'年底', '年底'),
         ]
-
-        import re
         text = pain_point + business_description
         for pattern, result in patterns:
             if re.search(pattern, text):
                 candidates.append(result)
-
-        # 默认情境
         if not candidates:
             candidates = ['关键时刻', '决策前', '选择困难时', '日常关注']
-
         return candidates[:4]
 
     def _extract_emotion_candidates(self, pain_point: str, concern: str, type_key: str) -> List[str]:
-        """从 pain_point、concern 和 type_key 提取心理状态候选"""
         candidates = []
-
-        # 基于 type_key 确定默认情绪
         type_emotions = {
-            'compare': ['选择困难', '对比纠结', '信息过载'],
-            'cause': ['疑惑不解', '想找原因', '认知困惑'],
-            'pain_point': ['焦虑担心', '急需解决', '压力山大'],
+            'compare':            ['选择困难', '对比纠结', '信息过载'],
+            'cause':             ['疑惑不解', '想找原因', '认知困惑'],
+            'pain_point':        ['焦虑担心', '急需解决', '压力山大'],
             'decision_encourage': ['犹豫不决', '担心风险', '信任不足'],
-            'pitfall': ['怕踩坑', '担心被骗', '疑虑重重'],
-            'effect_proof': ['效果怀疑', '担心无效', '需要验证'],
-            'seasonal': ['季节焦虑', '时间紧迫', '时机担忧'],
-            'default': ['焦虑迷茫', '信息不足', '认知误区'],
+            'pitfall':           ['怕踩坑', '担心被骗', '疑虑重重'],
+            'effect_proof':      ['效果怀疑', '担心无效', '需要验证'],
+            'seasonal':          ['季节焦虑', '时间紧迫', '时机担忧'],
+            'default':           ['焦虑迷茫', '信息不足', '认知误区'],
         }
-
         emotions = type_emotions.get(type_key, type_emotions['default'])
-
-        # 从 pain_point 和 concern 中提取情绪词
-        import re
         emotion_patterns = [
             r'(担心|怕|担忧|顾虑)', r'(焦虑|着急|急)', r'(纠结|犹豫)',
             r'(迷茫|困惑|不解)', r'(后悔|遗憾)', r'(压力|紧张)',
         ]
-
         text = pain_point + concern
         for pattern in emotion_patterns:
             match = re.search(pattern, text)
             if match:
                 candidates.append(match.group(1))
-
-        # 合并类型默认情绪
         for em in emotions:
             if em not in candidates:
                 candidates.append(em)
-
         return candidates[:4]
 
-    def _generate_scene_label(self, user: str, emotion: str) -> str:
-        """生成场景标签"""
-        # 情绪到标签的映射
-        emotion_labels = {
-            '焦虑型': '焦虑型', '焦虑型': '焦虑型家长',
-            '理性型': '理性型', '吐槽型': '吐槽型',
-            '故事型': '经历分享型', '决策型': '决策型',
-            '担心型': '谨慎型', '迷茫型': '迷茫型',
-        }
+    # ===========================================================================
+    # 存储接口
+    # ===========================================================================
 
-        label = emotion_labels.get(emotion, emotion)
-        if user and label:
-            # 如果标签不包含用户类型，拼接
-            for user_keyword in ['家长', '学生', '业主', '用户', '人群']:
-                if user_keyword in user and user_keyword not in label:
-                    return f'{user} - {label}'
-            return label
-        return user or '目标用户'
+    def save_to_portrait(
+        self,
+        portrait_id: int,
+        topic_library: Dict,
+        user_id: int,
+        plan_type: str = 'professional',
+    ) -> bool:
+        """保存选题库到画像记录"""
+        portrait = SavedPortrait.query.get(portrait_id)
+        if not portrait:
+            return False
 
-    def _infer_content_direction(self, topic_base: str) -> str:
-        """从选题底盘推导内容方向（兼容新旧枚举）"""
-        direction_map = {
-            '刚需痛点盘': '转化型',
-            '前置观望种草盘': '种草型',
-            '使用配套搜后种草盘': '种草型',
-            '刚需痛点': '转化型',
-            '前置观望': '种草型',
-            '使用配套': '种草型',
-        }
-        return direction_map.get(topic_base, '种草型')
+        ttl_hours = self.CACHE_TTL_HOURS.get(plan_type, 24)
 
-    def _get_type_key_map(self) -> Dict[str, str]:
-        """获取 type_key 的 content_direction 映射"""
-        return {
-            'compare': '种草型',
-            'cause': '种草型',
-            'upstream': '种草型',
-            'pitfall': '种草型',
-            'price': '种草型',
-            'rethink': '种草型',
-            'tutorial': '种草型',
-            'scene': '种草型',
-            'region': '种草型',
-            'pain_point': '转化型',
-            'decision_encourage': '转化型',
-            'effect_proof': '转化型',
-            'skill': '种草型',
-            'tools': '种草型',
-            'industry': '种草型',
-            'seasonal': '种草型',
-            'festival': '种草型',
-            'emotional': '种草型',
-        }
+        portrait.topic_library = topic_library
+        portrait.topic_updated_at = datetime.utcnow()
+        portrait.topic_update_count = (portrait.topic_update_count or 0) + 1
+        portrait.topic_cache_expires_at = datetime.utcnow() + timedelta(hours=ttl_hours)
+
+        db.session.commit()
+        return True
+
+    def get_from_portrait(self, portrait_id: int) -> Optional[Dict]:
+        """从画像获取已保存的选题库"""
+        portrait = SavedPortrait.query.get(portrait_id)
+        if not portrait:
+            return None
+        if portrait.topic_library_expired:
+            return None
+        return portrait.topic_library
+
+    def select_topics(
+        self,
+        topic_library: Dict,
+        count: int = 5,
+        topic_type: str = None,
+        keyword_hint: str = None,
+    ) -> List[Dict]:
+        """从选题库中选择选题"""
+        topics = topic_library.get('topics', [])
+        if not topics:
+            return []
+
+        if keyword_hint and keyword_hint.strip():
+            keyword = keyword_hint.strip().lower()
+            topics = [
+                t for t in topics
+                if keyword in (t.get('title', '') + ' '.join(t.get('keywords', []))).lower()
+            ]
+
+        if topic_type:
+            topics = [t for t in topics if t.get('type_key') == topic_type]
+
+        # 按 GEO 权重排序
+        geo_weight_order = GEO_WEIGHT_ORDER
+        priority_order = {'P0': 0, 'P1': 1, 'P2': 2, 'P3': 3}
+
+        def sort_key(t):
+            geo = t.get('geo_mode', '')
+            geo_idx = geo_weight_order.index(geo) if geo in geo_weight_order else len(geo_weight_order)
+            priority = priority_order.get(t.get('priority', 'P2'), 2)
+            return (geo_idx, priority)
+
+        topics = sorted(topics, key=sort_key)
+        random.shuffle(topics)
+        return topics[:count]
+
+    # ===========================================================================
+    # 工具方法
+    # ===========================================================================
+
+    def _escape(self, s: str) -> str:
+        if not isinstance(s, str):
+            return ''
+        return s.replace('{', '{{').replace('}', '}}')
+
+    def _clean_title(self, title: str) -> str:
+        if not title:
+            return ''
+        title = title.replace('"', ' ').replace("'", ' ').strip()
+        title = re.sub(r'\s+', ' ', title)
+        title = re.sub(r'([。！？])\1+', r'\1', title)
+        title = re.sub(r'的怎么办', '怎么办', title)
+        title = re.sub(r'怎么办怎么办', '怎么办', title)
+        if len(title) > 35:
+            title = title[:34] + '…'
+        return title
 
     def _count_by_type(self, topics: List[Dict]) -> Dict:
         counts = {}
@@ -1670,6 +1702,15 @@ class TopicLibraryGenerator:
             if not isinstance(t, dict):
                 continue
             key = t.get('type_key', 'unknown')
+            counts[key] = counts.get(key, 0) + 1
+        return counts
+
+    def _count_by_geo(self, topics: List[Dict]) -> Dict:
+        counts = {}
+        for t in topics:
+            if not isinstance(t, dict):
+                continue
+            key = t.get('geo_mode', 'unknown')
             counts[key] = counts.get(key, 0) + 1
         return counts
 
@@ -1683,617 +1724,40 @@ class TopicLibraryGenerator:
                 counts[p] += 1
         return counts
 
-    def _get_default_library(self, portrait_data: Dict = None, business_description: str = '') -> Dict:
-        """获取默认选题库（当LLM解析完全失败时使用）。必须输出20条
-
-        核心原则：选题必须从用户痛点出发，而不是从业务描述出发
-        """
-        import re
-
-        # 从画像数据中提取关键信息
-        portrait_data = portrait_data or {}
-
-        # 提取用户身份/角色
-        identity = portrait_data.get('identity', '') or portrait_data.get('目标客户身份', '')
-        if not identity:
-            identity_tags = portrait_data.get('identity_tags', {})
-            if isinstance(identity_tags, dict):
-                identity = identity_tags.get('user', '') or identity_tags.get('buyer', '')
-            elif isinstance(identity_tags, str):
-                identity = identity_tags
-
-        # 提取核心痛点
-        pain_point = portrait_data.get('pain_point', '') or portrait_data.get('核心痛点', '')
-        if not pain_point:
-            user_persp = portrait_data.get('user_perspective', {})
-            if isinstance(user_persp, dict):
-                pain_point = user_persp.get('problem', '')
-            elif isinstance(user_persp, str):
-                pain_point = user_persp
-        # 从 portrait_summary 提取
-        if not pain_point:
-            summary = portrait_data.get('portrait_summary', '')
-            if summary and isinstance(summary, str):
-                pain_point = summary.split('，')[0] if '，' in summary else summary.split(',')[0]
-
-        # 提取核心顾虑
-        concern = portrait_data.get('concern', '') or portrait_data.get('核心顾虑', '')
-        if not concern:
-            buyer_persp = portrait_data.get('buyer_perspective', {})
-            if isinstance(buyer_persp, dict):
-                concern = buyer_persp.get('obstacles', '') or buyer_persp.get('psychology', '')
-            elif isinstance(buyer_persp, str):
-                concern = buyer_persp
-
-        # 使用场景
-        scenario = portrait_data.get('scenario', '') or portrait_data.get('使用场景', '')
-        if not scenario:
-            user_persp = portrait_data.get('user_perspective', {})
-            if isinstance(user_persp, dict):
-                scenario = user_persp.get('current_state', '')
-
-        # 清洗字符串中的引号（防止生成无效的 title）
-        def clean(s):
-            if not isinstance(s, str):
-                return ''
-            s = s.replace('"', ' ').replace("'", ' ').strip()
-            # 去除多余空格
-            s = re.sub(r'\s+', ' ', s)
-            return s[:50]
-
-        identity = clean(identity)
-        pain_point = clean(pain_point)
-        concern = clean(concern)
-        scenario = clean(scenario)
-
-        # 如果没有任何画像信息，退化为通用模板
-        if not any([identity, pain_point, concern, scenario]):
-            core = business_description or '该业务'
-            return self._get_generic_library(core)
-
-        # 基于画像构建选题标题模板
-        # 标题结构：围绕用户身份 + 痛点场景 + 解决方案导向
-
-        # 判断是否是对商家/服务的需求（如"找XX"、"买XX"、"用XX"）
-        # 还是B端商家的营销需求
-        is_customer_topic = True  # 默认以C端用户视角
-
-        # 从 identity 判断用户身份
-        customer_role = identity if identity else '用户'
-        problem_desc = pain_point if pain_point else '有需求但不知如何选择'
-        worry_desc = concern if concern else '担心选错/被坑'
-        scene_desc = scenario if scenario else '日常'
-
-        # 提取痛点中的关键词用于生成标题
-        pain_keywords = []
-        if pain_point:
-            pain_keywords = re.findall(r'[\u4e00-\u9fa5]{2,10}', pain_point)
-            pain_keywords = [k for k in pain_keywords if len(k) >= 2][:5]
-
-        concern_keywords = []
-        if concern:
-            concern_keywords = re.findall(r'[\u4e00-\u9fa5]{2,10}', concern)
-            concern_keywords = [k for k in concern_keywords if len(k) >= 2][:5]
-
+    def _get_fallback_topics(self, count: int) -> List[Dict]:
+        """纯兜底选题（7层解析全部失败时使用）"""
         topics = []
+        for i in range(count):
+            geo_key = GEO_WEIGHT_ORDER[i % len(GEO_WEIGHT_ORDER)]
+            geo_info = GEO_MODES[geo_key]
+            type_key = list(self.TYPE_KEY_MAP.keys())[i % len(self.TYPE_KEY_MAP)]
+            type_info = self.TYPE_KEY_MAP[type_key]
+            title = self._generate_fallback_title(geo_key, '相关内容', '', '')
 
-        # ── 前置观望种草盘（12条） ──
-        # 标题原则：必须包含「身份」+ 「具体痛点场景」+ 「用户真正会搜的表达」
-        # 禁止：「XXX的正确认知」「XXX的底层逻辑」「XXX的真相」等无实质的标题格式
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'{customer_role}面对{pain_point}，到底该怎么办？',
-            'type_key': 'cause',
-            'type_name': '原因分析类',
-            'source': '原因分析系列',
-            'priority': 'P0',
-            'keywords': pain_keywords[:3],
-            'reason': f'直面{customer_role}核心困惑，认知教育，种草型',
-            'publish_timing': '周末晚间',
-            'content_direction': '种草型',
-            'content_hints': '痛点场景 + 原因拆解',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 2. 对比选型类 - 围绕痛点的不同解决方案对比
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'{pain_point}怎么办？不同方案各有什么优缺点？',
-            'type_key': 'compare',
-            'type_name': '对比选型类',
-            'source': '对比选型系列',
-            'priority': 'P0',
-            'keywords': pain_keywords[:3],
-            'reason': f'帮助{customer_role}做选择对比，种草型',
-            'publish_timing': '周末晚间',
-            'content_direction': '种草型',
-            'content_hints': '方案对比 + 优缺点分析',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 3. 原因分析类 - 深入根因
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'为什么{customer_role}总是{pain_point}？看完就知道了',
-            'type_key': 'cause',
-            'type_name': '原因分析类',
-            'source': '原因分析系列',
-            'priority': 'P1',
-            'keywords': pain_keywords[:3],
-            'reason': f'深入分析{customer_role}遇到问题的根因，种草型',
-            'publish_timing': '工作日下午',
-            'content_direction': '种草型',
-            'content_hints': '原因拆解 + 机理说明',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 4. 避坑指南类 - 常见误区
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'处理{pain_point}，这几种做法千万别用',
-            'type_key': 'pitfall',
-            'type_name': '避坑指南类',
-            'source': '避坑指南系列',
-            'priority': 'P1',
-            'keywords': pain_keywords[:3],
-            'reason': f'帮助{customer_role}避免常见错误，种草型',
-            'publish_timing': '周末晚间',
-            'content_direction': '种草型',
-            'content_hints': '反面案例 + 正确做法',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 5. 避坑指南类 - 选购误区
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'关于{pain_point}，90%的{customer_role}都踩过这些坑',
-            'type_key': 'pitfall',
-            'type_name': '避坑指南类',
-            'source': '避坑指南系列',
-            'priority': 'P0',
-            'keywords': pain_keywords[:3],
-            'reason': f'高共鸣避坑内容，易引发转发，种草型',
-            'publish_timing': '周末晚间',
-            'content_direction': '种草型',
-            'content_hints': '踩坑场景 + 避坑指南',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 6. 认知颠覆类 - 打破常见误解
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'处理{pain_point}，这么多年你可能都做错了',
-            'type_key': 'rethink',
-            'type_name': '认知颠覆类',
-            'source': '认知颠覆系列',
-            'priority': 'P2',
-            'keywords': pain_keywords[:3],
-            'reason': f'颠覆{customer_role}的固有认知，种草型',
-            'publish_timing': '周末晚间',
-            'content_direction': '种草型',
-            'content_hints': '错误认知 + 正确认知对比',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 7. 认知颠覆类
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'别再误解了！{pain_point}其实没那么复杂',
-            'type_key': 'rethink',
-            'type_name': '认知颠覆类',
-            'source': '认知颠覆系列',
-            'priority': 'P2',
-            'keywords': pain_keywords[:3],
-            'reason': f'打破偏见，建立正确认知，种草型',
-            'publish_timing': '周末晚间',
-            'content_direction': '种草型',
-            'content_hints': '打破误解 + 真相说明',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 8. 场景细分类 - 精准人群
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'{customer_role}遇到{pain_point}，不同情况怎么处理？',
-            'type_key': 'scene',
-            'type_name': '场景细分类',
-            'source': '场景细分系列',
-            'priority': 'P2',
-            'keywords': pain_keywords[:2] + concern_keywords[:2],
-            'reason': f'精准人群细分，提高代入感，种草型',
-            'publish_timing': '工作日下午',
-            'content_direction': '种草型',
-            'content_hints': '场景分类 + 针对性方案',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 9. 知识教程类 - 知识科普
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'关于{pain_point}，一篇文章讲透底层逻辑',
-            'type_key': 'tutorial',
-            'type_name': '知识教程类',
-            'source': '知识教程系列',
-            'priority': 'P1',
-            'keywords': pain_keywords[:3],
-            'reason': f'系统性知识科普，种草型',
-            'publish_timing': '工作日午间',
-            'content_direction': '种草型',
-            'content_hints': '系统性知识 + 新手友好',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 10. 知识教程类
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'{pain_point}完全指南，看完从小白变专家',
-            'type_key': 'tutorial',
-            'type_name': '知识教程类',
-            'source': '知识教程系列',
-            'priority': 'P1',
-            'keywords': pain_keywords[:3],
-            'reason': f'知识科普，种草型',
-            'publish_timing': '工作日午间',
-            'content_direction': '种草型',
-            'content_hints': '系统知识 + 实操指南',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 11. 地域精准类（如果有地域信息）
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'{pain_point}本地攻略，这几个地方最靠谱',
-            'type_key': 'region',
-            'type_name': '地域精准类',
-            'source': '地域精准系列',
-            'priority': 'P3',
-            'keywords': pain_keywords[:2],
-            'reason': f'本地流量，种草型',
-            'publish_timing': '周末晚间',
-            'content_direction': '种草型',
-            'content_hints': '本地化 + 地域特色',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 12. 价格行情类
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'{pain_point}需要花多少钱？这笔账给你算清楚了',
-            'type_key': 'price',
-            'type_name': '行情价格类',
-            'source': '行情价格系列',
-            'priority': 'P2',
-            'keywords': concern_keywords[:3],
-            'reason': f'价格透明度，种草型',
-            'publish_timing': '周末晚间',
-            'content_direction': '种草型',
-            'content_hints': '价格构成 + 性价比分析',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # ── 刚需痛点盘（5条） ──
-        # 13. 痛点解决类 - 核心痛点解决方案
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'{pain_point}，看完这篇你就知道怎么办了',
-            'type_key': 'pain_point',
-            'type_name': '痛点解决类',
-            'source': '刚需痛点盘',
-            'priority': 'P0',
-            'keywords': pain_keywords[:3],
-            'reason': f'直面{customer_role}核心痛点，转化型',
-            'publish_timing': '工作日午间',
-            'content_direction': '转化型',
-            'content_hints': '痛点场景 + 解决方案 + 引导行动',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 14. 痛点解决类
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'面对{pain_point}，最有效的解决方法是什么？',
-            'type_key': 'pain_point',
-            'type_name': '痛点解决类',
-            'source': '刚需痛点盘',
-            'priority': 'P0',
-            'keywords': pain_keywords[:3],
-            'reason': f'提供解决方案，转化型',
-            'publish_timing': '工作日下午',
-            'content_direction': '转化型',
-            'content_hints': '方案推荐 + 使用效果',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 15. 决策安心类 - 解决顾虑
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'{worry_desc}？看完你就彻底放心了',
-            'type_key': 'decision_encourage',
-            'type_name': '决策安心类',
-            'source': '刚需痛点盘',
-            'priority': 'P0',
-            'keywords': concern_keywords[:3],
-            'reason': f'打消{customer_role}付费顾虑，转化型',
-            'publish_timing': '工作日下午',
-            'content_direction': '转化型',
-            'content_hints': '顾虑解答 + 安心保障',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 16. 决策安心类
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'担心{worry_desc}？看完这篇不再纠结',
-            'type_key': 'decision_encourage',
-            'type_name': '决策安心类',
-            'source': '刚需痛点盘',
-            'priority': 'P0',
-            'keywords': concern_keywords[:3],
-            'reason': f'消除决策障碍，临门一脚，转化型',
-            'publish_timing': '工作日下午',
-            'content_direction': '转化型',
-            'content_hints': '打消顾虑 + 建立信心',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 17. 效果验证类
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'{pain_point}处理效果好吗？真实案例告诉你',
-            'type_key': 'effect_proof',
-            'type_name': '效果验证类',
-            'source': '刚需痛点盘',
-            'priority': 'P1',
-            'keywords': pain_keywords[:2] + concern_keywords[:2],
-            'reason': f'效果验证，建立信任，转化型',
-            'publish_timing': '周末晚间',
-            'content_direction': '转化型',
-            'content_hints': '前后对比 + 真实案例',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # ── 使用配套搜后种草盘（3条） ──
-        # 18. 实操技巧类
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'{pain_point}处理心得，看完少走弯路',
-            'type_key': 'skill',
-            'type_name': '实操技巧类',
-            'source': '使用配套盘',
-            'priority': 'P1',
-            'keywords': pain_keywords[:3],
-            'reason': f'实操方法，种草型',
-            'publish_timing': '工作日下午',
-            'content_direction': '种草型',
-            'content_hints': '实操经验 + 注意事项',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 19. 工具耗材类
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'处理{pain_point}，这些工具和办法少不了',
-            'type_key': 'tools',
-            'type_name': '工具耗材类',
-            'source': '使用配套盘',
-            'priority': 'P2',
-            'keywords': pain_keywords[:2],
-            'reason': f'配套工具推荐，种草型',
-            'publish_timing': '工作日下午',
-            'content_direction': '种草型',
-            'content_hints': '工具推荐 + 使用方法',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 20. 情感故事类
-        topics.append({
-            'id': str(uuid.uuid4()),
-            'title': f'作为一个{customer_role}，处理{pain_point}这些年的真实感受',
-            'type_key': 'emotional',
-            'type_name': '情感故事类',
-            'source': '使用配套盘',
-            'priority': 'P3',
-            'keywords': pain_keywords[:2],
-            'reason': f'情感共鸣，种草型',
-            'publish_timing': '周末晚间',
-            'content_direction': '种草型',
-            'content_hints': '个人故事 + 情感触动',
-            'generation_count': 0,
-            'created_at': datetime.utcnow().isoformat(),
-        })
-
-        # 清理标题中的无效占位符
-        for topic in topics:
-            title = topic['title']
-            # 清理连续空格
-            title = re.sub(r'\s+', ' ', title)
-            # 清理句末重复标点
-            title = re.sub(r'([。！？])\1+', r'\1', title)
-            # 清理可能的 "的怎么办" 句式
-            title = re.sub(r'的怎么办', '怎么办', title)
-            title = re.sub(r'怎么办怎么办', '怎么办', title)
-            # 限制标题长度
-            if len(title) > 35:
-                title = title[:34] + '…'
-            topic['title'] = title
-
-        # 如果标题中仍有无法填充的空值（如所有都是空的），使用通用版
-        empty_titles = sum(1 for t in topics if not t['title'] or len(t['title']) < 5)
-        if empty_titles > 10:
-            return self._get_generic_library(business_description or pain_point or identity or '该业务')
-
-        return {
-            'topics': topics,
-            'by_type': self._count_by_type(topics),
-            'priorities': self._count_by_priority(topics),
-        }
-
-    def _get_generic_library(self, core: str) -> Dict:
-        """通用选题库（当画像数据完全为空时使用兜底）"""
-        return {
-            'topics': [
-                # ── 前置观望种草盘（12条） ──
-                {'id': str(uuid.uuid4()), 'title': f'{core}好不好？真实用户反馈来了', 'type_key': 'compare',
-                 'type_name': '对比选型类', 'source': '对比选型系列', 'priority': 'P0',
-                 'keywords': [], 'reason': '专抓前期迷茫客户，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '真实反馈 + 客观分析',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'为什么越来越多人选择{core}？3个原因说透了', 'type_key': 'cause',
-                 'type_name': '原因分析类', 'source': '原因分析系列', 'priority': 'P1',
-                 'keywords': [], 'reason': '认知教育，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '原因拆解 + 行业趋势',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'{core}怎么选不踩坑？过来人经验分享', 'type_key': 'pitfall',
-                 'type_name': '避坑指南类', 'source': '避坑指南系列', 'priority': 'P1',
-                 'keywords': [], 'reason': '行业防骗，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '避坑场景 + 正确做法',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'选{core}前，先搞懂这几点不花冤枉钱', 'type_key': 'upstream',
-                 'type_name': '上游科普类', 'source': '上游科普系列', 'priority': 'P1',
-                 'keywords': [], 'reason': '上游原料科普，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '原料/材质科普',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'{core}的价格猫腻，这篇文章全说清了', 'type_key': 'price',
-                 'type_name': '行情价格类', 'source': '行情价格系列', 'priority': 'P2',
-                 'keywords': [], 'reason': '价格透明度，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '价格构成 + 行情分析',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'别再被误导了！{core}的真相是这样的', 'type_key': 'rethink',
-                 'type_name': '认知颠覆类', 'source': '认知颠覆系列', 'priority': 'P2',
-                 'keywords': [], 'reason': '打破认知误区，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '颠覆认知 + 正确认知',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'{core}入门指南，看完从小白变内行', 'type_key': 'tutorial',
-                 'type_name': '知识教程类', 'source': '知识教程系列', 'priority': 'P1',
-                 'keywords': [], 'reason': '知识科普，种草型',
-                 'publish_timing': '工作日午间', 'content_direction': '种草型', 'content_hints': '系统性知识 + 新手友好',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'什么样的人最适合{core}？看完就知道了', 'type_key': 'scene',
-                 'type_name': '场景细分类', 'source': '场景细分系列', 'priority': 'P2',
-                 'keywords': [], 'reason': '精准人群细分，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '人群画像 + 场景匹配',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'本地找{core}，这几个地方最靠谱', 'type_key': 'region',
-                 'type_name': '地域精准类', 'source': '地域精准系列', 'priority': 'P3',
-                 'keywords': [], 'reason': '本地流量，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '本地化 + 地域特色',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'这几种{core}千万别买，后悔都来不及', 'type_key': 'pitfall',
-                 'type_name': '避坑指南类', 'source': '避坑指南系列', 'priority': 'P0',
-                 'keywords': [], 'reason': '防骗警示，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '反面案例 + 正确选择',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'关于{core}，80%的人都搞错了这几点', 'type_key': 'rethink',
-                 'type_name': '认知颠覆类', 'source': '认知颠覆系列', 'priority': 'P2',
-                 'keywords': [], 'reason': '认知纠正，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '纠正误区 + 正确认知',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'{core}怎么判断好不好？教你三招快速鉴别', 'type_key': 'cause',
-                 'type_name': '原因分析类', 'source': '原因分析系列', 'priority': 'P1',
-                 'keywords': [], 'reason': '判断标准，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '判断标准 + 实用技巧',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-
-                # ── 刚需痛点盘（5条） ──
-                {'id': str(uuid.uuid4()), 'title': f'选择{core}前，先看完这篇少走弯路', 'type_key': 'pain_point',
-                 'type_name': '痛点解决类', 'source': '刚需痛点盘', 'priority': 'P0',
-                 'keywords': [], 'reason': '直面核心痛点，转化型',
-                 'publish_timing': '工作日午间', 'content_direction': '转化型', 'content_hints': '展示痛点场景 + 解决方案 + 引导成交',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'{core}到底靠不靠谱？看完你就明白了', 'type_key': 'decision_encourage',
-                 'type_name': '决策安心类', 'source': '刚需痛点盘', 'priority': 'P0',
-                 'keywords': [], 'reason': '打消付费顾虑，临门一脚，转化型',
-                 'publish_timing': '工作日下午', 'content_direction': '转化型', 'content_hints': '靠谱验证 + 售后保障 + 口碑案例',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'{core}效果真的好吗？真实案例告诉你', 'type_key': 'effect_proof',
-                 'type_name': '效果验证类', 'source': '刚需痛点盘', 'priority': 'P1',
-                 'keywords': [], 'reason': '效果验证，建立信任，转化型',
-                 'publish_timing': '周末晚间', 'content_direction': '转化型', 'content_hints': '前后对比 + 真实案例',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'{core}值不值？算完这笔账就知道了', 'type_key': 'pain_point',
-                 'type_name': '痛点解决类', 'source': '刚需痛点盘', 'priority': 'P1',
-                 'keywords': [], 'reason': '性价比分析，转化型',
-                 'publish_timing': '工作日下午', 'content_direction': '转化型', 'content_hints': '成本分析 + 价值对比',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'选{core}怕被坑？看完这期彻底放心了', 'type_key': 'decision_encourage',
-                 'type_name': '决策安心类', 'source': '刚需痛点盘', 'priority': 'P0',
-                 'keywords': [], 'reason': '打消顾虑，转化型',
-                 'publish_timing': '工作日下午', 'content_direction': '转化型', 'content_hints': '防坑指南 + 靠谱推荐',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-
-                # ── 使用配套搜后种草盘（3条） ──
-                {'id': str(uuid.uuid4()), 'title': f'{core}使用心得，看完少走弯路', 'type_key': 'skill',
-                 'type_name': '实操技巧类', 'source': '使用配套盘', 'priority': 'P1',
-                 'keywords': [], 'reason': '实操方法，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '实操经验 + 注意事项',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'用了{core}才发现，这些工具少不了', 'type_key': 'tools',
-                 'type_name': '工具耗材类', 'source': '使用配套盘', 'priority': 'P2',
-                 'keywords': [], 'reason': '配套工具推荐，种草型',
-                 'publish_timing': '工作日下午', 'content_direction': '种草型', 'content_hints': '工具推荐 + 使用方法',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-                {'id': str(uuid.uuid4()), 'title': f'做{core}这些年，最深的感悟是什么', 'type_key': 'emotional',
-                 'type_name': '情感故事类', 'source': '使用配套盘', 'priority': 'P3',
-                 'keywords': [], 'reason': '情感共鸣，种草型',
-                 'publish_timing': '周末晚间', 'content_direction': '种草型', 'content_hints': '个人故事 + 情感触动',
-                 'generation_count': 0, 'created_at': datetime.utcnow().isoformat()},
-            ],
-            'by_type': {
-                'compare': 1, 'cause': 2, 'pitfall': 2, 'upstream': 1,
-                'price': 1, 'rethink': 2, 'tutorial': 1, 'scene': 1,
-                'region': 1, 'pain_point': 2, 'decision_encourage': 2,
-                'effect_proof': 1, 'skill': 1, 'tools': 1, 'emotional': 1,
-            },
-            'priorities': {'P0': 4, 'P1': 8, 'P2': 6, 'P3': 2},
-        }
-
-    def _extract_valid_topics_backward(self, text: str) -> list:
-        """从后向前查找完整有效的 topic 对象（处理 LLM 返回被截断的情况）
-
-        从文本末尾开始向前扫描，找到所有完整的 { ... } 对象，
-        只要对象包含 title/标题/选题 字段就认为是有效选题。
-        """
-        topics = []
-        n = len(text)
-
-        for start in range(n - 2, -1, -1):
-            if text[start] != '{':
-                continue
-            candidate = text[start:]
-            if not candidate.strip().startswith('{'):
-                continue
-            try:
-                obj = json.loads(candidate)
-                if isinstance(obj, dict) and ('title' in obj or '标题' in obj or '选题' in obj):
-                    # 找到有效选题，插入列表头部（因为是从后向前找的）
-                    topics.insert(0, obj)
-                    # 继续向前找下一个
-            except json.JSONDecodeError:
-                continue
-
+            topics.append({
+                'id': str(uuid.uuid4()),
+                'title': self._clean_title(title),
+                'type_key': type_key,
+                'type_name': type_info['name'],
+                'priority': type_info['priority'],
+                'base': type_info['base'],
+                'content_direction': type_info['direction'],
+                'source': self._get_source_by_type(type_key),
+                'keywords': [],
+                'recommended_reason': '兜底选题',
+                'generation_count': 0,
+                'created_at': datetime.utcnow().isoformat(),
+                'scene_options': [],
+                'geo_mode': geo_key,
+                'geo_mode_name': geo_info['name'],
+                'title_rule': geo_info['title_rule'],
+                'structure_rule': geo_info['structure_rule'],
+                'weight': geo_info['weight'],
+            })
         return topics
 
     def _estimate_tokens(self, prompt: str, response: str) -> int:
-        """估算 token 消耗"""
+        """估算token消耗"""
         return int((len(prompt) / 2) + (len(response) / 2))
 
 

@@ -114,13 +114,64 @@ class PublicUserProfile(db.Model):
                            onupdate=datetime.utcnow)
 
 
+class TopicGenerationLink(db.Model):
+    """选题使用记录表（关联选题和内容版本，1:N 关系）"""
+    __tablename__ = 'topic_generation_links'
+    __table_args__ = (
+        db.Index('idx_link_user_portrait_topic', 'user_id', 'portrait_id', 'topic_id'),
+        db.UniqueConstraint('user_id', 'portrait_id', 'topic_id', name='uq_user_portrait_topic'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('public_users.id'), nullable=False)
+
+    # 关联恒星（画像ID）
+    portrait_id = db.Column(db.Integer, nullable=True)
+    # 关联行星（核心问题ID）
+    problem_id = db.Column(db.Integer, nullable=True)
+    # 选题UUID（来自 topic_library）
+    topic_id = db.Column(db.String(36), nullable=False)
+    # 选题标题快照
+    topic_title = db.Column(db.String(255))
+    # GEO模式快照
+    geo_mode = db.Column(db.String(20))
+    geo_mode_name = db.Column(db.String(50))
+
+    # 使用统计
+    usage_count = db.Column(db.Integer, default=0)
+    # 该选题对应的所有 PublicGeneration ID 列表
+    generation_ids = db.Column(db.JSON)
+
+    # 时间戳
+    first_generated_at = db.Column(db.DateTime)
+    last_generated_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = db.relationship('PublicUser', backref='topic_links')
+
+    def add_generation(self, generation_id: int):
+        """追加一个内容版本"""
+        if self.generation_ids is None:
+            self.generation_ids = []
+        if generation_id not in self.generation_ids:
+            self.generation_ids.append(generation_id)
+        if self.usage_count is None:
+            self.usage_count = 0
+        self.usage_count += 1
+        self.last_generated_at = datetime.utcnow()
+        if self.first_generated_at is None:
+            self.first_generated_at = datetime.utcnow()
+
+
 class PublicGeneration(db.Model):
-    """公开用户生成记录表"""
+    """公开用户生成记录表（内容版本表）"""
     __tablename__ = 'public_generations'
     __table_args__ = (
         db.Index('idx_generation_user_created', 'user_id', 'created_at'),
         db.Index('idx_generation_portrait', 'user_id', 'portrait_id'),
         db.Index('idx_generation_problem', 'user_id', 'problem_id'),
+        db.Index('idx_generation_link', 'user_id', 'link_id'),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -129,32 +180,43 @@ class PublicGeneration(db.Model):
     # Relationships
     user = db.relationship('PublicUser', back_populates='generations')
 
-    # 星系关联字段（新增）
-    # 关联恒星（画像ID）
+    # ── 选题关联（外键） ──
+    # 关联选题使用记录表（同一选题多次生成指向同一条 link）
+    link_id = db.Column(db.Integer, db.ForeignKey('topic_generation_links.id'), nullable=True)
+    # 同选题下的版本序号（从1开始）
+    version_number = db.Column(db.Integer, default=1)
+    # 上一版本的 generation_id（用于版本链追溯）
+    parent_version_id = db.Column(db.Integer, nullable=True)
+
+    # 星系关联字段
     portrait_id = db.Column(db.Integer, nullable=True)
-    # 关联行星（核心问题ID）
     problem_id = db.Column(db.Integer, nullable=True)
-    # 关联选题ID（来自画像专属选题库的 UUID）
     topic_id = db.Column(db.String(36), nullable=True)
 
     # 生成参数
     industry = db.Column(db.String(50))
     target_customer = db.Column(db.String(50))
-    content_type = db.Column(db.String(20), default='graphic')
+    content_type = db.Column(db.String(20), default='graphic')  # graphic / short_video / long_text
 
-    # 生成内容
-    titles = db.Column(db.JSON)  # 标题列表
-    tags = db.Column(db.JSON)  # 标签列表
-    content = db.Column(db.Text)  # 完整内容
+    # 内容实际使用的 GEO 模式
+    geo_mode_used = db.Column(db.String(50))
+    # 内容风格
+    content_style = db.Column(db.String(50))
 
-    # ── 星系增强：场景选择 ──
-    # 客户选择的具体场景组合（从 scene_options 中选取）
-    # 结构：{"scene_id": "...", "组合": "...", "标签": "...", "风格": "..."}
+    # 生成内容（JSON，完整结构）
+    titles = db.Column(db.JSON)
+    tags = db.Column(db.JSON)
+    content_data = db.Column(db.JSON)  # 完整内容，含 slides、structure 等
+
+    # ── 场景选择 ──
     selected_scenes = db.Column(db.JSON)
 
     # 消耗
     used_tokens = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship
+    link = db.relationship('TopicGenerationLink', backref='generations')
 
 
 class SavedPortrait(db.Model):
