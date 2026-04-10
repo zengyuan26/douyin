@@ -5256,12 +5256,14 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         enriched = _enrich(clean, idx, 'cg_' + side)
         all_problems.append(enriched)
 
-    # 【内容去重】基于 (identity_lower, problem_type_lower) 去重，避免相同问题重复出现
+    # 【内容去重】只有当 identity + problem_type + description 三者都相同时才去重
+    # 这样可以保留不同维度但相似的问题，避免过度去重
     def _problem_content_key(p: Dict) -> tuple:
         """生成问题的内容特征键，用于去重"""
         identity = (p.get('identity') or '').strip().lower()
         problem_type = (p.get('problem_type') or '').strip().lower()
-        return (identity, problem_type)
+        description = (p.get('description') or '').strip().lower()
+        return (identity, problem_type, description)
 
     seen_content_keys = set()
     deduped_problems = []
@@ -6301,7 +6303,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - 阶段2（方案搜索）：客户开始搜索解决方案
 - 阶段3（购买后）：客户选了方案后的担忧
 
-输出示例（阶段1问题3个、阶段2问题1个、阶段3问题1个、付费方顾虑2个）：
+输出示例（阶段1问题4个、阶段2问题2个、阶段3问题1个、付费方顾虑2个，共9个问题）：
 {
     "market_analysis": {
         "market_type": "mixed",
@@ -6338,7 +6340,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 === 示例：消费品/非本地服务（结构与字段必填项参考；问句须围绕「{product_name}」与上方业务描述）===
 业务：经营与销售「{product_name}」（对照真实业务描述，勿套用家政行业）
 
-输出示例（极高1个、高1个、中1个、购买者顾虑2个）：
+输出示例（阶段1问题4个、阶段2问题2个、阶段3问题1个、购买者顾虑3个，共10个问题）：
 {{
     "market_analysis": {{
         "market_type": "mixed",
@@ -6730,7 +6732,54 @@ buyer_concern_types：
 
     # ── 【方案一】多样性注入：扩展为 6 套策略池，每次随机选 1-2 套组合 ──
     refresh_round = params.get('refresh_round', 0)
-    if refresh_round > 0:
+
+    # 6 套差异化策略，各自侧重的角度不同
+    diversity_strategies = [
+        (
+            "【策略A·细分人群】"
+            "重点挖掘：上一轮高频人群之外的细分用户群体，如特殊职业（外卖骑手/自由摄影师/夜班护士）、"
+            "边缘年龄段（50岁+初老人群/18岁准成人）、特殊体质/健康状态、特殊地域（下沉市场/边境县城）。"
+        ),
+        (
+            "【策略B·边缘场景】"
+            "重点挖掘：非主流使用环境、极端使用条件、特殊时间节点（节后/雨季/深夜/清晨）、"
+            "特殊组合场景（同时使用竞品时、多人共用场景、临时替代方案场景）。"
+        ),
+        (
+            "【策略C·交叉痛点】"
+            "重点挖掘：同时满足 A+B 两个条件的交叉痛点，即「细分人群+边缘场景」的组合；"
+            "以及上一轮问题之间的「中间地带」——那些没有被明确覆盖到的灰色地带。"
+        ),
+        (
+            "【策略D·心理深层】"
+            "重点挖掘：表面症状背后的心理动因和决策障碍，如：对效果的怀疑、对价格的纠结、"
+            "对时间投入的顾虑、对家人意见的在意、对比价焦虑等心理层面的卡点。"
+        ),
+        (
+            "【策略E·B端采购视角】"
+            "从付费决策者（老板/采购/家属）的视角出发，挖掘他们在购买决策时真实关心的问题："
+            "不是用户用得爽不爽，而是「值不值」「安不安全」「难不难管」「竞争对手用什么」。"
+        ),
+        (
+            "【策略F·逆向思维】"
+            "主动从「用了产品之后的常见抱怨」和「买之前最担心什么」两个角度逆向生成问题；"
+            "包括售后纠纷、期望落差、使用门槛、不适合人群等常规分析容易遗漏的角度。"
+        ),
+    ]
+
+    # 第一轮也要有多样性要求，只是指导方向不同
+    if refresh_round == 0:
+        # 首次生成时，要求生成多种不同维度的问题
+        prompt += f"""
+【首次生成·多样性要求】
+请从以下多个维度生成问题，确保覆盖不同角度：
+1. 时间维度：什么场景下没时间/来不及？
+2. 能力维度：什么情况下自己做不了/做不好？
+3. 场景维度：什么特殊场合需要解决方案？
+4. 便利维度：什么情况下图方便/不想动？
+5. 人群维度：哪些细分人群有特殊需求？
+"""
+    elif refresh_round > 0:
         # 6 套差异化策略，各自侧重的角度不同
         diversity_strategies = [
             (
