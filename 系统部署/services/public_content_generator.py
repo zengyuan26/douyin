@@ -5256,6 +5256,32 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         enriched = _enrich(clean, idx, 'cg_' + side)
         all_problems.append(enriched)
 
+    # 【内容去重】基于 (identity_lower, problem_type_lower) 去重，避免相同问题重复出现
+    def _problem_content_key(p: Dict) -> tuple:
+        """生成问题的内容特征键，用于去重"""
+        identity = (p.get('identity') or '').strip().lower()
+        problem_type = (p.get('problem_type') or '').strip().lower()
+        return (identity, problem_type)
+
+    seen_content_keys = set()
+    deduped_problems = []
+    dup_count = 0
+    for p in all_problems:
+        key = _problem_content_key(p)
+        if key not in seen_content_keys:
+            seen_content_keys.add(key)
+            deduped_problems.append(p)
+        else:
+            dup_count += 1
+            logger.debug("[mine_problems] 去重掉重复问题: identity='%s', problem_type='%s'",
+                        p.get('identity', ''), p.get('problem_type', ''))
+
+    if dup_count > 0:
+        logger.info("[mine_problems] 内容去重完成：去除 %d 个重复问题，剩余 %d 个问题",
+                    dup_count, len(deduped_problems))
+
+    all_problems = deduped_problems
+
     # 获取市场分析数据
     market_analysis = data.get('market_analysis', {}) or {}
 

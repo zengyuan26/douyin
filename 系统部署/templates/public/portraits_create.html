@@ -1691,7 +1691,11 @@ var _carouselProblems = [];
 const PUBLIC_NAV_INTENT_KEY_PORTRAITS = 'publicIntent';
 
 function switchSuperTab(tabName) {
-    console.log('[switchSuperTab] 开始切换到:', tabName);
+    // 如果有活跃的用户操作 tab 覆盖，不允许切换
+    if (window._activeTabOverride) {
+        console.log('[switchSuperTab] 拒绝切换（有活跃覆盖 tab:', window._activeTabOverride, '，请求:', tabName, '）');
+        return;
+    }
 
     // 防止快速重复调用（300ms 内只能切换一次）
     var now = Date.now();
@@ -1795,12 +1799,25 @@ function handleTabAction() {
     }
 }
 
+// 全局标记：是否正在进行用户触发的操作
+window._isUserActionInProgress = false;
+
+// 全局标记：当前活跃的 tab（用于防止意外切换）
+window._activeTabOverride = null;
+
 // 点击已生成画像的问题卡片 → 跳转查看
 function goToPortraitsTabWithKey(problemKey) {
     _selectedProblemKey = problemKey;
     _carouselCurrentIndex = 0;
-    // 切换到画像 tab
-    switchSuperTab('tab-portraits');
+    window._activeTabOverride = 'tab-portraits';
+    // 直接操作 DOM 切换到画像 tab
+    document.querySelectorAll('.super-tab-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.superTab === 'tab-portraits');
+    });
+    document.querySelectorAll('.super-tab-panel').forEach(function(panel) {
+        panel.classList.toggle('active', panel.id === 'super-tab-portraits');
+    });
+    updateTabActionButton('tab-portraits');
 }
 
 // 经营范围切换：选中"本地"时显示城市输入框
@@ -2121,6 +2138,7 @@ function showBusinessDescError(message) {
 async function portraitMineAndGenerate() {
     // 标记用户已开始分析，防止 initSnapshotRestore 覆盖 tab
     _userStartedAnalysis = true;
+    window._isUserActionInProgress = true;
 
     const businessDesc = document.getElementById('business-desc').value.trim();
     const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
@@ -2195,10 +2213,16 @@ async function portraitMineAndGenerate() {
 
             // 分析完成后锁定表单区域
             lockFormPanel();
+            window._activeTabOverride = 'tab-problems';
 
-            // 切换到问题识别 tab
-            console.log('[portraitMineAndGenerate] 切换到问题识别 tab...');
-            switchSuperTab('tab-problems');
+            // 直接操作 DOM 切换到问题识别 tab
+            document.querySelectorAll('.super-tab-btn').forEach(function(btn) {
+                btn.classList.toggle('active', btn.dataset.superTab === 'tab-problems');
+            });
+            document.querySelectorAll('.super-tab-panel').forEach(function(panel) {
+                panel.classList.toggle('active', panel.id === 'super-tab-problems');
+            });
+            updateTabActionButton('tab-problems');
 
             saveSuperSnapshot();
             saveSnapshotToServer();
@@ -2573,8 +2597,6 @@ async function generatePortraitsForProblem(key, index) {
 
         if (portraits.length === 0) {
             showToast('该问题暂无画像数据', 'warning');
-            if (portraits.length === 0) {
-            showToast('该问题暂无画像数据', 'warning');
             console.log('[generatePortraitsForProblem] 无画像数据，未切换 tab');
         } else {
             _allPortraits[key] = portraits;
@@ -2582,9 +2604,14 @@ async function generatePortraitsForProblem(key, index) {
 
             renderTargetCustomerCards(key);
 
-            // 切换到画像 tab
-            console.log('[generatePortraitsForProblem] 切换到画像Tab...');
-            switchSuperTab('tab-portraits');
+            // 直接操作 DOM 切换到画像 tab（不经过防抖）
+            document.querySelectorAll('.super-tab-btn').forEach(function(btn) {
+                btn.classList.toggle('active', btn.dataset.superTab === 'tab-portraits');
+            });
+            document.querySelectorAll('.super-tab-panel').forEach(function(panel) {
+                panel.classList.toggle('active', panel.id === 'super-tab-portraits');
+            });
+            updateTabActionButton('tab-portraits');
 
             saveSuperSnapshot();
             saveSnapshotToServer();
@@ -3710,13 +3737,40 @@ async function initSnapshotRestore() {
     }
 
     // 统一切换到最终确定的 tab（只调用一次 switchSuperTab）
+    if (window._isUserActionInProgress) {
+        console.log('[initSnapshotRestore] 跳过 tab 切换（用户正在操作中）');
+        return;
+    }
+    // 如果用户已经切换过 tab（通过用户操作），跳过
+    if (window._activeTabOverride) {
+        console.log('[initSnapshotRestore] 跳过 tab 切换（已有用户操作的 tab:', window._activeTabOverride, '）');
+        return;
+    }
     if (finalTabToSwitch) {
         console.log('[initSnapshotRestore] 最终切换到:', finalTabToSwitch);
-        switchSuperTab(finalTabToSwitch);
+        // 直接操作 DOM 切换 tab
+        document.querySelectorAll('.super-tab-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.superTab === finalTabToSwitch);
+        });
+        var panelId = {
+            'tab-form': 'super-tab-form',
+            'tab-problems': 'super-tab-problems',
+            'tab-portraits': 'super-tab-portraits'
+        }[finalTabToSwitch];
+        document.querySelectorAll('.super-tab-panel').forEach(function(panel) {
+            panel.classList.toggle('active', panel.id === panelId);
+        });
+        updateTabActionButton(finalTabToSwitch);
     } else {
         // 默认切换到描述业务 tab
         console.log('[initSnapshotRestore] 默认切换到描述业务Tab');
-        switchSuperTab('tab-form');
+        document.querySelectorAll('.super-tab-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.superTab === 'tab-form');
+        });
+        document.querySelectorAll('.super-tab-panel').forEach(function(panel) {
+            panel.classList.toggle('active', panel.id === 'super-tab-form');
+        });
+        updateTabActionButton('tab-form');
     }
 }
 
