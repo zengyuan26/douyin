@@ -15,8 +15,12 @@
 """
 
 from sqlalchemy import text
+import uuid
 from models.models import db, PersonaUserProblem
 from models.public_models import SavedPortrait, PublicGeneration, PublicIndustryTopic
+
+# 导入通用场景生成器
+from services.scene_generator import scene_generator
 
 
 def get_star_geo_info(portrait_id: int, user_id: int) -> dict:
@@ -113,7 +117,7 @@ def enrich_topics_with_scene_options(topics: list) -> list:
     """
     为选题列表补充 scene_options 和 content_style 字段。
     若选题来自数据库（PublicIndustryTopic），直接从模型获取；
-    若来自 JSON 库（portrait.topic_library），智能生成默认场景选项。
+    若来自 JSON 库（portrait.topic_library），使用通用场景生成器生成。
 
     Args:
         topics: 选题列表（字典）
@@ -126,160 +130,168 @@ def enrich_topics_with_scene_options(topics: list) -> list:
         t = dict(topic)
 
         if isinstance(t.get('scene_options'), list) and len(t.get('scene_options', [])) > 0:
-            # 已有 scene_options，保持不变
-            pass
+            # 已有 scene_options，转换为新格式
+            t['scene_options'] = _normalize_scene_options(t['scene_options'])
+            t['scene_options'] = _fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+            t['content_style'] = t.get('content_style', '') or (
+                t['scene_options'][0]['style'] if t['scene_options'] else ''
+            )
         elif 'industry' in t and 'title' in t:
             # 从数据库查询 scene_options
             db_topic = PublicIndustryTopic.query.filter_by(title=t['title']).first()
             if db_topic and db_topic.scene_options:
-                t['scene_options'] = db_topic.scene_options
-                t['content_style'] = db_topic.content_style or ''
+                t['scene_options'] = _normalize_scene_options(db_topic.scene_options)
+                t['scene_options'] = _fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+                t['content_style'] = db_topic.content_style or (
+                    t['scene_options'][0]['style'] if t['scene_options'] else ''
+                )
             else:
-                # 数据库查询不到，智能生成默认场景选项
-                t['scene_options'] = _generate_default_scene_options(t)
-                t['content_style'] = t.get('content_style', '') or (t['scene_options'][0]['风格'] if t['scene_options'] else '')
+                # 数据库查询不到，使用通用场景生成器
+                t['scene_options'] = scene_generator.generate_scenes(t)
+                t['scene_options'] = _fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+                t['content_style'] = t.get('content_style', '') or (
+                    t['scene_options'][0]['style'] if t['scene_options'] else ''
+                )
         else:
-            # 其他情况，智能生成默认场景选项
-            t['scene_options'] = _generate_default_scene_options(t)
-            t['content_style'] = t.get('content_style', '') or (t['scene_options'][0]['风格'] if t['scene_options'] else '')
+            # 其他情况，使用通用场景生成器
+            t['scene_options'] = scene_generator.generate_scenes(t)
+            t['scene_options'] = _fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+            t['content_style'] = t.get('content_style', '') or (
+                t['scene_options'][0]['style'] if t['scene_options'] else ''
+            )
 
         enriched.append(t)
 
     return enriched
 
 
-def _generate_default_scene_options(topic: dict) -> list:
+def _normalize_scene_options(scene_options: list) -> list:
     """
-    为单个选题智能生成默认的场景选项。
+    将旧格式场景选项转换为新格式。
 
-    场景选项结构：[{"id": "...", "组合": "...", "标签": "...", "风格": "..."}]
+    旧格式：[{ "id": "...", "标签": "...", "组合": "...", "风格": "..." }]
+    新格式：[{ "id": "...", "pain_name": "...", "group": "...", "style": "..." }]
+    """
+    if not scene_options:
+        return []
+
+    normalized = []
+    for scene in scene_options:
+        # 如果已经是新格式，直接返回
+        if 'pain_name' in scene or 'label' in scene:
+            normalized.append(scene)
+            continue
+
+        # 转换为新格式
+        new_scene = {
+            'id': scene.get('id', f'scene_{uuid.uuid4().hex[:8]}'),
+            'pain_type': _infer_pain_type_from_style(scene.get('风格', '')),
+            'pain_name': scene.get('标签', '通用场景').replace('型', ''),
+            'pain_desc': scene.get('组合', ''),
+            'label': scene.get('标签', '通用场景'),
+            'group': scene.get('组合', ''),
+            'question': scene.get('组合', '怎么办'),
+            'style': scene.get('风格', '情绪共鸣'),
+            'priority': _infer_priority_from_style(scene.get('风格', '')),
+            'urgency': 'medium',
+            'keywords': [],
+            'audience': _extract_audience_from_label(scene.get('标签', '')),
+        }
+        normalized.append(new_scene)
+
+    # 按优先级排序
+    normalized.sort(key=lambda x: x.get('priority', 99))
+    return normalized[:5]  # 最多5个
+
+
+def _infer_pain_type_from_style(style: str) -> str:
+    """根据风格推断痛点类型"""
+    style_pain_map = {
+        '情绪共鸣': 'risk',
+        '干货科普': 'info',
+        '故事叙述': 'effect',
+        '权威背书': 'choice',
+        '犀利吐槽': 'cost',
+    }
+    return style_pain_map.get(style, 'info')
+
+
+def _infer_priority_from_style(style: str) -> int:
+    """根据风格推断优先级"""
+    style_priority_map = {
+        '情绪共鸣': 1,  # 风险担忧
+        '干货科普': 5,  # 信息恐慌
+        '故事叙述': 2,  # 效果怀疑
+        '权威背书': 4,  # 选择困难
+        '犀利吐槽': 3,  # 成本焦虑
+    }
+    return style_priority_map.get(style, 5)
+
+
+def _extract_audience_from_label(label: str) -> str:
+    """从标签中提取人群描述"""
+    if not label:
+        return '目标用户'
+    # 去掉"型"后缀
+    label = label.replace('型', '')
+    # 如果包含"-"，取前面的部分
+    if '-' in label:
+        return label.split('-')[0].strip()
+    return label
+
+
+DEFAULT_SCENE_TEMPLATES = [
+    {'pain_type': 'info',     'pain_name': '信息恐慌',       'style': '干货科普',   'label': '信息恐慌型'},
+    {'pain_type': 'cost',    'pain_name': '成本焦虑',       'style': '犀利吐槽',   'label': '成本焦虑型'},
+    {'pain_type': 'risk',    'pain_name': '风险担忧',       'style': '情绪共鸣',   'label': '风险担忧型'},
+    {'pain_type': 'effect',  'pain_name': '效果怀疑',       'style': '故事叙述',   'label': '效果怀疑型'},
+    {'pain_type': 'choice',  'pain_name': '选择困难',       'style': '权威背书',   'label': '选择困难型'},
+]
+
+
+def _fill_scene_options_to_min(scene_options: list, topic_title: str = '') -> list:
+    """
+    如果场景数量少于3个，补充默认场景到至少3个。
 
     Args:
-        topic: 选题字典
+        scene_options: 现有场景列表
+        topic_title: 选题标题（用于 group 字段）
 
     Returns:
-        场景选项列表（3-5个选项）
+        至少3个场景的列表
     """
-    import uuid as uuid_module
-    import re
+    if not scene_options:
+        scene_options = []
 
-    scene_options = []
+    # 已有的 pain_type，避免重复
+    existing_types = set(s.get('pain_type', 'info') for s in scene_options)
 
-    # 从选题中提取信息
-    title = topic.get('title', '')
-    type_key = topic.get('type_key', '')
-    type_name = topic.get('type_name', '')
-    keywords = topic.get('keywords', [])
-    content_direction = topic.get('content_direction', '')
+    # 补充默认场景
+    count = len(scene_options)
+    next_id = count
+    for tmpl in DEFAULT_SCENE_TEMPLATES:
+        if count >= 3:
+            break
+        if tmpl['pain_type'] in existing_types:
+            continue
 
-    # 从标题中提取人群和时间
-    user_patterns = [
-        r'([\u4e00-\u9fa5]{2,6}家长)', r'([\u4e00-\u9fa5]{2,6}学生)',
-        r'([\u4e00-\u9fa5]{2,6}人群)', r'([\u4e00-\u9fa5]{2,6}用户)',
-        r'([\u4e00-\u9fa5]{2,6}业主)', r'([\u4e00-\u9fa5]{2,6}老板)',
-    ]
-
-    users = []
-    for pattern in user_patterns:
-        match = re.search(pattern, title)
-        if match:
-            users.append(match.group(1))
-
-    if not users:
-        # 从 keywords 提取
-        for kw in keywords:
-            for pattern in user_patterns:
-                match = re.search(pattern, str(kw))
-                if match:
-                    users.append(match.group(1))
-                    break
-            if users:
-                break
-
-    if not users:
-        # 从 type_name 推断
-        if '学生' in type_name or '家长' in type_name:
-            users = ['高三家长', '高三学生', '复读生家长']
-        elif '业主' in type_name:
-            users = ['业主', '装修业主']
-        else:
-            users = ['目标用户', '消费者', '相关人群']
-
-    # 从标题中提取时间/情境
-    time_patterns = [
-        (r'出分[前后]?', '出分后'),
-        (r'填报[期间]?', '填报期间'),
-        (r'截止[前夕]?', '截止前夕'),
-        (r'高考', '高考季'),
-        (r'毕业', '毕业季'),
-        (r'开学', '开学季'),
-    ]
-
-    times = []
-    for pattern, result in time_patterns:
-        if re.search(pattern, title):
-            times.append(result)
-
-    if not times:
-        times = ['关键时刻', '决策前', '选择困难时']
-
-    # 基于 type_key 确定默认情绪
-    type_emotions = {
-        'compare': ('选择困难', '对比纠结'),
-        'cause': ('疑惑不解', '想找原因'),
-        'pain_point': ('焦虑担心', '急需解决'),
-        'decision_encourage': ('犹豫不决', '担心风险'),
-        'pitfall': ('怕踩坑', '担心被骗'),
-        'effect_proof': ('效果怀疑', '担心无效'),
-        'seasonal': ('时间紧迫', '时机担忧'),
-        'rethink': ('认知误区', '误解纠正'),
-        'default': ('焦虑迷茫', '信息不足'),
-    }
-
-    emotions = type_emotions.get(type_key, type_emotions['default'])
-
-    user = users[0] if users else '目标用户'
-
-    # 生成5个场景选项
-    # 场景1：情绪共鸣型
-    scene_options.append({
-        'id': f'scene_{uuid_module.uuid4().hex[:8]}',
-        '组合': f'{user} + {times[0]} + {emotions[0]}',
-        '标签': f'{user} - {emotions[0]}型',
-        '风格': '情绪共鸣',
-    })
-
-    # 场景2：干货科普型
-    scene_options.append({
-        'id': f'scene_{uuid_module.uuid4().hex[:8]}',
-        '组合': f'{users[1] if len(users) > 1 else user} + {times[1] if len(times) > 1 else times[0]} + 信息不足',
-        '标签': f'{users[1] if len(users) > 1 else user} - 理性型',
-        '风格': '干货科普',
-    })
-
-    # 场景3：犀利吐槽型
-    scene_options.append({
-        'id': f'scene_{uuid_module.uuid4().hex[:8]}',
-        '组合': f'{user} + {times[0]} + 常见误区',
-        '标签': f'{user} - 吐槽型',
-        '风格': '犀利吐槽',
-    })
-
-    # 场景4：故事叙述型
-    scene_options.append({
-        'id': f'scene_{uuid_module.uuid4().hex[:8]}',
-        '组合': f'{user} + 经历分享 + 真实案例',
-        '标签': f'{user} - 故事型',
-        '风格': '故事叙述',
-    })
-
-    # 场景5：权威背书型
-    scene_options.append({
-        'id': f'scene_{uuid_module.uuid4().hex[:8]}',
-        '组合': f'{user} + {times[0]} + 选择困难',
-        '标签': f'{user} - 决策型',
-        '风格': '权威背书',
-    })
+        scene_options.append({
+            'id': f'scene_default_{next_id}',
+            'pain_type': tmpl['pain_type'],
+            'pain_name': tmpl['pain_name'],
+            'pain_desc': '',
+            'label': tmpl['label'],
+            'group': topic_title,
+            'question': tmpl['pain_name'].replace('型', '') + '怎么办',
+            'style': tmpl['style'],
+            'priority': count + 1,
+            'urgency': 'medium',
+            'keywords': [],
+            'audience': '目标用户',
+        })
+        existing_types.add(tmpl['pain_type'])
+        next_id += 1
+        count += 1
 
     return scene_options
 
@@ -304,9 +316,13 @@ def get_scene_options_for_topic(topic_id_or_title) -> dict:
     else:
         topic = PublicIndustryTopic.query.filter_by(title=str(topic_id_or_title)).first()
 
-    if topic:
-        result['scene_options'] = topic.scene_options or []
-        result['content_style'] = topic.content_style or ''
+    if topic and topic.scene_options:
+        # 转换为新格式
+        result['scene_options'] = _normalize_scene_options(topic.scene_options)
+        result['scene_options'] = _fill_scene_options_to_min(result['scene_options'], topic.title or '')
+        result['content_style'] = topic.content_style or (
+            result['scene_options'][0]['style'] if result['scene_options'] else ''
+        )
 
     return result
 

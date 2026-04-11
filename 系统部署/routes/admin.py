@@ -750,6 +750,93 @@ def api_template_history(tid):
     } for r in rows])
 
 
+# ==================== 公开平台模板配置（内容展示配置）====================
+@admin.route('/public-template-config')
+@login_required
+@super_admin_required
+def public_template_config():
+    """公开平台模板配置页"""
+    template_type = request.args.get('type', 'keyword')
+    if template_type not in ('keyword', 'topic', 'content_display'):
+        template_type = 'keyword'
+    return render_template('admin/public_template_config.html',
+                           template_type=template_type)
+
+
+@admin.route('/api/public-template/save', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def api_public_template_save():
+    """保存/读取公开平台模板"""
+    from services.template_config_service import template_config_service
+    from models.models import ReportTemplate
+
+    if request.method == 'GET':
+        tid = request.args.get('id')
+        if tid:
+            t = ReportTemplate.query.get(int(tid))
+            if t:
+                return jsonify({
+                    'id': t.id,
+                    'template_name': t.template_name,
+                    'template_type': t.template_type,
+                    'template_category': t.template_category,
+                    'template_content': t.template_content,
+                    'version': t.version,
+                })
+        return jsonify({})
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': '无效数据'})
+
+    result = template_config_service.save_template(data, created_by=current_user.id)
+    return jsonify(result)
+
+
+@admin.route('/api/public-template/list')
+@login_required
+@super_admin_required
+def api_public_template_list():
+    """获取公开平台模板列表"""
+    from services.template_config_service import template_config_service
+
+    template_type = request.args.get('type', 'keyword')
+    templates = template_config_service.get_all_templates(template_type)
+    return jsonify({'success': True, 'data': templates})
+
+
+@admin.route('/api/section-display-config', methods=['GET', 'POST'])
+@login_required
+@super_admin_required
+def api_section_display_config():
+    """内容展示区块配置 API"""
+    from services.template_config_service import template_config_service
+
+    if request.method == 'GET':
+        content_type = request.args.get('content_type', 'graphic')
+        configs = template_config_service.get_section_display_config(content_type)
+        return jsonify({'success': True, 'data': configs})
+
+    data = request.get_json()
+    content_type = data.get('content_type', 'graphic')
+    sections = data.get('sections', [])
+    result = template_config_service.save_section_display_config(
+        content_type, sections, created_by=current_user.id
+    )
+    return jsonify(result)
+
+
+@admin.route('/api/section-display-config/all')
+@login_required
+@super_admin_required
+def api_section_display_config_all():
+    """获取所有内容类型的展示配置"""
+    from services.template_config_service import template_config_service
+    configs = template_config_service.get_all_section_display_configs()
+    return jsonify({'success': True, 'data': configs})
+
+
 # ==================== 场景管理 ====================
     log = TemplateRefreshLog(
         template_type=template_type,

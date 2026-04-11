@@ -7,6 +7,7 @@
 import json
 import datetime
 import logging
+import threading
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, current_app
 from flask_login import current_user
 from sqlalchemy import text
@@ -87,6 +88,12 @@ def content_detail_page():
     return render_template('public/content_detail.html')
 
 
+@public_bp.route('/content-versions')
+def content_versions_page():
+    """选题内容版本列表页"""
+    return render_template('public/content_versions.html')
+
+
 @public_bp.route('/portraits')
 def portraits_page():
     """客户画像管理页"""
@@ -96,7 +103,29 @@ def portraits_page():
 @public_bp.route('/portraits/create')
 def portraits_create_page():
     """生成画像独立页面（无客户画像/为你推荐）"""
-    return render_template('public/portraits_create.html')
+    import logging, os, json
+    logger = logging.getLogger('app')
+    log_path = '/Volumes/增元/项目/douyin/.cursor/debug.log'
+    try:
+        rendered = render_template('public/portraits_create.html')
+        # 验证渲染后的关键元素
+        checks = {
+            'topbar-auth': 'id="topbar-auth"' in rendered,
+            'topbar-user': 'id="topbar-user"' in rendered,
+            'portraitMineAndGenerate': 'portraitMineAndGenerate()' in rendered,
+            'handleServiceScenarioChange': 'handleServiceScenarioChange()' in rendered,
+            'loadUserAuth': 'loadUserAuth()' in rendered,
+            'topbar-auth_before_user': rendered.find('id="topbar-auth"') < rendered.find('id="topbar-user"') if 'id="topbar-auth"' in rendered and 'id="topbar-user"' in rendered else False,
+        }
+        logger.info('HYPOTHESIS_CHECK|rendered_len=%d|checks=%s', len(rendered), json.dumps(checks))
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps({'id': 'render_ok', 'rendered_len': len(rendered), 'checks': checks, 'timestamp': 0}, ensure_ascii=False) + '\n')
+        return rendered
+    except Exception as e:
+        logger.error('HYPOTHESIS_CHECK|render_failed|error=%s', str(e))
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps({'id': 'render_failed', 'error': str(e), 'timestamp': 0}, ensure_ascii=False) + '\n')
+        raise
 
 
 # =============================================================================
@@ -975,6 +1004,122 @@ def api_delete_portrait(portrait_id):
     return jsonify({'success': True, 'message': '已删除'})
 
 
+@public_bp.route('/api/portraits/<int:portrait_id>', methods=['GET'])
+def api_get_portrait_detail(portrait_id):
+    """获取单个画像详情（用于轮询状态）"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    from models.public_models import SavedPortrait
+    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': portrait.id,
+            'portrait_name': portrait.portrait_name,
+            'generation_status': portrait.generation_status or 'pending',
+            'keyword_library': portrait.keyword_library,
+            'topic_library': portrait.topic_library,
+            'business_description': portrait.business_description or '',
+            'industry': portrait.industry or '',
+            'portrait_data': portrait.portrait_data or {},
+            'session_id': portrait.session_id,
+        }
+    })
+
+
+@public_bp.route('/api/portraits/<int:portrait_id>/library/generate', methods=['POST'])
+def api_trigger_library_generate(portrait_id):
+    """触发关键词库和选题库生成"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    from models.public_models import SavedPortrait
+    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+
+    # 免费用户不支持生成
+    if not user.is_paid_user():
+        return jsonify({'success': False, 'message': '当前为免费用户，不支持此功能'}), 403
+
+    # 更新状态为生成中
+    db.session.execute(
+        text("UPDATE saved_portraits SET generation_status = 'generating' WHERE id = :id"),
+        {'id': portrait_id}
+    )
+    db.session.commit()
+
+    # 启动后台线程生成词库
+    import threading
+    plan_type = user.premium_plan or 'basic'
+    try:
+        from services.portrait_library_task_service import generate_with_semaphore
+        thread = threading.Thread(
+            target=generate_with_semaphore,
+            args=(portrait_id, user.id, plan_type),
+            daemon=True
+        )
+        thread.start()
+        logger.info("[api_trigger_library_generate] 已提交词库生成任务 portrait_id=%s", portrait_id)
+    except Exception as e:
+        logger.error("[api_trigger_library_generate] 启动词库生成任务失败: %s", e)
+
+    return jsonify({'success': True, 'message': '已启动生成'})
+
+
+@public_bp.route('/api/portraits/<int:portrait_id>/keyword-library-md', methods=['GET'])
+def api_get_keyword_library_md(portrait_id):
+    """获取关键词库 Markdown 格式"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    from models.public_models import SavedPortrait
+    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+
+    keyword_library = portrait.keyword_library
+    if not keyword_library:
+        return jsonify({'success': False, 'message': '关键词库为空'}), 404
+
+    # 生成 Markdown 格式
+    md_lines = [f"# {portrait.portrait_name or '关键词库'}"]
+    md_lines.append("")
+
+    # 类别关键词
+    if keyword_library.get('categories'):
+        for cat in keyword_library['categories']:
+            cat_name = cat.get('name', '未分类')
+            keywords = cat.get('keywords', [])
+            md_lines.append(f"## {cat_name}")
+            md_lines.append("")
+            for kw in keywords:
+                md_lines.append(f"- {kw}")
+            md_lines.append("")
+
+    # 蓝海词
+    if keyword_library.get('blue_ocean'):
+        md_lines.append("## 蓝海关键词")
+        md_lines.append("")
+        for kw in keyword_library['blue_ocean']:
+            md_lines.append(f"- {kw}")
+        md_lines.append("")
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'markdown': '\n'.join(md_lines)
+        }
+    })
+
+
 @public_bp.route('/api/portraits/<int:portrait_id>/set-default', methods=['POST'])
 def api_set_default_portrait(portrait_id):
     """设为默认画像"""
@@ -1423,6 +1568,115 @@ def api_regenerate_topics():
 
 
 # =============================================================================
+# 后台生成内容（异步）
+# =============================================================================
+def _background_generate_content(generation_id, params, result_type, content_style, app_context):
+    """后台生成内容并更新generation记录"""
+    from models.models import db
+    from services.content_generator import TopicContentGenerator
+    from services.content_quality_scorer import content_scorer
+    from services.content_quality_optimizer import content_optimizer
+
+    with app_context:
+        try:
+            gen = PublicGeneration.query.get(generation_id)
+            if not gen:
+                logger.error(f"[后台生成] generation记录不存在: {generation_id}")
+                return
+
+            user = PublicUser.query.get(gen.user_id) if gen.user_id else None
+            is_premium = user and user.is_paid_user()
+
+            # 更新选题生成次数
+            portrait_id = params.get('portrait_id')
+            topic_id = params.get('topic_id')
+            if portrait_id and topic_id:
+                try:
+                    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=gen.user_id).first()
+                    if portrait and portrait.topic_library:
+                        topics = portrait.topic_library.get('topics', [])
+                        for topic in topics:
+                            if topic.get('id') == topic_id:
+                                topic['generation_count'] = topic.get('generation_count', 0) + 1
+                                break
+                        db.session.commit()
+                except Exception as e:
+                    logger.warning(f"[后台生成] 更新选题生成次数失败: {e}")
+
+            # 实际执行内容生成
+            generator = TopicContentGenerator()
+            result = generator.generate_content(
+                topic_id=params.get('topic_id', ''),
+                topic_title=params.get('topic_title', ''),
+                topic_type=params.get('topic_type', ''),
+                topic_type_key=params.get('topic_type_key', ''),
+                business_description=params.get('business_description', ''),
+                business_range=params.get('business_range', ''),
+                business_type=params.get('business_type', ''),
+                portrait=params.get('portrait', {}),
+                is_premium=is_premium,
+                premium_plan=user.premium_plan if user else 'free',
+                content_style=content_style,
+                selected_scene=params.get('selected_scene'),
+            )
+
+            if not result.get('success'):
+                gen.content_data = {'error': result.get('error', '生成失败')}
+                db.session.commit()
+                return
+
+            content = result.get('content', {})
+            brand_name = params.get('portrait', {}).get('brand_name', '') or params.get('business_description', '')[:10]
+
+            # 质量评分与优化
+            score_result = content_scorer.score(content, brand_name)
+            quality_report = {
+                'total_score': score_result.total_score,
+                'grade': score_result.grade,
+                'grade_label': score_result.grade_label,
+                'passed': score_result.passed,
+                'optimized': False,
+                'items': content_scorer.to_dict(score_result)['items'],
+                'summary': score_result.summary,
+                'suggestions': score_result.suggestions,
+            }
+
+            if not score_result.passed:
+                optimization_result = content_optimizer.optimize(
+                    content=content,
+                    failed_items=score_result.failed_items,
+                    brand_name=brand_name,
+                    business_desc=params.get('business_description', '')
+                )
+                if optimization_result.success and optimization_result.optimized_content:
+                    content = optimization_result.optimized_content
+                quality_report['optimized'] = optimization_result.success
+                quality_report['final_score'] = optimization_result.score_after
+                quality_report['optimized_items'] = optimization_result.optimized_items
+
+            # 更新generation记录
+            gen.titles = [content.get('title', '')]
+            gen.tags = content.get('tags', [])
+            gen.content_data = content
+            gen.used_tokens = result.get('tokens_used', 0)
+            gen.geo_mode_used = content.get('geo_mode', '')
+            gen.quality_score = quality_report.get('final_score', score_result.total_score)
+
+            db.session.commit()
+            logger.info(f"[后台生成] 完成 generation_id={generation_id}")
+
+        except Exception as e:
+            logger.exception(f"[后台生成 Error] generation_id={generation_id}: %s", e)
+            try:
+                gen = PublicGeneration.query.get(generation_id)
+                if gen:
+                    gen.content_data = {'error': str(e)}
+                    db.session.commit()
+            except:
+                pass
+
+
+# =============================================================================
 # 内容生成 API（基于选题）
 # =============================================================================
 
@@ -1446,12 +1700,15 @@ def api_generate_content_from_topic():
     from models.public_models import PublicGeneration
 
     params = request.get_json() or {}
+    logger.info(f"[ContentGenerate] 请求参数: {list(params.keys())}, topic_title={params.get('topic_title', '')[:50] if params.get('topic_title') else 'None'}")
 
     # 必填字段检查
     if not params.get('topic_title'):
+        logger.warning(f"[ContentGenerate] 缺少选题标题，params keys: {list(params.keys())}")
         return jsonify({'success': False, 'message': '请选择选题'}), 400
 
     if not params.get('business_description'):
+        logger.warning(f"[ContentGenerate] 缺少业务描述，portrait: {str(params.get('portrait', {}))[:100]}")
         return jsonify({'success': False, 'message': '请描述您的业务'}), 400
 
     # 获取用户
@@ -1508,6 +1765,7 @@ def api_generate_content_from_topic():
                 topic_id=params.get('topic_id', ''),
                 topic_title=params.get('topic_title', ''),
                 topic_type=params.get('topic_type', ''),
+                topic_type_key=params.get('topic_type_key', ''),  # 选题类型键（来自选题库）
                 business_description=params.get('business_description', ''),
                 business_range=params.get('business_range', ''),
                 business_type=params.get('business_type', ''),
@@ -1520,6 +1778,37 @@ def api_generate_content_from_topic():
             result_type = 'graphic'
 
         if result.get('success'):
+            # ═══════════════════════════════════════════════════════════════
+            # 内容质量评分（首次评分，不优化）
+            # ═══════════════════════════════════════════════════════════════
+            content = result.get('content', {})
+            brand_name = params.get('portrait', {}).get('brand_name', '') or params.get('business_description', '')[:10]
+            business_desc = params.get('business_description', '')
+
+            # 首次评分
+            from services.content_quality_scorer import content_scorer
+            score_result = content_scorer.score(content, brand_name)
+            first_score = score_result.total_score
+
+            quality_report = {
+                'total_score': first_score,
+                'grade': score_result.grade,
+                'grade_label': score_result.grade_label,
+                'passed': score_result.passed,
+                'optimized': False,
+                'first_score': first_score,
+                'final_score': first_score,
+                'optimized_items': [],
+                'items': content_scorer.to_dict(score_result)['items'],
+                'summary': score_result.summary,
+                'suggestions': score_result.suggestions,
+                'failed_items': [item['name'] for item in score_result.failed_items] if hasattr(score_result, 'failed_items') else [],
+                'need_optimize': not score_result.passed,
+            }
+
+            # ═══════════════════════════════════════════════════════════════
+            # 后续逻辑保持不变...
+            # ═══════════════════════════════════════════════════════════════
             topic_id_str = params.get('topic_id', '') or None
             portrait_id_val = params.get('portrait_id')
             link = None
@@ -1570,50 +1859,53 @@ def api_generate_content_from_topic():
                     logger.warning('创建/查找 link 失败: %s', e)
 
             # ── 保存 generation 记录 ──
+            generation = PublicGeneration(
+                user_id=user.id if user else None,
+                industry=params.get('business_type', ''),
+                target_customer=params.get('portrait', {}).get('identity', ''),
+                content_type=result_type,
+                titles=[content.get('title', '')] if result.get('content') else [],
+                tags=content.get('tags', []) if result.get('content') else [],
+                content_data=result.get('content', {}),
+                used_tokens=result.get('tokens_used', 0),
+                topic_id=topic_id_str,
+                portrait_id=portrait_id_val,
+                problem_id=params.get('problem_id'),
+                selected_scenes=params.get('selected_scene'),
+                link_id=link.id if link else None,
+                version_number=version_number,
+                parent_version_id=parent_version_id,
+                geo_mode_used=content.get('geo_mode', '') if result.get('content') else '',
+                content_style=content_style,
+                quality_score=quality_report.get('final_score', 0) if result.get('content') else 0,
+            )
+            db.session.add(generation)
+            db.session.flush()
+
+            # ── 更新 link ──
+            if link:
+                link.add_generation(generation.id)
+                link.last_generated_at = datetime.datetime.utcnow()
+                if link.first_generated_at is None:
+                    link.first_generated_at = generation.created_at
+
+            # 扣减配额
             if user:
-                generation = PublicGeneration(
-                    user_id=user.id,
-                    industry=params.get('business_type', ''),
-                    target_customer=params.get('portrait', {}).get('identity', ''),
-                    content_type=result_type,
-                    titles=[result['content'].get('title', '')],
-                    tags=result['content'].get('tags', []),
-                    content_data=result['content'],  # 完整结构，含 slides
-                    used_tokens=result.get('tokens_used', 0),
-                    topic_id=topic_id_str,
-                    portrait_id=portrait_id_val,
-                    problem_id=params.get('problem_id'),
-                    selected_scenes=params.get('selected_scene'),
-                    link_id=link.id if link else None,
-                    version_number=version_number,
-                    parent_version_id=parent_version_id,
-                    geo_mode_used=result['content'].get('geo_mode', ''),
-                    content_style=content_style,
-                )
-                db.session.add(generation)
-                db.session.flush()
-
-                # ── 更新 link ──
-                if link:
-                    link.add_generation(generation.id)
-                    link.last_generated_at = datetime.datetime.utcnow()
-                    if link.first_generated_at is None:
-                        link.first_generated_at = generation.created_at
-
-                # 扣减配额
                 quota_manager.use_quota(user, result.get('tokens_used', 0))
-                db.session.commit()
+            db.session.commit()
 
-                result_generation_id = generation.id
-                result_link_id = link.id if link else None
-                result_version = version_number
+            result_generation_id = generation.id
+            result_link_id = link.id if link else None
+            result_version = version_number
 
+            # ── 直接返回结果（不阻塞） ──
             return jsonify({
                 'success': True,
-                'content': result.get('content', {}),
                 'generation_id': result_generation_id,
                 'link_id': result_link_id,
                 'version_number': result_version,
+                'quality_report': quality_report,
+                'content': content,
             })
         else:
             return jsonify({
@@ -1679,13 +1971,37 @@ def api_content_detail(generation_id):
                 'usage_count': link.usage_count or 0,
             }
 
+    # 获取内容展示区块配置
+    content_type = gen.content_type or 'graphic'
+    from services.template_config_service import template_config_service
+    section_display_config = template_config_service.get_section_display_config(content_type)
+
+    # 构建质量报告数据（如果已有评分，直接使用；否则重新评分）
+    quality_report = None
+    if gen.content_data:
+        from services.content_quality_scorer import content_scorer
+        content_data = gen.content_data
+        brand_name = ''
+        if gen.target_customer:
+            brand_name = gen.target_customer[:10]
+        score_result = content_scorer.score(content_data, brand_name)
+        quality_report = content_scorer.to_dict(score_result)
+        # 如果已有评分，使用已有评分
+        if gen.quality_score:
+            quality_report['total_score'] = gen.quality_score
+            quality_report['final_score'] = gen.quality_score
+        quality_report['optimized'] = False
+        quality_report['first_score'] = quality_report['total_score']
+        quality_report['optimized_items'] = []
+        quality_report['need_optimize'] = not score_result.passed
+
     return jsonify({
         'success': True,
         'data': {
             'generation_id': gen.id,
             'link_id': gen.link_id,
             'version_number': gen.version_number,
-            'content_type': gen.content_type or 'graphic',
+            'content_type': content_type,
             'content_style': gen.content_style or '',
             'geo_mode': gen.geo_mode_used or '',
             'industry': gen.industry or '',
@@ -1699,10 +2015,113 @@ def api_content_detail(generation_id):
             'content': (gen.content_data or {}).get('body', ''),
             'created_at': gen.created_at.strftime('%Y-%m-%d %H:%M') if gen.created_at else '',
             'used_tokens': gen.used_tokens or 0,
+            'quality_score': gen.quality_score,
+            'quality_report': quality_report,
             'link': link_info,
             'sibling_versions': sibling_versions,
+            'section_display_config': section_display_config,
         }
     })
+
+
+@public_bp.route('/api/content/<int:generation_id>/optimize', methods=['POST'])
+def api_optimize_content(generation_id):
+    """
+    优化内容质量（手动触发）
+
+    返回：优化后的内容和评分
+    """
+    from services.content_quality_optimizer import content_optimizer
+    from services.content_quality_scorer import content_scorer
+
+    user_id = session.get('public_user_id')
+    user = PublicUser.query.get(user_id) if user_id else None
+
+    gen = PublicGeneration.query.filter_by(id=generation_id).first()
+    if not gen:
+        return jsonify({'success': False, 'message': '记录不存在'}), 404
+
+    # 权限校验
+    if user and gen.user_id and gen.user_id != user.id:
+        return jsonify({'success': False, 'message': '无权访问'}), 403
+
+    # 检查是否已优化过（通过quality_score判断）
+    if gen.quality_score and gen.quality_score >= 90:
+        return jsonify({
+            'success': False,
+            'message': '该内容已优化过，分数已达标'
+        }), 400
+
+    content = gen.content_data or {}
+    if not content or not content.get('title'):
+        return jsonify({
+            'success': False,
+            'message': '内容不存在，无法优化'
+        }), 400
+
+    brand_name = content.get('brand_name', '') or gen.industry or '品牌'
+    business_desc = ''
+
+    # 获取用户业务描述
+    if gen.user_id:
+        user_obj = PublicUser.query.get(gen.user_id)
+        if user_obj:
+            business_desc = user_obj.business_description or ''
+
+    try:
+        # 重新评分获取失败项
+        score_result = content_scorer.score(content, brand_name)
+        failed_items = [item['name'] for item in score_result.failed_items] if hasattr(score_result, 'failed_items') else []
+
+        # 执行优化
+        optimization_result = content_optimizer.optimize(
+            content=content,
+            failed_items=failed_items,
+            brand_name=brand_name,
+            business_desc=business_desc
+        )
+
+        if optimization_result.success and optimization_result.optimized_content:
+            # 更新内容
+            new_content = optimization_result.optimized_content
+            gen.content_data = new_content
+            gen.titles = [new_content.get('title', '')]
+            gen.tags = new_content.get('tags', [])
+
+            # 更新评分
+            new_score = optimization_result.score_after
+            gen.quality_score = new_score
+
+            # 更新质量报告
+            new_quality_report = dict(quality_report)
+            new_quality_report['optimized'] = True
+            new_quality_report['final_score'] = new_score
+            new_quality_report['optimized_items'] = optimization_result.optimized_items
+            new_quality_report['message'] = optimization_result.message
+            gen.quality_report = new_quality_report
+
+            db.session.commit()
+
+            logger.info(f"[Optimize] 内容优化完成: generation_id={generation_id}, 优化后分数={new_score}")
+
+            return jsonify({
+                'success': True,
+                'content': new_content,
+                'quality_report': new_quality_report,
+                'message': '优化完成'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': optimization_result.message or '优化失败'
+            }), 500
+
+    except Exception as e:
+        logger.exception(f"[Optimize Error] generation_id={generation_id}: %s", e)
+        return jsonify({
+            'success': False,
+            'message': f'优化失败: {str(e)}'
+        }), 500
 
 
 @public_bp.route('/api/content/generate-multi', methods=['POST'])

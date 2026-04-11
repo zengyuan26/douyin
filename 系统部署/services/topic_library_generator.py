@@ -398,18 +398,16 @@ class TopicLibraryGenerator:
         user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        生成选题库（GEO 六模式全绑定）
+        生成选题库（简化版）
 
         核心流程：
         1. 缓存检查 → 直接返回
         2. 防抖检查（5分钟）
-        3. 调用 LLM → 生成含 geo_mode 的选题
-        4. 本地分配 GEO 模式（三盘比例 + 阶段配比）
-        5. 7层降级 JSON 解析
-        6. 兜底补全
-        7. 后处理 GEO 校验（合规性、禁令、修正）
-        8. 按 GEO 权重重排优先级
-        9. scene_options 处理
+        3. 调用 LLM → 生成选题（只返回核心字段）
+        4. 本地分配 type_key（三盘比例）
+        5. 兜底补全
+
+        注意：geo_mode 和 scene_options 在内容生成时动态确定
         """
         try:
             # ── 1. 缓存检查 ──────────────────────────────
@@ -449,9 +447,8 @@ class TopicLibraryGenerator:
             # ── 4. 获取阶段配置 ─────────────────────────
             stage = content_stage or '成长阶段'
             stage_config = self.STAGE_RATIO_MAP.get(stage, self.STAGE_RATIO_MAP['成长阶段'])
-            stage_geo_config = self.STAGE_GEO_RATIO_MAP.get(stage, self.STAGE_GEO_RATIO_MAP['成长阶段'])
-            logger.info("[TopicLibraryGenerator] 阶段: %s | 三盘: %s | GEO配比: %s",
-                        stage, stage_config['description'], {k: v for k, v in stage_geo_config.items()})
+            logger.info("[TopicLibraryGenerator] 阶段: %s | 三盘: %s",
+                        stage, stage_config['description'])
 
             # ── 5. 构建上下文 ───────────────────────────
             context = self._build_context(portrait_data, business_info, keyword_library)
@@ -478,31 +475,18 @@ class TopicLibraryGenerator:
             # ── 9. 本地分配 type_key（三盘比例） ────────
             typed_topics = self._assign_type_keys(parsed_topics, stage_config, topic_count)
 
-            # ── 10. 本地分配 GEO 模式（三盘内比例 + 阶段配比） ──
-            geo_topics = self._assign_geo_modes(typed_topics, stage_config, stage_geo_config, topic_count)
-
-            # ── 11. 兜底补全 ────────────────────────────
+            # ── 10. 兜底补全 ────────────────────────────
             filled_topics = self._fill_missing_topics(
-                geo_topics, topic_count, portrait_data, stage_config, stage_geo_config
+                typed_topics, topic_count, portrait_data, stage_config, business_info
             )
 
-            # ── 12. 后处理 GEO 校验 ───────────────────
-            validated_topics = self._validate_and_fix_geo(filled_topics, stage_geo_config)
-
-            # ── 13. 按 GEO 权重重排优先级 ─────────────────
-            prioritized_topics = self._rerank_by_geo_weight(validated_topics)
-
-            # ── 14. scene_options 处理 ───────────────────
-            enriched_topics = self._enrich_scene_options(prioritized_topics, portrait_data)
-
-            # ── 15. 组装最终结构 ───────────────────────
+            # ── 11. 组装最终结构 ───────────────────────
             result = {
-                'topics': enriched_topics,
-                'by_type': self._count_by_type(enriched_topics),
-                'by_geo': self._count_by_geo(enriched_topics),
-                'priorities': self._count_by_priority(enriched_topics),
+                'topics': filled_topics,
+                'by_type': self._count_by_type(filled_topics),
+                'priorities': self._count_by_priority(filled_topics),
                 'stage': stage,
-                'geo_ratio': {k: v for k, v in stage_geo_config.items()},
+                'base_ratio': {k: v for k, v in stage_config.items() if k != 'description'},
                 'generated_at': datetime.utcnow().isoformat(),
             }
 
@@ -768,33 +752,25 @@ class TopicLibraryGenerator:
     # ===========================================================================
 
     def _build_system_prompt(self) -> str:
-        """构建 System Prompt（含 GEO 强制要求）"""
-        geo_rules_text = '\n'.join([
-            f"{i+1}. **{geo['name']}**（{key}）："
-            f"权重={geo['weight']} | "
-            f"标题规则：{geo['title_rule']} | "
-            f"结构规则：{geo['structure_rule']} | "
-            f"禁止：{', '.join(geo['ban_phrases'][:3])}"
-            for i, (key, geo) in enumerate(GEO_MODES.items())
-        ])
+        """构建 System Prompt"""
+        return f"""你是一位抖音爆款选题策划专家。
 
-        return f"""【GEO模式强制要求】
-每个选题必须严格遵循指定的GEO模式，不得跨界。
-必须按模式生成标题、结构、开篇逻辑。
+【核心要求】
+1. 选题必须围绕用户真实搜索需求，不能是业务介绍
+2. 标题必须是用户真实搜索的问题格式
+3. 关键词必须从用户视角出发，反映用户的搜索习惯
 
-【GEO模式清单】
-{geo_rules_text}
+【绝对禁止】
+- 禁止："XX的正确认知"、"XX的底层逻辑"、"XX的真相"
+- 禁止："XX全面解析"、"XX完全指南"
+- 禁止：季节拼接（春季XX、冬季XX → 改为具体问题描述）
+- 禁止：原料/供应链（非制造业禁止出现）
+- 禁止：业务描述开头拼接（如"高考志愿填报辅导XXX"）
 
-【绝对禁令】（违反直接判定为违规模式）
-禁止：正确认知、底层逻辑、真相、全面解析、完全指南
-禁止：原料/供应链（非制造业禁止出现）
-禁止：季节拼接（春季XX、冬季XX → 改为具体问题描述）
-
-【JSON格式强制约束】
+【JSON格式约束】
 1. 所有字符串值必须使用英文双引号 "
 2. keywords 数组内的每个关键词也必须用英文双引号包裹
-3. geo_mode 必须填英文枚举：qa/define/argument/framework/list/hero
-4. 输出必须是可直接被 Python json.loads() 解析的有效 JSON"""
+3. 输出必须是可直接被 Python json.loads() 解析的有效 JSON"""
 
     def _build_llm_prompt(
         self,
@@ -803,45 +779,27 @@ class TopicLibraryGenerator:
         stage: str = '成长阶段',
     ) -> str:
         """
-        构建 User Prompt（含 GEO 六模式强制绑定指令）
+        构建 User Prompt（选题库生成）
 
-        LLM 只负责生成：title、keywords、recommended_reason、scene_options、geo_mode、structure_rule
-        其他所有字段由本地根据 type_key 和 geo_mode 映射计算
+        只生成选题核心信息，其他字段由本地计算或内容生成时动态确定：
+        - geo_mode → 内容生成时根据 type_key 映射
+        - scene_options → 内容生成时根据 title + portrait_data 动态构建
         """
-        geo_examples_text = '\n'.join([
-            f"- **{geo['name']}**（{key}）：标题示例 - {', '.join(geo['title_examples'][:2])}"
-            for key, geo in GEO_MODES.items()
-        ])
+        return f"""你是一位抖音爆款选题策划专家。
 
-        return f"""你是一位抖音爆款选题策划专家，精通GEO六模式内容结构。
+请为以下业务生成{topic_count}个选题，严格按三盘分配：
 
-请为以下业务生成{topic_count}个选题，**每个选题强制绑定1种GEO模式**，严格按三盘分配：
-
-=== 三盘GEO分配（强制比例）===
-① 前置观望种草盘（50%）：
-  - 问题-答案模式（qa）：30%，标题=用户真实问题
-  - 定义-解释模式（define）：25%，标题=什么是XX
-  - 清单体（list）：25%，标题=数字+结果
-  - 金句-论证模式（argument）：10%，标题=反常识金句
-  - 框架-工具模式（framework）：7%，标题=XX框架
-  - 英雄之旅（hero）：3%，标题=真实案例故事
-
-② 刚需痛点盘（30%）：
-  - 问题-答案模式（qa）：35%，直接给答案解决犹豫
-  - 金句-论证模式（argument）：25%，打消顾虑
-  - 框架-工具模式（framework）：25%，给出具体方案
-  - 其他：15%
-
-③ 使用配套搜后种草盘（20%）：
-  - 清单体（list）：35%，实用干货易传播
-  - 英雄之旅（hero）：30%，情感故事易转发
-  - 框架-工具模式（framework）：20%
-  - 其他：15%
+=== 三盘分配比例（强制）===
+① 前置观望种草盘（50%）：对比选型类、原因分析类、避坑指南类、行情价格类、认知颠覆类
+② 刚需痛点盘（30%）：痛点解决类、决策安心类
+③ 使用配套搜后种草盘（20%）：实操技巧类、季节营销类、节日营销类
 
 === 账号阶段：{stage} ===
-当前阶段的 GEO 配比已由系统自动调整（前置观望盘偏种草型，刚需盘偏转化型）
+起号阶段：重种草，刚需盘占比低
+成长阶段：平衡种草和转化
+成熟阶段：重转化，刚需盘占比高
 
-=== 业务信息 ===
+=== 业务信息（必须严格围绕这些信息生成选题）===
 行业：{context['行业']}
 业务：{context['业务描述']}
 客户：{context['目标客户']}
@@ -852,16 +810,15 @@ class TopicLibraryGenerator:
 画像摘要：{context['portrait_summary'] or '（无）'}
 用户视角：{context['用户视角描述'] or '（无）'}
 买单方视角：{context['买单方视角描述'] or '（无）'}
-用户当前状态：{context['用户当前状态'] or '（无）'}
 
 === 实时上下文 ===
 当前季节：{context['当前季节']}（{context['月份名称']}）
 当前节日：{context['当前节日']}
 
-=== GEO 模式标题示例 ===
-{geo_examples_text}
+=== 关键词库（选题必须围绕这些关键词）===
+{context.get('关键词库', '（无关键词库数据）')}
 
-=== 选题格式禁令 ===
+=== 选题格式禁令（严格遵守）===
 1. ❌ "XX的正确认知" → ✅ "XX怎么办？"
 2. ❌ "XX的底层逻辑" → ✅ "什么是XX？"
 3. ❌ "XX的真相" → ✅ "别再误解了！XX"
@@ -869,39 +826,30 @@ class TopicLibraryGenerator:
 5. ❌ "春季XX/冬季XX" → ✅ "高考出分前家长要做什么"
 6. ❌ "XX原料/供应链"（非制造业禁止）
 
-=== GEO 模式结构规则 ===
-- 问题-答案（qa）：首段直接给答案，开门见山
-- 定义-解释（define）：结构=定义→比喻→核心要素→案例
-- 金句-论证（argument）：结构=反常识金句→破→立→方案
-- 框架-工具（framework）：结构=框架概述→工具清单→操作步骤→自检
-- 清单体（list）：结构=数字开头→分点清单→每条说明→总结
-- 英雄之旅（hero）：结构=P困境→C冲突→S方案→R启示
+=== LLM 输出字段（只生成这4个核心字段）===
+1. **title**：选题标题（必须包含业务关键词，必须是用户真实搜索的问题）
+2. **keywords**：关键词列表（必须包含业务相关词）
+3. **recommended_reason**：推荐理由（为什么这个选题好）
+4. **type_key**：选题类型键（从以下列表选择1个）：
+   - compare：对比选型类
+   - cause：原因分析类
+   - pitfall：避坑指南类
+   - price：行情价格类
+   - rethink：认知颠覆类
+   - pain_point：痛点解决类
+   - decision_encourage：决策安心类
+   - skill：实操技巧类
+   - seasonal：季节营销类
+   - festival：节日营销类
 
-=== LLM 输出字段（只生成这6个字段）===
-1. **title**：选题标题（严格按 geo_mode 的 title_rule 生成）
-2. **keywords**：关键词列表（与该选题强关联）
-3. **recommended_reason**：推荐理由
-4. **scene_options**：场景选项（3-5个）
-5. **geo_mode**：GEO 模式英文枚举（qa/define/argument/framework/list/hero）
-6. **structure_rule**：内容结构规则（按 geo_mode 填写）
-
-=== JSON输出格式（严格JSON，不要markdown代码块）
+=== JSON输出格式（严格JSON，不要markdown代码块）===
 ```json
 [
   {{
-    "title": "选题标题（必须符合geo_mode的title_rule）",
+    "title": "选题标题（必须包含业务关键词）",
     "keywords": ["关键词1", "关键词2"],
     "recommended_reason": "推荐理由",
-    "scene_options": [
-      {{
-        "id": "scene_1",
-        "组合": "人群 + 时间/情境 + 心理状态",
-        "标签": "人群标签",
-        "风格": "情绪共鸣/干货科普/犀利吐槽/故事叙述/权威背书"
-      }}
-    ],
-    "geo_mode": "qa",
-    "structure_rule": "首段直接给答案，开门见山"
+    "type_key": "pain_point"
   }},
   ...共{topic_count}条
 ]
@@ -1233,14 +1181,19 @@ class TopicLibraryGenerator:
             return self._get_fallback_topics(20)
 
     def _normalize_llm_item(self, item: Dict) -> Dict:
-        """规范化LLM返回的单条选题"""
+        """
+        规范化LLM返回的单条选题
+
+        只保留 LLM 返回的核心字段，其他字段由本地计算：
+        - geo_mode → _assign_geo_modes 时计算
+        - scene_options → 内容生成时动态构建
+        - type_key → LLM返回或本地分配
+        """
         return {
             'title': item.get('title') or item.get('标题') or '',
             'keywords': item.get('keywords') or item.get('关键词') or [],
             'recommended_reason': item.get('recommended_reason') or item.get('推荐理由') or '',
-            'scene_options': item.get('scene_options') or item.get('场景选项') or [],
-            'geo_mode': item.get('geo_mode') or item.get('GEO模式') or '',
-            'structure_rule': item.get('structure_rule') or item.get('结构规则') or '',
+            'type_key': item.get('type_key') or item.get('type') or '',
         }
 
     def _fix_json_errors(self, json_str: str) -> str:
@@ -1377,9 +1330,12 @@ class TopicLibraryGenerator:
         topic_count: int,
         portrait_data: Dict,
         stage_config: Dict,
-        stage_geo_config: Dict,
+        business_info: Dict = None,
     ) -> List[Dict]:
-        """选题数量不足时本地补全"""
+        """选题数量不足时本地补全
+
+        注意：geo_mode 和 scene_options 在内容生成时动态确定，不在此处处理
+        """
         if len(topics) >= topic_count:
             return topics[:topic_count]
 
@@ -1389,9 +1345,17 @@ class TopicLibraryGenerator:
         identity = portrait_data.get('identity', '') or portrait_data.get('目标客户身份', '')
         pain_point = portrait_data.get('pain_point', '') or portrait_data.get('核心痛点', '')
         concern = portrait_data.get('concern', '') or portrait_data.get('核心顾虑', '')
-        existing_keys = {t.get('type_key') for t in topics if isinstance(t, dict)}
-        existing_geos = {t.get('geo_mode') for t in topics if isinstance(t, dict)}
 
+        # 从业务信息中获取业务描述
+        business_desc = ''
+        if business_info:
+            business_desc = business_info.get('business_description', '') or business_info.get('业务描述', '')
+        if not business_desc:
+            business_desc = portrait_data.get('业务描述', '') or portrait_data.get('business_description', '')
+
+        existing_keys = {t.get('type_key') for t in topics if isinstance(t, dict)}
+
+        # 兜底选题类型（按三盘比例）
         fallback_types = [
             ('cause',             '前置观望种草盘'),
             ('compare',           '前置观望种草盘'),
@@ -1415,13 +1379,10 @@ class TopicLibraryGenerator:
             if not type_info:
                 continue
 
-            # 按比例选择 GEO 模式
-            base_geo_ratios = self.BASE_GEO_RATIO.get(base, {})
-            compatible_geos = TYPE_KEY_TO_GEO.get(type_key, list(GEO_MODES.keys()))
-            chosen_geo = self._select_geo_by_ratio(base_geo_ratios, compatible_geos, stage_geo_config)
-            geo_info = GEO_MODES.get(chosen_geo, GEO_MODES[GEOMode.QA])
+            # 生成兜底标题
+            core = pain_point or identity or business_desc or '相关内容'
+            title = f'{core}怎么办？'
 
-            title = self._generate_fallback_title(chosen_geo, pain_point, identity, concern)
             topics.append({
                 'id': str(uuid.uuid4()),
                 'title': self._clean_title(title),
@@ -1435,174 +1396,10 @@ class TopicLibraryGenerator:
                 'recommended_reason': f'基于画像「{pain_point or identity}」生成',
                 'generation_count': 0,
                 'created_at': datetime.utcnow().isoformat(),
-                'scene_options': [],
-                'geo_mode': chosen_geo,
-                'geo_mode_name': geo_info['name'],
-                'title_rule': geo_info['title_rule'],
-                'structure_rule': geo_info['structure_rule'],
-                'weight': geo_info['weight'],
             })
             existing_keys.add(type_key)
 
         return topics
-
-    def _generate_fallback_title(self, geo_mode: str, pain_point: str, identity: str, concern: str) -> str:
-        """按GEO模式生成兜底标题"""
-        core = pain_point or identity or '相关内容'
-        templates = {
-            GEOMode.QA:        f'{core}怎么办？教你一招搞定',
-            GEOMode.DEFINE:    f'什么是{core}？一文讲透',
-            GEOMode.ARGUMENT:  f'别再误解了！{core}其实没那么复杂',
-            GEOMode.FRAMEWORK: f'{core}处理框架！3步搞定',
-            GEOMode.LIST:      f'{core}清单！5个要点收藏',
-            GEOMode.HERO:      f'一个真实案例看懂{core}',
-        }
-        return templates.get(geo_mode, f'{core}怎么处理？')
-
-    # ===========================================================================
-    # scene_options 处理
-    # ===========================================================================
-
-    def _enrich_scene_options(
-        self,
-        topics: List[Dict],
-        portrait_data: Dict,
-    ) -> List[Dict]:
-        """处理 scene_options（直接使用 LLM 返回，不再重复生成）"""
-        identity = portrait_data.get('identity', '') or portrait_data.get('目标客户身份', '')
-        pain_point = portrait_data.get('pain_point', '') or portrait_data.get('核心痛点', '')
-        concern = portrait_data.get('concern', '') or portrait_data.get('核心顾虑', '')
-
-        for topic in topics:
-            if not isinstance(topic, dict):
-                continue
-
-            if topic.get('scene_options') and len(topic.get('scene_options', [])) > 0:
-                for scene in topic['scene_options']:
-                    if not scene.get('id'):
-                        scene['id'] = f'scene_{uuid.uuid4().hex[:8]}'
-                if not topic.get('content_style') and topic['scene_options']:
-                    topic['content_style'] = topic['scene_options'][0].get('风格', '')
-                continue
-
-            # 兜底：补充默认场景
-            topic['scene_options'] = self._generate_default_scene_options(
-                topic=topic,
-                identity=identity,
-                pain_point=pain_point,
-                concern=concern,
-            )
-            if topic['scene_options'] and not topic.get('content_style'):
-                topic['content_style'] = topic['scene_options'][0].get('风格', '')
-
-        return topics
-
-    def _generate_default_scene_options(
-        self,
-        topic: Dict,
-        identity: str = '',
-        pain_point: str = '',
-        concern: str = '',
-    ) -> List[Dict]:
-        """生成默认场景选项（本地计算）"""
-        user_candidates = self._extract_user_candidates(identity, '')
-        if not user_candidates:
-            user_candidates = ['目标用户']
-        time_candidates = self._extract_time_candidates(pain_point, '')
-        if not time_candidates:
-            time_candidates = ['日常关注']
-        emotion_candidates = self._extract_emotion_candidates(pain_point, concern, topic.get('type_key', ''))
-        if not emotion_candidates:
-            emotion_candidates = ['焦虑迷茫']
-
-        styles = ['情绪共鸣', '干货科普', '犀利吐槽', '故事叙述', '权威背书']
-        combinations = [
-            (user_candidates[0], time_candidates[0], emotion_candidates[0] if emotion_candidates else '焦虑迷茫', styles[0]),
-            (user_candidates[0], time_candidates[0], '信息不足', styles[1]),
-            (user_candidates[0], time_candidates[-1] if len(time_candidates) > 1 else time_candidates[0], '认知误区', styles[2]),
-            (user_candidates[0], '经历回顾', pain_point or '真实经历', styles[3]),
-        ]
-
-        scene_options = []
-        for user, time_desc, emotion, style in combinations[:4]:
-            label = f'{user}'
-            for kw in ['家长', '学生', '业主', '用户', '人群']:
-                if kw in user:
-                    label = f'{user} - {style.replace("情绪共鸣","焦虑型").replace("干货科普","理性型").replace("犀利吐槽","吐槽型").replace("故事叙述","经历型").replace("权威背书","决策型")}'
-                    break
-            scene_options.append({
-                'id': f'scene_{uuid.uuid4().hex[:8]}',
-                '组合': f'{user} + {time_desc} + {emotion}',
-                '标签': label,
-                '风格': style,
-            })
-
-        return scene_options
-
-    def _extract_user_candidates(self, identity: str, business_description: str) -> List[str]:
-        candidates = []
-        patterns = [
-            r'([\u4e00-\u9fa5]{2,8}家长)', r'([\u4e00-\u9fa5]{2,8}学生)',
-            r'([\u4e00-\u9fa5]{2,6}人群)', r'([\u4e00-\u9fa5]{2,8}用户)',
-            r'([\u4e00-\u9fa5]{2,6}业主)', r'([\u4e00-\u9fa5]{2,6}老板)',
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, identity)
-            if match:
-                candidates.append(match.group(1))
-        if not candidates:
-            if '高考' in business_description or '志愿' in business_description:
-                candidates = ['高三家长', '高三学生']
-            elif '装修' in business_description:
-                candidates = ['业主', '装修业主']
-            elif '培训' in business_description or '教育' in business_description:
-                candidates = ['家长', '学生']
-            else:
-                candidates = ['用户', '消费者']
-        return candidates[:3]
-
-    def _extract_time_candidates(self, pain_point: str, business_description: str) -> List[str]:
-        candidates = []
-        patterns = [
-            (r'出分[前后]?', '出分后'), (r'填报[期间]?', '填报期间'),
-            (r'截止[前夕]?', '截止前夕'), (r'高考', '高考季'),
-            (r'毕业', '毕业季'), (r'暑假', '暑假期间'),
-            (r'年初', '年初'), (r'年底', '年底'),
-        ]
-        text = pain_point + business_description
-        for pattern, result in patterns:
-            if re.search(pattern, text):
-                candidates.append(result)
-        if not candidates:
-            candidates = ['关键时刻', '决策前', '选择困难时', '日常关注']
-        return candidates[:4]
-
-    def _extract_emotion_candidates(self, pain_point: str, concern: str, type_key: str) -> List[str]:
-        candidates = []
-        type_emotions = {
-            'compare':            ['选择困难', '对比纠结', '信息过载'],
-            'cause':             ['疑惑不解', '想找原因', '认知困惑'],
-            'pain_point':        ['焦虑担心', '急需解决', '压力山大'],
-            'decision_encourage': ['犹豫不决', '担心风险', '信任不足'],
-            'pitfall':           ['怕踩坑', '担心被骗', '疑虑重重'],
-            'effect_proof':      ['效果怀疑', '担心无效', '需要验证'],
-            'seasonal':          ['季节焦虑', '时间紧迫', '时机担忧'],
-            'default':           ['焦虑迷茫', '信息不足', '认知误区'],
-        }
-        emotions = type_emotions.get(type_key, type_emotions['default'])
-        emotion_patterns = [
-            r'(担心|怕|担忧|顾虑)', r'(焦虑|着急|急)', r'(纠结|犹豫)',
-            r'(迷茫|困惑|不解)', r'(后悔|遗憾)', r'(压力|紧张)',
-        ]
-        text = pain_point + concern
-        for pattern in emotion_patterns:
-            match = re.search(pattern, text)
-            if match:
-                candidates.append(match.group(1))
-        for em in emotions:
-            if em not in candidates:
-                candidates.append(em)
-        return candidates[:4]
 
     # ===========================================================================
     # 存储接口

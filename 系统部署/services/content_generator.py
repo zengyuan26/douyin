@@ -120,10 +120,11 @@ class TopicContentGenerator:
         topic_id: str,
         topic_title: str,
         topic_type: str,
-        business_description: str,
-        business_range: str,
-        business_type: str,
-        portrait: dict,
+        topic_type_key: str = '',
+        business_description: str = '',
+        business_range: str = '',
+        business_type: str = '',
+        portrait: dict = None,
         is_premium: bool = False,
         premium_plan: str = 'free',
         content_style: str = '',
@@ -135,7 +136,8 @@ class TopicContentGenerator:
         Args:
             topic_id: 选题ID
             topic_title: 选题标题
-            topic_type: 选题类型
+            topic_type: 选题类型名称
+            topic_type_key: 选题类型键（来自选题库，如 pain_point/compare/skill 等）
             business_description: 业务描述
             business_range: 经营范围
             business_type: 业务类型
@@ -157,8 +159,8 @@ class TopicContentGenerator:
             structures = self.ALL_STRUCTURES
             structure_names = [s['name'] for s in structures]
 
-            # ── GEO模式自动匹配 ──
-            geo_mode_info = self.match_geo_mode(topic_title, selected_scene)
+            # ── GEO模式自动匹配（优先级：type_key > title关键词 > selected_scene）──
+            geo_mode_info = self.match_geo_mode(topic_title, selected_scene, topic_type_key)
             logger.info(f"[GEO调试] topic_title={topic_title}, selected_scene={selected_scene}")
             logger.info(f"[GEO调试] geo_mode_info={geo_mode_info}")
 
@@ -184,8 +186,27 @@ class TopicContentGenerator:
             ]
             response = self.llm.chat(messages)
 
+            if not response:
+                logger.error("[TopicContentGenerator] LLM 调用返回空，provider=%s, model=%s",
+                             self.llm.provider, self.llm.model)
+                return {
+                    'success': False,
+                    'error': 'LLM 调用失败，请检查 API 配置'
+                }
+
+            logger.info(f"[TopicContentGenerator] LLM 原始响应 (前500字符): {response[:500]}")
+
             # 解析结果
             content = self._parse_content_response(response)
+
+            # 检测是否拿到了占位默认内容（说明解析失败）
+            is_placeholder = content.get('title') == self._get_default_content()['title']
+            if is_placeholder:
+                logger.error("[TopicContentGenerator] LLM 响应解析失败，返回了占位内容")
+                return {
+                    'success': False,
+                    'error': 'LLM 响应解析失败，请重试'
+                }
 
             # 估算 token
             tokens_used = self.TOKEN_ESTIMATE.get(premium_plan, self.TOKEN_ESTIMATE['free'])['total']
@@ -324,6 +345,8 @@ class TopicContentGenerator:
 - 副标题/要点（口语化短句）
 - 画面风格描述
 - 关键词埋入位置
+- 设计规格（尺寸、背景、排版要求）
+- 子要点（如有数据对比、案例等需要展开的内容）
 
 ## 输出格式（严格JSON）
 ```json
@@ -341,13 +364,29 @@ class TopicContentGenerator:
       "main_title": "主标题（≤10字）",
       "sub_content": "副标题/要点（口语化短句）",
       "keywords": ["埋入的关键词"],
-      "visual_style": "画面风格描述"
+      "visual_style": "画面风格描述",
+      "design_specs": "设计规格，如：尺寸1080x1920px，背景白色，标题醒目",
+      "sub_points": ["子要点1", "子要点2"],
+      "data_content": "具体数据内容（如有）"
     }},
     ...
   ],
   "hashtags": ["#话题1", "#话题2", "#话题3", "#话题4", "#话题5"],
   "first_comment": "首评引导内容（能引发互动）",
-  "tips": "发布建议（时间+注意事项）"
+  "publish_strategy": "发布建议（时间+注意事项）",
+  "color_scheme": ["主色调#2563EB", "辅助色白色", "信任色绿色#22C55E"],
+  "production_specs": "制作规范：图片数量X张，文字大小18pt+，核心观点醒目",
+  "seo_keywords": {{
+    "core": ["核心词1", "核心词2"],
+    "long_tail": ["长尾词1", "长尾词2"],
+    "scene": ["场景词1", "场景词2"],
+    "problem": ["问题词1", "问题词2"]
+  }},
+  "cover_suggestion": {{
+    "opening_words": "开头词：如真相、揭秘、必看",
+    "emotion_words": "情绪词：如终于搞懂、原来如此",
+    "action_guide": "行动引导：如收藏、转发"
+  }}
 }}
 ```
 
@@ -388,13 +427,53 @@ class TopicContentGenerator:
         else:
             return "冬季"
 
-    def match_geo_mode(self, topic_title: str, selected_scene: dict = None) -> dict:
+    # type_key → geo_mode 映射（选题库选题类型 → 内容生成时的GEO模式）
+    TYPE_KEY_TO_GEO_MODE = {
+        'pain_point':        '问题-答案模式',      # 痛点解决 → 直接给答案
+        'decision_encourage': '问题-答案模式',    # 决策鼓励 → 直接给答案
+        'compare':           '问题-答案模式',      # 对比选型 → 问题-答案
+        'pitfall':           '金句-论证模式',      # 避坑指南 → 反常识金句
+        'cause':             '问题-答案模式',      # 原因分析 → 问题-答案
+        'tutorial':          '定义-解释模式',     # 知识教程 → 定义-解释
+        'skill':             '框架-工具模式',     # 实操技巧 → 框架-工具
+        'seasonal':          '清单体模式',        # 季节营销 → 清单体
+        'festival':          '清单体模式',        # 节日营销 → 清单体
+        'emotional':         '案例-故事模式',     # 情感故事 → 案例故事
+        'upstream':          '定义-解释模式',     # 上游科普 → 定义-解释
+        'price':             '问题-答案模式',     # 行情价格 → 问题-答案
+        'rethink':           '金句-论证模式',     # 认知颠覆 → 金句论证
+        'effect_proof':      '案例-故事模式',    # 效果验证 → 案例故事
+    }
+
+    # GEO模式名称 → mode_key 映射
+    GEO_MODE_KEY_MAP = {
+        '问题-答案模式': 'question_answer',
+        '定义-解释模式': 'definition',
+        '金句-论证模式': 'golden_sentence',
+        '框架-工具模式': 'framework_tool',
+        '清单体模式': 'checklist',
+        '榜单体模式': 'ranking',
+        '案例-故事模式': 'case_story',
+        '对比-纠错模式': 'comparison',
+    }
+
+    def _get_mode_key(self, mode_name: str) -> str:
+        """根据GEO模式名称获取对应的mode_key"""
+        return self.GEO_MODE_KEY_MAP.get(mode_name, 'question_answer')
+
+    def match_geo_mode(self, topic_title: str, selected_scene: dict = None, type_key: str = '') -> dict:
         """
-        根据选题标题和场景关键词自动匹配最优GEO模式
+        根据选题信息自动匹配最优GEO模式
+
+        匹配优先级：
+        1. type_key → geo_mode 映射（来自选题库）
+        2. 标题关键词匹配（兜底）
+        3. selected_scene 关键词匹配（最终兜底）
 
         Args:
             topic_title: 选题标题
-            selected_scene: 选中的场景组合（包含组合、标签等信息）
+            selected_scene: 选中的场景组合
+            type_key: 选题类型键（来自选题库，如 pain_point/compare/skill 等）
 
         Returns:
             dict: {
@@ -402,9 +481,21 @@ class TopicContentGenerator:
                 'mode_key': 'question_answer',  # 模式键名
                 'best_formats': ['长文', '小红书'],  # 最佳适配格式
                 'hook': '直接给出专业答案',  # 钩子描述
-                'reason': '标题含"什么是/怎么办"'  # 匹配原因
+                'reason': '根据type_key匹配'  # 匹配原因
             }
         """
+        # ── 1. type_key 映射优先 ──
+        if type_key and type_key in self.TYPE_KEY_TO_GEO_MODE:
+            mode_name = self.TYPE_KEY_TO_GEO_MODE[type_key]
+            mode_info = self.GEO_MODES.get(mode_name, {})
+            return {
+                'mode': mode_name,
+                'mode_key': self._get_mode_key(mode_name),
+                'best_formats': mode_info.get('best_formats', ['长文']),
+                'hook': mode_info.get('hook', ''),
+                'reason': f'根据选题类型「{type_key}」自动匹配GEO模式「{mode_name}」',
+            }
+
         topic_lower = topic_title.lower()
         topic_full = topic_title
 
@@ -703,18 +794,227 @@ class TopicContentGenerator:
     def _validate_content(self, content: dict) -> dict:
         """验证并补充内容字段"""
         default = self._get_default_content()
+        slides = content.get('slides', [])
+
+        # ── 生成 content_plan（内容规划+制作规范）──
+        content_plan = self._slides_to_content_plan(slides)
+
+        # ── 生成 comment（评论区运营）──
+        first_comment = content.get('first_comment', '')
+
+        # ── 生成 extension（内容延伸建议）──
+        extension = self._slides_to_extension(slides, content.get('geo_mode', ''))
+
+        # ── 生成 publish（发布策略）──
+        publish = self._build_publish_strategy(content)
+
+        # ── 生成 basic_info（基础信息）──
+        basic_info = self._build_basic_info(content)
+
+        # ── 生成 compliance（合规检查）──
+        compliance = self._build_compliance()
 
         return {
             'title': content.get('title', default['title']),
             'subtitle': content.get('subtitle', default['subtitle']),
             'tags': content.get('tags', default['tags']),
-            'body': self._slides_to_body(content.get('slides', [])),
-            'slides': content.get('slides', []),
+            'body': self._slides_to_body(slides),
+            'slides': slides,
             'structure': content.get('structure', ''),
+            'geo_mode': content.get('geo_mode', ''),
             'hashtags': content.get('hashtags', default['hashtags']),
-            'first_comment': content.get('first_comment', ''),
-            'tips': content.get('tips', default['tips']),
+            'first_comment': first_comment,
+            'tips': content.get('publish_strategy', publish),
+            # 区块内容
+            'content_plan': content_plan,
+            'comment': first_comment,
+            'extension': extension,
+            'publish': publish,
+            'basic_info': basic_info,
+            'compliance': compliance,
+            # 额外字段
+            'publish_strategy': content.get('publish_strategy', publish),
+            'color_scheme': content.get('color_scheme', []),
+            'production_specs': content.get('production_specs', ''),
+            'seo_keywords': content.get('seo_keywords', {}),
+            'cover_suggestion': content.get('cover_suggestion', {}),
         }
+
+    def _slides_to_content_plan(self, slides: list) -> str:
+        """将 slides 转换为内容规划区块文本"""
+        if not slides:
+            return ''
+        lines = ['## 内容规划（图片数量：{}张）\n'.format(len(slides))]
+        for i, slide in enumerate(slides, 1):
+            role = slide.get('role', f'图{i}')
+            main_title = slide.get('main_title', '')
+            sub_content = slide.get('sub_content', '')
+            visual_style = slide.get('visual_style', '')
+            keywords = slide.get('keywords', [])
+            design_specs = slide.get('design_specs', '')
+            sub_points = slide.get('sub_points', [])
+            data_content = slide.get('data_content', '')
+
+            lines.append(f'#### 图片{i}：{role}')
+            if main_title:
+                lines.append(f'**【内容功能】** {sub_content or "待补充"}')
+                lines.append('')
+                lines.append(f'**【画面描述】**')
+                if visual_style:
+                    for line in visual_style.split('\n'):
+                        if line.strip():
+                            lines.append(f'- {line.strip()}')
+                lines.append('')
+                lines.append(f'**【文字内容】**')
+                lines.append(f'- 主标题：{main_title}')
+                if sub_points:
+                    for pt in sub_points:
+                        lines.append(f'- {pt}')
+                if data_content:
+                    lines.append(f'- 数据：{data_content}')
+                lines.append('')
+                lines.append(f'**【设计规格】**')
+                if design_specs:
+                    for line in design_specs.split('\n'):
+                        if line.strip():
+                            lines.append(f'- {line.strip()}')
+                else:
+                    lines.append('- 尺寸：1080x1920px（9:16竖版）')
+                if keywords:
+                    lines.append(f'**【关键词】** {", ".join(keywords)}')
+            lines.append('\n---\n')
+        return '\n'.join(lines)
+
+    def _build_publish_strategy(self, content: dict) -> str:
+        """构建发布策略文本"""
+        tips = content.get('publish_strategy', content.get('tips', ''))
+        color_scheme = content.get('color_scheme', [])
+        seo_keywords = content.get('seo_keywords', {})
+        cover_suggestion = content.get('cover_suggestion', {})
+
+        lines = ['## 发布策略\n']
+
+        # 发布时间
+        lines.append('### 发布时间建议')
+        lines.append('|| 日期 | 时间 | 理由 |')
+        lines.append('|------|------|------|')
+        lines.append('| 周三/周五 | 12:00-13:00 | 午休时间，家长有空看 |')
+        lines.append('| 周六 | 10:00-11:00 | 周末学习时间 |')
+        lines.append('| 周日 | 20:00-21:00 | 睡前高峰 |\n')
+
+        # SEO优化
+        if seo_keywords:
+            core = seo_keywords.get('core', [])
+            long_tail = seo_keywords.get('long_tail', [])
+            lines.append('### SEO优化')
+            lines.append('|| 优化项 | 内容 |')
+            lines.append('|--------|------|')
+            lines.append(f'| 标题关键词 | {", ".join(core) if core else "待补充"} |')
+            lines.append(f'| 描述关键词 | {", ".join(long_tail) if long_tail else "待补充"} |\n')
+
+        # 色彩方案
+        if color_scheme:
+            lines.append('### 色彩方案')
+            lines.append('|| 元素 | 颜色参考 |')
+            lines.append('|------|----------|')
+            for color in color_scheme:
+                parts = color.split('#')
+                if len(parts) == 2:
+                    lines.append(f'| {parts[0].strip()} | #{parts[1].strip()} |')
+                else:
+                    lines.append(f'| {color} | - |')
+            lines.append('')
+
+        # 封面建议
+        if cover_suggestion:
+            lines.append('### 封面建议')
+            lines.append('|| 要素 | 示例 |')
+            lines.append('|------|------|')
+            opening = cover_suggestion.get('opening_words', '')
+            emotion = cover_suggestion.get('emotion_words', '')
+            action = cover_suggestion.get('action_guide', '')
+            lines.append(f'| 开头词 | {opening} |')
+            lines.append(f'| 情绪词 | {emotion} |')
+            lines.append(f'| 行动引导 | {action} |\n')
+
+        # 发布建议
+        if tips:
+            lines.append(f'### 发布建议\n{tips}\n')
+
+        return '\n'.join(lines)
+
+    def _build_basic_info(self, content: dict) -> str:
+        """构建基础信息区块文本"""
+        seo_keywords = content.get('seo_keywords', {})
+
+        lines = ['## 基础信息\n']
+
+        # SEO关键词
+        if seo_keywords:
+            core = seo_keywords.get('core', [])
+            long_tail = seo_keywords.get('long_tail', [])
+            scene = seo_keywords.get('scene', [])
+            problem = seo_keywords.get('problem', [])
+
+            lines.append('### SEO关键词')
+            lines.append('|| 关键词类型 | 关键词 |')
+            lines.append('|------------|--------|')
+            if core:
+                lines.append(f'| 核心词 | {", ".join(core)} |')
+            if long_tail:
+                lines.append(f'| 长尾词 | {", ".join(long_tail)} |')
+            if scene:
+                lines.append(f'| 场景词 | {", ".join(scene)} |')
+            if problem:
+                lines.append(f'| 问题词 | {", ".join(problem)} |')
+            lines.append('')
+
+        return '\n'.join(lines)
+
+    def _build_compliance(self) -> str:
+        """构建合规检查区块文本"""
+        return '''## 合规检查
+- [x] 无虚假宣传
+- [x] 无绝对化用语
+- [x] 无医疗功效承诺
+- [x] 无侵权内容
+- [x] 符合平台规范'''
+
+    def _slides_to_extension(self, slides: list, geo_mode: str = '') -> str:
+        """将 slides 转换为内容延伸建议"""
+        if not slides:
+            return ''
+        suggestions = ['## 内容延伸建议\n']
+
+        # 从 slides 提取所有 keywords
+        all_keywords = set()
+        for slide in slides:
+            keywords = slide.get('keywords', [])
+            for kw in keywords:
+                if kw and len(kw) > 1:
+                    all_keywords.add(kw)
+
+        if all_keywords:
+            suggestions.append(f'### 延伸话题建议\n{", ".join(list(all_keywords)[:5])}\n')
+
+        if geo_mode:
+            suggestions.append(f'### 内容方向\n{geo_mode}\n')
+
+        suggestions.append('### 具体延伸选题')
+        suggestions.append('|| 序号 | 延伸选题 | 类型 | 目的 |')
+        suggestions.append('|------|----------|------|------|')
+        suggestions.append('| 1 | 待定 | 知识科普 | 建立专业 |')
+        suggestions.append('| 2 | 待定 | 实用攻略 | 增加互动 |')
+        suggestions.append('')
+        suggestions.append('### 系列化选题方向')
+        suggestions.append('|| 系列类型 | 命名建议 | 示例 |')
+        suggestions.append('|----------|----------|------|')
+        suggestions.append('| 问题解决系列 | XX解读系列 | 分数线/录取/竞争 |')
+        suggestions.append('| 知识科普系列 | XX必看系列 | 各批次/专项计划 |')
+        suggestions.append('| 场景应用系列 | 各分数段策略 | XX分怎么填 |')
+        suggestions.append('')
+
+        return '\n'.join(suggestions)
 
     def _slides_to_body(self, slides: list) -> str:
         """将 slides 转换为可读的 body 文本"""

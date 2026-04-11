@@ -42,6 +42,14 @@
                         <span class="template-nav-desc">10大选题来源生成</span>
                     </div>
                 </a>
+                <a href="{{ url_for('admin.public_template_config', type='content_display') }}"
+                   class="template-nav-item {% if template_type == 'content_display' %}active{% endif %}">
+                    <div class="template-nav-icon"><i class="bi bi-layout-sidebar"></i></div>
+                    <div class="template-nav-text">
+                        <span class="template-nav-title">内容展示配置</span>
+                        <span class="template-nav-desc">图文/短视频/长文区块可见性</span>
+                    </div>
+                </a>
             </div>
         </div>
     </div>
@@ -57,6 +65,7 @@
     </div>
 
     <!-- 主内容区 -->
+    {% if template_type != 'content_display' %}
     <div class="row">
         <!-- 左侧：模板列表 + 操作 -->
         <div class="col-lg-4 mb-3">
@@ -749,6 +758,7 @@ function showToast(message, type) {
     setTimeout(() => container.remove(), 3000);
 }
 </script>
+{% endif %}
 
 <style>
 .template-item {
@@ -785,4 +795,142 @@ function showToast(message, type) {
     white-space: nowrap;
 }
 </style>
+{% if template_type == 'content_display' %}
+{# 内容展示配置页面 #}
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="section-card">
+            <div class="section-header d-flex justify-content-between align-items-center">
+                <h6 class="section-title mb-0">内容展示区块配置</h6>
+                <div>
+                    <select class="form-select form-select-sm d-inline-block" id="contentTypeSelect" style="width: 140px;" onchange="switchContentType()">
+                        <option value="graphic">图文内容</option>
+                        <option value="short_video">短视频内容</option>
+                        <option value="long_text">长文内容</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm ms-2" id="btnSaveSectionConfig" onclick="saveSectionConfig()">
+                        <i class="bi bi-check-lg me-1"></i>保存配置
+                    </button>
+                </div>
+            </div>
+            <div class="section-body p-3">
+                <div class="alert alert-secondary py-2 mb-3" style="font-size: 13px;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>说明：</strong>
+                    控制内容详情页各区块对客户的可见性和可复制性。
+                    核心区域默认展开，非核心区域默认折叠。
+                    仅可见区块会展示给客户，不可见区块仅管理员可见。
+                </div>
+                <div id="sectionConfigList">
+                    <div class="text-center text-muted py-4">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+var _currentContentType = 'graphic';
+var _sectionConfigs = {};
+
+async function loadAllConfigs() {
+    var resp = await fetch('/admin/api/section-display-config/all');
+    var data = await resp.json();
+    if (data.success) _sectionConfigs = data.data;
+    switchContentType();
+}
+
+function switchContentType() {
+    _currentContentType = document.getElementById('contentTypeSelect').value;
+    renderSectionConfig();
+}
+
+function renderSectionConfig() {
+    var list = document.getElementById('sectionConfigList');
+    var configs = _sectionConfigs[_currentContentType] || [];
+
+    if (configs.length === 0) {
+        list.innerHTML = '<div class="text-center text-muted py-4">暂无配置，使用默认配置</div>';
+        return;
+    }
+
+    var html = '<table class="table table-sm table-hover align-middle" style="font-size: 13px;">';
+    html += '<thead><tr class="table-light">' +
+        '<th style="width:30px;">#</th>' +
+        '<th>区块标识</th>' +
+        '<th>区块名称</th>' +
+        '<th>客户显示名</th>' +
+        '<th class="text-center" style="width:90px;">对客户可见</th>' +
+        '<th class="text-center" style="width:80px;">可复制</th>' +
+        '<th class="text-center" style="width:80px;">核心区域</th>' +
+        '</tr></thead><tbody>';
+
+    configs.forEach(function(cfg, idx) {
+        var vid = 'visible_' + idx;
+        var cid = 'copyable_' + idx;
+        var iid = 'core_' + idx;
+
+        html += '<tr>' +
+            '<td class="text-muted">' + (idx + 1) + '</td>' +
+            '<td><code>' + escHtml(cfg.section_key) + '</code></td>' +
+            '<td>' + escHtml(cfg.section_label) + '</td>' +
+            '<td><input type="text" class="form-control form-control-sm" id="client_' + idx + '" value="' + escHtml(cfg.client_label || cfg.section_label) + '"></td>' +
+            '<td class="text-center"><input type="checkbox" class="form-check-input" id="' + vid + '" ' + (cfg.visible_to_client ? 'checked' : '') + ' onchange="markDirty()"></td>' +
+            '<td class="text-center"><input type="checkbox" class="form-check-input" id="' + cid + '" ' + (cfg.copyable ? 'checked' : '') + ' onchange="markDirty()"></td>' +
+            '<td class="text-center"><input type="checkbox" class="form-check-input" id="' + iid + '" ' + (cfg.is_core_section ? 'checked' : '') + ' onchange="markDirty()"></td>' +
+            '</tr>';
+    });
+    html += '</tbody></table>';
+    list.innerHTML = html;
+}
+
+function markDirty() {
+    var btn = document.getElementById('btnSaveSectionConfig');
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-warning');
+}
+
+function escHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function saveSectionConfig() {
+    var configs = _sectionConfigs[_currentContentType] || [];
+    var rows = document.querySelectorAll('#sectionConfigList tbody tr');
+    rows.forEach(function(row, idx) {
+        var clientInput = document.getElementById('client_' + idx);
+        var vid = document.getElementById('visible_' + idx);
+        var cid = document.getElementById('copyable_' + idx);
+        var iid = document.getElementById('core_' + idx);
+        if (configs[idx]) {
+            configs[idx].client_label = clientInput ? clientInput.value : configs[idx].client_label;
+            configs[idx].visible_to_client = vid ? vid.checked : configs[idx].visible_to_client;
+            configs[idx].copyable = cid ? cid.checked : configs[idx].copyable;
+            configs[idx].is_core_section = iid ? iid.checked : configs[idx].is_core_section;
+        }
+    });
+
+    var resp = await fetch('/admin/api/section-display-config', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({content_type: _currentContentType, sections: configs})
+    });
+    var data = await resp.json();
+    var btn = document.getElementById('btnSaveSectionConfig');
+    if (data.success) {
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-success');
+        setTimeout(function() {
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
+        }, 1500);
+        _showToast('保存成功', 'success');
+    } else {
+        _showToast(data.message || '保存失败', 'error');
+    }
+}
+
+loadAllConfigs();
+</script>
+{% endif %}
 {% endblock %}

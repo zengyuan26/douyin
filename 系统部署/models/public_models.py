@@ -211,6 +211,9 @@ class PublicGeneration(db.Model):
     # ── 场景选择 ──
     selected_scenes = db.Column(db.JSON)
 
+    # ── 质量评分 ──
+    quality_score = db.Column(db.Integer, nullable=True)  # GEO质量评分 0-100
+
     # 消耗
     used_tokens = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -575,3 +578,36 @@ class TemplateVariable(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ContentSectionDisplayConfig(db.Model):
+    """内容展示区块配置表 - 控制内容详情页各区块的可见性和可复制性"""
+    __tablename__ = 'content_section_display_config'
+    __table_args__ = (
+        db.Index('idx_display_type_section', 'content_type', 'section_key'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    # 内容类型：graphic(图文) / short_video(短视频) / long_text(长文)
+    content_type = db.Column(db.String(50), nullable=False)
+    # 区块标识：如 title / content_plan / comment / tags / extension / publish
+    section_key = db.Column(db.String(50), nullable=False)
+    # 区块显示名称
+    section_label = db.Column(db.String(200), nullable=False)
+    # 对客户是否可见
+    visible_to_client = db.Column(db.Boolean, default=True)
+    # 是否可复制
+    copyable = db.Column(db.Boolean, default=True)
+    # 客户看到的名称（可自定义）
+    client_label = db.Column(db.String(200))
+    # 排序顺序
+    sort_order = db.Column(db.Integer, default=0)
+    # 是否为客户端核心区域（主要展示区）
+    is_core_section = db.Column(db.Boolean, default=False)
+    # 区块描述/备注
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<ContentSectionDisplayConfig {self.content_type}:{self.section_key}>'

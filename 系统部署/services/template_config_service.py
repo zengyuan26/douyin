@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Any
 from models.public_models import (
     TemplateVersionHistory,
     TemplateVariable,
+    ContentSectionDisplayConfig,
     db
 )
 from models.models import ReportTemplate
@@ -582,6 +583,151 @@ class TemplateConfigService:
             12: '双十二、圣诞节、元旦预热、年终总结',
         }
         return mapping.get(month, '')
+
+    # =========================================================================
+    # 四、内容展示区块配置
+    # =========================================================================
+
+    @classmethod
+    def get_section_display_config(cls, content_type: str) -> List[Dict]:
+        """
+        获取指定内容类型的展示区块配置（按 sort_order 排序）
+
+        Args:
+            content_type: graphic(图文) / short_video(短视频) / long_text(长文)
+
+        Returns:
+            区块配置列表
+        """
+        configs = ContentSectionDisplayConfig.query.filter_by(
+            content_type=content_type
+        ).order_by(ContentSectionDisplayConfig.sort_order).all()
+
+        if not configs:
+            # 返回默认配置
+            return cls._get_default_section_config(content_type)
+
+        return [cls._section_to_dict(c) for c in configs]
+
+    @classmethod
+    def _get_default_section_config(cls, content_type: str) -> List[Dict]:
+        """获取指定内容类型的默认展示配置"""
+        defaults = {
+            'graphic': [
+                {'section_key': 'title', 'section_label': '标题设计', 'client_label': '一、标题', 'visible_to_client': True, 'copyable': True, 'sort_order': 1, 'is_core_section': True},
+                {'section_key': 'content_plan', 'section_label': '内容规划', 'client_label': '二、内容规划+制作规范', 'visible_to_client': True, 'copyable': True, 'sort_order': 2, 'is_core_section': True},
+                {'section_key': 'comment', 'section_label': '评论区运营', 'client_label': '三、评论区运营', 'visible_to_client': True, 'copyable': True, 'sort_order': 3, 'is_core_section': True},
+                {'section_key': 'tags', 'section_label': '底部标签', 'client_label': '四、底部标签', 'visible_to_client': True, 'copyable': True, 'sort_order': 4, 'is_core_section': True},
+                {'section_key': 'extension', 'section_label': '内容延伸建议', 'client_label': '五、内容延伸建议', 'visible_to_client': True, 'copyable': False, 'sort_order': 5, 'is_core_section': False},
+                {'section_key': 'publish', 'section_label': '发布策略', 'client_label': '六、发布策略', 'visible_to_client': True, 'copyable': False, 'sort_order': 6, 'is_core_section': False},
+                {'section_key': 'basic_info', 'section_label': '基本信息', 'client_label': '基本信息', 'visible_to_client': False, 'copyable': False, 'sort_order': 7, 'is_core_section': False},
+                {'section_key': 'compliance', 'section_label': '合规检查', 'client_label': '合规检查', 'visible_to_client': False, 'copyable': False, 'sort_order': 8, 'is_core_section': False},
+            ],
+            'short_video': [
+                {'section_key': 'title', 'section_label': '标题', 'client_label': '一、标题', 'visible_to_client': True, 'copyable': True, 'sort_order': 1, 'is_core_section': True},
+                {'section_key': 'script', 'section_label': '脚本内容', 'client_label': '二、脚本内容', 'visible_to_client': True, 'copyable': True, 'sort_order': 2, 'is_core_section': True},
+                {'section_key': 'comment', 'section_label': '评论区运营', 'client_label': '三、评论区运营', 'visible_to_client': True, 'copyable': True, 'sort_order': 3, 'is_core_section': True},
+                {'section_key': 'tags', 'section_label': '话题标签', 'client_label': '四、话题标签', 'visible_to_client': True, 'copyable': True, 'sort_order': 4, 'is_core_section': True},
+                {'section_key': 'shooting', 'section_label': '拍摄建议', 'client_label': '五、拍摄建议', 'visible_to_client': True, 'copyable': True, 'sort_order': 5, 'is_core_section': False},
+                {'section_key': 'publish', 'section_label': '发布策略', 'client_label': '六、发布策略', 'visible_to_client': True, 'copyable': False, 'sort_order': 6, 'is_core_section': False},
+            ],
+            'long_text': [
+                {'section_key': 'title', 'section_label': '标题', 'client_label': '一、标题', 'visible_to_client': True, 'copyable': True, 'sort_order': 1, 'is_core_section': True},
+                {'section_key': 'content', 'section_label': '正文内容', 'client_label': '二、正文内容', 'visible_to_client': True, 'copyable': True, 'sort_order': 2, 'is_core_section': True},
+                {'section_key': 'comment', 'section_label': '评论区运营', 'client_label': '三、评论区运营', 'visible_to_client': True, 'copyable': True, 'sort_order': 3, 'is_core_section': True},
+                {'section_key': 'tags', 'section_label': '标签', 'client_label': '四、标签', 'visible_to_client': True, 'copyable': True, 'sort_order': 4, 'is_core_section': True},
+                {'section_key': 'publish', 'section_label': '发布策略', 'client_label': '五、发布策略', 'visible_to_client': True, 'copyable': False, 'sort_order': 5, 'is_core_section': False},
+            ],
+        }
+        return defaults.get(content_type, defaults['graphic'])
+
+    @classmethod
+    def _section_to_dict(cls, cfg: 'ContentSectionDisplayConfig') -> Dict:
+        """模型转字典"""
+        return {
+            'id': cfg.id,
+            'content_type': cfg.content_type,
+            'section_key': cfg.section_key,
+            'section_label': cfg.section_label,
+            'visible_to_client': cfg.visible_to_client,
+            'copyable': cfg.copyable,
+            'client_label': cfg.client_label or cfg.section_label,
+            'sort_order': cfg.sort_order,
+            'is_core_section': cfg.is_core_section,
+            'description': cfg.description,
+        }
+
+    @classmethod
+    def save_section_display_config(
+        cls,
+        content_type: str,
+        sections: List[Dict],
+        created_by: int = None
+    ) -> Dict:
+        """
+        保存内容展示区块配置（全量覆盖）
+
+        Args:
+            content_type: 内容类型
+            sections: 区块配置列表
+            created_by: 创建者ID
+
+        Returns:
+            保存结果
+        """
+        try:
+            # 删除旧配置
+            ContentSectionDisplayConfig.query.filter_by(
+                content_type=content_type
+            ).delete()
+
+            # 插入新配置
+            for idx, sec in enumerate(sections):
+                cfg = ContentSectionDisplayConfig(
+                    content_type=content_type,
+                    section_key=sec.get('section_key', ''),
+                    section_label=sec.get('section_label', ''),
+                    visible_to_client=sec.get('visible_to_client', True),
+                    copyable=sec.get('copyable', True),
+                    client_label=sec.get('client_label'),
+                    sort_order=sec.get('sort_order', idx),
+                    is_core_section=sec.get('is_core_section', False),
+                    description=sec.get('description'),
+                    created_by=created_by,
+                )
+                db.session.add(cfg)
+
+            db.session.commit()
+            return {'success': True, 'message': '配置保存成功'}
+
+        except Exception as e:
+            db.session.rollback()
+            return {'success': False, 'message': f'保存失败: {str(e)}'}
+
+    @classmethod
+    def get_all_section_display_configs(cls) -> Dict[str, List[Dict]]:
+        """
+        获取所有内容类型的展示配置
+
+        Returns:
+            { 'graphic': [...], 'short_video': [...], 'long_text': [...] }
+        """
+        all_configs = ContentSectionDisplayConfig.query.order_by(
+            ContentSectionDisplayConfig.content_type,
+            ContentSectionDisplayConfig.sort_order
+        ).all()
+
+        result = {'graphic': [], 'short_video': [], 'long_text': []}
+        for cfg in all_configs:
+            if cfg.content_type in result:
+                result[cfg.content_type].append(cls._section_to_dict(cfg))
+
+        # 填充未配置的默认值
+        for ct in ['graphic', 'short_video', 'long_text']:
+            if not result[ct]:
+                result[ct] = cls._get_default_section_config(ct)
+
+        return result
 
 
 # 全局实例

@@ -1612,9 +1612,6 @@
                     <!-- 详情内容由JS动态填充 -->
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyCurrentPortraitDetail()">
-                        <i class="bi bi-clipboard me-1"></i>复制信息
-                    </button>
                     <button type="button" class="btn btn-sm btn-primary" onclick="saveCurrentPortrait()">
                         <i class="bi bi-bookmark-plus me-1"></i>保存画像
                     </button>
@@ -1818,6 +1815,8 @@ function goToPortraitsTabWithKey(problemKey) {
         panel.classList.toggle('active', panel.id === 'super-tab-portraits');
     });
     updateTabActionButton('tab-portraits');
+    // 渲染该问题下的画像列表
+    renderTargetCustomerCards(problemKey);
 }
 
 // 经营范围切换：选中"本地"时显示城市输入框
@@ -3367,6 +3366,9 @@ function resetSavePortraitBtn(btn, originalText) {
 }
 
 async function loadUserAuth() {
+    // #region agent_debug
+    fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'portraits_create.html:3369',message:'loadUserAuth ENTER',data:{topbarAuth:!!document.getElementById('topbar-auth'),topbarUser:!!document.getElementById('topbar-user')},timestamp:Date.now(),runId:'runtime'})}).catch(()=>{});
+    // #endregion
     try {
         const resp = await fetch('/public/api/quota', { credentials: 'include' });
         const data = await resp.json();
@@ -3848,6 +3850,9 @@ function getPublicSkin() {
 
 // ── 页面初始化 ──────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async function() {
+    // #region agent_debug
+    fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'portraits_create.html:3850',message:'DOMContentLoaded START',data:{topbarAuthExists:!!document.getElementById('topbar-auth'),topbarUserExists:!!document.getElementById('topbar-user'),topbarAuthDisplay:document.getElementById('topbar-auth')?.style?.display,topbarUserDisplay:document.getElementById('topbar-user')?.style?.display},timestamp:Date.now(),runId:'runtime'})}).catch(()=>{});
+    // #endregion
     // 初始化顶栏用户信息
     await loadUserAuth();
     // 用户验证通过后，初始化快照恢复和自动保存（必须 await）

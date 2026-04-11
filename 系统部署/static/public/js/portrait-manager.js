@@ -881,6 +881,38 @@ const PortraitManager = {
         const portrait = this._savedPortraits.find(p => p.id === portraitId);
         if (!portrait) return;
 
+        // 计算关键词库数量和状态
+        let kwCount = 0;
+        if (portrait.keyword_library && portrait.keyword_library.categories) {
+            portrait.keyword_library.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            if (portrait.keyword_library.blue_ocean) kwCount += portrait.keyword_library.blue_ocean.length;
+        }
+        const genStatus = portrait.generation_status || 'pending';
+
+        // 根据状态生成关键词库按钮
+        let kwBtnHtml = '';
+        if (kwCount > 0) {
+            // 已完成：绿色可点击按钮
+            kwBtnHtml = `<button type="button" class="btn" id="detail-kw-btn" onclick="PortraitManager.showKeywordLibraryMd(${portrait.id})" style="background: linear-gradient(135deg, #34c759 0%, #28a745 100%); border: none; color: white; border-radius: 10px; font-weight: 600;">
+                <i class="bi bi-book me-1"></i>关键词库 ${kwCount} 个
+            </button>`;
+        } else if (genStatus === 'generating') {
+            // 生成中：黄色加载状态
+            kwBtnHtml = `<button type="button" class="btn" id="detail-kw-btn" disabled style="background: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%); border: none; color: white; border-radius: 10px; font-weight: 600; cursor: not-allowed;">
+                <i class="bi bi-arrow-repeat me-1 spinner-border spinner-border-sm"></i>关键词库 生成中...
+            </button>`;
+        } else if (genStatus === 'failed') {
+            // 失败：红色可重试按钮
+            kwBtnHtml = `<button type="button" class="btn" id="detail-kw-btn" onclick="PortraitManager.retryGenerateLibrary(${portrait.id})" style="background: linear-gradient(135deg, #ff3b30 0%, #d32f2f 100%); border: none; color: white; border-radius: 10px; font-weight: 600;">
+                <i class="bi bi-exclamation-triangle me-1"></i>关键词库 生成失败（点击重试）
+            </button>`;
+        } else {
+            // 待生成：灰色可点击按钮
+            kwBtnHtml = `<button type="button" class="btn" id="detail-kw-btn" onclick="PortraitManager.triggerKeywordLibraryGen(${portrait.id})" style="background: #f5f5f5; border: 1px solid #e5e7eb; color: #8e8e93; border-radius: 10px; font-weight: 600;">
+                <i class="bi bi-lightning-charge me-1"></i>关键词库 待生成
+            </button>`;
+        }
+
         const modalHtml = `
         <div class="modal fade" id="portraitDetailModal" tabindex="-1">
             <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -892,7 +924,11 @@ const PortraitManager = {
                     <div class="modal-body" style="background: #f8f9fa;">
                         ${this._renderPortraitDetailContent(portrait)}
                     </div>
-                    <div class="modal-footer" style="background: white; border-top: 1px solid rgba(0,0,0,0.06);">
+                    <div class="modal-footer" style="background: white; border-top: 1px solid rgba(0,0,0,0.06%);">
+                        ${kwBtnHtml}
+                        <button type="button" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; border-radius: 10px; font-weight: 600;" onclick="PortraitManager.showPortraitLibrary(${portrait.id})">
+                            <i class="bi bi-bookmark-star me-1"></i>查看专属库
+                        </button>
                         <button type="button" class="btn" style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600;" data-bs-dismiss="modal">关闭</button>
                         <button type="button" class="btn btn-delete-portrait" data-portrait-id="${portrait.id}" style="background: linear-gradient(135deg, #ff3b30 0%, #d32f2f 100%); border: none; color: white; border-radius: 10px; font-weight: 600;">
                             <i class="bi bi-trash me-1"></i>删除此画像
@@ -917,9 +953,116 @@ const PortraitManager = {
             });
         }
 
+        // 如果正在生成中，启动轮询更新按钮状态
+        if (genStatus === 'generating') {
+            this._startDetailKwPolling(portrait.id);
+        }
+
         document.getElementById('portraitDetailModal').addEventListener('hidden.bs.modal', function () {
             this.remove();
         });
+    },
+
+    // 触发关键词库生成（从详情页点击）
+    async triggerKeywordLibraryGen(portraitId) {
+        const btn = document.getElementById('detail-kw-btn');
+        if (!btn) return;
+
+        try {
+            const resp = await fetch(`/public/api/portraits/${portraitId}/library/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ library_type: 'all' })
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                // 更新本地状态为 generating
+                const idx = this._savedPortraits.findIndex(p => p.id === portraitId);
+                if (idx >= 0) {
+                    this._savedPortraits[idx].generation_status = 'generating';
+                }
+
+                // 更新按钮为生成中状态
+                btn.disabled = true;
+                btn.style.cssText = 'background: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%); border: none; color: white; border-radius: 10px; font-weight: 600; cursor: not-allowed;';
+                btn.innerHTML = '<i class="bi bi-arrow-repeat me-1 spinner-border spinner-border-sm"></i>关键词库 生成中...';
+
+                // 启动轮询
+                this._startDetailKwPolling(portraitId);
+                showToast('关键词库生成已启动...', 'info');
+            } else {
+                showToast(data.message || '启动生成失败', 'error');
+            }
+        } catch (e) {
+            console.error('[PortraitManager] triggerKeywordLibraryGen 失败:', e);
+            showToast('启动生成失败，请稍后重试', 'error');
+        }
+    },
+
+    // 详情页关键词库状态轮询
+    _startDetailKwPolling(portraitId) {
+        const maxPolls = 720; // 最多轮询60分钟（5秒 * 720）
+        let pollCount = 0;
+        const interval = 5000; // 5秒
+
+        const poll = async () => {
+            if (pollCount >= maxPolls) {
+                console.warn('[PortraitManager] 详情页关键词库轮询超时 portraitId:', portraitId);
+                return;
+            }
+            pollCount++;
+
+            try {
+                const resp = await fetch(`/public/api/portraits/${portraitId}/status`, {
+                    credentials: 'include'
+                });
+                const data = await resp.json();
+                if (!data.success) return;
+
+                const status = data.data.generation_status;
+                const btn = document.getElementById('detail-kw-btn');
+                if (!btn) return; // 弹窗可能已关闭
+
+                if (status === 'completed') {
+                    // 重新加载数据
+                    await this.loadSavedPortraits(portraitId);
+                    const portrait = this._savedPortraits.find(p => p.id === portraitId);
+                    if (portrait) {
+                        let kwCount = 0;
+                        if (portrait.keyword_library && portrait.keyword_library.categories) {
+                            portrait.keyword_library.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+                            if (portrait.keyword_library.blue_ocean) kwCount += portrait.keyword_library.blue_ocean.length;
+                        }
+                        // 更新为已完成状态按钮
+                        btn.onclick = () => this.showKeywordLibraryMd(portraitId);
+                        btn.disabled = false;
+                        btn.style.cssText = 'background: linear-gradient(135deg, #34c759 0%, #28a745 100%); border: none; color: white; border-radius: 10px; font-weight: 600;';
+                        btn.innerHTML = `<i class="bi bi-book me-1"></i>关键词库 ${kwCount} 个`;
+                    }
+                    showToast('关键词库生成完成！', 'success');
+                    return;
+                } else if (status === 'failed') {
+                    const errMsg = data.data.generation_error || '未知错误';
+                    // 更新为失败状态按钮
+                    btn.onclick = () => this.retryGenerateLibrary(portraitId);
+                    btn.disabled = false;
+                    btn.style.cssText = 'background: linear-gradient(135deg, #ff3b30 0%, #d32f2f 100%); border: none; color: white; border-radius: 10px; font-weight: 600;';
+                    btn.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>关键词库 生成失败（点击重试）`;
+                    showToast('关键词库生成失败：' + errMsg, 'error');
+                    return;
+                }
+
+                // 仍在生成中，继续轮询
+                setTimeout(poll, interval);
+            } catch (e) {
+                console.error('[PortraitManager] 详情页关键词库轮询失败:', e);
+                setTimeout(poll, interval);
+            }
+        };
+
+        setTimeout(poll, interval);
     },
 
     // 渲染画像详情内容（展示超级定位保存的完整画像信息）
@@ -2061,16 +2204,15 @@ const PortraitManager = {
                         <div class="pr-card-cover">
                             <span class="pr-card-stat">${this.escapeHtml(statText)}</span>
                             <i class="bi bi-person-fill" aria-hidden="true"></i>
+                            ${coreBusinessText ? `<div class="pr-card-meta">${this.escapeHtml(coreBusinessText)}</div>` : ''}
                         </div>
                         <div class="pr-card-footer">
                             <div class="pr-card-name">${name}</div>
-                            <div class="pr-card-meta">${this.escapeHtml(brief)}</div>
                             ${date ? `<div class="pr-card-date">${this.escapeHtml(date)}</div>` : ''}
                         </div>
                     </div>
                     <div class="pr-hover-overlay">
                         <div class="pr-hover-content" id="pr-overlay-${p.id}">
-                            <div class="pr-hover-core-business">${this.escapeHtml(coreBusinessText)}</div>
                         </div>
                         <button type="button" class="pr-hover-play" aria-label="进入生成" title="进入生成"
                                 onclick="event.stopPropagation(); PortraitManager._onPlayClick(${p.id})">

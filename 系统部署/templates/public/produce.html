@@ -185,7 +185,7 @@
     /* 列表列头 */
     .playlist-cols {
         display: grid;
-        grid-template-columns: 60px 1fr 100px 80px;
+        grid-template-columns: 60px 1fr 100px 80px 80px;
         gap: 12px;
         padding: 8px 20px;
         background: var(--bg-tertiary);
@@ -341,6 +341,31 @@
         color: var(--text-primary);
     }
 
+    /* 操作列 */
+    .row-action {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .btn-view {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--apple-blue);
+        background: rgba(0, 122, 255, 0.1);
+        border-radius: 6px;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .btn-view:hover {
+        background: rgba(0, 122, 255, 0.2);
+    }
+
     /* 单选列 */
     .row-radio {
         display: flex;
@@ -484,107 +509,524 @@
         color: var(--apple-blue);
     }
 
-    /* ================================================
-       星系增强：场景选择器
-       ================================================ */
-    .scene-selector {
-        margin-top: 10px;
-        padding: 10px 12px;
-        background: rgba(255, 215, 0, 0.04);
-        border: 1px solid rgba(255, 215, 0, 0.15);
-        border-radius: var(--radius-md);
+    /* ────────────────────────────────────────────────
+       生成内容配置弹窗样式（紧凑版：无场景选择）
+       ──────────────────────────────────────────────── */
+    .generate-config-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.25s ease, visibility 0.25s ease;
     }
 
-    .scene-selector-header {
+    .generate-config-modal.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .generate-config-modal.show::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: -1;
+    }
+
+    .generate-config-modal .modal-dialog {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        width: 480px;
+        max-width: 95vw;
+        max-height: 90vh;
+        overflow: hidden;
+        transform: scale(0.9) translateY(20px);
+        transition: transform 0.25s ease;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .generate-config-modal.show .modal-dialog {
+        transform: scale(1) translateY(0);
+    }
+
+    .generate-config-modal .modal-header {
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--apple-gray6);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 8px;
+        flex-shrink: 0;
+        background: var(--bg-secondary);
     }
 
-    .scene-selector-title {
-        font-size: 0.75rem;
+    .generate-config-modal .modal-title {
+        font-size: 1rem;
         font-weight: 600;
-        color: #B8860B;
-    }
-
-    .scene-option {
-        display: block;
-        width: 100%;
-        padding: 7px 10px;
-        margin-bottom: 5px;
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        background: var(--bg-primary);
-        cursor: pointer;
-        text-align: left;
-        transition: all 0.15s;
         color: var(--text-primary);
-        font-size: 0.8125rem;
-    }
-
-    .scene-option:hover {
-        border-color: rgba(255, 215, 0, 0.4);
-        background: rgba(255, 215, 0, 0.03);
-    }
-
-    .scene-option.selected {
-        border-color: #FFD700;
-        background: rgba(255, 215, 0, 0.08);
-    }
-
-    .scene-option-header {
         display: flex;
         align-items: center;
         gap: 8px;
     }
 
-    .scene-option-radio {
-        width: 13px;
-        height: 13px;
-        accent-color: #FFD700;
+    .generate-config-modal .modal-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        color: var(--apple-gray);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        transition: all var(--transition-fast);
+    }
+
+    .generate-config-modal .modal-close:hover {
+        background: var(--apple-gray6);
+        color: var(--text-primary);
+    }
+
+    .generate-config-modal .modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    /* ── 简洁版配置弹窗 ── */
+    .simple-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s, visibility 0.2s;
+    }
+
+    .simple-modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .simple-modal-box {
+        background: var(--bg-primary);
+        border-radius: 16px;
+        width: 420px;
+        max-width: 90vw;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+        transform: scale(0.92);
+        transition: transform 0.2s;
+    }
+
+    .simple-modal-overlay.active .simple-modal-box {
+        transform: scale(1);
+    }
+
+    .simple-modal-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--apple-gray6);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         flex-shrink: 0;
     }
 
-    .scene-option-label {
+    .simple-modal-header h3 {
+        margin: 0;
+        font-size: 1.0625rem;
         font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .simple-modal-close {
+        width: 28px;
+        height: 28px;
+        border: none;
+        background: transparent;
+        color: var(--apple-gray);
+        font-size: 1.25rem;
+        cursor: pointer;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+        line-height: 1;
+    }
+
+    .simple-modal-close:hover {
+        background: var(--apple-gray6);
+        color: var(--text-primary);
+    }
+
+    .simple-modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .simple-modal-footer {
+        padding: 14px 20px;
+        border-top: 1px solid var(--apple-gray6);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-shrink: 0;
+    }
+
+    .simple-btn {
+        padding: 8px 18px;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+        border: 1px solid var(--apple-gray4);
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+    }
+
+    .simple-btn:hover {
+        border-color: var(--apple-gray);
+        color: var(--text-primary);
+    }
+
+    .simple-btn-primary {
+        background: var(--netease-red);
+        border-color: var(--netease-red);
+        color: white;
+    }
+
+    .simple-btn-primary:hover {
+        background: var(--netease-red-hover);
+        border-color: var(--netease-red-hover);
+        color: white;
+    }
+
+    .simple-btn-primary:disabled {
+        background: var(--apple-gray4);
+        border-color: var(--apple-gray4);
+        cursor: not-allowed;
+    }
+
+    .modal-version-info .version-link {
+        color: var(--apple-blue);
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .modal-version-info .version-link:hover {
+        text-decoration: underline;
+    }
+
+    /* 内容类型 - 紧凑单选 */
+    .modal-content-type-section {
+        margin-top: 16px;
+    }
+
+    .modal-content-type-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 10px;
+    }
+
+    .modal-content-type-list {
+        display: flex;
+        gap: 8px;
+    }
+
+    .modal-content-type-option {
+        flex: 1;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        border: 1.5px solid var(--border-color);
+        background: var(--bg-primary);
+        cursor: pointer;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+    }
+
+    .modal-content-type-option:hover {
+        border-color: var(--apple-blue);
+    }
+
+    .modal-content-type-option.selected {
+        border-color: var(--apple-blue);
+        background: rgba(0, 122, 255, 0.06);
+    }
+
+    .modal-content-type-option input[type="radio"] {
+        display: none;
+    }
+
+    .modal-content-type-icon {
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+
+    .modal-content-type-name {
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .modal-content-type-option .type-check {
+        margin-left: auto;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid var(--apple-gray4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.15s;
+    }
+
+    .modal-content-type-option.selected .type-check {
+        border-color: var(--apple-blue);
+        background: var(--apple-blue);
+    }
+
+    .modal-content-type-option.selected .type-check::after {
+        content: '';
+        display: block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: white;
+    }
+
+    .generate-config-modal .modal-footer {
+        padding: 14px 20px;
+        border-top: 1px solid var(--apple-gray6);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+        flex-shrink: 0;
+        background: var(--bg-secondary);
+    }
+
+    .generate-config-modal .btn-cancel {
+        padding: 8px 16px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--apple-gray4);
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .generate-config-modal .btn-cancel:hover {
+        border-color: var(--apple-gray);
+        color: var(--text-primary);
+    }
+
+    .generate-config-modal .btn-confirm {
+        padding: 8px 20px;
+        border-radius: var(--radius-md);
+        border: none;
+        background: var(--netease-red);
+        color: white;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 2px 8px rgba(236, 65, 65, 0.3);
+    }
+
+    .generate-config-modal .btn-confirm:hover:not(:disabled) {
+        background: var(--netease-red-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(236, 65, 65, 0.4);
+    }
+
+    .generate-config-modal .btn-confirm:disabled {
+        background: var(--apple-gray4);
+        box-shadow: none;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* ── 配置弹窗提示区域 ── */
+    .modal-tip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 16px;
+        padding: 10px 12px;
+        background: rgba(0, 122, 255, 0.06);
+        border-radius: var(--radius-sm);
         font-size: 0.8125rem;
+        color: var(--apple-gray);
     }
 
-    .scene-option.selected .scene-option-label {
-        color: #B8860B;
+    .modal-tip i {
+        color: var(--apple-blue);
+        font-size: 0.875rem;
     }
 
-    .scene-option-detail {
+    /* ── 内容版本面板样式（选中选题后显示） ── */
+    .versions-panel {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .versions-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--apple-gray6);
+    }
+
+    .versions-panel-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .versions-panel-body {
+        padding: 12px 16px;
+        max-height: 320px;
+        overflow-y: auto;
+    }
+
+    .versions-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .version-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        background: var(--bg-primary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        text-decoration: none;
+        color: var(--text-primary);
+    }
+
+    .version-row:hover {
+        border-color: var(--apple-blue);
+        background: rgba(0, 122, 255, 0.03);
+    }
+
+    .version-row .type-badge {
+        flex-shrink: 0;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+    }
+
+    .type-badge.graphic     { background: rgba(255,149,0,0.12);  color: #FF9500; }
+    .type-badge.long_text   { background: rgba(142,142,147,0.12); color: #8E8E93; }
+    .type-badge.short_video { background: rgba(255,59,48,0.12);  color: #FF3B30; }
+
+    .version-row .version-title {
+        flex: 1;
+        min-width: 0;
+        font-size: 0.875rem;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .version-row .version-time {
+        flex-shrink: 0;
         font-size: 0.75rem;
         color: var(--apple-gray);
-        margin-left: 21px;
-        line-height: 1.4;
-        margin-top: 3px;
     }
 
-    .scene-option-tags {
+    .version-row .version-arrow {
+        flex-shrink: 0;
+        color: var(--apple-gray3);
+        font-size: 0.875rem;
+    }
+
+    .versions-panel-footer {
         display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 16px;
+        border-top: 1px solid var(--apple-gray6);
+        background: var(--bg-secondary);
+    }
+
+    .versions-pagination {
+        display: flex;
+        align-items: center;
         gap: 4px;
-        margin-left: 21px;
-        margin-top: 4px;
-        flex-wrap: wrap;
     }
 
-    .scene-tag {
-        display: inline-block;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-size: 0.6875rem;
-        font-weight: 500;
+    .btn-ghost-sm {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--apple-gray4);
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        text-decoration: none;
     }
 
-    .scene-tag.style-emotion   { background: rgba(255,99,71,0.12);  color: #FF6347; }
-    .scene-tag.style-knowledge  { background: rgba(0,122,255,0.12);  color: #007AFF; }
-    .scene-tag.style-sarcasm    { background: rgba(138,43,226,0.12);  color: #8A2BE2; }
-    .scene-tag.style-story      { background: rgba(50,205,50,0.12);   color: #32CD32; }
-    .scene-tag.style-authority  { background: rgba(255,165,0,0.12);   color: #FFA500; }
-    .scene-tag.fallback         { background: var(--apple-gray6);     color: var(--apple-gray); }
+    .btn-ghost-sm:hover {
+        border-color: var(--apple-blue);
+        color: var(--apple-blue);
+    }
 
     /* ── 选题历史版本面板样式 ── */
     .version-item {
@@ -734,7 +1176,7 @@
     @media (max-width: 768px) {
         .playlist-cols,
         .playlist-row {
-            grid-template-columns: 40px 1fr 70px 50px;
+            grid-template-columns: 40px 1fr 70px 60px 60px;
             gap: 8px;
             padding: 10px 12px;
         }
@@ -877,16 +1319,15 @@
                 <div class="playlist-title">
                     <i class="bi bi-list-ul"></i>
                     选题列表
-                    <span class="count-badge" id="topics-total-badge">0</span>
                 </div>
             </div>
 
             {# 列表列头 #}
             <div class="playlist-cols">
-                <div style="text-align:center;">#</div>
+                <div style="text-align:center;">选择</div>
                 <div>选题名称</div>
                 <div style="text-align:center;">生成次数</div>
-                <div style="text-align:center;">选择</div>
+                <div style="text-align:center;">查看</div>
             </div>
 
             {# 列表内容 #}
@@ -906,38 +1347,6 @@
                         <i class="bi bi-lightning-charge-fill"></i>
                         生成选题库
                     </button>
-                </div>
-
-                {# 星系增强：场景选择器（默认折叠，按需显示）#}
-                <div id="scene-selector-container" style="display:none;">
-                    <div class="scene-selector" id="scene-selector">
-                        <div class="scene-selector-header">
-                            <span class="scene-selector-title">&#22320;&#24335;&#36873;&#39033;</span>
-                        </div>
-                        <div id="scene-options-list"></div>
-                    </div>
-                </div>
-
-                {# ── 选题历史版本面板 ──}
-                <div id="topic-versions-panel" style="display:none; margin-top: 12px;">
-                    <div class="scene-selector" style="background: rgba(0,122,255,0.03); border-color: rgba(0,122,255,0.15);">
-                        <div class="scene-selector-header">
-                            <span class="scene-selector-title" style="color: var(--apple-blue);">历史版本</span>
-                            <button onclick="toggleVersionsPanel()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--apple-gray);line-height:1;">&times;</button>
-                        </div>
-                        <div id="topic-versions-list"></div>
-                    </div>
-                </div>
-
-                {# ── 内容类型推荐 ── #}
-                <div id="content-type-recommender" style="display:none; margin-top: 12px;">
-                    <div class="scene-selector" style="background: var(--bg-secondary);">
-                        <div class="scene-selector-header">
-                            <span class="scene-selector-title">&#24314;&#35758;&#20869;&#23481;&#31867;&#22411;</span>
-                            <span id="content-type-recommend-tip" style="font-size:0.75rem; color: var(--apple-gray); font-weight: normal;">&#31995;&#32479;&#26681;&#25454;&#24744;&#30340;&#36873;&#39033;&#33258;&#21160;&#25512;&#33616;</span>
-                        </div>
-                        <div id="content-type-options" style="display: flex; gap: 12px; padding: 8px 0;"></div>
-                    </div>
                 </div>
 
                 {# 列表内容（由 JS 渲染） #}
@@ -964,6 +1373,81 @@
                 </button>
             </div>
         </div>
+
+        {# 内容版本面板（选中选题后显示） #}
+        <div class="versions-panel" id="versions-panel" style="display:none; margin-top: 12px;">
+            <div class="versions-panel-header">
+                <div class="versions-panel-title">
+                    <i class="bi bi-collection"></i>
+                    已生成内容
+                    <span class="count-badge" id="versions-total-badge">0</span>
+                </div>
+                <button class="btn-ghost-sm" onclick="closeVersionsPanel()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="versions-panel-body" id="versions-panel-body">
+                <div class="versions-loading" id="versions-loading">
+                    <div class="apple-spinner mx-auto" style="width:24px;height:24px;border-width:3px;"></div>
+                    <span style="color:var(--apple-gray);font-size:0.8125rem;margin-left:8px;">加载中...</span>
+                </div>
+                <div class="versions-empty" id="versions-empty" style="display:none;">
+                    <span style="color:var(--apple-gray);font-size:0.8125rem;">暂无生成内容</span>
+                </div>
+                <div class="versions-list" id="versions-list" style="display:none;"></div>
+            </div>
+            <div class="versions-panel-footer" id="versions-panel-footer" style="display:none;">
+                <div class="versions-pagination" id="versions-pagination">
+                    <button class="page-btn" id="v-page-prev" onclick="changeVersionPage(-1)" disabled>
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span class="page-info" id="v-page-info">第 1 页，共 1 页</span>
+                    <button class="page-btn" id="v-page-next" onclick="changeVersionPage(1)" disabled>
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+                <a class="btn-ghost-sm" id="versions-more-link" href="#" target="_blank">
+                    查看全部 <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 简洁版生成配置弹窗 -->
+    <div class="simple-modal-overlay" id="simple-modal">
+        <div class="simple-modal-box">
+            <div class="simple-modal-header">
+                <h3><span>📋</span> 内容类型</h3>
+                <button class="simple-modal-close" id="simple-modal-close">×</button>
+            </div>
+            <div class="simple-modal-body">
+                <!-- 内容类型选择 -->
+                <div class="modal-content-type-section">
+                    <div class="modal-content-type-list" id="simple-modal-type-list">
+                        <div class="modal-content-type-option selected" data-type="graphic">
+                            <span class="modal-content-type-icon">📄</span>
+                            <span class="modal-content-type-name">图文</span>
+                            <span class="type-check"></span>
+                        </div>
+                        <div class="modal-content-type-option" data-type="long_text">
+                            <span class="modal-content-type-icon">📝</span>
+                            <span class="modal-content-type-name">长文</span>
+                            <span class="type-check"></span>
+                        </div>
+                        <div class="modal-content-type-option" data-type="short_video">
+                            <span class="modal-content-type-icon">🎬</span>
+                            <span class="modal-content-type-name">短视频</span>
+                            <span class="type-check"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="simple-modal-footer">
+                <button type="button" class="simple-btn simple-btn-primary" id="simple-modal-confirm">
+                    <i class="bi bi-rocket-takeoff"></i> 开始生成
+                </button>
+            </div>
+        </div>
     </div>
 
 {% endblock %}
@@ -974,20 +1458,65 @@ var _portraitId = null;
 var _portrait = null;
 var _topics = [];
 var _selectedTopicId = null;
-var _selectedScene = null;  // ── 星系增强：选中的场景组合
-var _selectedContentType = 'graphic';  // ── 默认图文类型
+var _selectedScene = null;  // ── 选中的场景组合
+var _selectedContentType = 'graphic';  // ── 选中内容类型
 var _expandedTopicId = null;  // ── 选题 1:N：当前展开版本列表的选题 ID
 var _topicVersionsCache = {};  // ── 选题版本缓存 { topicId: versionsData }
 var _currentPage = 1;
 var _perPage = 10;
 var _totalPages = 0;
 var _contentTypeRecommendation = null;  // 内容类型推荐结果
+// ── 弹窗相关变量 ──
+var _modalSceneOptions = [];  // 弹窗内场景选项
+var _modalRecommendedType = null;  // 弹窗内推荐的内容类型
+var _modalVersionCount = 0;  // 弹窗内历史版本数量
 
 // ── 初始化 ──────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
     loadUserAuth();
     loadPortraitData();
+
+    // 初始化配置弹窗事件
+    initModalEvents();
 });
+
+// 初始化配置弹窗事件
+function initModalEvents() {
+    const modal = document.getElementById('simple-modal');
+    const typeList = document.getElementById('simple-modal-type-list');
+    const closeBtn = document.getElementById('simple-modal-close');
+    const confirmBtn = document.getElementById('simple-modal-confirm');
+
+    // 点击背景关闭
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeGenerateModal();
+        }
+    });
+
+    // 关闭按钮
+    closeBtn.addEventListener('click', function() {
+        closeGenerateModal();
+    });
+
+    // 确认按钮
+    confirmBtn.addEventListener('click', function(e) {
+        console.log('确认按钮被点击了');
+        confirmGenerate();
+    });
+
+    // 内容类型选择
+    typeList.addEventListener('click', function(e) {
+        const option = e.target.closest('.modal-content-type-option');
+        if (!option) return;
+
+        document.querySelectorAll('#simple-modal-type-list .modal-content-type-option').forEach(function(opt) {
+            opt.classList.remove('selected');
+        });
+        option.classList.add('selected');
+        _selectedContentType = option.dataset.type || 'graphic';
+    });
+}
 
 async function loadUserAuth() {
     try {
@@ -1109,8 +1638,6 @@ async function loadTopics(page) {
         const total = result.total || 0;
         _totalPages = result.pages || 1;
 
-        document.getElementById('topics-total-badge').textContent = total;
-
         loadingEl.style.display = 'none';
 
         if (_topics.length === 0) {
@@ -1159,7 +1686,9 @@ function renderTopicRows(topics) {
 
         html +=
             '<div class="playlist-row ' + selectedClass + '" data-topic-id="' + topic.id + '" onclick="selectTopic(\'' + topic.id + '\')">' +
-                '<div class="row-index' + (isSelected ? ' active' : '') + '">' + globalIdx + '</div>' +
+                '<div class="row-radio">' +
+                    '<input type="radio" name="topic-radio" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); selectTopic(\'' + topic.id + '\')">' +
+                '</div>' +
                 '<div class="row-title">' +
                     '<div class="row-title-text" title="' + escHtml(topic.title || '') + '">' + escHtml(topic.title || '') + '</div>' +
                     '<div class="row-title-tags">' +
@@ -1169,8 +1698,8 @@ function renderTopicRows(topics) {
                     '</div>' +
                 '</div>' +
                 '<div class="row-count"><span class="count-num">' + genCount + '</span> 次</div>' +
-                '<div class="row-radio">' +
-                    '<input type="radio" name="topic-radio" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); selectTopic(\'' + topic.id + '\')">' +
+                '<div class="row-action">' +
+                    '<a href="/public/content-versions?portraitId=' + _portraitId + '&topicId=' + topic.id + '" class="btn-view" onclick="event.stopPropagation();">查看</a>' +
                 '</div>' +
             '</div>';
     });
@@ -1194,288 +1723,127 @@ function changePage(delta) {
     loadTopics(newPage);
 }
 
+// ── 内容版本面板 ───────────────────────────────────
+var _versionsData = [];
+var _versionsPage = 1;
+var _versionsTotalPages = 1;
+
+function loadVersionsForSelectedTopic() {
+    if (!_selectedTopicId) return;
+
+    const panel = document.getElementById('versions-panel');
+    const loading = document.getElementById('versions-loading');
+    const empty = document.getElementById('versions-empty');
+    const list = document.getElementById('versions-list');
+    const footer = document.getElementById('versions-panel-footer');
+
+    panel.style.display = 'block';
+    loading.style.display = 'flex';
+    empty.style.display = 'none';
+    list.style.display = 'none';
+    footer.style.display = 'none';
+
+    _versionsPage = 1;
+    fetchVersionsPage();
+}
+
+function fetchVersionsPage() {
+    if (!_selectedTopicId) return;
+
+    const loading = document.getElementById('versions-loading');
+    const empty = document.getElementById('versions-empty');
+    const list = document.getElementById('versions-list');
+
+    loading.style.display = 'flex';
+    empty.style.display = 'none';
+    list.style.display = 'none';
+
+    const url = '/public/api/portraits/' + _portraitId + '/topics/' + _selectedTopicId
+        + '/generations?page=' + _versionsPage + '&per_page=5';
+
+    fetch(url, { credentials: 'include' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            loading.style.display = 'none';
+            if (data.success && data.data) {
+                _versionsData = data.data.generations || [];
+                _versionsTotalPages = data.data.pages || 1;
+                const total = data.data.total || 0;
+
+                document.getElementById('versions-total-badge').textContent = total;
+
+                if (_versionsData.length === 0) {
+                    empty.style.display = '';
+                } else {
+                    list.style.display = 'flex';
+                    renderVersionRows();
+                    renderVersionPagination();
+                    document.getElementById('versions-panel-footer').style.display = 'flex';
+                }
+            } else {
+                empty.style.display = '';
+            }
+        })
+        .catch(function() {
+            loading.style.display = 'none';
+            empty.style.display = '';
+        });
+}
+
+function renderVersionRows() {
+    const list = document.getElementById('versions-list');
+    let html = '';
+    _versionsData.forEach(function(gen) {
+        const typeBadgeClass = 'type-badge ' + (gen.content_type || 'graphic');
+        const typeName = { graphic: '图文', long_text: '长文', short_video: '短视频' }[gen.content_type] || '图文';
+        const time = gen.created_at ? formatTime(gen.created_at) : '';
+        html += '<a class="version-row" href="/public/content-detail?id=' + (gen.id || '') + '&portraitId=' + _portraitId + '">'
+            + '<span class="' + typeBadgeClass + '">' + typeName + '</span>'
+            + '<span class="version-title">' + escHtml(gen.title || gen.generation_title || '无标题') + '</span>'
+            + '<span class="version-time">' + time + '</span>'
+            + '<span class="version-arrow"><i class="bi bi-chevron-right"></i></span>'
+            + '</a>';
+    });
+    list.innerHTML = html;
+}
+
+function renderVersionPagination() {
+    document.getElementById('v-page-prev').disabled = _versionsPage <= 1;
+    document.getElementById('v-page-next').disabled = _versionsPage >= _versionsTotalPages;
+    document.getElementById('v-page-info').textContent = '第 ' + _versionsPage + ' 页，共 ' + _versionsTotalPages + ' 页';
+
+    var link = document.getElementById('versions-more-link');
+    if (link) {
+        link.href = '/public/content-versions?portraitId=' + _portraitId + '&topicId=' + _selectedTopicId;
+    }
+}
+
+function changeVersionPage(delta) {
+    var newPage = _versionsPage + delta;
+    if (newPage < 1 || newPage > _versionsTotalPages) return;
+    _versionsPage = newPage;
+    fetchVersionsPage();
+}
+
+function closeVersionsPanel() {
+    document.getElementById('versions-panel').style.display = 'none';
+}
+
+function formatTime(ts) {
+    if (!ts) return '';
+    var d = new Date(ts);
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    var h = d.getHours();
+    var mi = d.getMinutes();
+    return (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day) + ' ' + (h < 10 ? '0' + h : h) + ':' + (mi < 10 ? '0' + mi : mi);
+}
+
 function selectTopic(topicId) {
     _selectedTopicId = topicId;
-    _selectedScene = null; // 重置场景选择
-    // 重新渲染以更新选中态
+    _selectedScene = null;
     renderTopicRows(_topics);
     updateGenerateButton();
-    // ── 星系增强：显示场景选择器 ──
-    renderSceneSelector(topicId);
-    // ── 选题 1:N：加载该选题的版本历史 ──
-    loadTopicVersions(topicId);
-}
-
-// ── 星系增强：场景选择器 ──────────────────────────────────────
-function renderSceneSelector(topicId) {
-    const container = document.getElementById('scene-selector-container');
-    const listEl = document.getElementById('scene-options-list');
-    if (!container || !listEl) return;
-
-    const topic = _topics.find(function(t) { return t.id === topicId; });
-    const sceneOptions = topic && Array.isArray(topic.scene_options) ? topic.scene_options : [];
-
-    if (sceneOptions.length === 0) {
-        container.style.display = 'none';
-        return;
-    }
-
-    container.style.display = 'block';
-    let html = '';
-    sceneOptions.forEach(function(scene, idx) {
-        const selected = _selectedScene && _selectedScene.id === scene.id;
-        const styleClass = getSceneStyleClass(scene['\u98ce\u683c'] || '');
-        const sceneId = scene.id || ('scene_' + idx);
-        html +=
-            '<button class="scene-option' + (selected ? ' selected' : '') + '"' +
-            ' onclick="selectScene(\'' + sceneId + '\', \'' + topicId + '\')">' +
-                '<div class="scene-option-header">' +
-                    '<input type="radio" class="scene-option-radio"' +
-                    ' name="scene-radio" ' + (selected ? 'checked' : '') + '' +
-                    ' onclick="event.stopPropagation(); selectScene(\'' + sceneId + '\', \'' + topicId + '\')">' +
-                    '<span class="scene-option-label">' + escHtml(scene['\u6807\u7b7e'] || '\u672a\u77e5\u573a\u666f') + '</span>' +
-                '</div>' +
-                '<div class="scene-option-detail">' + escHtml(scene['\u7ec4\u5408'] || '') + '</div>' +
-                '<div class="scene-option-tags">' +
-                    '<span class="scene-tag ' + styleClass + '">' + escHtml(scene['\u98ce\u683c'] || '') + '</span>' +
-                '</div>' +
-            '</button>';
-    });
-    listEl.innerHTML = html;
-}
-
-function selectScene(sceneId, topicId) {
-    const topic = _topics.find(function(t) { return t.id === topicId; });
-    const sceneOptions = topic && Array.isArray(topic.scene_options) ? topic.scene_options : [];
-    const scene = sceneOptions.find(function(s) { return s.id === sceneId || sceneId.startsWith('scene_'); });
-    _selectedScene = scene || null;
-    renderSceneSelector(topicId);
-    updateGenerateButton();
-
-    // ── 星系增强：选择场景后自动推荐内容类型 ──
-    if (_selectedScene) {
-        recommendContentType();
-    }
-}
-
-function getSceneStyleClass(style) {
-    var map = {
-        '情绪共鸣': 'style-emotion',
-        '干货科普': 'style-knowledge',
-        '犀利吐槽': 'style-sarcasm',
-        '故事叙述': 'style-story',
-        '权威背书': 'style-authority',
-    };
-    return map[style] || 'fallback';
-}
-
-// ── 选题 1:N：版本历史面板 ──────────────────────────────────────
-async function loadTopicVersions(topicId) {
-    const panel = document.getElementById('topic-versions-panel');
-    const listEl = document.getElementById('topic-versions-list');
-    if (!panel || !listEl) return;
-
-    // 有缓存则直接使用
-    if (_topicVersionsCache[topicId]) {
-        renderVersionsPanel(_topicVersionsCache[topicId]);
-        return;
-    }
-
-    listEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--apple-gray);font-size:0.8125rem;">加载中...</div>';
-    panel.style.display = 'block';
-
-    try {
-        const resp = await fetch(
-            '/public/api/portraits/' + _portraitId + '/topics/' + topicId + '/versions',
-            { credentials: 'include' }
-        );
-        const data = await resp.json();
-        if (data.success && data.data) {
-            _topicVersionsCache[topicId] = data.data;
-            renderVersionsPanel(data.data);
-        } else {
-            listEl.innerHTML = '<div class="version-panel-empty">暂无版本记录</div>';
-        }
-    } catch (e) {
-        listEl.innerHTML = '<div class="version-panel-empty">加载失败</div>';
-    }
-}
-
-function renderVersionsPanel(data) {
-    const panel = document.getElementById('topic-versions-panel');
-    const listEl = document.getElementById('topic-versions-list');
-    if (!panel || !listEl) return;
-
-    const versions = data.versions || [];
-    const topicTitle = data.topic_title || '';
-
-    if (versions.length === 0) {
-        panel.style.display = 'block';
-        listEl.innerHTML = '<div class="version-panel-empty">暂无版本记录<br><span style="font-size:0.75rem;">选择一个场景和内容类型，开始生成第一个版本</span></div>';
-        return;
-    }
-
-    let html = '<div style="margin-bottom:8px;font-size:0.75rem;color:var(--apple-gray);">选题：' + escHtml(topicTitle) + '（共 ' + versions.length + ' 个版本）</div>';
-
-    versions.forEach(function(v) {
-        const typeIcon = v.content_type === 'short_video' ? '🎬' : v.content_type === 'long_text' ? '📝' : '📄';
-        const typeLabel = v.content_type === 'short_video' ? '视频' : v.content_type === 'long_text' ? '长文' : '图文';
-        const versionLabel = 'v' + v.version_number;
-        const geoLabel = v.geo_mode ? '· ' + v.geo_mode : '';
-        const titleText = v.title || '版本 ' + v.version_number;
-
-        html +=
-            '<div class="version-item" onclick="viewVersion(' + v.generation_id + ')">' +
-                '<span class="version-badge ' + v.content_type + '">' + typeIcon + ' ' + versionLabel + '</span>' +
-                '<div class="version-meta">' +
-                    '<div class="version-title">' + escHtml(titleText) + '</div>' +
-                    '<div class="version-sub">' + escHtml(typeLabel) + geoLabel + ' · ' + escHtml(v.created_at || '') + '</div>' +
-                '</div>' +
-                '<span class="version-arrow">›</span>' +
-            '</div>';
-    });
-
-    listEl.innerHTML = html;
-    panel.style.display = 'block';
-}
-
-function toggleVersionsPanel() {
-    const panel = document.getElementById('topic-versions-panel');
-    if (panel) {
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    }
-}
-
-function viewVersion(generationId) {
-    window.location.href = '/public/content-detail?id=' + generationId + '&portraitId=' + _portraitId;
-}
-
-// ── 内容类型推荐 ──────────────────────────────────────
-async function recommendContentType() {
-    const container = document.getElementById('content-type-recommender');
-    const optionsEl = document.getElementById('content-type-options');
-    if (!container || !optionsEl) return;
-
-    // 获取选题信息
-    const topic = _topics.find(function(t) { return t.id === _selectedTopicId; });
-    if (!topic) {
-        container.style.display = 'none';
-        return;
-    }
-
-    try {
-        // 调用内容类型推荐 API
-        const resp = await fetch('/public/api/topics/recommend-type', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                topic: {
-                    title: topic.title,
-                    type: topic.type_name || topic.type_key || '',
-                },
-                portrait: _portrait.portrait_data || {},
-                business_info: {
-                    is_hot_topic: topic.type_key === 'hot',
-                    is_professional: topic.priority === 'P0',
-                    is_comparison: topic.type_key === 'compare',
-                    is_local_service: _portrait.industry === 'local_service',
-                },
-                // 额外传递场景信息
-                scene_style: _selectedScene ? _selectedScene['\u98ce\u683c'] || _selectedScene['风格'] || '' : ''
-            })
-        });
-        const data = await resp.json();
-
-        if (data.success && data.recommendation) {
-            _contentTypeRecommendation = data.recommendation;
-            // 默认选中推荐最高的类型
-            _selectedContentType = data.recommendation.recommended_type || 'graphic';
-            renderContentTypeOptions(data.recommendation);
-            container.style.display = 'block';
-        } else {
-            // API调用失败，使用默认选项
-            _contentTypeRecommendation = null;
-            _selectedContentType = 'graphic';
-            renderDefaultContentTypeOptions();
-            container.style.display = 'block';
-        }
-    } catch (e) {
-        console.error('推荐内容类型失败:', e);
-        _contentTypeRecommendation = null;
-        _selectedContentType = 'graphic';
-        renderDefaultContentTypeOptions();
-        container.style.display = 'block';
-    }
-}
-
-function renderContentTypeOptions(recommendation) {
-    const optionsEl = document.getElementById('content-type-options');
-    if (!optionsEl) return;
-
-    // 内容类型信息
-    const typeInfo = {
-        'graphic': {
-            icon: '🖼️',
-            name: '图文',
-            desc: '适合对比/步骤/清单'
-        },
-        'long_text': {
-            icon: '📝',
-            name: '长文',
-            desc: '适合深度分析/知识'
-        },
-        'short_video': {
-            icon: '🎬',
-            name: '短视频',
-            desc: '适合故事/演示/共鸣'
-        }
-    };
-
-    const scores = recommendation.scores || {};
-    const recommended = recommendation.recommended_type || 'graphic';
-
-    let html = '';
-    for (const [type, info] of Object.entries(typeInfo)) {
-        const score = scores[type] || 0;
-        const isRecommended = type === recommended;
-        const isSelected = type === _selectedContentType;
-
-        html +=
-            '<div class="content-type-option' + (isSelected ? ' selected' : '') + '"' +
-            ' onclick="selectContentType(\'' + type + '\')">' +
-                '<input type="radio" name="content-type-radio" ' + (isSelected ? 'checked' : '') + '>' +
-                '<div class="content-type-icon">' + info.icon + '</div>' +
-                '<div class="content-type-name">' + info.name + '</div>' +
-                '<div class="content-type-desc">' + info.desc + '</div>' +
-                (isRecommended ? '<span class="content-type-score">推荐</span>' : '') +
-            '</div>';
-    }
-    optionsEl.innerHTML = html;
-}
-
-function renderDefaultContentTypeOptions() {
-    // 默认显示图文选项
-    renderContentTypeOptions({
-        scores: { 'graphic': 0.9, 'short_video': 0.7, 'long_text': 0.5 },
-        recommended_type: 'graphic'
-    });
-}
-
-function selectContentType(type) {
-    _selectedContentType = type;
-    // 更新选中状态
-    const options = document.querySelectorAll('.content-type-option');
-    options.forEach(function(opt, idx) {
-        const types = ['graphic', 'long_text', 'short_video'];
-        if (types[idx] === type) {
-            opt.classList.add('selected');
-            opt.querySelector('input[type="radio"]').checked = true;
-        } else {
-            opt.classList.remove('selected');
-            opt.querySelector('input[type="radio"]').checked = false;
-        }
-    });
 }
 
 function escAttr(str) {
@@ -1488,30 +1856,225 @@ function updateGenerateButton() {
 
     if (_selectedTopicId) {
         btn.disabled = false;
-        btnText.textContent = '开始生成';
+        btnText.textContent = '配置生成';
     } else {
         btn.disabled = true;
         btnText.textContent = '请先选择选题';
     }
 }
 
-// ── 生成内容 ──────────────────────────────────────
+// ── 生成内容（弹窗触发）──────────────────────────────
 async function generateContent() {
+    // 打开配置弹窗而不是直接生成
+    openGenerateModal();
+}
+
+function openGenerateModal() {
     if (!_selectedTopicId) return;
 
     const topic = _topics.find(function(t) { return t.id === _selectedTopicId; });
     if (!topic) return;
 
-    const btn = document.getElementById('btn-generate');
-    const btnText = document.getElementById('btn-generate-text');
+    // 重置状态
+    _selectedScene = null;
+    _selectedContentType = 'graphic';
+
+    // 重置内容类型选择（选中图文）
+    document.querySelectorAll('#simple-modal-type-list .modal-content-type-option').forEach(function(opt) {
+        opt.classList.remove('selected');
+    });
+    const defaultOpt = document.querySelector('#simple-modal-type-list .modal-content-type-option[data-type="graphic"]');
+    if (defaultOpt) {
+        defaultOpt.classList.add('selected');
+    }
+
+    // 重置按钮状态
+    const btn = document.getElementById('simple-modal-confirm');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-rocket-takeoff"></i> 开始生成';
+    }
+
+    // 显示弹窗
+    const modal = document.getElementById('simple-modal');
+    modal.classList.add('active');
+}
+
+function closeGenerateModal() {
+    const modal = document.getElementById('simple-modal');
+    modal.classList.remove('active');
+}
+
+function showGenerationResult(data) {
+    // 创建结果弹窗
+    let resultModal = document.getElementById('result-modal');
+    if (!resultModal) {
+        resultModal = document.createElement('div');
+        resultModal.id = 'result-modal';
+        resultModal.className = 'modal-overlay';
+        resultModal.innerHTML = `
+            <div class="modal-content" style="max-width:700px;max-height:90vh;overflow:auto;">
+                <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid #eee;">
+                    <h3 id="result-modal-title" style="margin:0;font-size:18px;">生成完成</h3>
+                    <button class="btn-close" onclick="closeResultModal()">&times;</button>
+                </div>
+                <div class="modal-body" id="result-modal-body" style="padding:20px;"></div>
+                <div class="modal-footer" id="result-modal-footer" style="padding:15px 20px;border-top:1px solid #eee;text-align:right;"></div>
+            </div>
+        `;
+        document.body.appendChild(resultModal);
+    }
+
+    const body = document.getElementById('result-modal-body');
+    const footer = document.getElementById('result-modal-footer');
+    const quality = data.quality_report || {};
+    const content = data.content || {};
+
+    // 生成评分星级
+    const scoreColor = quality.total_score >= 80 ? '#4caf50' : quality.total_score >= 60 ? '#ff9800' : '#f44336';
+    const scoreLabel = quality.grade_label || '待优化';
+
+    // 渲染内容预览
+    let slidesHtml = '';
+    if (content.slides && content.slides.length > 0) {
+        slidesHtml = '<div style="margin-top:15px;">';
+        content.slides.forEach(function(slide, idx) {
+            slidesHtml += `
+                <div style="background:#f8f9fa;padding:12px;margin-bottom:8px;border-radius:8px;">
+                    <div style="font-weight:600;color:#333;">第${idx + 1}张：${slide.title || ''}</div>
+                    <div style="color:#666;margin-top:4px;font-size:14px;">${(slide.content || '').substring(0, 100)}...</div>
+                </div>
+            `;
+        });
+        slidesHtml += '</div>';
+    }
+
+    body.innerHTML = `
+        <div style="text-align:center;margin-bottom:20px;">
+            <div style="font-size:48px;color:${scoreColor};">${quality.total_score || 0}</div>
+            <div style="font-size:16px;color:#666;">内容评分</div>
+            <div style="display:inline-block;background:${scoreColor};color:#fff;padding:4px 12px;border-radius:12px;font-size:13px;margin-top:8px;">${scoreLabel}</div>
+        </div>
+
+        <div style="background:#fff3cd;padding:12px;border-radius:8px;margin-bottom:15px;font-size:14px;">
+            <strong>评分摘要：</strong>${quality.summary || '暂无'}
+        </div>
+
+        ${quality.suggestions && quality.suggestions.length > 0 ? `
+        <div style="background:#e3f2fd;padding:12px;border-radius:8px;margin-bottom:15px;font-size:14px;">
+            <strong>优化建议：</strong>
+            <ul style="margin:8px 0 0 0;padding-left:20px;">
+                ${quality.suggestions.map(function(s) { return '<li>' + s + '</li>'; }).join('')}
+            </ul>
+        </div>
+        ` : ''}
+
+        <div style="border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;margin-top:15px;">
+            <div style="background:#f5f5f5;padding:10px 15px;font-weight:600;border-bottom:1px solid #e0e0e0;">内容预览</div>
+            <div style="padding:15px;">
+                <div style="font-size:18px;font-weight:600;margin-bottom:8px;">${content.title || '无标题'}</div>
+                <div style="color:#666;font-size:14px;margin-bottom:10px;">${content.geo_mode_used || ''} | ${content.structure || ''}</div>
+                ${slidesHtml}
+            </div>
+        </div>
+    `;
+
+    // 底部按钮
+    let footerHtml = '';
+    if (quality.need_optimize) {
+        footerHtml += `
+            <button id="btn-optimize" class="btn btn-primary" onclick="doOptimize(${data.generation_id})" style="margin-right:10px;">
+                <i class="bi bi-magic"></i> 一键优化
+            </button>
+        `;
+    }
+    footerHtml += `
+        <button class="btn btn-secondary" onclick="viewContentDetail(${data.generation_id})" style="margin-right:10px;">
+            查看详情
+        </button>
+        <button class="btn btn-outline" onclick="closeResultModal()">关闭</button>
+    `;
+    footer.innerHTML = footerHtml;
+
+    resultModal.classList.add('active');
+}
+
+function closeResultModal() {
+    const resultModal = document.getElementById('result-modal');
+    if (resultModal) {
+        resultModal.classList.remove('active');
+    }
+}
+
+function doOptimize(generationId) {
+    const btn = document.getElementById('btn-optimize');
+    if (btn && btn.disabled) return; // 防重复点击
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="apple-spinner" style="display:inline-block;width:14px;height:14px;border-width:2px;border-top-color:#fff;"></span> 优化中...';
+    }
+
+    fetch('/public/api/content/' + generationId + '/optimize', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showToast('优化完成！', 'success');
+            // 刷新结果
+            showGenerationResult({
+                generation_id: generationId,
+                quality_report: data.quality_report,
+                content: data.content
+            });
+        } else {
+            showToast(data.message || '优化失败', 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-magic"></i> 一键优化';
+            }
+        }
+    })
+    .catch(function(e) {
+        console.error('优化失败:', e);
+        showToast('优化失败，请重试', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-magic"></i> 一键优化';
+        }
+    });
+}
+
+function viewContentDetail(generationId) {
+    closeResultModal();
+    window.location.href = '/public/content-detail/' + generationId;
+}
+
+async function confirmGenerate() {
+    const topic = _topics.find(function(t) { return t.id === _selectedTopicId; });
+    if (!topic) {
+        console.log('confirmGenerate: 没有选中选题');
+        return;
+    }
+
+    const btn = document.getElementById('simple-modal-confirm');
+    if (!btn) {
+        console.log('confirmGenerate: 找不到按钮');
+        return;
+    }
+
     btn.disabled = true;
-    btnText.innerHTML = '<span class="apple-spinner" style="display:inline-block;width:14px;height:14px;border-width:2px;margin-right:4px;"></span> 生成中...';
+    btn.innerHTML = '<span class="apple-spinner" style="display:inline-block;width:14px;height:14px;border-width:2px;margin-right:4px;border-top-color:#fff;"></span> 生成中...';
 
     try {
         const payload = {
             topic_id: topic.id,
             topic_title: topic.title,
             topic_type: topic.type_name || topic.type_key || '',
+            topic_type_key: topic.type_key || '',
             business_description: _portrait.business_description || '',
             business_range: 'local',
             business_type: _portrait.industry || 'local_service',
@@ -1520,24 +2083,14 @@ async function generateContent() {
             problem_id: _portrait.session_id || null,
         };
 
-        // 如果画像有关联的 session，携带 problem_id
         if (_portrait.session_id) {
             payload.problem_id = _portrait.session_id;
         }
 
-        // ── 星系增强：携带场景选择信息 ──
-        if (_selectedScene) {
-            payload.selected_scene = {
-                scene_id: _selectedScene.id || '',
-                '\u7ec4\u5408': _selectedScene['\u7ec4\u5408'] || '',
-                '\u6807\u7b7e': _selectedScene['\u6807\u7b7e'] || '',
-                '\u98ce\u683c': _selectedScene['\u98ce\u683c'] || '',
-            };
-            payload.content_style = _selectedScene['\u98ce\u683c'] || '';
-        }
-
-        // ── 星系增强：携带内容类型 ──
+        // 携带内容类型
         payload.content_type = _selectedContentType || 'graphic';
+
+        console.log('confirmGenerate: 发送请求', payload);
 
         const resp = await fetch('/public/api/content/generate', {
             method: 'POST',
@@ -1545,40 +2098,53 @@ async function generateContent() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+
+        if (!resp.ok) {
+            const text = await resp.text();
+            console.error('confirmGenerate: HTTP错误', resp.status, text);
+            showToast('请求失败: ' + resp.status, 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-rocket-takeoff"></i> 开始生成';
+            return;
+        }
+
         const data = await resp.json();
+        console.log('confirmGenerate: 收到响应', data);
 
         if (data.success) {
-            // 成功后刷新版本列表缓存
-            if (_selectedTopicId && _topicVersionsCache[_selectedTopicId]) {
-                delete _topicVersionsCache[_selectedTopicId];
-                loadTopicVersions(_selectedTopicId);
-            }
-            // 成功后回写 generation_count
-            await incrementTopicCount(topic.id);
-            showToast('生成成功！', 'success');
-            // 跳转到详情页
-            if (data.generation_id) {
-                setTimeout(function() {
-                    window.location.href = '/public/content-detail?id=' + data.generation_id + '&portraitId=' + _portraitId;
-                }, 500);
-            } else {
-                // 重置按钮
-                btnText.innerHTML = '<i class="bi bi-check-lg"></i> 生成成功';
-                setTimeout(function() {
-                    btn.disabled = false;
-                    btnText.textContent = '继续生成';
-                }, 2000);
-            }
+            // 关闭弹窗
+            closeGenerateModal();
+
+            // 显示生成结果（不跳转页面）
+            showGenerationResult(data);
         } else {
             showToast(data.message || '生成失败', 'error');
             btn.disabled = false;
-            btnText.textContent = '开始生成';
+            btn.innerHTML = '<i class="bi bi-rocket-takeoff"></i> 开始生成';
         }
     } catch (e) {
+        console.error('confirmGenerate: 异常', e);
         showToast('生成失败，请重试', 'error');
         btn.disabled = false;
-        btnText.textContent = '开始生成';
+        btn.innerHTML = '<i class="bi bi-rocket-takeoff"></i> 开始生成';
     }
+}
+
+function getPriorityClass(priority) {
+    if (priority <= 2) return 'priority-high';
+    if (priority <= 4) return 'priority-medium';
+    return 'priority-low';
+}
+
+function getStyleIcon(style) {
+    const iconMap = {
+        '情绪共鸣': '💭',
+        '干货科普': '📚',
+        '故事叙述': '📖',
+        '权威背书': '🏆',
+        '犀利吐槽': '😏',
+    };
+    return iconMap[style] || '💭';
 }
 
 async function incrementTopicCount(topicId) {

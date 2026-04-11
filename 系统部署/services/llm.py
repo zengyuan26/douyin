@@ -100,7 +100,7 @@ class LLMService:
         """
         self.provider = provider
         self.model = model or os.environ.get('LLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
-        self.base_url = os.environ.get('LLM_BASE_URL', 'https://dashscope.aliyuncs.com/compatible-mode/v1')
+        self.base_url = os.environ.get('LLM_BASE_URL', 'https://api.siliconflow.cn/v1')
         self.api_key = os.environ.get('LLM_API_KEY', '')
         
     def chat(self, messages, temperature=0.7, max_tokens=2000):
@@ -501,9 +501,23 @@ def get_llm_service():
     """获取 LLM 服务实例"""
     global llm_service
     if llm_service is None:
-        provider = os.environ.get('LLM_PROVIDER', 'qwen')
-        model = os.environ.get('LLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
+        # 优先读取 Flask app config，否则读环境变量
+        try:
+            from flask import current_app
+            provider = current_app.config.get('LLM_PROVIDER', 'siliconflow')
+            model = current_app.config.get('LLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
+            base_url = current_app.config.get('LLM_BASE_URL', 'https://api.siliconflow.cn/v1')
+            api_key = current_app.config.get('LLM_API_KEY', '')
+        except Exception:
+            provider = os.environ.get('LLM_PROVIDER', 'siliconflow')
+            model = os.environ.get('LLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
+            base_url = os.environ.get('LLM_BASE_URL', 'https://api.siliconflow.cn/v1')
+            api_key = os.environ.get('LLM_API_KEY', '')
+
         llm_service = LLMService(provider=provider, model=model)
+        # 注入 base_url 和 api_key（LLMService 默认只读环境变量）
+        llm_service.base_url = base_url
+        llm_service.api_key = api_key
     return llm_service
 
 

@@ -187,16 +187,31 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str) -> None
             return
 
         portrait_data_dict = portrait.get('portrait_data', {})
+        business_description = portrait.get('business_description', '')
+        target_customer = portrait.get('target_customer', '')
+
+        # 确保画像数据包含必要的结构化信息
+        if not portrait_data_dict:
+            portrait_data_dict = {}
+
+        # 从 business_description 和 target_customer 中提取身份和痛点
+        if not portrait_data_dict.get('identity') and target_customer:
+            portrait_data_dict['identity'] = target_customer
+        if not portrait_data_dict.get('pain_point') and business_description:
+            portrait_data_dict['pain_point'] = business_description
+
         business_info = {
-            'business_description': portrait.get('business_description', ''),
+            'business_description': business_description,
             'industry': portrait.get('industry', ''),
-            'products': [],
-            'region': '',
-            'target_customer': portrait.get('target_customer', ''),
+            'products': portrait.get('products', []),
+            'region': portrait.get('region', ''),
+            'target_customer': target_customer,
         }
         # 调试日志
         business_str = json.dumps(business_info, ensure_ascii=False) if business_info else '{}'
         logger.info("[PortraitLibraryTask] portrait_data keys=" + str(list(portrait_data_dict.keys()) if portrait_data_dict else []))
+        logger.info("[PortraitLibraryTask] portrait_data identity=" + str(portrait_data_dict.get('identity', '')))
+        logger.info("[PortraitLibraryTask] portrait_data pain_point=" + str(portrait_data_dict.get('pain_point', '')))
         logger.info("[PortraitLibraryTask] business_info: " + business_str)
 
         # 3. 生成关键词库

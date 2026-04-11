@@ -1,6 +1,6 @@
 {#
-  内容详情页 - AI棱镜
-  展示生成内容的完整内容
+  内容详情页 - AI棱镜（分区分块展示版）
+  根据管理后台配置的展示配置，分区展示内容并支持逐区块复制
 #}
 {% extends "public/public_layout.html" %}
 
@@ -99,15 +99,7 @@
 
     /* 卡片内容 */
     .detail-card-body {
-        padding: 24px;
-    }
-
-    .detail-content-text {
-        font-size: 0.9375rem;
-        line-height: 1.8;
-        color: var(--text-primary);
-        white-space: pre-wrap;
-        word-break: break-word;
+        padding: 0;
     }
 
     /* 卡片底部操作栏 */
@@ -198,7 +190,6 @@
     .detail-error p {
         color: var(--apple-gray);
         font-size: 0.875rem;
-        margin-bottom: 20px;
     }
 
     /* ── 版本切换标签栏 ── */
@@ -252,7 +243,633 @@
         padding-left: 12px;
     }
 
+    /* ── 分区分块展示样式 ── */
+    .section-tabs-bar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 20px 0;
+        background: var(--bg-primary);
+        border-bottom: 1px solid var(--apple-gray6);
+        overflow-x: auto;
+        scrollbar-width: none;
+        flex-shrink: 0;
+    }
+    .section-tabs-bar::-webkit-scrollbar { display: none; }
+
+    .section-tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 8px 14px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--apple-gray);
+        border: 1px solid transparent;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s;
+        background: transparent;
+        margin-bottom: -1px;
+    }
+    .section-tab-btn:hover {
+        color: var(--text-primary);
+        background: var(--apple-gray7);
+    }
+    .section-tab-btn.active {
+        color: var(--netease-red, #FF3B30);
+        border-color: var(--apple-gray5);
+        border-bottom-color: var(--bg-primary);
+        background: var(--bg-primary);
+        font-weight: 600;
+    }
+    .section-tab-btn .copy-icon {
+        font-size: 0.6875rem;
+        opacity: 0.6;
+    }
+    .section-tab-btn.active .copy-icon {
+        opacity: 1;
+    }
+
+    /* 区块内容区 */
+    .section-panels-container {
+        padding: 20px 24px;
+        min-height: 200px;
+        max-height: calc(100vh - 400px);
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0,0,0,0.15) transparent;
+    }
+    .section-panels-container::-webkit-scrollbar { width: 5px; }
+    .section-panels-container::-webkit-scrollbar-thumb {
+        background: rgba(0,0,0,0.15);
+        border-radius: 10px;
+    }
+
+    /* 单个区块面板 */
+    .section-panel {
+        margin-bottom: 16px;
+    }
+    .section-panel:last-child {
+        margin-bottom: 0;
+    }
+
+    .section-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: var(--apple-gray7);
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        border: 1px solid var(--apple-gray5);
+        border-bottom: none;
+        cursor: pointer;
+        transition: background 0.15s;
+        user-select: none;
+    }
+    .section-panel-header:hover {
+        background: var(--apple-gray6);
+    }
+    .section-panel-header .section-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .section-panel-header .section-badge {
+        font-size: 0.6875rem;
+        padding: 1px 6px;
+        border-radius: 3px;
+        background: rgba(0,122,255,0.1);
+        color: var(--apple-blue);
+        font-weight: 500;
+    }
+    .section-panel-header .section-badge.core {
+        background: rgba(255,59,48,0.1);
+        color: var(--netease-red, #FF3B30);
+    }
+    .section-panel-header .section-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .section-panel-header .btn-copy-section {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 4px;
+        border: 1px solid var(--apple-gray4);
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .section-panel-header .btn-copy-section:hover {
+        border-color: var(--apple-blue);
+        color: var(--apple-blue);
+        background: rgba(0,122,255,0.05);
+    }
+    .section-panel-header .btn-copy-section.copied {
+        border-color: #34C759;
+        color: #34C759;
+        background: rgba(52,199,89,0.08);
+    }
+    .section-panel-header .btn-collapse {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        border: none;
+        background: transparent;
+        color: var(--apple-gray);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+        transition: all 0.15s;
+    }
+    .section-panel-header .btn-collapse:hover {
+        background: var(--apple-gray6);
+        color: var(--text-primary);
+    }
+
+    .section-panel-body {
+        border: 1px solid var(--apple-gray5);
+        border-top: none;
+        border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+        background: var(--bg-primary);
+        overflow: hidden;
+    }
+
+    .section-panel-body.collapsed {
+        display: none;
+    }
+
+    .section-panel-content {
+        padding: 16px;
+        font-size: 0.875rem;
+        line-height: 1.8;
+        color: var(--text-primary);
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    /* 内容预览（用于未选中的非核心区块） */
+    .section-panel-preview {
+        padding: 12px 16px;
+        font-size: 0.8125rem;
+        line-height: 1.6;
+        color: var(--apple-gray);
+        max-height: 80px;
+        overflow: hidden;
+        position: relative;
+    }
+    .section-panel-preview::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 30px;
+        background: linear-gradient(transparent, var(--bg-primary));
+    }
+
+    /* 标签流展示 */
+    .section-tags-flow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 16px;
+    }
+    .section-tags-flow .tag-item {
+        font-size: 0.8125rem;
+        padding: 4px 12px;
+        border-radius: 14px;
+        background: rgba(0,122,255,0.08);
+        color: var(--apple-blue);
+        font-weight: 500;
+    }
+
+    /* 内部参考区（折叠） */
+    .admin-only-section {
+        margin-top: 16px;
+        border: 1px dashed var(--apple-gray4);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+    .admin-only-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: var(--apple-gray7);
+        cursor: pointer;
+        user-select: none;
+    }
+    .admin-only-header:hover {
+        background: var(--apple-gray6);
+    }
+    .admin-only-title {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--apple-gray);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .admin-only-body {
+        border-top: 1px dashed var(--apple-gray4);
+        background: var(--bg-primary);
+    }
+
+    /* 底部操作栏加强 */
+    .detail-footer-bar {
+        padding: 14px 24px;
+        border-top: 1px solid var(--apple-gray6);
+        background: var(--bg-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .btn-copy-all-client {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 18px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border-radius: var(--radius-sm);
+        border: none;
+        background: var(--netease-red, #FF3B30);
+        color: white;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        box-shadow: 0 2px 8px rgba(236,65,65,0.25);
+    }
+    .btn-copy-all-client:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(236,65,65,0.35);
+    }
+    .btn-copy-all-client.copied {
+        background: #34C759;
+        box-shadow: 0 2px 8px rgba(52,199,89,0.25);
+    }
+
+    /* ── 质量评分报告样式 ── */
+    .quality-report-section {
+        margin: 16px 0;
+        padding: 16px;
+        background: linear-gradient(135deg, rgba(59,130,246,0.05), rgba(99,102,241,0.05));
+        border: 1px solid rgba(59,130,246,0.15);
+        border-radius: var(--radius-md);
+    }
+
+    .quality-report-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+
+    .quality-report-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .quality-report-title .badge {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--apple-blue);
+        color: white;
+    }
+
+    .quality-score-display {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .quality-score-circle {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .quality-score-circle.excellent { background: linear-gradient(135deg, #10b981, #059669); }
+    .quality-score-circle.good { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+    .quality-score-circle.fair { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .quality-score-circle.poor { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+    .quality-score-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .quality-score-grade {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .quality-score-status {
+        font-size: 0.75rem;
+        color: var(--apple-gray);
+    }
+
+    .quality-score-status.passed {
+        color: #10b981;
+    }
+
+    .quality-score-status.failed {
+        color: #f59e0b;
+    }
+
+    /* 评分项列表 */
+    .quality-items-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .quality-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        padding: 8px 10px;
+        background: var(--bg-primary);
+        border-radius: 6px;
+        border: 1px solid var(--apple-gray6);
+    }
+
+    .quality-item.passed {
+        border-color: rgba(16,185,129,0.3);
+        background: rgba(16,185,129,0.05);
+    }
+
+    .quality-item.failed {
+        border-color: rgba(245,158,11,0.3);
+        background: rgba(245,158,11,0.05);
+    }
+
+    .quality-item-icon {
+        font-size: 0.875rem;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .quality-item-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .quality-item-name {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        line-height: 1.3;
+    }
+
+    .quality-item-score {
+        font-size: 0.6875rem;
+        color: var(--apple-gray);
+    }
+
+    /* 优化提示 */
+    .quality-optimized-notice {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: rgba(16,185,129,0.1);
+        border: 1px solid rgba(16,185,129,0.3);
+        border-radius: 6px;
+        font-size: 0.8125rem;
+        color: #059669;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .quality-optimized-notice i {
+        font-size: 1rem;
+    }
+
+    /* 优化按钮 */
+    .quality-optimize-btn {
+        padding: 6px 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+        margin-left: auto;
+    }
+
+    .quality-optimize-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .quality-optimize-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* 已优化徽章 */
+    .quality-optimized-badge {
+        padding: 4px 12px;
+        background: rgba(16,185,129,0.1);
+        color: #059669;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: auto;
+    }
+
+    /* 建议列表 */
+    .quality-suggestions {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: var(--bg-primary);
+        border-radius: 6px;
+        border: 1px dashed var(--apple-gray4);
+    }
+
+    .quality-suggestions-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .quality-suggestion-item {
+        font-size: 0.75rem;
+        color: var(--apple-gray);
+        line-height: 1.5;
+        padding: 4px 0;
+        padding-left: 12px;
+        position: relative;
+    }
+
+    .quality-suggestion-item::before {
+        content: '•';
+        position: absolute;
+        left: 0;
+        color: var(--apple-gray3);
+    }
+
+    /* 收起/展开报告 */
+    .quality-report-toggle {
+        font-size: 0.75rem;
+        color: var(--apple-blue);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 0;
+    }
+
+    .quality-report-toggle:hover {
+        text-decoration: underline;
+    }
+
+    .quality-items-container {
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+    }
+
+    .quality-items-container.collapsed {
+        max-height: 0;
+    }
+
+    /* 展开/收起图标旋转 */
+    .toggle-icon {
+        transition: transform 0.2s;
+        display: inline-block;
+    }
+
+    .toggle-icon.rotated {
+        transform: rotate(180deg);
+    }
+
 </style>
+{% endblock %}
+
+{% block sidebar_nav %}
+    <div class="sidebar-group">
+        <div class="public-sidebar-section-label">快速生成</div>
+        <a class="public-sidebar-link" href="/public">
+            <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+            开始创作
+        </a>
+        <a class="public-sidebar-link" href="/public/galaxy">
+            <i class="bi bi-stars" aria-hidden="true"></i>
+            内容星球
+        </a>
+    </div>
+
+    <div class="sidebar-group">
+        <div class="public-sidebar-section-label">我的</div>
+        <a class="public-sidebar-link" href="/public/portraits">
+            <i class="bi bi-people-fill" aria-hidden="true"></i>
+            客户画像
+        </a>
+        <a class="public-sidebar-link" href="#" onclick="portraitsNavToTab(event, 'tab-topics')">
+            <i class="bi bi-card-list" aria-hidden="true"></i>
+            选题清单
+        </a>
+        <a class="public-sidebar-link is-active" href="#" onclick="portraitsNavToTab(event, 'tab-contents')">
+            <i class="bi bi-collection-play-fill" aria-hidden="true"></i>
+            内容清单
+        </a>
+    </div>
+{% endblock %}
+
+{% block topbar_title %}
+    <i class="bi bi-file-earmark-text-fill" style="color: var(--netease-red); margin-right: 6px;"></i>
+    内容详情
+{% endblock %}
+
+{% block topbar_right %}
+    <div class="public-topbar-actions" id="topbar-auth">
+        <span id="nav-login">
+            <a class="nav-link" href="/login?type=public" target="_self">登录</a>
+        </span>
+        <span id="nav-register">
+            <a class="btn btn-primary" href="/login?type=public#register" target="_self">免费开始</a>
+        </span>
+    </div>
+    <div class="topbar-user" id="topbar-user" style="display:none;">
+        <div class="topbar-avatar" id="topbar-avatar">
+            <span id="topbar-avatar-letter"></span>
+        </div>
+        <span class="topbar-nickname" id="topbar-nickname"></span>
+        <span class="topbar-plan-badge" id="topbar-plan-badge"></span>
+        <span class="topbar-separator"></span>
+        <div class="topbar-settings-dropdown" id="topbar-settings-dropdown">
+            <button type="button" class="topbar-icon-btn" id="topbar-settings-btn"
+                    onclick="toggleSettingsDropdown(event)" title="设置"
+                    aria-expanded="false" aria-haspopup="true" aria-controls="topbar-settings-menu">
+                <i class="bi bi-gear" aria-hidden="true"></i>
+            </button>
+            <div class="topbar-settings-menu" id="topbar-settings-menu" role="menu">
+                <button type="button" class="topbar-settings-item" role="menuitem"
+                        onclick="openAccountSettings(event, 'profile'); toggleSettingsDropdown(event);">
+                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    个人资料维护
+                </button>
+                <button type="button" class="topbar-settings-item" role="menuitem"
+                        onclick="openAccountSettings(event, 'password'); toggleSettingsDropdown(event);">
+                    <i class="bi bi-key" aria-hidden="true"></i>
+                    修改密码
+                </button>
+                <div class="topbar-settings-divider"></div>
+                <button type="button" class="topbar-settings-item danger" role="menuitem" onclick="logout(event)">
+                    <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                    退出登录
+                </button>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="topbar-icon-btn topbar-skin-btn" id="topbar-skin-btn"
+            onclick="openSkinPicker(event)" title="个性皮肤" aria-label="个性皮肤">
+        <svg class="topbar-skin-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+            <path d="M16.25 3.5c-.35 0-.68.18-.87.48L14 6h-4L8.62 3.98a1 1 0 00-.87-.48H5.75L3 6.25V9h2v11h14V9h2V6.25L18.25 3.5h-2zM7 9h10v9H7V9zm11-1H6V6.7L6.92 5.5h1.45l1.51 2.02a1 1 0 001.24.28.98.98 0 00.28-.28L12.91 5.5h1.45L16 6.7V8z"/>
+        </svg>
+    </button>
 {% endblock %}
 
 {% block content %}
@@ -297,15 +914,31 @@
                 <h2 class="detail-title" id="content-title">--</h2>
                 <div class="detail-tags" id="content-tags"></div>
             </div>
-            <div class="detail-card-body">
-                <div class="detail-content-text" id="content-body">--</div>
+
+            {# ── 质量评分报告区块 ── #}
+            <div id="quality-report-container" style="display:none;">
+                <!-- JS动态渲染质量报告 -->
             </div>
-            <div class="detail-card-footer">
-                <div class="detail-action-group">
-                    <button class="detail-action-btn" onclick="copyContent()">
+
+            <div class="detail-card-body">
+                {# 分区标签栏（JS渲染） #}
+                <div class="section-tabs-bar" id="section-tabs-bar"></div>
+
+                {# 区块内容区（JS渲染） #}
+                <div class="section-panels-container" id="section-panels-container"></div>
+
+                {# 内部参考折叠区（JS渲染） #}
+                <div id="admin-section-container"></div>
+            </div>
+
+            <div class="detail-footer-bar">
+                <div>
+                    <button class="btn-copy-all-client" id="btn-copy-all-client" onclick="copyAllClientContent()">
                         <i class="bi bi-clipboard"></i>
-                        复制内容
+                        <span id="copy-all-btn-text">复制全部内容</span>
                     </button>
+                </div>
+                <div style="display:flex;gap:10px;">
                     <button class="detail-action-btn" onclick="regenerateContent()">
                         <i class="bi bi-arrow-clockwise"></i>
                         重新生成
@@ -325,12 +958,22 @@
 var _generationId = null;
 var _portraitId = null;
 var _generationData = null;
+var _currentSectionKey = null;
+var _sectionDisplayConfig = [];
+var _allClientSections = []; // 所有客户端可见区块的内容
 
 function escHtml(str) {
     if (str == null) return '';
-    return String(str).replace(/[&<>"']/g, function(m) {
-        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m];
-    });
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/** 与 portraits / produce 侧栏一致：带意图跳转首页并切换侧栏 Tab */
+function portraitsNavToTab(e, tabName) {
+    if (e) e.preventDefault();
+    try {
+        sessionStorage.setItem('publicIntent', tabName);
+    } catch (err) { /* ignore */ }
+    window.location.href = '/public';
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -340,9 +983,40 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function loadUserAuth() {
     try {
-        const resp = await fetch('/public/api/quota', { credentials: 'include' });
-        const data = await resp.json();
-        if (!data.success || !data.data) {
+        var resp = await fetch('/public/api/quota', { credentials: 'include' });
+        var data = await resp.json();
+        if (data.success && data.data) {
+            var user = data.data;
+            document.getElementById('topbar-auth').style.display = 'none';
+            var topbarUser = document.getElementById('topbar-user');
+            topbarUser.style.display = 'flex';
+
+            var displayName = user.nickname || user.email || '用户';
+            document.getElementById('topbar-nickname').textContent = displayName;
+
+            var avatarEl = document.getElementById('topbar-avatar');
+            var avatarUrl = user.avatar || '';
+            if (avatarUrl) {
+                avatarEl.innerHTML = '<img src="' + avatarUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+            } else {
+                avatarEl.innerHTML = '<span style="color:#fff;font-weight:600;">' + displayName.charAt(0).toUpperCase() + '</span>';
+            }
+
+            var planName = user.quota && user.quota.plan_name ? user.quota.plan_name : '';
+            var badge = document.getElementById('topbar-plan-badge');
+            if (planName === '企业版') {
+                badge.textContent = '企业版';
+                badge.className = 'topbar-plan-badge ent';
+            } else if (planName === '专业版') {
+                badge.textContent = '专业版';
+                badge.className = 'topbar-plan-badge pro';
+            } else if (planName === '基础版') {
+                badge.textContent = '基础版';
+                badge.className = 'topbar-plan-badge basic';
+            } else {
+                badge.style.display = 'none';
+            }
+        } else {
             window.location.href = '/login?type=public&next=' + encodeURIComponent(window.location.pathname + window.location.search);
         }
     } catch (e) {
@@ -351,7 +1025,7 @@ async function loadUserAuth() {
 }
 
 function loadContentDetail() {
-    const params = new URLSearchParams(window.location.search);
+    var params = new URLSearchParams(window.location.search);
     _generationId = params.get('id');
 
     if (!_generationId) {
@@ -365,6 +1039,7 @@ function loadContentDetail() {
             if (data.success) {
                 _generationData = data.data;
                 _portraitId = data.data.portrait_id;
+                _sectionDisplayConfig = data.data.section_display_config || [];
                 renderVersionTabs(data.data);
                 renderContentDetail(data.data);
             } else {
@@ -377,21 +1052,21 @@ function loadContentDetail() {
 }
 
 function renderVersionTabs(data) {
-    const tabsBar = document.getElementById('version-tabs-bar');
+    var tabsBar = document.getElementById('version-tabs-bar');
     if (!tabsBar) return;
 
-    const siblings = data.sibling_versions || [];
+    var siblings = data.sibling_versions || [];
     if (siblings.length <= 1) {
         tabsBar.style.display = 'none';
         return;
     }
 
-    let html = '';
+    var html = '';
     siblings.forEach(function(v) {
-        const typeIcon = v.content_type === 'short_video' ? '🎬' : v.content_type === 'long_text' ? '📝' : '📄';
-        const isCurrent = v.generation_id == _generationId;
-        const activeClass = isCurrent ? ' active' : '';
-        const versionLabel = 'v' + v.version_number;
+        var typeIcon = v.content_type === 'short_video' ? '🎬' : v.content_type === 'long_text' ? '📝' : '📄';
+        var isCurrent = v.generation_id == _generationId;
+        var activeClass = isCurrent ? ' active' : '';
+        var versionLabel = 'v' + v.version_number;
 
         html +=
             '<div class="version-tab' + activeClass + '" onclick="switchVersion(' + v.generation_id + ')">' +
@@ -418,7 +1093,6 @@ function renderContentDetail(data) {
     document.getElementById('content-type').textContent = typeMap[data.content_type] || '图文';
     document.getElementById('content-portrait').textContent = data.target_customer || '--';
 
-    // tokens
     if (data.used_tokens) {
         document.getElementById('content-tokens').textContent = '消耗 ' + data.used_tokens + ' tokens';
     } else {
@@ -427,7 +1101,7 @@ function renderContentDetail(data) {
         if (dot) dot.style.display = 'none';
     }
 
-    // 标题
+    // 标题（使用主标题）
     var titles = data.titles;
     if (typeof titles === 'string') {
         try { titles = JSON.parse(titles); } catch(e) { titles = [titles]; }
@@ -460,15 +1134,6 @@ function renderContentDetail(data) {
         });
     }
 
-    // 内容正文（优先使用 content_data.body）
-    var content = data.content || '';
-    if (data.content_data && data.content_data.body) {
-        content = data.content_data.body;
-    } else if (data.content_data && typeof data.content_data === 'object') {
-        content = JSON.stringify(data.content_data, null, 2);
-    }
-    document.getElementById('content-body').textContent = content;
-
     // 时间
     if (data.created_at) {
         var d = new Date(data.created_at);
@@ -476,6 +1141,364 @@ function renderContentDetail(data) {
             d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
             pad(d.getHours()) + ':' + pad(d.getMinutes());
     }
+
+    // 渲染质量报告（如果API返回了质量数据）
+    if (data.quality_report) {
+        renderQualityReport(data.quality_report);
+    }
+
+    // 渲染分区内容
+    renderSectionDisplay(data);
+}
+
+// ── 分区展示核心逻辑 ──────────────────────────────────────
+function renderSectionDisplay(data) {
+    var configs = _sectionDisplayConfig;
+    var contentData = data.content_data || {};
+
+    // 解析各区块内容
+    var sections = parseSections(contentData, configs);
+
+    // 分别渲染客户端可见区和内部参考区
+    var clientSections = sections.filter(function(s) { return s.visible_to_client; });
+    var adminSections = sections.filter(function(s) { return !s.visible_to_client; });
+
+    // 保存所有客户端内容供复制
+    _allClientSections = clientSections;
+
+    // 渲染标签栏
+    renderSectionTabs(clientSections);
+
+    // 渲染客户端区块
+    renderClientSections(clientSections);
+
+    // 渲染内部参考区
+    renderAdminSections(adminSections);
+
+    // 默认激活第一个核心区块
+    var firstCore = clientSections.find(function(s) { return s.is_core_section; });
+    if (firstCore) {
+        activateSection(firstCore.section_key);
+    } else if (clientSections.length > 0) {
+        activateSection(clientSections[0].section_key);
+    }
+}
+
+function parseSections(contentData, configs) {
+    var sections = [];
+
+    configs.forEach(function(cfg) {
+        var key = cfg.section_key;
+        var content = extractSectionContent(key, contentData);
+
+        sections.push({
+            section_key: key,
+            section_label: cfg.section_label,
+            client_label: cfg.client_label || cfg.section_label,
+            visible_to_client: cfg.visible_to_client,
+            copyable: cfg.copyable,
+            is_core_section: cfg.is_core_section,
+            content: content,
+            has_content: content && content.trim().length > 0,
+        });
+    });
+
+    return sections;
+}
+
+function extractSectionContent(key, contentData) {
+    // 标签（tags）特殊处理：支持数组或逗号分隔字符串
+    if (key === 'tags') {
+        if (contentData.tags) {
+            if (Array.isArray(contentData.tags)) {
+                return contentData.tags.join('\n');
+            }
+            return String(contentData.tags);
+        }
+        // 也支持顶层 tags 字段
+        return '';
+    }
+
+    // 根据 section_key 映射 content_data 字段
+    var fieldMap = {
+        'title':         'title',
+        'content_plan':  'content_plan',
+        'comment':       'comment',
+        'tags':          'tags',
+        'extension':     'extension',
+        'publish':       'publish',
+        'basic_info':    'basic_info',
+        'compliance':    'compliance',
+        'script':        'script',
+        'shooting':      'shooting',
+        'content':       'content',
+    };
+
+    var field = fieldMap[key];
+    if (field && contentData[field] !== undefined) {
+        var val = contentData[field];
+        if (typeof val === 'object') {
+            return JSON.stringify(val, null, 2);
+        }
+        return String(val || '');
+    }
+
+    // 兜底：从 content（body）原始文本中尝试提取
+    var rawContent = contentData.body || contentData.content || contentData.content_text || '';
+    if (!rawContent) return '';
+
+    // 简单标题提取（从 body 第一行）
+    if (key === 'title') {
+        var lines = rawContent.split('\n');
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (line && !line.startsWith('#') && line.length < 100) {
+                return line;
+            }
+        }
+    }
+
+    return '';
+}
+
+function renderSectionTabs(sections) {
+    var tabsBar = document.getElementById('section-tabs-bar');
+    var html = '';
+    sections.forEach(function(sec) {
+        var copyIcon = sec.copyable ? '<i class="bi bi-clipboard copy-icon"></i>' : '';
+        html +=
+            '<button class="section-tab-btn" id="tab-btn-' + escHtml(sec.section_key) + '" ' +
+            'data-section="' + escHtml(sec.section_key) + '" ' +
+            'onclick="activateSection(\'' + escHtml(sec.section_key) + '\')">' +
+            copyIcon +
+            escHtml(sec.client_label) +
+            '</button>';
+    });
+    tabsBar.innerHTML = html;
+}
+
+function activateSection(sectionKey) {
+    _currentSectionKey = sectionKey;
+
+    // 更新标签激活态
+    document.querySelectorAll('.section-tab-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.section === sectionKey);
+    });
+
+    // 更新区块激活态（仅核心区块自动展开）
+    var configs = _sectionDisplayConfig;
+    var sections = parseSections(_generationData.content_data || {}, configs);
+
+    sections.forEach(function(sec) {
+        var panel = document.getElementById('panel-' + sec.section_key);
+        if (!panel) return;
+
+        var header = panel.querySelector('.section-panel-header');
+        var body = panel.querySelector('.section-panel-body');
+
+        if (sec.section_key === sectionKey && sec.is_core_section) {
+            // 点击激活 → 展开
+            body.classList.remove('collapsed');
+            header.querySelector('.btn-collapse i').className = 'bi bi-chevron-up';
+        } else if (!sec.is_core_section) {
+            // 非核心 → 折叠
+            body.classList.add('collapsed');
+            header.querySelector('.btn-collapse i').className = 'bi bi-chevron-down';
+        } else {
+            // 核心但非当前 → 折叠
+            body.classList.add('collapsed');
+            header.querySelector('.btn-collapse i').className = 'bi bi-chevron-down';
+        }
+    });
+}
+
+function toggleSection(sectionKey) {
+    var panel = document.getElementById('panel-' + sectionKey);
+    if (!panel) return;
+
+    var body = panel.querySelector('.section-panel-body');
+    var icon = panel.querySelector('.btn-collapse i');
+    var isCollapsed = body.classList.contains('collapsed');
+
+    body.classList.toggle('collapsed');
+    icon.className = isCollapsed ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+}
+
+function renderClientSections(sections) {
+    var container = document.getElementById('section-panels-container');
+    var html = '';
+
+    sections.forEach(function(sec) {
+        var badgeClass = sec.is_core_section ? 'core' : '';
+        var badgeText = sec.is_core_section ? '核心' : '';
+        var copyBtnHtml = sec.copyable
+            ? '<button class="btn-copy-section" id="copy-' + escHtml(sec.section_key) + '" onclick="copySection(\'' + escHtml(sec.section_key) + '\', event)"><i class="bi bi-clipboard"></i>复制</button>'
+            : '';
+
+        if (sec.section_key === 'tags') {
+            // 标签区块特殊渲染
+            html += buildTagsSection(sec, badgeClass, badgeText, copyBtnHtml);
+        } else {
+            html += buildTextSection(sec, badgeClass, badgeText, copyBtnHtml);
+        }
+    });
+
+    container.innerHTML = html;
+}
+
+function buildTextSection(sec, badgeClass, badgeText, copyBtnHtml) {
+    var hasContent = sec.content && sec.content.trim().length > 0;
+    var displayContent = hasContent ? escHtml(sec.content) : '<span style="color:var(--apple-gray);font-style:italic;">暂无内容</span>';
+
+    return '<div class="section-panel" id="panel-' + escHtml(sec.section_key) + '">' +
+        '<div class="section-panel-header" onclick="toggleSection(\'' + escHtml(sec.section_key) + '\')">' +
+            '<div class="section-title">' +
+                escHtml(sec.client_label) +
+                (badgeText ? '<span class="section-badge ' + badgeClass + '">' + badgeText + '</span>' : '') +
+            '</div>' +
+            '<div class="section-actions">' +
+                copyBtnHtml +
+                '<button class="btn-collapse"><i class="bi bi-chevron-up"></i></button>' +
+            '</div>' +
+        '</div>' +
+        '<div class="section-panel-body" id="body-' + escHtml(sec.section_key) + '">' +
+            '<div class="section-panel-content">' + displayContent + '</div>' +
+        '</div>' +
+    '</div>';
+}
+
+function buildTagsSection(sec, badgeClass, badgeText, copyBtnHtml) {
+    var tags = sec.content ? sec.content.split('\n').filter(function(t) { return t.trim(); }) : [];
+    var tagsHtml = '';
+    tags.forEach(function(tag) {
+        tagsHtml += '<span class="tag-item">' + escHtml(tag.trim()) + '</span>';
+    });
+    if (!tagsHtml) {
+        tagsHtml = '<span style="color:var(--apple-gray);font-style:italic;">暂无标签</span>';
+    }
+
+    return '<div class="section-panel" id="panel-' + escHtml(sec.section_key) + '">' +
+        '<div class="section-panel-header" onclick="toggleSection(\'' + escHtml(sec.section_key) + '\')">' +
+            '<div class="section-title">' +
+                escHtml(sec.client_label) +
+                (badgeText ? '<span class="section-badge ' + badgeClass + '">' + badgeText + '</span>' : '') +
+            '</div>' +
+            '<div class="section-actions">' +
+                copyBtnHtml +
+                '<button class="btn-collapse"><i class="bi bi-chevron-up"></i></button>' +
+            '</div>' +
+        '</div>' +
+        '<div class="section-panel-body" id="body-' + escHtml(sec.section_key) + '">' +
+            '<div class="section-tags-flow">' + tagsHtml + '</div>' +
+        '</div>' +
+    '</div>';
+}
+
+function renderAdminSections(sections) {
+    var container = document.getElementById('admin-section-container');
+    if (!sections || sections.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    var html = '<div class="admin-only-section">';
+    html += '<div class="admin-only-header" onclick="toggleAdminSection()">';
+    html += '<div class="admin-only-title"><i class="bi bi-lock"></i> 内部参考（基本信息/合规检查等）</div>';
+    html += '<i class="bi bi-chevron-down" id="admin-section-icon"></i>';
+    html += '</div>';
+    html += '<div class="admin-only-body" id="admin-section-body" style="display:none;">';
+
+    sections.forEach(function(sec) {
+        var hasContent = sec.content && sec.content.trim().length > 0;
+        var displayContent = hasContent ? escHtml(sec.content) : '<span style="color:var(--apple-gray);font-style:italic;">暂无内容</span>';
+
+        html += '<div class="section-panel" style="margin:0;border:none;border-radius:0;border-bottom:1px solid var(--apple-gray6);">' +
+            '<div class="section-panel-header" onclick="toggleAdminPanel(\'' + escHtml(sec.section_key) + '\')" style="background:var(--bg-secondary);border:none;border-radius:0;">' +
+                '<div class="section-title" style="font-size:0.8125rem;">' + escHtml(sec.section_label) + '</div>' +
+                '<i class="bi bi-chevron-down" id="admin-icon-' + escHtml(sec.section_key) + '"></i>' +
+            '</div>' +
+            '<div class="section-panel-body collapsed" id="admin-panel-' + escHtml(sec.section_key) + '">' +
+                '<div class="section-panel-content" style="font-size:0.8125rem;">' + displayContent + '</div>' +
+            '</div>' +
+        '</div>';
+    });
+
+    html += '</div></div>';
+    container.innerHTML = html;
+}
+
+function toggleAdminSection() {
+    var body = document.getElementById('admin-section-body');
+    var icon = document.getElementById('admin-section-icon');
+    var isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? 'block' : 'none';
+    icon.className = isHidden ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+}
+
+function toggleAdminPanel(key) {
+    var body = document.getElementById('admin-panel-' + key);
+    var icon = document.getElementById('admin-icon-' + key);
+    if (!body) return;
+    var isCollapsed = body.classList.contains('collapsed');
+    body.classList.toggle('collapsed');
+    icon.className = isCollapsed ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+}
+
+// ── 复制功能 ──────────────────────────────────────
+function copySection(sectionKey, event) {
+    event.stopPropagation();
+    var sec = _allClientSections.find(function(s) { return s.section_key === sectionKey; });
+    if (!sec || !sec.content) {
+        showToast('该区块暂无内容', 'error');
+        return;
+    }
+
+    navigator.clipboard.writeText(sec.content).then(function() {
+        var btn = document.getElementById('copy-' + sectionKey);
+        if (btn) {
+            btn.classList.add('copied');
+            btn.innerHTML = '<i class="bi bi-check"></i>已复制';
+            setTimeout(function() {
+                btn.classList.remove('copied');
+                btn.innerHTML = '<i class="bi bi-clipboard"></i>复制';
+            }, 2000);
+        }
+        showToast(sec.client_label + ' 已复制到剪贴板', 'success');
+    }).catch(function() {
+        showToast('复制失败，请手动选择复制', 'error');
+    });
+}
+
+function copyAllClientContent() {
+    if (!_allClientSections || _allClientSections.length === 0) {
+        showToast('暂无内容可复制', 'error');
+        return;
+    }
+
+    var lines = [];
+    _allClientSections.forEach(function(sec) {
+        if (sec.content && sec.content.trim()) {
+            lines.push('【' + sec.client_label + '】');
+            lines.push(sec.content.trim());
+            lines.push('');
+        }
+    });
+
+    var fullText = lines.join('\n');
+
+    navigator.clipboard.writeText(fullText).then(function() {
+        var btn = document.getElementById('btn-copy-all-client');
+        var btnText = document.getElementById('copy-all-btn-text');
+        if (btn) btn.classList.add('copied');
+        if (btnText) btnText.textContent = '已复制 ✓';
+        setTimeout(function() {
+            if (btn) btn.classList.remove('copied');
+            if (btnText) btnText.textContent = '复制全部内容';
+        }, 2500);
+        showToast('全部内容已复制到剪贴板', 'success');
+    }).catch(function() {
+        showToast('复制失败，请手动选择复制', 'error');
+    });
 }
 
 function showError(title, message) {
@@ -503,15 +1526,6 @@ function showToast(message, type) {
     }, 2500);
 }
 
-function copyContent() {
-    var content = document.getElementById('content-body').textContent;
-    navigator.clipboard.writeText(content).then(function() {
-        showToast('内容已复制到剪贴板', 'success');
-    }).catch(function() {
-        showToast('复制失败，请手动选择复制', 'error');
-    });
-}
-
 function regenerateContent() {
     if (_portraitId) {
         window.location.href = '/public/produce?portraitId=' + _portraitId;
@@ -520,7 +1534,7 @@ function regenerateContent() {
     }
 }
 
-// 返回按钮点击事件
+// 返回按钮
 document.getElementById('back-btn').addEventListener('click', function() {
     if (_portraitId) {
         window.location.href = '/public/produce?portraitId=' + _portraitId;
@@ -528,5 +1542,201 @@ document.getElementById('back-btn').addEventListener('click', function() {
         window.history.back();
     }
 });
+
+// ═══════════════════════════════════════════════════════════
+// 质量评分报告渲染
+// ═══════════════════════════════════════════════════════════
+
+function renderQualityReport(report) {
+    var container = document.getElementById('quality-report-container');
+    if (!container || !report) return;
+
+    var score = report.total_score || 0;
+    var grade = report.grade || 'D';
+    var gradeLabel = report.grade_label || '';
+    var passed = report.passed;
+    var optimized = report.optimized;
+    var needOptimize = report.need_optimize;
+    var firstScore = report.first_score || score;
+    var optimizedItems = report.optimized_items || [];
+    var items = report.items || [];
+    var summary = report.summary || '';
+    var suggestions = report.suggestions || [];
+
+    // 评分圆圈样式
+    var scoreClass = 'excellent';
+    if (score >= 90) scoreClass = 'excellent';
+    else if (score >= 80) scoreClass = 'good';
+    else if (score >= 70) scoreClass = 'fair';
+    else scoreClass = 'poor';
+
+    // 状态文本
+    var statusText = passed ? '✅ 已通过质量检测' : '⚠️ 未达标，建议优化';
+    var statusClass = passed ? 'passed' : 'failed';
+
+    // 优化提示
+    var optimizedNotice = '';
+    if (optimized && optimizedItems.length > 0) {
+        optimizedNotice = '<div class="quality-optimized-notice">' +
+            '<i class="bi bi-magic"></i>' +
+            '<span>已自动优化：' + optimizedItems.join('、') + '</span>' +
+            '</div>';
+    }
+
+    // 评分项HTML
+    var itemsHtml = '';
+    var currentCategory = '';
+    items.forEach(function(item) {
+        // 按分类分组标题
+        if (item.category !== currentCategory) {
+            currentCategory = item.category;
+            itemsHtml += '<div style="grid-column:1/-1;font-size:0.6875rem;font-weight:600;color:var(--apple-gray);margin-top:8px;padding-top:8px;border-top:1px solid var(--apple-gray6);">' + currentCategory + '</div>';
+        }
+
+        var itemClass = item.passed ? 'passed' : 'failed';
+        var icon = item.passed ? '✅' : '⚠️';
+        itemsHtml += '<div class="quality-item ' + itemClass + '">' +
+            '<span class="quality-item-icon">' + icon + '</span>' +
+            '<div class="quality-item-info">' +
+            '<div class="quality-item-name">' + escHtml(item.name) + '</div>' +
+            '<div class="quality-item-score">' + item.score + '/10 · ' + escHtml(item.detail || '') + '</div>' +
+            '</div>' +
+            '</div>';
+    });
+
+    // 建议HTML
+    var suggestionsHtml = '';
+    if (suggestions.length > 0) {
+        suggestionsHtml = '<div class="quality-suggestions">' +
+            '<div class="quality-suggestions-title"><i class="bi bi-lightbulb"></i> 改进建议</div>';
+        suggestions.forEach(function(s) {
+            suggestionsHtml += '<div class="quality-suggestion-item">' + escHtml(s) + '</div>';
+        });
+        suggestionsHtml += '</div>';
+    }
+
+        // 优化按钮（未通过且未优化时显示）
+        var optimizeBtn = '';
+        if (needOptimize && !optimized) {
+            optimizeBtn = '<button id="btn-detail-optimize" class="quality-optimize-btn" onclick="doDetailOptimize()">' +
+                '<i class="bi bi-magic"></i> 一键优化' +
+                '</button>';
+        } else if (optimized) {
+            optimizeBtn = '<div class="quality-optimized-badge"><i class="bi bi-check-circle"></i> 已优化</div>';
+        }
+
+        // 组装完整HTML
+        var html = '<div class="quality-report-section">' +
+            '<div class="quality-report-header">' +
+            '<div class="quality-report-title">' +
+            '<i class="bi bi-shield-check"></i>' +
+            'GEO质量评估' +
+            '</div>' +
+            '<span class="quality-report-toggle" onclick="toggleQualityReport(this)">' +
+            '<span class="toggle-text">查看详情</span>' +
+            '<i class="bi bi-chevron-down toggle-icon"></i>' +
+            '</span>' +
+            '</div>' +
+
+            '<div class="quality-score-display">' +
+            '<div class="quality-score-circle ' + scoreClass + '">' + score + '</div>' +
+            '<div class="quality-score-info">' +
+            '<div class="quality-score-grade">等级' + grade + ' · ' + gradeLabel + '</div>' +
+            '<div class="quality-score-status ' + statusClass + '">' + statusText + '</div>' +
+            (optimized && firstScore !== score ? '<div style="font-size:0.6875rem;color:var(--apple-gray);">首次' + firstScore + '分 → 优化后' + score + '分</div>' : '') +
+            '</div>' +
+            optimizeBtn +
+            '</div>' +
+
+            optimizedNotice +
+
+            // 可折叠的详情区
+            '<div class="quality-items-container collapsed">' +
+            '<div class="quality-items-list">' + itemsHtml + '</div>' +
+            suggestionsHtml +
+            '</div>' +
+            '</div>';
+
+    container.innerHTML = html;
+    container.style.display = 'block';
+}
+
+function toggleQualityReport(el) {
+    var container = el.closest('.quality-report-section').querySelector('.quality-items-container');
+    var textEl = el.querySelector('.toggle-text');
+    var iconEl = el.querySelector('.toggle-icon');
+
+    if (container.classList.contains('collapsed')) {
+        container.classList.remove('collapsed');
+        textEl.textContent = '收起详情';
+        iconEl.classList.add('rotated');
+    } else {
+        container.classList.add('collapsed');
+        textEl.textContent = '查看详情';
+        iconEl.classList.remove('rotated');
+    }
+}
+
+var _optimizeLoading = false;
+
+function doDetailOptimize() {
+    if (_optimizeLoading) return;
+    _optimizeLoading = true;
+
+    var btn = document.getElementById('btn-detail-optimize');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="apple-spinner"></span> 优化中...';
+    }
+
+    fetch('/public/api/content/' + _generationId + '/optimize', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        _optimizeLoading = false;
+        if (btn) {
+            btn.disabled = false;
+        }
+
+        if (data.success) {
+            // 重新渲染评分
+            if (data.quality_report) {
+                renderQualityReport(data.quality_report);
+            }
+            showToast('优化完成！', 'success');
+
+            // 更新页面内容
+            if (data.content) {
+                refreshContentDisplay(data.content);
+            }
+        } else {
+            showToast(data.message || '优化失败', 'error');
+            if (btn) {
+                btn.innerHTML = '<i class="bi bi-magic"></i> 一键优化';
+            }
+        }
+    })
+    .catch(function(e) {
+        console.error('优化失败:', e);
+        _optimizeLoading = false;
+        showToast('优化失败，请重试', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-magic"></i> 一键优化';
+        }
+    });
+}
+
+function refreshContentDisplay(content) {
+    // 刷新页面内容展示
+    if (content.title) {
+        var titleEl = document.querySelector('.detail-title');
+        if (titleEl) titleEl.textContent = content.title;
+    }
+    // 可以扩展更多内容刷新逻辑
+}
 </script>
 {% endblock %}

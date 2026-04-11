@@ -13,6 +13,7 @@ import logging
 import threading
 import datetime
 from flask import Blueprint, request, jsonify, session
+from flask_login import current_user
 from functools import wraps
 from services.portrait_save_service import portrait_save_service
 from services.portrait_frequency_controller import portrait_frequency_controller
@@ -32,10 +33,16 @@ portrait_bp = Blueprint('portrait', __name__, url_prefix='/public/api/portraits'
 
 
 def get_current_user():
-    """获取当前登录用户"""
+    """获取当前登录用户，支持两种 session 路径"""
+    # 方式1：从 session['public_user_id'] 获取（PublicUser 直接登录）
     user_id = session.get('public_user_id')
     if user_id:
-        return PublicUser.query.get(user_id)
+        user = PublicUser.query.get(user_id)
+        if user:
+            return user
+    # 方式2：从 Flask-Login session['_user_id'] 获取（public_user 角色的 User）
+    if session.get('_user_id') and current_user.is_authenticated and current_user.role == 'public_user':
+        return PublicUser.query.filter_by(email=current_user.email).first()
     return None
 
 
@@ -687,6 +694,73 @@ def get_topic_versions(user, portrait_id, topic_id):
         'first_generated_at': link.first_generated_at.strftime('%Y-%m-%d %H:%M') if link.first_generated_at else '',
         'last_generated_at': link.last_generated_at.strftime('%Y-%m-%d %H:%M') if link.last_generated_at else '',
         'versions': versions,
+    }})
+
+
+@portrait_bp.route('/<int:portrait_id>/topics/<topic_id>/generations', methods=['GET'])
+@login_required
+def get_topic_generations(user, portrait_id, topic_id):
+    """
+    查询选题已生成的内容列表（分页）
+
+    Query params:
+        page: 页码，默认1
+        per_page: 每页数量，默认10
+
+    Returns:
+        分页内容列表
+    """
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    page = max(1, page)
+    per_page = min(max(1, per_page), 50)
+
+    # 权限校验
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    # 查找 link
+    link = TopicGenerationLink.query.filter_by(
+        portrait_id=portrait_id,
+        topic_id=topic_id
+    ).filter(
+        TopicGenerationLink.user_id == user.id
+    ).first()
+
+    if not link:
+        return jsonify({'success': True, 'data': {
+            'generations': [],
+            'total': 0,
+            'pages': 0,
+            'page': page,
+        }})
+
+    # 分页查询
+    query = PublicGeneration.query.filter(
+        PublicGeneration.link_id == link.id,
+        PublicGeneration.user_id == user.id
+    ).order_by(PublicGeneration.created_at.desc())
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    generations = [{
+        'id': g.id,
+        'content_type': g.content_type or 'graphic',
+        'content_style': g.content_style or '',
+        'title': (g.titles[0] if g.titles and isinstance(g.titles, list) else str(g.titles or '')),
+        'tags': g.tags or [],
+        'created_at': g.created_at.isoformat() if g.created_at else None,
+    } for g in pagination.items]
+
+    return jsonify({'success': True, 'data': {
+        'generations': generations,
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'page': page,
     }})
 
 

@@ -301,6 +301,7 @@
         min-height: 0;
         position: relative;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         font-size: 2rem;
@@ -355,6 +356,9 @@
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
+        text-align: center;
+        padding: 4px 10px 6px;
+        width: 100%;
     }
 
     .portraits-recommend-section .pr-card-date {
@@ -429,7 +433,7 @@
         right: 0;
         background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.88) 100%);
         padding: 10px 10px 12px;
-        transform: translateY(calc(100% - 36px));
+        transform: translateY(100%);
         transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         border-radius: 0 0 10px 10px;
         z-index: 10;
@@ -437,7 +441,7 @@
 
     .portraits-recommend-section .pr-card:hover .pr-hover-overlay {
         transform: translateY(0);
-        padding: 36px 10px 12px;
+        padding: 10px 10px 12px;
     }
 
     .portraits-recommend-section .pr-hover-core-business {
@@ -567,6 +571,49 @@
         font-size: 0.8125rem;
         color: #aaa;
         display: none;
+    }
+
+    /* 关键词库按钮样式 */
+    .pp-hover-kw-btn {
+        margin-top: 8px;
+        padding: 0 2px;
+    }
+    .pp-kw-btn {
+        width: 100%;
+        font-size: 0.6875rem;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: none;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .pp-kw-btn-default {
+        background: rgba(255,255,255,0.2);
+        color: rgba(255,255,255,0.9);
+    }
+    .pp-kw-btn-default:hover {
+        background: rgba(255,255,255,0.35);
+        color: #fff;
+    }
+    .pp-kw-btn-success {
+        background: linear-gradient(135deg, #34c759 0%, #28a745 100%);
+        color: white;
+    }
+    .pp-kw-btn-success:hover {
+        background: linear-gradient(135deg, #2db24e 0%, #238f3a 100%);
+        transform: translateY(-1px);
+    }
+    .pp-kw-btn-loading {
+        background: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%);
+        color: white;
+        cursor: not-allowed;
+    }
+    .pp-kw-btn-danger {
+        background: linear-gradient(135deg, #ff3b30 0%, #d32f2f 100%);
+        color: white;
+    }
+    .pp-kw-btn-danger:hover {
+        background: linear-gradient(135deg, #e63629 0%, #c02828 100%);
     }
 
     @media (max-width: 768px) {
@@ -966,6 +1013,39 @@
         <button onclick="doDeletePortrait()" style="background:var(--apple-red);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.8125rem;">删除</button>
         <button onclick="hideDeleteToast()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:0.8125rem;">取消</button>
     </div>
+
+    {# 关键词库弹窗 #}
+    <div class="modal fade" id="ppKeywordLibraryModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="modal-title"><i class="bi bi-book me-2"></i>关键词库详情</h5>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-light btn-sm" id="pp-btn-copy-kw-md" title="复制 Markdown">
+                            <i class="bi bi-clipboard me-1"></i>复制 MD
+                        </button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div id="pp-kw-md-loading" class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted small">正在加载关键词库...</p>
+                    </div>
+                    <div id="pp-kw-md-error" class="text-center py-5" style="display:none;">
+                        <i class="bi bi-exclamation-triangle text-warning" style="font-size:2rem;"></i>
+                        <p class="mt-2 text-muted" id="pp-kw-md-error-msg"></p>
+                    </div>
+                    <div id="pp-kw-md-content" style="display:none;">
+                        <pre id="pp-kw-md-text" style="white-space: pre-wrap; word-break: break-all; font-size: 13px; line-height: 1.6; background: #f9f9f9; padding: 16px; border-radius: 8px; max-height: 70vh; overflow-y: auto;"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block layout_extra_js %}
@@ -1186,18 +1266,6 @@ async function loadUserAuth() {
     }
 }
 
-function getPortraitBrief(p) {
-    var bd = p.business_description || '';
-    var industry = p.industry || '';
-    var parts = [];
-    if (industry) parts.push(industry);
-    if (bd) {
-        var short = bd.length > 30 ? bd.substring(0, 30) + '…' : bd;
-        parts.push(short);
-    }
-    return parts.join(' · ') || '暂无描述';
-}
-
 function renderEmptyNetease() {
     return (
         '<div class="pp-empty-netease">' +
@@ -1226,15 +1294,42 @@ function renderEmptyNetease() {
 function buildRecommendPrCard(p, i) {
     var tone = (i % 4) + 1;
     var name = escHtml(p.portrait_name || ('画像' + (i + 1)));
-    var brief = escHtml(getPortraitBrief(p));
     var dateStr = p.created_at ? formatDate(p.created_at) : '';
     var topicCount = 0;
     if (p.topic_library && p.topic_library.topics) topicCount = p.topic_library.topics.length;
     var statText = topicCount > 0 ? ('🎧 ' + topicCount + ' 个选题') : '🎧 选题待生成';
     var pid = p.id;
 
-    // 直接从业务描述字段获取核心业务词
-    var coreBusinessText = p.business_description || '暂无核心业务词';
+    // 计算关键词库状态和数量
+    var kwCount = 0;
+    if (p.keyword_library && p.keyword_library.categories) {
+        p.keyword_library.categories.forEach(function(cat) { kwCount += (cat.keywords || []).length; });
+        if (p.keyword_library.blue_ocean) kwCount += p.keyword_library.blue_ocean.length;
+    }
+    var genStatus = p.generation_status || 'pending';
+
+    // 根据状态生成关键词库按钮
+    var kwBtnHtml = '';
+    if (kwCount > 0) {
+        // 已完成：绿色可点击按钮
+        kwBtnHtml = '<button type="button" class="btn btn-sm pp-kw-btn pp-kw-btn-success" onclick="event.stopPropagation(); ppShowKeywordLibrary(' + pid + ')">' +
+            '<i class="bi bi-book me-1"></i>关键词库 ' + kwCount + ' 个</button>';
+    } else if (genStatus === 'generating') {
+        // 生成中：黄色加载状态
+        kwBtnHtml = '<button type="button" class="btn btn-sm pp-kw-btn pp-kw-btn-loading" disabled>' +
+            '<i class="bi bi-arrow-repeat me-1 spinner-border spinner-border-sm"></i>生成中...</button>';
+    } else if (genStatus === 'failed') {
+        // 失败：红色可重试按钮
+        kwBtnHtml = '<button type="button" class="btn btn-sm pp-kw-btn pp-kw-btn-danger" onclick="event.stopPropagation(); ppRetryKeywordLibrary(' + pid + ')">' +
+            '<i class="bi bi-exclamation-triangle me-1"></i>生成失败（点击重试）</button>';
+    } else {
+        // 待生成：灰色可点击按钮
+        kwBtnHtml = '<button type="button" class="btn btn-sm pp-kw-btn pp-kw-btn-default" onclick="event.stopPropagation(); ppTriggerKeywordLibrary(' + pid + ')">' +
+            '<i class="bi bi-lightning-charge me-1"></i>关键词库 待生成</button>';
+    }
+
+    // 直接从业务描述字段获取核心业务词（hover时显示）
+    var coreBusinessText = p.business_description || '';
 
     return (
         '<div class="pr-card pr-tone-' + tone + '" data-portrait-id="' + pid + '" data-pp-index="' + i + '"' +
@@ -1246,15 +1341,15 @@ function buildRecommendPrCard(p, i) {
         '<div class="pr-card-cover">' +
         '<span class="pr-card-stat">' + escHtml(statText) + '</span>' +
         '<i class="bi bi-person-fill" aria-hidden="true"></i>' +
+        '<div class="pr-card-meta">' + escHtml(coreBusinessText) + '</div>' +
         '</div>' +
         '<div class="pr-card-footer">' +
         '<div class="pr-card-name">' + name + '</div>' +
-        '<div class="pr-card-meta">' + brief + '</div>' +
         (dateStr ? '<div class="pr-card-date">' + escHtml(dateStr) + '</div>' : '') +
         '</div></div>' +
         '<div class="pr-hover-overlay">' +
         '<div class="pr-hover-content" id="pp-pr-overlay-' + pid + '">' +
-        '<div class="pr-hover-core-business">' + escHtml(coreBusinessText) + '</div>' +
+        '<div class="pp-hover-kw-btn">' + kwBtnHtml + '</div>' +
         '</div>' +
         '<button type="button" class="pr-hover-play" aria-label="进入生成" title="进入生成"' +
         ' onclick="event.stopPropagation(); ppOnPlayClick(' + pid + ')">' +
@@ -1272,10 +1367,10 @@ function renderRecommendCoverflow(portraits) {
         '<div class="pr-card-cover">' +
         '<span class="pr-card-stat">🎧 开始创作</span>' +
         '<i class="bi bi-plus-lg" aria-hidden="true"></i>' +
+        '<div class="pr-card-meta">点击进入超级定位</div>' +
         '</div>' +
         '<div class="pr-card-footer">' +
         '<div class="pr-card-name">生成新画像</div>' +
-        '<div class="pr-card-meta">点击进入超级定位</div>' +
         '</div></div></div>'
     );
     var cards = (portraits || []).map(function(p, i) {
@@ -1304,6 +1399,100 @@ function ppOnCardHover(portraitId) {
         ppFetchQuickTopics(portraitId);
     }
 }
+
+// 触发关键词库生成
+async function ppTriggerKeywordLibrary(portraitId) {
+    try {
+        showToast('正在触发关键词库生成...', 'info');
+        const resp = await fetch('/public/api/portraits/' + portraitId + '/library/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ library_type: 'keyword' })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast('关键词库生成中...', 'success');
+            // 重新加载画像列表更新按钮状态
+            await loadPortraits();
+            // 启动轮询检查状态
+            ppPollKeywordLibraryStatus(portraitId);
+        } else {
+            showToast(data.message || '触发失败', 'error');
+        }
+    } catch (e) {
+        showToast('触发失败', 'error');
+    }
+}
+
+// 重试关键词库生成
+async function ppRetryKeywordLibrary(portraitId) {
+    await ppTriggerKeywordLibrary(portraitId);
+}
+
+// 轮询关键词库状态
+var _ppKwPollTimers = {};
+function ppPollKeywordLibraryStatus(portraitId) {
+    if (_ppKwPollTimers[portraitId]) return;
+    _ppKwPollTimers[portraitId] = setInterval(async function() {
+        try {
+            const resp = await fetch('/public/api/portraits/' + portraitId, { credentials: 'include' });
+            const data = await resp.json();
+            if (data.success && data.data) {
+                const status = data.data.generation_status;
+                if (status === 'completed' || status === 'failed') {
+                    clearInterval(_ppKwPollTimers[portraitId]);
+                    delete _ppKwPollTimers[portraitId];
+                    await loadPortraits();
+                    if (status === 'completed') {
+                        showToast('关键词库生成完成！', 'success');
+                    }
+                }
+            }
+        } catch (e) {
+            clearInterval(_ppKwPollTimers[portraitId]);
+            delete _ppKwPollTimers[portraitId];
+        }
+    }, 3000);
+}
+
+// 显示关键词库弹窗
+async function ppShowKeywordLibrary(portraitId) {
+    const modal = new bootstrap.Modal(document.getElementById('ppKeywordLibraryModal'));
+    document.getElementById('pp-kw-md-loading').style.display = 'block';
+    document.getElementById('pp-kw-md-error').style.display = 'none';
+    document.getElementById('pp-kw-md-content').style.display = 'none';
+    modal.show();
+
+    try {
+        const resp = await fetch('/public/api/portraits/' + portraitId + '/keyword-library-md', { credentials: 'include' });
+        const data = await resp.json();
+        if (data.success && data.data) {
+            document.getElementById('pp-kw-md-loading').style.display = 'none';
+            document.getElementById('pp-kw-md-content').style.display = 'block';
+            document.getElementById('pp-kw-md-text').textContent = data.data.markdown || '';
+        } else {
+            document.getElementById('pp-kw-md-loading').style.display = 'none';
+            document.getElementById('pp-kw-md-error').style.display = 'block';
+            document.getElementById('pp-kw-md-error-msg').textContent = data.message || '加载失败';
+        }
+    } catch (e) {
+        document.getElementById('pp-kw-md-loading').style.display = 'none';
+        document.getElementById('pp-kw-md-error').style.display = 'block';
+        document.getElementById('pp-kw-md-error-msg').textContent = '加载失败，请重试';
+    }
+}
+
+// 复制关键词库 Markdown
+document.getElementById('pp-btn-copy-kw-md')?.addEventListener('click', function() {
+    const text = document.getElementById('pp-kw-md-text').textContent;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(function() {
+        showToast('已复制到剪贴板', 'success');
+    }).catch(function() {
+        showToast('复制失败', 'error');
+    });
+});
 
 function ppFetchQuickTopics(portraitId) {
     fetch('/public/api/portraits/' + portraitId + '/topics/quick?count=3', { credentials: 'include' })
