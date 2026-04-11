@@ -549,19 +549,63 @@ def get_portrait_topics(user, portrait_id):
     page_topics = enrich_topics_with_scene_options(page_topics)
 
     # ── 补充 link 信息（版本数量、使用次数）──
-    topic_ids = [t.get('id') for t in page_topics if t.get('id')]
+    topic_ids = [str(t.get('id')) for t in page_topics if t.get('id')]
     if topic_ids and portrait_id:
         links = TopicGenerationLink.query.filter_by(
             portrait_id=portrait_id, user_id=user.id
         ).filter(TopicGenerationLink.topic_id.in_(topic_ids)).all()
-        link_map = {l.topic_id: l for l in links}
+        # topic_id 统一为字符串建 map，防止类型不一致导致匹配失败
+        link_map = {str(l.topic_id): l for l in links}
         for t in page_topics:
-            tid = t.get('id')
-            if tid in link_map:
+            tid = str(t.get('id')) if t.get('id') is not None else ''
+            if tid and tid in link_map:
                 link = link_map[tid]
                 t['_link_id'] = link.id
                 t['_usage_count'] = link.usage_count or 0
                 t['_generation_ids'] = link.generation_ids or []
+                # ── 同步 generation_count（取自 link usage_count）──
+                t['generation_count'] = link.usage_count or 0
+
+    # ── 补充业务名称（核心业务词，取自关键词库；兜底取多个来源）──
+    # 优先级1：从关键词库第一个分类的前3个关键词
+    business_name = ''
+    keyword_library = portrait.get('keyword_library')
+    if keyword_library:
+        # 新格式（有 categories）
+        if isinstance(keyword_library, dict) and 'categories' in keyword_library:
+            cats = keyword_library.get('categories') or []
+            if cats:
+                first_keywords = cats[0].get('keywords', [])
+                if first_keywords:
+                    business_name = '、'.join([str(k) for k in first_keywords[:3]])
+        # 旧格式（扁平列表）
+        elif isinstance(keyword_library, list) and len(keyword_library) > 0:
+            first_item = keyword_library[0]
+            if isinstance(first_item, str):
+                business_name = first_item[:15]
+            elif isinstance(first_item, dict):
+                kw = first_item.get('keyword') or first_item.get('word') or ''
+                business_name = kw[:15] if kw else ''
+
+    # 优先级2：business_description（前端保存时传入的业务描述）
+    if not business_name:
+        business_name = (portrait.get('business_description') or '')[:12].strip()
+
+    # 优先级3：portrait_name（画像名称）
+    if not business_name:
+        business_name = (portrait.get('portrait_name') or '')[:12].strip()
+
+    # 优先级4：industry（行业字段）
+    if not business_name:
+        business_name = (portrait.get('industry') or '')[:12].strip()
+
+    # 优先级5：从 portrait_data 内的 description 或 name 提取
+    if not business_name:
+        portrait_data = portrait.get('portrait_data') or {}
+        business_name = (portrait_data.get('description') or portrait_data.get('name') or '')[:12].strip()
+
+    for t in page_topics:
+        t['_business_name'] = business_name
 
     return jsonify({
         'success': True,

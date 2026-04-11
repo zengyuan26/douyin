@@ -185,7 +185,7 @@
     /* 列表列头 */
     .playlist-cols {
         display: grid;
-        grid-template-columns: 60px 1fr 100px 80px 80px;
+        grid-template-columns: 60px 1fr 120px 80px 80px;
         gap: 12px;
         padding: 8px 20px;
         background: var(--bg-tertiary);
@@ -215,7 +215,7 @@
 
     .playlist-row {
         display: grid;
-        grid-template-columns: 60px 1fr 100px 80px;
+        grid-template-columns: 60px 1fr 120px 80px 80px;
         gap: 12px;
         padding: 8px 20px;
         align-items: center;
@@ -327,6 +327,33 @@
     .topic-direction-badge.zhuanhua {
         background: rgba(176, 82, 222, 0.1);
         color: var(--apple-purple);
+    }
+
+    /* 业务名称列 */
+    .row-business {
+        text-align: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .business-name-tag {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--apple-blue);
+        font-weight: 500;
+        max-width: 110px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: inline-block;
+    }
+
+    .business-name-tag.empty {
+        color: var(--apple-gray3);
+        background: transparent;
     }
 
     /* 生成次数列 */
@@ -1176,13 +1203,19 @@
     @media (max-width: 768px) {
         .playlist-cols,
         .playlist-row {
-            grid-template-columns: 40px 1fr 70px 60px 60px;
+            grid-template-columns: 40px 1fr 90px 60px 60px;
             gap: 8px;
             padding: 10px 12px;
         }
 
         .row-count {
             font-size: 0.75rem;
+        }
+
+        .business-name-tag {
+            font-size: 0.6875rem;
+            padding: 2px 4px;
+            max-width: 80px;
         }
 
         .topic-type-badge,
@@ -1326,6 +1359,7 @@
             <div class="playlist-cols">
                 <div style="text-align:center;">选择</div>
                 <div>选题名称</div>
+                <div style="text-align:center;">业务名称</div>
                 <div style="text-align:center;">生成次数</div>
                 <div style="text-align:center;">查看</div>
             </div>
@@ -1683,6 +1717,11 @@ function renderTopicRows(topics) {
         const hasVersionsBadge = hasVersions
             ? '<span class="topic-direction-badge" style="background:rgba(0,122,255,0.1);color:var(--apple-blue);">' + usageCount + 'v</span>'
             : '';
+        // ── 业务名称（核心业务词，取自画像数据）──
+        const businessName = topic._business_name || '';
+        const businessNameHtml = businessName
+            ? '<span class="business-name-tag" title="业务名称">' + escHtml(businessName) + '</span>'
+            : '<span class="business-name-tag empty">--</span>';
 
         html +=
             '<div class="playlist-row ' + selectedClass + '" data-topic-id="' + topic.id + '" onclick="selectTopic(\'' + topic.id + '\')">' +
@@ -1697,6 +1736,7 @@ function renderTopicRows(topics) {
                         hasVersionsBadge +
                     '</div>' +
                 '</div>' +
+                '<div class="row-business">' + businessNameHtml + '</div>' +
                 '<div class="row-count"><span class="count-num">' + genCount + '</span> 次</div>' +
                 '<div class="row-action">' +
                     '<a href="/public/content-versions?portraitId=' + _portraitId + '&topicId=' + topic.id + '" class="btn-view" onclick="event.stopPropagation();">查看</a>' +
@@ -2089,6 +2129,12 @@ async function confirmGenerate() {
 
         // 携带内容类型
         payload.content_type = _selectedContentType || 'graphic';
+
+        // ── 自动取选题的第一个场景组合传给后端（GEO匹配用）──
+        const sceneOptions = topic.scene_options || [];
+        if (sceneOptions.length > 0) {
+            payload.selected_scene = sceneOptions[0];
+        }
 
         console.log('confirmGenerate: 发送请求', payload);
 

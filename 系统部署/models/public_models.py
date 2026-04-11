@@ -213,6 +213,7 @@ class PublicGeneration(db.Model):
 
     # ── 质量评分 ──
     quality_score = db.Column(db.Integer, nullable=True)  # GEO质量评分 0-100
+    quality_report = db.Column(db.JSON, nullable=True)  # 完整评分报告（含items）
 
     # 消耗
     used_tokens = db.Column(db.Integer, default=0)

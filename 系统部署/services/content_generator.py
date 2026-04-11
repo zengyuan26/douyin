@@ -283,12 +283,12 @@ class TopicContentGenerator:
 4. 评论区首评引导：预设一条能引发互动的首评
 """
 
-        # 场景信息 - 提取关键词用于GEO匹配
+        # 场景信息 - 提取关键词用于GEO匹配（兼容旧格式 组合/标签/风格 和新格式 group/label/style）
         scene_keywords = ''
         if selected_scene:
-            combo = selected_scene.get('组合', '')
-            label = selected_scene.get('标签', '')
-            style = selected_scene.get('风格', '')
+            combo = selected_scene.get('组合') or selected_scene.get('group', '')
+            label = selected_scene.get('标签') or selected_scene.get('label', '')
+            style = selected_scene.get('风格') or selected_scene.get('style', '')
             scene_keywords = f"{combo} {label} {style}".strip()
 
         prompt = f"""你是GEO内容优化专家。请根据以下选题，生成一篇高收录、高权重的图文内容。
@@ -499,13 +499,13 @@ class TopicContentGenerator:
         topic_lower = topic_title.lower()
         topic_full = topic_title
 
-        # 从场景组合中提取关键词
+        # 从场景组合中提取关键词（兼容旧格式 组合/标签/风格 和新格式 group/label/style）
         scene_keywords = ''
         scene_all_text = ''
         if selected_scene:
-            scene_combo = selected_scene.get('组合', '')
-            scene_label = selected_scene.get('标签', '')
-            scene_style = selected_scene.get('风格', '')
+            scene_combo = selected_scene.get('组合') or selected_scene.get('group', '')
+            scene_label = selected_scene.get('标签') or selected_scene.get('label', '')
+            scene_style = selected_scene.get('风格') or selected_scene.get('style', '')
             scene_keywords = scene_combo + ' ' + scene_label + ' ' + scene_style
             scene_all_text = scene_keywords.lower()
 

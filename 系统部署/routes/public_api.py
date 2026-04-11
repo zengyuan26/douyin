@@ -1661,6 +1661,7 @@ def _background_generate_content(generation_id, params, result_type, content_sty
             gen.used_tokens = result.get('tokens_used', 0)
             gen.geo_mode_used = content.get('geo_mode', '')
             gen.quality_score = quality_report.get('final_score', score_result.total_score)
+            gen.quality_report = quality_report
 
             db.session.commit()
             logger.info(f"[后台生成] 完成 generation_id={generation_id}")
@@ -1727,8 +1728,63 @@ def api_generate_content_from_topic():
         }), 403
 
     try:
-        # 获取内容类型和风格参数
+        # ══ 场景自动轮换：同选题同内容类型时自动换场景（所有内容类型共用）══
+        topic_id_str = params.get('topic_id', '') or ''
         content_type = params.get('content_type', 'graphic')
+        raw_scene = params.get('selected_scene')  # 前端传来的第一个场景
+        effective_scene = raw_scene  # 默认用前端指定的场景
+
+        if topic_id_str and user:
+            # 查询该选题 + 内容类型的历史生成记录
+            history_gens = PublicGeneration.query.filter(
+                PublicGeneration.topic_id == topic_id_str,
+                PublicGeneration.content_type == content_type,
+                PublicGeneration.user_id == user.id
+            ).order_by(PublicGeneration.created_at.desc()).all()
+
+            if history_gens:
+                # 提取已用场景标识集合
+                used_scene_keys = set()
+                for gen in history_gens:
+                    sel = gen.selected_scenes
+                    if sel and isinstance(sel, dict):
+                        key = sel.get('id') or sel.get('pain_name') or sel.get('label', '')
+                        if key:
+                            used_scene_keys.add(key)
+
+                if used_scene_keys:
+                    # 从选题库获取完整 scene_options
+                    portrait_id_val = params.get('portrait_id')
+                    scene_options = []
+                    if portrait_id_val:
+                        from models.public_models import SavedPortrait
+                        portrait = SavedPortrait.query.filter_by(
+                            id=portrait_id_val, user_id=user.id
+                        ).first()
+                        if portrait and portrait.topic_library:
+                            for t in portrait.topic_library.get('topics', []):
+                                if t.get('id') == topic_id_str:
+                                    scene_options = t.get('scene_options', [])
+                                    break
+
+                    # 找第一个未用过的场景
+                    next_scene = None
+                    for sc in scene_options:
+                        key = sc.get('id') or sc.get('pain_name') or sc.get('label', '')
+                        if key and key not in used_scene_keys:
+                            next_scene = sc
+                            break
+
+                    if next_scene:
+                        effective_scene = next_scene
+                    else:
+                        # 全部用过了，循环回第一个
+                        effective_scene = scene_options[0] if scene_options else raw_scene
+
+                    logger.info(f"[SceneRotation] topic={topic_id_str} type={content_type} "
+                                f"used={used_scene_keys} next={effective_scene}")
+
+        # 获取内容类型和风格参数
         content_style = params.get('content_style', '')
 
         # 根据内容类型调用不同的生成器
@@ -1759,13 +1815,12 @@ def api_generate_content_from_topic():
         else:
             # 图文生成（默认）
             generator = TopicContentGenerator()
-            # 调试日志
-            logger.info(f"[GEO调试] selected_scene: {params.get('selected_scene')}")
+            logger.info(f"[GEO调试] selected_scene: {effective_scene}")
             result = generator.generate_content(
                 topic_id=params.get('topic_id', ''),
                 topic_title=params.get('topic_title', ''),
                 topic_type=params.get('topic_type', ''),
-                topic_type_key=params.get('topic_type_key', ''),  # 选题类型键（来自选题库）
+                topic_type_key=params.get('topic_type_key', ''),
                 business_description=params.get('business_description', ''),
                 business_range=params.get('business_range', ''),
                 business_type=params.get('business_type', ''),
@@ -1773,7 +1828,7 @@ def api_generate_content_from_topic():
                 is_premium=is_premium,
                 premium_plan=user.premium_plan if user else 'free',
                 content_style=content_style,
-                selected_scene=params.get('selected_scene'),
+                selected_scene=effective_scene,
             )
             result_type = 'graphic'
 
@@ -1802,7 +1857,7 @@ def api_generate_content_from_topic():
                 'items': content_scorer.to_dict(score_result)['items'],
                 'summary': score_result.summary,
                 'suggestions': score_result.suggestions,
-                'failed_items': [item['name'] for item in score_result.failed_items] if hasattr(score_result, 'failed_items') else [],
+                'failed_items': [item.name for item in score_result.failed_items] if hasattr(score_result, 'failed_items') else [],
                 'need_optimize': not score_result.passed,
             }
 
@@ -1871,13 +1926,14 @@ def api_generate_content_from_topic():
                 topic_id=topic_id_str,
                 portrait_id=portrait_id_val,
                 problem_id=params.get('problem_id'),
-                selected_scenes=params.get('selected_scene'),
+                selected_scenes=effective_scene,
                 link_id=link.id if link else None,
                 version_number=version_number,
                 parent_version_id=parent_version_id,
                 geo_mode_used=content.get('geo_mode', '') if result.get('content') else '',
                 content_style=content_style,
                 quality_score=quality_report.get('final_score', 0) if result.get('content') else 0,
+                quality_report=quality_report if result.get('content') else None,
             )
             db.session.add(generation)
             db.session.flush()
@@ -1888,6 +1944,23 @@ def api_generate_content_from_topic():
                 link.last_generated_at = datetime.datetime.utcnow()
                 if link.first_generated_at is None:
                     link.first_generated_at = generation.created_at
+
+            # ── 同步更新选题库 generation_count（保持画像选题库与 link 一致）──
+            if link and portrait_id_val:
+                from models.public_models import SavedPortrait
+                sp = SavedPortrait.query.filter_by(id=portrait_id_val, user_id=user.id).first()
+                if sp and sp.topic_library and 'topics' in sp.topic_library:
+                    updated = False
+                    # topic_id 在选题库中可能为 int/str，统一转为 str 比较
+                    tid_str = str(topic_id_str) if topic_id_str else ''
+                    for t in sp.topic_library['topics']:
+                        t_id = t.get('id')
+                        if t_id is not None and str(t_id) == tid_str:
+                            t['generation_count'] = link.usage_count
+                            updated = True
+                            break
+                    if updated:
+                        logger.info(f"[GenerationCount] 更新 portrait_id={portrait_id_val} topic_id={topic_id_str} generation_count={link.usage_count}")
 
             # 扣减配额
             if user:
@@ -1959,39 +2032,26 @@ def api_content_detail(generation_id):
     from services.template_config_service import template_config_service
     section_display_config = template_config_service.get_section_display_config(content_type)
 
-    # 构建质量报告数据（如果已有评分，直接使用；否则调用LLM评分）
+    # 构建质量报告数据（如果已有完整评分报告，直接使用；否则调用LLM评分）
     quality_report = None
     if gen.content_data:
-        from services.content_quality_scorer import content_scorer
-        content_data = gen.content_data
-
-        # 如果已有评分，直接使用已有评分，避免每次调用LLM
-        if gen.quality_score:
-            brand_name = gen.target_customer[:10] if gen.target_customer else ''
-            grade_info = content_scorer._calculate_grade(gen.quality_score)
-            quality_report = {
-                'total_score': gen.quality_score,
-                'final_score': gen.quality_score,
-                'grade': grade_info[0],
-                'grade_label': grade_info[1],
-                'passed': gen.quality_score >= 80,
-                'items': [],
-                'optimized': False,
-                'first_score': gen.quality_score,
-                'optimized_items': [],
-                'need_optimize': gen.quality_score < 80,
-                'summary': '',
-                'suggestions': []
-            }
+        # 优先使用已保存的完整评分报告，避免重复调用LLM
+        if gen.quality_report:
+            quality_report = gen.quality_report
         else:
-            # 没有评分时才调用LLM评分
+            # 没有评分报告时，调用LLM评分（兼容旧数据）
+            from services.content_quality_scorer import content_scorer
             brand_name = gen.target_customer[:10] if gen.target_customer else ''
-            score_result = content_scorer.score(content_data, brand_name)
+            score_result = content_scorer.score(gen.content_data, brand_name)
             quality_report = content_scorer.to_dict(score_result)
             quality_report['optimized'] = False
             quality_report['first_score'] = quality_report['total_score']
             quality_report['optimized_items'] = []
             quality_report['need_optimize'] = not score_result.passed
+            # 保存评分报告以便后续使用
+            gen.quality_score = quality_report['total_score']
+            gen.quality_report = quality_report
+            db.session.commit()
 
     return jsonify({
         'success': True,
@@ -2086,31 +2146,26 @@ def api_optimize_content(generation_id):
             gen.titles = [new_content.get('title', '')]
             gen.tags = new_content.get('tags', [])
 
-            # 更新评分
-            new_score = optimization_result.score_after
+            # 对优化后的内容重新评分，获取完整items
+            new_score_result = content_scorer.score(new_content, brand_name)
+            new_score = new_score_result.total_score
+
+            # 构建完整评分报告
+            new_quality_report = content_scorer.to_dict(new_score_result)
+            new_quality_report['optimized'] = True
+            new_quality_report['final_score'] = new_score
+            new_quality_report['first_score'] = gen.quality_score or new_score
+            new_quality_report['optimized_items'] = optimization_result.optimized_items
+            new_quality_report['need_optimize'] = new_score < 80
+            new_quality_report['message'] = optimization_result.message
+
+            # 更新数据库
             gen.quality_score = new_score
+            gen.quality_report = new_quality_report
 
             db.session.commit()
 
             logger.info(f"[Optimize] 内容优化完成: generation_id={generation_id}, 优化后分数={new_score}")
-
-            # 构建优化后的质量报告
-            grade_info = content_scorer._calculate_grade(new_score)
-            new_quality_report = {
-                'total_score': new_score,
-                'final_score': new_score,
-                'grade': grade_info[0],
-                'grade_label': grade_info[1],
-                'passed': new_score >= 80,
-                'items': [],
-                'optimized': True,
-                'first_score': new_score,
-                'optimized_items': optimization_result.optimized_items,
-                'need_optimize': new_score < 80,
-                'summary': '',
-                'suggestions': [],
-                'message': optimization_result.message
-            }
 
             return jsonify({
                 'success': True,
@@ -2274,7 +2329,7 @@ def api_generate_multi_version():
                 portrait_id=params.get('portrait_id'),
                 problem_id=params.get('problem_id'),
                 # ── 星系增强：保存客户选择的场景组合 ──
-                selected_scenes=params.get('selected_scene'),
+                selected_scenes=effective_scene,
             )
             db.session.add(generation)
             # 扣减配额
