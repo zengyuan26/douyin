@@ -2050,7 +2050,7 @@ function doOptimize(generationId) {
 
 function viewContentDetail(generationId) {
     closeResultModal();
-    window.location.href = '/public/content-detail/' + generationId;
+    window.location.href = '/public/content-detail?id=' + generationId;
 }
 
 async function confirmGenerate() {

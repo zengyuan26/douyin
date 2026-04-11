@@ -192,57 +192,6 @@
         font-size: 0.875rem;
     }
 
-    /* ── 版本切换标签栏 ── */
-    .version-tabs-bar {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 0 24px;
-        background: var(--bg-secondary);
-        border-bottom: 1px solid var(--apple-gray6);
-        overflow-x: auto;
-        scrollbar-width: none;
-        flex-shrink: 0;
-    }
-    .version-tabs-bar::-webkit-scrollbar { display: none; }
-
-    .version-tab {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 10px 14px;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        color: var(--apple-gray);
-        border-bottom: 2px solid transparent;
-        cursor: pointer;
-        white-space: nowrap;
-        transition: all 0.15s;
-    }
-    .version-tab:hover { color: var(--text-primary); }
-    .version-tab.active {
-        color: var(--apple-blue);
-        border-bottom-color: var(--apple-blue);
-        font-weight: 600;
-    }
-    .version-tab-badge {
-        padding: 1px 6px;
-        border-radius: 3px;
-        font-size: 0.6875rem;
-        font-weight: 700;
-    }
-    .version-tab-badge.graphic       { background: rgba(255,149,0,0.12);  color: #FF9500; }
-    .version-tab-badge.short_video   { background: rgba(255,59,48,0.12);  color: #FF3B30; }
-    .version-tab-badge.long_text     { background: rgba(142,142,147,0.12); color: #8E8E93; }
-
-    .version-meta-line {
-        margin-left: auto;
-        font-size: 0.75rem;
-        color: var(--apple-gray);
-        white-space: nowrap;
-        padding-left: 12px;
-    }
-
     /* ── 分区分块展示样式 ── */
     .section-tabs-bar {
         display: flex;
@@ -457,39 +406,6 @@
         font-weight: 500;
     }
 
-    /* 内部参考区（折叠） */
-    .admin-only-section {
-        margin-top: 16px;
-        border: 1px dashed var(--apple-gray4);
-        border-radius: var(--radius-md);
-        overflow: hidden;
-    }
-    .admin-only-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 14px;
-        background: var(--apple-gray7);
-        cursor: pointer;
-        user-select: none;
-    }
-    .admin-only-header:hover {
-        background: var(--apple-gray6);
-    }
-    .admin-only-title {
-        font-size: 0.8125rem;
-        font-weight: 600;
-        color: var(--apple-gray);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .admin-only-body {
-        border-top: 1px dashed var(--apple-gray4);
-        background: var(--bg-primary);
-    }
-
-    /* 底部操作栏加强 */
     .detail-footer-bar {
         padding: 14px 24px;
         border-top: 1px solid var(--apple-gray6);
@@ -766,23 +682,119 @@
         text-decoration: underline;
     }
 
-    .quality-items-container {
-        overflow: hidden;
-        transition: max-height 0.3s ease;
+    /* ── 质量评估详情弹窗 ── */
+    .quality-detail-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s, visibility 0.2s;
     }
 
-    .quality-items-container.collapsed {
-        max-height: 0;
+    .quality-detail-modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
     }
 
-    /* 展开/收起图标旋转 */
-    .toggle-icon {
+    .quality-detail-modal-box {
+        background: var(--bg-primary);
+        border-radius: 16px;
+        width: 480px;
+        max-width: 90vw;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+        transform: scale(0.92);
         transition: transform 0.2s;
-        display: inline-block;
     }
 
-    .toggle-icon.rotated {
-        transform: rotate(180deg);
+    .quality-detail-modal-overlay.active .quality-detail-modal-box {
+        transform: scale(1);
+    }
+
+    .quality-detail-modal-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--apple-gray6);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+    }
+
+    .quality-detail-modal-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .quality-detail-modal-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: none;
+        background: var(--apple-gray7);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+        transition: all 0.15s;
+    }
+
+    .quality-detail-modal-close:hover {
+        background: var(--apple-gray6);
+        color: var(--text-primary);
+    }
+
+    .quality-detail-modal-body {
+        padding: 16px 20px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .quality-detail-items .quality-item {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--apple-gray7);
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .quality-detail-items .quality-item:last-child {
+        border-bottom: none;
+    }
+
+    .quality-detail-suggestions {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--apple-gray6);
+    }
+
+    .quality-detail-suggestions .quality-suggestions-title {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .quality-detail-suggestions .quality-suggestion-item {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        padding: 6px 0;
+        line-height: 1.5;
     }
 
 </style>
@@ -882,9 +894,6 @@
         <h1>内容详情</h1>
     </div>
 
-    {# 版本切换标签栏（JS 动态渲染） #}
-    <div class="version-tabs-bar" id="version-tabs-bar" style="display:none;"></div>
-
     {# 内容卡片 #}
     <div class="detail-content-card" id="content-card">
         {# 加载中 #}
@@ -903,21 +912,25 @@
 
         {# 内容展示 #}
         <div id="content-state" style="display:none;">
-            <div class="detail-card-header">
-                <div class="detail-meta-row">
-                    <span id="content-type">图文</span>
-                    <span class="dot"></span>
-                    <span id="content-portrait">--</span>
-                    <span class="dot"></span>
-                    <span id="content-tokens">--</span>
-                </div>
-                <h2 class="detail-title" id="content-title">--</h2>
-                <div class="detail-tags" id="content-tags"></div>
-            </div>
-
             {# ── 质量评分报告区块 ── #}
             <div id="quality-report-container" style="display:none;">
                 <!-- JS动态渲染质量报告 -->
+            </div>
+
+            {# ── 质量评估详情弹窗 ── #}
+            <div class="quality-detail-modal-overlay" id="quality-detail-modal" onclick="if(event.target===this)closeQualityDetailModal()">
+                <div class="quality-detail-modal-box">
+                    <div class="quality-detail-modal-header">
+                        <h3><i class="bi bi-shield-check"></i> GEO质量评估详情</h3>
+                        <button class="quality-detail-modal-close" onclick="closeQualityDetailModal()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="quality-detail-modal-body">
+                        <div class="quality-detail-items"></div>
+                        <div class="quality-detail-suggestions"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="detail-card-body">
@@ -927,27 +940,8 @@
                 {# 区块内容区（JS渲染） #}
                 <div class="section-panels-container" id="section-panels-container"></div>
 
-                {# 内部参考折叠区（JS渲染） #}
-                <div id="admin-section-container"></div>
             </div>
 
-            <div class="detail-footer-bar">
-                <div>
-                    <button class="btn-copy-all-client" id="btn-copy-all-client" onclick="copyAllClientContent()">
-                        <i class="bi bi-clipboard"></i>
-                        <span id="copy-all-btn-text">复制全部内容</span>
-                    </button>
-                </div>
-                <div style="display:flex;gap:10px;">
-                    <button class="detail-action-btn" onclick="regenerateContent()">
-                        <i class="bi bi-arrow-clockwise"></i>
-                        重新生成
-                    </button>
-                </div>
-                <div class="detail-timestamp">
-                    生成于 <span id="content-time">--</span>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -958,6 +952,8 @@
 var _generationId = null;
 var _portraitId = null;
 var _generationData = null;
+var _qualityItemsHtml = '';
+var _qualitySuggestionsHtml = '';
 var _currentSectionKey = null;
 var _sectionDisplayConfig = [];
 var _allClientSections = []; // 所有客户端可见区块的内容
@@ -1034,110 +1030,45 @@ function loadContentDetail() {
     }
 
     fetch('/public/api/content/' + _generationId, { credentials: 'include' })
-        .then(function(resp) { return resp.json(); })
+        .then(function(resp) {
+            console.log('API响应状态:', resp.status);
+            console.log('API响应:', resp);
+            return resp.text().then(function(text) {
+                console.log('API响应文本:', text);
+                try {
+                    return JSON.parse(text);
+                } catch(e) {
+                    console.error('JSON解析失败:', e);
+                    throw new Error('响应解析失败: ' + text.substring(0, 200));
+                }
+            });
+        })
         .then(function(data) {
+            console.log('解析后的数据:', data);
             if (data.success) {
                 _generationData = data.data;
                 _portraitId = data.data.portrait_id;
                 _sectionDisplayConfig = data.data.section_display_config || [];
-                renderVersionTabs(data.data);
                 renderContentDetail(data.data);
             } else {
                 showError('加载失败', data.message || '内容不存在或已删除');
             }
         })
         .catch(function(e) {
-            showError('加载失败', '网络错误，请稍后重试');
+            console.error('加载内容详情失败:', e);
+            showError('加载失败', '网络错误，请稍后重试 (' + e.message + ')');
         });
-}
-
-function renderVersionTabs(data) {
-    var tabsBar = document.getElementById('version-tabs-bar');
-    if (!tabsBar) return;
-
-    var siblings = data.sibling_versions || [];
-    if (siblings.length <= 1) {
-        tabsBar.style.display = 'none';
-        return;
-    }
-
-    var html = '';
-    siblings.forEach(function(v) {
-        var typeIcon = v.content_type === 'short_video' ? '🎬' : v.content_type === 'long_text' ? '📝' : '📄';
-        var isCurrent = v.generation_id == _generationId;
-        var activeClass = isCurrent ? ' active' : '';
-        var versionLabel = 'v' + v.version_number;
-
-        html +=
-            '<div class="version-tab' + activeClass + '" onclick="switchVersion(' + v.generation_id + ')">' +
-                '<span class="version-tab-badge ' + v.content_type + '">' + typeIcon + ' ' + versionLabel + '</span>' +
-                '<span style="font-size:0.75rem;">' + escHtml(v.content_style || '') + '</span>' +
-            '</div>';
-    });
-
-    tabsBar.innerHTML = html;
-    tabsBar.style.display = 'flex';
-}
-
-function switchVersion(genId) {
-    if (!genId || genId == _generationId) return;
-    window.location.href = '/public/content-detail?id=' + genId + '&portraitId=' + (_portraitId || '');
 }
 
 function renderContentDetail(data) {
     document.getElementById('loading-state').style.display = 'none';
     document.getElementById('content-state').style.display = 'block';
 
-    // 元信息
-    var typeMap = {'graphic':'图文','short_video':'短视频','long_text':'长文'};
-    document.getElementById('content-type').textContent = typeMap[data.content_type] || '图文';
-    document.getElementById('content-portrait').textContent = data.target_customer || '--';
-
-    if (data.used_tokens) {
-        document.getElementById('content-tokens').textContent = '消耗 ' + data.used_tokens + ' tokens';
-    } else {
-        document.getElementById('content-tokens').textContent = '';
-        var dot = document.querySelector('#content-tokens + .dot');
-        if (dot) dot.style.display = 'none';
-    }
-
-    // 标题（使用主标题）
-    var titles = data.titles;
-    if (typeof titles === 'string') {
-        try { titles = JSON.parse(titles); } catch(e) { titles = [titles]; }
-    }
-    var mainTitle = titles && titles[0] ? titles[0] : (data.content_data && data.content_data.title ? data.content_data.title : '--');
-    document.getElementById('content-title').textContent = mainTitle;
-
-    // 标签
-    var tags = data.tags;
-    if (typeof tags === 'string') {
-        tags = tags.split(',').filter(function(t) { return t.trim(); });
-    }
-    var tagsEl = document.getElementById('content-tags');
-    tagsEl.innerHTML = '';
-    if (Array.isArray(tags) && tags.length > 0) {
-        tags.forEach(function(tag) {
-            var span = document.createElement('span');
-            span.className = 'detail-tag';
-            span.textContent = tag.trim();
-            tagsEl.appendChild(span);
-        });
-    } else if (data.content_data && data.content_data.tags) {
-        var cdTags = data.content_data.tags;
-        if (typeof cdTags === 'string') cdTags = [cdTags];
-        cdTags.forEach(function(tag) {
-            var span = document.createElement('span');
-            span.className = 'detail-tag';
-            span.textContent = String(tag).trim();
-            tagsEl.appendChild(span);
-        });
-    }
-
     // 时间
-    if (data.created_at) {
+    var timeEl = document.getElementById('content-time');
+    if (timeEl && data.created_at) {
         var d = new Date(data.created_at);
-        document.getElementById('content-time').textContent =
+        timeEl.textContent =
             d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
             pad(d.getHours()) + ':' + pad(d.getMinutes());
     }
@@ -1159,9 +1090,8 @@ function renderSectionDisplay(data) {
     // 解析各区块内容
     var sections = parseSections(contentData, configs);
 
-    // 分别渲染客户端可见区和内部参考区
+    // 分别渲染客户端可见区
     var clientSections = sections.filter(function(s) { return s.visible_to_client; });
-    var adminSections = sections.filter(function(s) { return !s.visible_to_client; });
 
     // 保存所有客户端内容供复制
     _allClientSections = clientSections;
@@ -1171,9 +1101,6 @@ function renderSectionDisplay(data) {
 
     // 渲染客户端区块
     renderClientSections(clientSections);
-
-    // 渲染内部参考区
-    renderAdminSections(adminSections);
 
     // 默认激活第一个核心区块
     var firstCore = clientSections.find(function(s) { return s.is_core_section; });
@@ -1394,56 +1321,6 @@ function buildTagsSection(sec, badgeClass, badgeText, copyBtnHtml) {
     '</div>';
 }
 
-function renderAdminSections(sections) {
-    var container = document.getElementById('admin-section-container');
-    if (!sections || sections.length === 0) {
-        container.innerHTML = '';
-        return;
-    }
-
-    var html = '<div class="admin-only-section">';
-    html += '<div class="admin-only-header" onclick="toggleAdminSection()">';
-    html += '<div class="admin-only-title"><i class="bi bi-lock"></i> 内部参考（基本信息/合规检查等）</div>';
-    html += '<i class="bi bi-chevron-down" id="admin-section-icon"></i>';
-    html += '</div>';
-    html += '<div class="admin-only-body" id="admin-section-body" style="display:none;">';
-
-    sections.forEach(function(sec) {
-        var hasContent = sec.content && sec.content.trim().length > 0;
-        var displayContent = hasContent ? escHtml(sec.content) : '<span style="color:var(--apple-gray);font-style:italic;">暂无内容</span>';
-
-        html += '<div class="section-panel" style="margin:0;border:none;border-radius:0;border-bottom:1px solid var(--apple-gray6);">' +
-            '<div class="section-panel-header" onclick="toggleAdminPanel(\'' + escHtml(sec.section_key) + '\')" style="background:var(--bg-secondary);border:none;border-radius:0;">' +
-                '<div class="section-title" style="font-size:0.8125rem;">' + escHtml(sec.section_label) + '</div>' +
-                '<i class="bi bi-chevron-down" id="admin-icon-' + escHtml(sec.section_key) + '"></i>' +
-            '</div>' +
-            '<div class="section-panel-body collapsed" id="admin-panel-' + escHtml(sec.section_key) + '">' +
-                '<div class="section-panel-content" style="font-size:0.8125rem;">' + displayContent + '</div>' +
-            '</div>' +
-        '</div>';
-    });
-
-    html += '</div></div>';
-    container.innerHTML = html;
-}
-
-function toggleAdminSection() {
-    var body = document.getElementById('admin-section-body');
-    var icon = document.getElementById('admin-section-icon');
-    var isHidden = body.style.display === 'none';
-    body.style.display = isHidden ? 'block' : 'none';
-    icon.className = isHidden ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
-}
-
-function toggleAdminPanel(key) {
-    var body = document.getElementById('admin-panel-' + key);
-    var icon = document.getElementById('admin-icon-' + key);
-    if (!body) return;
-    var isCollapsed = body.classList.contains('collapsed');
-    body.classList.toggle('collapsed');
-    icon.className = isCollapsed ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
-}
-
 // ── 复制功能 ──────────────────────────────────────
 function copySection(sectionKey, event) {
     event.stopPropagation();
@@ -1615,6 +1492,10 @@ function renderQualityReport(report) {
         suggestionsHtml += '</div>';
     }
 
+    // 保存详情数据到全局变量
+    _qualityItemsHtml = itemsHtml;
+    _qualitySuggestionsHtml = suggestionsHtml;
+
         // 优化按钮（未通过且未优化时显示）
         var optimizeBtn = '';
         if (needOptimize && !optimized) {
@@ -1625,20 +1506,16 @@ function renderQualityReport(report) {
             optimizeBtn = '<div class="quality-optimized-badge"><i class="bi bi-check-circle"></i> 已优化</div>';
         }
 
-        // 组装完整HTML
+        // 组装完整HTML - 评分显示改为可点击弹窗
         var html = '<div class="quality-report-section">' +
             '<div class="quality-report-header">' +
             '<div class="quality-report-title">' +
             '<i class="bi bi-shield-check"></i>' +
             'GEO质量评估' +
             '</div>' +
-            '<span class="quality-report-toggle" onclick="toggleQualityReport(this)">' +
-            '<span class="toggle-text">查看详情</span>' +
-            '<i class="bi bi-chevron-down toggle-icon"></i>' +
-            '</span>' +
             '</div>' +
 
-            '<div class="quality-score-display">' +
+            '<div class="quality-score-display" onclick="showQualityDetailModal()" style="cursor:pointer;" title="点击查看评分详情">' +
             '<div class="quality-score-circle ' + scoreClass + '">' + score + '</div>' +
             '<div class="quality-score-info">' +
             '<div class="quality-score-grade">等级' + grade + ' · ' + gradeLabel + '</div>' +
@@ -1650,31 +1527,11 @@ function renderQualityReport(report) {
 
             optimizedNotice +
 
-            // 可折叠的详情区
-            '<div class="quality-items-container collapsed">' +
-            '<div class="quality-items-list">' + itemsHtml + '</div>' +
-            suggestionsHtml +
             '</div>' +
             '</div>';
 
     container.innerHTML = html;
     container.style.display = 'block';
-}
-
-function toggleQualityReport(el) {
-    var container = el.closest('.quality-report-section').querySelector('.quality-items-container');
-    var textEl = el.querySelector('.toggle-text');
-    var iconEl = el.querySelector('.toggle-icon');
-
-    if (container.classList.contains('collapsed')) {
-        container.classList.remove('collapsed');
-        textEl.textContent = '收起详情';
-        iconEl.classList.add('rotated');
-    } else {
-        container.classList.add('collapsed');
-        textEl.textContent = '查看详情';
-        iconEl.classList.remove('rotated');
-    }
 }
 
 var _optimizeLoading = false;
@@ -1738,5 +1595,36 @@ function refreshContentDisplay(content) {
     }
     // 可以扩展更多内容刷新逻辑
 }
+
+// 质量评估详情弹窗
+function showQualityDetailModal() {
+    var modal = document.getElementById('quality-detail-modal');
+    if (!modal) return;
+
+    var itemsContainer = modal.querySelector('.quality-detail-items');
+    var suggestionsContainer = modal.querySelector('.quality-detail-suggestions');
+
+    if (itemsContainer) itemsContainer.innerHTML = _qualityItemsHtml;
+    if (suggestionsContainer) suggestionsContainer.innerHTML = _qualitySuggestionsHtml;
+
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeQualityDetailModal() {
+    var modal = document.getElementById('quality-detail-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+// 点击遮罩关闭
+document.addEventListener('click', function(e) {
+    var modal = document.getElementById('quality-detail-modal');
+    if (modal && modal.classList.contains('active') && e.target === modal) {
+        closeQualityDetailModal();
+    }
+});
 </script>
 {% endblock %}

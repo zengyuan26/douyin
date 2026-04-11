@@ -1940,23 +1940,6 @@ def api_content_detail(generation_id):
     if user and gen.user_id != user.id:
         return jsonify({'success': False, 'message': '无权访问'}), 403
 
-    # 同选题所有版本
-    sibling_versions = []
-    if gen.link_id:
-        siblings = PublicGeneration.query.filter_by(link_id=gen.link_id).order_by(
-            PublicGeneration.version_number.asc()
-        ).all()
-        for s in siblings:
-            sibling_versions.append({
-                'generation_id': s.id,
-                'version_number': s.version_number,
-                'content_type': s.content_type or 'graphic',
-                'content_style': s.content_style or '',
-                'title': (s.titles[0] if s.titles and isinstance(s.titles, list) else str(s.titles or '')),
-                'created_at': s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '',
-                'is_current': s.id == generation_id,
-            })
-
     # link 信息
     link_info = None
     if gen.link_id:
@@ -1976,24 +1959,39 @@ def api_content_detail(generation_id):
     from services.template_config_service import template_config_service
     section_display_config = template_config_service.get_section_display_config(content_type)
 
-    # 构建质量报告数据（如果已有评分，直接使用；否则重新评分）
+    # 构建质量报告数据（如果已有评分，直接使用；否则调用LLM评分）
     quality_report = None
     if gen.content_data:
         from services.content_quality_scorer import content_scorer
         content_data = gen.content_data
-        brand_name = ''
-        if gen.target_customer:
-            brand_name = gen.target_customer[:10]
-        score_result = content_scorer.score(content_data, brand_name)
-        quality_report = content_scorer.to_dict(score_result)
-        # 如果已有评分，使用已有评分
+
+        # 如果已有评分，直接使用已有评分，避免每次调用LLM
         if gen.quality_score:
-            quality_report['total_score'] = gen.quality_score
-            quality_report['final_score'] = gen.quality_score
-        quality_report['optimized'] = False
-        quality_report['first_score'] = quality_report['total_score']
-        quality_report['optimized_items'] = []
-        quality_report['need_optimize'] = not score_result.passed
+            brand_name = gen.target_customer[:10] if gen.target_customer else ''
+            grade_info = content_scorer._calculate_grade(gen.quality_score)
+            quality_report = {
+                'total_score': gen.quality_score,
+                'final_score': gen.quality_score,
+                'grade': grade_info[0],
+                'grade_label': grade_info[1],
+                'passed': gen.quality_score >= 80,
+                'items': [],
+                'optimized': False,
+                'first_score': gen.quality_score,
+                'optimized_items': [],
+                'need_optimize': gen.quality_score < 80,
+                'summary': '',
+                'suggestions': []
+            }
+        else:
+            # 没有评分时才调用LLM评分
+            brand_name = gen.target_customer[:10] if gen.target_customer else ''
+            score_result = content_scorer.score(content_data, brand_name)
+            quality_report = content_scorer.to_dict(score_result)
+            quality_report['optimized'] = False
+            quality_report['first_score'] = quality_report['total_score']
+            quality_report['optimized_items'] = []
+            quality_report['need_optimize'] = not score_result.passed
 
     return jsonify({
         'success': True,
@@ -2018,7 +2016,6 @@ def api_content_detail(generation_id):
             'quality_score': gen.quality_score,
             'quality_report': quality_report,
             'link': link_info,
-            'sibling_versions': sibling_versions,
             'section_display_config': section_display_config,
         }
     })
@@ -2063,15 +2060,16 @@ def api_optimize_content(generation_id):
     business_desc = ''
 
     # 获取用户业务描述
+    business_desc = ''
     if gen.user_id:
         user_obj = PublicUser.query.get(gen.user_id)
-        if user_obj:
-            business_desc = user_obj.business_description or ''
+        if user_obj and user_obj.profile:
+            business_desc = user_obj.profile.business_description or ''
 
     try:
         # 重新评分获取失败项
         score_result = content_scorer.score(content, brand_name)
-        failed_items = [item['name'] for item in score_result.failed_items] if hasattr(score_result, 'failed_items') else []
+        failed_items = score_result.failed_items if hasattr(score_result, 'failed_items') else []
 
         # 执行优化
         optimization_result = content_optimizer.optimize(
@@ -2092,17 +2090,27 @@ def api_optimize_content(generation_id):
             new_score = optimization_result.score_after
             gen.quality_score = new_score
 
-            # 更新质量报告
-            new_quality_report = dict(quality_report)
-            new_quality_report['optimized'] = True
-            new_quality_report['final_score'] = new_score
-            new_quality_report['optimized_items'] = optimization_result.optimized_items
-            new_quality_report['message'] = optimization_result.message
-            gen.quality_report = new_quality_report
-
             db.session.commit()
 
             logger.info(f"[Optimize] 内容优化完成: generation_id={generation_id}, 优化后分数={new_score}")
+
+            # 构建优化后的质量报告
+            grade_info = content_scorer._calculate_grade(new_score)
+            new_quality_report = {
+                'total_score': new_score,
+                'final_score': new_score,
+                'grade': grade_info[0],
+                'grade_label': grade_info[1],
+                'passed': new_score >= 80,
+                'items': [],
+                'optimized': True,
+                'first_score': new_score,
+                'optimized_items': optimization_result.optimized_items,
+                'need_optimize': new_score < 80,
+                'summary': '',
+                'suggestions': [],
+                'message': optimization_result.message
+            }
 
             return jsonify({
                 'success': True,
@@ -2111,10 +2119,14 @@ def api_optimize_content(generation_id):
                 'message': '优化完成'
             })
         else:
+            # 即使优化未达标，也返回成功状态和内容
             return jsonify({
-                'success': False,
-                'message': optimization_result.message or '优化失败'
-            }), 500
+                'success': True,
+                'content': optimization_result.optimized_content,
+                'message': optimization_result.message or '优化完成但未达到满分',
+                'score': optimization_result.score_after,
+                'optimized_items': optimization_result.optimized_items
+            })
 
     except Exception as e:
         logger.exception(f"[Optimize Error] generation_id={generation_id}: %s", e)
