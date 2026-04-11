@@ -705,9 +705,9 @@
     .quality-detail-modal-box {
         background: var(--bg-primary);
         border-radius: 16px;
-        width: 480px;
-        max-width: 90vw;
-        max-height: 80vh;
+        width: 720px;
+        max-width: 95vw;
+        max-height: 85vh;
         display: flex;
         flex-direction: column;
         box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
@@ -762,16 +762,84 @@
         flex: 1;
     }
 
-    .quality-detail-items .quality-item {
-        padding: 8px 0;
-        border-bottom: 1px solid var(--apple-gray7);
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
+    /* 评分详情表格样式 */
+    .quality-detail-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.75rem;
+        border-spacing: 0;
     }
 
-    .quality-detail-items .quality-item:last-child {
-        border-bottom: none;
+    .quality-detail-table th {
+        text-align: left;
+        padding: 6px 10px;
+        background: var(--apple-gray7);
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.6875rem;
+        border-bottom: 2px solid var(--apple-gray6);
+        white-space: nowrap;
+    }
+
+    .quality-detail-table td {
+        padding: 6px 10px;
+        border-bottom: 1px solid #e5e5ea;
+        vertical-align: middle;
+        line-height: 1.3;
+    }
+
+    .quality-detail-table .col-score {
+        width: 50px;
+        text-align: center;
+    }
+
+    .quality-detail-table .col-result {
+        width: 160px;
+        max-width: 160px;
+    }
+
+    .quality-detail-table .col-suggestion {
+        color: var(--text-secondary);
+    }
+
+    .quality-detail-table td.col-result,
+    .quality-detail-table td.col-suggestion {
+        word-break: break-word;
+    }
+
+    .quality-detail-table .item-passed {
+        color: #34c759;
+    }
+
+    .quality-detail-table .item-failed {
+        color: #ff9500;
+    }
+
+    .score-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.6875rem;
+    }
+
+    .score-badge.pass {
+        background: rgba(52, 199, 89, 0.15);
+        color: #34c759;
+    }
+
+    .score-badge.warn {
+        background: rgba(255, 149, 0, 0.15);
+        color: #ff9500;
+    }
+
+    /* 分类分组标题 */
+    .quality-category-row td {
+        background: var(--apple-gray7);
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.6875rem;
+        padding: 4px 10px;
     }
 
     .quality-detail-suggestions {
@@ -795,6 +863,19 @@
         color: var(--text-secondary);
         padding: 6px 0;
         line-height: 1.5;
+    }
+
+    /* 旧样式保留兼容 */
+    .quality-detail-items .quality-item {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--apple-gray7);
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .quality-detail-items .quality-item:last-child {
+        border-bottom: none;
     }
 
 </style>
@@ -1460,37 +1541,39 @@ function renderQualityReport(report) {
             '</div>';
     }
 
-    // 评分项HTML
-    var itemsHtml = '';
+    // 评分项HTML - 表格形式
+    var itemsHtml = '<table class="quality-detail-table">' +
+        '<thead><tr>' +
+        '<th>评估项</th>' +
+        '<th class="col-score">得分</th>' +
+        '<th class="col-result">分析内容</th>' +
+        '<th>优化建议</th>' +
+        '</tr></thead><tbody>';
+
     var currentCategory = '';
     items.forEach(function(item) {
-        // 按分类分组标题
+        // 按分类分组标题行
         if (item.category !== currentCategory) {
             currentCategory = item.category;
-            itemsHtml += '<div style="grid-column:1/-1;font-size:0.6875rem;font-weight:600;color:var(--apple-gray);margin-top:8px;padding-top:8px;border-top:1px solid var(--apple-gray6);">' + currentCategory + '</div>';
+            itemsHtml += '<tr class="quality-category-row"><td colspan="4">' + escHtml(currentCategory) + '</td></tr>';
         }
 
-        var itemClass = item.passed ? 'passed' : 'failed';
-        var icon = item.passed ? '✅' : '⚠️';
-        itemsHtml += '<div class="quality-item ' + itemClass + '">' +
-            '<span class="quality-item-icon">' + icon + '</span>' +
-            '<div class="quality-item-info">' +
-            '<div class="quality-item-name">' + escHtml(item.name) + '</div>' +
-            '<div class="quality-item-score">' + item.score + '/10 · ' + escHtml(item.detail || '') + '</div>' +
-            '</div>' +
-            '</div>';
+        var itemClass = item.passed ? 'item-passed' : 'item-failed';
+        var scoreClass = item.passed ? 'pass' : 'warn';
+        var suggestion = item.suggestion || '-';
+
+        itemsHtml += '<tr>' +
+            '<td class="' + itemClass + '">' + escHtml(item.name) + '</td>' +
+            '<td class="col-score"><span class="score-badge ' + scoreClass + '">' + item.score + '/10</span></td>' +
+            '<td class="col-result">' + escHtml(item.detail || '-') + '</td>' +
+            '<td class="col-suggestion">' + escHtml(suggestion) + '</td>' +
+            '</tr>';
     });
 
-    // 建议HTML
+    itemsHtml += '</tbody></table>';
+
+    // 建议HTML - 只保留表格，优化建议已在每行显示，此处不再单独显示
     var suggestionsHtml = '';
-    if (suggestions.length > 0) {
-        suggestionsHtml = '<div class="quality-suggestions">' +
-            '<div class="quality-suggestions-title"><i class="bi bi-lightbulb"></i> 改进建议</div>';
-        suggestions.forEach(function(s) {
-            suggestionsHtml += '<div class="quality-suggestion-item">' + escHtml(s) + '</div>';
-        });
-        suggestionsHtml += '</div>';
-    }
 
     // 保存详情数据到全局变量
     _qualityItemsHtml = itemsHtml;
