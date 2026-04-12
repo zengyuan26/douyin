@@ -498,9 +498,12 @@ class LongTextGenerator:
 
         # 统一返回格式
         if result.get('success'):
+            article = result.get('article', {})
+            # 将文章转换为 Markdown 格式
+            markdown_content = self._render_article_to_markdown(article)
             return {
                 'success': True,
-                'content': result.get('article', {}),
+                'content': markdown_content,
                 'tokens_used': result.get('tokens_used', 0),
             }
         else:
@@ -508,6 +511,84 @@ class LongTextGenerator:
                 'success': False,
                 'error': result.get('error', '生成失败'),
             }
+
+    def _render_article_to_markdown(self, article: dict) -> str:
+        """将文章对象渲染为 Markdown 格式"""
+        lines = [
+            '# 长文内容（SEO标准）',
+            '',
+            '## 基本信息',
+            f'- **模板类型**: {article.get("template_name", "未知")}',
+            f'- **预估字数**: {article.get("word_count_estimate", "未知")}',
+            f'- **预估阅读时间**: {article.get("reading_time", "未知")}',
+            '',
+        ]
+
+        # 标题
+        title = article.get('title', '')
+        subtitle = article.get('subtitle', '')
+        if title:
+            lines.extend([
+                '## 标题',
+                f'**主标题**: {title}',
+            ])
+        if subtitle:
+            lines.append(f'**副标题**: {subtitle}')
+        lines.append('')
+
+        # 章节内容
+        sections = article.get('sections', [])
+        if sections:
+            for i, section in enumerate(sections, 1):
+                section_title = section.get('title', f'第{i}章')
+                section_content = section.get('content', '')
+                lines.extend([
+                    f'## {section_title}',
+                    '',
+                    f'{section_content}',
+                    '',
+                ])
+        else:
+            lines.extend([
+                '## 文章内容',
+                '[暂无内容]',
+                '',
+            ])
+
+        # 总结
+        summary = article.get('summary', '')
+        if summary:
+            lines.extend([
+                '## 核心要点总结',
+                f'{summary}',
+                '',
+            ])
+
+        # 行动号召
+        cta = article.get('cta', '')
+        if cta:
+            lines.extend([
+                '## 行动号召',
+                f'{cta}',
+                '',
+            ])
+
+        # 标签
+        hashtags = article.get('hashtags', [])
+        if hashtags:
+            lines.extend([
+                '## 推荐话题',
+                f'{", ".join(hashtags)}',
+                '',
+            ])
+
+        lines.extend([
+            '## 发布建议',
+            '- 发布时间：工作日 20:00-22:00 或 周末全天',
+            '- 平台适配：公众号、知乎、抖音长文、百度、小红书',
+        ])
+
+        return '\n'.join(lines)
 
     def _select_best_template(self, topic_type: str, content_direction: str) -> Dict:
         """根据选题类型和内容方向选择最佳模板"""
