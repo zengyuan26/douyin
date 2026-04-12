@@ -367,6 +367,91 @@ class ContentQualityScorer:
 
         return results
 
+    def score_text(self, text: str, brand_name: str = '', content_type: str = 'graphic') -> ScoreResult:
+        """
+        对文本内容评分（用于长文等纯文本内容）
+
+        Args:
+            text: 文本内容（可能是 Markdown 或纯文本）
+            brand_name: 品牌名
+            content_type: 内容类型（graphic/long_text/video）
+
+        Returns:
+            ScoreResult: 评分结果
+        """
+        # 解析文本结构
+        title = ''
+        body = text
+
+        # 尝试从 Markdown 中提取标题
+        lines = text.split('\n')
+        for line in lines:
+            line = line.strip()
+            if line.startswith('# ') and not title:
+                title = line[2:].strip()
+                break
+
+        # 构建完整文本
+        full_text = text
+
+        # 规则评分
+        results = {}
+
+        # 1. 标题吸引力
+        results[1] = self._check_title_attraction(title)
+
+        # 3. 结构清晰度
+        results[3] = self._check_structure(body)
+
+        # 6. 品牌锚点
+        results[6] = self._check_brand_anchor(full_text, brand_name)
+
+        # 7. 关键词密度
+        results[7] = self._check_keyword_density(full_text, [])
+
+        # 8. 可读性
+        results[8] = self._check_readability(body)
+
+        # 构建评分项
+        weights = get_self_check_weights('local_service')
+        items = []
+        for item_id in [1, 3, 6, 7, 8]:
+            item_config = next((x for x in self.SCORING_ITEMS if x['id'] == item_id), None)
+            if item_config and item_id in results:
+                result = results[item_id]
+                # 计算通过状态（原始分 >= 6 为通过）
+                raw_score = result.get('score', 0)
+                original_pass = raw_score >= 6
+                items.append(ScoreItem(
+                    id=item_id,
+                    category=item_config.get('category', '质量'),
+                    name=item_config['name'],
+                    score=raw_score,
+                    max_score=item_config.get('max_score', 10),
+                    weight=weights.get(item_id, item_config.get('weight', 1.0)),
+                    passed=original_pass,
+                    reason=result.get('detail', ''),
+                    icon='✅' if original_pass else '⚠️'
+                ))
+
+        # 计算总分
+        total_score = sum(item.score * item.weight for item in items)
+        total_max = sum(item.max_score * item.weight for item in items)
+        percentage = (total_score / total_max * 100) if total_max > 0 else 0
+        pass_threshold = get_pass_threshold('local_service')
+        passed = percentage >= pass_threshold
+
+        return ScoreResult(
+            total_score=round(percentage, 1),
+            grade=self._get_grade(percentage),
+            grade_label=self._get_grade_label(percentage),
+            passed=passed,
+            pass_threshold=pass_threshold,
+            items=items,
+            summary=f'文本内容评分：{percentage:.1f}分',
+            suggestions=self._generate_suggestions(items, passed)
+        )
+
     def _check_title_attraction(self, title: str) -> Dict:
         """检查标题吸引力"""
         if not title:

@@ -1841,13 +1841,16 @@ def api_generate_content_from_topic():
             # ═══════════════════════════════════════════════════════════════
             # 内容质量评分（首次评分，不优化）
             # ═══════════════════════════════════════════════════════════════
-            content = result.get('content', {})
+            content = result.get('content', '')
             brand_name = params.get('portrait', {}).get('brand_name', '') or params.get('business_description', '')[:10]
             business_desc = params.get('business_description', '')
 
-            # 首次评分
+            # 首次评分（content 可能是 str 或 dict）
             from services.content_quality_scorer import content_scorer
-            score_result = content_scorer.score(content, brand_name)
+            if isinstance(content, str):
+                score_result = content_scorer.score_text(content, brand_name, content_type=result_type)
+            else:
+                score_result = content_scorer.score(content, brand_name)
             first_score = score_result.total_score
 
             quality_report = {
@@ -2107,11 +2110,11 @@ def api_optimize_content(generation_id):
     if user and gen.user_id and gen.user_id != user.id:
         return jsonify({'success': False, 'message': '无权访问'}), 403
 
-    # 检查是否已优化过（通过quality_score判断）
-    if gen.quality_score and gen.quality_score >= 90:
+    # 分数已达80以上不允许继续优化
+    if gen.quality_score and gen.quality_score >= 80:
         return jsonify({
             'success': False,
-            'message': '该内容已优化过，分数已达标'
+            'message': '该内容分数已达80以上，无需继续优化'
         }), 400
 
     content = gen.content_data or {}
@@ -2161,7 +2164,7 @@ def api_optimize_content(generation_id):
             new_quality_report['final_score'] = new_score
             new_quality_report['first_score'] = gen.quality_score or new_score
             new_quality_report['optimized_items'] = optimization_result.optimized_items
-            new_quality_report['need_optimize'] = new_score < 80
+            new_quality_report['need_optimize'] = new_score < 80  # 80分以上无需优化
             new_quality_report['message'] = optimization_result.message
 
             # 更新数据库
@@ -2179,10 +2182,19 @@ def api_optimize_content(generation_id):
                 'message': '优化完成'
             })
         else:
-            # 即使优化未达标，也返回成功状态和内容
+            # 即使优化未达标，也返回成功状态和内容，同时计算并返回质量报告
+            failed_content = optimization_result.optimized_content
+            failed_score_result = content_scorer.score(failed_content, brand_name)
+            failed_quality_report = content_scorer.to_dict(failed_score_result)
+            failed_quality_report['optimized'] = True
+            failed_quality_report['optimized_items'] = optimization_result.optimized_items
+            failed_quality_report['first_score'] = gen.quality_score or 0
+            failed_quality_report['need_optimize'] = optimization_result.score_after < 80  # 未达80分可继续优化
+
             return jsonify({
                 'success': True,
-                'content': optimization_result.optimized_content,
+                'content': failed_content,
+                'quality_report': failed_quality_report,
                 'message': optimization_result.message or '优化完成但未达到满分',
                 'score': optimization_result.score_after,
                 'optimized_items': optimization_result.optimized_items
