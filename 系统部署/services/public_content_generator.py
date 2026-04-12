@@ -5160,48 +5160,46 @@ class ContentGenerator:
                         '',
                     ])
 
-            # 引言
-            intro = ai_content.get('intro', '') or ai_content.get('引言', '') or ai_content.get('introduction', '')
+            # 开头
+            intro = ai_content.get('intro', '') or ai_content.get('引言', '') or ai_content.get('开头', '')
             if intro:
                 lines.extend([
-                    '## 引言（150字情绪痛点开头）',
+                    '## 开头（150字情绪痛点）',
                     f'{intro}',
                     '',
                 ])
 
-            # 7个固定章节
-            section_names = ['section1', 'section2', 'section3', 'section4', 'section5', 'section6', 'section7']
-            for idx, section_key in enumerate(section_names, 1):
-                section = ai_content.get(section_key, {}) or ai_content.get(f'section{idx}', {})
-                if section:
-                    section_title = section.get('title', f'章节{idx}')
-                    lines.append(f'## {section_title}')
-                    lines.append('')
+            # 章节内容（sections 数组）
+            sections = ai_content.get('sections', [])
+            if sections:
+                for section in sections:
+                    if isinstance(section, dict):
+                        section_title = section.get('title', '')
+                        section_content = section.get('content', '')
+                        if section_title:
+                            lines.append(f'## {section_title}')
+                            lines.append('')
+                        if section_content:
+                            lines.append(f'{section_content}')
+                            lines.append('')
+                    elif isinstance(section, str):
+                        lines.append(f'{section}')
+                        lines.append('')
 
-                    # 子章节
-                    subsections = section.get('subsections', []) or section.get('子章节', [])
-                    if isinstance(subsections, list):
-                        for sub in subsections:
-                            if isinstance(sub, dict):
-                                sub_title = sub.get('title', '')
-                                sub_content = sub.get('content', '')
-                                if sub_title:
-                                    lines.append(f'**{sub_title}**')
-                                if sub_content:
-                                    lines.append(f'{sub_content}')
-                                    lines.append('')
-                            elif isinstance(sub, str):
-                                lines.append(f'{sub}')
-                                lines.append('')
-
-                    # 如果没有subsections，尝试直接输出内容
-                    direct_content = section.get('content', '')
-                    if direct_content and not subsections:
-                        if isinstance(direct_content, str):
+            # 如果没有 sections，尝试 section1-7
+            if not sections:
+                section_names = ['section1', 'section2', 'section3', 'section4', 'section5', 'section6', 'section7']
+                for idx, section_key in enumerate(section_names, 1):
+                    section = ai_content.get(section_key, {}) or ai_content.get(f'section{idx}', {})
+                    if section:
+                        section_title = section.get('title', f'章节{idx}')
+                        lines.append(f'## {section_title}')
+                        lines.append('')
+                        direct_content = section.get('content', '')
+                        if direct_content:
                             lines.append(f'{direct_content}')
                             lines.append('')
-
-                    lines.append('')
+                        lines.append('')
 
             # 结尾
             conclusion = ai_content.get('conclusion', '') or ai_content.get('结论', '')
@@ -5247,27 +5245,15 @@ class ContentGenerator:
                 '## 三、[章节标题]',
                 '...',
                 '',
-                '## 四、[章节标题]',
-                '[可用表格对比]',
-                '',
-                '## 五、[章节标题]',
-                '...',
-                '',
-                '## 六、[章节标题]',
-                '...',
-                '',
-                '## 七、[章节标题]',
-                '...',
-                '',
                 '## 结尾总结（120字）',
-                '[总结核心判断逻辑，强调先分型再选奶粉，正向引导]',
+                '[总结核心观点，引导互动讨论]',
                 '',
             ])
 
         lines.extend([
             '## 发布建议',
             f'- 发布时间：工作日 20:00-22:00 或 周末全天',
-            f'- 字数要求：3200-4000字',
+            f'- 字数要求：2500-4000字',
             f'- 平台适配：公众号、知乎、抖音长文、百度、小红书',
             f'- 建议话题：{", ".join([k["keyword"] for k in core_keywords[:3]]) if core_keywords else "暂无"}',
         ])
