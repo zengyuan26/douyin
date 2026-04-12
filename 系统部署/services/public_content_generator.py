@@ -4910,7 +4910,7 @@ class ContentGenerator:
 
             # 解析AI响应
             logger.info("[ContentGenerator] 开始解析AI响应...")
-            result = cls._parse_ai_response(response, resources)
+            result = cls._parse_ai_response(response, resources, params)
             
             # ========== [调试日志] 解析结果 ==========
             logger.info("[ContentGenerator] 解析完成，结果类型: %s", type(result))
@@ -5114,6 +5114,267 @@ class ContentGenerator:
         return '\n'.join(lines)
 
     @classmethod
+    def _generate_long_text_content(cls, title: str, topic: Dict, keywords: Dict,
+                                    ai_content: Dict = None) -> str:
+        """生成长文内容Markdown
+
+        Args:
+            ai_content: AI生成的长文内容，包含 intro, problem, analysis, solution, conclusion, images
+        """
+
+        # 获取关键词
+        core_keywords = keywords.get('core', [])
+        pain_keywords = keywords.get('pain_point', [])
+
+        lines = [
+            '# 长文内容',
+            '',
+            '## 基本信息',
+            f'- **行业**: {topic.get("industry", "未知")}',
+            f'- **目标客户**: {topic.get("customer", "通用")}',
+            f'- **选题**: {topic.get("title", "通用内容")}',
+            f'- **核心关键词**: {", ".join([k["keyword"] for k in core_keywords]) if core_keywords else "暂无"}',
+            f'- **痛点关键词**: {", ".join([k["keyword"] for k in pain_keywords]) if pain_keywords else "暂无"}',
+            '',
+            '## 标题',
+            f'{title}',
+            '',
+        ]
+
+        # 如果有 AI 生成的内容，使用 AI 内容
+        if ai_content:
+            # 引言
+            intro = ai_content.get('intro', '')
+            if intro:
+                lines.extend([
+                    '## 引言',
+                    f'{intro}',
+                    '',
+                ])
+
+            # 问题层
+            problem = ai_content.get('problem', '')
+            if problem:
+                lines.extend([
+                    '## 问题层：痛点场景',
+                    f'{problem}',
+                    '',
+                ])
+
+            # 分析层
+            analysis = ai_content.get('analysis', '')
+            if analysis:
+                lines.extend([
+                    '## 分析层：原因与数据',
+                    f'{analysis}',
+                    '',
+                ])
+
+            # 方案层
+            solution = ai_content.get('solution', '')
+            if solution:
+                lines.extend([
+                    '## 方案层：解决方案',
+                    f'{solution}',
+                    '',
+                ])
+
+            # 结论 + 延伸话题
+            conclusion = ai_content.get('conclusion', '')
+            extended_topic = ai_content.get('extended_topic', '')
+            if conclusion or extended_topic:
+                lines.extend([
+                    '## 结论',
+                    f'{conclusion}',
+                    '',
+                ])
+                if extended_topic:
+                    lines.extend([
+                        '## 延伸话题（用于评论区引导）',
+                        f'{extended_topic}',
+                        '',
+                    ])
+
+            # 图片
+            images = ai_content.get('images', [])
+            if images:
+                lines.extend([
+                    '## 配图说明',
+                    f'- 数量：{len(images)}张',
+                    f'- 位置：随机放在文章开头或中间',
+                    '',
+                ])
+                for i, img in enumerate(images[:2]):
+                    pos = img.get('position', '待定')
+                    desc = img.get('description', '')
+                    prompt = img.get('prompt', '')
+                    lines.extend([
+                        f'### 图片{i+1}（{pos}）',
+                        f'- 内容描述：{desc}',
+                        f'- AI生图提示词：{prompt}',
+                        '',
+                    ])
+        else:
+            # 通用模板
+            lines.extend([
+                '## 引言（前3句话给出核心答案）',
+                '[开门见山，直接给答案]',
+                '',
+                '## 问题层：痛点场景',
+                '[具体人物+对话+场景]',
+                '',
+                '## 分析层：原因与数据',
+                '[原因分析 + 具体数据/案例]',
+                '',
+                '## 方案层：解决方案',
+                '[清单式解决方案，步骤清晰]',
+                '',
+                '## 结论 + 延伸话题',
+                '[总结核心观点 + 引发讨论的问题]',
+                '',
+                '## 配图说明',
+                '- 数量：1-2张',
+                '- 位置：随机放在文章开头或中间',
+                '- 内容：场景图/产品图/对比图',
+                '',
+            ])
+
+        lines.extend([
+            '## 发布建议',
+            f'- 发布时间：工作日 20:00-22:00 或 周末全天',
+            f'- 建议话题：{", ".join([k["keyword"] for k in core_keywords[:3]]) if core_keywords else "暂无"}',
+        ])
+
+        return '\n'.join(lines)
+
+    @classmethod
+    def _generate_video_script_content(cls, title: str, topic: Dict, keywords: Dict,
+                                       ai_scenes: List[Dict] = None) -> str:
+        """生成短视频分镜脚本Markdown
+
+        Args:
+            ai_scenes: AI生成的场景列表，每项包含 scene_id, time_range, scene_type, 画面, 配音, 字幕, camera
+        """
+
+        core_keywords = keywords.get('core', [])
+        pain_keywords = keywords.get('pain_point', [])
+
+        lines = [
+            '# 短视频分镜脚本',
+            '',
+            '## 基本信息',
+            f'- **标题**: {title}',
+            f'- **行业**: {topic.get("industry", "未知")}',
+            f'- **目标客户**: {topic.get("customer", "通用")}',
+            f'- **选题**: {topic.get("title", "通用内容")}',
+            '',
+        ]
+
+        # 如果有 AI 生成的场景
+        if ai_scenes:
+            # 计算总时长
+            total_duration = "待计算"
+            if ai_scenes:
+                try:
+                    last_time = ai_scenes[-1].get('time_range', '0-0秒')
+                    # 提取最后的时间值
+                    import re
+                    match = re.search(r'(\d+)-(\d+)秒', last_time)
+                    if match:
+                        total_duration = f"{int(match.group(2))}秒"
+                except:
+                    pass
+
+            lines.extend([
+                f'## 视频信息',
+                f'- **时长**: {total_duration}',
+                f'- **比例**: 9:16（竖版）',
+                f'- **平台**: 抖音/视频号',
+                '',
+                '## 分镜脚本',
+                '',
+            ])
+
+            # 表格头部
+            lines.extend([
+                '| 场次 | 时间 | 类型 | 画面 | 配音 | 字幕 | 运镜 |',
+                '|------|------|------|------|------|------|------|',
+            ])
+
+            for scene in ai_scenes:
+                scene_id = scene.get('scene_id', '')
+                time_range = scene.get('time_range', '')
+                scene_type = scene.get('scene_type', '')
+                画面 = scene.get('画面', '')
+                配音 = scene.get('配音', '')
+                字幕 = scene.get('字幕', '')
+                camera = scene.get('camera', '')
+
+                # 截断过长的内容
+                画面_short = 画面[:50] + '...' if len(画面) > 50 else 画面
+                配音_short = 配音[:30] + '...' if len(配音) > 30 else 配音
+
+                lines.append(f'| {scene_id} | {time_range} | {scene_type} | {画面_short} | {配音_short} | {字幕} | {camera} |')
+
+            lines.append('')
+
+            # 行动号召
+            cta = ''
+            for scene in ai_scenes:
+                if scene.get('scene_type') == '结尾引导':
+                    cta = scene.get('配音', '')
+                    break
+            if cta:
+                lines.extend([
+                    '## 行动号召',
+                    f'{cta}',
+                    '',
+                ])
+
+            # 标签
+            if core_keywords:
+                tags = [f'#{k["keyword"]}' for k in core_keywords[:5]]
+                lines.extend([
+                    '## 推荐标签',
+                    f'{", ".join(tags)}',
+                    '',
+                ])
+        else:
+            # 通用模板
+            lines.extend([
+                '## 视频信息',
+                '- **时长**: 待计算（根据内容确定）',
+                '- **比例**: 9:16（竖版）',
+                '- **平台**: 抖音/视频号',
+                '',
+                '## 分镜脚本模板',
+                '',
+                '| 场次 | 时间 | 类型 | 画面 | 配音 | 字幕 | 运镜 |',
+                '|------|------|------|------|------|------|------|',
+                '| 1 | 0-3秒 | 开头钩子 | [具体场景描述] | [配音≤30字] | [字幕≤10字] | [运镜方式] |',
+                '| 2 | 3-15秒 | 痛点展开 | [具体场景描述] | [配音≤30字] | [字幕≤10字] | [运镜方式] |',
+                '| 3 | 15-30秒 | 案例警示 | [具体场景描述] | [配音≤30字] | [字幕≤10字] | [运镜方式] |',
+                '| 4 | 30-40秒 | 解决方案 | [具体场景描述] | [配音≤30字] | [字幕≤10字] | [运镜方式] |',
+                '| 5 | 40-45秒 | 结尾引导 | [具体场景描述] | [配音≤30字] | [字幕≤10字] | [运镜方式] |',
+                '',
+                '## 行动号召',
+                '[结尾互动引导，如：评论区说说你的经历]',
+                '',
+                '## 推荐标签',
+                f'{", ".join(["#" + k["keyword"] for k in core_keywords[:5]] if core_keywords else "#标签1 #标签2")}',
+                '',
+            ])
+
+        lines.extend([
+            '## 使用说明',
+            '1. 将脚本复制给AI视频生成工具',
+            '2. 根据配音和字幕生成对应视频',
+            '3. 确保画面与配音节奏同步',
+        ])
+
+        return '\n'.join(lines)
+
+    @classmethod
     def _build_ai_prompt(cls, params: Dict, resources: Dict) -> str:
         """构建AI增强prompt"""
         industry = params.get('industry', '通用')
@@ -5201,8 +5462,10 @@ class ContentGenerator:
         return prompt
 
     @classmethod
-    def _parse_ai_response(cls, response: str, resources: Dict) -> Dict:
+    def _parse_ai_response(cls, response: str, resources: Dict, params: Dict = None) -> Dict:
         """解析AI响应"""
+        content_type = (params or {} .get('content_type', 'graphic') if params else 'graphic')
+
         try:
             # 尝试解析JSON
             if isinstance(response, str):
@@ -5210,42 +5473,83 @@ class ContentGenerator:
             else:
                 data = response
 
-            # 获取 AI 生成的具体图片内容
+            # 获取 AI 生成的内容
             ai_content = data.get('content', {})
-            ai_images = ai_content.get('images', [])
-            ai_topic = ai_content.get('topic', '')
 
-            # 加载图文规则配置
-            graphic_rule = None
-            try:
-                from services.graphic_rule_service import graphic_rule_service
-                portrait_id = params.get('portrait_id')
-                industry = params.get('industry')
-                graphic_rule = graphic_rule_service.get_active_rule(
-                    industry=industry,
-                    portrait_id=portrait_id
+            if content_type == 'long_text':
+                # 长文内容
+                content = cls._generate_long_text_content(
+                    title=data.get('titles', [''])[0] if data.get('titles') else '',
+                    topic={'title': ai_content.get('topic', '')},
+                    keywords=resources.get('keywords', {}),
+                    ai_content={
+                        'intro': ai_content.get('intro', ''),
+                        'problem': ai_content.get('problem', ''),
+                        'analysis': ai_content.get('analysis', ''),
+                        'solution': ai_content.get('solution', ''),
+                        'conclusion': ai_content.get('conclusion', ''),
+                        'extended_topic': ai_content.get('extended_topic', ''),
+                        'images': ai_content.get('images', []),
+                    }
                 )
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(f"加载图文规则失败: {e}")
+                return {
+                    'titles': data.get('titles', []),
+                    'tags': data.get('tags', []),
+                    'content': content,
+                    'ai_generated': True,
+                }
 
-            # 构建完整内容，传入 AI 生成的具体图片内容和规则配置
-            content = cls._generate_graphic_content(
-                title=data.get('titles', [''])[0],
-                topic={'title': ai_topic or data.get('content', {}).get('topic', '')},
-                keywords=resources.get('keywords', {}),
-                image_count=5,
-                image_ratio='9:16',
-                ai_images=ai_images,  # 传入 AI 生成的具体图片内容
-                graphic_rule=graphic_rule  # 传入图文规则配置
-            )
+            elif content_type == 'video':
+                # 短视频分镜脚本
+                content = cls._generate_video_script_content(
+                    title=data.get('titles', [''])[0] if data.get('titles') else '',
+                    topic={'title': ai_content.get('topic', '')},
+                    keywords=resources.get('keywords', {}),
+                    ai_scenes=ai_content.get('scenes', [])
+                )
+                return {
+                    'titles': data.get('titles', []),
+                    'tags': data.get('tags', []),
+                    'content': content,
+                    'ai_generated': True,
+                }
 
-            return {
-                'titles': data.get('titles', []),
-                'tags': data.get('tags', []),
-                'content': content,
-                'ai_generated': True,
-            }
+            else:
+                # 图文内容（默认）
+                ai_images = ai_content.get('images', [])
+                ai_topic = ai_content.get('topic', '')
+
+                # 加载图文规则配置
+                graphic_rule = None
+                try:
+                    from services.graphic_rule_service import graphic_rule_service
+                    portrait_id = params.get('portrait_id') if params else None
+                    industry = params.get('industry') if params else None
+                    graphic_rule = graphic_rule_service.get_active_rule(
+                        industry=industry,
+                        portrait_id=portrait_id
+                    )
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"加载图文规则失败: {e}")
+
+                # 构建完整内容
+                content = cls._generate_graphic_content(
+                    title=data.get('titles', [''])[0],
+                    topic={'title': ai_topic or ai_content.get('topic', '')},
+                    keywords=resources.get('keywords', {}),
+                    image_count=5,
+                    image_ratio='9:16',
+                    ai_images=ai_images,
+                    graphic_rule=graphic_rule
+                )
+
+                return {
+                    'titles': data.get('titles', []),
+                    'tags': data.get('tags', []),
+                    'content': content,
+                    'ai_generated': True,
+                }
 
         except (json.JSONDecodeError, KeyError):
             # 解析失败，返回原始响应
