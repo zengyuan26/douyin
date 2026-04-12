@@ -4892,10 +4892,11 @@ class ContentGenerator:
                 raise RuntimeError("LLM service not available")
             
             logger.info("[ContentGenerator] 正在调用 LLM.chat()...")
+            # max_tokens=4000 确保JSON完整输出，避免截断
             response = service.chat(
                 prompt,
                 temperature=0.8,
-                max_tokens=2000,
+                max_tokens=4000,
             )
             
             # ========== [调试日志] LLM响应 ==========
