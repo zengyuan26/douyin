@@ -4936,8 +4936,13 @@ class ContentGenerator:
     @classmethod
     def _generate_graphic_content(cls, title: str, topic: Dict, keywords: Dict,
                                 image_count: int = 5,
-                                image_ratio: str = '9:16') -> str:
-        """生成图文内容Markdown"""
+                                image_ratio: str = '9:16',
+                                ai_images: List[Dict] = None) -> str:
+        """生成图文内容Markdown
+        
+        Args:
+            ai_images: AI生成的具体图片内容列表，每项包含 title, content 等字段
+        """
         
         # 获取痛点关键词
         pain_keywords = keywords.get('pain_point', [])
@@ -4962,26 +4967,40 @@ class ContentGenerator:
             f'## 图片内容（必须先戳痛点！）',
         ]
 
-        # 重构图片结构：从痛点切入
-        image_titles = [
-            '戳痛点：用户困境场景',      # 第1张必须直接呈现用户痛苦
-            '分析原因',                  # 为什么会这样？
-            '揭示误区',                  # 你以为...其实...
-            '解决方案',                  # 终于等到...
-            '总结引导'                   # 快试试/评论区见
-        ]
+        # 如果有 AI 生成的具体内容，使用 AI 内容；否则使用通用模板
+        if ai_images and len(ai_images) > 0:
+            for i, img in enumerate(ai_images[:image_count]):
+                img_title = img.get('title', f'图片{i+1}')
+                img_content = img.get('content', '[根据内容填写]')
+                lines.extend([
+                    f'### 图片{i+1}：{img_title}',
+                    f'**比例**: {image_ratio} (1080x{1920 if image_ratio == "9:16" else 1080}px)',
+                    '',
+                    f'**内容**:',
+                    f'{img_content}',
+                    '',
+                ])
+        else:
+            # 通用模板
+            image_titles = [
+                '戳痛点：用户困境场景',      # 第1张必须直接呈现用户痛苦
+                '分析原因',                  # 为什么会这样？
+                '揭示误区',                  # 你以为...其实...
+                '解决方案',                  # 终于等到...
+                '总结引导'                   # 快试试/评论区见
+            ]
 
-        for i in range(min(image_count, len(image_titles))):
-            lines.extend([
-                f'### 图片{i+1}：{image_titles[i]}',
-                f'**比例**: {image_ratio} (1080x{1920 if image_ratio == "9:16" else 1080}px)',
-                '',
-                f'**标题**: [根据内容填写]',
-                '',
-                f'**内容**:',
-                f'[根据选题和关键词填写内容]',
-                '',
-            ])
+            for i in range(min(image_count, len(image_titles))):
+                lines.extend([
+                    f'### 图片{i+1}：{image_titles[i]}',
+                    f'**比例**: {image_ratio} (1080x{1920 if image_ratio == "9:16" else 1080}px)',
+                    '',
+                    f'**标题**: [根据内容填写]',
+                    '',
+                    f'**内容**:',
+                    f'[根据选题和关键词填写内容]',
+                    '',
+                ])
 
         lines.extend([
             '## 评论区首评',
@@ -5102,13 +5121,19 @@ class ContentGenerator:
             else:
                 data = response
 
-            # 构建完整内容
+            # 获取 AI 生成的具体图片内容
+            ai_content = data.get('content', {})
+            ai_images = ai_content.get('images', [])
+            ai_topic = ai_content.get('topic', '')
+
+            # 构建完整内容，传入 AI 生成的具体图片内容
             content = cls._generate_graphic_content(
                 title=data.get('titles', [''])[0],
-                topic={'title': data.get('content', {}).get('topic', '')},
+                topic={'title': ai_topic or data.get('content', {}).get('topic', '')},
                 keywords=resources.get('keywords', {}),
                 image_count=5,
-                image_ratio='9:16'
+                image_ratio='9:16',
+                ai_images=ai_images  # 传入 AI 生成的具体图片内容
             )
 
             return {
