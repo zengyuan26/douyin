@@ -4871,6 +4871,18 @@ class ContentGenerator:
 
         # 构建prompt
         prompt = cls._build_ai_prompt(params, resources)
+        
+        # ========== [调试日志] LLM请求 ==========
+        logger.info("=" * 60)
+        logger.info("[ContentGenerator] 开始调用 LLM 生成图文内容")
+        logger.info("[ContentGenerator] 行业: %s, 目标客户: %s", industry, target_customer)
+        logger.info("[ContentGenerator] Prompt长度: %d 字符", len(prompt))
+        logger.info("-" * 60)
+        # 打印完整prompt（前2000字符，方便查看）
+        prompt_preview = prompt[:3000] + "..." if len(prompt) > 3000 else prompt
+        logger.info("[ContentGenerator] Prompt内容:\n%s", prompt_preview)
+        logger.info("=" * 60)
+        # ========== [/调试日志] ==========
 
         # 调用AI
         try:
@@ -4878,14 +4890,44 @@ class ContentGenerator:
             service = get_llm_service()
             if not service:
                 raise RuntimeError("LLM service not available")
+            
+            logger.info("[ContentGenerator] 正在调用 LLM.chat()...")
             response = service.chat(
                 prompt,
                 temperature=0.8,
                 max_tokens=2000,
             )
+            
+            # ========== [调试日志] LLM响应 ==========
+            logger.info("=" * 60)
+            logger.info("[ContentGenerator] LLM 响应完成")
+            logger.info("[ContentGenerator] 响应长度: %d 字符", len(response) if response else 0)
+            logger.info("-" * 60)
+            logger.info("[ContentGenerator] LLM原始响应:\n%s", response)
+            logger.info("=" * 60)
+            # ========== [/调试日志] ==========
+
             # 解析AI响应
+            logger.info("[ContentGenerator] 开始解析AI响应...")
             result = cls._parse_ai_response(response, resources)
+            
+            # ========== [调试日志] 解析结果 ==========
+            logger.info("[ContentGenerator] 解析完成，结果类型: %s", type(result))
+            if isinstance(result, dict):
+                logger.info("[ContentGenerator] 解析结果keys: %s", list(result.keys()))
+                titles = result.get('titles', [])
+                logger.info("[ContentGenerator] 生成标题数量: %d", len(titles))
+                if titles:
+                    for i, t in enumerate(titles):
+                        logger.info("  标题%d: %s", i+1, t)
+                images = result.get('images', [])
+                logger.info("[ContentGenerator] 生成图片数量: %d", len(images))
+            # ========== [/调试日志] ==========
+            
         except Exception as e:
+            import traceback
+            logger.error("[ContentGenerator] AI调用异常: %s", e)
+            logger.error("[ContentGenerator] 堆栈: %s", traceback.format_exc())
             # AI调用失败，降级到模板模式
             logger.warning("[ContentGenerator] AI调用失败，降级到模板模式: %s", e)
             result = cls._generate_from_template(params, resources)
