@@ -2073,6 +2073,8 @@ async function refreshPortraits() {
             return;
         }
 
+        // 【修复】先清除当前问题的旧画像，再保存新的（避免累积）
+        delete _allPortraits[problemKey];
         _allPortraits[problemKey] = portraits;
         _currentPortraitData = portraits[0];
 

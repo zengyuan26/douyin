@@ -1727,7 +1727,13 @@ def api_generate_content_from_topic():
             'upgrade_url': '/pricing'
         }), 403
 
+    # 声明 SavedPortrait 和 TopicGenerationLink 为局部引用（避免被函数内其他 import 语句误判为局部变量）
+    import models.public_models as pm
+    _SavedPortrait = pm.SavedPortrait
+    _TopicGenerationLink = pm.TopicGenerationLink
+
     try:
+        
         # ══ 场景自动轮换：同选题同内容类型时自动换场景（所有内容类型共用）══
         topic_id_str = params.get('topic_id', '') or ''
         content_type = params.get('content_type', 'graphic')
@@ -1757,8 +1763,7 @@ def api_generate_content_from_topic():
                     portrait_id_val = params.get('portrait_id')
                     scene_options = []
                     if portrait_id_val:
-                        from models.public_models import SavedPortrait
-                        portrait = SavedPortrait.query.filter_by(
+                        portrait = _SavedPortrait.query.filter_by(
                             id=portrait_id_val, user_id=user.id
                         ).first()
                         if portrait and portrait.topic_library:
@@ -1874,7 +1879,7 @@ def api_generate_content_from_topic():
             if user and topic_id_str and portrait_id_val:
                 try:
                     # 查找或创建 link
-                    link = TopicGenerationLink.query.filter_by(
+                    link = _TopicGenerationLink.query.filter_by(
                         user_id=user.id,
                         portrait_id=portrait_id_val,
                         topic_id=topic_id_str
@@ -1883,7 +1888,7 @@ def api_generate_content_from_topic():
                     if not link:
                         # 从选题库获取标题快照
                         topic_title = params.get('topic_title', '')
-                        portrait = SavedPortrait.query.filter_by(
+                        portrait = _SavedPortrait.query.filter_by(
                             id=portrait_id_val, user_id=user.id
                         ).first()
                         if portrait and portrait.topic_library:

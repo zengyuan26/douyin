@@ -22,6 +22,77 @@ from services.llm import get_llm_service
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# GEO自检清单动态权重配置
+# =============================================================================
+GEO_SELF_CHECK_WEIGHTS = {
+    "local_service": {
+        "标题吸引力": 10,
+        "开篇直接性": 10,
+        "结构清晰度": 8,
+        "模块化完整": 7,
+        "信任证据": 12,
+        "品牌锚点": 8,
+        "关键词密度": 12,
+        "可读性": 8,
+        "行动号召": 10,
+        "改造潜力": 5,
+    },
+    "product": {
+        "标题吸引力": 10,
+        "开篇直接性": 10,
+        "结构清晰度": 9,
+        "模块化完整": 8,
+        "信任证据": 12,
+        "品牌锚点": 10,
+        "关键词密度": 10,
+        "可读性": 8,
+        "行动号召": 10,
+        "改造潜力": 5,
+    },
+    "personal": {
+        "标题吸引力": 12,
+        "开篇直接性": 10,
+        "结构清晰度": 10,
+        "模块化完整": 8,
+        "信任证据": 10,
+        "品牌锚点": 12,
+        "关键词密度": 8,
+        "可读性": 10,
+        "行动号召": 10,
+        "改造潜力": 5,
+    },
+    "enterprise": {
+        "标题吸引力": 10,
+        "开篇直接性": 10,
+        "结构清晰度": 10,
+        "模块化完整": 9,
+        "信任证据": 15,
+        "品牌锚点": 8,
+        "关键词密度": 10,
+        "可读性": 6,
+        "行动号召": 10,
+        "改造潜力": 2,
+    },
+}
+
+
+def get_self_check_weights(business_type: str) -> Dict[str, int]:
+    """获取指定经营类型的自检权重配置"""
+    return GEO_SELF_CHECK_WEIGHTS.get(business_type, GEO_SELF_CHECK_WEIGHTS.get("local_service"))
+
+
+def get_pass_threshold(business_type: str) -> int:
+    """获取指定经营类型的及格分数线"""
+    thresholds = {
+        "enterprise": 85,
+        "personal": 82,
+        "product": 80,
+        "local_service": 80,
+    }
+    return thresholds.get(business_type, 80)
+
+
 @dataclass
 class ScoreItem:
     """单项评分结果"""
@@ -39,7 +110,7 @@ class ScoreItem:
 @dataclass
 class ScoreResult:
     """综合评分结果"""
-    total_score: int = 0           # 总分 0-100
+    total_score: float = 0.0           # 总分 0-100
     grade: str = 'D'               # 等级 A/B/C/D
     grade_label: str = ''           # 等级标签
     passed: bool = False            # 是否≥80分
@@ -47,6 +118,7 @@ class ScoreResult:
     failed_items: List[ScoreItem] = field(default_factory=list)  # 不达标项
     summary: str = ''               # 整体评价
     suggestions: List[str] = field(default_factory=list)  # 改进建议
+    business_type: str = 'local_service'  # 经营类型
 
 
 class ContentQualityScorer:
@@ -160,7 +232,7 @@ class ContentQualityScorer:
     def __init__(self):
         self.llm = get_llm_service()
 
-    def score(self, content: Dict, brand_name: str = '') -> ScoreResult:
+    def score(self, content: Dict, brand_name: str = '', business_type: str = 'local_service') -> ScoreResult:
         """
         评分入口
 
@@ -174,10 +246,15 @@ class ContentQualityScorer:
                 - tags: 标签列表
                 - hashtags: 话题标签
             brand_name: 品牌名/IP名
+            business_type: 经营类型，用于动态权重
 
         Returns:
             ScoreResult: 评分结果
         """
+        # 获取动态权重配置
+        weights = get_self_check_weights(business_type)
+        pass_threshold = get_pass_threshold(business_type)
+
         # 提取内容文本
         title = content.get('title', '')
         subtitle = content.get('subtitle', '')
@@ -201,24 +278,27 @@ class ContentQualityScorer:
         # 合并结果
         all_results = {**rule_results, **llm_results}
 
-        # 构建评分项列表
+        # 构建评分项列表（应用动态权重）
         items = []
         for item_config in self.SCORING_ITEMS:
             item_id = item_config['id']
             if item_id in all_results:
                 result = all_results[item_id]
+                item_weight = weights.get(item_config['name'], 10)
+                weighted_score = result['score'] * item_weight / 10
                 items.append(ScoreItem(
                     id=item_id,
                     category=item_config['category'],
                     name=item_config['name'],
-                    score=result['score'],
-                    passed=result['score'] >= 10,
+                    score=round(weighted_score, 1),
+                    max_score=item_weight,
+                    passed=weighted_score >= item_weight * 0.6,
                     detail=result.get('detail', ''),
                     suggestion=result.get('suggestion', ''),
-                    icon='✅' if result['score'] >= 10 else '⚠️'
+                    icon='✅' if weighted_score >= item_weight * 0.6 else '⚠️'
                 ))
 
-        # 计算总分
+        # 计算加权总分
         total_score = sum(item.score for item in items)
 
         # 确定等级
@@ -234,14 +314,15 @@ class ContentQualityScorer:
         summary = self._generate_summary(total_score, items)
 
         return ScoreResult(
-            total_score=total_score,
+            total_score=round(total_score, 1),
             grade=grade,
             grade_label=grade_label,
-            passed=total_score >= 80,
+            passed=total_score >= pass_threshold,
             items=items,
             failed_items=failed_items,
             summary=summary,
-            suggestions=suggestions
+            suggestions=suggestions,
+            business_type=business_type
         )
 
     def _build_full_text(self, title: str, subtitle: str, body: str,
