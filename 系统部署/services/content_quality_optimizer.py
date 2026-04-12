@@ -252,7 +252,7 @@ class ContentQualityOptimizer:
 
             if opt_type == 'fix':
                 # 直接修复格式/结构问题
-                content = self._apply_fix(content, item.id, strategy['prompt'])
+                content = self._apply_fix(content, item.id, strategy['prompt'], brand_name)
                 optimized_names.append(opt_name)
 
             elif opt_type == 'llm_fix':
@@ -262,7 +262,7 @@ class ContentQualityOptimizer:
 
         return content, optimized_names
 
-    def _apply_fix(self, content: Dict, item_id: int, prompt: str) -> Dict:
+    def _apply_fix(self, content: Dict, item_id: int, prompt: str, brand_name: str = '') -> Dict:
         """应用直接修复"""
         body = content.get('body', '')
         title = content.get('title', '')
