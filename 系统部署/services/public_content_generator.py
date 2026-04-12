@@ -5116,10 +5116,10 @@ class ContentGenerator:
     @classmethod
     def _generate_long_text_content(cls, title: str, topic: Dict, keywords: Dict,
                                     ai_content: Dict = None) -> str:
-        """生成长文内容Markdown
+        """生成长文内容Markdown（SEO标准结构）
 
         Args:
-            ai_content: AI生成的长文内容，包含 intro, problem, analysis, solution, conclusion, images
+            ai_content: AI生成的长文内容，包含 titles, intro, sections, conclusion, extended_topic
         """
 
         # 获取关键词
@@ -5127,127 +5127,148 @@ class ContentGenerator:
         pain_keywords = keywords.get('pain_point', [])
 
         lines = [
-            '# 长文内容',
+            '# 长文内容（SEO标准）',
             '',
             '## 基本信息',
             f'- **行业**: {topic.get("industry", "未知")}',
             f'- **目标客户**: {topic.get("customer", "通用")}',
             f'- **选题**: {topic.get("title", "通用内容")}',
+            f'- **字数要求**: 3200-4000字',
             f'- **核心关键词**: {", ".join([k["keyword"] for k in core_keywords]) if core_keywords else "暂无"}',
             f'- **痛点关键词**: {", ".join([k["keyword"] for k in pain_keywords]) if pain_keywords else "暂无"}',
-            '',
-            '## 标题',
-            f'{title}',
             '',
         ]
 
         # 如果有 AI 生成的内容，使用 AI 内容
         if ai_content:
-            logger.info("[ContentGenerator] ai_content keys: %s", list(ai_content.keys()))
+            logger.info("[ContentGenerator] 长文ai_content keys: %s", list(ai_content.keys()))
+
+            # 标题
+            titles = ai_content.get('titles', [])
+            if titles:
+                if len(titles) >= 2:
+                    lines.extend([
+                        '## 标题',
+                        f'**主标题**: {titles[0]}',
+                        f'**副标题**: {titles[1]}',
+                        '',
+                    ])
+                elif titles:
+                    lines.extend([
+                        '## 标题',
+                        f'{titles[0]}',
+                        '',
+                    ])
 
             # 引言
             intro = ai_content.get('intro', '') or ai_content.get('引言', '') or ai_content.get('introduction', '')
-            problem = ai_content.get('problem', '') or ai_content.get('问题层', '') or ai_content.get('problem_layer', '')
-            analysis = ai_content.get('analysis', '') or ai_content.get('分析层', '') or ai_content.get('analysis_layer', '')
-            solution = ai_content.get('solution', '') or ai_content.get('方案层', '') or ai_content.get('solution_layer', '')
-            conclusion = ai_content.get('conclusion', '') or ai_content.get('结论', '') or ai_content.get('ending', '')
-            extended_topic = ai_content.get('extended_topic', '') or ai_content.get('延伸话题', '') or ai_content.get('topic', '')
-            images = ai_content.get('images', []) or ai_content.get('图片', [])
-
-            logger.info("[ContentGenerator] intro: %s", intro[:100] if intro else "empty")
-            logger.info("[ContentGenerator] problem: %s", problem[:100] if problem else "empty")
-
             if intro:
                 lines.extend([
-                    '## 引言',
+                    '## 引言（150字情绪痛点开头）',
                     f'{intro}',
                     '',
                 ])
 
-            # 问题层
-            if problem:
-                lines.extend([
-                    '## 问题层：痛点场景',
-                    f'{problem}',
-                    '',
-                ])
+            # 7个固定章节
+            section_names = ['section1', 'section2', 'section3', 'section4', 'section5', 'section6', 'section7']
+            for idx, section_key in enumerate(section_names, 1):
+                section = ai_content.get(section_key, {}) or ai_content.get(f'section{idx}', {})
+                if section:
+                    section_title = section.get('title', f'章节{idx}')
+                    lines.append(f'## {section_title}')
+                    lines.append('')
 
-            # 分析层
-            if analysis:
-                lines.extend([
-                    '## 分析层：原因与数据',
-                    f'{analysis}',
-                    '',
-                ])
+                    # 子章节
+                    subsections = section.get('subsections', []) or section.get('子章节', [])
+                    if isinstance(subsections, list):
+                        for sub in subsections:
+                            if isinstance(sub, dict):
+                                sub_title = sub.get('title', '')
+                                sub_content = sub.get('content', '')
+                                if sub_title:
+                                    lines.append(f'**{sub_title}**')
+                                if sub_content:
+                                    lines.append(f'{sub_content}')
+                                    lines.append('')
+                            elif isinstance(sub, str):
+                                lines.append(f'{sub}')
+                                lines.append('')
 
-            # 方案层
-            if solution:
-                lines.extend([
-                    '## 方案层：解决方案',
-                    f'{solution}',
-                    '',
-                ])
+                    # 如果没有subsections，尝试直接输出内容
+                    direct_content = section.get('content', '')
+                    if direct_content and not subsections:
+                        if isinstance(direct_content, str):
+                            lines.append(f'{direct_content}')
+                            lines.append('')
 
-            # 结论 + 延伸话题
-            if conclusion or extended_topic:
+                    lines.append('')
+
+            # 结尾
+            conclusion = ai_content.get('conclusion', '') or ai_content.get('结论', '')
+            if conclusion:
                 lines.extend([
-                    '## 结论',
+                    '## 结尾总结（120字）',
                     f'{conclusion}',
                     '',
                 ])
-                if extended_topic:
-                    lines.extend([
-                        '## 延伸话题（用于评论区引导）',
-                        f'{extended_topic}',
-                        '',
-                    ])
 
-            # 图片
-            if images and len(images) > 0:
+            # 延伸话题
+            extended_topic = ai_content.get('extended_topic', '') or ai_content.get('延伸话题', '')
+            if extended_topic:
                 lines.extend([
-                    '## 配图说明',
-                    f'- 数量：{len(images)}张',
-                    f'- 位置：随机放在文章开头或中间',
+                    '## 延伸话题（评论区引导）',
+                    f'{extended_topic}',
                     '',
                 ])
-                for i, img in enumerate(images[:2]):
-                    pos = img.get('position', '待定')
-                    desc = img.get('description', '')
-                    prompt = img.get('prompt', '')
-                    lines.extend([
-                        f'### 图片{i+1}（{pos}）',
-                        f'- 内容描述：{desc}',
-                        f'- AI生图提示词：{prompt}',
-                        '',
-                    ])
+
         else:
             # 通用模板
             lines.extend([
-                '## 引言（前3句话给出核心答案）',
-                '[开门见山，直接给答案]',
+                '## 标题',
+                '**主标题**: [含核心关键词]',
+                '**副标题**: [点出痛点+解决方案]',
                 '',
-                '## 问题层：痛点场景',
-                '[具体人物+对话+场景]',
+                '## 引言（150字情绪痛点开头）',
+                '[直击家长焦虑，点出核心原因，给出全文价值]',
                 '',
-                '## 分析层：原因与数据',
-                '[原因分析 + 具体数据/案例]',
+                '## 一、[章节标���]',
+                '**1. [子标题]**',
+                '[内容...]',
                 '',
-                '## 方案层：解决方案',
-                '[清单式解决方案，步骤清晰]',
+                '**2. [子标题]**',
+                '[内容...]',
                 '',
-                '## 结论 + 延伸话题',
-                '[总结核心观点 + 引发讨论的问题]',
+                '**3. [子标题]**',
+                '[内容...]',
                 '',
-                '## 配图说明',
-                '- 数量：1-2张',
-                '- 位置：随机放在文章开头或中间',
-                '- 内容：场景图/产品图/对比图',
+                '## 二、[章节标题]',
+                '...',
+                '',
+                '## 三、[章节标题]',
+                '...',
+                '',
+                '## 四、[章节标题]',
+                '[可用表格对比]',
+                '',
+                '## 五、[章节标题]',
+                '...',
+                '',
+                '## 六、[章节标题]',
+                '...',
+                '',
+                '## 七、[章节标题]',
+                '...',
+                '',
+                '## 结尾总结（120字）',
+                '[总结核心判断逻辑，强调先分型再选奶粉，正向引导]',
                 '',
             ])
 
         lines.extend([
             '## 发布建议',
             f'- 发布时间：工作日 20:00-22:00 或 周末全天',
+            f'- 字数要求：3200-4000字',
+            f'- 平台适配：公众号、知乎、抖音长文、百度、小红书',
             f'- 建议话题：{", ".join([k["keyword"] for k in core_keywords[:3]]) if core_keywords else "暂无"}',
         ])
 
@@ -5489,21 +5510,13 @@ class ContentGenerator:
             # ========== [/调试日志] ==========
 
             if content_type == 'long_text':
-                # 长文内容
+                # 长文内容 - 直接传入完整 ai_content
                 logger.info("[ContentGenerator] 开始生成长文内容")
                 content = cls._generate_long_text_content(
                     title=data.get('titles', [''])[0] if data.get('titles') else '',
                     topic={'title': ai_content.get('topic', '')},
                     keywords=resources.get('keywords', {}),
-                    ai_content={
-                        'intro': ai_content.get('intro', ''),
-                        'problem': ai_content.get('problem', ''),
-                        'analysis': ai_content.get('analysis', ''),
-                        'solution': ai_content.get('solution', ''),
-                        'conclusion': ai_content.get('conclusion', ''),
-                        'extended_topic': ai_content.get('extended_topic', ''),
-                        'images': ai_content.get('images', []),
-                    }
+                    ai_content=ai_content  # 传入完整 ai_content
                 )
                 logger.info("[ContentGenerator] 长文content长度: %d", len(content) if content else 0)
                 return {
