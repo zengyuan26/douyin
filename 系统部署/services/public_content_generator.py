@@ -5143,8 +5143,20 @@ class ContentGenerator:
 
         # 如果有 AI 生成的内容，使用 AI 内容
         if ai_content:
+            logger.info("[ContentGenerator] ai_content keys: %s", list(ai_content.keys()))
+
             # 引言
-            intro = ai_content.get('intro', '')
+            intro = ai_content.get('intro', '') or ai_content.get('引言', '') or ai_content.get('introduction', '')
+            problem = ai_content.get('problem', '') or ai_content.get('问题层', '') or ai_content.get('problem_layer', '')
+            analysis = ai_content.get('analysis', '') or ai_content.get('分析层', '') or ai_content.get('analysis_layer', '')
+            solution = ai_content.get('solution', '') or ai_content.get('方案层', '') or ai_content.get('solution_layer', '')
+            conclusion = ai_content.get('conclusion', '') or ai_content.get('结论', '') or ai_content.get('ending', '')
+            extended_topic = ai_content.get('extended_topic', '') or ai_content.get('延伸话题', '') or ai_content.get('topic', '')
+            images = ai_content.get('images', []) or ai_content.get('图片', [])
+
+            logger.info("[ContentGenerator] intro: %s", intro[:100] if intro else "empty")
+            logger.info("[ContentGenerator] problem: %s", problem[:100] if problem else "empty")
+
             if intro:
                 lines.extend([
                     '## 引言',
@@ -5153,7 +5165,6 @@ class ContentGenerator:
                 ])
 
             # 问题层
-            problem = ai_content.get('problem', '')
             if problem:
                 lines.extend([
                     '## 问题层：痛点场景',
@@ -5162,7 +5173,6 @@ class ContentGenerator:
                 ])
 
             # 分析层
-            analysis = ai_content.get('analysis', '')
             if analysis:
                 lines.extend([
                     '## 分析层：原因与数据',
@@ -5171,7 +5181,6 @@ class ContentGenerator:
                 ])
 
             # 方案层
-            solution = ai_content.get('solution', '')
             if solution:
                 lines.extend([
                     '## 方案层：解决方案',
@@ -5180,8 +5189,6 @@ class ContentGenerator:
                 ])
 
             # 结论 + 延伸话题
-            conclusion = ai_content.get('conclusion', '')
-            extended_topic = ai_content.get('extended_topic', '')
             if conclusion or extended_topic:
                 lines.extend([
                     '## 结论',
@@ -5196,8 +5203,7 @@ class ContentGenerator:
                     ])
 
             # 图片
-            images = ai_content.get('images', [])
-            if images:
+            if images and len(images) > 0:
                 lines.extend([
                     '## 配图说明',
                     f'- 数量：{len(images)}张',
@@ -5476,8 +5482,15 @@ class ContentGenerator:
             # 获取 AI 生成的内容
             ai_content = data.get('content', {})
 
+            # ========== [调试日志] AI响应内容 ==========
+            logger.info("[ContentGenerator] content_type: %s", content_type)
+            logger.info("[ContentGenerator] AI返回data keys: %s", list(data.keys()))
+            logger.info("[ContentGenerator] AI返回content keys: %s", list(ai_content.keys()) if ai_content else "empty")
+            # ========== [/调试日志] ==========
+
             if content_type == 'long_text':
                 # 长文内容
+                logger.info("[ContentGenerator] 开始生成长文内容")
                 content = cls._generate_long_text_content(
                     title=data.get('titles', [''])[0] if data.get('titles') else '',
                     topic={'title': ai_content.get('topic', '')},
@@ -5492,6 +5505,7 @@ class ContentGenerator:
                         'images': ai_content.get('images', []),
                     }
                 )
+                logger.info("[ContentGenerator] 长文content长度: %d", len(content) if content else 0)
                 return {
                     'titles': data.get('titles', []),
                     'tags': data.get('tags', []),
@@ -5501,6 +5515,7 @@ class ContentGenerator:
 
             elif content_type == 'video':
                 # 短视频分镜脚本
+                logger.info("[ContentGenerator] 开始生成短视频分镜脚本")
                 content = cls._generate_video_script_content(
                     title=data.get('titles', [''])[0] if data.get('titles') else '',
                     topic={'title': ai_content.get('topic', '')},
