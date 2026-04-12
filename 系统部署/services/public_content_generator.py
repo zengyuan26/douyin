@@ -4937,16 +4937,28 @@ class ContentGenerator:
     def _generate_graphic_content(cls, title: str, topic: Dict, keywords: Dict,
                                 image_count: int = 5,
                                 image_ratio: str = '9:16',
-                                ai_images: List[Dict] = None) -> str:
+                                ai_images: List[Dict] = None,
+                                graphic_rule: Dict = None) -> str:
         """生成图文内容Markdown
         
         Args:
             ai_images: AI生成的具体图片内容列表，每项包含 title, content 等字段
+            graphic_rule: 从数据库加载的图文规则配置
         """
         
         # 获取痛点关键词
         pain_keywords = keywords.get('pain_point', [])
-        pain_text = pain_keywords[0]['keyword'] if pain_keywords else '宝宝健康问题'
+        pain_text = pain_keywords[0]['keyword'] if pain_keywords else '用户痛点'
+        
+        # 从规则中获取配置（如果有）
+        rule_image_templates = []
+        rule_headline_rules = {}
+        rule_design_rules = {}
+        if graphic_rule:
+            rule_image_templates = graphic_rule.get('image_templates', [])
+            for hl in graphic_rule.get('headline_rules', []):
+                rule_headline_rules[hl.get('headline_type')] = hl
+            rule_design_rules = graphic_rule.get('design_rules', {})
         
         lines = [
             f'# 图文内容模板',
@@ -4967,40 +4979,85 @@ class ContentGenerator:
             f'## 图片内容（必须先戳痛点！）',
         ]
 
-        # 如果有 AI 生成的具体内容，使用 AI 内容；否则使用通用模板
+        # 如果有 AI 生成的具体内容，使用 AI 内容；否则使用规则配置或通用模板
         if ai_images and len(ai_images) > 0:
+            # AI生成内容 + 规则增强
             for i, img in enumerate(ai_images[:image_count]):
                 img_title = img.get('title', f'图片{i+1}')
                 img_content = img.get('content', '[根据内容填写]')
+                
+                # 从规则中获取该图的配置
+                rule_tpl = None
+                if i < len(rule_image_templates):
+                    rule_tpl = rule_image_templates[i]
+                
                 lines.extend([
                     f'### 图片{i+1}：{img_title}',
                     f'**比例**: {image_ratio} (1080x{1920 if image_ratio == "9:16" else 1080}px)',
                     '',
+                ])
+                
+                # 添加规则要求的配置信息
+                if rule_tpl:
+                    positioning = rule_tpl.get('positioning', '')
+                    emotion = rule_tpl.get('emotion', '')
+                    headline_req = rule_tpl.get('headline_requirement', '')
+                    if positioning:
+                        lines.append(f'**定位**: {positioning}')
+                    if emotion:
+                        lines.append(f'**情绪**: {emotion}')
+                    if headline_req:
+                        lines.append(f'**大字要求**: {headline_req}')
+                    lines.append('')
+                
+                lines.extend([
                     f'**内容**:',
                     f'{img_content}',
                     '',
                 ])
         else:
-            # 通用模板
-            image_titles = [
-                '戳痛点：用户困境场景',      # 第1张必须直接呈现用户痛苦
-                '分析原因',                  # 为什么会这样？
-                '揭示误区',                  # 你以为...其实...
-                '解决方案',                  # 终于等到...
-                '总结引导'                   # 快试试/评论区见
-            ]
+            # 使用规则配置或通用模板
+            if rule_image_templates:
+                # 使用规则配置
+                for i, rule_tpl in enumerate(rule_image_templates[:image_count]):
+                    positioning = rule_tpl.get('positioning', '')
+                    emotion = rule_tpl.get('emotion', '')
+                    func = rule_tpl.get('function', '')
+                    headline_req = rule_tpl.get('headline_requirement', '')
+                    
+                    lines.extend([
+                        f'### 图片{i+1}：{positioning}',
+                        f'**比例**: {image_ratio} (1080x{1920 if image_ratio == "9:16" else 1080}px)',
+                        f'**情绪**: {emotion}',
+                        f'**功能**: {func}',
+                        '',
+                        f'**大字金句**: {headline_req}',
+                        '',
+                        f'**内容**:',
+                        f'[根据选题和关键词填写]',
+                        '',
+                    ])
+            else:
+                # 通用模板
+                image_titles = [
+                    '戳痛点：用户困境场景',      # 第1张必须直接呈现用户痛苦
+                    '分析原因',                  # 为什么会这样？
+                    '揭示误区',                  # 你以为...其实...
+                    '解决方案',                  # 终于等到...
+                    '总结引导'                   # 快试试/评论区见
+                ]
 
-            for i in range(min(image_count, len(image_titles))):
-                lines.extend([
-                    f'### 图片{i+1}：{image_titles[i]}',
-                    f'**比例**: {image_ratio} (1080x{1920 if image_ratio == "9:16" else 1080}px)',
-                    '',
-                    f'**标题**: [根据内容填写]',
-                    '',
-                    f'**内容**:',
-                    f'[根据选题和关键词填写内容]',
-                    '',
-                ])
+                for i in range(min(image_count, len(image_titles))):
+                    lines.extend([
+                        f'### 图片{i+1}：{image_titles[i]}',
+                        f'**比例**: {image_ratio} (1080x{1920 if image_ratio == "9:16" else 1080}px)',
+                        '',
+                        f'**标题**: [根据内容填写]',
+                        '',
+                        f'**内容**:',
+                        f'[根据选题和关键词填写内容]',
+                        '',
+                    ])
 
         lines.extend([
             '## 评论区首评',
@@ -5126,14 +5183,29 @@ class ContentGenerator:
             ai_images = ai_content.get('images', [])
             ai_topic = ai_content.get('topic', '')
 
-            # 构建完整内容，传入 AI 生成的具体图片内容
+            # 加载图文规则配置
+            graphic_rule = None
+            try:
+                from services.graphic_rule_service import graphic_rule_service
+                portrait_id = params.get('portrait_id')
+                industry = params.get('industry')
+                graphic_rule = graphic_rule_service.get_active_rule(
+                    industry=industry,
+                    portrait_id=portrait_id
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"加载图文规则失败: {e}")
+
+            # 构建完整内容，传入 AI 生成的具体图片内容和规则配置
             content = cls._generate_graphic_content(
                 title=data.get('titles', [''])[0],
                 topic={'title': ai_topic or data.get('content', {}).get('topic', '')},
                 keywords=resources.get('keywords', {}),
                 image_count=5,
                 image_ratio='9:16',
-                ai_images=ai_images  # 传入 AI 生成的具体图片内容
+                ai_images=ai_images,  # 传入 AI 生成的具体图片内容
+                graphic_rule=graphic_rule  # 传入图文规则配置
             )
 
             return {

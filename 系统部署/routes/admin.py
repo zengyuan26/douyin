@@ -2287,3 +2287,375 @@ def batch_update_content_stage():
         'message': f'已批量更新 {updated} 个画像的阶段为：{stage}',
         'data': {'updated_count': updated}
     })
+
+
+# ==================== 图文内容规则管理 ====================
+
+@admin.route('/graphic-rules')
+@login_required
+@super_admin_required
+def graphic_rules_page():
+    """图文内容规则管理页面"""
+    return render_template('admin/graphic_rules.html')
+
+
+@admin.route('/api/graphic-rules', methods=['GET'])
+@login_required
+def get_graphic_rules():
+    """获取图文规则列表"""
+    try:
+        from migrations.add_graphic_rules import GraphicContentRule
+
+        rules = GraphicContentRule.query.order_by(GraphicContentRule.is_default.desc(), GraphicContentRule.created_at.desc()).all()
+
+        result = [{
+            'id': r.id,
+            'rule_name': r.rule_name,
+            'industry': r.industry,
+            'target_customer': r.target_customer,
+            'image_count': r.image_count,
+            'image_ratio': r.image_ratio,
+            'structure_type': r.structure_type,
+            'version': r.version,
+            'is_active': r.is_active,
+            'is_default': r.is_default,
+            'created_at': r.created_at.isoformat() if r.created_at else None,
+        } for r in rules]
+
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(f"获取图文规则失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@admin.route('/api/graphic-rules/<int:rule_id>', methods=['GET'])
+@login_required
+def get_graphic_rule(rule_id):
+    """获取单个图文规则详情"""
+    try:
+        from migrations.add_graphic_rules import (
+            GraphicContentRule, ImageTemplateRule, HeadlineRule,
+            DesignRule, SeoRule, PublishRule
+        )
+
+        rule = GraphicContentRule.query.get(rule_id)
+        if not rule:
+            return jsonify({'success': False, 'message': '规则不存在'}), 404
+
+        # 获取关联数据
+        image_templates = ImageTemplateRule.query.filter_by(rule_id=rule_id).order_by(ImageTemplateRule.image_index).all()
+        headline_rules = HeadlineRule.query.filter_by(rule_id=rule_id).all()
+        design_rules = DesignRule.query.filter_by(rule_id=rule_id).all()
+        seo_rule = SeoRule.query.filter_by(rule_id=rule_id).first()
+        publish_rule = PublishRule.query.filter_by(rule_id=rule_id).first()
+
+        result = {
+            'id': rule.id,
+            'rule_name': rule.rule_name,
+            'industry': rule.industry,
+            'target_customer': rule.target_customer,
+            'image_count': rule.image_count,
+            'image_ratio': rule.image_ratio,
+            'structure_type': rule.structure_type,
+            'rule_config': rule.rule_config,
+            'version': rule.version,
+            'is_active': rule.is_active,
+            'is_default': rule.is_default,
+            'created_at': rule.created_at.isoformat() if rule.created_at else None,
+            'updated_at': rule.updated_at.isoformat() if rule.updated_at else None,
+            'image_templates': [{
+                'id': t.id,
+                'image_index': t.image_index,
+                'positioning': t.positioning,
+                'emotion': t.emotion,
+                'function': t.function,
+                'headline_requirement': t.headline_requirement,
+                'must_pain_first': t.must_pain_first,
+            } for t in image_templates],
+            'headline_rules': [{
+                'id': h.id,
+                'headline_type': h.headline_type,
+                'type_name': h.type_name,
+                'char_min': h.char_min,
+                'char_max': h.char_max,
+                'position_requirement': h.position_requirement,
+                'function_desc': h.function_desc,
+                'examples': h.examples,
+                'is_required': h.is_required,
+            } for h in headline_rules],
+            'design_rules': [{
+                'id': d.id,
+                'design_type': d.design_type,
+                'config_data': d.config_data,
+                'description': d.description,
+            } for d in design_rules],
+            'seo_rule': {
+                'id': seo_rule.id if seo_rule else None,
+                'tag_count': seo_rule.tag_count if seo_rule else 6,
+                'tag_types': seo_rule.tag_types if seo_rule else {},
+                'keyword_types': seo_rule.keyword_types if seo_rule else {},
+            } if seo_rule else None,
+            'publish_rule': {
+                'id': publish_rule.id if publish_rule else None,
+                'schedule_config': publish_rule.schedule_config if publish_rule else [],
+                'compliance_checklist': publish_rule.compliance_checklist if publish_rule else [],
+            } if publish_rule else None,
+        }
+
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(f"获取图文规则详情失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@admin.route('/api/graphic-rules/save', methods=['POST'])
+@login_required
+@super_admin_required
+def save_graphic_rule():
+    """保存图文规则"""
+    try:
+        from migrations.add_graphic_rules import (
+            GraphicContentRule, ImageTemplateRule, HeadlineRule,
+            DesignRule, SeoRule, PublishRule
+        )
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': '无效数据'}), 400
+
+        rule_id = data.get('id')
+
+        # 更新或创建主规则
+        if rule_id:
+            rule = GraphicContentRule.query.get(rule_id)
+            if not rule:
+                return jsonify({'success': False, 'message': '规则不存在'}), 404
+        else:
+            rule = GraphicContentRule()
+            db.session.add(rule)
+
+        rule.rule_name = data.get('rule_name', '新规则')
+        rule.industry = data.get('industry')
+        rule.target_customer = data.get('target_customer')
+        rule.image_count = data.get('image_count', 5)
+        rule.image_ratio = data.get('image_ratio', '9:16')
+        rule.structure_type = data.get('structure_type', '痛点递进')
+        rule.version = data.get('version', 'v1')
+        rule.is_active = data.get('is_active', True)
+        rule.created_by = current_user.id
+
+        # 如果设为默认，先取消其他默认
+        if data.get('is_default'):
+            GraphicContentRule.query.filter(GraphicContentRule.is_default == True).update({'is_default': False})
+            rule.is_default = True
+
+        db.session.flush()  # 获取 rule.id
+
+        # 更新图片模板
+        ImageTemplateRule.query.filter_by(rule_id=rule.id).delete()
+        for img_data in data.get('image_templates', []):
+            img_rule = ImageTemplateRule(
+                rule_id=rule.id,
+                image_index=img_data.get('image_index', 1),
+                positioning=img_data.get('positioning', ''),
+                emotion=img_data.get('emotion', ''),
+                function=img_data.get('function', ''),
+                headline_requirement=img_data.get('headline_requirement', ''),
+                must_pain_first=img_data.get('must_pain_first', True),
+            )
+            db.session.add(img_rule)
+
+        # 更新大字金句规则
+        HeadlineRule.query.filter_by(rule_id=rule.id).delete()
+        for hl_data in data.get('headline_rules', []):
+            hl_rule = HeadlineRule(
+                rule_id=rule.id,
+                headline_type=hl_data.get('headline_type', ''),
+                type_name=hl_data.get('type_name', ''),
+                char_min=hl_data.get('char_min', 5),
+                char_max=hl_data.get('char_max', 10),
+                position_requirement=hl_data.get('position_requirement', ''),
+                function_desc=hl_data.get('function_desc', ''),
+                examples=hl_data.get('examples', []),
+                is_required=hl_data.get('is_required', True),
+            )
+            db.session.add(hl_rule)
+
+        # 更新设计规则
+        DesignRule.query.filter_by(rule_id=rule.id).delete()
+        for ds_data in data.get('design_rules', []):
+            ds_rule = DesignRule(
+                rule_id=rule.id,
+                design_type=ds_data.get('design_type', ''),
+                config_data=ds_data.get('config_data', {}),
+                description=ds_data.get('description', ''),
+            )
+            db.session.add(ds_rule)
+
+        # 更新SEO规则
+        SeoRule.query.filter_by(rule_id=rule.id).delete()
+        seo_data = data.get('seo_rule', {})
+        if seo_data:
+            seo_rule = SeoRule(
+                rule_id=rule.id,
+                tag_count=seo_data.get('tag_count', 6),
+                tag_types=seo_data.get('tag_types', {}),
+                keyword_types=seo_data.get('keyword_types', {}),
+            )
+            db.session.add(seo_rule)
+
+        # 更新发布规则
+        PublishRule.query.filter_by(rule_id=rule.id).delete()
+        pub_data = data.get('publish_rule', {})
+        if pub_data:
+            publish_rule = PublishRule(
+                rule_id=rule.id,
+                schedule_config=pub_data.get('schedule_config', []),
+                compliance_checklist=pub_data.get('compliance_checklist', []),
+            )
+            db.session.add(publish_rule)
+
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': '保存成功', 'data': {'id': rule.id}})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"保存图文规则失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@admin.route('/api/graphic-rules/<int:rule_id>', methods=['DELETE'])
+@login_required
+@super_admin_required
+def delete_graphic_rule(rule_id):
+    """删除图文规则"""
+    try:
+        from migrations.add_graphic_rules import (
+            GraphicContentRule, ImageTemplateRule, HeadlineRule,
+            DesignRule, SeoRule, PublishRule
+        )
+
+        rule = GraphicContentRule.query.get(rule_id)
+        if not rule:
+            return jsonify({'success': False, 'message': '规则不存在'}), 404
+
+        if rule.is_default:
+            return jsonify({'success': False, 'message': '不能删除默认规则'}), 400
+
+        # 删除关联数据
+        ImageTemplateRule.query.filter_by(rule_id=rule_id).delete()
+        HeadlineRule.query.filter_by(rule_id=rule_id).delete()
+        DesignRule.query.filter_by(rule_id=rule_id).delete()
+        SeoRule.query.filter_by(rule_id=rule_id).delete()
+        PublishRule.query.filter_by(rule_id=rule_id).delete()
+
+        db.session.delete(rule)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': '删除成功'})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"删除图文规则失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@admin.route('/api/graphic-rules/init', methods=['POST'])
+@login_required
+@super_admin_required
+def init_graphic_rules():
+    """初始化默认图文规则"""
+    try:
+        from migrations.add_graphic_rules import init_default_rules
+        init_default_rules(db, created_by=current_user.id)
+        return jsonify({'success': True, 'message': '初始化成功'})
+    except Exception as e:
+        logger.error(f"初始化图文规则失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@admin.route('/api/graphic-rules/service/get', methods=['GET'])
+def get_active_graphic_rule():
+    """获取当前生效的图文规则（供内容生成服务调用）"""
+    try:
+        from migrations.add_graphic_rules import (
+            GraphicContentRule, ImageTemplateRule, HeadlineRule,
+            DesignRule, SeoRule, PublishRule
+        )
+        from models.public_models import SavedPortrait
+
+        industry = request.args.get('industry')
+        portrait_id = request.args.get('portrait_id')
+
+        # 优先按画像获取规则
+        if portrait_id:
+            portrait = SavedPortrait.query.get(portrait_id)
+            if portrait and portrait.industry:
+                industry = portrait.industry
+
+        # 查找匹配的规则
+        rule = None
+        if industry:
+            rule = GraphicContentRule.query.filter_by(
+                industry=industry, is_active=True
+            ).first()
+
+        # 如果没有匹配的行业规则，使用默认规则
+        if not rule:
+            rule = GraphicContentRule.query.filter_by(
+                is_default=True, is_active=True
+            ).first()
+
+        # 如果还是没有，查找任意激活的规则
+        if not rule:
+            rule = GraphicContentRule.query.filter_by(is_active=True).first()
+
+        if not rule:
+            return jsonify({'success': False, 'message': '暂无生效的规则'}), 404
+
+        # 获取关联数据
+        image_templates = ImageTemplateRule.query.filter_by(rule_id=rule.id).order_by(ImageTemplateRule.image_index).all()
+        headline_rules = HeadlineRule.query.filter_by(rule_id=rule.id).all()
+        design_rules = DesignRule.query.filter_by(rule_id=rule.id).all()
+        seo_rule = SeoRule.query.filter_by(rule_id=rule.id).first()
+        publish_rule = PublishRule.query.filter_by(rule_id=rule.id).first()
+
+        result = {
+            'id': rule.id,
+            'rule_name': rule.rule_name,
+            'industry': rule.industry,
+            'image_count': rule.image_count,
+            'image_ratio': rule.image_ratio,
+            'structure_type': rule.structure_type,
+            'image_templates': [{
+                'image_index': t.image_index,
+                'positioning': t.positioning,
+                'emotion': t.emotion,
+                'function': t.function,
+                'headline_requirement': t.headline_requirement,
+                'must_pain_first': t.must_pain_first,
+            } for t in image_templates],
+            'headline_rules': [{
+                'headline_type': h.headline_type,
+                'type_name': h.type_name,
+                'char_min': h.char_min,
+                'char_max': h.char_max,
+                'position_requirement': h.position_requirement,
+                'function_desc': h.function_desc,
+                'is_required': h.is_required,
+            } for h in headline_rules],
+            'design_rules': {d.design_type: d.config_data for d in design_rules},
+            'seo_rule': {
+                'tag_count': seo_rule.tag_count if seo_rule else 6,
+                'tag_types': seo_rule.tag_types if seo_rule else {},
+                'keyword_types': seo_rule.keyword_types if seo_rule else {},
+            } if seo_rule else None,
+            'publish_rule': {
+                'schedule_config': publish_rule.schedule_config if publish_rule else [],
+                'compliance_checklist': publish_rule.compliance_checklist if publish_rule else [],
+            } if publish_rule else None,
+        }
+
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(f"获取生效规则失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500

@@ -1,0 +1,1097 @@
+{% extends "base.html" %}
+
+{% block title %}图文内容规则 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- 页面标题 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">
+                        <i class="bi bi-grid-3x3-gap me-2"></i>图文内容规则
+                    </h4>
+                    <p class="text-muted mb-0" style="font-size: 14px;">管理图文内容的结构规范、设计规格和发布策略</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('admin.templates', type='report', subtype='market_analysis') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>返回
+                    </a>
+                    <button class="btn btn-primary" onclick="initDefaultRules()">
+                        <i class="bi bi-plus-circle me-1"></i>初始化默认规则
+                    </button>
+                    <button class="btn btn-success" onclick="saveAllRules()">
+                        <i class="bi bi-check-circle me-1"></i>保存全部
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 规则列表 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>规则列表</h6>
+                        <div class="d-flex gap-2 align-items-center">
+                            <select id="filterIndustry" class="form-select form-select-sm" style="width: auto;">
+                                <option value="">全部行业</option>
+                                <option value="桶装水">桶装水</option>
+                                <option value="定制水">定制水</option>
+                                <option value="通用">通用</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline-primary" onclick="createNewRule()">
+                                <i class="bi bi-plus"></i>新建规则
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">#</th>
+                                    <th>规则名称</th>
+                                    <th>适用行业</th>
+                                    <th>适用客户</th>
+                                    <th>图片数量</th>
+                                    <th>结构类型</th>
+                                    <th>状态</th>
+                                    <th>默认</th>
+                                    <th style="width: 120px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rulesTableBody">
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="bi bi-hourglass-split me-2"></i>加载中...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 规则详情编辑区 -->
+    <div class="row" id="ruleDetailSection" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0" id="ruleDetailTitle">
+                            <i class="bi bi-pencil-square me-2"></i>编辑规则
+                        </h6>
+                        <div>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCurrentRule()">
+                                <i class="bi bi-trash me-1"></i>删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Tab导航 -->
+                    <ul class="nav nav-tabs mb-3" id="ruleTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basicTab" type="button" role="tab">
+                                <i class="bi bi-info-circle me-1"></i>基本信息
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="images-tab" data-bs-toggle="tab" data-bs-target="#imagesTab" type="button" role="tab">
+                                <i class="bi bi-image me-1"></i>图片模板
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="headlines-tab" data-bs-toggle="tab" data-bs-target="#headlinesTab" type="button" role="tab">
+                                <i class="bi bi-type-h1 me-1"></i>大字金句
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="design-tab" data-bs-toggle="tab" data-bs-target="#designTab" type="button" role="tab">
+                                <i class="bi bi-palette me-1"></i>设计规格
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="seo-tab" data-bs-toggle="tab" data-bs-target="#seoTab" type="button" role="tab">
+                                <i class="bi bi-tag me-1"></i>SEO规则
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="publish-tab" data-bs-toggle="tab" data-bs-target="#publishTab" type="button" role="tab">
+                                <i class="bi bi-clock me-1"></i>发布策略
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tab内容 -->
+                    <div class="tab-content" id="ruleTabContent">
+                        <!-- 基本信息 -->
+                        <div class="tab-pane fade show active" id="basicTab" role="tabpanel">
+                            <form id="basicInfoForm" class="row g-3">
+                                <input type="hidden" id="ruleId" name="ruleId">
+                                <div class="col-md-6">
+                                    <label class="form-label">规则名称 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="ruleName" name="ruleName" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">适用行业</label>
+                                    <select class="form-select" id="ruleIndustry" name="ruleIndustry">
+                                        <option value="">通用（所有行业）</option>
+                                        <option value="桶装水">桶装水</option>
+                                        <option value="定制水">定制水</option>
+                                        <option value="矿泉水">矿泉水</option>
+                                        <option value="企业服务">企业服务</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">适用客户类型</label>
+                                    <input type="text" class="form-control" id="ruleCustomer" name="ruleCustomer" placeholder="如：企业客户、家庭用户">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">图片数量</label>
+                                    <input type="number" class="form-control" id="imageCount" name="imageCount" value="5" min="1" max="9">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">图片比例</label>
+                                    <select class="form-select" id="imageRatio" name="imageRatio">
+                                        <option value="9:16">9:16 (竖版)</option>
+                                        <option value="16:9">16:9 (横版)</option>
+                                        <option value="1:1">1:1 (方形)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">结构类型</label>
+                                    <select class="form-select" id="structureType" name="structureType">
+                                        <option value="痛点递进">痛点递进</option>
+                                        <option value="问题解决">问题解决</option>
+                                        <option value="故事叙述">故事叙述</option>
+                                        <option value="对比说明">对比说明</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">版本</label>
+                                    <input type="text" class="form-control" id="ruleVersion" name="ruleVersion" value="v1">
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="ruleActive" name="ruleActive" checked>
+                                        <label class="form-check-label" for="ruleActive">启用此规则</label>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- 图片模板 -->
+                        <div class="tab-pane fade" id="imagesTab" role="tabpanel">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>说明：</strong>5张图的定位规范，确定每张图的定位、情绪基调和大字要求。
+                            </div>
+                            <div id="imageTemplatesContainer" class="row g-3">
+                                <!-- JS动态生成 -->
+                            </div>
+                        </div>
+
+                        <!-- 大字金句 -->
+                        <div class="tab-pane fade" id="headlinesTab" role="tabpanel">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>说明：</strong>大字金句的规范，包括主标题、痛点词、揭秘语、方案名等的字数限制和位置要求。
+                            </div>
+                            <div id="headlineRulesContainer">
+                                <!-- JS动态生成 -->
+                            </div>
+                        </div>
+
+                        <!-- 设计规格 -->
+                        <div class="tab-pane fade" id="designTab" role="tabpanel">
+                            <div class="row g-4">
+                                <!-- 色彩方案 -->
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="bi bi-palette me-2"></i>色彩方案</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="colorSchemeContainer">
+                                                <div class="row g-2 mb-2">
+                                                    <div class="col-4">
+                                                        <label class="form-label small">主色调</label>
+                                                        <input type="text" class="form-control form-control-sm" name="color_主色调" placeholder="#007AFF">
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <label class="form-label small">辅助色</label>
+                                                        <input type="text" class="form-control form-control-sm" name="color_辅助色" placeholder="#5856D6">
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <label class="form-label small">强调色</label>
+                                                        <input type="text" class="form-control form-control-sm" name="color_强调色" placeholder="#FF3B30">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 字体规范 -->
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="bi bi-fonts me-2"></i>字体规范</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                <label class="form-label small">允许的字体</label>
+                                                <input type="text" class="form-control form-control-sm" id="fontAllowed" placeholder="苹方、思源黑体、Helvetica">
+                                            </div>
+                                            <div>
+                                                <label class="form-label small">禁止的字体</label>
+                                                <input type="text" class="form-control form-control-sm" id="fontForbidden" placeholder="华文彩云、幼圆">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 排版要求 -->
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="bi bi-justify me-2"></i>排版要求</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row g-2">
+                                                <div class="col-4">
+                                                    <label class="form-label small">对齐方式</label>
+                                                    <select class="form-select form-select-sm" id="layoutAlign">
+                                                        <option value="左对齐">左对齐</option>
+                                                        <option value="居中">居中</option>
+                                                        <option value="右对齐">右对齐</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-4">
+                                                    <label class="form-label small">留白间距</label>
+                                                    <select class="form-select form-select-sm" id="layoutSpacing">
+                                                        <option value="充足">充足</option>
+                                                        <option value="适中">适中</option>
+                                                        <option value="紧凑">紧凑</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-4">
+                                                    <label class="form-label small">简洁度</label>
+                                                    <select class="form-select form-select-sm" id="layoutSimplicity">
+                                                        <option value="核心突出">核心突出</option>
+                                                        <option value="内容丰富">内容丰富</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 禁止项 -->
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="bi bi-x-circle me-2"></i>禁止项</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="forbiddenItemsContainer">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="forbid纯色背景" checked>
+                                                    <label class="form-check-label" for="forbid纯色背景">纯色背景</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="forbidEmoji" checked>
+                                                    <label class="form-check-label" for="forbidEmoji">Emoji表情</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="forbid特殊符号" checked>
+                                                    <label class="form-check-label" for="forbid特殊符号">特殊符号</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="forbid花哨字体" checked>
+                                                    <label class="form-check-label" for="forbid花哨字体">花哨字体</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SEO规则 -->
+                        <div class="tab-pane fade" id="seoTab" role="tabpanel">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="bi bi-hash me-2"></i>标签配置</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label class="form-label">标签数量</label>
+                                                <input type="number" class="form-control" id="tagCount" value="6" min="1" max="20">
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label small">标签类型（勾选启用）</label>
+                                            </div>
+                                            <div class="row g-2">
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="tagType区域词" checked>
+                                                        <label class="form-check-label" for="tagType区域词">区域词</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="tagType品牌词" checked>
+                                                        <label class="form-check-label" for="tagType品牌词">品牌词</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="tagType长尾词" checked>
+                                                        <label class="form-check-label" for="tagType长尾词">长尾词</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="tagType热点词">
+                                                        <label class="form-check-label" for="tagType热点词">热点词</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="bi bi-key me-2"></i>关键词类型</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                <label class="form-label small">关键词类型（勾选启用）</label>
+                                            </div>
+                                            <div class="row g-2">
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="kwType核心词" checked>
+                                                        <label class="form-check-label" for="kwType核心词">核心词</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="kwType痛点词" checked>
+                                                        <label class="form-check-label" for="kwType痛点词">痛点词</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="kwType场景词" checked>
+                                                        <label class="form-check-label" for="kwType场景词">场景词</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="kwType长尾词" checked>
+                                                        <label class="form-check-label" for="kwType长尾词">长尾词</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 发布策略 -->
+                        <div class="tab-pane fade" id="publishTab" role="tabpanel">
+                            <div class="row g-4">
+                                <div class="col-md-8">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="bi bi-calendar-week me-2"></i>发布时间表</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="publishScheduleContainer">
+                                                <!-- JS动态生成 -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0"><i class="bi bi-shield-check me-2"></i>合规检查项</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="complianceChecklistContainer">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="compliance1" checked>
+                                                    <label class="form-check-label" for="compliance1">禁止绝对化用语</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="compliance2" checked>
+                                                    <label class="form-check-label" for="compliance2">禁止虚假宣传</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="compliance3" checked>
+                                                    <label class="form-check-label" for="compliance3">禁止侵权内容</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="compliance4" checked>
+                                                    <label class="form-check-label" for="compliance4">禁止低俗内容</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast容器 -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="toastMessage" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong class="me-auto">提示</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="关闭"></button>
+        </div>
+        <div class="toast-body" id="toastBody"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 当前数据
+let currentRuleId = null;
+let rulesData = [];
+
+// 默认图片模板配置
+const DEFAULT_IMAGE_TEMPLATES = [
+    { positioning: '戳痛点', emotion: '震惊/焦虑', function: '直接呈现用户痛苦', headlineReq: '痛点词3-5字，醒目位置' },
+    { positioning: '分析原因', emotion: '好奇/追问', function: '为什么会这样？', headlineReq: '揭秘语5-8字' },
+    { positioning: '揭示误区', emotion: '共鸣/对比', function: '你以为...其实...', headlineReq: '误区揭示5-8字' },
+    { positioning: '解决方案', emotion: '期待/释然', function: '终于等到...', headlineReq: '方案名5字内' },
+    { positioning: '总结引导', emotion: '紧迫/行动', function: '快试试/评论区见', headlineReq: '行动号召3-5字' },
+];
+
+// 默认大字金句配置
+const DEFAULT_HEADLINE_RULES = [
+    { type: 'main_title', name: '主标题', charMin: 5, charMax: 7, position: '图片1/3处', desc: '吸引点击' },
+    { type: 'pain_point', name: '痛点词', charMin: 3, charMax: 5, position: '醒目突出', desc: '戳中痛点' },
+    { type: 'revelation', name: '揭秘语', charMin: 5, charMax: 8, position: 'C位', desc: '揭示真相' },
+    { type: 'solution', name: '方案名', charMin: 3, charMax: 5, position: '显眼', desc: '给出答案' },
+];
+
+// 默认发布时间
+const DEFAULT_PUBLISH_SCHEDULE = [
+    { day: '周一', time: '07:30', reason: '通勤时间' },
+    { day: '周二', time: '12:00', reason: '午休时间' },
+    { day: '周三', time: '20:30', reason: '晚间放松' },
+    { day: '周四', time: '12:00', reason: '午休时间' },
+    { day: '周五', time: '18:00', reason: '下班路上' },
+    { day: '周六', time: '10:00', reason: '周末休闲' },
+    { day: '周日', time: '20:00', reason: '周末晚间' },
+];
+
+// 页面加载完成后
+document.addEventListener('DOMContentLoaded', function() {
+    loadRules();
+    initImageTemplates();
+    initHeadlineRules();
+    initPublishSchedule();
+});
+
+// 加载规则列表
+async function loadRules() {
+    try {
+        const resp = await fetch('/admin/api/graphic-rules', { credentials: 'include' });
+        const data = await resp.json();
+        if (data.success) {
+            rulesData = data.data || [];
+            renderRulesTable();
+        } else {
+            showToast('加载规则失败: ' + data.message, 'error');
+        }
+    } catch (e) {
+        console.error('加载规则失败:', e);
+        showToast('加载规则失败', 'error');
+    }
+}
+
+// 渲染规则表格
+function renderRulesTable() {
+    const tbody = document.getElementById('rulesTableBody');
+    if (rulesData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="bi bi-inbox me-2"></i>暂无规则，请点击"初始化默认规则"或"新建规则"</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = rulesData.map((rule, idx) => `
+        <tr data-id="${rule.id}" onclick="loadRuleDetail(${rule.id})" style="cursor: pointer;">
+            <td>${idx + 1}</td>
+            <td><strong>${escapeHtml(rule.rule_name)}</strong></td>
+            <td>${rule.industry || '<span class="text-muted">通用</span>'}</td>
+            <td>${rule.target_customer || '<span class="text-muted">-</span>'}</td>
+            <td>${rule.image_count}张</td>
+            <td><span class="badge bg-secondary">${rule.structure_type || '默认'}</span></td>
+            <td>${rule.is_active ? '<span class="badge bg-success">启用</span>' : '<span class="badge bg-secondary">禁用</span>'}</td>
+            <td>${rule.is_default ? '<span class="badge bg-primary">默认</span>' : ''}</td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="event.stopPropagation(); loadRuleDetail(${rule.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="event.stopPropagation(); deleteRule(${rule.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 初始化图片模板
+function initImageTemplates() {
+    const container = document.getElementById('imageTemplatesContainer');
+    container.innerHTML = DEFAULT_IMAGE_TEMPLATES.map((t, i) => `
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">图片${i + 1}：${t.positioning}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label small">定位</label>
+                            <input type="text" class="form-control form-control-sm" name="img_positioning_${i+1}" value="${t.positioning}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">情绪基调</label>
+                            <input type="text" class="form-control form-control-sm" name="img_emotion_${i+1}" value="${t.emotion}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">功能作用</label>
+                            <input type="text" class="form-control form-control-sm" name="img_function_${i+1}" value="${t.function}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small">大字要求</label>
+                            <input type="text" class="form-control form-control-sm" name="img_headline_${i+1}" value="${t.headlineReq}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 初始化大字金句规则
+function initHeadlineRules() {
+    const container = document.getElementById('headlineRulesContainer');
+    container.innerHTML = DEFAULT_HEADLINE_RULES.map((r, i) => `
+        <div class="card mb-2">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-2">
+                        <input type="text" class="form-control form-control-sm" name="hl_name_${i+1}" value="${r.name}" placeholder="类型名称">
+                    </div>
+                    <div class="col-md-2">
+                        <div class="input-group input-group-sm">
+                            <input type="number" class="form-control" name="hl_min_${i+1}" value="${r.charMin}" min="1" max="20">
+                            <span class="input-group-text">-</span>
+                            <input type="number" class="form-control" name="hl_max_${i+1}" value="${r.charMax}" min="1" max="20">
+                            <span class="input-group-text">字</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm" name="hl_position_${i+1}" value="${r.position}" placeholder="位置要求">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm" name="hl_desc_${i+1}" value="${r.desc}" placeholder="作用描述">
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="hl_required_${i+1}" checked>
+                            <label class="form-check-label" for="hl_required_${i+1}">必填</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 初始化发布时间表
+function initPublishSchedule() {
+    const container = document.getElementById('publishScheduleContainer');
+    container.innerHTML = DEFAULT_PUBLISH_SCHEDULE.map((s, i) => `
+        <div class="row g-2 mb-2 align-items-center">
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" name="pub_day_${i+1}">
+                    ${['周一','周二','周三','周四','周五','周六','周日'].map(d => `<option value="${d}" ${s.day === d ? 'selected' : ''}>${d}</option>`).join('')}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <input type="time" class="form-control form-control-sm" name="pub_time_${i+1}" value="${s.time}">
+            </div>
+            <div class="col-md-5">
+                <input type="text" class="form-control form-control-sm" name="pub_reason_${i+1}" value="${s.reason}" placeholder="选择理由">
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-outline-danger btn-sm" onclick="removePublishRow(this)">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        </div>
+    `).join('') + `
+        <button class="btn btn-outline-primary btn-sm mt-2" onclick="addPublishRow()">
+            <i class="bi bi-plus"></i> 添加时间段
+        </button>
+    `;
+}
+
+// 添加发布时间行
+function addPublishRow() {
+    const container = document.getElementById('publishScheduleContainer');
+    const rows = container.querySelectorAll('.row.g-2.mb-2');
+    const idx = rows.length + 1;
+    const html = `
+        <div class="row g-2 mb-2 align-items-center">
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" name="pub_day_${idx}">
+                    ${['周一','周二','周三','周四','周五','周六','周日'].map(d => `<option value="${d}">${d}</option>`).join('')}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <input type="time" class="form-control form-control-sm" name="pub_time_${idx}" value="12:00">
+            </div>
+            <div class="col-md-5">
+                <input type="text" class="form-control form-control-sm" name="pub_reason_${idx}" placeholder="选择理由">
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-outline-danger btn-sm" onclick="removePublishRow(this)">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    const addBtn = container.querySelector('button');
+    addBtn.insertAdjacentHTML('beforebegin', html);
+}
+
+// 删除发布时间行
+function removePublishRow(btn) {
+    const container = document.getElementById('publishScheduleContainer');
+    const rows = container.querySelectorAll('.row.g-2.mb-2');
+    if (rows.length > 1) {
+        btn.closest('.row').remove();
+    } else {
+        showToast('至少保留一个时间段', 'warning');
+    }
+}
+
+// 加载规则详情
+async function loadRuleDetail(ruleId) {
+    try {
+        const resp = await fetch(`/admin/api/graphic-rules/${ruleId}`, { credentials: 'include' });
+        const data = await resp.json();
+        if (data.success) {
+            currentRuleId = ruleId;
+            fillRuleForm(data.data);
+            document.getElementById('ruleDetailSection').style.display = 'block';
+            document.getElementById('ruleDetailTitle').innerHTML = `<i class="bi bi-pencil-square me-2"></i>编辑规则: ${escapeHtml(data.data.rule_name)}`;
+        } else {
+            showToast('加载规则详情失败', 'error');
+        }
+    } catch (e) {
+        console.error('加载规则详情失败:', e);
+        showToast('加载规则详情失败', 'error');
+    }
+}
+
+// 填充规则表单
+function fillRuleForm(rule) {
+    // 基本信息
+    document.getElementById('ruleId').value = rule.id;
+    document.getElementById('ruleName').value = rule.rule_name || '';
+    document.getElementById('ruleIndustry').value = rule.industry || '';
+    document.getElementById('ruleCustomer').value = rule.target_customer || '';
+    document.getElementById('imageCount').value = rule.image_count || 5;
+    document.getElementById('imageRatio').value = rule.image_ratio || '9:16';
+    document.getElementById('structureType').value = rule.structure_type || '痛点递进';
+    document.getElementById('ruleVersion').value = rule.version || 'v1';
+    document.getElementById('ruleActive').checked = rule.is_active !== false;
+
+    // 图片模板
+    const imgTemplates = rule.image_templates || [];
+    for (let i = 1; i <= 5; i++) {
+        const tpl = imgTemplates.find(t => t.image_index === i) || {};
+        const prefix = `img_positioning_${i}`;
+        document.querySelector(`[name="${prefix}"]`).value = tpl.positioning || DEFAULT_IMAGE_TEMPLATES[i-1]?.positioning || '';
+        document.querySelector(`[name="img_emotion_${i}"]`).value = tpl.emotion || DEFAULT_IMAGE_TEMPLATES[i-1]?.emotion || '';
+        document.querySelector(`[name="img_function_${i}"]`).value = tpl.function || DEFAULT_IMAGE_TEMPLATES[i-1]?.function || '';
+        document.querySelector(`[name="img_headline_${i}"]`).value = tpl.headline_requirement || DEFAULT_IMAGE_TEMPLATES[i-1]?.headlineReq || '';
+    }
+
+    // 大字金句
+    const hlRules = rule.headline_rules || [];
+    for (let i = 0; i < DEFAULT_HEADLINE_RULES.length; i++) {
+        const hl = hlRules.find(r => r.headline_type === DEFAULT_HEADLINE_RULES[i].type) || {};
+        document.querySelector(`[name="hl_name_${i+1}"]`).value = hl.type_name || DEFAULT_HEADLINE_RULES[i].name;
+        document.querySelector(`[name="hl_min_${i+1}"]`).value = hl.char_min || DEFAULT_HEADLINE_RULES[i].charMin;
+        document.querySelector(`[name="hl_max_${i+1}"]`).value = hl.char_max || DEFAULT_HEADLINE_RULES[i].charMax;
+        document.querySelector(`[name="hl_position_${i+1}"]`).value = hl.position_requirement || DEFAULT_HEADLINE_RULES[i].position;
+        document.querySelector(`[name="hl_desc_${i+1}"]`).value = hl.function_desc || DEFAULT_HEADLINE_RULES[i].desc;
+        document.getElementById(`hl_required_${i+1}`).checked = hl.is_required !== false;
+    }
+
+    // 设计规格
+    const designRules = rule.design_rules || [];
+    const colorScheme = designRules.find(r => r.design_type === 'color_scheme')?.config_data || {};
+    if (colorScheme['主色调']) document.querySelector('[name="color_主色调"]').value = colorScheme['主色调'];
+    if (colorScheme['辅助色']) document.querySelector('[name="color_辅助色"]').value = colorScheme['辅助色'];
+    if (colorScheme['强调色']) document.querySelector('[name="color_强调色"]').value = colorScheme['强调色'];
+
+    const fontRule = designRules.find(r => r.design_type === 'font');
+    if (fontRule?.config_data) {
+        if (fontRule.config_data['允许']) document.getElementById('fontAllowed').value = fontRule.config_data['允许'].join('、');
+        if (fontRule.config_data['禁止']) document.getElementById('fontForbidden').value = fontRule.config_data['禁止'].join('、');
+    }
+
+    const layoutRule = designRules.find(r => r.design_type === 'layout');
+    if (layoutRule?.config_data) {
+        if (layoutRule.config_data['对齐']) document.getElementById('layoutAlign').value = layoutRule.config_data['对齐'];
+        if (layoutRule.config_data['间距']) document.getElementById('layoutSpacing').value = layoutRule.config_data['间距'];
+        if (layoutRule.config_data['简洁度']) document.getElementById('layoutSimplicity').value = layoutRule.config_data['简洁度'];
+    }
+
+    const forbidRule = designRules.find(r => r.design_type === 'forbidden');
+    if (forbidRule?.config_data) {
+        forbidRule.config_data.forEach(item => {
+            const checkbox = document.getElementById('forbid' + item);
+            if (checkbox) checkbox.checked = true;
+        });
+    }
+
+    // SEO规则
+    const seoRule = rule.seo_rule || {};
+    document.getElementById('tagCount').value = seoRule.tag_count || 6;
+    if (seoRule.tag_types) {
+        Object.keys(seoRule.tag_types).forEach(type => {
+            const checkbox = document.getElementById('tagType' + type);
+            if (checkbox) checkbox.checked = seoRule.tag_types[type];
+        });
+    }
+    if (seoRule.keyword_types) {
+        Object.keys(seoRule.keyword_types).forEach(type => {
+            const checkbox = document.getElementById('kwType' + type);
+            if (checkbox) checkbox.checked = seoRule.keyword_types[type];
+        });
+    }
+
+    // 发布规则
+    const publishRule = rule.publish_rule || {};
+    if (publishRule.schedule_config) {
+        const container = document.getElementById('publishScheduleContainer');
+        container.innerHTML = publishRule.schedule_config.map((s, i) => `
+            <div class="row g-2 mb-2 align-items-center">
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" name="pub_day_${i+1}">
+                        ${['周一','周二','周三','周四','周五','周六','周日'].map(d => `<option value="${d}" ${s.day === d ? 'selected' : ''}>${d}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="time" class="form-control form-control-sm" name="pub_time_${i+1}" value="${s.time}">
+                </div>
+                <div class="col-md-5">
+                    <input type="text" class="form-control form-control-sm" name="pub_reason_${i+1}" value="${s.reason}" placeholder="选择理由">
+                </div>
+                <div class="col-md-1">
+                    <button class="btn btn-outline-danger btn-sm" onclick="removePublishRow(this)">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('') + `
+            <button class="btn btn-outline-primary btn-sm mt-2" onclick="addPublishRow()">
+                <i class="bi bi-plus"></i> 添加时间段
+            </button>
+        `;
+    }
+
+    if (publishRule.compliance_checklist) {
+        publishRule.compliance_checklist.forEach((item, i) => {
+            const checkbox = document.getElementById('compliance' + (i+1));
+            if (checkbox) checkbox.checked = true;
+        });
+    }
+}
+
+// 收集表单数据
+function collectFormData() {
+    // 基本信息
+    const basicInfo = {
+        rule_name: document.getElementById('ruleName').value,
+        industry: document.getElementById('ruleIndustry').value || null,
+        target_customer: document.getElementById('ruleCustomer').value || null,
+        image_count: parseInt(document.getElementById('imageCount').value) || 5,
+        image_ratio: document.getElementById('imageRatio').value,
+        structure_type: document.getElementById('structureType').value,
+        version: document.getElementById('ruleVersion').value,
+        is_active: document.getElementById('ruleActive').checked,
+    };
+
+    // 图片模板
+    const imageTemplates = [];
+    for (let i = 1; i <= 5; i++) {
+        imageTemplates.push({
+            image_index: i,
+            positioning: document.querySelector(`[name="img_positioning_${i}"]`)?.value || '',
+            emotion: document.querySelector(`[name="img_emotion_${i}"]`)?.value || '',
+            function: document.querySelector(`[name="img_function_${i}"]`)?.value || '',
+            headline_requirement: document.querySelector(`[name="img_headline_${i}"]`)?.value || '',
+        });
+    }
+
+    // 大字金句
+    const headlineRules = [];
+    for (let i = 0; i < DEFAULT_HEADLINE_RULES.length; i++) {
+        headlineRules.push({
+            headline_type: DEFAULT_HEADLINE_RULES[i].type,
+            type_name: document.querySelector(`[name="hl_name_${i+1}"]`)?.value || '',
+            char_min: parseInt(document.querySelector(`[name="hl_min_${i+1}"]`)?.value) || 5,
+            char_max: parseInt(document.querySelector(`[name="hl_max_${i+1}"]`)?.value) || 10,
+            position_requirement: document.querySelector(`[name="hl_position_${i+1}"]`)?.value || '',
+            function_desc: document.querySelector(`[name="hl_desc_${i+1}"]`)?.value || '',
+            is_required: document.getElementById(`hl_required_${i+1}`)?.checked || true,
+        });
+    }
+
+    // 设计规格
+    const designRules = [];
+    designRules.push({
+        design_type: 'color_scheme',
+        config_data: {
+            '主色调': document.querySelector('[name="color_主色调"]')?.value || '',
+            '辅助色': document.querySelector('[name="color_辅助色"]')?.value || '',
+            '强调色': document.querySelector('[name="color_强调色"]')?.value || '',
+        }
+    });
+    designRules.push({
+        design_type: 'font',
+        config_data: {
+            '允许': document.getElementById('fontAllowed')?.value.split('、').filter(v => v.trim()) || [],
+            '禁止': document.getElementById('fontForbidden')?.value.split('、').filter(v => v.trim()) || [],
+        }
+    });
+    designRules.push({
+        design_type: 'layout',
+        config_data: {
+            '对齐': document.getElementById('layoutAlign')?.value || '',
+            '间距': document.getElementById('layoutSpacing')?.value || '',
+            '简洁度': document.getElementById('layoutSimplicity')?.value || '',
+        }
+    });
+
+    // 收集禁止项
+    const forbiddenItems = [];
+    document.querySelectorAll('[id^="forbid"]').forEach(cb => {
+        if (cb.checked) {
+            const item = cb.id.replace('forbid', '');
+            forbiddenItems.push(item);
+        }
+    });
+    designRules.push({ design_type: 'forbidden', config_data: forbiddenItems });
+
+    // SEO规则
+    const tagTypes = {};
+    document.querySelectorAll('[id^="tagType"]').forEach(cb => {
+        const type = cb.id.replace('tagType', '');
+        tagTypes[type] = cb.checked;
+    });
+    const keywordTypes = {};
+    document.querySelectorAll('[id^="kwType"]').forEach(cb => {
+        const type = cb.id.replace('kwType', '');
+        keywordTypes[type] = cb.checked;
+    });
+    const seoRule = {
+        tag_count: parseInt(document.getElementById('tagCount')?.value) || 6,
+        tag_types: tagTypes,
+        keyword_types: keywordTypes,
+    };
+
+    // 发布规则
+    const scheduleConfig = [];
+    document.querySelectorAll('[name^="pub_day_"]').forEach((sel, i) => {
+        const day = sel.value;
+        const timeInput = document.querySelector(`[name="pub_time_${i+1}"]`);
+        const reasonInput = document.querySelector(`[name="pub_reason_${i+1}"]`);
+        scheduleConfig.push({
+            day: day,
+            time: timeInput?.value || '',
+            reason: reasonInput?.value || '',
+        });
+    });
+    const complianceItems = [];
+    document.querySelectorAll('#complianceChecklistContainer input[type="checkbox"]').forEach(cb => {
+        if (cb.checked) {
+            complianceItems.push(cb.nextElementSibling.textContent);
+        }
+    });
+    const publishRule = {
+        schedule_config: scheduleConfig,
+        compliance_checklist: complianceItems,
+    };
+
+    return {
+        ...basicInfo,
+        image_templates: imageTemplates,
+        headline_rules: headlineRules,
+        design_rules: designRules,
+        seo_rule: seoRule,
+        publish_rule: publishRule,
+    };
+}
+
+// 保存所有规则
+async function saveAllRules() {
+    const data = collectFormData();
+    data.id = currentRuleId;
+
+    try {
+        const resp = await fetch('/admin/api/graphic-rules/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (result.success) {
+            showToast('保存成功', 'success');
+            currentRuleId = result.data.id;
+            loadRules();
+        } else {
+            showToast('保存失败: ' + result.message, 'error');
+        }
+    } catch (e) {
+        console.error('保存失败:', e);
+        showToast('保存失败', 'error');
+    }
+}
+
+// 新建规则
+function createNewRule() {
+    currentRuleId = null;
+    document.getElementById('ruleId').value = '';
+    document.getElementById('ruleName').value = '新规则';
+    document.getElementById('ruleIndustry').value = '';
+    document.getElementById('ruleCustomer').value = '';
+    document.getElementById('imageCount').value = 5;
+    document.getElementById('imageRatio').value = '9:16';
+    document.getElementById('structureType').value = '痛点递进';
+    document.getElementById('ruleVersion').value = 'v1';
+    document.getElementById('ruleActive').checked = true;
+
+    // 重置图片模板
+    initImageTemplates();
+    initHeadlineRules();
+    initPublishSchedule();
+
+    document.getElementById('ruleDetailSection').style.display = 'block';
+    document.getElementById('ruleDetailTitle').innerHTML = '<i class="bi bi-plus-circle me-2"></i>新建规则';
+}
+
+// 删除规则
+async function deleteRule(ruleId) {
+    if (!confirm('确定要删除这条规则吗？')) return;
+
+    try {
+        const resp = await fetch(`/admin/api/graphic-rules/${ruleId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast('删除成功', 'success');
+            if (currentRuleId === ruleId) {
+                currentRuleId = null;
+                document.getElementById('ruleDetailSection').style.display = 'none';
+            }
+            loadRules();
+        } else {
+            showToast('删除失败: ' + data.message, 'error');
+        }
+    } catch (e) {
+        console.error('删除失败:', e);
+        showToast('删除失败', 'error');
+    }
+}
+
+// 删除当前规则
+function deleteCurrentRule() {
+    if (currentRuleId) {
+        deleteRule(currentRuleId);
+    }
+}
+
+// 初始化默认规则
+async function initDefaultRules() {
+    if (!confirm('确定要初始化默认规则吗？这将创建一套完整的图文内容规则模板。')) return;
+
+    try {
+        const resp = await fetch('/admin/api/graphic-rules/init', {
+            method: 'POST',
+            credentials: 'include',
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast('初始化成功', 'success');
+            loadRules();
+        } else {
+            showToast('初始化失败: ' + data.message, 'error');
+        }
+    } catch (e) {
+        console.error('初始化失败:', e);
+        showToast('初始化失败', 'error');
+    }
+}
+
+// 显示提示
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toastMessage');
+    const toastBody = document.getElementById('toastBody');
+    toastBody.textContent = message;
+
+    const bgClass = type === 'success' ? 'bg-success text-white' : type === 'error' ? 'bg-danger text-white' : 'bg-secondary text-white';
+    toast.querySelector('.toast-header').className = `toast-header ${bgClass}`;
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+}
+
+// HTML转义
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
