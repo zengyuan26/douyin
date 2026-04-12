@@ -5164,16 +5164,23 @@ class ContentGenerator:
 
         extra_info = '\n'.join(extra_info_parts) if extra_info_parts else '暂无'
 
-        # 读取图文内容生成skill
-        skill_path = os.path.join(os.path.dirname(__file__), '..', 'skills', 'graphic-content-generator', 'SKILL.md')
-        graphic_skill_prompt = ""
+        # 根据content_type读取对应的skill
+        content_type = params.get('content_type', 'graphic')
+        skill_map = {
+            'graphic': 'graphic-content-generator',
+            'long_text': 'long-text-generator',
+            'video': 'video-script-generator',
+        }
+        skill_name = skill_map.get(content_type, 'graphic-content-generator')
+        skill_path = os.path.join(os.path.dirname(__file__), '..', 'skills', skill_name, 'SKILL.md')
+        skill_prompt = ""
         if os.path.exists(skill_path):
             with open(skill_path, 'r', encoding='utf-8') as f:
-                graphic_skill_prompt = f.read()
+                skill_prompt = f.read()
 
         prompt = f"""{PROMPT_BASE_CONSTRAINT.format(system_base_personas=system_base_personas)}
 
-{graphic_skill_prompt}
+{skill_prompt}
 
 请严格按照skill中的【输出格式】和【质量标准】生成内容。
 
