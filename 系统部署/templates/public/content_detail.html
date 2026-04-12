@@ -1681,7 +1681,8 @@ function buildTitleSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass) {
     var copySubTitle = lines[1] ? lines[1].replace(/^>\s*/, '').replace(/\*\*/g, '').replace(/\（[^）]*\）/g, '').trim() : '';
     var copyContent = copyMainTitle + (copySubTitle ? '\n' + copySubTitle : '');
     
-    var copyBtn = '<button class="btn-copy-title" onclick="copyTitleContent(\'' + escHtml(copyContent.replace(/'/g, "\\'")) + '\')">' +
+    // 使用 data 属性存储内容
+    var copyBtn = '<button class="btn-copy-title" data-copy-content="' + escHtml(copyContent.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
         '<i class="bi bi-clipboard"></i>复制标题' +
         '</button>';
     
@@ -1728,6 +1729,20 @@ function copyTitleContent(content) {
     });
 }
 
+// 从 data 属性复制内容（避免换行符导致 JS 语法错误）
+function copyFromDataAttr(btn) {
+    var content = btn.getAttribute('data-copy-content');
+    if (!content) {
+        showToast('复制失败，无内容', 'error');
+        return;
+    }
+    navigator.clipboard.writeText(content).then(function() {
+        showToast('已复制到剪贴板', 'success');
+    }).catch(function() {
+        showToast('复制失败', 'error');
+    });
+}
+
 // 内容规划区块：解析markdown结构，展示图片内容，支持一键复制
 function buildContentPlanSection(sec, badgeClass, badgeText, cardClass) {
     cardClass = cardClass || 'section-card';
@@ -1749,7 +1764,8 @@ function buildContentPlanSection(sec, badgeClass, badgeText, cardClass) {
         .replace(/^\s*图\d+\s*[-：.]\s*/gm, '\n$&&')  // 保持图片标记
         .trim();
     
-    var copyBtn = '<button class="btn-copy-title" onclick="copyTitleContent(\'' + escHtml(cleanContent.replace(/'/g, "\\'")) + '\')">' +
+    // 使用 data-content 属性存储内容，避免换行符导致 JS 语法错误
+    var copyBtn = '<button class="btn-copy-title" data-copy-content="' + escHtml(cleanContent.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
         '<i class="bi bi-clipboard"></i>复制全部' +
         '</button>';
     
@@ -2075,7 +2091,8 @@ function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
         .replace(/^[-=]+\s*$/gm, '')
         .trim();
     
-    var copyBtn = '<button class="btn-copy-title" onclick="copyTitleContent(\'' + escHtml(cleanContent.replace(/'/g, "\\'")) + '\')">' +
+    // 使用 data-content 属性存储内容
+    var copyBtn = '<button class="btn-copy-title" data-copy-content="' + escHtml(cleanContent.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
         '<i class="bi bi-clipboard"></i>复制全部' +
         '</button>';
     
@@ -2220,7 +2237,7 @@ function buildBottomTagsSection(sec, badgeClass, badgeText, cardClass) {
     
     // 添加复制完整标签按钮
     if (tagData.fullTags) {
-        html += '<button class="btn-copy-title" onclick="copyTitleContent(\'' + escHtml(tagData.fullTags.replace(/'/g, "\\'")) + '\')">' +
+        html += '<button class="btn-copy-title" data-copy-content="' + escHtml(tagData.fullTags.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
             '<i class="bi bi-clipboard"></i>复制全部' +
             '</button>';
     }
@@ -2319,7 +2336,8 @@ function buildCommentSection(sec, badgeClass, badgeText, cardClass) {
         .replace(/^\s*[-*]\s*/gm, '')
         .trim();
     
-    var copyBtn = '<button class="btn-copy-title" onclick="copyTitleContent(\'' + escHtml(cleanContent.replace(/'/g, "\\'")) + '\')">' +
+    // 使用 data 属性存储内容
+    var copyBtn = '<button class="btn-copy-title" data-copy-content="' + escHtml(cleanContent.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
         '<i class="bi bi-clipboard"></i>复制首评' +
         '</button>';
     
