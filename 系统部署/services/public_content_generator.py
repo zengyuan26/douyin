@@ -5464,7 +5464,7 @@ class ContentGenerator:
     @classmethod
     def _parse_ai_response(cls, response: str, resources: Dict, params: Dict = None) -> Dict:
         """解析AI响应"""
-        content_type = (params or {} .get('content_type', 'graphic') if params else 'graphic')
+        content_type = (params or {}).get('content_type', 'graphic') if params else 'graphic'
 
         try:
             # 尝试解析JSON
