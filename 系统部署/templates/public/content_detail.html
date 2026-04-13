@@ -3248,15 +3248,22 @@ function renderQualityReport(report) {
     _qualityItemsHtml = itemsHtml;
     _qualitySuggestionsHtml = suggestionsHtml;
 
-        // 优化按钮逻辑：分数达标才显示"已优化"，否则无论是否已优化都显示优化按钮
+        // 优化按钮逻辑：分数达标显示"已优化"，未达标始终显示"一键优化"（支持多次优化）
         var optimizeBtn = '';
         if (passed) {
             // 分数达标，显示已优化徽章
-            optimizeBtn = '<div class="quality-optimized-badge"><i class="bi bi-check-circle"></i> 已优化</div>';
-        } else if (needOptimize) {
-            // 分数未达标，显示优化按钮（即使已优化过，也支持再次优化）
+            var optCount = report.round_history ? report.round_history.length : 0;
+            if (optCount > 0) {
+                optimizeBtn = '<div class="quality-optimized-badge"><i class="bi bi-check-circle"></i> 已优化(' + optCount + '轮)</div>';
+            } else {
+                optimizeBtn = '<div class="quality-optimized-badge"><i class="bi bi-check-circle"></i> 已达标</div>';
+            }
+        } else {
+            // 分数未达标，显示优化按钮（支持多次优化，每次都重新评分）
+            var optCount = report.round_history ? report.round_history.length : 0;
+            var btnText = optCount > 0 ? '再次优化' : '一键优化';
             optimizeBtn = '<button id="btn-detail-optimize" class="quality-optimize-btn" onclick="doDetailOptimize()">' +
-                '<i class="bi bi-magic"></i> 一键优化' +
+                '<i class="bi bi-magic"></i> ' + btnText +
                 '</button>';
         }
 
