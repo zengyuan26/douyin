@@ -3262,7 +3262,7 @@ function renderQualityReport(report) {
             // 分数未达标，显示优化按钮（支持多次优化，每次都重新评分）
             var optCount = report.round_history ? report.round_history.length : 0;
             var btnText = optCount > 0 ? '再次优化' : '一键优化';
-            optimizeBtn = '<button id="btn-detail-optimize" class="quality-optimize-btn" onclick="doDetailOptimize()">' +
+            optimizeBtn = '<button id="btn-detail-optimize" class="quality-optimize-btn" onclick="doDetailOptimize(event)">' +
                 '<i class="bi bi-magic"></i> ' + btnText +
                 '</button>';
         }
@@ -3305,7 +3305,8 @@ var _roundHistory = [];
 var _isOptimizing = false;
 var _roundLabels = { A: '标题+开篇', B: '结构+模块', C: '信任+品牌', D: 'CTA+潜力' };
 
-function doDetailOptimize() {
+function doDetailOptimize(e) {
+    if (e) e.stopPropagation();
     if (_optimizeLoading || _isOptimizing) return;
     _optimizeLoading = true;
     _isOptimizing = true;
@@ -3442,18 +3443,39 @@ function doDetailOptimize() {
 
             // 用优化后的数据刷新页面
             console.log('[SSE] 检查是否需要刷新...');
-            console.log('[SSE] data.quality_report 存在:', !!data.quality_report);
-            console.log('[SSE] data.content 存在:', !!data.content);
+            console.log('[SSE] data.quality_report:', !!data.quality_report);
+            console.log('[SSE] data.content:', !!data.content);
+            console.log('[SSE] data.new_content:', !!data.new_content);
+            console.log('[SSE] data.content 内容:', data.content ? '存在' : '空');
+
+            // 更新质量报告（优先使用 quality_report）
+            console.log('[SSE] 准备更新质量报告...');
             if (data.quality_report) {
                 console.log('[SSE] 调用 renderQualityReport');
                 renderQualityReport(data.quality_report);
-            }
-            if (data.content) {
-                console.log('[SSE] 调用 refreshAllContent');
-                refreshAllContent(data.content);
+                _currentScore = data.final_score;
+                console.log('[SSE] _currentScore 已更新为:', _currentScore);
             } else {
-                console.log('[SSE] data.content 为空，跳过刷新');
+                console.log('[SSE] quality_report 不存在，无法更新');
             }
+
+            // 更新内容（兼容新旧字段名）
+            var newContent = data.content || data.new_content;
+            console.log('[SSE] newContent 提取结果:', newContent ? '存在' : '空');
+            if (newContent) {
+                console.log('[SSE] 调用 refreshAllContent');
+                refreshAllContent(newContent);
+            } else {
+                console.log('[SSE] content 为空，跳过刷新');
+            }
+
+            // 确保全局数据更新
+            if (_generationData) {
+                _generationData.content_data = newContent || _generationData.content_data;
+                _currentScore = data.final_score;
+            }
+
+            console.log('[SSE] complete 处理完成');
         } else {
             showToast(data.message || '优化失败', 'error');
             hideOptimizeProgressPanel();
@@ -3662,6 +3684,8 @@ function hideOptimizeProgressPanel() {
 function refreshAllContent(newContent) {
     console.log('[DEBUG] refreshAllContent 被调用');
     console.log('[DEBUG] newContent:', newContent);
+    console.log('[DEBUG] newContent.title:', newContent ? (newContent.title || (newContent.article || {}).title) : 'N/A');
+    console.log('[DEBUG] newContent.body 长度:', newContent ? (newContent.body || (newContent.article || {}).body || '').length : 'N/A');
     console.log('[DEBUG] _sectionDisplayConfig:', _sectionDisplayConfig);
 
     // 更新全局数据（兼容长文结构）
@@ -3670,25 +3694,34 @@ function refreshAllContent(newContent) {
         var newTitle = newContent.title || (newContent.article || {}).title || '';
         _generationData.titles = [newTitle];
         _generationData.tags = newContent.tags || [];
+        console.log('[DEBUG] 更新 _generationData 成功，title:', newTitle);
     }
 
-    // 刷新质量报告
-    // （quality_report 已通过 renderQualityReport 更新）
-
     // 刷新内容区块（用最新数据重新渲染）
-    // 直接调用区块渲染（复用 section_key 映射逻辑）
     var container = document.getElementById('section-panels-container');
-    console.log('[DEBUG] container:', container);
+    console.log('[DEBUG] section-panels-container:', container);
+    console.log('[DEBUG] _sectionDisplayConfig 有效:', _sectionDisplayConfig && _sectionDisplayConfig.length > 0);
+
     if (container && _sectionDisplayConfig && _sectionDisplayConfig.length > 0) {
         var sections = parseSections(newContent, _sectionDisplayConfig);
         console.log('[DEBUG] 解析出的sections:', sections.length, sections);
         var clientSections = sections.filter(function(s) { return s.visible_to_client; });
-        console.log('[DEBUG] 客户端可见sections:', clientSections.length, clientSections);
+        console.log('[DEBUG] 客户端可见sections:', clientSections.length);
         _allClientSections = clientSections;
         renderClientSections(clientSections);
+        console.log('[DEBUG] renderClientSections 完成');
     } else {
-        console.log('[DEBUG] 跳过刷新: container或config无效', container, _sectionDisplayConfig);
+        console.log('[DEBUG] 跳过区块刷新，尝试刷新正文内容');
+        // 如果没有区块配置，尝试直接刷新正文内容
+        var bodyElement = document.getElementById('content-body') || document.querySelector('.content-body');
+        if (bodyElement && newContent) {
+            var bodyText = newContent.body || (newContent.article || {}).body || '';
+            bodyElement.innerHTML = bodyText;
+            console.log('[DEBUG] 直接更新 bodyElement，长度:', bodyText.length);
+        }
     }
+
+    console.log('[DEBUG] refreshAllContent 完成');
 }
 
 // 质量评估详情弹窗
