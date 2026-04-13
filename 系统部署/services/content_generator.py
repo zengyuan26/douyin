@@ -338,10 +338,43 @@ class TopicContentGenerator:
 5. **封面要求**：前3秒字幕最大最醒目，≤10字，要戳心
 6. **画面要求**：真实场景图，禁止纯色/渐变背景
 
+## 【强制】每张图大字金句设计（核心改进）
+每张图必须输出一个"大字金句"，用于制作时的核心文案：
+
+【金句原则】
+- 口语化，像朋友说话，不要书面语
+- ≤15字，越短越有力
+- 有情绪感，能引发共鸣
+- 不要空洞，要有具体指向
+
+【情绪递进设计（"已经"原则）】
+- 图1：期待/代入 → 用户开始了解
+- 图2：心酸/共鸣 → 情绪开始深入
+- 图3：坚定/爆发 → 情绪到达顶点
+- 图4：感动/释然 → 找到希望
+- 图5：温暖/行动 → 给出解决方案
+
+【金句类型参考】
+|| 类型 | 示例 | 使用场景 |
+|------|------|------|
+| 已字句 | "我已经花了几千冤枉钱" | 问题已经发生 |
+| 反问句 | "桶装水配送不及时，你是怎么熬过来的" | 引发共鸣 |
+| 扎心句 | "婚宴水不够，我已经尴尬了一整天" | 场景代入 |
+| 揭秘句 | "健身房的套路比你想的深" | 引发好奇 |
+| 对比句 | "省了小钱，亏了大钱" | 数据冲击 |
+
+## 【禁止】抽象词清单（LLM自动过滤）
+以下词汇一律禁止出现，违者扣分：
+- 空洞词："专业服务""品质保证""高效便捷""优质贴心""值得信赖"
+- 抽象词："很多人""这个问题""很严重""效果不错""体验极佳"
+- 模糊词："质量好""服务优""值得推荐""特别棒""非常好"
+
 ## 图文内容结构要求
 请按所选结构，每张图详细输出：
 - 图号和角色（封面/痛点/分析等）
 - 主标题（≤10字）
+- **大字金句（≤15字，口语化，用于制作时核心文案）**
+- **情绪阶段（期待→心酸→爆发→释然→温暖）**
 - 副标题/要点（口语化短句）
 - 画面风格描述
 - 关键词埋入位置
@@ -362,14 +395,15 @@ class TopicContentGenerator:
       "index": 1,
       "role": "封面",
       "main_title": "主标题（≤10字）",
+      "big_slogan": "大字金句（≤15字，口语化，用于制作核心文案）",
+      "emotion_stage": "期待/代入",
       "sub_content": "副标题/要点（口语化短句）",
       "keywords": ["埋入的关键词"],
       "visual_style": "画面风格描述",
       "design_specs": "设计规格，如：尺寸1080x1920px，背景白色，标题醒目",
       "sub_points": ["子要点1", "子要点2"],
       "data_content": "具体数据内容（如有）"
-    }},
-    ...
+    }}
   ],
   "hashtags": ["#话题1", "#话题2", "#话题3", "#话题4", "#话题5"],
   "first_comment": "首评引导内容（能引发互动）",
@@ -857,6 +891,13 @@ class TopicContentGenerator:
 
             lines.append(f'#### 图片{i}：{role}')
             if main_title:
+                big_slogan = slide.get('big_slogan', '')
+                emotion_stage = slide.get('emotion_stage', '')
+                
+                lines.append(f'**【情绪阶段】** {emotion_stage}')
+                lines.append('')
+                lines.append(f'**【大字金句】** {big_slogan or "待补充"}')
+                lines.append('')
                 lines.append(f'**【内容功能】** {sub_content or "待补充"}')
                 lines.append('')
                 lines.append(f'**【画面描述】**')
@@ -1026,12 +1067,18 @@ class TopicContentGenerator:
             lines.append(f"**【{role}】**")
             if slide.get('main_title'):
                 lines.append(f"  标题：{slide['main_title']}")
+            if slide.get('big_slogan'):
+                lines.append(f"  大字金句：{slide['big_slogan']}")
+            if slide.get('emotion_stage'):
+                lines.append(f"  情绪阶段：{slide['emotion_stage']}")
             if slide.get('sub_content'):
                 lines.append(f"  内容：{slide['sub_content']}")
             if slide.get('keywords'):
                 lines.append(f"  关键词：{', '.join(slide['keywords'])}")
             if slide.get('visual_style'):
                 lines.append(f"  画面：{slide['visual_style']}")
+            if slide.get('sub_points'):
+                lines.append(f"  要点：{'；'.join(slide['sub_points'])}")
             lines.append('')
         return '\n'.join(lines)
 
