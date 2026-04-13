@@ -2348,24 +2348,36 @@ def api_optimize_content_stream(generation_id):
                 final_report['message'] = opt_result.message
 
                 # 轮次历史（包含新字段：group_scope、rollback等）
-                round_history = [
-                    {
-                        'round_num': r.round_num,
-                        'group_key': r.group_key,
-                        'group_label': r.group_label,
-                        'group_scope': getattr(r, 'group_scope', ''),
-                        'items_in_round': getattr(r, 'items_in_round', []),
-                        'items_optimized': getattr(r, 'items_optimized', []),
-                        'score_before': r.score_before,
-                        'score_after': r.score_after,
-                        'rollback': getattr(r, 'rollback', False),
-                        'stopped': getattr(r, 'stopped', False),
-                        'message': r.message,
-                    }
-                    for r in opt_result.round_history
-                ]
+                round_history = []
+                for r in opt_result.round_history:
+                    try:
+                        round_history.append({
+                            'round_num': r.round_num,
+                            'group_key': r.group_key,
+                            'group_label': r.group_label,
+                            'group_scope': getattr(r, 'group_scope', ''),
+                            'items_in_round': getattr(r, 'items_in_round', []),
+                            'items_optimized': getattr(r, 'items_optimized', []),
+                            'score_before': r.score_before,
+                            'score_after': r.score_after,
+                            'rollback': getattr(r, 'rollback', False),
+                            'stopped': getattr(r, 'stopped', False),
+                            'message': r.message,
+                        })
+                    except Exception as e:
+                        logger.warning(f"[递进优化-SSE] 轮次历史构建失败: {e}")
+                        round_history.append({
+                            'round_num': getattr(r, 'round_num', 0),
+                            'group_key': getattr(r, 'group_key', ''),
+                            'group_label': getattr(r, 'group_label', ''),
+                            'score_before': getattr(r, 'score_before', 0),
+                            'score_after': getattr(r, 'score_after', 0),
+                            'message': getattr(r, 'message', ''),
+                        })
                 final_report['round_history'] = round_history
                 final_report['rollback_count'] = opt_result.rollback_count
+
+                logger.info(f"[递进优化-SSE] round_history 构建完成，共 {len(round_history)} 条记录")
 
                 # 更新数据库
                 gen.quality_score = opt_result.final_score
@@ -2385,6 +2397,10 @@ def api_optimize_content_stream(generation_id):
                     'stopped_early': opt_result.stopped_early,
                     'round_history': round_history,
                 }
+
+                logger.info(f"[递进优化-SSE] final_report keys: {list(final_report.keys()) if final_report else 'None'}")
+                logger.info(f"[递进优化-SSE] 准备发送 complete 事件，round_history 共 {len(round_history)} 轮")
+
                 message_queue.put(f"event: complete\ndata: {json.dumps(final_data, ensure_ascii=False)}\n\n")
 
                 logger.info(f"[递进优化-SSE] 完成: generation_id={generation_id}, "

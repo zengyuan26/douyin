@@ -3428,17 +3428,10 @@ function doDetailOptimize(e) {
         console.log('[SSE] data.final_score:', data.final_score);
         console.log('[SSE] data.first_score:', data.first_score);
         console.log('[SSE] data.quality_report:', !!data.quality_report);
-        if (data.quality_report) {
-            console.log('[SSE] quality_report.final_score:', data.quality_report.final_score);
-            console.log('[SSE] quality_report.total_score:', data.quality_report.total_score);
-        }
+        console.log('[SSE] data.round_history:', !!data.round_history);
         console.log('[SSE] data.content:', !!data.content);
-        if (data.content) {
-            console.log('[SSE] data.content.title:', data.content.title || (data.content.article || {}).title);
-            console.log('[SSE] data.content.body长度:', (data.content.body || '').length);
-        }
 
-        fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3428',message:'SSE complete event',data:{success:data.success,final_score:data.final_score,has_quality_report:!!data.quality_report,has_content:!!data.content},timestamp:Date.now()})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3428',message:'SSE complete event',data:{success:data.success,final_score:data.final_score,has_quality_report:!!data.quality_report,has_content:!!data.content,has_round_history:!!data.round_history,keys:Object.keys(data)},timestamp:Date.now()})}).catch(()=>{});
 
         es.close();
         _optimizeEventSource = null;
@@ -3451,11 +3444,24 @@ function doDetailOptimize(e) {
         }
 
         if (data.success) {
-            fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3448',message:'SSE success branch',data:{final_score:data.final_score,report_keys:data.quality_report?Object.keys(data.quality_report):[]},timestamp:Date.now()})}).catch(()=>{});
+            // ========== 处理缺失字段的 fallback ==========
+            // 如果后端没有返回 first_score，使用 final_score 或 _firstScore
+            if (data.first_score === undefined) {
+                data.first_score = data.final_score;
+                console.log('[SSE] first_score 缺失，使用 final_score:', data.first_score);
+            }
+
+            // 如果后端没有返回 round_history，使用前端记录的
+            if (!data.round_history || data.round_history.length === 0) {
+                data.round_history = _roundHistory;
+                console.log('[SSE] round_history 缺失，使用前端记录:', data.round_history.length);
+            }
+
+            fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3465',message:'SSE after fallback',data:{first_score:data.first_score,round_history_len:data.round_history?data.round_history.length:0},timestamp:Date.now()})}).catch(()=>{});
 
             var scoreDelta = data.final_score - data.first_score;
             var deltaStr = scoreDelta >= 0 ? '+' + scoreDelta.toFixed(1) : scoreDelta.toFixed(1);
-            var msg = '优化完成！' + data.total_rounds + '轮 · ' + data.first_score.toFixed(1) + ' → ' + data.final_score.toFixed(1) + ' (' + deltaStr + ')';
+            var msg = '优化完成！' + (data.total_rounds || 0) + '轮 · ' + data.first_score.toFixed(1) + ' → ' + data.final_score.toFixed(1) + ' (' + deltaStr + ')';
 
             if (data.stopped_early) {
                 showToast(msg + ' ✓ 达标', 'success');
@@ -3468,17 +3474,14 @@ function doDetailOptimize(e) {
                 status: 'complete',
                 finalScore: data.final_score,
                 firstScore: data.first_score,
-                totalRounds: data.total_rounds,
+                totalRounds: data.total_rounds || 0,
                 stoppedEarly: data.stopped_early,
                 roundHistory: data.round_history || _roundHistory
             });
 
-            // ========== 强制刷新质量报告 ==========
+            // ========== 渲染质量报告 ==========
             var report = data.quality_report;
-            fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3480',message:'SSE before renderQualityReport',data:{report_exists:!!report,report_final_score:report?report.final_score:'N/A'},timestamp:Date.now()})}).catch(()=>{});
-
             if (report) {
-                // 确保 report 有必要的字段
                 if (!report.final_score) report.final_score = data.final_score;
                 if (!report.total_score) report.total_score = data.final_score;
                 if (!report.first_score) report.first_score = data.first_score;
@@ -3486,15 +3489,14 @@ function doDetailOptimize(e) {
                 if (!report.grade_label) report.grade_label = data.final_score >= 80 ? '良好' : (data.final_score >= 60 ? '及格' : '待优化');
                 if (report.passed === undefined) report.passed = data.final_score >= 80;
                 if (report.optimized === undefined) report.optimized = true;
+                if (!report.round_history) report.round_history = data.round_history || _roundHistory;
 
-                console.log('[SSE] 强制调用 renderQualityReport，final_score:', report.final_score);
-                fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3495',message:'SSE calling renderQualityReport',data:{final_score:report.final_score,total_score:report.total_score},timestamp:Date.now()})}).catch(()=>{});
-
+                console.log('[SSE] 调用 renderQualityReport，final_score:', report.final_score);
                 renderQualityReport(report);
                 _currentScore = data.final_score;
             } else {
-                console.log('[SSE] quality_report 不存在，创建默认报告');
-                // 创建默认报告
+                // quality_report 为空，创建默认报告
+                console.log('[SSE] quality_report 为空，创建默认报告');
                 var defaultReport = {
                     final_score: data.final_score,
                     total_score: data.final_score,
@@ -3510,15 +3512,13 @@ function doDetailOptimize(e) {
                 _currentScore = data.final_score;
             }
 
-            // ========== 强制刷新内容 ==========
+            // ========== 刷新内容 ==========
             var newContent = data.content || data.new_content;
             if (newContent) {
                 console.log('[SSE] 调用 refreshAllContent 刷新内容');
-                fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3525',message:'SSE calling refreshAllContent',data:{title:newContent.title || (newContent.article||{}).title,body_len:(newContent.body||(newContent.article||{}).body||'').length},timestamp:Date.now()})}).catch(()=>{});
                 refreshAllContent(newContent);
             } else {
-                console.log('[SSE] content 为空，尝试从 quality_report 获取');
-                fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3531',message:'SSE content is empty',data:{},timestamp:Date.now()})}).catch(()=>{});
+                console.log('[SSE] content 为空，跳过刷新');
             }
 
             // ========== 确保全局数据更新 ==========
@@ -3528,11 +3528,9 @@ function doDetailOptimize(e) {
             }
 
             console.log('[SSE] complete 处理完成，最终分数:', _currentScore);
-            fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3543',message:'SSE complete done',data:{_currentScore:_currentScore,final_score:data.final_score},timestamp:Date.now()})}).catch(()=>{});
         } else {
             showToast(data.message || '优化失败', 'error');
             hideOptimizeProgressPanel();
-            fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3549',message:'SSE error branch',data:{message:data.message},timestamp:Date.now()})}).catch(()=>{});
         }
     });
 
