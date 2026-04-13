@@ -2304,10 +2304,13 @@ def api_optimize_content_stream(generation_id):
         except Exception:
             pass
 
+    # 获取当前 app 实例，在线程中使用
+    app = current_app._get_current_object()
+
     def run_optimization():
         """在新线程中执行优化"""
-        # 在线程中创建应用上下文
-        with current_app.app_context():
+        # 在线程中使用获取的 app 实例创建上下文
+        with app.app_context():
             try:
                 # 重新评分获取失败项
                 score_result = content_scorer.score(content, brand_name)
