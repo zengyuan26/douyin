@@ -393,6 +393,8 @@ class ProgressiveContentOptimizer:
             )
 
             # ========== 核心：分数对比与回滚 ==========
+            # 回滚时需要恢复到上一轮的内容，暂存上一轮内容用于记录
+            previous_content = current_content
             if round_result.score_after > current_score:
                 # 分数上涨 → 保留
                 logger.info(f"[修补引擎] 第{round_num}轮：{round_result.score_before} → {round_result.score_after} ✓ 分数上涨，保留")
@@ -403,14 +405,14 @@ class ProgressiveContentOptimizer:
                 # 分数持平 → 保留但不计入成功轮
                 logger.info(f"[修补引擎] 第{round_num}轮：{round_result.score_before} → {round_result.score_after} = 分数持平，保留")
                 current_content = round_result.content_snapshot
-                # 分数不变时仍更新内容（可能其他项有改善）
                 round_result.rollback = False
             else:
                 # 分数下降 → 自动回滚
                 rollback_count += 1
                 round_result.rollback = True
-                logger.warning(f"[修补引擎] 第{round_num}轮：{round_result.score_before} → {round_result.score_after} ✗ 分数下降，自动回滚！")
-                # 恢复到上一轮的内容（不做任何更新）
+                # current_content 保持不变（已指向上一轮的 snapshot，无需额外操作）
+                # round_result.content_snapshot = bad content (本轮优化后的内容)，不更新 current_content
+                logger.warning(f"[修补引擎] 第{round_num}轮：{round_result.score_before} → {round_result.score_after} ✗ 分数下降，自动回滚到 {current_score:.1f}，内容保留上一轮版本")
                 round_result.score_after = current_score  # 报告显示原始分数
                 round_result.items_fixed = []
                 round_result.message = f'分数下降（{round_result.score_after:.1f}→{current_score:.1f}），已自动回滚'
@@ -466,15 +468,8 @@ class ProgressiveContentOptimizer:
         ]
         final_report_dict['round_history'] = display_round_history
 
-        # 发送完成事件
-        _send('complete', {
-            'success': True,
-            'final_score': current_score,
-            'total_rounds': len(round_history),
-            'rollback_count': rollback_count,
-            'stopped_early': stopped_early,
-            'message': f'修补完成，共{len(round_history)}轮，最终分数{current_score}，回滚{rollback_count}次'
-        })
+        # 【注意】不发送 complete 事件，由 SSE endpoint 统一发送
+        # SSE endpoint 会在优化完成后构建包含 quality_report、round_history 的完整 complete 事件
 
         return ProgressiveOptimizationResult(
             success=True,

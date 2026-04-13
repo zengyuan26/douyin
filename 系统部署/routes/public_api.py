@@ -2024,24 +2024,59 @@ def api_content_detail(generation_id):
     """
     from models.public_models import PublicGeneration, TopicGenerationLink
 
-    user_id = session.get('public_user_id')
-    user = PublicUser.query.get(user_id) if user_id else None
+    # 绕过 ORM session 缓存：使用原始 SQL 直接查询数据库
+    # 解决 SSE 线程提交后主线程读取旧缓存的问题
+    raw_result = db.session.execute(
+        db.text('SELECT id, user_id, content_data, quality_score, quality_report, titles, tags, '
+                 'content_type, content_style, geo_mode_used, industry, target_customer, '
+                 'portrait_id, topic_id, selected_scenes, link_id, version_number, '
+                 'created_at, used_tokens FROM public_generations WHERE id = :gen_id'),
+        {'gen_id': generation_id}
+    ).mappings().fetchone()
 
-    gen = PublicGeneration.query.filter_by(id=generation_id).first()
-    if not gen:
+    if not raw_result:
         return jsonify({'success': False, 'message': '记录不存在'}), 404
 
-    # 调试日志：打印原始数据库内容
-    logger.info(f"[ContentDetail] generation_id={generation_id}, content_data keys={list((gen.content_data or {}).keys()) if gen.content_data else None}, titles={gen.titles}, content_data type={type(gen.content_data).__name__}")
+    # 兼容处理：raw SQL 不会自动将 JSON 列反序列化为 dict，需要手动解析
+    def _parse_json(val):
+        if val is None:
+            return None
+        if isinstance(val, (dict, list)):
+            return val
+        if isinstance(val, str):
+            try:
+                return json.loads(val)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return None
 
-    # 权限校验
-    if user and gen.user_id != user.id:
+    raw_result = dict(raw_result)
+    raw_result['content_data'] = _parse_json(raw_result.get('content_data'))
+    raw_result['quality_report'] = _parse_json(raw_result.get('quality_report'))
+    raw_result['selected_scenes'] = _parse_json(raw_result.get('selected_scenes'))
+    raw_result['titles'] = _parse_json(raw_result.get('titles'))
+    raw_result['tags'] = _parse_json(raw_result.get('tags'))
+
+    if not raw_result:
+        return jsonify({'success': False, 'message': '记录不存在'}), 404
+
+    # 权限校验（使用 raw SQL 结果）
+    user_id = session.get('public_user_id')
+    user = PublicUser.query.get(user_id) if user_id else None
+    gen_user_id = raw_result.get('user_id') if 'user_id' in raw_result.keys() else None
+    if user and gen_user_id and gen_user_id != user.id:
         return jsonify({'success': False, 'message': '无权访问'}), 403
 
-    # link 信息
+    # 调试日志：对比 raw SQL 和已知数据
+    logger.info(f"[ContentDetail] generation_id={generation_id}, raw quality_score={raw_result.get('quality_score')}, "
+                f"raw quality_report type={type(raw_result.get('quality_report')).__name__ if raw_result.get('quality_report') else None}, "
+                f"raw content_data keys={list((raw_result.get('content_data') or {}).keys()) if raw_result.get('content_data') else None}")
+
+    # link 信息（使用 raw SQL 结果）
     link_info = None
-    if gen.link_id:
-        link = TopicGenerationLink.query.get(gen.link_id)
+    raw_link_id = raw_result.get('link_id')
+    if raw_link_id:
+        link = TopicGenerationLink.query.get(raw_link_id)
         if link:
             link_info = {
                 'link_id': link.id,
@@ -2052,53 +2087,66 @@ def api_content_detail(generation_id):
                 'usage_count': link.usage_count or 0,
             }
 
-    # 获取内容展示区块配置
-    content_type = gen.content_type or 'graphic'
+    # 获取内容展示区块配置（使用 raw SQL 的 content_type）
+    content_type = raw_result.get('content_type') or 'graphic'
     from services.template_config_service import template_config_service
     section_display_config = template_config_service.get_section_display_config(content_type)
 
     # 构建质量报告数据（如果已有完整评分报告，直接使用；否则调用LLM评分）
     quality_report = None
-    if gen.content_data:
-        # 优先使用已保存的完整评分报告，避免重复调用LLM
-        if gen.quality_report:
-            quality_report = gen.quality_report
-        else:
-            # 没有评分报告时，调用LLM评分（兼容旧数据）
-            from services.content_quality_scorer import content_scorer
-            brand_name = gen.target_customer[:10] if gen.target_customer else ''
-            score_result = content_scorer.score(gen.content_data, brand_name)
-            quality_report = content_scorer.to_dict(score_result)
-            quality_report['optimized'] = False
-            quality_report['first_score'] = quality_report['total_score']
-            quality_report['optimized_items'] = []
-            quality_report['need_optimize'] = not score_result.passed
-            # 保存评分报告以便后续使用
+    # 优先使用 raw SQL 查询的最新数据（绕过 ORM 缓存）
+    if raw_result.get('quality_report'):
+        quality_report = raw_result.get('quality_report')
+    elif raw_result.get('content_data'):
+        # 没有评分报告但有内容时，调用LLM评分（兼容旧数据）
+        from services.content_quality_scorer import content_scorer
+        brand_name = (raw_result.get('target_customer') or '')[:10]
+        score_result = content_scorer.score(raw_result.get('content_data'), brand_name)
+        quality_report = content_scorer.to_dict(score_result)
+        quality_report['optimized'] = False
+        quality_report['first_score'] = quality_report['total_score']
+        quality_report['optimized_items'] = []
+        quality_report['need_optimize'] = not score_result.passed
+        # 保存评分报告以便后续使用
+        gen = PublicGeneration.query.filter_by(id=generation_id).first()
+        if gen:
             gen.quality_score = quality_report['total_score']
             gen.quality_report = quality_report
             db.session.commit()
 
+    # 使用 raw SQL 的最新值构建返回数据（绕过 ORM 缓存）
+    raw_content_data = raw_result.get('content_data')
+    # created_at 可能是 datetime 对象（ORM）或字符串（raw SQL）
+    raw_created_at = raw_result.get('created_at')
+    if raw_created_at:
+        if hasattr(raw_created_at, 'strftime'):
+            created_at_str = raw_created_at.strftime('%Y-%m-%d %H:%M')
+        else:
+            created_at_str = str(raw_created_at)
+    else:
+        created_at_str = ''
+
     return jsonify({
         'success': True,
         'data': {
-            'generation_id': gen.id,
-            'link_id': gen.link_id,
-            'version_number': gen.version_number,
+            'generation_id': generation_id,
+            'link_id': raw_result.get('link_id'),
+            'version_number': raw_result.get('version_number'),
             'content_type': content_type,
-            'content_style': gen.content_style or '',
-            'geo_mode': gen.geo_mode_used or '',
-            'industry': gen.industry or '',
-            'target_customer': gen.target_customer or '',
-            'portrait_id': gen.portrait_id,
-            'topic_id': gen.topic_id,
-            'selected_scenes': gen.selected_scenes,
-            'titles': gen.titles or [],
-            'tags': gen.tags or [],
-            'content_data': gen.content_data or {},
-            'content': (gen.content_data or {}).get('body', ''),
-            'created_at': gen.created_at.strftime('%Y-%m-%d %H:%M') if gen.created_at else '',
-            'used_tokens': gen.used_tokens or 0,
-            'quality_score': gen.quality_score,
+            'content_style': raw_result.get('content_style') or '',
+            'geo_mode': raw_result.get('geo_mode_used') or '',
+            'industry': raw_result.get('industry') or '',
+            'target_customer': raw_result.get('target_customer') or '',
+            'portrait_id': raw_result.get('portrait_id'),
+            'topic_id': raw_result.get('topic_id'),
+            'selected_scenes': raw_result.get('selected_scenes'),
+            'titles': raw_result.get('titles') or [],
+            'tags': raw_result.get('tags') or [],
+            'content_data': raw_content_data or {},
+            'content': (raw_content_data or {}).get('body', ''),
+            'created_at': created_at_str,
+            'used_tokens': raw_result.get('used_tokens') or 0,
+            'quality_score': raw_result.get('quality_score'),
             'quality_report': quality_report,
             'link': link_info,
             'section_display_config': section_display_config,
@@ -2206,9 +2254,11 @@ def api_optimize_content(generation_id):
                 'round_num': r.round_num,
                 'group_key': r.group_key,
                 'group_label': r.group_label,
-                'items_optimized': r.items_optimized,
+                'items_in_round': r.items_in_round,
+                'items_fixed': r.items_fixed,
                 'score_before': r.score_before,
                 'score_after': r.score_after,
+                'rollback': getattr(r, 'rollback', False),
                 'stopped': r.stopped,
                 'message': r.message,
             }
@@ -2312,6 +2362,14 @@ def api_optimize_content_stream(generation_id):
         # 在线程中使用获取的 app 实例创建上下文
         with app.app_context():
             try:
+                # 重新查询 generation 记录，避免跨线程使用主请求线程中的 ORM 对象
+                gen_thread = PublicGeneration.query.filter_by(id=generation_id).first()
+                if not gen_thread:
+                    logger.error(f"[递进优化-SSE] generation_id={generation_id} 在线程中未找到")
+                    message_queue.put(f"event: error\ndata: {json.dumps({'success': False, 'message': '记录不存在'})}\n\n")
+                    message_queue.put(None)
+                    return
+
                 # 重新评分获取失败项
                 score_result = content_scorer.score(content, brand_name)
                 failed_items = list(score_result.failed_items) if hasattr(score_result, 'failed_items') else []
@@ -2330,12 +2388,12 @@ def api_optimize_content_stream(generation_id):
                     progress_callback=progress_callback
                 )
 
-                # 更新数据库
+                # 更新数据库（使用线程内查询的 gen_thread 对象）
                 new_content = opt_result.optimized_content or content
-                gen.content_data = new_content
+                gen_thread.content_data = new_content
                 new_title = new_content.get('title') or (new_content.get('article') or {}).get('title') or ''
-                gen.titles = [new_title]
-                gen.tags = new_content.get('tags', [])
+                gen_thread.titles = [new_title]
+                gen_thread.tags = new_content.get('tags', [])
 
                 # 构建最终报告
                 final_report = opt_result.final_report
@@ -2355,13 +2413,13 @@ def api_optimize_content_stream(generation_id):
                             'round_num': r.round_num,
                             'group_key': r.group_key,
                             'group_label': r.group_label,
-                            'group_scope': getattr(r, 'group_scope', ''),
-                            'items_in_round': getattr(r, 'items_in_round', []),
-                            'items_optimized': getattr(r, 'items_optimized', []),
+                            'group_scope': r.group_scope,
+                            'items_in_round': r.items_in_round,
+                            'items_fixed': r.items_fixed,
                             'score_before': r.score_before,
                             'score_after': r.score_after,
-                            'rollback': getattr(r, 'rollback', False),
-                            'stopped': getattr(r, 'stopped', False),
+                            'rollback': r.rollback,
+                            'stopped': r.stopped,
                             'message': r.message,
                         })
                     except Exception as e:
@@ -2380,9 +2438,11 @@ def api_optimize_content_stream(generation_id):
                 logger.info(f"[递进优化-SSE] round_history 构建完成，共 {len(round_history)} 条记录")
 
                 # 更新数据库
-                gen.quality_score = opt_result.final_score
-                gen.quality_report = final_report
+                gen_thread.quality_score = opt_result.final_score
+                gen_thread.quality_report = final_report
                 db.session.commit()
+                
+                logger.info(f"[递进优化-SSE] 数据库已更新: generation_id={generation_id}, quality_score={gen_thread.quality_score}, quality_report.optimized={final_report.get('optimized')}")
 
                 # 发送最终结果
                 final_data = {

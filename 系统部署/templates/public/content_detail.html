@@ -1666,6 +1666,7 @@ var _portraitId = null;
 var _generationData = null;
 var _qualityItemsHtml = '';
 var _qualitySuggestionsHtml = '';
+var _currentReport = null; // 当前评分报告数据
 var _sectionDisplayConfig = [];
 var _allClientSections = []; // 所有客户端可见区块的内容
 
@@ -3163,6 +3164,9 @@ function renderQualityReport(report) {
 
     container.style.display = '';  // 确保容器可见
 
+    // 保存当前报告数据供弹窗使用
+    _currentReport = report;
+
     // 关键：优先使用 final_score，其次 total_score
     var score = report.final_score || report.total_score || 0;
     var grade = report.grade || 'D';
@@ -3205,7 +3209,7 @@ function renderQualityReport(report) {
                 var deltaStr = scoreDelta >= 0 ? '+' + scoreDelta.toFixed(1) : scoreDelta.toFixed(1);
                 return '<div class="round-history-item">' +
                     '<span class="round-tag">' + r.group_label + '</span>' +
-                    '<span class="round-items">' + (r.items_optimized && r.items_optimized.length > 0 ? r.items_optimized.join('、') : '无修改') + '</span>' +
+                    '<span class="round-items">' + (r.items_fixed && r.items_fixed.length > 0 ? r.items_fixed.join('、') : '无修改') + '</span>' +
                     '<span class="round-score">' + r.score_before.toFixed(1) + ' ' + arrow + ' ' + r.score_after.toFixed(1) + ' <span class="delta">(' + deltaStr + ')</span></span>' +
                     '</div>';
             }).join('');
@@ -3255,9 +3259,15 @@ function renderQualityReport(report) {
     // 建议HTML - 只保留表格，优化建议已在每行显示，此处不再单独显示
     var suggestionsHtml = '';
 
-    // 保存详情数据到全局变量
-    _qualityItemsHtml = itemsHtml;
+    // 保存详情数据到全局变量（即使 items 为空也要设置，避免弹窗空白）
+    _qualityItemsHtml = items.length > 0 ? itemsHtml : '<div style="padding:1rem;text-align:center;color:var(--apple-gray);font-size:0.875rem;">暂无评分数据</div>';
     _qualitySuggestionsHtml = suggestionsHtml;
+
+    // 如果报告数据为空（仅有分数但无详情），给出提示
+    var reportValid = report && (report.items || report.total_score || report.final_score);
+    if (!reportValid) {
+        console.log('[renderQualityReport] 报告数据不完整，仅有分数字段');
+    }
 
         // 优化按钮逻辑：分数达标显示"已优化"，未达标始终显示"一键优化"（支持多次优化）
         var optimizeBtn = '';
@@ -3492,6 +3502,7 @@ function doDetailOptimize(e) {
                 if (!report.round_history) report.round_history = data.round_history || _roundHistory;
 
                 console.log('[SSE] 调用 renderQualityReport，final_score:', report.final_score);
+                _currentReport = report; // 同步当前报告数据
                 renderQualityReport(report);
                 _currentScore = data.final_score;
             } else {
@@ -3508,6 +3519,7 @@ function doDetailOptimize(e) {
                     round_history: data.round_history || _roundHistory,
                     items: []
                 };
+                _currentReport = defaultReport;
                 renderQualityReport(defaultReport);
                 _currentScore = data.final_score;
             }
@@ -3516,14 +3528,16 @@ function doDetailOptimize(e) {
             var newContent = data.content || data.new_content;
             if (newContent) {
                 console.log('[SSE] 调用 refreshAllContent 刷新内容');
-                refreshAllContent(newContent);
+                refreshAllContent(newContent, data.quality_report);
             } else {
                 console.log('[SSE] content 为空，跳过刷新');
             }
 
-            // ========== 确保全局数据更新 ==========
+            // ========== 确保全局数据更新（包含质量评分） ==========
             if (_generationData) {
                 _generationData.content_data = newContent || _generationData.content_data;
+                _generationData.quality_score = data.final_score;
+                _generationData.quality_report = data.quality_report || _generationData.quality_report;
                 _currentScore = data.final_score;
             }
 
@@ -3706,7 +3720,7 @@ function buildResultsHtml(roundHistory) {
         var delta = r.score_after - r.score_before;
         var deltaStr = delta >= 0 ? '+' + delta.toFixed(1) : delta.toFixed(1);
         var tagClass = 'tag-' + r.group_key.toLowerCase();
-        var itemsStr = (r.items_optimized || []).join('、') || '无修改';
+        var itemsStr = (r.items_fixed || []).join('、') || '无修改';
         var rollbackBadge = r.rollback ? '<span style="color:#ef4444;font-size:0.625rem;margin-left:4px;">↩️回滚</span>' : '';
         var deltaClass = delta > 0 ? 'score-up' : (delta < 0 ? 'score-down' : 'score-same');
 
@@ -3733,9 +3747,43 @@ function hideOptimizeProgressPanel() {
     }
 }
 
-function refreshAllContent(newContent) {
+// 构建质量评分项HTML表格（供弹窗和刷新时复用）
+function buildQualityItemsHtml(items) {
+    if (!items || items.length === 0) {
+        return '<div style="padding:1rem;text-align:center;color:var(--apple-gray);font-size:0.875rem;">暂无评分数据</div>';
+    }
+    var itemsHtml = '<table class="quality-detail-table">' +
+        '<thead><tr>' +
+        '<th>评估项</th>' +
+        '<th class="col-score">得分</th>' +
+        '<th class="col-result">分析内容</th>' +
+        '<th>优化建议</th>' +
+        '</tr></thead><tbody>';
+
+    var currentCategory = '';
+    items.forEach(function(item) {
+        if (item.category !== currentCategory) {
+            currentCategory = item.category;
+            itemsHtml += '<tr class="quality-category-row"><td colspan="4">' + escHtml(currentCategory) + '</td></tr>';
+        }
+        var itemClass = item.passed ? 'item-passed' : 'item-failed';
+        var scoreClass = item.passed ? 'pass' : 'warn';
+        var suggestion = item.suggestion || '-';
+        itemsHtml += '<tr>' +
+            '<td class="' + itemClass + '">' + escHtml(item.name) + '</td>' +
+            '<td class="col-score"><span class="score-badge ' + scoreClass + '">' + item.score + '/10</span></td>' +
+            '<td class="col-result">' + escHtml(item.detail || '-') + '</td>' +
+            '<td class="col-suggestion">' + escHtml(suggestion) + '</td>' +
+            '</tr>';
+    });
+    itemsHtml += '</tbody></table>';
+    return itemsHtml;
+}
+
+function refreshAllContent(newContent, qualityReport) {
     console.log('[DEBUG] refreshAllContent 被调用');
     console.log('[DEBUG] newContent:', newContent);
+    console.log('[DEBUG] qualityReport:', qualityReport);
     console.log('[DEBUG] newContent.title:', newContent ? (newContent.title || (newContent.article || {}).title) : 'N/A');
     console.log('[DEBUG] newContent.body 长度:', newContent ? (newContent.body || (newContent.article || {}).body || '').length : 'N/A');
     console.log('[DEBUG] _sectionDisplayConfig:', _sectionDisplayConfig);
@@ -3746,6 +3794,20 @@ function refreshAllContent(newContent) {
         var newTitle = newContent.title || (newContent.article || {}).title || '';
         _generationData.titles = [newTitle];
         _generationData.tags = newContent.tags || [];
+        // 同步更新质量评分数据
+        if (qualityReport) {
+            _generationData.quality_score = qualityReport.final_score || qualityReport.total_score || _generationData.quality_score;
+            _generationData.quality_report = qualityReport;
+            _qualityItemsHtml = (qualityReport.items && qualityReport.items.length > 0)
+                ? buildQualityItemsHtml(qualityReport.items)
+                : '<div style="padding:1rem;text-align:center;color:var(--apple-gray);font-size:0.875rem;">暂无评分数据</div>';
+        } else if (_generationData && _generationData.quality_report) {
+            // qualityReport 未传入但全局数据中有评分报告，同步更新
+            var cached = _generationData.quality_report;
+            _qualityItemsHtml = (cached.items && cached.items.length > 0)
+                ? buildQualityItemsHtml(cached.items)
+                : '<div style="padding:1rem;text-align:center;color:var(--apple-gray);font-size:0.875rem;">暂无评分数据</div>';
+        }
         console.log('[DEBUG] 更新 _generationData 成功，title:', newTitle);
     }
 
@@ -3784,8 +3846,23 @@ function showQualityDetailModal() {
     var itemsContainer = modal.querySelector('.quality-detail-items');
     var suggestionsContainer = modal.querySelector('.quality-detail-suggestions');
 
-    if (itemsContainer) itemsContainer.innerHTML = _qualityItemsHtml;
-    if (suggestionsContainer) suggestionsContainer.innerHTML = _qualitySuggestionsHtml;
+    // 每次打开都从全局数据获取最新评分（不依赖中间变量）
+    var report = null;
+    if (_generationData && _generationData.quality_report) {
+        report = _generationData.quality_report;
+    }
+    if (!report && _currentReport) {
+        report = _currentReport;
+    }
+
+    if (report && report.items && report.items.length > 0) {
+        var itemsHtml = buildQualityItemsHtml(report.items);
+        if (itemsContainer) itemsContainer.innerHTML = itemsHtml;
+    } else {
+        if (itemsContainer) itemsContainer.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--apple-gray);font-size:0.875rem;">暂无评分数据</div>';
+    }
+
+    if (suggestionsContainer) suggestionsContainer.innerHTML = _qualitySuggestionsHtml || '';
 
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
