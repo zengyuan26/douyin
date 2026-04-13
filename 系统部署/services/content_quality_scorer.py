@@ -23,56 +23,58 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# GEO自检清单动态权重配置
+# GEO自检清单统一权重配置
+# 所有项统一10分满分，简化计算
 # =============================================================================
 GEO_SELF_CHECK_WEIGHTS = {
+    # 所有项统一10分满分
     "local_service": {
         "标题吸引力": 10,
         "开篇直接性": 10,
-        "结构清晰度": 8,
-        "模块化完整": 7,
-        "信任证据": 12,
-        "品牌锚点": 8,
-        "关键词密度": 12,
-        "可读性": 8,
+        "结构清晰度": 10,
+        "模块化完整": 10,
+        "信任证据": 10,
+        "品牌锚点": 10,
+        "关键词密度": 10,
+        "可读性": 10,
         "行动号召": 10,
-        "改造潜力": 5,
+        "改造潜力": 10,
     },
     "product": {
         "标题吸引力": 10,
         "开篇直接性": 10,
-        "结构清晰度": 9,
-        "模块化完整": 8,
-        "信任证据": 12,
+        "结构清晰度": 10,
+        "模块化完整": 10,
+        "信任证据": 10,
         "品牌锚点": 10,
         "关键词密度": 10,
-        "可读性": 8,
-        "行动号召": 10,
-        "改造潜力": 5,
-    },
-    "personal": {
-        "标题吸引力": 12,
-        "开篇直接性": 10,
-        "结构清晰度": 10,
-        "模块化完整": 8,
-        "信任证据": 10,
-        "品牌锚点": 12,
-        "关键词密度": 8,
         "可读性": 10,
         "行动号召": 10,
-        "改造潜力": 5,
+        "改造潜力": 10,
+    },
+    "personal": {
+        "标题吸引力": 10,
+        "开篇直接性": 10,
+        "结构清晰度": 10,
+        "模块化完整": 10,
+        "信任证据": 10,
+        "品牌锚点": 10,
+        "关键词密度": 10,
+        "可读性": 10,
+        "行动号召": 10,
+        "改造潜力": 10,
     },
     "enterprise": {
         "标题吸引力": 10,
         "开篇直接性": 10,
         "结构清晰度": 10,
-        "模块化完整": 9,
-        "信任证据": 15,
-        "品牌锚点": 8,
+        "模块化完整": 10,
+        "信任证据": 10,
+        "品牌锚点": 10,
         "关键词密度": 10,
-        "可读性": 6,
+        "可读性": 10,
         "行动号召": 10,
-        "改造潜力": 2,
+        "改造潜力": 10,
     },
 }
 
@@ -345,24 +347,25 @@ class ContentQualityScorer:
         # 合并结果
         all_results = {**rule_results, **llm_results}
 
-        # 构建评分项列表（应用动态权重）
+        # 构建评分项列表（统一10分满分，80%及格=8分）
         items = []
         for item_config in self.SCORING_ITEMS:
             item_id = item_config['id']
             if item_id in all_results:
                 result = all_results[item_id]
-                item_weight = weights.get(item_config['name'], 10)
-                weighted_score = result['score'] * item_weight / 10
+                item_weight = 10  # 统一10分满分
+                raw_score = result['score']  # LLM返回的原始分（0-10）
+
                 items.append(ScoreItem(
                     id=item_id,
                     category=item_config['category'],
                     name=item_config['name'],
-                    score=round(weighted_score, 1),
+                    score=round(raw_score, 1),
                     max_score=item_weight,
-                    passed=weighted_score >= item_weight * 0.8,
+                    passed=raw_score >= 8,  # 统一80%及格线 = 8分
                     detail=result.get('detail', ''),
                     suggestion=result.get('suggestion', ''),
-                    icon='✅' if weighted_score >= item_weight * 0.6 else '⚠️'
+                    icon='✅' if raw_score >= 6 else '⚠️'  # 6分以上显示✅
                 ))
 
         # 计算加权总分
