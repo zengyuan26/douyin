@@ -2501,6 +2501,9 @@ class ContentGenerator:
                 tokens_used = cls.TOKEN_ESTIMATE['keyword_only']['total']
 
             # 保存生成记录
+            content_data = result.get('article', {}) if content_type == 'long_text' else {}
+            if content_type == 'long_text' and result.get('body'):
+                content_data['body'] = result['body']
             generation = PublicGeneration(
                 user_id=user.id,
                 industry=industry,
@@ -2509,6 +2512,7 @@ class ContentGenerator:
                 titles=result['titles'],
                 tags=result['tags'],
                 content=result['content'],
+                content_data=content_data,
                 used_tokens=tokens_used,
                 # ── 星系增强：保存客户选择的场景组合 ──
                 selected_scenes=params.get('selected_scene'),
@@ -5115,16 +5119,38 @@ class ContentGenerator:
 
     @classmethod
     def _generate_long_text_content(cls, title: str, topic: Dict, keywords: Dict,
-                                    ai_content: Dict = None) -> str:
-        """生成长文内容Markdown（SEO标准结构）
+                                    ai_content: Dict = None) -> Dict:
+        """生成长文内容
 
-        Args:
-            ai_content: AI生成的长文内容，包含 titles, intro, sections, conclusion, extended_topic
+        Returns:
+            {
+                'body': str,  # Markdown 文本
+                'article': {  # 结构化数据，供详情页使用
+                    'title': str,
+                    'subtitle': str,
+                    'sections': [{'title': str, 'content': str}, ...],
+                    'summary': str,
+                    'hashtags': [str, ...],
+                    'cta': str,
+                    'reading_time': str,
+                    'word_count_estimate': str,
+                }
+            }
         """
-
-        # 获取关键词
         core_keywords = keywords.get('core', [])
         pain_keywords = keywords.get('pain_point', [])
+
+        # 构建 article 结构（供详情页使用）
+        article = {
+            'title': title or '长文标题',
+            'subtitle': '',
+            'sections': [],
+            'summary': '',
+            'hashtags': [f'#{k["keyword"]}' for k in (core_keywords[:5] if core_keywords else [])],
+            'cta': '感谢阅读，欢迎评论区交流！',
+            'reading_time': '5分钟',
+            'word_count_estimate': '3000字'
+        }
 
         lines = [
             '# 长文内容（SEO标准）',
@@ -5139,21 +5165,22 @@ class ContentGenerator:
             '',
         ]
 
-        # 如果有 AI 生成的内容，使用 AI 内容
         if ai_content:
             logger.info("[ContentGenerator] 长文ai_content keys: %s", list(ai_content.keys()))
 
             # 标题
             titles = ai_content.get('titles', [])
             if titles:
+                article['title'] = titles[0]
                 if len(titles) >= 2:
+                    article['subtitle'] = titles[1]
                     lines.extend([
                         '## 标题',
                         f'**主标题**: {titles[0]}',
                         f'**副标题**: {titles[1]}',
                         '',
                     ])
-                elif titles:
+                else:
                     lines.extend([
                         '## 标题',
                         f'{titles[0]}',
@@ -5168,6 +5195,8 @@ class ContentGenerator:
                     f'{intro}',
                     '',
                 ])
+                # 将开头作为第一个 section
+                article['sections'].insert(0, {'title': '引言', 'content': intro})
 
             # 章节内容（sections 数组）
             sections = ai_content.get('sections', [])
@@ -5182,6 +5211,10 @@ class ContentGenerator:
                         if section_content:
                             lines.append(f'{section_content}')
                             lines.append('')
+                        article['sections'].append({
+                            'title': section_title,
+                            'content': section_content
+                        })
                     elif isinstance(section, str):
                         lines.append(f'{section}')
                         lines.append('')
@@ -5209,6 +5242,7 @@ class ContentGenerator:
                     f'{conclusion}',
                     '',
                 ])
+                article['sections'].append({'title': '总结', 'content': conclusion})
 
             # 延伸话题
             extended_topic = ai_content.get('extended_topic', '') or ai_content.get('延伸话题', '')
@@ -5258,7 +5292,10 @@ class ContentGenerator:
             f'- 建议话题：{", ".join([k["keyword"] for k in core_keywords[:3]]) if core_keywords else "暂无"}',
         ])
 
-        return '\n'.join(lines)
+        return {
+            'body': '\n'.join(lines),
+            'article': article,
+        }
 
     @classmethod
     def _generate_video_script_content(cls, title: str, topic: Dict, keywords: Dict,
@@ -5498,17 +5535,19 @@ class ContentGenerator:
             if content_type == 'long_text':
                 # 长文内容 - 直接传入完整 ai_content
                 logger.info("[ContentGenerator] 开始生成长文内容")
-                content = cls._generate_long_text_content(
+                result = cls._generate_long_text_content(
                     title=data.get('titles', [''])[0] if data.get('titles') else '',
                     topic={'title': ai_content.get('topic', '')},
                     keywords=resources.get('keywords', {}),
                     ai_content=ai_content  # 传入完整 ai_content
                 )
-                logger.info("[ContentGenerator] 长文content长度: %d", len(content) if content else 0)
+                logger.info("[ContentGenerator] 长文content长度: %d", len(result.get('body', '')) if result else 0)
+                logger.info("[ContentGenerator] 长文article sections数量: %d", len(result.get('article', {}).get('sections', [])) if result else 0)
                 return {
                     'titles': data.get('titles', []),
                     'tags': data.get('tags', []),
-                    'content': content,
+                    'content': result.get('body', ''),
+                    'article': result.get('article', {}),
                     'ai_generated': True,
                 }
 

@@ -2247,6 +2247,174 @@ def api_optimize_content(generation_id):
         }), 500
 
 
+@public_bp.route('/api/content/<int:generation_id>/optimize/stream', methods=['GET'])
+def api_optimize_content_stream(generation_id):
+    """
+    递进式优化内容质量（SSE流式版本）
+
+    支持实时推送每轮优化进度到前端
+    """
+    from services.content_quality_optimizer import progressive_optimizer
+    from services.content_quality_scorer import content_scorer
+    import queue
+
+    user_id = session.get('public_user_id')
+    user = PublicUser.query.get(user_id) if user_id else None
+
+    gen = PublicGeneration.query.filter_by(id=generation_id).first()
+    if not gen:
+        return jsonify({'success': False, 'message': '记录不存在'}), 404
+
+    # 权限校验
+    if user and gen.user_id and gen.user_id != user.id:
+        return jsonify({'success': False, 'message': '无权访问'}), 403
+
+    content = gen.content_data or {}
+    content_title = content.get('title') or (content.get('article') or {}).get('title') or ''
+    if not content or not content_title:
+        return jsonify({'success': False, 'message': '内容不存在，无法优化'}), 400
+
+    brand_name = content.get('brand_name', '') or gen.industry or '品牌'
+
+    business_desc = ''
+    if gen.user_id:
+        user_obj = PublicUser.query.get(gen.user_id)
+        if user_obj and user_obj.profile:
+            business_desc = user_obj.profile.business_description or ''
+
+    initial_score = gen.quality_score or 50.0
+
+    if initial_score >= 80:
+        return jsonify({'success': False, 'message': '该内容分数已达80以上，无需继续优化'}), 400
+
+    # 创建消息队列用于 SSE
+    message_queue = queue.Queue()
+
+    def progress_callback(event_type, data):
+        """进度回调：将事件放入队列"""
+        try:
+            message = f"event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+            message_queue.put(message)
+        except Exception:
+            pass
+
+    def run_optimization():
+        """在新线程中执行优化"""
+        try:
+            # 重新评分获取失败项
+            score_result = content_scorer.score(content, brand_name)
+            failed_items = list(score_result.failed_items) if hasattr(score_result, 'failed_items') else []
+
+            logger.info(f"[递进优化-SSE] generation_id={generation_id}, 初始分={initial_score:.1f}, "
+                        f"不合格项={len(failed_items)}: {[f.name for f in failed_items]}")
+
+            # 执行递进式优化（带进度回调）
+            opt_result = progressive_optimizer.optimize(
+                content=content,
+                failed_items=failed_items,
+                initial_score=initial_score,
+                brand_name=brand_name,
+                business_desc=business_desc,
+                max_rounds=4,
+                progress_callback=progress_callback
+            )
+
+            # 更新数据库
+            new_content = opt_result.optimized_content or content
+            gen.content_data = new_content
+            new_title = new_content.get('title') or (new_content.get('article') or {}).get('title') or ''
+            gen.titles = [new_title]
+            gen.tags = new_content.get('tags', [])
+
+            # 构建最终报告
+            final_report = opt_result.final_report
+            if not final_report:
+                final_report = content_scorer.to_dict(score_result)
+
+            final_report['optimized'] = True
+            final_report['total_rounds'] = opt_result.total_rounds
+            final_report['stopped_early'] = opt_result.stopped_early
+            final_report['message'] = opt_result.message
+
+            # 轮次历史
+            round_history = [
+                {
+                    'round_num': r.round_num,
+                    'group_key': r.group_key,
+                    'group_label': r.group_label,
+                    'items_optimized': r.items_optimized,
+                    'score_before': r.score_before,
+                    'score_after': r.score_after,
+                    'stopped': r.stopped,
+                    'message': r.message,
+                }
+                for r in opt_result.round_history
+            ]
+            final_report['round_history'] = round_history
+
+            # 更新数据库
+            gen.quality_score = opt_result.final_score
+            gen.quality_report = final_report
+            db.session.commit()
+
+            # 发送最终结果
+            final_data = {
+                'success': True,
+                'content': new_content,
+                'quality_report': final_report,
+                'message': opt_result.message,
+                'total_rounds': opt_result.total_rounds,
+                'final_score': opt_result.final_score,
+                'first_score': initial_score,
+                'stopped_early': opt_result.stopped_early,
+                'round_history': round_history,
+            }
+            message_queue.put(f"event: complete\ndata: {json.dumps(final_data, ensure_ascii=False)}\n\n")
+
+            logger.info(f"[递进优化-SSE] 完成: generation_id={generation_id}, "
+                        f"总轮次={opt_result.total_rounds}, "
+                        f"分数={initial_score:.1f}→{opt_result.final_score:.1f}")
+
+        except Exception as e:
+            logger.exception(f"[递进优化-SSE Error] generation_id={generation_id}: %s", e)
+            error_data = {'success': False, 'message': f'优化失败: {str(e)}'}
+            message_queue.put(f"event: error\ndata: {json.dumps(error_data, ensure_ascii=False)}\n\n")
+        finally:
+            # 发送结束信号
+            message_queue.put(None)
+
+    # 启动优化线程
+    thread = threading.Thread(target=run_optimization)
+    thread.daemon = True
+    thread.start()
+
+    # 返回 SSE 响应
+    def generate():
+        # 发送初始连接成功消息
+        yield f"event: connected\ndata: {json.dumps({'connected': True})}\n\n"
+
+        while True:
+            try:
+                message = message_queue.get(timeout=120)
+                if message is None:
+                    break
+                yield message
+            except queue.Empty:
+                # 超时发送心跳
+                yield f": heartbeat\n\n"
+
+    response = current_app.response_class(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+        }
+    )
+    return response
+
+
 @public_bp.route('/api/content/generate-multi', methods=['POST'])
 def api_generate_multi_version():
     """

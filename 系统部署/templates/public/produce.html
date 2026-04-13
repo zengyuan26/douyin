@@ -1948,20 +1948,22 @@ function closeGenerateModal() {
 }
 
 function showGenerationResult(data) {
+    console.log('showGenerationResult 被调用, data =', data);
     // 创建结果弹窗
     let resultModal = document.getElementById('result-modal');
     if (!resultModal) {
         resultModal = document.createElement('div');
         resultModal.id = 'result-modal';
-        resultModal.className = 'modal-overlay';
+        resultModal.className = 'simple-modal-overlay';
+        resultModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity 0.3s,visibility 0.3s;';
         resultModal.innerHTML = `
-            <div class="modal-content" style="max-width:700px;max-height:90vh;overflow:auto;">
-                <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid #eee;">
+            <div style="background:#fff;border-radius:16px;max-width:700px;max-height:90vh;overflow:auto;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid #eee;">
                     <h3 id="result-modal-title" style="margin:0;font-size:18px;">生成完成</h3>
-                    <button class="btn-close" onclick="closeResultModal()">&times;</button>
+                    <button class="simple-modal-close" onclick="closeResultModal()" style="background:none;border:none;font-size:24px;cursor:pointer;">×</button>
                 </div>
-                <div class="modal-body" id="result-modal-body" style="padding:20px;"></div>
-                <div class="modal-footer" id="result-modal-footer" style="padding:15px 20px;border-top:1px solid #eee;text-align:right;"></div>
+                <div id="result-modal-body" style="padding:20px;"></div>
+                <div id="result-modal-footer" style="padding:15px 20px;border-top:1px solid #eee;text-align:right;"></div>
             </div>
         `;
         document.body.appendChild(resultModal);
@@ -2038,7 +2040,9 @@ function showGenerationResult(data) {
     `;
     footer.innerHTML = footerHtml;
 
+    console.log('showGenerationResult: 即将添加 active class, resultModal =', resultModal);
     resultModal.classList.add('active');
+    console.log('showGenerationResult: active class 已添加');
 }
 
 function closeResultModal() {
@@ -2131,6 +2135,7 @@ async function confirmGenerate() {
 
         // 携带内容类型
         payload.content_type = _selectedContentType || 'graphic';
+        console.log('confirmGenerate: content_type =', payload.content_type);
 
         // ── 自动取选题的第一个场景组合传给后端（GEO匹配用）──
         const sceneOptions = topic.scene_options || [];
@@ -2147,6 +2152,9 @@ async function confirmGenerate() {
             body: JSON.stringify(payload)
         });
 
+        console.log('confirmGenerate: HTTP状态码', resp.status);
+        console.log('confirmGenerate: resp.ok', resp.ok);
+
         if (!resp.ok) {
             const text = await resp.text();
             console.error('confirmGenerate: HTTP错误', resp.status, text);
@@ -2158,13 +2166,24 @@ async function confirmGenerate() {
 
         const data = await resp.json();
         console.log('confirmGenerate: 收到响应', data);
+        console.log('confirmGenerate: data.success =', data.success);
 
         if (data.success) {
+            console.log('confirmGenerate: 进入成功分支');
             // 关闭弹窗
             closeGenerateModal();
 
-            // 显示生成结果（不跳转页面）
-            showGenerationResult(data);
+            // 重置按钮状态
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-rocket-takeoff"></i> 开始生成';
+
+            // 更新选题的 generation_count
+            if (data.generation_id) {
+                incrementTopicCount(topic.id);
+            }
+
+            // 跳转到内容列表页面
+            window.location.href = '/public/content-versions?portraitId=' + _portraitId + '&topicId=' + topic.id;
         } else {
             showToast(data.message || '生成失败', 'error');
             btn.disabled = false;

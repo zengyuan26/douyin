@@ -1066,6 +1066,207 @@
         margin-left: auto;
     }
 
+    /* ── 实时优化进度面板 ── */
+    .quality-progress-panel {
+        margin-top: 12px;
+        padding: 14px 16px;
+        background: linear-gradient(135deg, rgba(102,126,234,0.08) 0%, rgba(118,75,162,0.08) 100%);
+        border: 1px solid rgba(102,126,234,0.25);
+        border-radius: 10px;
+    }
+
+    .quality-progress-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+
+    .quality-progress-title {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #4f46e5;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .quality-progress-title .spinner-icon {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    .quality-progress-score {
+        font-size: 0.75rem;
+        color: #059669;
+        font-weight: 600;
+        background: rgba(5,150,105,0.1);
+        padding: 2px 8px;
+        border-radius: 10px;
+    }
+
+    .quality-progress-steps {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+
+    .quality-step {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .quality-step-dot {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        transition: all 0.3s;
+        border: 2px solid #e5e7eb;
+        background: #fff;
+        color: #9ca3af;
+    }
+
+    .quality-step-dot.active {
+        border-color: #667eea;
+        background: #667eea;
+        color: #fff;
+        box-shadow: 0 0 0 3px rgba(102,126,234,0.2);
+    }
+
+    .quality-step-dot.done {
+        border-color: #059669;
+        background: #059669;
+        color: #fff;
+    }
+
+    .quality-step-dot.skip {
+        border-color: #e5e7eb;
+        background: #f3f4f6;
+        color: #9ca3af;
+    }
+
+    .quality-step-label {
+        font-size: 0.625rem;
+        color: #9ca3af;
+        text-align: center;
+        line-height: 1.2;
+    }
+
+    .quality-step-label.active {
+        color: #4f46e5;
+        font-weight: 500;
+    }
+
+    .quality-step-label.done {
+        color: #059669;
+    }
+
+    .quality-progress-bar {
+        height: 4px;
+        background: #e5e7eb;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+
+    .quality-progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        border-radius: 2px;
+        transition: width 0.5s ease;
+    }
+
+    .quality-progress-current {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: rgba(255,255,255,0.7);
+        border-radius: 6px;
+        font-size: 0.75rem;
+    }
+
+    .quality-progress-current-label {
+        font-weight: 600;
+        color: #4f46e5;
+        min-width: 80px;
+    }
+
+    .quality-progress-current-items {
+        flex: 1;
+        color: #6b7280;
+    }
+
+    .quality-progress-complete {
+        margin-top: 10px;
+        padding: 10px 12px;
+        background: rgba(5,150,105,0.08);
+        border: 1px solid rgba(5,150,105,0.2);
+        border-radius: 8px;
+        font-size: 0.75rem;
+    }
+
+    .quality-progress-complete-title {
+        font-weight: 600;
+        color: #059669;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .quality-progress-complete-summary {
+        color: #374151;
+    }
+
+    .quality-progress-complete-summary strong {
+        color: #059669;
+    }
+
+    .quality-progress-results {
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .quality-progress-result-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.6875rem;
+        color: #6b7280;
+    }
+
+    .quality-progress-result-item .tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.625rem;
+        font-weight: 500;
+    }
+
+    .quality-progress-result-item .tag-a { background: rgba(102,126,234,0.15); color: #4f46e5; }
+    .quality-progress-result-item .tag-b { background: rgba(16,185,129,0.15); color: #059669; }
+    .quality-progress-result-item .tag-c { background: rgba(245,158,11,0.15); color: #d97706; }
+    .quality-progress-result-item .tag-d { background: rgba(236,72,153,0.15); color: #db2777; }
+
+    .quality-progress-result-item .score-change {
+        color: #059669;
+        font-weight: 600;
+    }
+
     /* 建议列表 */
     .quality-suggestions {
         margin-top: 12px;
@@ -3088,41 +3289,120 @@ function renderQualityReport(report) {
 }
 
 var _optimizeLoading = false;
+var _optimizeEventSource = null;
 var _currentRoundIdx = 0;
 var _totalRounds = 0;
-var _roundLabels = { A: '组A · 战略层', B: '组B · 结构层', C: '组C · 信任层', D: '组D · 体验转化' };
+var _firstScore = 0;
+var _currentScore = 0;
+var _roundHistory = [];
+var _isOptimizing = false;
+var _roundLabels = { A: '标题+开篇', B: '结构+模块', C: '信任+品牌', D: 'CTA+潜力' };
 
 function doDetailOptimize() {
-    if (_optimizeLoading) return;
+    if (_optimizeLoading || _isOptimizing) return;
     _optimizeLoading = true;
+    _isOptimizing = true;
     _currentRoundIdx = 0;
     _totalRounds = 0;
+    _firstScore = 0;
+    _currentScore = 0;
+    _roundHistory = [];
 
     var btn = document.getElementById('btn-detail-optimize');
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="apple-spinner"></span> 正在分析...';
+        btn.innerHTML = '<span class="apple-spinner"></span> 正在优化...';
     }
 
-    fetch('/public/api/content/' + _generationId + '/optimize', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
-    })
-    .then(function(resp) { return resp.json(); })
-    .then(function(data) {
+    // 显示实时进度面板
+    showOptimizeProgressPanel(true);
+
+    // 使用 SSE 流式接口
+    var es = new EventSource('/public/api/content/' + _generationId + '/optimize/stream');
+    _optimizeEventSource = es;
+
+    es.addEventListener('connected', function(e) {
+        console.log('[SSE] 连接成功');
+    });
+
+    es.addEventListener('start', function(e) {
+        var data = JSON.parse(e.data);
+        _firstScore = data.initial_score;
+        _currentScore = data.initial_score;
+        updateOptimizeProgressPanel({
+            status: 'started',
+            firstScore: _firstScore,
+            currentScore: _currentScore,
+            roundIdx: 0,
+            totalRounds: 4
+        });
+    });
+
+    es.addEventListener('round_start', function(e) {
+        var data = JSON.parse(e.data);
+        _currentRoundIdx = data.round_num;
+        _totalRounds = data.total_groups;
+        updateOptimizeProgressPanel({
+            status: 'round_start',
+            roundNum: data.round_num,
+            groupKey: data.group_key,
+            groupLabel: data.group_label,
+            items: data.items,
+            scoreBefore: data.score_before,
+            roundIdx: data.round_num - 1,
+            totalRounds: data.total_groups
+        });
+
+        // 更新按钮文字
+        if (btn) {
+            btn.innerHTML = '<span class="apple-spinner"></span> 优化中 ' + data.round_num + '/' + data.total_groups + '...';
+        }
+    });
+
+    es.addEventListener('round_complete', function(e) {
+        var data = JSON.parse(e.data);
+        _currentScore = data.score_after;
+        _roundHistory.push({
+            round_num: data.round_num,
+            group_key: data.group_key,
+            group_label: data.group_label,
+            items_optimized: data.items_fixed,
+            score_before: data.score_before,
+            score_after: data.score_after,
+            stopped: data.score_after >= 80
+        });
+
+        updateOptimizeProgressPanel({
+            status: 'round_complete',
+            roundNum: data.round_num,
+            groupKey: data.group_key,
+            groupLabel: data.group_label,
+            itemsFixed: data.items_fixed,
+            scoreBefore: data.score_before,
+            scoreAfter: data.score_after,
+            scoreDelta: data.score_delta,
+            roundIdx: data.round_num,
+            totalRounds: data.total_groups,
+            reached80: data.score_after >= 80
+        });
+    });
+
+    es.addEventListener('complete', function(e) {
+        var data = JSON.parse(e.data);
+        es.close();
+        _optimizeEventSource = null;
         _optimizeLoading = false;
+        _isOptimizing = false;
+
         if (btn) {
             btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-magic"></i> 一键优化';
         }
 
         if (data.success) {
-            _totalRounds = data.total_rounds || 0;
-            _currentRoundIdx = _totalRounds;
-
             var scoreDelta = data.final_score - data.first_score;
             var deltaStr = scoreDelta >= 0 ? '+' + scoreDelta.toFixed(1) : scoreDelta.toFixed(1);
-            var msg = '优化完成！' + _totalRounds + '轮 · ' + data.first_score.toFixed(1) + ' → ' + data.final_score.toFixed(1) + ' (' + deltaStr + ')';
+            var msg = '优化完成！' + data.total_rounds + '轮 · ' + data.first_score.toFixed(1) + ' → ' + data.final_score.toFixed(1) + ' (' + deltaStr + ')';
 
             if (data.stopped_early) {
                 showToast(msg + ' ✓ 达标', 'success');
@@ -3130,7 +3410,17 @@ function doDetailOptimize() {
                 showToast(msg, 'success');
             }
 
-            // 直接用优化接口返回的数据更新页面
+            // 更新进度面板为完成状态
+            updateOptimizeProgressPanel({
+                status: 'complete',
+                finalScore: data.final_score,
+                firstScore: data.first_score,
+                totalRounds: data.total_rounds,
+                stoppedEarly: data.stopped_early,
+                roundHistory: data.round_history || _roundHistory
+            });
+
+            // 用优化后的数据刷新页面
             if (data.quality_report) {
                 renderQualityReport(data.quality_report);
             }
@@ -3139,20 +3429,196 @@ function doDetailOptimize() {
             }
         } else {
             showToast(data.message || '优化失败', 'error');
-            if (btn) {
-                btn.innerHTML = '<i class="bi bi-magic"></i> 一键优化';
-            }
+            hideOptimizeProgressPanel();
         }
-    })
-    .catch(function(e) {
-        console.error('优化失败:', e);
+    });
+
+    es.addEventListener('error', function(e) {
+        var data = JSON.parse(e.data || '{}');
+        es.close();
+        _optimizeEventSource = null;
         _optimizeLoading = false;
-        showToast('优化失败，请重试', 'error');
+        _isOptimizing = false;
+
+        showToast(data.message || '优化失败', 'error');
+
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-magic"></i> 一键优化';
         }
+
+        hideOptimizeProgressPanel();
     });
+
+    es.onerror = function(e) {
+        console.error('[SSE] 连接错误', e);
+        // 某些浏览器会在超时后自动关闭连接，这不是错误
+        if (e.target && e.target.readyState === EventSource.CLOSED) {
+            console.log('[SSE] 连接已关闭');
+        }
+    };
+}
+
+// 显示优化进度面板
+function showOptimizeProgressPanel(isNew) {
+    var container = document.getElementById('quality-report-container');
+    if (!container) return;
+
+    // 查找现有面板或创建新面板
+    var panel = document.getElementById('quality-optimize-progress');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'quality-optimize-progress';
+        panel.className = 'quality-progress-panel';
+        panel.style.display = 'none';
+        // 插入到 quality-report-section 内部末尾
+        var section = container.querySelector('.quality-report-section');
+        if (section) {
+            section.appendChild(panel);
+        } else {
+            container.appendChild(panel);
+        }
+    }
+
+    if (isNew) {
+        _roundHistory = [];
+        _currentRoundIdx = 0;
+    }
+
+    panel.style.display = 'block';
+}
+
+// 更新优化进度面板
+function updateOptimizeProgressPanel(data) {
+    var panel = document.getElementById('quality-optimize-progress');
+    if (!panel) return;
+
+    var html = '';
+    var totalRounds = data.totalRounds || 4;
+
+    if (data.status === 'started') {
+        html = buildProgressHeader(data.firstScore, 0, '正在开始优化...') +
+            '<div class="quality-progress-bar"><div class="quality-progress-bar-fill" style="width:0%"></div></div>' +
+            '<div class="quality-progress-current"><span class="quality-progress-current-label">⏳ 准备中</span><span class="quality-progress-current-items">正在分析内容...</span></div>';
+    }
+    else if (data.status === 'round_start') {
+        var progress = ((data.roundIdx) / totalRounds * 100).toFixed(0);
+        html = buildProgressHeader(data.scoreBefore || _currentScore, progress, '第' + data.roundNum + '轮进行中') +
+            buildStepsHtml(data.roundIdx, totalRounds, data.groupKey) +
+            '<div class="quality-progress-bar"><div class="quality-progress-bar-fill" style="width:' + progress + '%"></div></div>' +
+            '<div class="quality-progress-current">' +
+            '<span class="quality-progress-current-label">' + data.groupLabel + '</span>' +
+            '<span class="quality-progress-current-items">正在优化：' + (data.items || []).join('、') + '</span>' +
+            '</div>';
+    }
+    else if (data.status === 'round_complete') {
+        var progress = ((data.roundIdx) / totalRounds * 100).toFixed(0);
+        var deltaStr = data.scoreDelta >= 0 ? '+' + data.scoreDelta.toFixed(1) : data.scoreDelta.toFixed(1);
+        var isDone = data.reached80 || data.roundIdx >= totalRounds;
+
+        html = buildProgressHeader(data.scoreAfter, progress, isDone ? '优化完成' : '第' + data.roundNum + '轮完成') +
+            buildStepsHtml(data.roundIdx, totalRounds, data.groupKey, data.roundNum) +
+            '<div class="quality-progress-bar"><div class="quality-progress-bar-fill" style="width:' + progress + '%"></div></div>' +
+            '<div class="quality-progress-current">' +
+            '<span class="quality-progress-current-label">✓ ' + data.groupLabel + '</span>' +
+            '<span class="quality-progress-current-items">' + (data.itemsFixed || []).join('、') + '</span>' +
+            '<span class="quality-progress-score">' + (data.scoreBefore || _currentScore).toFixed(1) + ' → ' + data.scoreAfter.toFixed(1) + ' (' + deltaStr + ')</span>' +
+            '</div>';
+    }
+    else if (data.status === 'complete') {
+        var finalDelta = data.finalScore - data.firstScore;
+        var deltaStr = finalDelta >= 0 ? '+' + finalDelta.toFixed(1) : finalDelta.toFixed(1);
+        var badge = data.stoppedEarly ? '<span style="background:rgba(16,185,129,0.15);color:#059669;padding:2px 8px;border-radius:10px;font-size:0.6875rem;font-weight:500;">✓ 达标</span>' : '<span style="background:rgba(102,126,234,0.15);color:#4f46e5;padding:2px 8px;border-radius:10px;font-size:0.6875rem;font-weight:500;">已优化</span>';
+
+        html = '<div class="quality-progress-complete">' +
+            '<div class="quality-progress-complete-title">✅ 优化完成 ' + badge + '</div>' +
+            '<div class="quality-progress-complete-summary">' +
+            '<strong>' + data.totalRounds + '轮优化</strong> · ' + data.firstScore.toFixed(1) + ' → <strong>' + data.finalScore.toFixed(1) + '</strong> (' + deltaStr + ')' +
+            '</div>' +
+            buildResultsHtml(data.roundHistory || _roundHistory) +
+            '</div>';
+    }
+
+    panel.innerHTML = html;
+}
+
+// 构建进度头部
+function buildProgressHeader(score, progress, status) {
+    return '<div class="quality-progress-header">' +
+        '<div class="quality-progress-title">' +
+        '<i class="bi bi-lightning-charge-fill spinner-icon"></i> 递进优化中' +
+        '</div>' +
+        '<span class="quality-progress-score">' + (score || 0).toFixed(1) + '分</span>' +
+        '</div>';
+}
+
+// 构建步骤指示器
+function buildStepsHtml(currentIdx, total, currentGroupKey, completedRoundNum) {
+    var groups = [
+        { key: 'A', label: '战略层\n标题+开篇' },
+        { key: 'B', label: '结构层\n结构+模块' },
+        { key: 'C', label: '信任层\n品牌+关键词' },
+        { key: 'D', label: '转化层\nCTA+潜力' }
+    ];
+
+    var html = '<div class="quality-progress-steps">';
+    for (var i = 0; i < groups.length; i++) {
+        var g = groups[i];
+        var idx = i;
+        var dotClass = 'quality-step-dot';
+        var labelClass = 'quality-step-label';
+
+        if (idx < currentIdx) {
+            dotClass += ' done';
+            labelClass += ' done';
+        } else if (idx === currentIdx) {
+            dotClass += ' active';
+            labelClass += ' active';
+        } else {
+            dotClass += ' skip';
+            labelClass += ' skip';
+        }
+
+        var checkMark = idx < currentIdx ? '✓' : (idx + 1);
+        var labelLines = g.label.split('\n');
+
+        html += '<div class="quality-step">' +
+            '<div class="' + dotClass + '">' + checkMark + '</div>' +
+            '<div class="' + labelClass + '">' + g.label.replace('\n', '<br>') + '</div>' +
+            '</div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+// 构建结果列表
+function buildResultsHtml(roundHistory) {
+    if (!roundHistory || roundHistory.length === 0) return '';
+
+    var html = '<div class="quality-progress-results">';
+    for (var i = 0; i < roundHistory.length; i++) {
+        var r = roundHistory[i];
+        var delta = r.score_after - r.score_before;
+        var deltaStr = delta >= 0 ? '+' + delta.toFixed(1) : delta.toFixed(1);
+        var tagClass = 'tag-' + r.group_key.toLowerCase();
+        var itemsStr = (r.items_optimized || []).join('、') || '无修改';
+
+        html += '<div class="quality-progress-result-item">' +
+            '<span class="tag ' + tagClass + '">' + r.group_key + '组</span>' +
+            '<span>' + itemsStr + '</span>' +
+            '<span class="score-change">' + r.score_before.toFixed(1) + ' → ' + r.score_after.toFixed(1) + ' (' + deltaStr + ')</span>' +
+            '</div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+// 隐藏优化进度面板
+function hideOptimizeProgressPanel() {
+    var panel = document.getElementById('quality-optimize-progress');
+    if (panel) {
+        panel.style.display = 'none';
+    }
 }
 
 function refreshAllContent(newContent) {

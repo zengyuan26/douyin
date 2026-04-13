@@ -156,7 +156,8 @@ class ProgressiveContentOptimizer:
         initial_score: float,
         brand_name: str = '',
         business_desc: str = '',
-        max_rounds: int = 4
+        max_rounds: int = 4,
+        progress_callback=None
     ) -> ProgressiveOptimizationResult:
         """
         递进式优化入口
@@ -168,7 +169,16 @@ class ProgressiveContentOptimizer:
             brand_name: 品牌名
             business_desc: 业务描述
             max_rounds: 最大轮数（默认4轮，每组一轮）
+            progress_callback: 进度回调函数，接收 (event_type, data) 参数
+                             event_type: 'start' | 'round_start' | 'round_complete' | 'complete'
         """
+        def _send_progress(event_type, data):
+            if progress_callback:
+                try:
+                    progress_callback(event_type, data)
+                except Exception as e:
+                    logger.warning(f"[递进优化] 进度回调失败: {e}")
+
         if initial_score >= self.PASS_THRESHOLD:
             return ProgressiveOptimizationResult(
                 success=True,
@@ -194,6 +204,12 @@ class ProgressiveContentOptimizer:
                 message='无不合格项，无需优化',
                 stopped_early=True
             )
+
+        # 发送开始事件
+        _send_progress('start', {
+            'initial_score': initial_score,
+            'failed_items_count': len(failed_items)
+        })
 
         # 按组分类不合格项
         failed_by_group = get_failed_items_by_group(failed_items)
@@ -243,6 +259,16 @@ class ProgressiveContentOptimizer:
             logger.info(f"[递进优化] === 轮次{round_num}：{group_key}组 {group_def['name']} ===")
             logger.info(f"[递进优化] 本轮优化项: {[f.name for f in group_items]}")
 
+            # 发送轮次开始事件
+            _send_progress('round_start', {
+                'round_num': round_num,
+                'group_key': group_key,
+                'group_label': group_def['label'],
+                'items': [f.name for f in group_items],
+                'score_before': current_score,
+                'total_groups': len(active_groups)
+            })
+
             # 执行本轮优化
             round_result = self._optimize_single_group(
                 content=current_content,
@@ -258,6 +284,18 @@ class ProgressiveContentOptimizer:
             round_history.append(round_result)
             current_content = round_result.content_snapshot
             current_score = round_result.score_after
+
+            # 发送轮次完成事件
+            _send_progress('round_complete', {
+                'round_num': round_num,
+                'group_key': group_key,
+                'group_label': group_def['label'],
+                'items_fixed': round_result.items_optimized,
+                'score_before': round_result.score_before,
+                'score_after': round_result.score_after,
+                'score_delta': round_result.score_after - round_result.score_before,
+                'total_groups': len(active_groups)
+            })
 
             logger.info(f"[递进优化] 轮次{round_num}完成: {round_result.score_before} → {round_result.score_after}")
 
@@ -290,6 +328,15 @@ class ProgressiveContentOptimizer:
             }
             for r in round_history
         ]
+
+        # 发送完成事件
+        _send_progress('complete', {
+            'success': True,
+            'final_score': final_score,
+            'total_rounds': len(round_history),
+            'stopped_early': stopped_early,
+            'message': f'递进优化完成，共{len(round_history)}轮，最终分数{final_score}'
+        })
 
         return ProgressiveOptimizationResult(
             success=True,

@@ -17,6 +17,8 @@ import re
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from services.llm import get_llm_service
+import logging
+logger = logging.getLogger(__name__)
 
 
 class LongTextGenerator:
@@ -433,9 +435,11 @@ class LongTextGenerator:
                 {"role": "user", "content": prompt}
             ]
             response = self.llm.chat(messages)
+            logger.info(f"[LongTextGenerator] LLM 原始响应 (前500字符): {response[:500] if response else 'None'}")
 
             # 解析结果
             article = self._parse_article_response(response)
+            logger.info(f"[LongTextGenerator] 解析后 article: title={article.get('title')}, sections数量={len(article.get('sections', []))}")
 
             # 合并模板信息
             article['template'] = template
@@ -501,9 +505,11 @@ class LongTextGenerator:
             article = result.get('article', {})
             # 将文章转换为 Markdown 格式
             markdown_content = self._render_article_to_markdown(article)
+            # 合并 article 和 markdown：score() 需要 body 字段
+            article['body'] = markdown_content
             return {
                 'success': True,
-                'content': markdown_content,
+                'content': {'body': markdown_content, 'article': article},
                 'tokens_used': result.get('tokens_used', 0),
             }
         else:
@@ -775,17 +781,167 @@ class LongTextGenerator:
     def _parse_article_response(self, response: str) -> dict:
         """解析LLM返回的文章结果"""
         try:
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if not response:
+                logger.warning("[LongTextGenerator] LLM 返回空内容")
+                return self._get_default_article()
+
+            # 去除 markdown 代码块标记
+            cleaned = response.strip()
+            if cleaned.startswith('```'):
+                lines = cleaned.split('\n')
+                if lines and lines[0].strip().startswith('```'):
+                    lines = lines[1:]
+                if lines and lines[-1].strip() == '```':
+                    lines = lines[:-1]
+                cleaned = '\n'.join(lines)
+
+            logger.info(f"[LongTextGenerator] 清理后的内容 (前300字符): {cleaned[:300]}")
+
+            # 尝试从清理后的内容中提取 JSON
+            json_match = re.search(r'\{[\s\S]*\}', cleaned)
             if json_match:
                 json_str = json_match.group(0)
-                article = json.loads(json_str)
-                if isinstance(article, dict):
-                    return self._validate_article(article)
+                logger.info(f"[LongTextGenerator] 提取的JSON (前500字符): {json_str[:500]}")
 
+                try:
+                    article = json.loads(json_str)
+                except json.JSONDecodeError as e:
+                    logger.warning(f"[LongTextGenerator] 首次解析失败，尝试修复: {e}")
+                    fixed = self._try_fix_json(json_str)
+                    if fixed:
+                        article = json.loads(fixed)
+                    else:
+                        raise e
+
+                if isinstance(article, dict):
+                    validated = self._validate_article(article)
+                    logger.info(f"[LongTextGenerator] 验证后 article: title={validated.get('title')}, sections数量={len(validated.get('sections', []))}")
+                    return validated
+
+            logger.warning("[LongTextGenerator] 无法解析JSON，返回默认文章")
             return self._get_default_article()
+
+        except json.JSONDecodeError as e:
+            logger.error(f"[LongTextGenerator] JSON 解析失败: {e}")
+            return self._get_default_article()
+        except Exception as e:
+            logger.error(f"[LongTextGenerator] 解析异常: {e}")
+            return self._get_default_article()
+
+    def _try_fix_json(self, json_str: str) -> Optional[str]:
+        """尝试修复有问题的 JSON 字符串"""
+        try:
+            # 提取 title
+            title_match = re.search(r'"title"\s*:\s*"([^"]*)"', json_str)
+            title = title_match.group(1) if title_match else "文章标题"
+
+            # 提取 subtitle
+            subtitle_match = re.search(r'"subtitle"\s*:\s*"([^"]*)"', json_str)
+            subtitle = subtitle_match.group(1) if subtitle_match else ""
+
+            # 找到 sections 数组
+            sections_marker = json_str.find('"sections": [')
+            if sections_marker == -1:
+                return None
+
+            array_start = json_str.find('[', sections_marker)
+            if array_start == -1:
+                return None
+
+            # 找所有 section 对象 { ... }
+            sections = []
+            search_pos = array_start + 1
+
+            while True:
+                obj_start = json_str.find('{', search_pos)
+                if obj_start == -1:
+                    break
+
+                brace_count = 0
+                in_string = False
+                escaped = False
+                obj_end = obj_start
+                found_end = False
+                while obj_end < len(json_str):
+                    c = json_str[obj_end]
+                    if escaped:
+                        escaped = False
+                    elif c == '\\':
+                        escaped = True
+                    elif c == '"' and not escaped:
+                        in_string = not in_string
+                    elif not in_string and not escaped:
+                        if c == '{':
+                            brace_count += 1
+                        elif c == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                found_end = True
+                                break
+                    obj_end += 1
+
+                if not found_end:
+                    break
+
+                obj_str = json_str[obj_start:obj_end+1]
+
+                # 提取 title
+                sec_title_match = re.search(r'"title"\s*:\s*"([^"]*)"', obj_str)
+                if not sec_title_match:
+                    search_pos = obj_end + 1
+                    continue
+                sec_title = sec_title_match.group(1)
+
+                # 提取 content
+                content_marker = obj_str.find('"content": "')
+                if content_marker == -1:
+                    search_pos = obj_end + 1
+                    continue
+
+                content_start = content_marker + len('"content": "')
+                j = content_start
+                escaped = False
+                content_end = -1
+                while j < len(obj_str):
+                    c = obj_str[j]
+                    if escaped:
+                        escaped = False
+                    elif c == '\\':
+                        escaped = True
+                    elif c == '"' and not escaped:
+                        next_j = j + 1
+                        while next_j < len(obj_str) and obj_str[next_j] in ' \t\n\r':
+                            next_j += 1
+                        if next_j < len(obj_str) and obj_str[next_j] in ',}':
+                            content_end = j
+                            break
+                        escaped = True
+                    j += 1
+
+                if content_end > content_start:
+                    content = obj_str[content_start:content_end]
+                    escaped_content = json.dumps(content, ensure_ascii=False)[1:-1]
+                    sections.append(f'{{"title": "{sec_title}", "content": "{escaped_content}"}}')
+
+                search_pos = obj_end + 1
+
+            if not sections:
+                return None
+
+            # 重新构建 JSON
+            import json as json_module
+            new_obj = {
+                "title": title,
+                "subtitle": subtitle,
+                "sections": [json_module.loads(s) for s in sections]
+            }
+            fixed = json_module.dumps(new_obj, ensure_ascii=False)
+            logger.info(f"[LongTextGenerator] JSON 修复成功，提取 {len(sections)} 个 sections")
+            return fixed
 
         except Exception as e:
-            return self._get_default_article()
+            logger.warning(f"[LongTextGenerator] JSON 修复失败: {e}")
+            return None
 
     def _validate_article(self, article: dict) -> dict:
         """验证并补充文章字段"""
