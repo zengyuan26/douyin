@@ -3152,21 +3152,29 @@ document.getElementById('back-btn').addEventListener('click', function() {
 
 function renderQualityReport(report) {
     var container = document.getElementById('quality-report-container');
-    if (!container || !report) return;
+    if (!container || !report) {
+        console.log('[renderQualityReport] 容器或报告为空，container:', !!container, 'report:', !!report);
+        return;
+    }
+
+    console.log('[renderQualityReport] 开始渲染，report.final_score:', report.final_score, 'report.total_score:', report.total_score);
 
     container.style.display = '';  // 确保容器可见
 
+    // 关键：优先使用 final_score，其次 total_score
     var score = report.final_score || report.total_score || 0;
     var grade = report.grade || 'D';
     var gradeLabel = report.grade_label || '';
-    var passed = report.passed;
-    var optimized = report.optimized;
+    var passed = report.passed !== undefined ? report.passed : (score >= 80);
+    var optimized = report.optimized !== undefined ? report.optimized : false;
     var needOptimize = report.need_optimize;
     var firstScore = report.first_score || score;
     var optimizedItems = report.optimized_items || [];
     var items = report.items || [];
     var summary = report.summary || '';
     var suggestions = report.suggestions || [];
+
+    console.log('[renderQualityReport] 使用分数:', score, 'grade:', grade, 'passed:', passed, 'optimized:', optimized);
 
     // 评分圆圈样式
     var scoreClass = 'excellent';
@@ -3408,8 +3416,16 @@ function doDetailOptimize(e) {
         var data = JSON.parse(e.data);
         console.log('[SSE] complete data:', data);
         console.log('[SSE] data.success:', data.success);
+        console.log('[SSE] data.final_score:', data.final_score);
+        console.log('[SSE] data.first_score:', data.first_score);
         console.log('[SSE] data.quality_report:', !!data.quality_report);
+        console.log('[SSE] data.quality_report.total_score:', data.quality_report ? (data.quality_report.total_score || data.quality_report.final_score) : 'N/A');
         console.log('[SSE] data.content:', !!data.content);
+        if (data.content) {
+            console.log('[SSE] data.content.title:', data.content.title || (data.content.article || {}).title);
+            console.log('[SSE] data.content.body长度:', (data.content.body || '').length);
+        }
+
         es.close();
         _optimizeEventSource = null;
         _optimizeLoading = false;
@@ -3441,41 +3457,55 @@ function doDetailOptimize(e) {
                 roundHistory: data.round_history || _roundHistory
             });
 
-            // 用优化后的数据刷新页面
-            console.log('[SSE] 检查是否需要刷新...');
-            console.log('[SSE] data.quality_report:', !!data.quality_report);
-            console.log('[SSE] data.content:', !!data.content);
-            console.log('[SSE] data.new_content:', !!data.new_content);
-            console.log('[SSE] data.content 内容:', data.content ? '存在' : '空');
+            // ========== 强制刷新质量报告 ==========
+            var report = data.quality_report;
+            if (report) {
+                // 确保 report 有必要的字段
+                if (!report.final_score) report.final_score = data.final_score;
+                if (!report.total_score) report.total_score = data.final_score;
+                if (!report.first_score) report.first_score = data.first_score;
+                if (!report.grade) report.grade = data.final_score >= 80 ? 'B' : (data.final_score >= 60 ? 'C' : 'D');
+                if (!report.grade_label) report.grade_label = data.final_score >= 80 ? '良好' : (data.final_score >= 60 ? '及格' : '待优化');
+                if (report.passed === undefined) report.passed = data.final_score >= 80;
+                if (report.optimized === undefined) report.optimized = true;
 
-            // 更新质量报告（优先使用 quality_report）
-            console.log('[SSE] 准备更新质量报告...');
-            if (data.quality_report) {
-                console.log('[SSE] 调用 renderQualityReport');
-                renderQualityReport(data.quality_report);
+                console.log('[SSE] 强制调用 renderQualityReport，final_score:', report.final_score);
+                renderQualityReport(report);
                 _currentScore = data.final_score;
-                console.log('[SSE] _currentScore 已更新为:', _currentScore);
             } else {
-                console.log('[SSE] quality_report 不存在，无法更新');
+                console.log('[SSE] quality_report 不存在，创建默认报告');
+                // 创建默认报告
+                var defaultReport = {
+                    final_score: data.final_score,
+                    total_score: data.final_score,
+                    first_score: data.first_score,
+                    grade: data.final_score >= 80 ? 'B' : (data.final_score >= 60 ? 'C' : 'D'),
+                    grade_label: data.final_score >= 80 ? '良好' : (data.final_score >= 60 ? '及格' : '待优化'),
+                    passed: data.final_score >= 80,
+                    optimized: true,
+                    round_history: data.round_history || _roundHistory,
+                    items: []
+                };
+                renderQualityReport(defaultReport);
+                _currentScore = data.final_score;
             }
 
-            // 更新内容（兼容新旧字段名）
+            // ========== 强制刷新内容 ==========
             var newContent = data.content || data.new_content;
-            console.log('[SSE] newContent 提取结果:', newContent ? '存在' : '空');
             if (newContent) {
-                console.log('[SSE] 调用 refreshAllContent');
+                console.log('[SSE] 调用 refreshAllContent 刷新内容');
                 refreshAllContent(newContent);
             } else {
-                console.log('[SSE] content 为空，跳过刷新');
+                console.log('[SSE] content 为空，尝试从 quality_report 获取');
             }
 
-            // 确保全局数据更新
+            // ========== 确保全局数据更新 ==========
             if (_generationData) {
                 _generationData.content_data = newContent || _generationData.content_data;
                 _currentScore = data.final_score;
             }
 
-            console.log('[SSE] complete 处理完成');
+            console.log('[SSE] complete 处理完成，最终分数:', _currentScore);
         } else {
             showToast(data.message || '优化失败', 'error');
             hideOptimizeProgressPanel();
