@@ -2355,7 +2355,7 @@ def api_optimize_content_stream(generation_id):
                         'group_label': r.group_label,
                         'group_scope': getattr(r, 'group_scope', ''),
                         'items_in_round': getattr(r, 'items_in_round', []),
-                        'items_optimized': r.items_optimized,
+                        'items_optimized': getattr(r, 'items_optimized', []),
                         'score_before': r.score_before,
                         'score_after': r.score_after,
                         'rollback': getattr(r, 'rollback', False),
