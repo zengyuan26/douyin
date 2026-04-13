@@ -2326,7 +2326,7 @@ def api_optimize_content_stream(generation_id):
                     initial_score=initial_score,
                     brand_name=brand_name,
                     business_desc=business_desc,
-                    max_rounds=4,
+                    max_rounds=3,
                     progress_callback=progress_callback
                 )
 
@@ -2347,21 +2347,25 @@ def api_optimize_content_stream(generation_id):
                 final_report['stopped_early'] = opt_result.stopped_early
                 final_report['message'] = opt_result.message
 
-                # 轮次历史
+                # 轮次历史（包含新字段：group_scope、rollback等）
                 round_history = [
                     {
                         'round_num': r.round_num,
                         'group_key': r.group_key,
                         'group_label': r.group_label,
+                        'group_scope': getattr(r, 'group_scope', ''),
+                        'items_in_round': getattr(r, 'items_in_round', []),
                         'items_optimized': r.items_optimized,
                         'score_before': r.score_before,
                         'score_after': r.score_after,
-                        'stopped': r.stopped,
+                        'rollback': getattr(r, 'rollback', False),
+                        'stopped': getattr(r, 'stopped', False),
                         'message': r.message,
                     }
                     for r in opt_result.round_history
                 ]
                 final_report['round_history'] = round_history
+                final_report['rollback_count'] = opt_result.rollback_count
 
                 # 更新数据库
                 gen.quality_score = opt_result.final_score
@@ -2375,6 +2379,7 @@ def api_optimize_content_stream(generation_id):
                     'quality_report': final_report,
                     'message': opt_result.message,
                     'total_rounds': opt_result.total_rounds,
+                    'rollback_count': opt_result.rollback_count,
                     'final_score': opt_result.final_score,
                     'first_score': initial_score,
                     'stopped_early': opt_result.stopped_early,

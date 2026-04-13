@@ -94,44 +94,50 @@ def get_pass_threshold(business_type: str) -> int:
 
 
 # =============================================================================
-# GEO递进式优化引擎 - 优化组定义
+# GEO递进式优化引擎 - 优化组定义（严格按规格，不许修改）
 # =============================================================================
-# 组A（战略层）：标题、开篇
-# 组B（结构层）：结构、模块化
-# 组C（信任层）：信任证据、品牌锚点、关键词密度
-# 组D（体验转化层）：可读性、CTA、改造潜力
+# A组（最安全·结构组）：结构+模块化，最先优化
+# B组（安全·骨架组）：标题+开篇，第二优化
+# C组（敏感·信任转化组）：信任证据+品牌锚点+关键词+可读性+CTA+改造潜力，最后优化
 GEO_OPTIMIZATION_GROUPS = {
     'A': {
-        'name': '战略层',
-        'label': '组A · 战略意图（标题 + 开篇）',
-        'items': ['标题吸引力', '开篇直接性'],
-    },
-    'B': {
-        'name': '结构层',
-        'label': '组B · 内容结构（结构 + 模块化）',
+        'name': '结构组',
+        'label': 'A组 · 最安全 · 结构+模块化',
+        'scope': '仅结构组',
+        'priority': 1,  # 第1轮
         'items': ['结构清晰度', '模块化完整'],
     },
-    'C': {
-        'name': '信任层',
-        'label': '组C · 信任背书（信任证据 + 品牌锚点 + 关键词）',
-        'items': ['信任证据', '品牌锚点', '关键词密度'],
+    'B': {
+        'name': '骨架组',
+        'label': 'B组 · 安全 · 标题+开篇',
+        'scope': '仅骨架组',
+        'priority': 2,  # 第2轮
+        'items': ['标题吸引力', '开篇直接性'],
     },
-    'D': {
-        'name': '体验转化层',
-        'label': '组D · 体验转化（可读性 + CTA + 改造潜力）',
-        'items': ['可读性', '行动号召', '改造潜力'],
+    'C': {
+        'name': '信任转化组',
+        'label': 'C组 · 敏感项 · 信任+品牌+关键词+CTA',
+        'scope': '敏感项',
+        'priority': 3,  # 第3轮
+        'items': ['信任证据', '品牌锚点', '关键词密度', '可读性', '行动号召', '改造潜力'],
     },
 }
 
-# 优化组执行顺序
-GROUP_ORDER = ['A', 'B', 'C', 'D']
+# 优化组执行顺序（严格固定）
+GROUP_ORDER = ['A', 'B', 'C']
 
-# 初始分数策略：<60分时第一轮只做组A
-LOW_SCORE_THRESHOLD = 60
+# 合格项铁律：合格项 100% 禁止改动
+QUALIFIED_ITEMS_LOCKED = True
+
+# 自动回滚：分数下降自动回滚到上一版
+AUTO_ROLLBACK_ON_DECLINE = True
+
+# 分数达标阈值
+PASS_THRESHOLD_SCORE = 80
 
 
 def get_failed_items_by_group(failed_items: List['ScoreItem']) -> Dict[str, List['ScoreItem']]:
-    """将不合格项按组分类"""
+    """将不合格项按组分类（A/B/C三组）"""
     result = {g: [] for g in GROUP_ORDER}
     for item in failed_items:
         for group_key, group_def in GEO_OPTIMIZATION_GROUPS.items():
@@ -142,18 +148,14 @@ def get_failed_items_by_group(failed_items: List['ScoreItem']) -> Dict[str, List
 
 
 def get_starting_groups(initial_score: float) -> List[str]:
-    """根据初始分数确定起始轮次"""
-    if initial_score < LOW_SCORE_THRESHOLD:
-        # <60分：先强化组A（标题+开篇），再依次BCD
-        return GROUP_ORDER
-    else:
-        # 60~79分：从第一个有不合格项的组开始
-        return GROUP_ORDER
+    """根据初始分数确定起始轮次（严格固定：始终从A组开始）"""
+    # 铁律：第1轮必须跑A组（结构+模块化），最安全必提分
+    return GROUP_ORDER
 
 
 def should_start_from_group_a(initial_score: float) -> bool:
-    """判断是否需要从组A开始（初始分<60时强制从A开始）"""
-    return initial_score < LOW_SCORE_THRESHOLD
+    """始终返回True：第1轮必须从A组开始"""
+    return True
 
 
 @dataclass

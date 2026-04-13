@@ -3367,16 +3367,21 @@ function doDetailOptimize() {
     });
 
     es.addEventListener('round_complete', function(e) {
+        console.log('[SSE] 收到 round_complete 事件');
         var data = JSON.parse(e.data);
+        console.log('[SSE] round_complete data:', data);
         _currentScore = data.score_after;
         _roundHistory.push({
             round_num: data.round_num,
             group_key: data.group_key,
             group_label: data.group_label,
-            items_optimized: data.items_fixed,
+            group_scope: data.group_scope || '',
+            items_in_round: data.items_in_round || [],
+            items_optimized: data.items_fixed || [],
             score_before: data.score_before,
             score_after: data.score_after,
-            stopped: data.score_after >= 80
+            rollback: data.rollback || false,
+            stopped: data.reached80 || false
         });
 
         updateOptimizeProgressPanel({
@@ -3384,18 +3389,26 @@ function doDetailOptimize() {
             roundNum: data.round_num,
             groupKey: data.group_key,
             groupLabel: data.group_label,
-            itemsFixed: data.items_fixed,
+            groupScope: data.group_scope || '',
+            itemsFixed: data.items_fixed || [],
+            itemsInRound: data.items_in_round || [],
             scoreBefore: data.score_before,
             scoreAfter: data.score_after,
             scoreDelta: data.score_delta,
+            rollback: data.rollback || false,
             roundIdx: data.round_num,
             totalRounds: data.total_groups,
-            reached80: data.score_after >= 80
+            reached80: data.reached80 || false
         });
     });
 
     es.addEventListener('complete', function(e) {
+        console.log('[SSE] 收到 complete 事件');
         var data = JSON.parse(e.data);
+        console.log('[SSE] complete data:', data);
+        console.log('[SSE] data.success:', data.success);
+        console.log('[SSE] data.quality_report:', !!data.quality_report);
+        console.log('[SSE] data.content:', !!data.content);
         es.close();
         _optimizeEventSource = null;
         _optimizeLoading = false;
@@ -3428,11 +3441,18 @@ function doDetailOptimize() {
             });
 
             // 用优化后的数据刷新页面
+            console.log('[SSE] 检查是否需要刷新...');
+            console.log('[SSE] data.quality_report 存在:', !!data.quality_report);
+            console.log('[SSE] data.content 存在:', !!data.content);
             if (data.quality_report) {
+                console.log('[SSE] 调用 renderQualityReport');
                 renderQualityReport(data.quality_report);
             }
             if (data.content) {
+                console.log('[SSE] 调用 refreshAllContent');
                 refreshAllContent(data.content);
+            } else {
+                console.log('[SSE] data.content 为空，跳过刷新');
             }
         } else {
             showToast(data.message || '优化失败', 'error');
@@ -3510,26 +3530,31 @@ function updateOptimizeProgressPanel(data) {
     }
     else if (data.status === 'round_start') {
         var progress = ((data.roundIdx) / totalRounds * 100).toFixed(0);
+        var scopeStr = data.groupScope || '';
         html = buildProgressHeader(data.scoreBefore || _currentScore, progress, '第' + data.roundNum + '轮进行中') +
             buildStepsHtml(data.roundIdx, totalRounds, data.groupKey) +
             '<div class="quality-progress-bar"><div class="quality-progress-bar-fill" style="width:' + progress + '%"></div></div>' +
             '<div class="quality-progress-current">' +
             '<span class="quality-progress-current-label">' + data.groupLabel + '</span>' +
-            '<span class="quality-progress-current-items">正在优化：' + (data.items || []).join('、') + '</span>' +
+            '<span class="quality-progress-current-scope">' + scopeStr + '</span>' +
+            '<span class="quality-progress-current-items">优化：' + (data.items || []).join('、') + '</span>' +
             '</div>';
     }
     else if (data.status === 'round_complete') {
         var progress = ((data.roundIdx) / totalRounds * 100).toFixed(0);
         var deltaStr = data.scoreDelta >= 0 ? '+' + data.scoreDelta.toFixed(1) : data.scoreDelta.toFixed(1);
         var isDone = data.reached80 || data.roundIdx >= totalRounds;
+        var rollbackBadge = data.rollback ? '<span style="background:rgba(239,68,68,0.1);color:#ef4444;padding:1px 6px;border-radius:8px;font-size:0.625rem;margin-left:6px;">↩️ 自动回滚</span>' : '';
+        var scopeStr = data.groupScope || '';
 
         html = buildProgressHeader(data.scoreAfter, progress, isDone ? '优化完成' : '第' + data.roundNum + '轮完成') +
             buildStepsHtml(data.roundIdx, totalRounds, data.groupKey, data.roundNum) +
             '<div class="quality-progress-bar"><div class="quality-progress-bar-fill" style="width:' + progress + '%"></div></div>' +
             '<div class="quality-progress-current">' +
-            '<span class="quality-progress-current-label">✓ ' + data.groupLabel + '</span>' +
-            '<span class="quality-progress-current-items">' + (data.itemsFixed || []).join('、') + '</span>' +
-            '<span class="quality-progress-score">' + (data.scoreBefore || _currentScore).toFixed(1) + ' → ' + data.scoreAfter.toFixed(1) + ' (' + deltaStr + ')</span>' +
+            '<span class="quality-progress-current-label">✓ ' + data.groupLabel + rollbackBadge + '</span>' +
+            '<span class="quality-progress-current-scope">' + scopeStr + '</span>' +
+            '<span class="quality-progress-current-items">优化：' + (data.itemsInRound || data.itemsFixed || []).join('、') + '</span>' +
+            '<span class="quality-progress-score ' + (data.scoreDelta > 0 ? 'score-up' : (data.scoreDelta < 0 ? 'score-down' : '')) + '">' + (data.scoreBefore || 0).toFixed(1) + ' → ' + data.scoreAfter.toFixed(1) + ' (' + deltaStr + ')</span>' +
             '</div>';
     }
     else if (data.status === 'complete') {
@@ -3559,13 +3584,12 @@ function buildProgressHeader(score, progress, status) {
         '</div>';
 }
 
-// 构建步骤指示器
+// 构建步骤指示器（ABC三组，严格固定）
 function buildStepsHtml(currentIdx, total, currentGroupKey, completedRoundNum) {
     var groups = [
-        { key: 'A', label: '战略层\n标题+开篇' },
-        { key: 'B', label: '结构层\n结构+模块' },
-        { key: 'C', label: '信任层\n品牌+关键词' },
-        { key: 'D', label: '转化层\nCTA+潜力' }
+        { key: 'A', label: 'A组\n结构+模块化' },
+        { key: 'B', label: 'B组\n标题+开篇' },
+        { key: 'C', label: 'C组\n信任+转化' },
     ];
 
     var html = '<div class="quality-progress-steps">';
@@ -3598,7 +3622,7 @@ function buildStepsHtml(currentIdx, total, currentGroupKey, completedRoundNum) {
     return html;
 }
 
-// 构建结果列表
+// 构建结果列表（支持回滚状态）
 function buildResultsHtml(roundHistory) {
     if (!roundHistory || roundHistory.length === 0) return '';
 
@@ -3609,11 +3633,18 @@ function buildResultsHtml(roundHistory) {
         var deltaStr = delta >= 0 ? '+' + delta.toFixed(1) : delta.toFixed(1);
         var tagClass = 'tag-' + r.group_key.toLowerCase();
         var itemsStr = (r.items_optimized || []).join('、') || '无修改';
+        var rollbackBadge = r.rollback ? '<span style="color:#ef4444;font-size:0.625rem;margin-left:4px;">↩️回滚</span>' : '';
+        var deltaClass = delta > 0 ? 'score-up' : (delta < 0 ? 'score-down' : 'score-same');
+
+        // 显示本轮范围
+        var scopeStr = r.group_scope || r.group_label || '';
+        var itemsInRound = (r.items_in_round || []).join('、') || itemsStr;
 
         html += '<div class="quality-progress-result-item">' +
             '<span class="tag ' + tagClass + '">' + r.group_key + '组</span>' +
-            '<span>' + itemsStr + '</span>' +
-            '<span class="score-change">' + r.score_before.toFixed(1) + ' → ' + r.score_after.toFixed(1) + ' (' + deltaStr + ')</span>' +
+            '<span class="scope-label">' + scopeStr + '</span>' +
+            '<span class="items-label">优化：' + itemsInRound + '</span>' +
+            '<span class="' + deltaClass + '">' + r.score_before.toFixed(1) + ' → ' + r.score_after.toFixed(1) + ' (' + deltaStr + ')' + rollbackBadge + '</span>' +
             '</div>';
     }
     html += '</div>';
