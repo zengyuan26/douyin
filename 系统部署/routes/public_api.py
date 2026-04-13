@@ -2282,6 +2282,12 @@ def api_optimize_content_stream(generation_id):
         if user_obj and user_obj.profile:
             business_desc = user_obj.profile.business_description or ''
 
+    # 获取首次分数（从已保存的报告中获取，保留首次优化前的原始分数）
+    existing_report = gen.quality_report or {}
+    first_score = existing_report.get('first_score') or gen.quality_score or 50.0
+    # 获取首次分数（从已保存的报告中获取，保留首次优化前的原始分数）
+    existing_report = gen.quality_report or {}
+    first_score = existing_report.get('first_score') or gen.quality_score or 50.0
     initial_score = gen.quality_score or 50.0
 
     if initial_score >= 80:
