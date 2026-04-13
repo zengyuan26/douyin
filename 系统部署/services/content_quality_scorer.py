@@ -93,6 +93,69 @@ def get_pass_threshold(business_type: str) -> int:
     return thresholds.get(business_type, 80)
 
 
+# =============================================================================
+# GEO递进式优化引擎 - 优化组定义
+# =============================================================================
+# 组A（战略层）：标题、开篇
+# 组B（结构层）：结构、模块化
+# 组C（信任层）：信任证据、品牌锚点、关键词密度
+# 组D（体验转化层）：可读性、CTA、改造潜力
+GEO_OPTIMIZATION_GROUPS = {
+    'A': {
+        'name': '战略层',
+        'label': '组A · 战略意图（标题 + 开篇）',
+        'items': ['标题吸引力', '开篇直接性'],
+    },
+    'B': {
+        'name': '结构层',
+        'label': '组B · 内容结构（结构 + 模块化）',
+        'items': ['结构清晰度', '模块化完整'],
+    },
+    'C': {
+        'name': '信任层',
+        'label': '组C · 信任背书（信任证据 + 品牌锚点 + 关键词）',
+        'items': ['信任证据', '品牌锚点', '关键词密度'],
+    },
+    'D': {
+        'name': '体验转化层',
+        'label': '组D · 体验转化（可读性 + CTA + 改造潜力）',
+        'items': ['可读性', '行动号召', '改造潜力'],
+    },
+}
+
+# 优化组执行顺序
+GROUP_ORDER = ['A', 'B', 'C', 'D']
+
+# 初始分数策略：<60分时第一轮只做组A
+LOW_SCORE_THRESHOLD = 60
+
+
+def get_failed_items_by_group(failed_items: List['ScoreItem']) -> Dict[str, List['ScoreItem']]:
+    """将不合格项按组分类"""
+    result = {g: [] for g in GROUP_ORDER}
+    for item in failed_items:
+        for group_key, group_def in GEO_OPTIMIZATION_GROUPS.items():
+            if item.name in group_def['items']:
+                result[group_key].append(item)
+                break
+    return result
+
+
+def get_starting_groups(initial_score: float) -> List[str]:
+    """根据初始分数确定起始轮次"""
+    if initial_score < LOW_SCORE_THRESHOLD:
+        # <60分：先强化组A（标题+开篇），再依次BCD
+        return GROUP_ORDER
+    else:
+        # 60~79分：从第一个有不合格项的组开始
+        return GROUP_ORDER
+
+
+def should_start_from_group_a(initial_score: float) -> bool:
+    """判断是否需要从组A开始（初始分<60时强制从A开始）"""
+    return initial_score < LOW_SCORE_THRESHOLD
+
+
 @dataclass
 class ScoreItem:
     """单项评分结果"""
@@ -101,6 +164,7 @@ class ScoreItem:
     name: str               # 评估项名称
     score: int              # 得分 0-10
     max_score: int = 10     # 满分
+    weight: float = 1.0     # 权重
     passed: bool = False    # 是否通过（≥10分）
     detail: str = ''       # 评分理由
     suggestion: str = ''    # 改进建议
@@ -114,6 +178,7 @@ class ScoreResult:
     grade: str = 'D'               # 等级 A/B/C/D
     grade_label: str = ''           # 等级标签
     passed: bool = False            # 是否≥80分
+    pass_threshold: float = 0.0      # 通过阈值
     items: List[ScoreItem] = field(default_factory=list)  # 各项评分
     failed_items: List[ScoreItem] = field(default_factory=list)  # 不达标项
     summary: str = ''               # 整体评价
@@ -292,7 +357,7 @@ class ContentQualityScorer:
                     name=item_config['name'],
                     score=round(weighted_score, 1),
                     max_score=item_weight,
-                    passed=weighted_score >= item_weight * 0.6,
+                    passed=weighted_score >= item_weight * 0.8,
                     detail=result.get('detail', ''),
                     suggestion=result.get('suggestion', ''),
                     icon='✅' if weighted_score >= item_weight * 0.6 else '⚠️'
@@ -430,7 +495,7 @@ class ContentQualityScorer:
                     max_score=item_config.get('max_score', 10),
                     weight=weights.get(item_id, item_config.get('weight', 1.0)),
                     passed=original_pass,
-                    reason=result.get('detail', ''),
+                    detail=result.get('detail', ''),
                     icon='✅' if original_pass else '⚠️'
                 ))
 
@@ -449,8 +514,30 @@ class ContentQualityScorer:
             pass_threshold=pass_threshold,
             items=items,
             summary=f'文本内容评分：{percentage:.1f}分',
-            suggestions=self._generate_suggestions(items, passed)
+            suggestions=self._generate_suggestions(items)
         )
+
+    def _get_grade(self, percentage: float) -> str:
+        """根据百分比获取等级"""
+        if percentage >= 90:
+            return 'A'
+        elif percentage >= 75:
+            return 'B'
+        elif percentage >= 60:
+            return 'C'
+        else:
+            return 'D'
+
+    def _get_grade_label(self, percentage: float) -> str:
+        """根据百分比获取等级标签"""
+        if percentage >= 90:
+            return '优秀'
+        elif percentage >= 75:
+            return '良好'
+        elif percentage >= 60:
+            return '及格'
+        else:
+            return '需改进'
 
     def _check_title_attraction(self, title: str) -> Dict:
         """检查标题吸引力"""
@@ -866,6 +953,13 @@ class ContentQualityScorer:
 
     def _parse_llm_response(self, response: str, default_score: int = 6) -> Dict:
         """解析LLM响应"""
+        if not response:
+            logger.debug("[LLM解析] 响应为空，使用默认分")
+            return {
+                'score': default_score,
+                'detail': 'LLM响应为空，使用默认分',
+                'suggestion': ''
+            }
         try:
             # 尝试从响应中提取JSON
             json_match = re.search(r'\{[^}]+\}', response, re.DOTALL)

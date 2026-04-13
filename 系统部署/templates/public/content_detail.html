@@ -916,6 +916,97 @@
     }
 
     /* 优化提示 */
+    /* 递进优化轮次历史 */
+    .quality-round-history {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: rgba(102,126,234,0.08);
+        border: 1px solid rgba(102,126,234,0.25);
+        border-radius: 8px;
+        font-size: 0.8125rem;
+    }
+
+    .round-history-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        color: #4338ca;
+        margin-bottom: 8px;
+        font-size: 0.8125rem;
+    }
+
+    .round-history-header i {
+        font-size: 1rem;
+    }
+
+    .round-summary {
+        margin-left: auto;
+        font-size: 0.75rem;
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .stop-badge {
+        background: #dcfce7;
+        color: #16a34a;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+    }
+
+    .cont-badge {
+        background: #ede9fe;
+        color: #7c3aed;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+    }
+
+    .round-history-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 5px 0;
+        border-top: 1px solid rgba(102,126,234,0.12);
+        font-size: 0.75rem;
+        color: #374151;
+    }
+
+    .round-history-item:first-of-type {
+        border-top: none;
+    }
+
+    .round-tag {
+        background: #ede9fe;
+        color: #5b21b6;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .round-items {
+        color: #4b5563;
+        flex: 1;
+    }
+
+    .round-score {
+        color: #059669;
+        font-weight: 600;
+        white-space: nowrap;
+        font-size: 0.75rem;
+    }
+
+    .round-score .delta {
+        font-weight: 400;
+        font-size: 0.6875rem;
+    }
+
     .quality-optimized-notice {
         margin-top: 12px;
         padding: 10px 12px;
@@ -1543,6 +1634,7 @@ function parseSections(contentData, configs) {
 
 function extractSectionContent(key, contentData) {
     // 标签（tags）特殊处理：支持数组或逗号分隔字符串
+    // 长文 content_data.article.hashtags 也是标签来源
     if (key === 'tags') {
         if (contentData.tags) {
             if (Array.isArray(contentData.tags)) {
@@ -1550,7 +1642,34 @@ function extractSectionContent(key, contentData) {
             }
             return String(contentData.tags);
         }
-        // 也支持顶层 tags 字段
+        // 长文结构：article.hashtags
+        if (contentData.article && Array.isArray(contentData.article.hashtags)) {
+            return contentData.article.hashtags.join('\n');
+        }
+        return '';
+    }
+
+    // 长文结构：article.title 作为标题
+    if (key === 'title') {
+        // 优先取顶层 title
+        if (contentData.title) {
+            return contentData.title;
+        }
+        // 长文结构：article.title
+        if (contentData.article && contentData.article.title) {
+            return contentData.article.title;
+        }
+        // 兜底：从 body markdown 中解析标题（第一行非空且不带 # 的行）
+        var raw = contentData.body || contentData.content || '';
+        if (raw) {
+            var lines = raw.split('\n');
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim();
+                if (line && !line.startsWith('#') && line.length < 120) {
+                    return line;
+                }
+            }
+        }
         return '';
     }
 
@@ -1570,6 +1689,60 @@ function extractSectionContent(key, contentData) {
     };
 
     var field = fieldMap[key];
+
+    // 长文结构：部分字段嵌套在 article 对象中
+    if (key === 'comment') {
+        var topComment = contentData.comment;
+        if (topComment) {
+            return typeof topComment === 'object' ? JSON.stringify(topComment, null, 2) : String(topComment);
+        }
+        var article = contentData.article || {};
+        var articleComment = article.comment;
+        if (articleComment) {
+            return typeof articleComment === 'object' ? JSON.stringify(articleComment, null, 2) : String(articleComment);
+        }
+        var rawBody = contentData.body || '';
+        if (rawBody) {
+            var commentSection = rawBody.split(/#{1,6}\s*评论区/)[1] || '';
+            if (commentSection) {
+                var nextHeader = commentSection.match(/#{1,6}\s/);
+                if (nextHeader) {
+                    commentSection = commentSection.substring(0, nextHeader.index);
+                }
+                return commentSection.trim();
+            }
+        }
+        return '';
+    }
+
+    // 长文结构：publish 也嵌套在 article 对象中
+    if (key === 'publish') {
+        var topPublish = contentData.publish;
+        if (topPublish) {
+            return typeof topPublish === 'object' ? JSON.stringify(topPublish, null, 2) : String(topPublish);
+        }
+        var article = contentData.article || {};
+        var articlePublish = article.publish;
+        if (articlePublish) {
+            return typeof articlePublish === 'object' ? JSON.stringify(articlePublish, null, 2) : String(articlePublish);
+        }
+        return '';
+    }
+
+    // 长文结构：extension 也嵌套在 article 对象中
+    if (key === 'extension') {
+        var topExtension = contentData.extension;
+        if (topExtension) {
+            return typeof topExtension === 'object' ? JSON.stringify(topExtension, null, 2) : String(topExtension);
+        }
+        var article = contentData.article || {};
+        var articleExtension = article.extension;
+        if (articleExtension) {
+            return typeof articleExtension === 'object' ? JSON.stringify(articleExtension, null, 2) : String(articleExtension);
+        }
+        return '';
+    }
+
     if (field && contentData[field] !== undefined) {
         var val = contentData[field];
         if (typeof val === 'object') {
@@ -1578,22 +1751,9 @@ function extractSectionContent(key, contentData) {
         return String(val || '');
     }
 
-    // 兜底：从 content（body）原始文本中尝试提取
+    // 长文的正文在 body 字段（content_data.body）
     var rawContent = contentData.body || contentData.content || contentData.content_text || '';
-    if (!rawContent) return '';
-
-    // 简单标题提取（从 body 第一行）
-    if (key === 'title') {
-        var lines = rawContent.split('\n');
-        for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim();
-            if (line && !line.startsWith('#') && line.length < 100) {
-                return line;
-            }
-        }
-    }
-
-    return '';
+    return rawContent;
 }
 
 function renderClientSections(sections) {
@@ -1633,6 +1793,9 @@ function renderClientSections(sections) {
         } else if (sec.section_key === 'shooting') {
             // 制作规范区块特殊处理
             html += buildShootingSection(sec, badgeClass, badgeText, cardClass);
+        } else if (sec.section_key === 'content') {
+            // 长文正文区块：去掉 markdown # 标题后展示
+            html += buildContentSection(sec, badgeClass, badgeText, cardClass);
         } else if (hasLongContent) {
             html += buildLongContentSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass);
         } else {
@@ -1801,6 +1964,9 @@ function buildContentPlanSection(sec, badgeClass, badgeText, cardClass) {
             if (block.slogan) {
                 html += '<div class="image-slogan">' + escHtml(block.slogan) + '</div>';
             }
+            if (block.data) {
+                html += '<div class="image-meta"><span class="meta-label">数据：</span>' + escHtml(block.data) + '</div>';
+            }
             if (block.content) {
                 html += '<div class="image-desc">' + escHtml(block.content) + '</div>';
             }
@@ -1822,6 +1988,7 @@ function parseImageBlocks(content) {
     var blocks = [];
     var lines = content.split('\n');
     var currentBlock = null;
+    var currentField = null;  // 当前收集的字段
     
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
@@ -1837,8 +2004,10 @@ function parseImageBlocks(content) {
                 title: imgMatch[2],
                 emotion: '',
                 slogan: '',
+                data: '',  // 新增：数据字段
                 content: ''
             };
+            currentField = null;
             continue;
         }
         
@@ -1846,6 +2015,7 @@ function parseImageBlocks(content) {
         var emotionMatch = line.match(/情绪[】:：]\s*(.+)/);
         if (emotionMatch && currentBlock) {
             currentBlock.emotion = emotionMatch[1];
+            currentField = 'emotion';
             continue;
         }
         
@@ -1853,16 +2023,66 @@ function parseImageBlocks(content) {
         var sloganMatch = line.match(/大字金句[】:：]\s*(.+)/);
         if (sloganMatch && currentBlock) {
             currentBlock.slogan = sloganMatch[1];
+            currentField = 'slogan';
             continue;
         }
         
-        // 收集内容行
+        // 检测数据（如"【数据】"）
+        var dataMatch = line.match(/数据[】:：]\s*(.+)/);
+        if (dataMatch && currentBlock) {
+            currentBlock.data = dataMatch[1];
+            currentField = 'data';
+            continue;
+        }
+        
+        // 检测【画面描述】或【画面】等字段
+        var sceneMatch = line.match(/^[【\[](?:画面描述|画面|场景)[】\]]\s*(.*)/);
+        if (sceneMatch && currentBlock) {
+            currentField = 'scene';
+            currentBlock.scene = currentBlock.scene || '';
+            currentBlock.scene += (currentBlock.scene ? '\n' : '') + sceneMatch[1];
+            continue;
+        }
+        
+        // 检测【文字内容】或【文案】等字段
+        var textMatch = line.match(/^[【\[](?:文字内容|文案|文字)[】\]]\s*(.*)/);
+        if (textMatch && currentBlock) {
+            currentField = 'text';
+            currentBlock.text = currentBlock.text || '';
+            currentBlock.text += (currentBlock.text ? '\n' : '') + textMatch[1];
+            continue;
+        }
+        
+        // 检测【设计规格】等字段
+        var specMatch = line.match(/^[【\[](?:设计规格|规格)[】\]]\s*(.*)/);
+        if (specMatch && currentBlock) {
+            currentField = 'spec';
+            currentBlock.spec = currentBlock.spec || '';
+            currentBlock.spec += (currentBlock.spec ? '\n' : '') + specMatch[1];
+            continue;
+        }
+        
+        // 检测【关键词】字段
+        var keywordMatch = line.match(/^[【\[](?:关键词|关键字)[】\]]\s*(.*)/);
+        if (keywordMatch && currentBlock) {
+            currentField = 'keyword';
+            currentBlock.keyword = keywordMatch[1];
+            continue;
+        }
+        
+        // 收集内容行（归属到当前字段）
         if (currentBlock && line && !line.startsWith('#') && !line.startsWith('>') && 
-            !line.startsWith('|') && !line.match(/^[-=]+$/)) {
+            !line.startsWith('|') && !line.match(/^[-=]+$/) &&
+            !line.match(/^[【\[]/)) {
             // 清理格式标记
             line = line.replace(/^[-*]\s*/, '').replace(/\*\*([^*]+)\*\*/g, '$1');
             if (line.length > 0) {
-                currentBlock.content = (currentBlock.content ? currentBlock.content + '\n' : '') + line;
+                // 根据当前字段追加内容
+                if (currentField === 'data') {
+                    currentBlock.data = (currentBlock.data ? currentBlock.data + '\n' : '') + line;
+                } else {
+                    currentBlock.content = (currentBlock.content ? currentBlock.content + '\n' : '') + line;
+                }
             }
         }
     }
@@ -1935,6 +2155,104 @@ function buildShootingSection(sec, badgeClass, badgeText, cardClass) {
     
     html += '</div></div>';
     return html;
+}
+
+// 长文正文区块：去掉 markdown # 标题后展示，保持正文段落样式
+function buildContentSection(sec, badgeClass, badgeText, cardClass) {
+    cardClass = cardClass || 'section-card';
+    var content = sec.content || '';
+
+    // 清理 markdown 格式：去掉 # 标题行，去掉加粗、斜体、引用等标记
+    var cleanLines = [];
+    var lines = content.split('\n');
+    var skipPublishSection = false;
+    var skipPublishLines = 0;
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+
+        // 检测到发布建议章节，跳过该标题行及紧随的2行列表内容
+        if (line.match(/^#{1,6}\s*发布建议/)) {
+            skipPublishSection = true;
+            skipPublishLines = 2;
+            continue;
+        }
+
+        // 还在发布建议的保护行计数内
+        if (skipPublishSection) {
+            if (skipPublishLines > 0) {
+                skipPublishLines--;
+                continue;
+            } else {
+                skipPublishSection = false;
+            }
+        }
+
+        // 跳过 markdown 标题行
+        if (line.match(/^#{1,6}\s/)) continue;
+        // 跳过纯分隔线
+        if (line.match(/^[=\-]+$/)) continue;
+        // 跳过正文开头的元信息行（模板类型、预估字数、预估阅读时间）
+        if (line.match(/^- \*\*(模板类型|预估字数|预估阅读时间)\*\*:/)) continue;
+        // 跳过正文开头的纯列表元信息行
+        if (line.match(/^- 模板类型:/) || line.match(/^- 预估字数:/) || line.match(/^- 预估阅读时间:/)) continue;
+        // 去掉加粗和斜体标记
+        line = line.replace(/\*\*(.*?)\*\*/g, '$1');
+        line = line.replace(/\*(.*?)\*/g, '$1');
+        // 去掉引用标记
+        line = line.replace(/^>\s*/, '');
+        if (line) {
+            cleanLines.push(line);
+        }
+    }
+
+    var cleanContent = cleanLines.join('\n');
+    var hasContent = cleanContent.trim().length > 0;
+
+    // 复制按钮存原始内容（含 markdown）
+    var copyBtn = '<button class="btn-copy-section" data-copy-content="' + escHtml(content.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
+        '<i class="bi bi-clipboard"></i>' +
+        '</button>';
+
+    if (!hasContent) {
+        return '<div class="' + cardClass + '" id="panel-' + escHtml(sec.section_key) + '">' +
+            '<div class="section-card-header">' +
+                '<div class="section-title">' +
+                    escHtml(sec.client_label) +
+                    (badgeText ? '<span class="section-badge ' + badgeClass + '">' + badgeText + '</span>' : '') +
+                '</div>' +
+                '<div class="section-actions"></div>' +
+            '</div>' +
+            '<div class="section-card-body">' +
+                '<span style="color:var(--apple-gray);font-style:italic;">暂无内容</span>' +
+            '</div>' +
+        '</div>';
+    }
+
+    // 长内容默认折叠
+    var previewText = cleanContent.substring(0, 200);
+    var displayContent = escHtml(cleanContent).replace(/\n/g, '<br>');
+    var previewContent = escHtml(previewText) + '...';
+
+    return '<div class="' + cardClass + '" id="panel-' + escHtml(sec.section_key) + '">' +
+        '<div class="section-card-header">' +
+            '<div class="section-title">' +
+                escHtml(sec.client_label) +
+                (badgeText ? '<span class="section-badge ' + badgeClass + '">' + badgeText + '</span>' : '') +
+            '</div>' +
+            '<div class="section-actions">' +
+                copyBtn +
+            '</div>' +
+        '</div>' +
+        '<div class="section-card-body">' +
+            '<div class="section-card-preview" id="preview-' + escHtml(sec.section_key) + '">' + previewContent + '</div>' +
+            '<div class="section-card-full" id="full-' + escHtml(sec.section_key) + '" style="display:none;">' + displayContent + '</div>' +
+            '<button class="btn-expand-content" onclick="toggleContentSection(\'' + escHtml(sec.section_key) + '\')">' +
+                '<i class="bi bi-chevron-down" id="icon-' + escHtml(sec.section_key) + '"></i>' +
+                '<span id="text-' + escHtml(sec.section_key) + '">展开</span>' +
+            '</button>' +
+        '</div>' +
+    '</div>';
 }
 
 // 解析制作规范内容
@@ -2637,7 +2955,7 @@ function renderQualityReport(report) {
 
     container.style.display = '';  // 确保容器可见
 
-    var score = report.total_score || 0;
+    var score = report.final_score || report.total_score || 0;
     var grade = report.grade || 'D';
     var gradeLabel = report.grade_label || '';
     var passed = report.passed;
@@ -2660,13 +2978,35 @@ function renderQualityReport(report) {
     var statusText = passed ? '✅ 已通过质量检测' : '⚠️ 未达标，建议优化';
     var statusClass = passed ? 'passed' : 'failed';
 
-    // 优化提示
+    // 优化提示（显示轮次历史）
     var optimizedNotice = '';
-    if (optimized && optimizedItems.length > 0) {
-        optimizedNotice = '<div class="quality-optimized-notice">' +
-            '<i class="bi bi-magic"></i>' +
-            '<span>已自动优化：' + optimizedItems.join('、') + '</span>' +
-            '</div>';
+    if (optimized) {
+        var roundHistory = report.round_history || [];
+        var totalRounds = report.total_rounds || 0;
+        var firstScore = report.first_score || score;
+        var stoppedEarly = report.stopped_early || false;
+
+        if (roundHistory.length > 0) {
+            var historyRows = roundHistory.map(function(r) {
+                var arrow = '→';
+                var scoreDelta = r.score_after - r.score_before;
+                var deltaStr = scoreDelta >= 0 ? '+' + scoreDelta.toFixed(1) : scoreDelta.toFixed(1);
+                return '<div class="round-history-item">' +
+                    '<span class="round-tag">' + r.group_label + '</span>' +
+                    '<span class="round-items">' + (r.items_optimized && r.items_optimized.length > 0 ? r.items_optimized.join('、') : '无修改') + '</span>' +
+                    '<span class="round-score">' + r.score_before.toFixed(1) + ' ' + arrow + ' ' + r.score_after.toFixed(1) + ' <span class="delta">(' + deltaStr + ')</span></span>' +
+                    '</div>';
+            }).join('');
+
+            optimizedNotice = '<div class="quality-round-history">' +
+                '<div class="round-history-header">' +
+                '<i class="bi bi-list-ol"></i> 递进优化完成' +
+                '<span class="round-summary">' + totalRounds + '轮 · ' + firstScore.toFixed(1) + ' → ' + score.toFixed(1) + '</span>' +
+                (stoppedEarly ? '<span class="stop-badge">✓ 达标停止</span>' : '<span class="cont-badge">已优化</span>') +
+                '</div>' +
+                historyRows +
+                '</div>';
+        }
     }
 
     // 评分项HTML - 表格形式
@@ -2707,14 +3047,16 @@ function renderQualityReport(report) {
     _qualityItemsHtml = itemsHtml;
     _qualitySuggestionsHtml = suggestionsHtml;
 
-        // 优化按钮（未通过且未优化时显示）
+        // 优化按钮逻辑：分数达标才显示"已优化"，否则无论是否已优化都显示优化按钮
         var optimizeBtn = '';
-        if (needOptimize && !optimized) {
+        if (passed) {
+            // 分数达标，显示已优化徽章
+            optimizeBtn = '<div class="quality-optimized-badge"><i class="bi bi-check-circle"></i> 已优化</div>';
+        } else if (needOptimize) {
+            // 分数未达标，显示优化按钮（即使已优化过，也支持再次优化）
             optimizeBtn = '<button id="btn-detail-optimize" class="quality-optimize-btn" onclick="doDetailOptimize()">' +
                 '<i class="bi bi-magic"></i> 一键优化' +
                 '</button>';
-        } else if (optimized) {
-            optimizeBtn = '<div class="quality-optimized-badge"><i class="bi bi-check-circle"></i> 已优化</div>';
         }
 
         // 组装完整HTML - 评分显示改为可点击弹窗
@@ -2746,15 +3088,20 @@ function renderQualityReport(report) {
 }
 
 var _optimizeLoading = false;
+var _currentRoundIdx = 0;
+var _totalRounds = 0;
+var _roundLabels = { A: '组A · 战略层', B: '组B · 结构层', C: '组C · 信任层', D: '组D · 体验转化' };
 
 function doDetailOptimize() {
     if (_optimizeLoading) return;
     _optimizeLoading = true;
+    _currentRoundIdx = 0;
+    _totalRounds = 0;
 
     var btn = document.getElementById('btn-detail-optimize');
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="apple-spinner"></span> 优化中...';
+        btn.innerHTML = '<span class="apple-spinner"></span> 正在分析...';
     }
 
     fetch('/public/api/content/' + _generationId + '/optimize', {
@@ -2770,8 +3117,20 @@ function doDetailOptimize() {
         }
 
         if (data.success) {
-            showToast('优化完成！', 'success');
-            // 直接用优化接口返回的数据更新页面（避免重新拉取的竞态风险）
+            _totalRounds = data.total_rounds || 0;
+            _currentRoundIdx = _totalRounds;
+
+            var scoreDelta = data.final_score - data.first_score;
+            var deltaStr = scoreDelta >= 0 ? '+' + scoreDelta.toFixed(1) : scoreDelta.toFixed(1);
+            var msg = '优化完成！' + _totalRounds + '轮 · ' + data.first_score.toFixed(1) + ' → ' + data.final_score.toFixed(1) + ' (' + deltaStr + ')';
+
+            if (data.stopped_early) {
+                showToast(msg + ' ✓ 达标', 'success');
+            } else {
+                showToast(msg, 'success');
+            }
+
+            // 直接用优化接口返回的数据更新页面
             if (data.quality_report) {
                 renderQualityReport(data.quality_report);
             }
@@ -2797,22 +3156,34 @@ function doDetailOptimize() {
 }
 
 function refreshAllContent(newContent) {
-    // 更新全局数据
+    console.log('[DEBUG] refreshAllContent 被调用');
+    console.log('[DEBUG] newContent:', newContent);
+    console.log('[DEBUG] _sectionDisplayConfig:', _sectionDisplayConfig);
+
+    // 更新全局数据（兼容长文结构）
     if (_generationData) {
         _generationData.content_data = newContent;
-        _generationData.titles = [newContent.title || ''];
+        var newTitle = newContent.title || (newContent.article || {}).title || '';
+        _generationData.titles = [newTitle];
         _generationData.tags = newContent.tags || [];
     }
 
-    // 刷新标题
-    var titleEl = document.querySelector('.detail-title');
-    if (titleEl && newContent.title) {
-        titleEl.textContent = newContent.title;
-    }
+    // 刷新质量报告
+    // （quality_report 已通过 renderQualityReport 更新）
 
     // 刷新内容区块（用最新数据重新渲染）
-    if (_generationData) {
-        renderSectionDisplay(_generationData);
+    // 直接调用区块渲染（复用 section_key 映射逻辑）
+    var container = document.getElementById('section-panels-container');
+    console.log('[DEBUG] container:', container);
+    if (container && _sectionDisplayConfig && _sectionDisplayConfig.length > 0) {
+        var sections = parseSections(newContent, _sectionDisplayConfig);
+        console.log('[DEBUG] 解析出的sections:', sections.length, sections);
+        var clientSections = sections.filter(function(s) { return s.visible_to_client; });
+        console.log('[DEBUG] 客户端可见sections:', clientSections.length, clientSections);
+        _allClientSections = clientSections;
+        renderClientSections(clientSections);
+    } else {
+        console.log('[DEBUG] 跳过刷新: container或config无效', container, _sectionDisplayConfig);
     }
 }
 

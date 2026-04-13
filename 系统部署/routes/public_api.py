@@ -1921,15 +1921,29 @@ def api_generate_content_from_topic():
                 except Exception as e:
                     logger.warning('创建/查找 link 失败: %s', e)
 
+            # ── 从 content 中提取标题（兼容图文和长文两种结构）──
+            # 图文内容：title 在 content 顶层
+            # 长文内容：title 在 content.article 中，body 为 markdown 文本
+            raw_content = result.get('content') if isinstance(result.get('content'), dict) else {}
+            if isinstance(raw_content, dict):
+                extracted_title = raw_content.get('title', '') or (raw_content.get('article', {}) or {}).get('title', '') or ''
+                # 长文的标签在 article.hashtags
+                extracted_tags = raw_content.get('tags', []) or (raw_content.get('article', {}) or {}).get('hashtags', []) or []
+                extracted_geo = raw_content.get('geo_mode', '')
+            else:
+                extracted_title = ''
+                extracted_tags = []
+                extracted_geo = ''
+
             # ── 保存 generation 记录 ──
             generation = PublicGeneration(
                 user_id=user.id if user else None,
                 industry=params.get('business_type', ''),
                 target_customer=params.get('portrait', {}).get('identity', ''),
                 content_type=result_type,
-                titles=[content.get('title', '')] if result.get('content') else [],
-                tags=content.get('tags', []) if result.get('content') else [],
-                content_data=result.get('content', {}),
+                titles=[extracted_title],
+                tags=extracted_tags,
+                content_data=raw_content,
                 used_tokens=result.get('tokens_used', 0),
                 topic_id=topic_id_str,
                 portrait_id=portrait_id_val,
@@ -1938,10 +1952,10 @@ def api_generate_content_from_topic():
                 link_id=link.id if link else None,
                 version_number=version_number,
                 parent_version_id=parent_version_id,
-                geo_mode_used=content.get('geo_mode', '') if result.get('content') else '',
+                geo_mode_used=extracted_geo,
                 content_style=content_style,
-                quality_score=quality_report.get('final_score', 0) if result.get('content') else 0,
-                quality_report=quality_report if result.get('content') else None,
+                quality_score=quality_report.get('final_score', 0) if quality_report else 0,
+                quality_report=quality_report if quality_report else None,
             )
             db.session.add(generation)
             db.session.flush()
@@ -2016,6 +2030,9 @@ def api_content_detail(generation_id):
     gen = PublicGeneration.query.filter_by(id=generation_id).first()
     if not gen:
         return jsonify({'success': False, 'message': '记录不存在'}), 404
+
+    # 调试日志：打印原始数据库内容
+    logger.info(f"[ContentDetail] generation_id={generation_id}, content_data keys={list((gen.content_data or {}).keys()) if gen.content_data else None}, titles={gen.titles}, content_data type={type(gen.content_data).__name__}")
 
     # 权限校验
     if user and gen.user_id != user.id:
@@ -2092,11 +2109,21 @@ def api_content_detail(generation_id):
 @public_bp.route('/api/content/<int:generation_id>/optimize', methods=['POST'])
 def api_optimize_content(generation_id):
     """
-    优化内容质量（手动触发）
+    递进式优化内容质量（手动触发）
 
-    返回：优化后的内容和评分
+    策略：
+    - 组A（战略层）：标题吸引力、开篇直接性
+    - 组B（结构层）：结构清晰度、模块化完整
+    - 组C（信任层）：信任证据、品牌锚点、关键词密度
+    - 组D（体验转化层）：可读性、行动号召、改造潜力
+
+    - 初始分<60：从组A开始，执行全部4组
+    - 初始分60~79：从第一个有不合格项的组开始
+    - 达到80分自动停止
+
+    返回：每轮优化结果和最终内容
     """
-    from services.content_quality_optimizer import content_optimizer
+    from services.content_quality_optimizer import progressive_optimizer
     from services.content_quality_scorer import content_scorer
 
     user_id = session.get('public_user_id')
@@ -2110,22 +2137,16 @@ def api_optimize_content(generation_id):
     if user and gen.user_id and gen.user_id != user.id:
         return jsonify({'success': False, 'message': '无权访问'}), 403
 
-    # 分数已达80以上不允许继续优化
-    if gen.quality_score and gen.quality_score >= 80:
-        return jsonify({
-            'success': False,
-            'message': '该内容分数已达80以上，无需继续优化'
-        }), 400
-
     content = gen.content_data or {}
-    if not content or not content.get('title'):
+    # 兼容长文结构：标题可能在 article.title
+    content_title = content.get('title') or (content.get('article') or {}).get('title') or ''
+    if not content or not content_title:
         return jsonify({
             'success': False,
             'message': '内容不存在，无法优化'
         }), 400
 
     brand_name = content.get('brand_name', '') or gen.industry or '品牌'
-    business_desc = ''
 
     # 获取用户业务描述
     business_desc = ''
@@ -2134,71 +2155,89 @@ def api_optimize_content(generation_id):
         if user_obj and user_obj.profile:
             business_desc = user_obj.profile.business_description or ''
 
+    # 初始分数
+    initial_score = gen.quality_score or 50.0
+
+    # 分数已达80以上不允许继续优化
+    if initial_score >= 80:
+        return jsonify({
+            'success': False,
+            'message': '该内容分数已达80以上，无需继续优化'
+        }), 400
+
     try:
         # 重新评分获取失败项
         score_result = content_scorer.score(content, brand_name)
-        failed_items = score_result.failed_items if hasattr(score_result, 'failed_items') else []
+        failed_items = list(score_result.failed_items) if hasattr(score_result, 'failed_items') else []
 
-        # 执行优化
-        optimization_result = content_optimizer.optimize(
+        logger.info(f"[递进优化] generation_id={generation_id}, 初始分={initial_score:.1f}, "
+                    f"不合格项={len(failed_items)}: {[f.name for f in failed_items]}")
+
+        # 执行递进式优化
+        opt_result = progressive_optimizer.optimize(
             content=content,
             failed_items=failed_items,
+            initial_score=initial_score,
             brand_name=brand_name,
-            business_desc=business_desc
+            business_desc=business_desc,
+            max_rounds=4
         )
 
-        if optimization_result.success and optimization_result.optimized_content:
-            # 更新内容
-            new_content = optimization_result.optimized_content
-            gen.content_data = new_content
-            gen.titles = [new_content.get('title', '')]
-            gen.tags = new_content.get('tags', [])
+        # 更新内容
+        new_content = opt_result.optimized_content or content
+        gen.content_data = new_content
+        new_title = new_content.get('title') or (new_content.get('article') or {}).get('title') or ''
+        gen.titles = [new_title]
+        gen.tags = new_content.get('tags', [])
 
-            # 对优化后的内容重新评分，获取完整items
-            new_score_result = content_scorer.score(new_content, brand_name)
-            new_score = new_score_result.total_score
+        # 构建最终报告
+        final_report = opt_result.final_report
+        if not final_report:
+            final_report = content_scorer.to_dict(score_result)
 
-            # 构建完整评分报告
-            new_quality_report = content_scorer.to_dict(new_score_result)
-            new_quality_report['optimized'] = True
-            new_quality_report['final_score'] = new_score
-            new_quality_report['first_score'] = gen.quality_score or new_score
-            new_quality_report['optimized_items'] = optimization_result.optimized_items
-            new_quality_report['need_optimize'] = new_score < 80  # 80分以上无需优化
-            new_quality_report['message'] = optimization_result.message
+        final_report['optimized'] = True
+        final_report['total_rounds'] = opt_result.total_rounds
+        final_report['stopped_early'] = opt_result.stopped_early
+        final_report['message'] = opt_result.message
 
-            # 更新数据库
-            gen.quality_score = new_score
-            gen.quality_report = new_quality_report
+        # 轮次历史
+        round_history = [
+            {
+                'round_num': r.round_num,
+                'group_key': r.group_key,
+                'group_label': r.group_label,
+                'items_optimized': r.items_optimized,
+                'score_before': r.score_before,
+                'score_after': r.score_after,
+                'stopped': r.stopped,
+                'message': r.message,
+            }
+            for r in opt_result.round_history
+        ]
+        final_report['round_history'] = round_history
 
-            db.session.commit()
+        # 更新数据库
+        gen.quality_score = opt_result.final_score
+        gen.quality_report = final_report
 
-            logger.info(f"[Optimize] 内容优化完成: generation_id={generation_id}, 优化后分数={new_score}")
+        db.session.commit()
 
-            return jsonify({
-                'success': True,
-                'content': new_content,
-                'quality_report': new_quality_report,
-                'message': '优化完成'
-            })
-        else:
-            # 即使优化未达标，也返回成功状态和内容，同时计算并返回质量报告
-            failed_content = optimization_result.optimized_content
-            failed_score_result = content_scorer.score(failed_content, brand_name)
-            failed_quality_report = content_scorer.to_dict(failed_score_result)
-            failed_quality_report['optimized'] = True
-            failed_quality_report['optimized_items'] = optimization_result.optimized_items
-            failed_quality_report['first_score'] = gen.quality_score or 0
-            failed_quality_report['need_optimize'] = optimization_result.score_after < 80  # 未达80分可继续优化
+        logger.info(f"[递进优化] 完成: generation_id={generation_id}, "
+                    f"总轮次={opt_result.total_rounds}, "
+                    f"分数={initial_score:.1f}→{opt_result.final_score:.1f}, "
+                    f"提前停止={opt_result.stopped_early}")
 
-            return jsonify({
-                'success': True,
-                'content': failed_content,
-                'quality_report': failed_quality_report,
-                'message': optimization_result.message or '优化完成但未达到满分',
-                'score': optimization_result.score_after,
-                'optimized_items': optimization_result.optimized_items
-            })
+        return jsonify({
+            'success': True,
+            'content': new_content,
+            'quality_report': final_report,
+            'message': opt_result.message,
+            'total_rounds': opt_result.total_rounds,
+            'final_score': opt_result.final_score,
+            'first_score': initial_score,
+            'stopped_early': opt_result.stopped_early,
+            'round_history': round_history,
+        })
 
     except Exception as e:
         logger.exception(f"[Optimize Error] generation_id={generation_id}: %s", e)
