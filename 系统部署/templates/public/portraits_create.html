@@ -2471,7 +2471,21 @@ function convertProblemTypesToProblems(problemTypes) {
 function convertNewPortraitToOldFormat(portrait) {
     // 将新格式转换为旧格式（兼容卡片渲染）
     const identity = portrait.identity || '';
-    const portraitSummary = portrait.portrait_summary || '';
+
+    // 构建pain_points列表
+    const painPoints = portrait.pain_points || [];
+    const painScenarios = portrait.pain_scenarios || [];
+    const searchKeywords = portrait.search_keywords || [];
+
+    // 构建画像摘要（取前3个痛点）
+    const summaryParts = [];
+    if (painPoints.length > 0) {
+        summaryParts.push('痛点: ' + painPoints.slice(0, 2).join('、'));
+    }
+    if (painScenarios.length > 0) {
+        summaryParts.push('场景: ' + painScenarios[0]);
+    }
+    const portraitSummary = summaryParts.join(' | ') || identity;
 
     // 构建用户阶段标签（基于content_direction）
     const contentDirection = portrait.content_direction || '';
@@ -2479,18 +2493,35 @@ function convertNewPortraitToOldFormat(portrait) {
                          contentDirection.includes('测评') ? '决策阶段' :
                          contentDirection.includes('知识') ? '认知阶段' : '通用';
 
-    // 使用场景
-    const painScenarios = portrait.pain_scenarios || [];
+    // 使用场景（取pain_scenarios的第一个）
     const 使用场景 = painScenarios.length > 0 ? painScenarios[0] : '';
 
+    // 行业场景（取scene_tags的第一个）
+    const sceneTags = portrait.scene_tags || [];
+    const industry_scene = sceneTags.length > 0 ? sceneTags[0] : '';
+
     // 搜索行为预判
-    const searchKeywords = portrait.search_keywords || [];
     const 搜索行为预判 = searchKeywords;
 
     // 身份标签
     const identity_tags = {
         buyer: identity,
         user: portrait.differentiation || ''
+    };
+
+    // 深层心理
+    const psychology = portrait.psychology || {};
+    const buyerPerspective = {
+        psychology: typeof psychology === 'string' ? psychology : (psychology.driving_force || ''),
+        goal: psychology.goal || '',
+        obstacles: psychology.barriers || ''
+    };
+
+    // 用户视角（基于pain_scenarios构建）
+    const userPerspective = {
+        problem: painPoints.length > 0 ? painPoints[0] : '',
+        current_state: painScenarios.length > 0 ? painScenarios[0] : '',
+        impact: psychology.driving_force || ''
     };
 
     return {
@@ -2502,20 +2533,24 @@ function convertNewPortraitToOldFormat(portrait) {
         identity_tags: identity_tags,
         用户阶段标签: 用户阶段标签,
         使用场景: 使用场景,
+        industry_scene: industry_scene,
         搜索行为预判: 搜索行为预判,
         problem_type: portrait.problem_type || '',
         problem_type_description: portrait.problem_type_description || '',
-        pain_points: portrait.pain_points || [],
+        pain_points: painPoints,
         pain_scenarios: painScenarios,
-        psychology: portrait.psychology || {},
+        psychology: psychology,
+        buyer_perspective: buyerPerspective,
+        user_perspective: userPerspective,
         barriers: portrait.barriers || [],
         search_keywords: searchKeywords,
         content_preferences: portrait.content_preferences || [],
         market_type: portrait.market_type || 'blue_ocean',
         differentiation: portrait.differentiation || '',
         content_direction: contentDirection,
-        scene_tags: portrait.scene_tags || [],
+        scene_tags: sceneTags,
         behavior_tags: portrait.behavior_tags || [],
+        symptom_tags: portrait.symptom_tags || [],
     };
 }
 
