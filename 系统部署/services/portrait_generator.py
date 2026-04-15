@@ -245,7 +245,7 @@ class PortraitGenerator:
 问题类型：{problem_type_name}
 问题描述：{problem_type_desc}
 目标人群：{target_audience}
-类型关键词：{', '.join(type_keywords[:10])}
+类型关键词（场景枚举参考）：{', '.join(type_keywords[:20])}
 
 === 蓝海关键词（优先使用）===
 {', '.join(blue_ocean_kw[:30])}
@@ -257,18 +257,18 @@ class PortraitGenerator:
 {opportunities_text}
 
 === 画像生成要求 ===
-为「{problem_type_name}」问题类型生成{count}个画像，每个画像要：
-1. **场景差异化**：场景要不同，如"宝宝拉肚子急哭的新手妈妈" vs "长期便秘困扰的宝宝家庭"
-2. **痛点细化**：痛点要具体，如"不知道是不是奶粉问题" vs "确定是奶粉问题但不知道换哪个"
-3. **身份细分**：身份要有区分度，如"职场妈妈" vs "全职妈妈"
+为「{problem_type_name}」问题类型生成{count}个画像，每个画像对应一个具体场景：
+1. **场景来自关键词**：从上述类型关键词中选取{count}个不同的场景，每个画像对应一个场景
+2. **identity差异化**：身份要有区分度，如"职场妈妈" vs "全职妈妈" vs "新手妈妈"
+3. **pain_points聚焦**：痛点围绕该场景展开
 
 每个画像必须包含：
 - identity: 身份标签（简短，如"职场新手妈妈"）
 - identity_description: 身份描述（50字内）
-- problem_type_description: 【核心字段】问题类型对应的具体场景枚举，用/分隔，如"宝宝喝奶粉拉肚子/宝宝喝奶粉腹胀/宝宝喝奶粉便秘/宝宝奶粉不消化"。必须基于当前问题类型展开3-5个具体场景
+- problem_type_description: 【核心字段】该画像对应的单一具体场景，从关键词库选取，如"宝宝喝奶粉拉肚子"。禁止多场景枚举，每个画像只对应一个场景
 - portrait_summary: 【核心必填】2-3句口语化自然中文摘要，结构公式：身份 + 当前问题/症状 + 想转变 + 受限于困境 + 【深层需求】。禁止用【】、禁止列模板标签、禁止JSON式字段名。
-- pain_points: 3-5个核心痛点
-- pain_scenarios: 2-3个痛点场景
+- pain_points: 3-5个核心痛点（围绕该场景）
+- pain_scenarios: 1-2个痛点场景（围绕该场景）
 - psychology: 心理画像
 - barriers: 2-3个购买顾虑
 - search_keywords: 3-5个搜索关键词（用蓝海词）
@@ -284,10 +284,10 @@ class PortraitGenerator:
         {{
             "identity": "画像身份标签",
             "identity_description": "画像身份详细描述",
-            "problem_type_description": "问题类型对应场景枚举（如：宝宝喝奶粉拉肚子/宝宝喝奶粉腹胀/宝宝喝奶粉便秘）",
+            "problem_type_description": "单一具体场景（如：宝宝喝奶粉拉肚子）",
             "portrait_summary": "【必填】口语化自然中文，结构：身份+问题症状+想转变+困境+【深层需求】",
             "pain_points": ["痛点1", "痛点2", "痛点3"],
-            "pain_scenarios": ["场景1", "场景2"],
+            "pain_scenarios": ["场景1"],
             "psychology": {{
                 "核心焦虑": "心理描述",
                 "决策障碍": "障碍描述"
