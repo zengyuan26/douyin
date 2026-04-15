@@ -3077,12 +3077,14 @@ def api_super_position_analyze():
         market_opportunities = [
             {
                 'opportunity_name': o.opportunity_name,
+                'business_direction': getattr(o, 'business_direction', ''),
                 'target_audience': o.target_audience,
                 'pain_points': o.pain_points,
                 'keywords': o.keywords,
                 'content_direction': o.content_direction,
                 'market_type': o.market_type,
                 'confidence': o.confidence,
+                'differentiation': getattr(o, 'differentiation', ''),
             }
             for o in analysis_result.market_opportunities
         ]

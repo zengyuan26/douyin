@@ -45,13 +45,15 @@ class MarketType(Enum):
 @dataclass
 class MarketOpportunity:
     """市场机会"""
-    opportunity_name: str           # 机会名称
+    opportunity_name: str           # 机会名称（业务细分方向，如"进口有机羊奶粉"）
+    business_direction: str         # 核心业务方向（用于填入"核心业务"输入框）
     target_audience: str            # 目标人群描述
-    pain_points: List[str]           # 痛点列表
+    pain_points: List[str]         # 痛点列表
     keywords: List[str]             # 关键词
-    content_direction: str           # 内容方向
+    content_direction: str          # 内容方向
     market_type: str                # blue_ocean / red_ocean
-    confidence: float = 0.8         # 置信度
+    confidence: float = 0.8        # 置信度
+    differentiation: str = ""       # 差异化说明（告诉客户机会在哪）
 
 
 @dataclass
@@ -263,7 +265,7 @@ class MarketAnalyzer:
         elif business_type == 'enterprise':
             business_type_hint = "业务为企业服务，重点关注：决策流程、ROI顾虑、供应商选择"
 
-        prompt = f"""你是市场蓝海机会分析专家。请分析以下业务的市场机会。
+        prompt = f"""你是市场蓝海机会分析专家。请分析以下业务的市场机会，并挖掘可操作的业务细分方向。
 
 === 业务信息 ===
 业务描述：{business_desc}
@@ -274,8 +276,13 @@ class MarketAnalyzer:
 请完成以下分析并输出JSON格式结果：
 
 1. **市场机会挖掘**：识别{max_opportunities}个蓝海市场机会
-   - 每个机会要明确：目标人群、核心痛点、差异化方向
-   - 人群要细分：如"家有0-6个月奶粉喂养宝宝的新手妈妈"、"高层住宅无电梯家庭"
+   - 每个机会必须包含：
+     - **opportunity_name**：机会名称，如"高端细分市场"、"特殊人群市场"
+     - **business_direction**：**【关键】业务细分方向，用于直接填入"核心业务"输入框**
+       - 必须具体到可执行的业务方向，如"进口有机羊奶粉"、"乳糖不耐受特殊配方奶粉"
+       - 格式：产品类型 + 特色标签，如"进口"、"有机"、"羊奶"、"配方"
+     - **differentiation**：一句话说明这个机会好在哪、差异化在哪
+   - 目标人群要细分：如"家有0-6个月奶粉喂养宝宝的新手妈妈"
 
 2. **问题类型生成**：生成3-6个问题类型（仅作为画像分类标签）
    - 一个类型对应一类痛点，可生成多个画像
@@ -292,13 +299,15 @@ class MarketAnalyzer:
 {{
     "market_opportunities": [
         {{
-            "opportunity_name": "机会名称",
-            "target_audience": "目标人群描述",
-            "pain_points": ["痛点1", "痛点2"],
-            "keywords": ["关键词1", "关键词2"],
-            "content_direction": "内容方向",
+            "opportunity_name": "高端细分市场",
+            "business_direction": "进口有机羊奶粉",
+            "target_audience": "追求高品质、愿意为宝宝花费更多的30-40岁中产家庭",
+            "pain_points": ["担心国产奶粉质量问题", "想要更接近母乳的配方"],
+            "keywords": ["进口羊奶粉", "有机奶粉", "A2蛋白奶粉"],
+            "content_direction": "种草型：强调品质、安全、专业",
             "market_type": "blue_ocean",
-            "confidence": 0.85
+            "confidence": 0.85,
+            "differentiation": "竞争少、客单价高、用户忠诚度高"
         }}
     ],
     "problem_types": [
@@ -373,12 +382,14 @@ class MarketAnalyzer:
         for opp in opportunities:
             result.market_opportunities.append(MarketOpportunity(
                 opportunity_name=opp.get('opportunity_name', ''),
+                business_direction=opp.get('business_direction', ''),
                 target_audience=opp.get('target_audience', ''),
                 pain_points=opp.get('pain_points', []),
                 keywords=opp.get('keywords', []),
                 content_direction=opp.get('content_direction', ''),
                 market_type=opp.get('market_type', 'blue_ocean'),
                 confidence=opp.get('confidence', 0.8),
+                differentiation=opp.get('differentiation', ''),
             ))
 
         # 解析问题类型
