@@ -5934,6 +5934,10 @@
             const isUser = !identity.includes('企业') && !identity.includes('公司') && !identity.includes('采购');
             const badgeClass = isUser ? 'id-user' : 'id-buyer';
 
+            // display_name 作为主标题，problem_type 作为类别标签
+            const displayName = type.display_name || problemType;
+            const categoryLabel = problemType || '';
+
             // 问题关键词
             const keywords = type.problem_keywords || [];
             const kwHtml = keywords.slice(0, 5).map(k => {
@@ -5965,13 +5969,11 @@
 
             let content = `<div class="prob-cf-header">
                 <div class="prob-cf-title-row">
-                    <span class="prob-cf-type">${escHtml(problemType)}</span>
+                    <span class="prob-cf-type" title="${escHtml(categoryLabel)}">${escHtml(displayName)}</span>
                     <span class="prob-cf-identity ${badgeClass}">${tagIcon} ${escHtml(identity)}</span>
                 </div>
-                <div class="prob-cf-tags-row">
-                    ${baseBadge}
-                    ${dualBadges}
-                </div>
+                ${categoryLabel && categoryLabel !== displayName ? `<div class="prob-cf-tags-row" style="padding-top:2px;"><span class="prob-tag" style="font-size:0.7rem;">${escHtml(categoryLabel)}</span> ${baseBadge} ${dualBadges}</div>` : `<div class="prob-cf-tags-row">${baseBadge} ${dualBadges}</div>`}
+            </div>
             </div>
             <div class="prob-cf-severity">
                 <span class="prob-stars">${stars}</span>
@@ -6636,6 +6638,10 @@
 
             const hasPortraits = portraitCount > 0;
 
+            // display_name 作为主标题，problem_type 作为类别标签
+            const displayName = problemData.display_name || problemType;
+            const categoryLabel = problemType || '';
+
             const genBtnId = 'gen-btn-' + key.replace(/[^a-zA-Z0-9]/g, '_');
             // 去除问题描述中的【已有】【恐惧】前缀
             let cleanDescription = (problemData.description || '').replace(/^【已有】|^【恐惧】/g, '').trim();
@@ -6699,9 +6705,10 @@
                 <div class="problem-card" data-key="${escHtml(key)}" style="cursor:pointer;">
                     <div class="pc-header">
                         <div class="pc-title-row">
-                            <span class="pc-type" title="${escHtml(problemType)}">${escHtml(problemType)}</span>
+                            <span class="pc-type" title="${escHtml(categoryLabel)}">${escHtml(displayName)}</span>
                             <span class="pc-id-badge ${badgeClass}"><span aria-hidden="true">${tagIcon}</span><span>${escHtml(identity)}</span></span>
                         </div>
+                        ${categoryLabel && categoryLabel !== displayName ? `<div style="padding-top:4px;"><span class="pc-type" style="font-size:0.75rem;font-weight:500;color:#6b7280;background:#f3f4f6;padding:2px 8px;border-radius:6px;">${escHtml(categoryLabel)}</span></div>` : ''}
                         <div class="pc-tags-row">
                             ${baseBadge}
                             ${dualLabelBadges}

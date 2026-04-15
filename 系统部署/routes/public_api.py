@@ -8,6 +8,8 @@ import json
 import datetime
 import logging
 import threading
+import signal
+import functools
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, current_app
 from flask_login import current_user
 from sqlalchemy import text
@@ -24,6 +26,38 @@ from services.rate_limiter import (
 )
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# 请求超时装饰器
+# =============================================================================
+
+class RequestTimeout(Exception):
+    """请求超时异常"""
+    pass
+
+
+def run_with_timeout(func, args, kwargs, timeout_seconds=90):
+    """
+    在子线程中运行函数并超时控制。
+
+    Args:
+        func: 要执行的函数（不能访问 request 等请求上下文对象）
+        args, kwargs: 函数参数
+        timeout_seconds: 超时秒数
+
+    Returns:
+        (result, timed_out)
+    """
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(func, *args, **kwargs)
+        try:
+            result = future.result(timeout=timeout_seconds)
+            return result, False
+        except FuturesTimeoutError:
+            logger.warning(f"[{func.__name__}] 请求处理超时 ({timeout_seconds}秒)")
+            return None, True
 
 public_bp = Blueprint('public', __name__, url_prefix='/public')
 

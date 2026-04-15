@@ -1107,6 +1107,26 @@
         flex: 1;
     }
 
+    .problem-card-description.expanded {
+        white-space: normal;
+    }
+
+    .problem-card-description .more-indicator {
+        color: var(--text-secondary, #8e8e93);
+        font-weight: 500;
+    }
+
+    .problem-card-expand {
+        font-size: 0.75rem;
+        color: var(--link-color, #007aff);
+        cursor: pointer;
+        margin-bottom: 8px;
+    }
+
+    .problem-card-expand:hover {
+        text-decoration: underline;
+    }
+
     .problem-card-tags {
         display: flex;
         flex-wrap: wrap;
@@ -1515,7 +1535,7 @@
                                 <div class="apple-spinner mx-auto" style="width:36px;height:36px;border-width:3px;"></div>
                                 <p style="margin-top:16px;color:var(--text-secondary);font-size:0.9375rem;">
                                     <i class="bi bi-search" style="margin-right:6px;"></i>
-                                    正在深度挖掘目标客户痛点...
+                                    <span id="problem-mining-loading-text">正在深度挖掘目标客户痛点...</span>
                                 </p>
                                 <p style="margin-top:8px;color:var(--apple-gray);font-size:0.8125rem;">
                                     基于核心业务描述，结合行业特征与用户行为数据生成分析报告
@@ -1525,6 +1545,26 @@
                             <div class="problems-empty-hint" id="problems-empty-hint" style="display: none;">
                                 <i class="bi bi-search" style="font-size:2rem;margin-bottom:12px;"></i>
                                 <p>请先在「描述业务」填写信息</p>
+                            </div>
+                            <!-- 细分赛道展示区域 -->
+                            <div id="subdivision-section" style="display: none; padding: 0 4px 16px;">
+                                <div class="subdivision-card" id="subdivision-card" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; border: 1px solid rgba(0,0,0,0.06);">
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                        <div style="width: 36px; height: 36px; background: var(--apple-red, #FF3B30); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                            <i class="bi bi-crosshair" style="color: white; font-size: 1.1rem;"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size: 0.8125rem; color: var(--apple-gray); font-weight: 500;">细分赛道识别</div>
+                                            <div id="subdivision-name" style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">加载中...</div>
+                                        </div>
+                                        <div style="margin-left: auto;">
+                                            <span id="subdivision-confidence" class="badge" style="background: #e8f5e9; color: #2e7d32; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; font-weight: 500;">置信度 0%</span>
+                                        </div>
+                                    </div>
+                                    <div id="subdivision-meta" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0;">
+                                        <!-- 动态填充业务类型和客户类型标签 -->
+                                    </div>
+                                </div>
                             </div>
                             <!-- 问题卡片区域 -->
                             <div id="problems-section" style="display: none;"></div>
@@ -1633,6 +1673,7 @@ var _allProblems = [];
 var _allPortraits = {};
 var _selectedProblemKey = null;
 var _currentMarketAnalysis = {};
+var _currentSubdivision = null;  // 细分赛道识别结果
 var _isPremium = false;
 var _refreshRound = 0;  // 换一批轮次计数器（方案一）
 var _allProblemsPool = [];  // 候选问题池（方案二：维护更大的候选集）
@@ -1869,8 +1910,86 @@ function resetSuperPortraitFlow() {
     unlockFormPanel();
 }
 
+// ============================================================================
+// 请求工具函数
+// ============================================================================
+
+/**
+ * 更新加载状态的文字
+ */
+function updateLoadingText(text, subText) {
+    const loadingText = document.getElementById('problem-mining-loading-text');
+    if (loadingText) {
+        loadingText.textContent = text;
+    }
+    const subEl = document.querySelector('#problem-mining-loading p:nth-child(3)');
+    if (subEl && subText) {
+        subEl.textContent = subText;
+    }
+}
+
+/**
+ * 带超时和重试的 fetch 封装
+ * @param {string} url - 请求URL
+ * @param {object} options - fetch 选项
+ * @param {number} options.timeout - 超时时间(ms)，默认60000
+ * @param {number} options.retries - 重试次数，默认2
+ * @param {number} options.retryDelay - 重试延迟(ms)，默认1000
+ * @param {function} options.onRetry - 重试时的回调函数 (attempt, maxRetries) => void
+ */
+async function fetchWithRetry(url, options = {}) {
+    const {
+        timeout = 60000,
+        retries = 2,
+        retryDelay = 1500,
+        onRetry = null,
+        ...fetchOptions
+    } = options;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    let lastError;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const response = await fetch(url, {
+                ...fetchOptions,
+                signal: controller.signal,
+                credentials: 'include',
+            });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            lastError = error;
+
+            // 如果是最后一次尝试，或者是被中断，直接抛出
+            if (attempt === retries || error.name === 'AbortError') {
+                clearTimeout(timeoutId);
+                throw error;
+            }
+
+            // 重试回调
+            if (onRetry) {
+                onRetry(attempt + 1, retries + 1);
+            }
+
+            console.log(`[fetchWithRetry] 请求失败 (attempt ${attempt + 1}/${retries + 1}), ${retryDelay * (attempt + 1)}ms 后重试...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+        }
+    }
+
+    clearTimeout(timeoutId);
+    throw lastError;
+}
+
+// ============================================================================
 // 换一批：重新挖掘问题
+// ============================================================================
+
 let _refreshProblemsSeq = 0;
+let _refreshProblemsRetryCount = 0;
+
 async function refreshProblems() {
     if (_allProblems.length === 0 && _allProblemsPool.length === 0) {
         showToast('请先在一键分析中挖掘问题', 'warning');
@@ -1878,17 +1997,20 @@ async function refreshProblems() {
     }
 
     const mySeq = ++_refreshProblemsSeq;
-    console.log('[换一批-问题] 点击了, seq=' + mySeq + ', round=' + _refreshRound);
+    const maxRetries = 2;
+    console.log('[换一批-问题] 点击了, seq=' + mySeq + ', round=' + _refreshRound + ', maxRetries=' + maxRetries);
 
     const btn = document.getElementById('tab-action-text');
-    if (btn) {
-        btn.textContent = '换一批...';
-    }
+    const originalBtnText = btn ? btn.textContent : '换一批';
 
     // 显示加载状态
     document.getElementById('problem-mining-loading').style.display = 'block';
     document.getElementById('problems-section').style.display = 'none';
     document.getElementById('problems-empty-hint').style.display = 'none';
+
+    if (btn) {
+        btn.textContent = '加载中...';
+    }
 
     try {
         const businessDesc = document.getElementById('business-desc').value.trim();
@@ -1902,11 +2024,9 @@ async function refreshProblems() {
         _refreshRound++;
 
         // ── 方案四：pool 清空阈值 ──
-        // 当连续两轮问题极少（≤2条）时，清空 pool，让后端从零生成全新候选集
-        // 这避免了 pool 越积越多导致新问题枯竭的问题
         const candidateCount = (_allProblems || []).length + (_allProblemsPool || []).length;
         const shouldResetPool = _consecutiveNoNewRounds >= 2 && candidateCount >= 20;
-        let forceFresh = false;  // 告诉后端忽略 exclude_problems，从零生成
+        let forceFresh = false;
         if (shouldResetPool) {
             console.log('[换一批-问题] 连续', _consecutiveNoNewRounds, '轮无新问题，候选池共', candidateCount, '条 → 清空候选池，从零生成');
             forceFresh = true;
@@ -1914,16 +2034,27 @@ async function refreshProblems() {
             _consecutiveNoNewRounds = 0;
         }
 
-        // 收集已显示过的问题作为去重上下文（方案二：扩大至 30 条）
         const excludeProblems = (_allProblems || []).concat(_allProblemsPool || []).slice(0, 30);
 
-        const resp = await fetch('/public/api/targets/problems', {
+        // ── 使用带超时和重试的请求 ──
+        let retryCount = 0;
+        const resp = await fetchWithRetry('/public/api/targets/problems', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
             },
-            credentials: 'include',
+            timeout: 90000,  // 90秒超时（留有余量）
+            retries: maxRetries,
+            retryDelay: 1500,
+            onRetry: (attempt, total) => {
+                retryCount = attempt;
+                if (btn) btn.textContent = `重试(${attempt}/${total})...`;
+                updateLoadingText(
+                    `请求超时，正在重试 (${attempt}/${total})...`,
+                    `预计等待时间：${Math.round(retryDelay * attempt / 1000)}秒`
+                );
+            },
             body: JSON.stringify({
                 business_description: businessDesc,
                 business_range: businessRange,
@@ -1932,7 +2063,6 @@ async function refreshProblems() {
                 other_scenario: otherScenario,
                 local_city: localCity,
                 refresh_nonce: Date.now(),
-                // 方案一：透传轮次和去重上下文给后端（force_fresh 为 true 时跳过去重）
                 refresh_round: _refreshRound,
                 exclude_problems: forceFresh ? [] : excludeProblems,
                 force_fresh: forceFresh,
@@ -1944,8 +2074,12 @@ async function refreshProblems() {
             return;
         }
 
+        // 重置重试计数
+        _refreshProblemsRetryCount = 0;
+
         if (!resp.ok) {
-            throw new Error('API请求失败');
+            const errorText = await resp.text().catch(() => '未知错误');
+            throw new Error(`服务器错误 (${resp.status}): ${errorText}`);
         }
 
         const data = await resp.json();
@@ -1955,15 +2089,13 @@ async function refreshProblems() {
             const marketAnalysis = data.problems.market_analysis || {};
             _currentMarketAnalysis = marketAnalysis;
 
-            // 方案二：将旧一批移入候选池，再追加新一批
+            // 将旧一批移入候选池，再追加新一批
             if (_allProblems.length > 0) {
                 _allProblemsPool = _allProblemsPool.concat(_allProblems);
             }
             _allProblems = problems;
 
-            // ── 方案四：检测是否为"有效换一批" ──
-            // 判断依据：新问题和候选池中已有问题的 identity+problem_type 重叠程度
-            // 如果超过 60% 的新问题都能在 pool 里找到相似项，说明这批没有带来足够多新信息
+            // 检测是否为"有效换一批"
             const newCount = problems.length;
             const poolIdentities = new Set((_allProblemsPool || []).map(p => (p.identity || '') + '|' + (p.problem_type || p.concern_type || '')));
             const trulyNew = problems.filter(p => {
@@ -1976,7 +2108,7 @@ async function refreshProblems() {
                 _consecutiveNoNewRounds++;
                 console.log('[换一批-问题] 新鲜度不足: ' + newRatio.toFixed(1) + '（新' + trulyNew + '/' + newCount + '条），_consecutiveNoNewRounds=' + _consecutiveNoNewRounds);
             } else {
-                _consecutiveNoNewRounds = 0; // 有效换一批，重置计数器
+                _consecutiveNoNewRounds = 0;
             }
             _allPortraits = {};
             _isPremium = data.is_premium || false;
@@ -1985,8 +2117,6 @@ async function refreshProblems() {
             document.getElementById('problems-section').style.display = 'block';
 
             renderProblemCards(_allProblems);
-
-            // 更新服务端快照
             saveSnapshotToServer();
 
             showToast('换一批成功！', 'success');
@@ -1995,14 +2125,30 @@ async function refreshProblems() {
         }
     } catch (e) {
         if (mySeq !== _refreshProblemsSeq) return;
-        showToast('换一批失败，请稍后重试', 'error');
-        console.error('[换一批-问题] 异常', e);
+
+        // 记录重试次数
+        _refreshProblemsRetryCount++;
+
+        // 根据错误类型给出更友好的提示
+        let errorMessage = '换一批失败，请稍后重试';
+        if (e.name === 'AbortError' || e.message.includes('aborted')) {
+            errorMessage = '请求超时，请检查网络后重试';
+            console.error('[换一批-问题] 请求超时', e);
+        } else if (e.message.includes('Failed to fetch') || e.message.includes('network') || e.message.includes('NetworkError')) {
+            errorMessage = '网络连接失败，请检查网络后重试';
+            console.error('[换一批-问题] 网络错误', e);
+        } else {
+            console.error('[换一批-问题] 异常', e);
+        }
+
+        showToast(errorMessage, 'error');
+
         document.getElementById('problem-mining-loading').style.display = 'none';
         document.getElementById('problems-section').style.display = 'block';
     } finally {
         if (mySeq !== _refreshProblemsSeq) return;
         if (btn) {
-            btn.textContent = '换一批';
+            btn.textContent = originalBtnText;
         }
     }
 }
@@ -2201,6 +2347,7 @@ async function portraitMineAndGenerate() {
             const problems = data.problems.problems || data.problems || [];
             const marketAnalysis = data.problems.market_analysis || {};
             _currentMarketAnalysis = marketAnalysis;
+            _currentSubdivision = data.subdivision || null;  // 保存细分赛道数据
             _allProblems = problems;
             _allProblemsPool = [];  // 重置候选池
             _refreshRound = 0;     // 重置轮次计数器
@@ -2209,6 +2356,9 @@ async function portraitMineAndGenerate() {
 
             document.getElementById('problem-mining-loading').style.display = 'none';
             document.getElementById('problems-section').style.display = 'block';
+
+            // 渲染细分赛道卡片
+            renderSubdivisionCard(_currentSubdivision);
 
             renderProblemCards(_allProblems);
 
@@ -2243,6 +2393,118 @@ async function portraitMineAndGenerate() {
     } finally {
         document.getElementById('btn-one-key-analyze').disabled = false;
     }
+}
+
+// ============================================================================
+// 细分赛道识别展示
+// ============================================================================
+
+/**
+ * 渲染细分赛道识别结果卡片
+ */
+function renderSubdivisionCard(subdivision) {
+    const section = document.getElementById('subdivision-section');
+    const nameEl = document.getElementById('subdivision-name');
+    const confidenceEl = document.getElementById('subdivision-confidence');
+    const metaEl = document.getElementById('subdivision-meta');
+
+    if (!section || !subdivision) {
+        if (section) section.style.display = 'none';
+        return;
+    }
+
+    // 显示区域
+    section.style.display = 'block';
+
+    // 设置细分赛道名称
+    if (nameEl) {
+        nameEl.textContent = subdivision.subdivision_name || '通用赛道';
+    }
+
+    // 设置置信度
+    if (confidenceEl) {
+        const confidence = Math.round((subdivision.confidence || 0) * 100);
+        confidenceEl.textContent = `置信度 ${confidence}%`;
+
+        // 根据置信度调整颜色
+        if (confidence >= 70) {
+            confidenceEl.style.background = '#e8f5e9';
+            confidenceEl.style.color = '#2e7d32';
+        } else if (confidence >= 40) {
+            confidenceEl.style.background = '#fff3e0';
+            confidenceEl.style.color = '#e65100';
+        } else {
+            confidenceEl.style.background = '#fafafa';
+            confidenceEl.style.color = '#757575';
+        }
+    }
+
+    // 设置元信息标签
+    if (metaEl) {
+        let tags = [];
+
+        // 业务类型
+        if (subdivision.business_type) {
+            tags.push({
+                label: subdivision.business_type,
+                icon: 'bi-briefcase',
+                color: '#e3f2fd',
+                textColor: '#1565c0'
+            });
+        }
+
+        // 客户类型
+        if (subdivision.client_type) {
+            const clientIcon = subdivision.client_type === 'C端' ? 'bi-person' : 'bi-building';
+            const clientColor = subdivision.client_type === 'C端' ? '#fce4ec' : '#e8eaf6';
+            const clientTextColor = subdivision.client_type === 'C端' ? '#c2185b' : '#3949ab';
+            tags.push({
+                label: subdivision.client_type + '客户',
+                icon: clientIcon,
+                color: clientColor,
+                textColor: clientTextColor
+            });
+        }
+
+        // 匹配关键词
+        if (subdivision.matched_keywords && subdivision.matched_keywords.length > 0) {
+            const keywords = subdivision.matched_keywords.slice(0, 3);
+            tags.push({
+                label: '关键词: ' + keywords.join(', '),
+                icon: 'bi-tag',
+                color: '#f3e5f5',
+                textColor: '#7b1fa2',
+                isText: true
+            });
+        }
+
+        // 数据来源
+        const sourceLabels = {
+            'market_analysis': '市场分析',
+            'knowledge_base': '知识库',
+            'llm_detection': 'AI探测',
+            'fallback': '智能推断'
+        };
+        if (subdivision.source && sourceLabels[subdivision.source]) {
+            tags.push({
+                label: '来源: ' + sourceLabels[subdivision.source],
+                icon: 'bi-cloud',
+                color: '#e0f2f1',
+                textColor: '#00695c'
+            });
+        }
+
+        // 渲染标签
+        metaEl.innerHTML = tags.map(tag => {
+            const style = `background: ${tag.color}; color: ${tag.textColor}; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;`;
+            if (tag.isText) {
+                return `<span style="${style}"><i class="${tag.icon}" style="font-size: 0.7rem;"></i>${tag.label}</span>`;
+            }
+            return `<span style="${style}"><i class="${tag.icon}" style="font-size: 0.7rem;"></i>${tag.label}</span>`;
+        }).join('');
+    }
+
+    console.log('[renderSubdivisionCard] 细分赛道识别结果:', subdivision);
 }
 
 // 渲染问题卡片 - Cover Flow 轮播版本
@@ -2337,7 +2599,7 @@ function buildProblemCardHTML(problem, index) {
         </svg>`
     ).join('');
 
-    // 问题基底标签
+    // 问题基底标签（content_direction 语义与 problem_base 重叠，优先用 problem_base）
     let baseTag = '';
     if (problemBase.includes('刚需') || problemBase.includes('痛点')) {
         baseTag = `<span class="problem-card-tag base-conversion">转化型</span>`;
@@ -2345,17 +2607,26 @@ function buildProblemCardHTML(problem, index) {
         baseTag = `<span class="problem-card-tag base-seeding">种草型</span>`;
     }
 
-    // 内容方向标签
-    const directionTag = contentDirection === '转化型'
-        ? `<span class="problem-card-tag direction">${contentDirection}</span>`
-        : `<span class="problem-card-tag">${contentDirection}</span>`;
-
     // 市场类型标识
     const marketBadgeClass = marketType === 'blue_ocean' ? 'blue-ocean' : 'red-ocean';
     const marketBadgeText = marketType === 'blue_ocean' ? '蓝海' : '红海';
 
     // 是否有已生成的画像
     const hasPortraits = portraitCount > 0;
+
+    // 场景枚举文本（description/scenarios 现在是多行枚举格式）
+    // 场景枚举格式：每行一个场景，支持换行或/分隔
+    const rawText = problem.description || problem.scenarios || '';
+    const descriptionLines = typeof rawText === 'string'
+        ? rawText.split(/[\n/]/).filter(line => line.trim())
+        : (Array.isArray(rawText) ? rawText : []);
+
+    // 卡片显示：最多4行
+    const maxDisplayLines = 4;
+    const displayLines = descriptionLines.slice(0, maxDisplayLines);
+    const hasMoreLines = descriptionLines.length > maxDisplayLines;
+    const scenariosText = displayLines.join('、');
+    const fullScenariosText = descriptionLines.join('、');
 
     return `
         <div class="problem-card is-center ${hasPortraits ? 'has-portraits' : ''}"
@@ -2365,8 +2636,7 @@ function buildProblemCardHTML(problem, index) {
                 <div class="problem-card-header">
                     <div class="problem-card-market-badge ${marketBadgeClass}">${marketBadgeText}</div>
                     <div class="problem-card-identity">${escHtml(identity)}</div>
-                    <div class="problem-card-type-badge">
-                        <i class="bi bi-tag"></i>
+                    <div class="problem-card-type-badge" style="font-size:0.8rem;font-weight:600;word-break:break-all;">
                         ${escHtml(problemType)}
                     </div>
                     <div class="problem-card-severity">
@@ -2374,12 +2644,14 @@ function buildProblemCardHTML(problem, index) {
                     </div>
                 </div>
                 <div class="problem-card-body">
-                    <div class="problem-card-description">${escHtml(problem.description || problem.problem || '')}</div>
+                    <div class="problem-card-description" data-full-text="${escHtml(fullScenariosText)}" data-line-count="${descriptionLines.length}" data-max-lines="${maxDisplayLines}">
+                        ${escHtml(scenariosText)}${hasMoreLines ? '<span class="more-indicator">...</span>' : ''}
+                    </div>
+                    ${hasMoreLines ? `<div class="problem-card-expand" onclick="this.previousElementSibling.classList.toggle('expanded'); this.style.display='none';">[展开全部${descriptionLines.length}个场景]</div>` : ''}
 
                     <!-- 标签区域 -->
                     <div class="problem-card-tags">
                         ${baseTag}
-                        ${directionTag}
                     </div>
 
                     <!-- 场景标签 -->
@@ -3368,9 +3640,6 @@ function resetSavePortraitBtn(btn, originalText) {
 }
 
 async function loadUserAuth() {
-    // #region agent_debug
-    fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'portraits_create.html:3369',message:'loadUserAuth ENTER',data:{topbarAuth:!!document.getElementById('topbar-auth'),topbarUser:!!document.getElementById('topbar-user')},timestamp:Date.now(),runId:'runtime'})}).catch(()=>{});
-    // #endregion
     try {
         const resp = await fetch('/public/api/quota', { credentials: 'include' });
         const data = await resp.json();
@@ -3852,9 +4121,6 @@ function getPublicSkin() {
 
 // ── 页面初始化 ──────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async function() {
-    // #region agent_debug
-    fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'portraits_create.html:3850',message:'DOMContentLoaded START',data:{topbarAuthExists:!!document.getElementById('topbar-auth'),topbarUserExists:!!document.getElementById('topbar-user'),topbarAuthDisplay:document.getElementById('topbar-auth')?.style?.display,topbarUserDisplay:document.getElementById('topbar-user')?.style?.display},timestamp:Date.now(),runId:'runtime'})}).catch(()=>{});
-    // #endregion
     // 初始化顶栏用户信息
     await loadUserAuth();
     // 用户验证通过后，初始化快照恢复和自动保存（必须 await）

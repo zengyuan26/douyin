@@ -3155,12 +3155,10 @@ function renderQualityReport(report) {
     var container = document.getElementById('quality-report-container');
     if (!container || !report) {
         console.log('[renderQualityReport] 容器或报告为空，container:', !!container, 'report:', !!report);
-        fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3156',message:'renderQualityReport early return',data:{has_container:!!container,has_report:!!report},timestamp:Date.now()})}).catch(()=>{});
         return;
     }
 
     console.log('[renderQualityReport] 开始渲染，report.final_score:', report.final_score, 'report.total_score:', report.total_score);
-    fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3163',message:'renderQualityReport start',data:{final_score:report.final_score,total_score:report.total_score,keys:Object.keys(report)},timestamp:Date.now()})}).catch(()=>{});
 
     container.style.display = '';  // 确保容器可见
 
@@ -3181,7 +3179,6 @@ function renderQualityReport(report) {
     var suggestions = report.suggestions || [];
 
     console.log('[renderQualityReport] 使用分数:', score, 'grade:', grade, 'passed:', passed, 'optimized:', optimized);
-    fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3180',message:'renderQualityReport parsed',data:{score:score,grade:grade,passed:passed,optimized:optimized,items_count:items.length},timestamp:Date.now()})}).catch(()=>{});
 
     // 评分圆圈样式
     var scoreClass = 'excellent';
@@ -3315,7 +3312,6 @@ function renderQualityReport(report) {
     container.innerHTML = html;
     container.style.display = 'block';
 
-    fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3310',message:'renderQualityReport innerHTML set',data:{score:score,container_html_len:html.length},timestamp:Date.now()})}).catch(()=>{});
     console.log('[renderQualityReport] HTML已设置到容器，html长度:', html.length, '分数:', score);
 }
 
@@ -3355,11 +3351,9 @@ function doDetailOptimize(e) {
 
     es.addEventListener('connected', function(e) {
         console.log('[SSE] 连接成功，已建立SSE连接');
-        fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3333',message:'SSE connected',data:{},timestamp:Date.now()})}).catch(()=>{});
     });
 
     es.addEventListener('start', function(e) {
-        fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3338',message:'SSE start event',data:{data:e.data},timestamp:Date.now()})}).catch(()=>{});
         var data = JSON.parse(e.data);
         _firstScore = data.initial_score;
         _currentScore = data.initial_score;
@@ -3441,8 +3435,6 @@ function doDetailOptimize(e) {
         console.log('[SSE] data.round_history:', !!data.round_history);
         console.log('[SSE] data.content:', !!data.content);
 
-        fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3428',message:'SSE complete event',data:{success:data.success,final_score:data.final_score,has_quality_report:!!data.quality_report,has_content:!!data.content,has_round_history:!!data.round_history,keys:Object.keys(data)},timestamp:Date.now()})}).catch(()=>{});
-
         es.close();
         _optimizeEventSource = null;
         _optimizeLoading = false;
@@ -3466,8 +3458,6 @@ function doDetailOptimize(e) {
                 data.round_history = _roundHistory;
                 console.log('[SSE] round_history 缺失，使用前端记录:', data.round_history.length);
             }
-
-            fetch('http://127.0.0.1:7242/ingest/31df6adc-f12d-49d7-92b8-089b897bc558',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'content_detail.html:3465',message:'SSE after fallback',data:{first_score:data.first_score,round_history_len:data.round_history?data.round_history.length:0},timestamp:Date.now()})}).catch(()=>{});
 
             var scoreDelta = data.final_score - data.first_score;
             var deltaStr = scoreDelta >= 0 ? '+' + scoreDelta.toFixed(1) : scoreDelta.toFixed(1);

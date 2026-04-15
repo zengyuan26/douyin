@@ -5,6 +5,7 @@
 1. 根据业务特征分析，筛选相关的市场洞察维度
 2. 渲染维度内容模板，生成精简的LLM提示词
 3. 按重要性排序，组装最终提示词
+4. 【新增】集成细分赛道识别，打通市场分析和超级定位
 
 使用方式：
 from services.market_insight_filter import MarketInsightFilter
@@ -12,10 +13,28 @@ from services.market_insight_filter import MarketInsightFilter
 filter = MarketInsightFilter()
 relevant_dims = filter.filter_dimensions(business_info)
 prompt = filter.build_prompt(business_info, relevant_dims)
+
+# 【新增】细分赛道识别
+result = filter.recognize_subdivision(business_info)
 """
 
 from typing import Dict, List, Optional, Any
 from models.models import db, AnalysisDimension
+
+# 导入细分赛道识别模块
+try:
+    from services.subdivision_recognizer import (
+        SubdivisionRecognizer,
+        RecognitionResult,
+        RecognitionStatus,
+        recognize_subdivision as _recognize_sub
+    )
+    SUBDIVISION_ENABLED = True
+except ImportError:
+    SUBDIVISION_ENABLED = False
+    RecognitionResult = None
+    RecognitionStatus = None
+    _recognize_sub = None
 
 
 class MarketInsightFilter:
@@ -24,6 +43,9 @@ class MarketInsightFilter:
     def __init__(self):
         self.dimension_cache = None
         self.cache_loaded = False
+        self.subdivision_recognizer = None
+        if SUBDIVISION_ENABLED:
+            self.subdivision_recognizer = SubdivisionRecognizer()
 
     def load_dimensions(self, force_reload: bool = False) -> List[Dict]:
         """加载所有市场洞察维度"""
@@ -287,8 +309,144 @@ class MarketInsightFilter:
         names = [d['name'] for d in dimensions]
         return f"已筛选 {len(dimensions)} 个维度: {', '.join(names)}"
 
+    # ============================================================
+    # 【新增】细分赛道识别方法
+    # ============================================================
 
+    def recognize_subdivision(self, business_info: Dict,
+                             market_analysis_report: Optional[Dict] = None) -> Optional['RecognitionResult']:
+        """
+        【新增】识别细分赛道
+
+        Args:
+            business_info: 业务信息，包含：
+                - description: 业务描述
+                - industry: 行业名称
+                - keywords: 关键词列表
+            market_analysis_report: 市场分析报告（可选）
+
+        Returns:
+            RecognitionResult: 识别结果
+        """
+        if not SUBDIVISION_ENABLED or not self.subdivision_recognizer:
+            return None
+
+        business_desc = business_info.get('description', '')
+        industry = business_info.get('industry', '')
+
+        if not business_desc or not industry:
+            return None
+
+        return self.subdivision_recognizer.recognize(
+            business_desc=business_desc,
+            industry=industry,
+            market_analysis_report=market_analysis_report,
+            business_info=business_info
+        )
+
+    def build_prompt_with_subdivision(self, business_info: Dict,
+                                      market_analysis_report: Optional[Dict] = None) -> Dict:
+        """
+        【新增】构建包含细分赛道的完整Prompt
+
+        Args:
+            business_info: 业务信息
+            market_analysis_report: 市场分析报告
+
+        Returns:
+            Dict: {
+                'prompt': str,  # 完整Prompt
+                'subdivision_result': RecognitionResult,  # 细分赛道识别结果
+                'dimensions': List[Dict],  # 筛选的维度
+                'needs_clarification': bool,  # 是否需要询问
+                'clarification_question': str,  # 询问问题
+                'clarification_options': List[Dict]  # 询问选项
+            }
+        """
+        result = {
+            'prompt': '',
+            'subdivision_result': None,
+            'dimensions': [],
+            'needs_clarification': False,
+            'clarification_question': '',
+            'clarification_options': []
+        }
+
+        # 1. 识别细分赛道
+        subdivision_result = self.recognize_subdivision(business_info, market_analysis_report)
+        result['subdivision_result'] = subdivision_result
+
+        # 2. 如果需要询问，返回询问信息
+        if subdivision_result and subdivision_result.needs_clarification:
+            result['needs_clarification'] = True
+            result['clarification_question'] = subdivision_result.clarification_question
+            result['clarification_options'] = subdivision_result.clarification_options
+            return result
+
+        # 3. 筛选维度
+        dimensions = self.filter_dimensions(business_info)
+        result['dimensions'] = dimensions
+
+        # 4. 构建Prompt
+        parts = []
+
+        # 头部说明
+        parts.append("你是用户问题分析专家。请根据以下规则和业务信息，挖掘目标客户的问题。")
+        parts.append("")
+
+        # 【新增】细分赛道信息
+        if subdivision_result:
+            parts.append("=== 细分赛道信息 ===")
+            parts.append(f"行业：{subdivision_result.industry}")
+            parts.append(f"细分赛道：{subdivision_result.subdivision_name}")
+            parts.append(f"经营类型：{subdivision_result.business_type}")
+            parts.append(f"客户类型：{subdivision_result.client_type}")
+            if subdivision_result.sales_range:
+                parts.append(f"销售范围：{subdivision_result.sales_range}")
+            if subdivision_result.matched_keywords:
+                parts.append(f"匹配关键词：{', '.join(subdivision_result.matched_keywords)}")
+            parts.append("")
+
+        # 相关维度内容
+        if dimensions:
+            parts.append("=== 分析规则 ===")
+            for dim in dimensions:
+                parts.append(f"\n{dim['content']}")
+
+        # 业务信息
+        parts.append("\n=== 业务信息 ===")
+        parts.append(f"业务描述：{business_info.get('description', '')}")
+        parts.append(f"业务类型：{business_info.get('business_type', '')}")
+        parts.append(f"经营范围：{business_info.get('business_range', '')}")
+
+        # 关键词
+        keywords = business_info.get('keywords', [])
+        if keywords:
+            parts.append(f"关键词：{', '.join(keywords)}")
+
+        result['prompt'] = '\n'.join(parts)
+        return result
+
+    def get_problems_from_subdivision(self, subdivision_result: 'RecognitionResult') -> Dict:
+        """
+        【新增】从细分赛道识别结果获取问题类型
+
+        Args:
+            subdivision_result: 细分赛道识别结果
+
+        Returns:
+            Dict: 问题类型字典
+        """
+        if not subdivision_result or not subdivision_result.problems:
+            return {}
+
+        return subdivision_result.problems
+
+
+# ============================================================
 # 全局单例
+# ============================================================
+
 _market_insight_filter = None
 
 
@@ -340,7 +498,56 @@ def build_llm_prompt(business_info: Dict, include_rules: bool = True) -> str:
     return filter_instance.build_prompt(business_info, dimensions)
 
 
-# ========== 常用触发条件模板 ==========
+# ============================================================
+# 【新增】细分赛道识别便捷函数
+# ============================================================
+
+def recognize_subdivision(business_info: Dict,
+                          market_analysis_report: Optional[Dict] = None) -> Optional['RecognitionResult']:
+    """
+    【新增】便捷函数：识别细分赛道
+
+    使用方式：
+        result = recognize_subdivision({
+            'description': '卖奶粉',
+            'industry': '奶粉'
+        })
+    """
+    if not SUBDIVISION_ENABLED or _recognize_sub is None:
+        return None
+    return get_market_insight_filter().recognize_subdivision(business_info, market_analysis_report)
+
+
+def build_prompt_with_subdivision(business_info: Dict,
+                                   market_analysis_report: Optional[Dict] = None) -> Dict:
+    """
+    【新增】便捷函数：构建包含细分赛道的完整Prompt
+
+    使用方式：
+        result = build_prompt_with_subdivision({
+            'description': '卖奶粉',
+            'industry': '奶粉',
+            'keywords': ['奶粉', '婴儿']
+        })
+
+    返回：
+        {
+            'prompt': '完整Prompt字符串',
+            'subdivision_result': RecognitionResult,
+            'dimensions': [...],
+            'needs_clarification': False,
+            'clarification_question': '',
+            'clarification_options': [...]
+        }
+    """
+    return get_market_insight_filter().build_prompt_with_subdivision(
+        business_info, market_analysis_report
+    )
+
+
+# ============================================================
+# 常用触发条件模板
+# ============================================================
 
 TRIGGER_TEMPLATES = {
     'has_baby': {
@@ -367,177 +574,3 @@ TRIGGER_TEMPLATES = {
         'description': '通用（所有业务都适用）'
     }
 }
-
-
-def get_default_dimensions() -> List[Dict]:
-    """
-    获取默认的市场洞察维度配置
-
-    用于初始化数据库
-    """
-    return [
-        {
-            'name': '买用关系判断',
-            'code': 'sup_mar_buy_user',
-            'description': '判断购买方与使用方是否分离',
-            'examples': '桶装水（企业付费→员工使用）| 奶粉（家长买→宝宝用）| 礼品（送礼人买→收礼人用）',
-            'usage_tips': '涉及宝宝/老人/孩子/宠物 → 一定是买用分离',
-            'trigger_conditions': {},  # 通用，所有业务都需要判断
-            'content_template': '''【买用关系判断】
-{description}
-- 买即用：买的人=用的人（如桶装水配送、自用食品）
-- 买用分离：买的人≠用的人（如奶粉是家长买给宝宝、礼品是送礼人买给收礼人）
-涉及宝宝、老人、孩子、宠物等 → **一定是买用分离**。''',
-            'importance': 5
-        },
-        {
-            'name': 'B端C端判断',
-            'code': 'sup_mar_b_c',
-            'description': '判断是否存在企业客户（B端）和个人客户（C端）',
-            'examples': '矿泉水定制（ToB+ToC）| 企业软件（纯ToB）| 家庭桶装水（纯ToC）',
-            'usage_tips': '业务描述提到企业客户→B端存在；提到个人消费者→C端存在',
-            'trigger_conditions': {'has_enterprise': True},  # 有企业客户时启用
-            'content_template': '''【B端C端判断】
-{description}
-- 同时存在ToB和ToC：矿泉水定制、餐具修复、礼品定制等
-- 纯ToC：桶装水（家庭自用）、食品（个人购买）
-- 纯ToB：企业软件、办公设备、大宗原材料
-请根据业务描述灵活判断，不要硬套规则。''',
-            'importance': 4
-        },
-        {
-            'name': '搜前阶段分析',
-            'code': 'sup_mar_pre_search',
-            'description': '用户还不知道用什么产品的阶段',
-            'examples': '企业宣传用什么有档次？| 婚宴用什么水？| 送礼送什么好？',
-            'usage_tips': '搜前用户搜的是问题词、痛点词',
-            'trigger_conditions': {'search_stage': ['pre_search', 'all']},
-            'content_template': '''【用户搜索阶段：搜前】
-{description}
-用户在有问题但不知道用什么产品时的搜索行为：
-
-| 场景 | 搜索词类型 | 示例 |
-|------|------------|------|
-| 问题不明确 | 问题词 | "企业宣传用什么有档次？" |
-| 场景不明确 | 痛点词 | "婚宴用水推荐" |
-| 需求不明确 | 模糊需求词 | "送礼送什么好" |
-
-搜前阶段关键词特点：
-- 问题导向：不知道怎么选
-- 场景模糊：不知道用什么产品
-- 需要教育：让用户知道有什么选择''',
-            'importance': 5
-        },
-        {
-            'name': '搜中阶段分析',
-            'code': 'sup_mar_mid_search',
-            'description': '用户知道用什么，但不知道选哪个',
-            'examples': '定制水哪家好？| 桶装水哪个牌子好？| 婚宴定制水多少钱？',
-            'usage_tips': '搜中用户搜的是对比词、评测词',
-            'trigger_conditions': {'search_stage': ['mid_search', 'all']},
-            'content_template': '''【用户搜索阶段：搜中】
-{description}
-用户知道用什么产品，但在对比选择的搜索行为：
-
-| 场景 | 搜索词类型 | 示例 |
-|------|------------|------|
-| 品牌对比 | 对比词 | "定制水哪家好？" |
-| 价格对比 | 价格词 | "定制水多少钱？" |
-| 质量评估 | 评测词 | "定制水质量怎么样？" |
-
-搜中阶段关键词特点：
-- 竞品对比：哪家好
-- 价格敏感：多少钱
-- 质量关注：怎么样''',
-            'importance': 4
-        },
-        {
-            'name': '搜后阶段分析',
-            'code': 'sup_mar_post_search',
-            'description': '用户确定要买，在找在哪里买',
-            'examples': '定制水厂家联系方式 | 桶装水配送电话 | 婚宴定制水批发',
-            'usage_tips': '搜后用户搜的是渠道词、品牌词',
-            'trigger_conditions': {'search_stage': ['post_search', 'all']},
-            'content_template': '''【用户搜索阶段：搜后】
-{description}
-用户确定要买，找购买渠道的搜索行为：
-
-| 场景 | 搜索词类型 | 示例 |
-|------|------------|------|
-| 找供应商 | 渠道词 | "定制水厂家" |
-| 找服务 | 联系方式 | "桶装水配送电话" |
-| 找价格 | 批发词 | "定制水批发" |
-
-搜后阶段关键词特点：
-- 渠道明确：厂家、批发
-- 联系方式：电话、地址
-- 批量需求：批发、定制''',
-            'importance': 3
-        },
-        {
-            'name': '付费人顾虑',
-            'code': 'sup_mar_buyer_concern',
-            'description': '购买决策者的心理障碍和顾虑',
-            'examples': '价格担忧 | 采购便利性 | 报销问题 | 决策风险',
-            'usage_tips': '付费人关心：价格、成本、便利、风险',
-            'trigger_conditions': {'has_enterprise': True},
-            'content_template': '''【付费方顾虑】
-{examples}
-{usage_tips}
-
-付费人（企业/老板/决策者）关心的问题：
-- 价格担忧：值不值这个价？太贵了怎么办？
-- 采购便利性：流程复不复杂？好不好协调？
-- 报销/成本：发票能不能报？成本怎么算？
-- 决策风险：万一效果不好怎么办？
-- 配送服务：能不能按时到？服务稳不稳定？''',
-            'importance': 4
-        },
-        {
-            'name': '使用人痛点',
-            'code': 'sup_mar_user_pain',
-            'description': '实际使用者的体验问题和需求',
-            'examples': '水质口感 | 配送方便 | 品质稳定 | 使用体验',
-            'usage_tips': '使用人关心：体验、品质、方便',
-            'trigger_conditions': {},
-            'content_template': '''【使用人痛点】
-{examples}
-{usage_tips}
-
-使用人（员工/客户/家庭成员）关心的问题：
-- 体验感受：好不好喝？方不方便？
-- 品质稳定：每次质量一样吗？
-- 健康安全：卫不卫生？健不健康？
-- 使用便利：好不好拿？好不好开？
-- 外观形象：好不好看？有没有档次？''',
-            'importance': 4
-        },
-        {
-            'name': '蓝海长尾词',
-            'code': 'sup_mar_blue_ocean',
-            'description': '细分场景、精准需求、痛点解决方案类的蓝海关键词',
-            'examples': '婚宴用水 | 凌晨配送 | 企业团建用水 | 火锅店供货',
-            'usage_tips': '中国人口基数大，再小的需求也有很多人！',
-            'trigger_conditions': {},
-            'content_template': '''【蓝海长尾词挖掘】
-{description}
-
-核心思路：中国人口基数大，再小的需求也有很多人！围绕问题（不围绕产品）
-
-关键词结构比例：
-| 分类 | 占比 | 说明 |
-|------|------|------|
-| 付费人关键词 | 25% | 价格担忧、采购便利、配送问题 |
-| 使用人关键词 | 20% | 体验、品质、健康担忧 |
-| 蓝海长尾词 | 25% | 细分场景、精准需求、痛点解决 |
-| 行业关联词 | 15% | 上下游、竞争格局、供应链 |
-| 知识技能词 | 15% | 使用方法、保存技巧、选购指南 |
-
-蓝海长尾词细分：
-- 细分场景词（8%）：婚宴用水、凌晨配送、企业团建
-- 精准需求词（6%）：精品礼盒装、净菜配送
-- 痛点解决方案词（6%）：桶装水有味怎么办、豆芽怎么保存
-- 长尾问题词（5%）：发豆芽要不要见光、桶装水多久换一次''',
-            'importance': 5
-        }
-    ]

@@ -20,6 +20,7 @@ from models.public_models import (
 from models.models import db, AnalysisDimension
 from services.public_template_matcher import template_matcher
 from services.public_quota_manager import quota_manager
+from services.subdivision_recognizer import recognize_subdivision, get_recognizer
 
 import logging
 logger = logging.getLogger(__name__)
@@ -42,6 +43,234 @@ BUSINESS_TYPE_REVERSE = {
     "个人账号/IP": "personal",
     "企业服务": "enterprise"
 }
+
+
+# =============================================================================
+# LLM JSON 输出容错解析工具
+# 处理 LLM 返回的 JSON 中常见的 trailing comma、截断等格式问题
+# =============================================================================
+
+def _try_parse_json(text: str):
+    """尝试直接解析 JSON，失败返回 None"""
+    try:
+        return json.loads(text.strip())
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _smart_fix_json(text: str):
+    """
+    多策略修复 LLM 返回的损坏 JSON。
+    依次尝试10种修复策略（0-6为基础策略，7-9为新增），任一成功即返回解析结果。
+    """
+    for strategy in range(10):
+        test_json = text
+        if strategy == 0:
+            # 截取到最后一个完整右花括号
+            last_brace = test_json.rfind('}')
+            if last_brace > 0:
+                test_json = test_json[:last_brace + 1]
+        elif strategy == 1:
+            # 截取到最后一个完整右方括号，补全括号
+            last_bracket = test_json.rfind(']')
+            if last_bracket > 0:
+                test_json = test_json[:last_bracket + 1]
+                open_braces = test_json.count('{') - test_json.count('}')
+                open_brackets = test_json.count('[') - test_json.count(']')
+                test_json += ']' * max(0, open_brackets)
+                test_json += '}' * max(0, open_braces)
+        elif strategy == 2:
+            # 移除最后一个逗号+换行（trailing comma）
+            last_comma_newline = test_json.rfind(',\n')
+            if last_comma_newline > 0:
+                test_json = test_json[:last_comma_newline]
+                open_braces = test_json.count('{') - test_json.count('}')
+                open_brackets = test_json.count('[') - test_json.count(']')
+                test_json += ']' * max(0, open_brackets)
+                test_json += '}' * max(0, open_braces)
+        elif strategy == 3:
+            # 直接补全所有未闭合括号
+            open_braces = test_json.count('{') - test_json.count('}')
+            open_brackets = test_json.count('[') - test_json.count(']')
+            test_json += ']' * max(0, open_brackets)
+            test_json += '}' * max(0, open_braces)
+        elif strategy == 4:
+            # 从后向前找到第一个完整外层对象
+            depth = 0
+            for i in range(len(test_json) - 1, -1, -1):
+                if test_json[i] == '}':
+                    depth += 1
+                elif test_json[i] == '{':
+                    depth -= 1
+                    if depth == 0:
+                        test_json = test_json[:i]
+                        break
+        elif strategy == 5:
+            # 移除截断的键值对（引号后直接跟闭合符）
+            matches = list(re.finditer(r'"\s*\}\s*[,}\]]', test_json))
+            if matches:
+                last_match = matches[-1]
+                test_json = test_json[:last_match.end()]
+                open_braces = test_json.count('{') - test_json.count('}')
+                open_brackets = test_json.count('[') - test_json.count(']')
+                test_json += ']' * max(0, open_brackets)
+                test_json += '}' * max(0, open_braces)
+        elif strategy == 6:
+            # 逐行清理：跳过孤立行，补全括号
+            lines = test_json.split('\n')
+            fixed_lines = []
+            for line in lines:
+                stripped = line.strip()
+                if stripped.startswith('"') and ':' not in stripped and '}' not in stripped:
+                    continue
+                quote_count = stripped.count('"')
+                if quote_count % 2 != 0 and not stripped.endswith(','):
+                    continue
+                fixed_lines.append(line)
+            test_json = '\n'.join(fixed_lines)
+            open_braces = test_json.count('{') - test_json.count('}')
+            open_brackets = test_json.count('[') - test_json.count(']')
+            test_json += ']' * max(0, open_brackets)
+            test_json += '}' * max(0, open_braces)
+        elif strategy == 7:
+            # 【新增】修复字段名前多余空格：如 `" "emotion":` → `"emotion":`
+            # 匹配模式：引号+空格+引号+键名+引号+冒号
+            test_json = re.sub(r'"(\s+)("(?!(?:[^"\\]|\\.)*"\s*[,}\]:]))', r'"\2', test_json)
+            # 额外处理：引号前有多余字符的情况（如 `" emotion":` → `"emotion":`）
+            test_json = re.sub(r'"(\s+\w+)"\s*:', lambda m: f'"{m.group(1).strip()}" :', test_json)
+        elif strategy == 8:
+            # 【新增】修复连续逗号和尾部逗号：如 `[,` → `[` 或 `"key": "val",,` → `"key": "val",`
+            # 先处理连续逗号
+            test_json = re.sub(r',,+', ',', test_json)
+            # 再处理数组/对象末尾多余逗号：`,\n}` → `\n}` 和 `,\n]` → `\n]`
+            test_json = re.sub(r',\s*\n\s*([\}\]])', r'\n\1', test_json)
+            # 处理 `,}` 和 `,]`（无换行的情况）
+            test_json = re.sub(r',(\s*[\}\]])', r'\1', test_json)
+            # 补全括号
+            open_braces = test_json.count('{') - test_json.count('}')
+            open_brackets = test_json.count('[') - test_json.count(']')
+            test_json += ']' * max(0, open_brackets)
+            test_json += '}' * max(0, open_braces)
+        elif strategy == 9:
+            # 【新增】修复引号错位和冒号后多余引号：
+            # 场景1：`"psychological":": "担心、自责、不甘"` → `"psychological": "担心、自责、不甘"`
+            # 匹配键名后的 `": "` 或 `":'` 模式
+            test_json = re.sub(r'":\s*"', '": "', test_json)
+            test_json = re.sub(r'":\s*\'', "\": '", test_json)
+            # 场景2：修复闭合引号后多余的冒号（罕见）：`value""": "` → `value"`
+            # 场景3：处理乱码字符（如控制字符、非UTF8字节），保留可见字符
+            test_json = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', test_json)
+        elif strategy == 10:
+            # 【截断修复】专门处理 LLM 输出被截断时残留的不完整字段名和不完整行
+            # 典型问题：`"emotion_causality_ch": [ {\n " "emotion":`
+            # 策略：找到外层 `{...}` 范围后，逐行扫描保留完整行
+            outer_brace_start = test_json.find('{')
+            if outer_brace_start >= 0:
+                # 先截到最后一个 `}`
+                last_brace = test_json.rfind('}')
+                if last_brace > outer_brace_start:
+                    content = test_json[outer_brace_start:last_brace + 1]
+                    lines = content.split('\n')
+                    fixed_lines = []
+                    for line in lines:
+                        s = line.strip()
+                        # 跳过明显不完整的行：只有字段名残片（无冒号值对）、或只有引号+空格
+                        # 完整行特征：包含至少一个冒号（键值对）
+                        if ':' not in s:
+                            # 但跳过真正不完整的（如 `"emotion_causality_ch":` 或 `" "`）
+                            if re.match(r'^"[^"]*"$', s):
+                                continue
+                            if re.match(r'^"[^"]*"\s*$', s):
+                                continue
+                            if s == '' or s == '[' or s == ']' or s == '{' or s == '}':
+                                continue
+                        # 跳过只有空白/残留的引号+空格行
+                        if re.match(r'^[\s"]+$', s):
+                            continue
+                        # 保留本行（清理多余空格）
+                        fixed_lines.append(line.rstrip())
+                    test_json = '{' + '\n'.join(fixed_lines) + '}'
+                    # 补全括号
+                    open_braces = test_json.count('{') - test_json.count('}')
+                    open_brackets = test_json.count('[') - test_json.count(']')
+                    test_json += ']' * max(0, open_brackets)
+                    test_json += '}' * max(0, open_braces)
+        elif strategy == 11:
+            # 【字段名污染修复】处理 LLM 返回的多余引号、空格、拼写错误残片
+            # 场景1：字段名前有多余引号+空格 → `" "identity":` `" "型":` → `"identity":` `"market_type":`
+            test_json = re.sub(r'"(\s+)("(?!\w))', r'"\2', test_json)
+            # 场景2：字段名后有多余冒号 → `"market_type":":` → `"market_type":`
+            test_json = re.sub(r'"(\w+)":":', r'"\1":', test_json)
+            # 场景3：字段值中多余的前导引号 → `"description": "怕选错品牌` → `"description": "怕选错品牌"`
+            #    匹配字段名后紧跟冒号+引号，但值中又出现未闭合引号的情况
+            # 场景4：修复字段名拼写错误
+            test_json = re.sub(r'\bconern_', 'concern_', test_json)
+            test_json = re.sub(r'\bdirectiondirection_direction\b', 'direction', test_json)
+            test_json = re.sub(r'\bmarkettypetype\b', 'market_type', test_json)
+            # 场景5：孤立迷你对象残片，如 `{\n " "型":":blue_ocean"\n}` 整行移除
+            test_json = re.sub(r'\{[^}]*"型"[^}]*\}', '', test_json)
+            # 场景6：末尾多余文字（JSON结束后有自然语言说明）
+            # 找到最后一个 `]` 或 `}` 之后截断
+            last_struct = max(test_json.rfind(']}'), test_json.rfind('}}'))
+            if last_struct >= 0:
+                # 确保后面没有更多左括号（表示还没结束）
+                if test_json.count('[', last_struct) == 0 and test_json.count('{', last_struct) == 0:
+                    test_json = test_json[:last_struct + 1]
+            # 清理多余引号包裹的字段名（引号内含空格开头或结尾）
+            test_json = re.sub(r'"(\w+)(\s+)":', lambda m: f'"{m.group(1).strip()}":', test_json)
+            test_json = re.sub(r':\s*"(\s+)', ': "', test_json)
+            # 清理孤立逗号行
+            test_json = re.sub(r'^\s*,\s*$', '', test_json, flags=re.MULTILINE)
+            # 补全括号
+            open_braces = test_json.count('{') - test_json.count('}')
+            open_brackets = test_json.count('[') - test_json.count(']')
+            test_json += ']' * max(0, open_brackets)
+            test_json += '}' * max(0, open_braces)
+
+        parsed = _try_parse_json(test_json)
+        if parsed:
+            return parsed
+    return None
+
+
+def _robust_parse_json(raw_response: str):
+    """
+    鲁棒 JSON 解析：依次尝试直接解析、smart_fix、提取代码块后修复。
+    优先使用直接解析（最快），失败后用 smart_fix，最后尝试从代码块中提取修复。
+    """
+    # 策略1：直接解析
+    result = _try_parse_json(raw_response)
+    if result:
+        return result
+
+    # 策略2：smart_fix
+    result = _smart_fix_json(raw_response)
+    if result:
+        return result
+
+    # 策略3：提取代码块后修复
+    match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', raw_response)
+    if match:
+        code_block = match.group(1).strip()
+        result = _try_parse_json(code_block)
+        if result:
+            return result
+        result = _smart_fix_json(code_block)
+        if result:
+            return result
+
+    # 策略4：提取花括号包裹的对象后修复
+    match = re.search(r'\{[\s\S]*\}', raw_response)
+    if match:
+        brace_content = match.group(0)
+        result = _try_parse_json(brace_content)
+        if result:
+            return result
+        result = _smart_fix_json(brace_content)
+        if result:
+            return result
+
+    return None
 
 
 # =============================================================================
@@ -641,14 +870,15 @@ def build_geo_output_rules(business_type: str, is_high_risk: bool = False) -> st
 2. 【信任优先】优先输出靠谱安全、口碑放心、时效响应相关问题
 3. 【场景具体】问题必须具体到可搜索，如"XX区附近桶装水配送"
 4. 【高转化】内容方向偏向：预约、到店、上门咨询
-5. 【输出格式】严格JSON，包含 identity, problem_type, description, severity, scenario, problem_keywords, content_direction, market_type
+5. 【输出格式】严格JSON，包含 identity, problem_type, description, severity, scenario, content_direction, market_type
+   【problem_type 格式要求】必须是 2-8 字抽象短标签（如"效果存疑""肠道过敏"），**禁止长问句**
 """,
         "product": """
 === 输出规则（消费品赛道）===
 1. 【功效验证】每个问题必须包含效果、安全、成分相关维度
 2. 【信任优先】优先输出安全顾虑、功效质疑、适配担忧相关问题
 3. 【决策辅助】内容方向偏向：购买决策、试用体验、成分对比
-4. 【输出格式】严格JSON，包含 identity, problem_type, description, severity, scenario, problem_keywords, content_direction, market_type
+4. 【输出格式】严格JSON，包含 identity, problem_type, description, severity, scenario, content_direction, market_type
 """,
         "personal": """
 === 输出规则（个人IP赛道）===
@@ -656,7 +886,8 @@ def build_geo_output_rules(business_type: str, is_high_risk: bool = False) -> st
 2. 【知识焦虑】优先输出求知焦虑、方向迷茫、方法缺失相关问题
 3. 【内容深度】内容方向偏向：方法论、框架工具、认知颠覆
 4. 【学习转化】CTA偏向：关注、学习、进群、领资料
-5. 【输出格式】严格JSON，包含 identity, problem_type, description, severity, scenario, problem_keywords, content_direction, market_type
+5. 【输出格式】严格JSON，包含 identity, problem_type, description, severity, scenario, content_direction, market_type
+   【problem_type 格式要求】必须是 2-8 字抽象短标签（如"效果存疑""成分安全""资质认证"），**禁止长问句**
 """,
         "enterprise": """
 === 输出规则（企业服务赛道）===
@@ -664,7 +895,8 @@ def build_geo_output_rules(business_type: str, is_high_risk: bool = False) -> st
 2. 【风险控制】优先输出选型焦虑、ROI担忧、实施风险相关问题
 3. 【案例背书】内容方向偏向：客户案例、技术方案、白皮书
 4. 【销售转化】CTA偏向：拿方案、预约演示、对接销售
-5. 【输出格式】严格JSON，包含 identity, problem_type, description, severity, scenario, problem_keywords, content_direction, market_type
+5. 【输出格式】严格JSON，包含 identity, problem_type, description, severity, scenario, content_direction, market_type
+   【problem_type 格式要求】必须是 2-8 字抽象短标签（如"效果存疑""成分安全""资质认证"），**禁止长问句**
 """
     }
 
@@ -1001,6 +1233,8 @@ EMOTION_DRIVER_CATEGORIES = {
         "社交焦虑": ["社恐", "内向", "不敢", "不会说话", "人际关系", "尴尬", "被嘲笑", "丢人", "面子", "怕丢脸", "不合群"],
         "选择焦虑": ["不知道选哪个", "不知道怎么选", "哪个好", "哪个更好", "选错了怎么办", "怕选错", "选择困难", "纠结", "挑花眼", "对比", "比较"],
         "学业焦虑": ["考试", "升学", "成绩", "考研", "考公", "考证", "学习", "挂科", "毕设", "论文", "答辩", "毕业"],
+        "饮食焦虑": ["吃什么", "怎么吃", "健康饮食", "营养", "减肥", "控制饮食", "热量", "食品安全", "添加剂", "成分", "配料", "吃坏", "拉肚子", "变质"],
+        "育儿饮食焦虑": ["辅食", "奶粉", "奶瓶", "断奶", "孩子吃饭", "挑食", "营养跟不上", "长不高", "发育迟缓"],
     },
     "自卑型": {
         "能力自卑": ["不会", "不懂", "做不好", "笨", "学不会", "脑子慢", "记不住", "反应慢", "脑子转不动"],
@@ -1028,6 +1262,18 @@ EMOTION_DRIVER_CATEGORIES = {
         "怕买错": ["买错了怎么办", "怕买错", "不敢买", "选错了浪费", "怕浪费", "白花钱", "买了后悔"],
         "怕入错行": ["转行", "选错行业", "入错行", "选错专业", "后悔选专业", "学错了"],
         "怕用错方法": ["用错了怎么办", "怕方法不对", "怕弄巧成拙", "怕适得其反", "不敢尝试", "怕弄坏"],
+    },
+    # ── 消费健康类新增情绪 ───────────────────────────────────────────────
+    "健康担忧型": {
+        "饮水安全焦虑": ["水质", "污染", "水源", "净化", "细菌", "重金属", "矿物质", "硬度", "自来水", "桶装水", "净水器", "自来水烧开", "水源地"],
+        "食品安全焦虑": ["添加剂", "防腐剂", "色素", "香精", "农药残留", "激素", "抗生素", "转基因", "过期", "变质", "三无", "生产日期", "保质期"],
+        "成分顾虑焦虑": ["配料表", "成分表", "不含", "不含添加", "纯天然", "有机", "零添加", "零污染", "无糖", "低脂", "无香精", "无防腐剂"],
+        "假货担忧": ["假货", "山寨", "仿品", "劣质", "掺假", "以次充好", "真假难辨", "买到假货"],
+    },
+    "品质挑剔型": {
+        "品质疑虑": ["质量", "品质", "质量好", "质量差", "质量怎么样", "好不好", "靠谱", "正宗", "正宗", "山寨", "贴牌"],
+        "来源追溯焦虑": ["产地", "来源", "正宗", "原产地", "哪里的", "哪生产", "谁生产的", "厂家", "品牌", "小厂", "杂牌", "三无"],
+        "效果疑虑": ["有用吗", "有效吗", "效果怎么样", "好不好用", "管用吗", "真的假的", "有没有用", "功效"],
     },
 }
 
@@ -5998,13 +6244,12 @@ def mine_problem_channels(params: Dict[str, Any]) -> Dict:
 def infer_problem_category(
     problem_type: str,
     description: str = '',
-    display_name: str = '',
 ) -> str:
     """
-    根据 problem_type + 描述 + 展示名推断五大类之一（与 Prompt 中「问题大类」表述一致）。
+    根据 problem_type + description 推断五大类之一（与 Prompt 中「问题大类」表述一致）。
     用于 API 返回给前端的 problem_category，保证卡片可稳定展示【大类】前缀。
     """
-    text = f"{problem_type or ''}{description or ''}{display_name or ''}"
+    text = f"{problem_type or ''}{description or ''}"
     if not text.strip():
         return ''
 
@@ -6036,6 +6281,54 @@ def infer_problem_category(
                 return category
     # 本地生活/服务业常见表述未命中时，多数可归为体验侧
     return "体验/使用问题"
+
+
+# =============================================================================
+# 细分赛道识别辅助
+# =============================================================================
+
+def _infer_industry_from_business(business_desc: str, business_type: str) -> Optional[str]:
+    """
+    根据业务描述和经营类型推断行业
+
+    Args:
+        business_desc: 业务描述
+        business_type: 经营类型
+
+    Returns:
+        行业名称，如果无法推断则返回 None
+    """
+    from services.industry_subdivision_knowledge import get_all_industries
+
+    desc = (business_desc or '').lower()
+
+    # 行业关键词映射
+    industry_keywords = {
+        '奶粉': ['奶粉', '婴儿奶粉', '婴幼儿奶粉', '配方奶粉', '羊奶粉', '有机奶粉', '成人奶粉', '特殊配方奶粉', '乳糖不耐受', '牛奶蛋白过敏'],
+        '律所': ['律师', '律所', '法律服务', '离婚律师', '劳动律师', '交通事故律师', '法律顾问'],
+        '上门按摩': ['按摩', '推拿', 'spa', 'SPA', '上门按摩', '美容', '养生', '理疗', '康复'],
+        'CRM开发': ['CRM', '客户管理', '客户管理系统', '销售管理', 'ERP', '企业软件'],
+        '知识博主': ['博主', '自媒体', '内容创作', '短视频', '抖音', '小红书', '知识付费'],
+    }
+
+    # 从知识库获取已配置的行业
+    configured_industries = get_all_industries()
+
+    # 按关键词匹配行业
+    for industry, keywords in industry_keywords.items():
+        if industry in configured_industries:
+            for kw in keywords:
+                if kw in desc:
+                    return industry
+
+    # 根据经营类型推断
+    if business_type == 'product':
+        # 消费品类，尝试从描述中提取产品类别
+        for industry in configured_industries:
+            if industry in desc:
+                return industry
+
+    return None
 
 
 def _detect_buyer_user_separation(business_desc: str, business_type: str) -> Dict[str, Any]:
@@ -6196,6 +6489,43 @@ def _convert_description_to_buyer_view(description: str, buyer_user_info: Dict) 
     return desc
 
 
+# ─── 模块级污染词过滤（供 mine_problems 和 mine_problems_and_generate_personas 共用） ───
+_MODULE_POLLUTION_PATTERNS = {
+    # 汽车/电动车
+    '新能源', 'suv', '纯电动', '续航', '电量', '充电桩', '能耗', '电池', '汽车', '电动车', '电机',
+    # 桶装水/饮料
+    '桶装水', '矿泉水', '纯净水', '泡茶', '饮水机', '桶装',
+    # 房地产/装修
+    '别墅', '装修', '搬家', '家政', '木工', '油漆', '泥工', '建材', '家居',
+    # 宠物
+    '宠物', '猫粮', '狗粮', '猫砂', '养猫', '养狗', '宠物食品',
+    # 旅游/出行
+    '旅游', '酒店', '机票', '签证', '护照', '出入境', '旅行',
+    # 数码/办公
+    '数码', '手机', '电脑', '笔记本', '平板', '办公',
+    # 工业/企业服务
+    '工业机器人', '机器人维修', '苏州工业园', '工业', '生产线', '设备维修',
+    # 健康/生活方式（泛化）
+    '久坐', '办公室', '颈椎', '腰椎', '腰酸背痛', '眼疲劳', '肩周', '鼠标手',
+    # 健身/美妆
+    '健身', '跑步', '瑜伽', '减肥', '增肌', '美妆', '护肤', '化妆',
+    # 教育/留学
+    '留学', '移民', '外语', '培训',
+}
+
+
+def _is_keyword_relevant(kw_str: str, business_text: str) -> bool:
+    """判断关键词是否与当前业务相关（跨行业过滤）"""
+    if not kw_str:
+        return False
+    kw_lower = kw_str.lower()
+    biz_lower = (business_text or '').lower()
+    for w in _MODULE_POLLUTION_PATTERNS:
+        if w in kw_lower and w not in biz_lower:
+            return False
+    return True
+
+
 def mine_problems(params: Dict[str, Any]) -> Dict:
     """
     纯问题挖掘（不生成画像），供 api_identify_problems 路由调用。
@@ -6270,6 +6600,21 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         # 细分类型的大类：user_problem_types 用 problem_category，buyer_concern_types 用 concern_category
         desc = problem.get('description', '')
 
+        # ── problem_type 规范化：防止 LLM 生成超长文本 ──────
+        # 原始 problem_type 应该是短抽象词（如"效果存疑"），不是长问句
+        # 如果 problem_type 超过 16 字符，说明 LLM 没有遵守格式
+        if len(problem_type) > 16:
+            logger.warning(
+                "[mine_problems] _enrich problem_type 长度异常: raw='%s'，将基于 description 推断类别",
+                problem_type[:40]
+            )
+            # 用 infer_problem_category 推断出标准类别词
+            inferred = infer_problem_category(
+                problem_type='',
+                description=desc,
+            )
+            problem_type = inferred or '体验/使用问题'
+
         # 【买用分离处理】如果是买用分离业务，且是 user 类型问题，转换 identity 和 description
         original_identity = identity
         original_desc = desc
@@ -6282,12 +6627,11 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
                 logger.debug("[mine_problems] 买用分离身份转换: identity '%s' → '%s', desc '%s' → '%s'",
                             original_identity, identity, original_desc[:50] if original_desc else '', desc[:50] if desc else '')
 
-        display_name_raw = problem.get('display_name', '') or f"{identity}{problem_type}"
         problem_category = (
             (problem.get('problem_category') or problem.get('concern_category') or '')
         ).strip()
         if not problem_category:
-            problem_category = infer_problem_category(problem_type, desc, display_name_raw)
+            problem_category = infer_problem_category(problem_type, desc)
         base_map = {
             '刚需痛点盘': '转化型',
             '前置观望种草盘': '种草型',
@@ -6315,13 +6659,11 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
             'problem_base': base,
             'problem_category': problem_category,
             'problem_type': problem_type,
-            'display_name': display_name_raw,
             'description': desc,
             'severity': problem.get('severity', '中'),
             'scenario': problem.get('scenario', '通用'),
             'market_type': problem.get('market_type', 'red_ocean'),
             'market_reason': problem.get('market_reason', ''),
-            'problem_keywords': problem.get('problem_keywords', []),
             'content_direction': direction,
             'consume_type': consume_type,
             'demand_attr': demand_attr,
@@ -6345,6 +6687,10 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
     chronic_extraction = data.get('chronic_extraction', {})
     chronic_problems = chronic_extraction.get('chronic_problems', [])
     for i, cp in enumerate(chronic_problems):
+        # 过滤不与当前业务相关的慢性问题（如LLM幻觉生成的跨行业问题）
+        if not _is_keyword_relevant(cp.get('identity', '') + cp.get('description', ''), business_desc):
+            logger.debug("[mine_problems] 过滤无关chronic_problem: identity=%s", cp.get('identity', ''))
+            continue
         # 为慢性问题添加行为场景体征标签
         chronic_tags = {
             'behavior_tags': cp.get('behavior_tags', []),
@@ -6391,24 +6737,11 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         description = _normalize_text(p.get('description') or '')
         problem_category = _normalize_text(p.get('problem_category') or '')
         dimension = _normalize_text(p.get('dimension') or '')
-        display_name = _normalize_text(p.get('display_name') or '')
 
-        # 提取关键词核心词（去除重复词）
-        keywords_raw = []
-        for kw in p.get('problem_keywords', []):
-            if isinstance(kw, dict):
-                kw_text = (kw.get('keyword') or '').strip()
-            elif isinstance(kw, str):
-                kw_text = kw.strip()
-            else:
-                continue
-            if kw_text:
-                keywords_raw.append(_normalize_text(kw_text))
-
-        # 合并 identity + problem_category + dimension + display_name 作为"动机/障碍"特征
+        # 合并 identity + problem_category + dimension 作为"动机/障碍"特征
         motivation_key = identity + problem_category + dimension
-        # 合并 problem_type + description + keywords 作为"障碍/痛点"特征
-        barrier_key = problem_type + description + ''.join(keywords_raw[:3])
+        # 合并 problem_type + description 作为"障碍/痛点"特征
+        barrier_key = problem_type + description
 
         # 决策阶段（从 dimension 或 problem_base 推断）
         base = _normalize_text(p.get('problem_base') or p.get('concern_base') or '')
@@ -6519,15 +6852,43 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
     else:
         logger.info("[mine_problems] 问题数量正常: %d 个", len(all_problems))
 
+    # 获取细分赛道识别结果
+    subdivision_result = None
+    try:
+        # 根据业务类型推断行业
+        industry = _infer_industry_from_business(business_desc, business_type)
+        if industry:
+            sub_result = recognize_subdivision(business_desc, industry)
+            if sub_result and sub_result.status.value in ('success', 'need_clarification'):
+                subdivision_result = {
+                    'status': sub_result.status.value,
+                    'subdivision_id': sub_result.subdivision_id,
+                    'subdivision_name': sub_result.subdivision_name,
+                    'confidence': sub_result.confidence,
+                    'matched_keywords': sub_result.matched_keywords,
+                    'problems': sub_result.problems,
+                    'business_type': sub_result.business_type,
+                    'client_type': sub_result.client_type,
+                    'needs_clarification': sub_result.needs_clarification,
+                    'clarification_question': sub_result.clarification_question,
+                    'clarification_options': sub_result.clarification_options,
+                    'source': sub_result.source,
+                }
+                logger.info(
+                    "[mine_problems] 细分赛道识别: industry=%s, subdivision=%s, confidence=%.2f, source=%s",
+                    industry, sub_result.subdivision_name, sub_result.confidence, sub_result.source
+                )
+    except Exception as e:
+        logger.warning("[mine_problems] 细分赛道识别异常: %s", e)
+
     # 获取市场分析数据
     market_analysis = data.get('market_analysis', {}) or {}
 
     logger.debug("[mine_problems] market_analysis: %s", market_analysis)
 
-    # 调试：检查 all_problems 中的 market_type 和 problem_keywords
+    # 调试：检查 all_problems 中的 market_type
     logger.debug("[mine_problems] all_problems[0]: %s", all_problems[0] if all_problems else '无')
     logger.debug("[mine_problems] all_problems[0].get('market_type'): %s", all_problems[0].get('market_type', '无') if all_problems else '无')
-    logger.debug("[mine_problems] all_problems[0].get('problem_keywords'): %s", all_problems[0].get('problem_keywords', '无') if all_problems else '无')
     logger.debug("[mine_problems] all_problems[0].get('problem_category'): %s", all_problems[0].get('problem_category', '无') if all_problems else '无')
 
     logger.info("[mine_problems] 返回数据中 all_problems[0] 字段: %s",
@@ -6537,6 +6898,7 @@ def mine_problems(params: Dict[str, Any]) -> Dict:
         'success': True,
         'problems': {'problems': all_problems, 'market_analysis': market_analysis},
         'is_premium': result.get('data', {}).get('is_premium', False),
+        'subdivision': subdivision_result,  # 细分赛道识别结果
         'data': {
             'user_problem_types': user_problems,
             'buyer_concern_types': buyer_problems,
@@ -6637,8 +6999,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         guard_block = (
             f"\n\n【本业务类型·强制】当前业务为「**{business_desc}**」，"
             "禁止在关键词和场景中出现「桶装水」「矿泉水桶」「桶装配送」等相关内容；"
-            "problem_keywords 的 keyword 字段必须围绕当前业务主体（如{p}等）展开，禁止照抄桶装水示例："
-            "\"桶装水有塑料味能喝吗\"、\"桶装水泡茶发涩\"、\"办公室桶装水\"。\n".format(p=product_name)
+            "你生成的场景枚举描述必须与业务描述直接相关\n".format(p=product_name)
         )
 
     product_examples = _get_mine_product_examples(business_desc)
@@ -6841,7 +7202,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             "display_name": "显示名称",
             "description": "具体表现（用顿号分隔）",
             "severity": "中",
-            "scenarios": ["触发场景1", "触发场景2"],
+            "scenarios": "触发场景1/触发场景2",
             "market_type": "blue_ocean",
             "market_reason": "情绪动因+细分人群",
             "problem_keywords": [
@@ -6857,81 +7218,70 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 只输出JSON，不要其他文字。"""
 
+        # _robust_parse_json 已有4策略（直接解析/smart_fix/代码块/花括号提取），
+        # 若仍失败说明LLM输出格式系统性偏差，重试同质prompt无意义，直接使用兜底结果
+        extracted = None
         try:
-            response = llm.chat(emotion_prompt, temperature=0.3, max_tokens=4000)
+            response = llm.chat(emotion_prompt, temperature=0.3, max_tokens=8000)
             if not response:
                 logger.warning("[_extract_emotion_mindset] LLM返回空")
-                return {
-                    'emotion_drivers': [],
-                    'emotion_causality_chains': [],
-                    'emotion_problems': [],
-                    'psychology_tags': [],
-                    'emotion_summary': '无',
-                }
-
-            import json as json_module
-            match = re.search(r'\{[\s\S]*\}', response, re.DOTALL)
-            if not match:
-                logger.warning("[_extract_emotion_mindset] JSON解析失败")
-                return {
-                    'emotion_drivers': [],
-                    'emotion_causality_chains': [],
-                    'emotion_problems': [],
-                    'psychology_tags': [],
-                    'emotion_summary': '无',
-                }
-
-            extracted = json_module.loads(match.group(0))
-            extracted['emotion_drivers'] = extracted.get('emotion_drivers', [])
-            extracted['emotion_causality_chains'] = extracted.get('emotion_causality_chains', [])
-            extracted['emotion_problems'] = extracted.get('emotion_problems', [])
-            extracted['psychology_tags'] = extracted.get('psychology_tags', [])
-            extracted['emotion_summary'] = extracted.get('emotion_summary', '无')
-
-            # 情绪动因标签补充（基于LLM识别 + 规则识别交集）
-            extra_drivers = emotion_keywords
-            existing_drivers = set(extracted.get('emotion_drivers', []))
-            for d in extra_drivers:
-                if d not in existing_drivers:
-                    extracted['emotion_drivers'].insert(0, d)
-
-            # 为每个情绪问题分配底盘
-            for problem in extracted.get('emotion_problems', []):
-                emotion_type = problem.get('emotion_type', '')
-                description = problem.get('description', '')
-                severity = problem.get('severity', '中')
-
-                inferred_base = infer_emotion_problem_base(
-                    emotion_type,
-                    description,
-                    severity,
-                )
-                problem['problem_base'] = problem.get('problem_base') or inferred_base
-                problem['content_direction'] = PROBLEM_BASE_TO_CONTENT_DIRECTION.get(
-                    problem['problem_base'], '种草型'
-                )
-
-                # emotion_type 如果是选择焦虑/怕选错 → 强制前置观望
-                if any(kw in emotion_type for kw in ['选择焦虑', '怕选错', '选择困难', '纠结']):
-                    problem['problem_base'] = PROBLEM_BASE_SOUQIAN_ZHONGCAO
-                    problem['content_direction'] = '种草型'
-
-            logger.info("[_extract_emotion_mindset] 提取到情绪动因:%s 因果链:%d条 问题:%d个",
-                        len(extracted.get('emotion_drivers', [])),
-                        len(extracted.get('emotion_causality_chains', [])),
-                        len(extracted.get('emotion_problems', [])))
-
-            return extracted
-
+            else:
+                extracted = _robust_parse_json(response.strip())
+                if extracted is None:
+                    logger.warning("[_extract_emotion_mindset] JSON解析异常")
         except Exception as e:
             logger.warning("[_extract_emotion_mindset] 异常: %s", e)
+
+        # 解析成功则走后处理，失败则回退
+        if extracted is None:
             return {
-                'emotion_drivers': [],
+                'emotion_drivers': emotion_keywords,
                 'emotion_causality_chains': [],
                 'emotion_problems': [],
                 'psychology_tags': [],
                 'emotion_summary': '无',
             }
+
+        extracted['emotion_drivers'] = extracted.get('emotion_drivers', [])
+        extracted['emotion_causality_chains'] = extracted.get('emotion_causality_chains', [])
+        extracted['emotion_problems'] = extracted.get('emotion_problems', [])
+        extracted['psychology_tags'] = extracted.get('psychology_tags', [])
+        extracted['emotion_summary'] = extracted.get('emotion_summary', '无')
+
+        # 情绪动因标签补充（基于LLM识别 + 规则识别交集）
+        extra_drivers = emotion_keywords
+        existing_drivers = set(extracted.get('emotion_drivers', []))
+        for d in extra_drivers:
+            if d not in existing_drivers:
+                extracted['emotion_drivers'].insert(0, d)
+
+        # 为每个情绪问题分配底盘
+        for problem in extracted.get('emotion_problems', []):
+            emotion_type = problem.get('emotion_type', '')
+            description = problem.get('description', '')
+            severity = problem.get('severity', '中')
+
+            inferred_base = infer_emotion_problem_base(
+                emotion_type,
+                description,
+                severity,
+            )
+            problem['problem_base'] = problem.get('problem_base') or inferred_base
+            problem['content_direction'] = PROBLEM_BASE_TO_CONTENT_DIRECTION.get(
+                problem['problem_base'], '种草型'
+            )
+
+            # emotion_type 如果是选择焦虑/怕选错 → 强制前置观望
+            if any(kw in emotion_type for kw in ['选择焦虑', '怕选错', '选择困难', '纠结']):
+                problem['problem_base'] = PROBLEM_BASE_SOUQIAN_ZHONGCAO
+                problem['content_direction'] = '种草型'
+
+        logger.info("[_extract_emotion_mindset] 提取到情绪动因:%s 因果链:%d条 问题:%d个",
+                    len(extracted.get('emotion_drivers', [])),
+                    len(extracted.get('emotion_causality_chains', [])),
+                    len(extracted.get('emotion_problems', [])))
+
+        return extracted
 
     def _extract_behavior_scene_symptom(biz_desc: str, biz_type: str, svc_scenario: str) -> Dict[str, Any]:
         """
@@ -6960,17 +7310,10 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 'extraction_summary': '行为场景体征摘要',
             }
         """
-        # 识别行业场景（用于判断是否需要启用慢性体征拆解）
-        industry_scene = identify_industry_scene(biz_desc, svc_scenario)
-
-        # 判断是否需要拆解慢性体征：久坐/久站/伏案/高强度用眼类业务
-        needs_chronic_extraction = any(kw in (biz_desc + svc_scenario).lower() for kw in [
-            '办公', '久坐', '伏案', '电脑', '程序员', '设计师', '会计', '白领', '文员',
-            '司机', '久站', '站立', '服务', '销售', '厨师', '后厨',
-            '体力', '搬运', '弯腰', '工人', '车间', '工厂',
-            '学生', '老师', '教师', '学业', '考研', '考公',
-            '颈椎', '腰', '眼', '疲劳', '酸', '疼', '痛', '不适',
-        ])
+        # 判断是否需要拆解慢性体征：基于 business_type 而非关键词枚举
+        # product/local_service/personal 三类都有终端消费者，可能涉及健康/体征相关问题
+        # enterprise（B2B）客户无个人健康诉求，跳过体征提取
+        needs_chronic_extraction = business_type in ('product', 'local_service', 'personal')
 
         if not needs_chronic_extraction:
             return {
@@ -7066,7 +7409,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             "display_name": "显示名称",
             "description": "具体表现（用顿号分隔）",
             "severity": "中",
-            "scenarios": ["具体场景1", "具体场景2"],
+            "scenarios": "枚举文本（用顿号分隔多个场景）",
             "market_type": "blue_ocean",
             "market_reason": "慢性累积+细分人群",
             "problem_keywords": [
@@ -7083,84 +7426,22 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 只输出JSON，不要其他文字。"""
 
+        # _robust_parse_json 已有4策略（直接解析/smart_fix/代码块/花括号提取），
+        # 若仍失败说明LLM输出格式系统性偏差，重试同质prompt无意义，直接使用兜底结果
+        extracted = None
         try:
-            response = llm.chat(chronic_prompt, temperature=0.3, max_tokens=3000)
+            response = llm.chat(chronic_prompt, temperature=0.3, max_tokens=6000)
             if not response:
                 logger.warning("[_extract_behavior_scene_symptom] LLM返回空")
-                return {
-                    'behavior_tags': [],
-                    'scene_tags': [],
-                    'symptom_tags': [],
-                    'chronic_problems': [],
-                    'extraction_summary': '无',
-                }
-
-            import json
-            import json as json_module
-
-            # 解析JSON响应
-            match = re.search(r'\{[\s\S]*\}', response, re.DOTALL)
-            if not match:
-                logger.warning("[_extract_behavior_scene_symptom] JSON解析失败")
-                return {
-                    'behavior_tags': [],
-                    'scene_tags': [],
-                    'symptom_tags': [],
-                    'chronic_problems': [],
-                    'extraction_summary': '无',
-                }
-
-            extracted = json_module.loads(match.group(0))
-
-            # 确保字段存在
-            extracted['behavior_tags'] = extracted.get('behavior_tags', [])
-            extracted['scene_tags'] = extracted.get('scene_tags', [])
-            extracted['symptom_tags'] = extracted.get('symptom_tags', [])
-            extracted['chronic_problems'] = extracted.get('chronic_problems', [])
-            extracted['extraction_summary'] = extracted.get('extraction_summary', '无')
-
-            # 为每个问题添加行为场景体征标签（如果LLM没有返回）
-            for problem in extracted['chronic_problems']:
-                if 'behavior_tags' not in problem or not problem['behavior_tags']:
-                    problem['behavior_tags'] = extracted.get('behavior_tags', [])
-                if 'scene_tags' not in problem or not problem['scene_tags']:
-                    problem['scene_tags'] = extracted.get('scene_tags', [])
-                if 'symptom_tags' not in problem or not problem['symptom_tags']:
-                    problem['symptom_tags'] = extracted.get('symptom_tags', [])
-
-                # 第五类种草原生问题强制归入前置观望种草盘
-                problem_type = problem.get('problem_type', '')
-                description = problem.get('description', '')
-                if is_seeding_problem(problem_type, description):
-                    problem['problem_base'] = PROBLEM_BASE_SOUQIAN_ZHONGCAO
-                    problem['content_direction'] = '种草型'
-
-                # 使用 infer_problem_base_for_chronic 智能推断底盘
-                is_habitual = is_chronic_habitual_problem(
-                    problem_type,
-                    description,
-                    problem.get('behavior_tags', [])
-                )
-                inferred_base = infer_problem_base_for_chronic(
-                    problem_type,
-                    description,
-                    problem.get('severity', '中'),
-                    is_habitual
-                )
-                if not problem.get('problem_base'):
-                    problem['problem_base'] = inferred_base
-                    problem['content_direction'] = PROBLEM_BASE_TO_CONTENT_DIRECTION.get(inferred_base, '种草型')
-
-            logger.info("[_extract_behavior_scene_symptom] 提取到行为:%s 场景:%s 体征:%s 问题数:%d",
-                        len(extracted.get('behavior_tags', [])),
-                        len(extracted.get('scene_tags', [])),
-                        len(extracted.get('symptom_tags', [])),
-                        len(extracted.get('chronic_problems', [])))
-
-            return extracted
-
+            else:
+                extracted = _robust_parse_json(response.strip())
+                if extracted is None:
+                    logger.warning("[_extract_behavior_scene_symptom] JSON解析异常")
         except Exception as e:
             logger.warning("[_extract_behavior_scene_symptom] 异常: %s", e)
+
+        if extracted is None:
+            logger.warning("[_extract_behavior_scene_symptom] LLM返回空或解析失败，使用空结果")
             return {
                 'behavior_tags': [],
                 'scene_tags': [],
@@ -7168,6 +7449,63 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 'chronic_problems': [],
                 'extraction_summary': '无',
             }
+
+        # 确保字段存在
+        if not isinstance(extracted, dict):
+            logger.warning("[_extract_behavior_scene_symptom] LLM返回类型异常: %s，使用空结果", type(extracted))
+            return {
+                'behavior_tags': [],
+                'scene_tags': [],
+                'symptom_tags': [],
+                'chronic_problems': [],
+                'extraction_summary': '无',
+            }
+
+        extracted['behavior_tags'] = extracted.get('behavior_tags', [])
+        extracted['scene_tags'] = extracted.get('scene_tags', [])
+        extracted['symptom_tags'] = extracted.get('symptom_tags', [])
+        extracted['chronic_problems'] = extracted.get('chronic_problems', [])
+        extracted['extraction_summary'] = extracted.get('extraction_summary', '无')
+
+        # 为每个问题添加行为场景体征标签（如果LLM没有返回）
+        for problem in extracted['chronic_problems']:
+            if 'behavior_tags' not in problem or not problem['behavior_tags']:
+                problem['behavior_tags'] = extracted.get('behavior_tags', [])
+            if 'scene_tags' not in problem or not problem['scene_tags']:
+                problem['scene_tags'] = extracted.get('scene_tags', [])
+            if 'symptom_tags' not in problem or not problem['symptom_tags']:
+                problem['symptom_tags'] = extracted.get('symptom_tags', [])
+
+            # 第五类种草原生问题强制归入前置观望种草盘
+            problem_type = problem.get('problem_type', '')
+            description = problem.get('description', '')
+            if is_seeding_problem(problem_type, description):
+                problem['problem_base'] = PROBLEM_BASE_SOUQIAN_ZHONGCAO
+                problem['content_direction'] = '种草型'
+
+            # 使用 infer_problem_base_for_chronic 智能推断底盘
+            is_habitual = is_chronic_habitual_problem(
+                problem_type,
+                description,
+                problem.get('behavior_tags', [])
+            )
+            inferred_base = infer_problem_base_for_chronic(
+                problem_type,
+                description,
+                problem.get('severity', '中'),
+                is_habitual
+            )
+            if not problem.get('problem_base'):
+                problem['problem_base'] = inferred_base
+                problem['content_direction'] = PROBLEM_BASE_TO_CONTENT_DIRECTION.get(inferred_base, '种草型')
+
+        logger.info("[_extract_behavior_scene_symptom] 提取到行为:%s 场景:%s 体征:%s 问题数:%d",
+                    len(extracted.get('behavior_tags', [])),
+                    len(extracted.get('scene_tags', [])),
+                    len(extracted.get('symptom_tags', [])),
+                    len(extracted.get('chronic_problems', [])))
+
+        return extracted
 
     # =============================================================================
     # 【新增：心理情绪动因解析层 - 第四维识别，前置于行为+场景+慢性体征解析层】
@@ -7202,16 +7540,13 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         emotion_context += f"""
 【自动生成的情绪类标准问题】："""
         for i, ep in enumerate(emotion_problems, 1):
-            problem_keywords = ep.get('problem_keywords', [])
-            kw_list = ', '.join([k.get('keyword', '') for k in problem_keywords[:3]]) if problem_keywords else '暂无'
             emotion_context += f"""
 {i}. {ep.get('display_name', ep.get('emotion_type', ''))}
    - 情绪类型：{ep.get('emotion_type', '')}
    - 问题类型：{ep.get('problem_type', '')}
    - 描述：{ep.get('description', '')}
    - 严重程度：{ep.get('severity', '中')}
-   - 需求底盘：{ep.get('problem_base', '前置观望种草盘')}
-   - 关键词：{kw_list}"""
+   - 需求底盘：{ep.get('problem_base', '前置观望种草盘')}"""
 
     logger.info("[mine_problems_and_generate_personas] 心理情绪动因: 动因=%s 因果链=%d条 问题=%d个",
                 len(emotion_drivers), len(emotion_causality_chains), len(emotion_problems))
@@ -7240,15 +7575,12 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 
 【自动生成的标准问题】："""
         for i, cp in enumerate(chronic_problems, 1):
-            problem_keywords = cp.get('problem_keywords', [])
-            kw_list = ', '.join([k.get('keyword', '') for k in problem_keywords[:3]]) if problem_keywords else '暂无'
             chronic_context += f"""
 {i}. {cp.get('display_name', cp.get('problem_type', ''))}
    - 问题类型：{cp.get('problem_type', '')}
    - 描述：{cp.get('description', '')}
    - 严重程度：{cp.get('severity', '中')}
-   - 需求底盘：{cp.get('problem_base', '前置观望种草盘')}
-   - 关键词：{kw_list}"""
+   - 需求底盘：{cp.get('problem_base', '前置观望种草盘')}"""
 
     logger.info("[mine_problems_and_generate_personas] 慢性体征拆解: 行为=%s 场景=%s 体征=%s 问题=%d",
                 len(behavior_tags), len(scene_tags), len(symptom_tags), len(chronic_problems))
@@ -7333,15 +7665,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 'problem_category': '适配/兼容问题',
                 'problem_type': '宴席定制选款',
                 'display_name': f'{r0}定制{ps}怎么选体面',
-                'description': '怕款式土气、LOGO不醒目、和现场布置不协调、来宾觉得不用心',
+                'description': '款式土气/LOGO不醒目/现场布置不协调/来宾觉得不用心',
                 'severity': '中',
                 'scenarios': [f'{rjoin}迎宾区', '主桌/讲台摆台', '伴手礼发放'],
                 'market_type': 'blue_ocean',
                 'market_reason': '礼赠体面+场景细分',
-                'problem_keywords': [
-                    {'keyword': f'{r0}定制{ps}怎么选不丢面子', 'type': 'blue_ocean', 'source': '场景痛点词'},
-                    {'keyword': f'两家{ps}定制印LOGO哪家更靠谱', 'type': 'blue_ocean', 'source': '长尾转化词'},
-                ],
             },
             {
                 '_merge_side': 'user',
@@ -7350,15 +7678,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 'problem_category': '安全/质量问题',
                 'problem_type': '定制交付避坑',
                 'display_name': '怕定制翻车当场尴尬',
-                'description': '刻字糊、色差、瓶贴歪、错字漏字、延期到货',
+                'description': '刻字糊/色差/瓶贴歪/错字漏字/延期到货',
                 'severity': '高',
                 'scenarios': ['开箱验货', '现场摆台', '来宾拍照发圈前'],
                 'market_type': 'blue_ocean',
                 'market_reason': '定制踩坑高焦虑',
-                'problem_keywords': [
-                    {'keyword': f'定制{ps}常见翻车有哪些怎么避', 'type': 'blue_ocean', 'source': '场景痛点词'},
-                    {'keyword': f'定制{ps}印字前打样要注意什么', 'type': 'blue_ocean', 'source': '长尾转化词'},
-                ],
             },
             {
                 '_merge_side': 'user',
@@ -7367,15 +7691,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
                 'problem_category': '成本/效率问题',
                 'problem_type': '报价与加急',
                 'display_name': '定制报价与赶工期',
-                'description': '起订量高、总价摸不清、设计定稿反复、临近节点怕交不出货',
+                'description': '起订量高/总价摸不清/设计定稿反复/临近节点怕交不出货',
                 'severity': '高',
                 'scenarios': ['临近婚期/年会', '多部门确认', '补单加急'],
                 'market_type': 'red_ocean',
                 'market_reason': '决策刚需',
-                'problem_keywords': [
-                    {'keyword': f'定制{ps}一般怎么报价', 'type': 'red_ocean', 'source': '用户需求词'},
-                    {'keyword': f'定制{ps}加急几天能出货', 'type': 'blue_ocean', 'source': '长尾转化词'},
-                ],
             },
             {
                 '_merge_side': 'buyer',
@@ -7542,11 +7862,10 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - problem_base: 前置观望种草盘 / 刚需痛点盘 / 使用配套搜后种草盘
 - problem_category: 功效质疑 / 安全担忧 / 适配顾虑 / 体验问题 / 价格价值
 - problem_type: 抽象问题维度（如：效果存疑/成分安全/适用性不明/使用障碍）
-- display_name: 一句话精炼描述（具体问题+影响）
-- description: 2-3句详细描述（什么场景+遇到什么问题+造成什么影响）
+- description: 多行场景枚举（每行一个场景，如：宝宝喝奶粉拉肚子/宝宝喝奶粉便秘/宝宝喝奶粉腹胀）
 - severity: ⭐⭐⭐ / ⭐⭐⭐⭐ / ⭐⭐⭐⭐⭐
-- scenarios: 2-3个具体使用场景
-- problem_keywords: 2-3个搜索关键词（必须与该问题主题语义一致）
+- scenarios: 枚举文本（用顿号分隔多个场景，如：宝宝喝奶粉拉肚子/宝宝喝奶粉便秘/宝宝喝奶粉腹胀）
+- description 格式：枚举文本（用/分隔）
 - dimension: 维度标签
 - content_direction: 种草型 / 转化型 / 搜后种草型
 - market_type: blue_ocean / red_ocean
@@ -7557,13 +7876,12 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - concern_base: 前置观望 / 刚需痛点 / 使用配套
 - concern_category: 顾虑大类
 - concern_type: 抽象顾虑类型
-- display_name/description/examples/problem_keywords 同上
+"description 格式：多行场景枚举（每行一个场景）
 
 【market_analysis 字段规范】
 - market_type / market_type_display / competition_level / competition_level_display
 - blue_ocean_opportunity: 一句话差异化机会
 - red_ocean_features: 2-3条红海特征
-- problem_oriented_keywords: 至少8个关键词，蓝海词≥4个
 
 【消费品赛道差异化约束 - 必须全部执行】
 问题必须从以下维度生成（每条问题至少覆盖1个维度）：
@@ -7605,16 +7923,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             "problem_base": "前置观望种草盘",
             "problem_category": "（贴合业务）",
             "problem_type": "（抽象维度）",
-            "display_name": "（一句话精炼）",
-            "description": "（2-3句详细描述：场景+阻碍+影响）",
+            "description": "多行场景枚举（如：宝宝喝奶粉拉肚子/换奶粉后便秘）",
             "severity": "⭐⭐⭐⭐",
-            "scenarios": ["场景1", "场景2"],
+            "scenarios": "多行场景枚举（如：宝宝喝奶粉拉肚子/换奶粉后便秘）",
             "market_type": "blue_ocean",
             "market_reason": "（判断理由）",
-            "problem_keywords": [
-                {"keyword": "（关键词）", "type": "blue_ocean", "source": "场景痛点"},
-                {"keyword": "（关键词）", "type": "blue_ocean", "source": "长尾转化"}
-            ],
             "dimension": "（维度）",
             "content_direction": "种草型"
         }
@@ -7625,7 +7938,6 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             "concern_base": "前置观望",
             "concern_category": "（顾虑大类）",
             "concern_type": "（抽象顾虑）",
-            "display_name": "（一句话）",
             "description": "（详细描述）",
             "examples": ["例子1", "例子2"],
             "market_type": "blue_ocean",
@@ -7648,11 +7960,10 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - problem_base: 前置观望种草盘 / 刚需痛点盘 / 使用配套搜后种草盘
 - problem_category: 质量担忧 / 响应速度 / 价格透明 / 安全靠谱 / 便利程度
 - problem_type: 抽象问题维度（如：技术不确定性/时效风险/价格不透明/信任缺失）
-- display_name: 一句话精炼描述（具体场景+影响）
-- description: 2-3句详细描述（什么场景+遇到什么问题+造成什么影响）
+- description: 多行场景枚举（每行一个场景，如：宝宝喝奶粉拉肚子/宝宝喝奶粉便秘/宝宝喝奶粉腹胀）
 - severity: ⭐⭐⭐ / ⭐⭐⭐⭐ / ⭐⭐⭐⭐⭐
-- scenarios: 2-3个具体使用场景
-- problem_keywords: 2-3个搜索关键词（必须与该问题主题语义一致）
+- scenarios: 枚举文本（用顿号分隔多个场景，如：宝宝喝奶粉拉肚子/宝宝喝奶粉便秘/宝宝喝奶粉腹胀）
+- description 格式：枚举文本（用/分隔）
 - dimension: 维度标签
 - content_direction: 种草型 / 转化型 / 搜后种草型
 - market_type: blue_ocean / red_ocean
@@ -7663,13 +7974,12 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - concern_base: 前置观望 / 刚需痛点 / 使用配套
 - concern_category: 顾虑大类
 - concern_type: 抽象顾虑类型
-- display_name/description/examples/problem_keywords 同上
+"description 格式：多行场景枚举（每行一个场景）
 
 【market_analysis 字段规范】
 - market_type / market_type_display / competition_level / competition_level_display
 - blue_ocean_opportunity: 一句话差异化机会
 - red_ocean_features: 2-3条红海特征
-- problem_oriented_keywords: 至少8个关键词，蓝海词≥4个
 
 【本地服务赛道差异化约束 - 必须全部执行】
 问题必须从以下维度生成（每条问题至少覆盖1个维度）：
@@ -7714,16 +8024,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             "problem_base": "前置观望种草盘",
             "problem_category": "（贴合业务）",
             "problem_type": "（抽象维度）",
-            "display_name": "（一句话精炼）",
-            "description": "（2-3句详细描述：场景+阻碍+影响）",
+            "description": "多行场景枚举（如：宝宝喝奶粉拉肚子/换奶粉后便秘）",
             "severity": "⭐⭐⭐⭐",
-            "scenarios": ["场景1", "场景2"],
+            "scenarios": "多行场景枚举（如：宝宝喝奶粉拉肚子/换奶粉后便秘）",
             "market_type": "blue_ocean",
             "market_reason": "（判断理由）",
-            "problem_keywords": [
-                {"keyword": "（关键词）", "type": "blue_ocean", "source": "场景痛点"},
-                {"keyword": "（关键词）", "type": "blue_ocean", "source": "长尾转化"}
-            ],
             "dimension": "（维度）",
             "content_direction": "种草型"
         }
@@ -7734,7 +8039,6 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             "concern_base": "前置观望",
             "concern_category": "（顾虑大类）",
             "concern_type": "（抽象顾虑）",
-            "display_name": "（一句话）",
             "description": "（详细描述）",
             "examples": ["例子1", "例子2"],
             "market_type": "blue_ocean",
@@ -7757,11 +8061,10 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - problem_base: 前置观望种草盘 / 刚需痛点盘 / 使用配套搜后种草盘
 - problem_category: 认知迷茫 / 方法缺失 / 效率焦虑 / 误区踩坑 / 成长焦虑
 - problem_type: 抽象问题维度（如：方向不明/方法不对/效率低下/认知偏差）
-- display_name: 一句话精炼描述（具体困惑+影响）
-- description: 2-3句详细描述（什么场景+遇到什么问题+造成什么影响）
+- description: 多行场景枚举（每行一个场景，如：宝宝喝奶粉拉肚子/宝宝喝奶粉便秘/宝宝喝奶粉腹胀）
 - severity: ⭐⭐⭐ / ⭐⭐⭐⭐ / ⭐⭐⭐⭐⭐
-- scenarios: 2-3个具体使用场景
-- problem_keywords: 2-3个搜索关键词（必须与该问题主题语义一致）
+- scenarios: 枚举文本（用顿号分隔多个场景，如：宝宝喝奶粉拉肚子/宝宝喝奶粉便秘/宝宝喝奶粉腹胀）
+- description 格式：枚举文本（用/分隔）
 - dimension: 维度标签
 - content_direction: 种草型 / 转化型 / 搜后种草型
 - market_type: blue_ocean / red_ocean
@@ -7772,7 +8075,7 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - concern_base: 前置观望 / 刚需痛点 / 使用配套
 - concern_category: 顾虑大类
 - concern_type: 抽象顾虑类型
-- display_name/description/examples/problem_keywords 同上
+"description 格式：多行场景枚举（每行一个场景）
 
 【market_analysis 字段规范】
 - market_type / market_type_display / competition_level / competition_level_display
@@ -7824,16 +8127,11 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             "problem_base": "前置观望种草盘",
             "problem_category": "（贴合业务）",
             "problem_type": "（抽象维度）",
-            "display_name": "（一句话精炼）",
-            "description": "（2-3句详细描述：场景+阻碍+影响）",
+            "description": "多行场景枚举（如：宝宝喝奶粉拉肚子/换奶粉后便秘）",
             "severity": "⭐⭐⭐⭐",
-            "scenarios": ["场景1", "场景2"],
+            "scenarios": "多行场景枚举（如：宝宝喝奶粉拉肚子/换奶粉后便秘）",
             "market_type": "blue_ocean",
             "market_reason": "（判断理由）",
-            "problem_keywords": [
-                {"keyword": "（关键词）", "type": "blue_ocean", "source": "场景痛点"},
-                {"keyword": "（关键词）", "type": "blue_ocean", "source": "长尾转化"}
-            ],
             "dimension": "（维度）",
             "content_direction": "种草型"
         }
@@ -7844,7 +8142,6 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             "concern_base": "前置观望",
             "concern_category": "（顾虑大类）",
             "concern_type": "（抽象顾虑）",
-            "display_name": "（一句话）",
             "description": "（详细描述）",
             "examples": ["例子1", "例子2"],
             "market_type": "blue_ocean",
@@ -7867,11 +8164,10 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - problem_base: 前置观望 / 刚需痛点盘 / 使用配套搜后种草盘
 - problem_category: 选型对比 / 风险合规 / ROI评估 / 实施落地 / 管理效率
 - problem_type: 抽象问题维度（如：合同审核风险/劳动合规风险/知识产权风险/决策链复杂）
-- display_name: 高度精炼的一句话描述
 - description: 详细描述问题场景、影响、背景，2-3句话
 - severity: ⭐⭐⭐ / ⭐⭐⭐⭐ / ⭐⭐⭐⭐⭐
-- scenarios: 2-3个具体场景
-- problem_keywords: 2-3个搜索关键词（必须与该问题主题语义一致）
+- scenarios：枚举文本（如：宝宝喝奶粉拉肚子/宝宝喝奶粉便秘/宝宝喝奶粉腹胀）
+- description 格式：枚举文本（用/分隔）
 - dimension: 维度标签
 - content_direction: 种草型 / 转化型 / 搜后种草型
 - market_type: blue_ocean / red_ocean
@@ -7882,13 +8178,12 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
 - concern_base: 前置观望
 - concern_category: 顾虑大类
 - concern_type: 抽象顾虑类型
-- display_name/description/examples/problem_keywords 同上
+"description 格式：多行场景枚举（每行一个场景）
 
 【market_analysis 字段规范】
 - market_type / market_type_display / competition_level / competition_level_display
 - blue_ocean_opportunity: 一句话差异化机会
 - red_ocean_features: 2-3条红海特征
-- problem_oriented_keywords: 至少8个关键词，蓝海词≥4个
 
 【企业服务赛道差异化约束 - 必须全部执行】
 问题必须从以下维度生成（每条问题至少覆盖1个维度）：
@@ -7934,10 +8229,9 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             "problem_base": "前置观望",
             "problem_category": "（贴合业务）",
             "problem_type": "（抽象维度）",
-            "display_name": "（一句话精炼）",
-            "description": "（2-3句详细描述：场景+阻碍+影响）",
+            "description": "多行场景枚举（如：宝宝喝奶粉拉肚子/宝宝喝奶粉便秘/宝宝喝奶粉腹胀）",
             "severity": "⭐⭐⭐⭐",
-            "scenarios": ["场景1", "场景2", "场景3"],
+            "scenarios": "多行场景枚举（如：宝宝喝奶粉拉肚子/换奶粉后便秘）",
             "market_type": "blue_ocean",
             "market_reason": "（判断理由）",
             "problem_keywords": [
@@ -7954,7 +8248,6 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             "concern_base": "前置观望",
             "concern_category": "（顾虑大类）",
             "concern_type": "（抽象顾虑）",
-            "display_name": "（一句话）",
             "description": "（详细描述）",
             "examples": ["例子1", "例子2"],
             "market_type": "blue_ocean",
@@ -7984,6 +8277,35 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
         "enterprise": "家政、保洁、保姆、月嫂、雇主、深度清洁、阿姨、除螨、上门做饭、厨师"
     }
     forbidden_words = industry_guard_map.get(business_type, industry_guard_map.get("local_service"))
+
+    # ── 产品行业正向领域约束（消费品/产品类型专用）──────────────────────────────
+    # 针对 product 类型业务，强制限定关键词必须围绕业务描述展开
+    product_domain_constraint = ""
+    if business_type == "product":
+        product_domain_constraint = """
+=== 【产品行业正向约束 - 必须严格遵守】===
+**核心铁律**：你生成的每一个关键词（problem_keywords、market_analysis.problem_oriented_keywords 中的 keyword），
+**必须**与业务描述「{business_desc}」直接相关，且符合「{business_type_name}」行业上下文。
+
+**【关键词生成规则 - 违反即作废重写】**
+✅ 正确示例（奶粉业务）：
+- "早产宝宝体重增长慢怎么选奶粉"（紧扣奶粉、宝宝、体重）
+- "宝宝喝奶粉拉肚子是奶粉的问题吗"（紧扣奶粉、宝宝、消化）
+- "奶粉dha含量高的品牌推荐"（紧扣奶粉、成分、功能）
+✅ 正确示例（护肤品业务）：
+- "敏感肌用含酒精护肤品过敏怎么办"（紧扣护肤品、成分、过敏）
+- "油皮适合哪款控油水乳"（紧扣护肤品、油皮、需求）
+
+❌ 错误示例（奶粉业务，违禁词汇）：
+- "北方冬天纯电动车续航衰减怎么破"（完全无关：电动车）
+- "办公室桶装水有塑料味反胃"（完全无关：桶装水）
+- "泡茶发涩好茶浪费了"（完全无关：茶叶）
+- "广州30万新能源SUV怎么选"（完全无关：汽车）
+- "苏州工业园区工业机器人维修"（完全无关：工业）
+
+**违规判定**：一旦检测到关键词与业务描述「{business_desc}」或「{business_type_name}」行业无关，
+本次输出立即作废并强制重写。
+"""
 
     # 构建GEO战略上下文段落
     geo_context = f"""
@@ -8063,6 +8385,39 @@ def mine_problems_and_generate_personas(params: Dict[str, Any]) -> Dict:
             }
             system_base_personas = _json.dumps(PROFESSIONAL_SERVICE_PERSONAS, ensure_ascii=False, indent=2)
             logger.debug("[mine_problems_and_generate_personas] 专业服务：覆盖system_base_personas为成年人群体")
+
+    # ── 婴儿产品专用人群覆盖 ─────────────────────────────────────────────────
+    # 当 business_type=product 且业务描述含婴儿相关词时，只保留宝妈→孩子买用关系
+    # 防止LLM生成"自住业主/租房青年/银发族"等不相关人群的问题
+    baby_keywords = ['宝宝', '婴儿', '奶粉', '纸尿裤', '奶瓶', '婴儿车', '辅食', '尿不湿', '儿童', '儿科', '宝妈', '幼儿']
+    business_desc_lower = (business_desc or '').lower()
+    is_baby_product = (
+        business_type == 'product' and
+        any(kw in business_desc_lower for kw in baby_keywords)
+    )
+    import json as _json
+    logger.debug("[mine_problems_and_generate_personas] 婴儿产品检测: business_desc=%s, is_baby_product=%s, matched=%s",
+                 business_desc, is_baby_product,
+                 [kw for kw in baby_keywords if kw in business_desc_lower])
+    if is_baby_product:
+        BABY_PRODUCT_PERSONAS = {
+            "决策层(buyer)": [
+                {"name": "宝妈", "desc": "家长出钱买给孩子用，关注安全、营养、品质", "role": "buyer", "user_of": "孩子"},
+                {"name": "宝爸", "desc": "宝爸参与决策出钱购买", "role": "buyer", "user_of": "孩子"},
+                {"name": "新手父母", "desc": "新手爸妈，缺乏育儿经验，谨慎选品", "role": "buyer", "user_of": "孩子"},
+                {"name": "孕妈", "desc": "孕期提前储备婴儿用品", "role": "buyer", "user_of": "孩子"},
+            ],
+            "对接层": [
+                {"name": "长辈育儿指导", "desc": "爷爷奶奶/外公外婆参与育儿指导", "role": "mediator", "buyer_of": "新手父母", "user_of": "孩子"},
+            ],
+            "使用层(user)": [
+                {"name": "孩子", "desc": "0-6岁婴幼儿，实际使用者", "role": "user", "buyer_of": "宝妈"},
+                {"name": "新生儿", "desc": "0-1岁新生儿，特殊护理需求", "role": "user", "buyer_of": "新手父母"},
+                {"name": "幼儿", "desc": "1-6岁幼儿，成长期营养需求", "role": "user", "buyer_of": "宝妈"},
+            ]
+        }
+        system_base_personas = _json.dumps(BABY_PRODUCT_PERSONAS, ensure_ascii=False, indent=2)
+        logger.debug("[mine_problems_and_generate_personas] 婴儿产品：覆盖system_base_personas为宝妈→孩子群体")
 
     # ── 企业服务专用视角约束 ───────────────────────────────────────────────────
     # 针对企业服务，需要特殊的问题挖掘视角
@@ -8388,10 +8743,9 @@ description: "经营中可能遭遇合同纠纷、劳动仲裁、客户欠款、
 - problem_base：严格按上述决策链路规则填写
 - problem_category：从五类选一
 - problem_type：必须从决策链路方向选一类+具体描述
-- description：**必须写出"什么场景下遇到什么问题+想找什么解决方案"**
+- description：多行场景枚举（每行一个场景）
 - severity：⭐⭐⭐/⭐⭐⭐⭐/⭐⭐⭐⭐⭐
-- scenarios：2-3个具体场景
-- problem_keywords：**必须围绕具体问题写搜索词，禁止写宏观购买词**
+- scenarios：多行场景枚举（如：宝宝喝奶粉拉肚子/换奶粉后便秘/添加辅食后腹胀）
 - dimension：场景问题/能力问题/时间问题/便利问题（**必填**）
 - content_direction：从前置观望种草盘→种草型
 
@@ -8454,18 +8808,20 @@ buyer_concern_types：
 请基于专属问题维度，挖掘真实、具体、高精准的客户痛点与顾虑。
 【重要】下方示例**只用于对齐 JSON 字段名与嵌套结构**；所有 identity、description、problem_keywords、market_analysis 里的具体措辞必须严格来自「待分析业务信息」中的业务描述与经营类型。
 【行业禁止词】当前业务为「{business_type_name}」行业，以下词汇**严禁**出现在输出中：{forbidden_words}
+{product_domain_constraint}
 
 === 【绝对必填字段，缺少任意一项本次输出作废】 ===
 1. **market_analysis** 必须包含：
    - market_type（red_ocean/blue_ocean/mixed）
    - problem_oriented_keywords（数组，每个对象含 keyword + type + source，**总数至少8个，蓝海词不少于4个**）
 2. **user_problem_types** 每条必须包含：
-   - identity / problem_category / problem_type / display_name / description / severity / scenarios
-   - **problem_keywords（数组，每条至少2个，含 keyword + type + source，且与该问题主题语义对齐）**
+   - identity / problem_category / problem_type / description / severity / scenarios
+   - **problem_type 【格式铁律】必须是 2-8 字的抽象短标签**（如"效果存疑""肠道过敏""体重增长慢"），**禁止填写问句**
+   - **description：枚举文本（用顿号分隔多个场景，如：宝宝喝奶粉拉肚子/宝宝喝奶粉便秘/宝宝喝奶粉腹胀）**
    - market_type / market_reason
 3. **buyer_concern_types** 每条必须包含：
-   - identity / concern_category / concern_type / display_name / description / examples
-   - **problem_keywords（数组，每条至少2个）**
+   - identity / concern_category / concern_type / description / examples
+   - **concern_type 【格式铁律】必须是 2-8 字的抽象短标签**（如"价格顾虑""资质担忧""配送延迟"），**禁止填写问句**
    - market_type / market_reason
 4. 只输出 JSON，不要任何解释文字。
 {few_shot_section}
@@ -8509,6 +8865,7 @@ buyer_concern_types：
 - 前置客观症状/异常/损耗/不适：拉肚子、过敏、故障、损耗、氧化、发黄、发霉、异味、变色、变形
 - 后置使用体验痛点：不方便、不好看、不舒服、影响心情、担心安全
 - 注意：这是用户"因为这个问题难受，才主动去搜解决方案"的原始动因
+- **【格式要求】problem_type 必须是 2-8 字抽象短标签（如"效果存疑""肠道过敏""体重增长慢"），不是问句**
 - buyer_concern_types（决策层）禁止侵占此字段
 
 **buyer_concern_types（决策层）- 严格控制≤15%：**
@@ -8521,6 +8878,7 @@ buyer_concern_types：
 ✅ 仅允许极少数（≤15%）且必须带症状前缀：
 - 担心症状加重/怕影响健康/怕孩子发育受损
 - 症状严重想用好的但预算有限（必须带症状前缀）
+- **【格式要求】concern_type 必须是 2-8 字抽象短标签（如"价格顾虑""资质担忧""配送延迟"），不是问句**
 
 **【重要】buyer_concern_types 严格控制在总问题数的15%以内**
 
@@ -8529,7 +8887,7 @@ buyer_concern_types：
 - 落地执行：安装难、配送慢、服务响应差
 - 标准执行：验收难、效果难量化、质量不稳定
 
-场景细分：每个问题下列出2-3种具体使用场景，帮助后续画像细分。
+场景细分：每个问题下 scenarios 字段填写多行场景枚举（每行一个场景）。
 
 === 【问题挖掘阶段场景约束 - 必须遵守】===
 **本阶段只做纯场景标签绑定，不做数字/体量/规模锁定：**
@@ -8568,6 +8926,11 @@ buyer_concern_types：
 {keyword_filter_context}
 
 === 关键词筛选执行步骤 ===
+
+**【领域强制约束】所有问题导向词（problem_oriented_keywords）必须同时满足以下条件，否则本次输出作废重写：**
+1. **产品/服务相关性**：关键词中的核心名词（产品词、服务词、功效词）必须出现在 `business_desc` 或 `product_name` 的语义范围内；
+2. **禁止跨行业发挥**：不得将汽车/房产/旅游/桶装水/宠物/装修等行业的产品、场景、问题混入当前业务；
+3. **禁止凭空捏造**：关键词必须是「真实用户」围绕当前业务会搜索的问句，不允许 LLM 自己发明一个完全不存在的用户痛点场景。
 
 **Step 1：生成种子词（严格禁止宏观购买词）**
 ❌ 严禁生成以下宏观词（L1/L2必须严格控制≤15%）：
@@ -8609,11 +8972,17 @@ buyer_concern_types：
 请求ID：{_nonce}（每次请求唯一，请务必生成与历史结果不同的问题和关键词）
 业务描述：{business_desc}
 **主服务场景：{service_scenario}（问题必须绑定此场景，不脱离场景生成）**
-{scenario_tag}
 经营范围：{business_range_text}
 经营类型：{business_type_name}
 辅助信息：{aux_section}
 {buyer_user_hint}
+
+**【领域锚定 - 必须首先完成此步骤】**
+请先用一句话概括当前业务的核心服务内容，然后列出3-5个与该业务强相关的核心关键词（名词/动词/形容词，如服务类型、用户状态、常见问题类型等）。
+格式：
+- 业务核心：「一句话概括」
+- 领域关键词：关键词1、关键词2、关键词3、关键词4、关键词5
+**【重要】后续所有 user_problem_types、buyer_concern_types、problem_oriented_keywords 的生成必须严格围绕以上领域关键词展开，严禁出现上述领域之外的行业词汇。**
 
 【随机性要求】这是第「{_nonce}」次分析：
 - identity 必须与历史结果不同（不要重复相同人群）
@@ -8670,23 +9039,22 @@ buyer_concern_types：
 - 如果业务痛点不强，可以返回少量「高」，多返回「中」
 - 用户愿意付高价的问题 = 痛苦很深的问题
 
-=== problem_keywords 与当前问题条强对齐（必填，防张冠李戴）===
-- **每条** user_problem_types / buyer_concern_types 里的 `problem_keywords`，必须是用户会围绕**该条**的 `problem_type`、`description`、`scenarios`（及付费方的 `examples`）去搜索的完整问句。
-- **禁止**把其它问题类型的主题写进本条关键词（例如本条是「餐盘清洁、去油污」，关键词里不得写「餐盘修复/变形矫正」；本条是「服务质量、员工态度」，关键词里不得写「餐盘修复培训」）。
-- **禁止**用同一批泛化词复制到每一条；`market_analysis.problem_oriented_keywords` 虽是汇总去重，但**每一条问题自己的 problem_keywords 必须单独构思**，与汇总列表中的对应片段语义一致。
-- 自测：随机抽一条，只看 `problem_type+description`，读者应能判断这些 `keyword` 必然属于该条而非邻居条。
-
 === 输出要求 ===
 1. user_problem_types / buyer_concern_types **各生成2-3条**（问题类型必须多样化，覆盖不同身份和场景）。
-2. user_problem_types 每条必须包含 scenarios 字段（2-3个具体使用场景）。
-3. **【重要】每个问题必须包含 market_type 字段（blue_ocean 或 red_ocean）和 market_reason 字段（判断理由）**。
-4. **【重要】每个问题类型（包括 buyer_concern_types）必须包含 `problem_keywords` 字段**，格式为对象数组：
-   - `keyword`：完整问句（如{kw_example}）
-   - `type`：`"blue_ocean"`（场景痛点词/长尾转化词）或 `"red_ocean"`（品牌核心词/用户需求词/地域精准词）
-   - `source`：来源维度名（如"场景痛点词"、"长尾转化词"、"用户需求词"等）
-   - **每个问题至少 2 个 keywords**；蓝海问题配蓝海词，红海问题配红海词；**且必须与该条问题主题一致（见上一节强对齐）**
-5. **【必填】market_analysis.problem_oriented_keywords 必须返回至少20个**，由所有问题的 problem_keywords **汇总去重**填入；汇总中不得混入与任一问题条无关的「孤儿词」。
-6. 只返回 JSON，不要其他文字。
+2. **【铁律】description 字段格式**：
+   - **必须是场景枚举，每行一个场景（用换行分隔）**
+   - **禁止填写完整句子！禁止出现"导致""影响""引起"等因果连接词！**
+   - ✅ 正确示例：
+     ```
+     宝宝喝奶粉拉肚子
+     换奶粉后便秘
+     添加辅食后腹胀
+     ```
+   - ❌ 错误示例：`宝宝喝奶粉拉肚子导致营养不良`（这是句子，不是场景）
+   - **【重要】此字段会用于指导画像生成，必须是用户能直接感受到的具体场景**
+3. user_problem_types 每条必须包含 scenarios 字段（多行枚举，每行一个场景）。
+4. **【重要】每个问题必须包含 market_type 字段（blue_ocean 或 red_ocean）和 market_reason 字段（判断理由）**。
+5. 只返回 JSON，不要其他文字。
 """
 
     # ── 【方案一】多样性注入：扩展为 6 套策略池，每次随机选 1-2 套组合 ──
@@ -8816,108 +9184,14 @@ buyer_concern_types：
         MAX_RETRIES = 3
         final_result = None
 
-        # --- 辅助函数（定义在循环外，避免重复定义） ---
-        def _try_parse(text):
-            try:
-                return json.loads(text.strip())
-            except json.JSONDecodeError:
-                return None
-
-        def _smart_fix_json(text):
-            for strategy in range(7):
-                test_json = text
-                if strategy == 0:
-                    last_brace = test_json.rfind('}')
-                    if last_brace > 0:
-                        test_json = test_json[:last_brace + 1]
-                elif strategy == 1:
-                    last_bracket = test_json.rfind(']')
-                    if last_bracket > 0:
-                        test_json = test_json[:last_bracket + 1]
-                        open_braces = test_json.count('{') - test_json.count('}')
-                        open_brackets = test_json.count('[') - test_json.count(']')
-                        test_json += ']' * max(0, open_brackets)
-                        test_json += '}' * max(0, open_braces)
-                elif strategy == 2:
-                    last_comma_newline = test_json.rfind(',\n')
-                    if last_comma_newline > 0:
-                        test_json = test_json[:last_comma_newline]
-                        open_braces = test_json.count('{') - test_json.count('}')
-                        open_brackets = test_json.count('[') - test_json.count(']')
-                        test_json += ']' * max(0, open_brackets)
-                        test_json += '}' * max(0, open_braces)
-                elif strategy == 3:
-                    open_braces = test_json.count('{') - test_json.count('}')
-                    open_brackets = test_json.count('[') - test_json.count(']')
-                    test_json += ']' * max(0, open_brackets)
-                    test_json += '}' * max(0, open_braces)
-                elif strategy == 4:
-                    depth = 0
-                    for i in range(len(test_json) - 1, -1, -1):
-                        if test_json[i] == '}':
-                            depth += 1
-                        elif test_json[i] == '{':
-                            depth -= 1
-                            if depth == 0:
-                                test_json = test_json[:i]
-                                break
-                elif strategy == 5:
-                    import re as re_module
-                    matches = list(re_module.finditer(r'"\s*\}\s*[,}\]]', test_json))
-                    if matches:
-                        last_match = matches[-1]
-                        test_json = test_json[:last_match.end()]
-                        open_braces = test_json.count('{') - test_json.count('}')
-                        open_brackets = test_json.count('[') - test_json.count(']')
-                        test_json += ']' * max(0, open_brackets)
-                        test_json += '}' * max(0, open_braces)
-                elif strategy == 6:
-                    lines = test_json.split('\n')
-                    fixed_lines = []
-                    for line in lines:
-                        stripped = line.strip()
-                        if stripped.startswith('"') and ':' not in stripped and '}' not in stripped:
-                            continue
-                        quote_count = stripped.count('"')
-                        if quote_count % 2 != 0 and not stripped.endswith(','):
-                            continue
-                        fixed_lines.append(line)
-                    test_json = '\n'.join(fixed_lines)
-                    open_braces = test_json.count('{') - test_json.count('}')
-                    open_brackets = test_json.count('[') - test_json.count(']')
-                    test_json += ']' * max(0, open_brackets)
-                    test_json += '}' * max(0, open_braces)
-                parsed = _try_parse(test_json)
-                if parsed:
-                    logger.debug("[mine_problems_and_generate_personas] JSON修复成功(策略%s)", strategy)
-                    return parsed
-            return None
-
-        def _extract_problem_keywords(item):
-            raw = item.get('problem_keywords') or item.get('keywords') or []
-            if isinstance(raw, str):
-                return [{'keyword': raw, 'type': 'unknown', 'source': '未知'}]
-            if isinstance(raw, list):
-                result = []
-                for kw_item in raw:
-                    if isinstance(kw_item, dict):
-                        result.append({
-                            'keyword': kw_item.get('keyword') or kw_item.get('kw') or '',
-                            'type': kw_item.get('type', 'unknown'),
-                            'source': kw_item.get('source', kw_item.get('type', '未知')),
-                        })
-                    elif isinstance(kw_item, str) and kw_item:
-                        result.append({'keyword': kw_item, 'type': 'unknown', 'source': '未知'})
-                return result
-            return []
+        # --- 辅助函数使用模块级实现 ---
 
         # --- 重试循环 ---
         for attempt in range(MAX_RETRIES):
             attempt_suffix = "" if attempt == 0 else (
                 "\n\n【重试提醒（第" + str(attempt + 1) + "次）】"
-                "上次输出缺少 problem_keywords 或 market_analysis.problem_oriented_keywords，"
-                "本次必须为每条 user_problem_types 和 buyer_concern_types 补全 problem_keywords 字段，"
-                "并确保 market_analysis.problem_oriented_keywords 至少包含8个关键词，user_problem_types 至少2条，buyer_concern_types 至少2条。"
+                "请确保输出完整的 user_problem_types 和 buyer_concern_types 数据，"
+                "user_problem_types 至少2条，buyer_concern_types 至少2条。"
             )
 
             # 调试日志：检查约束是否注入到prompt
@@ -8932,8 +9206,7 @@ buyer_concern_types：
             logger.debug("[mine_problems_and_generate_personas] 响应长度: %s", len(response))
             logger.debug("[mine_problems_and_generate_personas] LLM 原始响应末尾500字符: %s", response[-500:] if response else None)
 
-            result = None
-            result = _try_parse(response)
+            result = _try_parse_json(response)
             if result:
                 logger.debug("[mine_problems_and_generate_personas] JSON解析成功(直接)")
                 logger.debug("[mine_problems_and_generate_personas] ===== LLM 解析结果 =====")
@@ -8943,7 +9216,7 @@ buyer_concern_types：
                 match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response)
                 if match:
                     json_str = match.group(1).strip()
-                    result = _try_parse(json_str)
+                    result = _try_parse_json(json_str)
                     if not result:
                         result = _smart_fix_json(json_str)
                     if result:
@@ -8955,7 +9228,7 @@ buyer_concern_types：
                     match = re.search(r'\{[\s\S]*\}', response)
                     if match:
                         json_str = match.group(0)
-                        result = _try_parse(json_str)
+                        result = _try_parse_json(json_str)
                         if not result:
                             result = _smart_fix_json(json_str)
                         if result:
@@ -8993,30 +9266,27 @@ buyer_concern_types：
             def _norm(item, is_problem=True):
                 type_key = 'problem_type' if is_problem else 'concern_type'
                 base_key = 'problem_base' if is_problem else 'concern_base'
-                desc_key = 'display_name'
                 raw_type = item.get(type_key, '') or item.get('问题类型', '') or item.get('顾虑类型', '') or ''
-                display = item.get(desc_key, '') or item.get('显示名称', '') or item.get('描述', '') or ''
-                if not raw_type and display:
+                description_raw = item.get('description', '') or item.get('描述', '') or ''
+                if not raw_type and description_raw:
                     for kw in (['不便','困扰','问题','烦恼','困难','担忧','焦虑','缺乏','不足','担心','无奈','难受','痛点','需求','期望'] if is_problem else ['价格','质量','真假','安全','效果','配送','售后','信任','顾虑','担忧','预算','怕','犹豫','便利','交期','开票','起订','采购','品牌']):
-                        idx = display.find(kw)
+                        idx = description_raw.find(kw)
                         if idx > 0:
-                            raw_type = display[idx:]
+                            raw_type = description_raw[idx:]
                             break
                     if not raw_type:
-                        raw_type = display
+                        raw_type = description_raw
                 return {
                     'id': item.get('id', ''),
                     'identity': item.get('identity', '') or item.get('身份', ''),
                     type_key: raw_type,
                     base_key: item.get(base_key, '') or item.get('需求底盘', ''),
-                    'display_name': display or f"{item.get('identity', '')}{raw_type}",
-                    'description': item.get('description', '') or item.get('描述', ''),
+                    'description': description_raw,
+                    'scenarios': item.get('scenarios', '') or item.get('场景', '') or '',
                     'examples': item.get('examples', []) or item.get('例子', []),
                     'severity': item.get('severity', '中') or item.get('严重程度', '中'),
-                    'scenarios': item.get('scenarios', []) or item.get('场景', []),
                     'market_type': item.get('market_type', 'red_ocean'),
                     'market_reason': item.get('market_reason', ''),
-                    'problem_keywords': _extract_problem_keywords(item),
                 }
 
             user_problem_types = result.get('user_problem_types', [])
@@ -9032,6 +9302,21 @@ buyer_concern_types：
                 description = n['description'] or ''
                 problem_type = n['problem_type'] or ''
                 severity = n['severity'] or '中'
+
+                # ── problem_type 规范化：防止 LLM 生成超长文本 ──────
+                # 原始 problem_type 应该是短抽象词（如"效果存疑"），不是长问句
+                # 如果 problem_type 超过 16 字符，说明 LLM 没有遵守格式
+                if len(problem_type) > 16:
+                    logger.warning(
+                        "[mine_problems] problem_type 长度异常: id=%s raw='%s'，将基于 description 推断类别",
+                        n.get('id', f'up_{i+1}'), problem_type[:40]
+                    )
+                    # 用 infer_problem_category 推断出标准类别词
+                    inferred = infer_problem_category(
+                        problem_type='',
+                        description=description,
+                    )
+                    problem_type = inferred or '体验/使用问题'
 
                 # ── 四类种草原生问题强制归入「前置观望种草盘」────────────────
                 # 强制约束：全部强制入库「前置观望种草盘」，不允许分流到另外两盘
@@ -9055,14 +9340,11 @@ buyer_concern_types：
                     'id': n.get('id', f'up_{i+1}'),
                     'identity': n['identity'],
                     'problem_base': base,
-                    'problem_type': n['problem_type'],
-                    'display_name': n['display_name'] or f"{n['identity']}{n['problem_type']}",
+                    'problem_type': problem_type,
                     'description': n['description'],
-                    'severity': n['severity'],
                     'scenarios': n['scenarios'],
                     'market_type': n['market_type'],
                     'market_reason': n['market_reason'],
-                    'problem_keywords': n['problem_keywords'],
                     'content_direction': direction,
                     # ── 新增双标签字段（兼容历史数据，未填写时自动回退）───────────
                     'consume_type': consume_type,
@@ -9076,6 +9358,18 @@ buyer_concern_types：
                 description = n['description'] or ''
                 concern_type = n['concern_type'] or ''
                 severity = n['severity'] or '高'
+
+                # ── concern_type 规范化：防止 LLM 生成超长文本 ───────
+                if len(concern_type) > 16:
+                    logger.warning(
+                        "[mine_problems] concern_type 长度异常: id=%s raw='%s'，将基于 description 推断类别",
+                        n.get('id', f'bc_{i+1}'), concern_type[:40]
+                    )
+                    inferred = infer_problem_category(
+                        problem_type='',
+                        description=description,
+                    )
+                    concern_type = inferred or '体验/使用问题'
 
                 # ── 四类种草原生问题强制归入「前置观望种草盘」（付费方同理）──
                 if is_seeding_problem(concern_type, description):
@@ -9093,139 +9387,47 @@ buyer_concern_types：
                     'id': n.get('id', f'bc_{i+1}'),
                     'identity': n['identity'],
                     'concern_base': base,
-                    'concern_type': n['concern_type'],
-                    'display_name': n['display_name'] or f"{n['identity']}{n['concern_type']}",
+                    'concern_type': concern_type,
                     'description': n['description'],
+                    'scenarios': n['scenarios'],
                     'examples': n['examples'],
                     'severity': '高',
                     'market_type': n['market_type'],
                     'market_reason': n['market_reason'],
-                    'problem_keywords': n['problem_keywords'],
                     'content_direction': direction,
                     # ── 新增双标签字段（兼容历史数据）─────────────────────────────
                     'consume_type': consume_type,
                     'demand_attr': demand_attr,
                 })
 
-            all_problem_keywords = [kw for item in all_user_problem_types for kw in item['problem_keywords']]
-            all_problem_keywords += [kw for item in all_buyer_concern_types for kw in item['problem_keywords']]
-
             logger.debug("[mine_problems_and_generate_personas] LLM返回的market_analysis: %s", market_analysis)
-            logger.debug("[mine_problems_and_generate_personas] result中problem_oriented_keywords: %s", result.get('problem_oriented_keywords', '字段不存在'))
             logger.debug("[mine_problems_and_generate_personas] user_problem_types[0]: %s", user_problem_types[0] if user_problem_types else '无')
-            logger.debug("[mine_problems_and_generate_personas] user_problem_types[0]的market_type: %s", user_problem_types[0].get('market_type', '无') if user_problem_types else '无')
-            logger.debug("[mine_problems_and_generate_personas] user_problem_types[0]的problem_keywords: %s", user_problem_types[0].get('problem_keywords', '无') if user_problem_types else '无')
 
-            raw_keywords = market_analysis.get('problem_oriented_keywords') or result.get('problem_oriented_keywords') or []
-            seen = set()
-            for kw_item in raw_keywords:
-                kw = (kw_item.get('keyword') or kw_item.get('kw') or '') if isinstance(kw_item, dict) else (kw_item or '')
-                if kw:
-                    seen.add(kw)
-            fallback_keywords = []
-            for kw_item in all_problem_keywords:
-                kw = kw_item.get('keyword', '') or ''
-                if kw and kw not in seen:
-                    seen.add(kw)
-                    fallback_keywords.append(kw_item)
-            merged_keywords = raw_keywords + fallback_keywords if raw_keywords else fallback_keywords
-
-            blue_ocean_keywords = []
-            red_ocean_keywords = []
-            for item in merged_keywords:
-                if isinstance(item, dict):
-                    kw = item.get('keyword') or item.get('kw') or ''
-                    kw_type = item.get('type', '')
-                    if kw and kw_type:
-                        if kw_type == 'blue_ocean':
-                            blue_ocean_keywords.append({'keyword': kw, 'source': item.get('source', kw_type)})
-                        elif kw_type == 'red_ocean':
-                            red_ocean_keywords.append({'keyword': kw, 'source': item.get('source', kw_type)})
-                elif isinstance(item, str) and item:
-                    blue_ocean_keywords.append({'keyword': item, 'source': '未知'})
-
-            normalized_market_analysis = {
-                'market_type': market_analysis.get('market_type', 'mixed'),
-                'market_type_display': market_analysis.get('market_type_display', '待分析'),
-                'competition_level': market_analysis.get('competition_level', 5),
-                'competition_level_display': market_analysis.get('competition_level_display', '待评估'),
-                'blue_ocean_opportunity': market_analysis.get('blue_ocean_opportunity', ''),
-                'red_ocean_features': market_analysis.get('red_ocean_features', []),
-                'problem_oriented_keywords': merged_keywords,
-                'blue_ocean_keywords': blue_ocean_keywords,
-                'red_ocean_keywords': red_ocean_keywords,
-            }
-
-            # --- 校验必填字段 ---
-            missing_keywords_problems = [
-                f"{item.get('identity', '')}{item.get('problem_type', '')}"
-                for item in user_problem_types
-                if not item.get('problem_keywords')
-            ]
-            missing_keywords_concerns = [
-                f"{item.get('identity', '')}{item.get('concern_type', '')}"
-                for item in buyer_concern_types
-                if not item.get('problem_keywords')
-            ]
-            missing_analysis = not market_analysis.get('problem_oriented_keywords')
-
-            # 只有当所有字段都完整时才跳过重试
-            validation_passed = not (missing_keywords_problems or missing_keywords_concerns or missing_analysis)
-
-            # 构建 merged_keywords（从各条问题的 problem_keywords 汇总）
-            merged_keywords = market_analysis.get('problem_oriented_keywords') or []
-            for kw_item in all_problem_keywords:
-                kw = kw_item.get('keyword', '') or ''
-                if kw:
-                    # 检查是否已存在
-                    exists = any(
-                        (isinstance(x, dict) and x.get('keyword') == kw) or
-                        (isinstance(x, str) and x == kw)
-                        for x in merged_keywords
-                    )
-                    if not exists:
-                        merged_keywords.append(kw_item)
-
-            # 分离蓝海/红海关键词
-            blue_ocean_keywords = []
-            red_ocean_keywords = []
-            for item in merged_keywords:
-                if isinstance(item, dict):
-                    kw = item.get('keyword') or item.get('kw') or ''
-                    kw_type = item.get('type', '')
-                    if kw and kw_type:
-                        if kw_type == 'blue_ocean':
-                            blue_ocean_keywords.append({'keyword': kw, 'source': item.get('source', kw_type)})
-                        elif kw_type == 'red_ocean':
-                            red_ocean_keywords.append({'keyword': kw, 'source': item.get('source', kw_type)})
-                elif isinstance(item, str) and item:
-                    blue_ocean_keywords.append({'keyword': item, 'source': '未知'})
-
-            normalized_market_analysis = {
-                'market_type': market_analysis.get('market_type', 'mixed'),
-                'market_type_display': market_analysis.get('market_type_display', '待分析'),
-                'competition_level': market_analysis.get('competition_level', 5),
-                'competition_level_display': market_analysis.get('competition_level_display', '待评估'),
-                'blue_ocean_opportunity': market_analysis.get('blue_ocean_opportunity', ''),
-                'red_ocean_features': market_analysis.get('red_ocean_features', []),
-                'problem_oriented_keywords': merged_keywords,
-                'blue_ocean_keywords': blue_ocean_keywords,
-                'red_ocean_keywords': red_ocean_keywords,
-            }
-
-            if not validation_passed:
-                missing_info = []
-                if missing_keywords_problems:
-                    missing_info.append(f"user_problem_types缺少problem_keywords: {missing_keywords_problems}")
-                if missing_keywords_concerns:
-                    missing_info.append(f"buyer_concern_types缺少problem_keywords: {missing_keywords_concerns}")
-                if missing_analysis:
-                    missing_info.append("market_analysis.problem_oriented_keywords 缺失")
-                if attempt < MAX_RETRIES - 1:
-                    logger.info("[mine_problems_and_generate_personas] 校验失败，将重试: %s", '；'.join(missing_info))
-                    continue
+            # ── problem_oriented_keywords 跨行业过滤 ─────────────────────────────────────
+            raw_keywords = market_analysis.get('problem_oriented_keywords') or []
+            business_text = (product_name or business_desc or '')
+            filtered_keywords = []
+            for kw_obj in raw_keywords:
+                kw_text = kw_obj.get('keyword', '') if isinstance(kw_obj, dict) else str(kw_obj)
+                if _is_keyword_relevant(kw_text, business_text):
+                    filtered_keywords.append(kw_obj)
                 else:
-                    logger.warning("[mine_problems_and_generate_personas] 校验失败，已达最大重试次数，使用兜底数据: %s", '；'.join(missing_info))
+                    logger.warning("[mine_problems] 关键词跨行业过滤掉: %s（业务: %s）", kw_text, business_text[:30])
+            if len(filtered_keywords) < 3 and len(raw_keywords) > 0:
+                logger.warning(
+                    "[mine_problems] problem_oriented_keywords 过滤后剩余不足3条（原始%d，过滤后%d），业务=%s",
+                    len(raw_keywords), len(filtered_keywords), business_text[:50]
+                )
+
+            # ── 简化 market_analysis，移除关键词相关字段 ──────────────────────────────
+            normalized_market_analysis = {
+                'market_type': market_analysis.get('market_type', 'mixed'),
+                'market_type_display': market_analysis.get('market_type_display', '待分析'),
+                'competition_level': market_analysis.get('competition_level', 5),
+                'competition_level_display': market_analysis.get('competition_level_display', '待评估'),
+                'blue_ocean_opportunity': market_analysis.get('blue_ocean_opportunity', ''),
+                'red_ocean_features': market_analysis.get('red_ocean_features', []),
+            }
 
             final_result = {
                 'success': True,
@@ -9250,13 +9452,16 @@ buyer_concern_types：
                         'is_high_risk_decision': geo_strategy.get("high_risk_decision", False),
                         'is_high_risk_enhanced': geo_strategy.get("is_high_risk_enhanced", False),
                     },
-                    # 【新增】慢性体征解析层结果
+                    # 【新增】慢性体征解析层结果（过滤不相关的chronic_problems）
                     'chronic_extraction': {
                         'behavior_tags': behavior_tags,
                         'scene_tags': scene_tags,
                         'symptom_tags': symptom_tags,
                         'extraction_summary': chronic_extraction_summary,
-                        'chronic_problems': chronic_problems,
+                        'chronic_problems': [
+                            p for p in chronic_problems
+                            if _is_keyword_relevant(p.get('identity', '') + p.get('description', ''), (product_name or business_desc or ''))
+                        ],
                     },
                     'custom_gift_extraction': {
                         'is_custom_gift': bool(is_custom_gift),
@@ -10031,7 +10236,7 @@ def generate_portraits_parallel(problems: List[Dict], business_desc: str, is_pre
                 result = future.result()
                 results.append({
                     'problem_id': problem.get('id', ''),
-                    'problem_display': problem.get('display_name', ''),
+                    'problem_display': problem.get('problem_type', ''),
                     'portraits': result.get('portraits', []) if result.get('success') else [],
                     'success': result.get('success', False)
                 })
@@ -10039,7 +10244,7 @@ def generate_portraits_parallel(problems: List[Dict], business_desc: str, is_pre
                 logger.error("[generate_portraits_parallel] 生成失败: %s", e)
                 results.append({
                     'problem_id': problem.get('id', ''),
-                    'problem_display': problem.get('display_name', ''),
+                    'problem_display': problem.get('problem_type', ''),
                     'portraits': [],
                     'success': False,
                     'error': str(e)
