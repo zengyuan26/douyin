@@ -176,9 +176,11 @@ class PortraitGenerator:
             market_opportunities=market_opportunities,
         )
 
-        # 调用LLM
-        try:
-            response = self.llm.call(prompt)
+            # 调用LLM
+            logger.info("[PortraitGenerator] 开始调用LLM...")
+            messages = [{"role": "user", "content": prompt}]
+            response = self.llm.chat(messages, temperature=0.7, max_tokens=4000)
+
             if not response:
                 logger.warning("[PortraitGenerator] LLM返回为空")
                 return portraits

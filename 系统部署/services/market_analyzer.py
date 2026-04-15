@@ -153,9 +153,11 @@ class MarketAnalyzer:
             )
 
             # 调用LLM
-            logger.info("[MarketAnalyzer] 开始分析: %s", business_desc[:50])
+            logger.info("[MarketAnalyzer] 开始调用LLM...")
 
-            response = self.llm.call(prompt)
+            # 构建消息格式
+            messages = [{"role": "user", "content": prompt}]
+            response = self.llm.chat(messages, temperature=0.7, max_tokens=4000)
 
             if not response or not response.strip():
                 result.error_message = "LLM调用返回为空"

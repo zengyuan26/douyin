@@ -1,0 +1,147 @@
+[2026-04-14 11:12:13 +0800] [7210] [INFO] Starting gunicorn 21.2.0
+[2026-04-14 11:12:13 +0800] [7210] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:12:13 +0800] [7210] [ERROR] Retrying in 1 second.
+[2026-04-14 11:12:14 +0800] [7210] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:12:14 +0800] [7210] [ERROR] Retrying in 1 second.
+[2026-04-14 11:12:15 +0800] [7210] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:12:15 +0800] [7210] [ERROR] Retrying in 1 second.
+[2026-04-14 11:12:16 +0800] [7210] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:12:16 +0800] [7210] [ERROR] Retrying in 1 second.
+[2026-04-14 11:12:17 +0800] [7210] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:12:17 +0800] [7210] [ERROR] Retrying in 1 second.
+[2026-04-14 11:12:18 +0800] [7210] [ERROR] Can't connect to ('0.0.0.0', 5000)
+[2026-04-14 11:14:03 +0800] [7256] [INFO] Starting gunicorn 21.2.0
+[2026-04-14 11:14:03 +0800] [7256] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:14:03 +0800] [7256] [ERROR] Retrying in 1 second.
+[2026-04-14 11:14:04 +0800] [7256] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:14:04 +0800] [7256] [ERROR] Retrying in 1 second.
+[2026-04-14 11:14:05 +0800] [7256] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:14:05 +0800] [7256] [ERROR] Retrying in 1 second.
+[2026-04-14 11:14:06 +0800] [7256] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:14:06 +0800] [7256] [ERROR] Retrying in 1 second.
+[2026-04-14 11:14:07 +0800] [7256] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:14:07 +0800] [7256] [ERROR] Retrying in 1 second.
+[2026-04-14 11:14:08 +0800] [7256] [ERROR] Can't connect to ('0.0.0.0', 5000)
+[2026-04-14 11:23:36 +0800] [7511] [INFO] Starting gunicorn 21.2.0
+[2026-04-14 11:23:36 +0800] [7511] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:23:36 +0800] [7511] [ERROR] Retrying in 1 second.
+[2026-04-14 11:23:37 +0800] [7511] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:23:37 +0800] [7511] [ERROR] Retrying in 1 second.
+[2026-04-14 11:23:38 +0800] [7511] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:23:38 +0800] [7511] [ERROR] Retrying in 1 second.
+[2026-04-14 11:23:39 +0800] [7511] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:23:39 +0800] [7511] [ERROR] Retrying in 1 second.
+[2026-04-14 11:23:40 +0800] [7511] [ERROR] Connection in use: ('0.0.0.0', 5000)
+[2026-04-14 11:23:40 +0800] [7511] [ERROR] Retrying in 1 second.
+[2026-04-14 11:23:41 +0800] [7511] [ERROR] Can't connect to ('0.0.0.0', 5000)
+[2026-04-14 11:36:02 +0800] [7760] [INFO] Starting gunicorn 21.2.0
+[2026-04-14 11:36:02 +0800] [7760] [INFO] Listening at: http://0.0.0.0:5001 (7760)
+[2026-04-14 11:36:02 +0800] [7760] [INFO] Using worker: sync
+[2026-04-14 11:36:02 +0800] [7761] [INFO] Booting worker with pid: 7761
+[2026-04-14 11:36:02 +0800] [7762] [INFO] Booting worker with pid: 7762
+[2026-04-14 11:36:02 +0800] [7763] [INFO] Booting worker with pid: 7763
+[2026-04-14 11:36:02 +0800] [7764] [INFO] Booting worker with pid: 7764
+DEBUG:tzlocal:/etc/localtime found
+DEBUG:tzlocal:/etc/localtime found
+DEBUG:tzlocal:/etc/localtime found
+DEBUG:tzlocal:1 found:
+ {'/etc/localtime is a symlink to': 'Asia/Shanghai'}
+DEBUG:tzlocal:1 found:
+ {'/etc/localtime is a symlink to': 'Asia/Shanghai'}
+DEBUG:tzlocal:1 found:
+ {'/etc/localtime is a symlink to': 'Asia/Shanghai'}
+DEBUG:tzlocal:/etc/localtime found
+DEBUG:tzlocal:1 found:
+ {'/etc/localtime is a symlink to': 'Asia/Shanghai'}
+INFO:root:公开用户管理后台已注册
+INFO:root:公开用户管理后台已注册
+INFO:root:待处理行业管理 API 已注册
+INFO:root:待处理行业管理 API 已注册
+INFO:root:成本统计 API 已注册
+INFO:root:成本统计 API 已注册
+INFO:root:公开用户管理后台已注册
+INFO:root:人群画像生成 API 已注册
+INFO:root:人群画像生成 API 已注册
+INFO:root:待处理行业管理 API 已注册
+INFO:root:成本统计 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] 初始化完成，max_pool_workers=10, max_llm_concurrency=5
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] 初始化完成，max_pool_workers=10, max_llm_concurrency=5
+INFO:root:人群画像生成 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] 初始化完成，max_pool_workers=10, max_llm_concurrency=5
+INFO:root:公开用户管理后台已注册
+INFO:root:画像管理 API 已注册
+INFO:root:画像管理 API 已注册
+INFO:root:待处理行业管理 API 已注册
+INFO:root:画像管理 API 已注册
+INFO:root:星系内容宇宙 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] Flask app 已注入
+INFO:root:画像词库后台任务服务已初始化
+INFO:root:星系内容宇宙 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] Flask app 已注入
+INFO:root:画像词库后台任务服务已初始化
+INFO:root:成本统计 API 已注册
+INFO:root:星系内容宇宙 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] Flask app 已注入
+INFO:root:画像词库后台任务服务已初始化
+INFO:root:人群画像生成 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] 初始化完成，max_pool_workers=10, max_llm_concurrency=5
+INFO:root:画像管理 API 已注册
+INFO:root:星系内容宇宙 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] Flask app 已注入
+INFO:root:画像词库后台任务服务已初始化
+INFO:services.public_cache:[Cache] 缓存预热完成：7 个行业，7 个模板
+INFO:services.public_cache:[Cache] 缓存预热完成：7 个行业，7 个模板
+INFO:services.public_cache:[Cache] 缓存预热完成：7 个行业，7 个模板
+INFO:root:公开平台缓存预热完成
+INFO:root:公开平台缓存预热完成
+INFO:root:公开平台缓存预热完成
+INFO:services.public_cache:[Cache] 缓存预热完成：7 个行业，7 个模板
+INFO:root:公开平台缓存预热完成
+INFO:root:公开用户管理后台已注册
+INFO:root:公开用户管理后台已注册
+INFO:root:公开用户管理后台已注册
+INFO:root:待处理行业管理 API 已注册
+INFO:root:待处理行业管理 API 已注册
+INFO:root:待处理行业管理 API 已注册
+INFO:root:成本统计 API 已注册
+INFO:root:成本统计 API 已注册
+INFO:root:成本统计 API 已注册
+INFO:root:人群画像生成 API 已注册
+INFO:root:人群画像生成 API 已注册
+INFO:root:人群画像生成 API 已注册
+INFO:root:公开用户管理后台已注册
+INFO:root:待处理行业管理 API 已注册
+INFO:root:画像管理 API 已注册
+INFO:root:成本统计 API 已注册
+INFO:root:画像管理 API 已注册
+INFO:root:画像管理 API 已注册
+INFO:root:星系内容宇宙 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] Flask app 已注入
+INFO:root:画像词库后台任务服务已初始化
+INFO:root:公开平台缓存预热完成
+INFO:root:星系内容宇宙 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] Flask app 已注入
+INFO:root:画像词库后台任务服务已初始化
+INFO:root:公开平台缓存预热完成
+INFO:root:人群画像生成 API 已注册
+INFO:root:星系内容宇宙 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] Flask app 已注入
+INFO:root:画像词库后台任务服务已初始化
+INFO:root:公开平台缓存预热完成
+INFO:root:画像管理 API 已注册
+INFO:root:星系内容宇宙 API 已注册
+INFO:services.portrait_library_task_service:[PortraitLibraryTask] Flask app 已注入
+INFO:root:画像词库后台任务服务已初始化
+INFO:root:公开平台缓存预热完成
+[2026-04-14 11:38:14 +0800] [7760] [INFO] Handling signal: term
+[2026-04-14 11:38:14 +0800] [7763] [INFO] Worker exiting (pid: 7763)
+[2026-04-14 11:38:14 +0800] [7761] [INFO] Worker exiting (pid: 7761)
+[2026-04-14 11:38:14 +0800] [7762] [INFO] Worker exiting (pid: 7762)
+[2026-04-14 11:38:14 +0800] [7764] [INFO] Worker exiting (pid: 7764)
+✓ 数据库表检查完成
+✓ 数据库表检查完成
+✓ 数据库表检查完成
+✓ 数据库表检查完成
+[2026-04-14 11:38:14 +0800] [7760] [ERROR] Worker (pid:7763) was sent SIGTERM!
+[2026-04-14 11:38:14 +0800] [7760] [ERROR] Worker (pid:7764) was sent SIGTERM!
+[2026-04-14 11:38:14 +0800] [7760] [INFO] Shutting down: Master
