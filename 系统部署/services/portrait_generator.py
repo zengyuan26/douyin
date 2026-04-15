@@ -41,10 +41,7 @@ class Portrait:
     identity: str                                # 身份标签
     identity_description: str                   # 身份描述
 
-    # 五要素摘要（核心！）
-    portrait_summary: str = ""                  # 画像摘要：身份+问题+想转变+困境+深层需求
-
-    # 痛点相关
+    # 痛点相关（无默认值字段）
     pain_points: List[str]                       # 核心痛点
     pain_scenarios: List[str]                   # 痛点场景
 
@@ -60,7 +57,10 @@ class Portrait:
     market_type: str                             # blue_ocean / red_ocean
     differentiation: str                         # 差异化方向
 
-    # 元信息
+    # 五要素摘要（核心！）有默认值
+    portrait_summary: str = ""                  # 画像摘要：身份+问题+想转变+困境+深层需求
+
+    # 元信息（默认值字段放最后）
     scene_tags: List[str] = field(default_factory=list)   # 场景标签
     behavior_tags: List[str] = field(default_factory=list)  # 行为标签
     content_direction: str = "种草型"                        # 内容方向
