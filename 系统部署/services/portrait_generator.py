@@ -176,24 +176,21 @@ class PortraitGenerator:
             market_opportunities=market_opportunities,
         )
 
-            # 调用LLM
-            logger.info("[PortraitGenerator] 开始调用LLM...")
-            messages = [{"role": "user", "content": prompt}]
-            response = self.llm.chat(messages, temperature=0.7, max_tokens=4000)
+        # 调用LLM
+        logger.info("[PortraitGenerator] 开始调用LLM...")
+        messages = [{"role": "user", "content": prompt}]
+        response = self.llm.chat(messages, temperature=0.7, max_tokens=4000)
 
-            if not response:
-                logger.warning("[PortraitGenerator] LLM返回为空")
-                return portraits
+        if not response:
+            logger.warning("[PortraitGenerator] LLM返回为空")
+            return portraits
 
-            # 解析画像
-            portraits = self._parse_portraits(
-                response=response,
-                problem_type_name=problem_type_name,
-                problem_type_desc=problem_type_desc,
-            )
-
-        except Exception as e:
-            logger.error("[PortraitGenerator] 画像解析异常: %s", str(e))
+        # 解析画像
+        portraits = self._parse_portraits(
+            response=response,
+            problem_type_name=problem_type_name,
+            problem_type_desc=problem_type_desc,
+        )
 
         return portraits
 
