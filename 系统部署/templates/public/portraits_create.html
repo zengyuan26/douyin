@@ -2688,9 +2688,6 @@ function renderProblemCards(problems) {
     const conversionProblems = problems.filter(p => p.problem_base === '刚需痛点盘' || p.problem_base === '刚需痛点').length;
     const seedingProblems = totalProblems - conversionProblems;
 
-    // 蓝海机会 HTML
-    const marketOpportunitiesHTML = buildMarketOpportunitiesHTML();
-
     // 构建 HTML 结构
     container.innerHTML = `
         <!-- 问题统计概览 -->
@@ -2708,9 +2705,6 @@ function renderProblemCards(problems) {
                 <span class="summary-stat-label">种草型</span>
             </div>
         </div>
-
-        <!-- 蓝海机会展示 -->
-        ${marketOpportunitiesHTML}
 
         <!-- 轮播区域 -->
         <div class="problems-carousel-wrapper">
@@ -3441,7 +3435,15 @@ function renderTargetCustomerCards(focusKey) {
     // 判断是否使用网格布局（3个及以上画像）
     const useGrid = allPortraitsWithContext.length >= 3;
 
+    // 蓝海机会 HTML
+    const marketOpportunitiesHTML = buildMarketOpportunitiesHTML();
+
     let html = '<div class="portraits-list-container">';
+
+    // 蓝海机会展示
+    if (marketOpportunitiesHTML) {
+        html += marketOpportunitiesHTML;
+    }
 
     // 统计信息
     html += `
