@@ -427,7 +427,7 @@ function displayQAResult(data) {
     document.getElementById('qa-stat-blue').textContent = keywordStats.blue_ocean || 0;
     document.getElementById('qa-stat-red').textContent = keywordStats.red_ocean || 0;
 
-    var blueRatio = Math.round((keywordStats.blue_ratio || 0) * 100);
+    var blueRatio = Math.round(keywordStats.blue_ratio || 0);  // 后端已返回百分比值（如 90 表示 90%）
     document.getElementById('qa-keyword-ratio').textContent = '蓝海占比 ' + blueRatio + '%';
 
     // 渲染问题类型选择
