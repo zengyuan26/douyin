@@ -2055,14 +2055,6 @@ function resetSuperPortraitFlow() {
     document.getElementById('portraits-empty-hint').style.display = 'flex';
     document.getElementById('portrait-generating-loading').style.display = 'none';
 
-    // 清理蓝海机会区域
-    const oppSection = document.getElementById('opportunities-section');
-    if (oppSection) {
-        oppSection.style.display = 'none';
-        const list = document.getElementById('opportunities-list');
-        if (list) list.innerHTML = '';
-    }
-
     switchSuperTab('tab-form');
 }
 
