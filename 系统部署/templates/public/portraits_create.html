@@ -3483,13 +3483,15 @@ function openPortraitDetail(key, index) {
     // 构建详情HTML
     let html = '';
 
-    // 问题来源
-    if (problemInfo.identity || problemInfo.description) {
+    // 问题来源 - 格式: 问题类型-场景
+    const problemType = portrait.problem_type || '';
+    const sourceScene = portrait.use_scene || portrait.使用场景 || (painScenarios.length > 0 ? painScenarios[0] : '');
+    if (problemType || sourceScene) {
+        const sourceDisplay = (problemType && sourceScene) ? `${problemType}-${sourceScene}` : (problemType || sourceScene);
         html += `
             <div class="portrait-detail-source">
                 <div class="source-label"><i class="bi bi-link-45deg"></i> 来源问题</div>
-                <div class="source-identity">${escHtml(problemInfo.identity)}</div>
-                <div class="source-desc">${escHtml(problemInfo.description)}</div>
+                <div class="source-identity">${escHtml(sourceDisplay)}</div>
             </div>
         `;
     }
