@@ -2285,7 +2285,10 @@ function showBusinessDescError(message) {
     }
 }
 
-// 一键分析：问题挖掘 + 画像生成
+// 存储市场分析结果（用于选择后生成画像）
+let _marketAnalysisCache = null;
+
+// 一键分析 Step 1：市场分析 + 显示蓝海机会选择弹窗
 async function portraitMineAndGenerate() {
     // 标记用户已开始分析，防止 initSnapshotRestore 覆盖 tab
     _userStartedAnalysis = true;
@@ -2295,8 +2298,6 @@ async function portraitMineAndGenerate() {
     const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
     const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
     const serviceScenario = document.getElementById('service-scenario')?.value || '';
-    const otherScenario = document.getElementById('other-scenario-input')?.value?.trim() || '';
-    const localCity = document.getElementById('local-city')?.value?.trim() || '';
 
     const validation = validateCoreBusiness(businessDesc);
     if (!validation.valid) {
@@ -2319,25 +2320,369 @@ async function portraitMineAndGenerate() {
     document.getElementById('btn-one-key-analyze').disabled = true;
 
     try {
-        // 调用新的一键分析API（市场分析 + 画像生成）
-        const resp = await fetch('/public/api/super-position/analyze', {
+        // Step 1: 调用市场分析 API
+        const resp = await fetch('/public/api/market/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({
                 business_description: businessDesc,
                 business_type: businessType,
-                service_scenario: serviceScenario || 'other',
+                industry: '',
             })
         });
 
         if (!resp.ok) {
-            const errorText = await resp.text();
             showToast('分析失败，请稍后重试', 'error');
-            console.error('API error:', resp.status, errorText);
             document.getElementById('problem-mining-loading').style.display = 'none';
             document.getElementById('problems-empty-hint').style.display = 'flex';
             unlockFormPanel();
+            document.getElementById('btn-one-key-analyze').disabled = false;
+            return;
+        }
+
+        const result = await resp.json();
+
+        if (result.success && result.data) {
+            const data = result.data;
+            const opportunities = data.opportunities || [];
+
+            // 缓存市场分析结果（用于后续画像生成）
+            _marketAnalysisCache = {
+                business_desc: businessDesc,
+                business_type: businessType,
+                service_scenario: serviceScenario,
+                analysis_result: data._analysis_result || {},
+                keyword_stats: data.keyword_stats,
+                subdivision_insights: data.subdivision_insights,
+            };
+
+            document.getElementById('problem-mining-loading').style.display = 'none';
+
+            // 如果有蓝海机会，显示选择弹窗
+            if (opportunities.length > 0) {
+                showOpportunityModal(opportunities, businessDesc);
+            } else {
+                // 没有蓝海机会，直接用原始业务生成画像
+                showToast('未发现明显蓝海机会，使用原业务生成画像', 'info');
+                generatePortraitsWithBusiness(businessDesc);
+            }
+        } else {
+            showToast(result.message || '分析失败', 'error');
+            document.getElementById('problem-mining-loading').style.display = 'none';
+            document.getElementById('problems-empty-hint').style.display = 'flex';
+            unlockFormPanel();
+            document.getElementById('btn-one-key-analyze').disabled = false;
+        }
+    } catch (error) {
+        console.error('市场分析失败:', error);
+        showToast('分析失败，请稍后重试', 'error');
+        document.getElementById('problem-mining-loading').style.display = 'none';
+        document.getElementById('problems-empty-hint').style.display = 'flex';
+        unlockFormPanel();
+        document.getElementById('btn-one-key-analyze').disabled = false;
+    }
+}
+
+// 显示蓝海机会选择弹窗
+function showOpportunityModal(opportunities, originalBusiness) {
+    const modal = document.getElementById('opportunity-modal') || createOpportunityModal();
+
+    // 构建机会卡片 HTML
+    const cardsHTML = opportunities.map((opp, idx) => {
+        const confidence = Math.round((opp.confidence || 0.8) * 100);
+        const businessDir = opp.business_direction || opp.opportunity_name || '';
+        const differentiation = opp.differentiation || '';
+        const targetAudience = opp.target_audience || '';
+        const painPoints = (opp.pain_points || []).slice(0, 2).join('、');
+        const keywords = (opp.keywords || []).slice(0, 3);
+
+        return `
+            <div class="opp-card" data-index="${idx}" onclick="selectOpportunityInModal(${idx}, '${businessDir.replace(/'/g, "\\'")}')">
+                <div class="opp-card-header">
+                    <span class="opp-number">${idx + 1}</span>
+                    <span class="opp-name">${opp.opportunity_name || '蓝海机会'}</span>
+                    <span class="opp-confidence">置信 ${confidence}%</span>
+                </div>
+                ${businessDir ? `<div class="opp-direction"><i class="bi bi-arrow-right-circle"></i> ${businessDir}</div>` : ''}
+                ${targetAudience ? `<div class="opp-audience"><i class="bi bi-people"></i> ${targetAudience}</div>` : ''}
+                ${painPoints ? `<div class="opp-pain"><i class="bi bi-lightbulb"></i> ${painPoints}</div>` : ''}
+                ${differentiation ? `<div class="opp-diff">${differentiation}</div>` : ''}
+                ${keywords.length > 0 ? `
+                    <div class="opp-keywords">
+                        ${keywords.map(k => `<span class="opp-kw">${k}</span>`).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+
+    modal.querySelector('.opp-list').innerHTML = cardsHTML;
+    modal.querySelector('.opp-original').textContent = `原始业务：${originalBusiness}`;
+
+    // 显示弹窗
+    modal.style.display = 'flex';
+    document.getElementById('btn-one-key-analyze').disabled = false;
+}
+
+// 创建蓝海机会选择弹窗
+function createOpportunityModal() {
+    const modal = document.createElement('div');
+    modal.id = 'opportunity-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content opp-modal-content">
+            <div class="opp-modal-header">
+                <div class="opp-modal-title">
+                    <i class="bi bi-compass" style="color: #4caf50;"></i>
+                    发现 ${0} 个蓝海机会
+                </div>
+                <button class="opp-modal-close" onclick="closeOpportunityModal()">&times;</button>
+            </div>
+            <div class="opp-modal-body">
+                <p class="opp-original"></p>
+                <p class="opp-hint">请选择一个业务方向，系统将基于该方向生成精准画像：</p>
+                <div class="opp-list"></div>
+            </div>
+            <div class="opp-modal-footer">
+                <button class="btn-opp-original" onclick="generatePortraitsWithBusiness(null)">
+                    <i class="bi bi-arrow-left"></i> 使用原始业务
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        .opp-modal-content {
+            background: #f5f5f7;
+            border-radius: 16px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .opp-modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .opp-modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .opp-modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+            padding: 4px;
+        }
+        .opp-modal-body {
+            padding: 20px 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .opp-original {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .opp-hint {
+            font-size: 0.875rem;
+            color: #999;
+            margin-bottom: 16px;
+        }
+        .opp-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .opp-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .opp-card:hover {
+            border-color: #4caf50;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76,175,80,0.2);
+        }
+        .opp-card.selected {
+            border-color: #2e7d32;
+            background: #e8f5e9;
+        }
+        .opp-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .opp-number {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #4caf50, #2e7d32);
+            color: white;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .opp-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+        }
+        .opp-confidence {
+            font-size: 0.75rem;
+            color: #4caf50;
+            background: #e8f5e9;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .opp-direction {
+            font-size: 0.9375rem;
+            color: #1565c0;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        .opp-direction i {
+            margin-right: 4px;
+        }
+        .opp-audience, .opp-pain {
+            font-size: 0.8125rem;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .opp-audience i, .opp-pain i {
+            margin-right: 4px;
+            color: #999;
+        }
+        .opp-diff {
+            font-size: 0.8125rem;
+            color: #2e7d32;
+            margin: 8px 0;
+            padding: 6px 10px;
+            background: #e8f5e9;
+            border-radius: 6px;
+        }
+        .opp-keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .opp-kw {
+            font-size: 0.6875rem;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 2px 8px;
+            border-radius: 8px;
+        }
+        .opp-modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: flex-start;
+        }
+        .btn-opp-original {
+            background: #f5f5f5;
+            color: #666;
+            border: 1px solid #ddd;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        .btn-opp-original:hover {
+            background: #eee;
+        }
+    `;
+    document.head.appendChild(style);
+
+    return modal;
+}
+
+// 在弹窗中选择蓝海机会
+function selectOpportunityInModal(index, businessDirection) {
+    // 移除其他选中状态
+    document.querySelectorAll('.opp-card').forEach((card, i) => {
+        if (i === index) {
+            card.classList.add('selected');
+        } else {
+            card.classList.remove('selected');
+        }
+    });
+
+    // 延迟关闭弹窗并开始生成
+    setTimeout(() => {
+        closeOpportunityModal();
+        generatePortraitsWithBusiness(businessDirection);
+    }, 300);
+}
+
+// 关闭蓝海机会选择弹窗
+function closeOpportunityModal() {
+    const modal = document.getElementById('opportunity-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// 一键分析 Step 2：使用选定的业务方向生成画像
+async function generatePortraitsWithBusiness(coreBusiness) {
+    if (!_marketAnalysisCache) {
+        showToast('分析缓存已过期，请重新分析', 'error');
+        return;
+    }
+
+    const { business_desc, business_type, service_scenario, analysis_result, keyword_stats, subdivision_insights } = _marketAnalysisCache;
+
+    showToast('正在生成画像...', 'info');
+
+    try {
+        const resp = await fetch('/public/api/portraits/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                core_business: coreBusiness || business_desc,  // 使用用户选择的业务方向
+                original_business: business_desc,
+                business_type: business_type,
+                service_scenario: service_scenario,
+                analysis_result: analysis_result,
+                portraits_per_type: 3,
+            })
+        });
+
+        if (!resp.ok) {
+            showToast('画像生成失败', 'error');
             return;
         }
 
@@ -2346,9 +2691,79 @@ async function portraitMineAndGenerate() {
         if (result.success && result.data) {
             const data = result.data;
 
-            // 存储分析结果
-            _qaResultData = data;  // 一键分析结果
-            _currentMarketAnalysis = data.market_analysis || {};
+            // 构建完整的 qaResultData 格式（兼容现有渲染逻辑）
+            _qaResultData = {
+                core_business: data.core_business,
+                market_analysis: {
+                    opportunities: _marketAnalysisCache.analysis_result?.market_opportunities || [],
+                    subdivision_insights: subdivision_insights,
+                    keyword_stats: keyword_stats,
+                },
+                problem_types: analysis_result?.problem_types || [],
+                portraits: data.portraits || [],
+                portraits_by_type: data.portraits_by_type || {},
+            };
+
+            _currentMarketAnalysis = _qaResultData.market_analysis;
+
+            // 将问题类型转换为问题列表格式
+            const problems = convertProblemTypesToProblems(_qaResultData.problem_types || []);
+            _allProblems = problems;
+            _allProblemsPool = [];
+            _refreshRound = 0;
+            _allPortraits = {};
+
+            // 将画像按问题类型分组存储
+            if (data.portraits && data.portraits.length > 0) {
+                _generatedPortraits = data.portraits;
+                data.portraits.forEach(function(portrait) {
+                    const typeKey = portrait.problem_type || 'general';
+                    if (!_allPortraits[typeKey]) {
+                        _allPortraits[typeKey] = [];
+                    }
+                    _allPortraits[typeKey].push(convertNewPortraitToOldFormat(portrait));
+                });
+            }
+
+            // 显示细分赛道信息
+            if (subdivision_insights) {
+                _currentSubdivision = {
+                    subdivision_name: subdivision_insights.main_subdivision || data.core_business,
+                    confidence: 0.9,
+                    matched_keywords: keyword_stats || {},
+                };
+            }
+
+            // 隐藏问题识别区域，显示画像区域
+            document.getElementById('problems-section').style.display = 'none';
+            document.getElementById('problems-empty-hint').style.display = 'none';
+
+            // 跳转到画像 Tab
+            switchTab('portraits');
+
+            // 更新业务描述输入框
+            const coreBusinessInput = document.getElementById('core-business-input');
+            if (coreBusinessInput) {
+                coreBusinessInput.value = data.core_business;
+            }
+
+            const blueRatio = Math.round((keyword_stats?.blue_ratio || 0));
+            showToast(
+                `画像生成完成！核心业务：${data.core_business}，蓝海词占比 ${blueRatio}%`,
+                'success'
+            );
+
+        } else {
+            showToast(result.message || '画像生成失败', 'error');
+        }
+    } catch (error) {
+        console.error('画像生成失败:', error);
+        showToast('画像生成失败，请重试', 'error');
+    }
+
+    // 清理缓存
+    _marketAnalysisCache = null;
+}
 
             // 将问题类型转换为问题列表格式（兼容现有渲染逻辑）
             const problems = convertProblemTypesToProblems(data.problem_types || []);
@@ -2772,7 +3187,7 @@ function buildMarketOpportunitiesHTML() {
         return '';
     }
 
-    // 显示蓝海机会列表
+    // 显示蓝海机会列表（只展示，用户已在弹窗中选择过了）
     const opportunitiesHTML = opportunities.map((opp, idx) => {
         const painPoints = (opp.pain_points || []).slice(0, 2).join('、');
         const keywords = (opp.keywords || []).slice(0, 3).join('、');
@@ -2802,11 +3217,6 @@ function buildMarketOpportunitiesHTML() {
                         ${keywords ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
                             ${(opp.keywords || []).slice(0, 3).map(kw => `<span style="background: #e8f5e9; color: #2e7d32; font-size: 0.6875rem; padding: 2px 8px; border-radius: 8px;">${kw}</span>`).join('')}
                         </div>` : ''}
-                        <div style="margin-top: 10px;">
-                            <button onclick="selectMarketOpportunity(${idx})" class="btn-select-opportunity" style="background: linear-gradient(135deg, #4caf50, #2e7d32); color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.8125rem; font-weight: 500; cursor: pointer;">
-                                <i class="bi bi-check-circle" style="margin-right: 4px;"></i>选择此方向
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -2835,108 +3245,6 @@ function buildMarketOpportunitiesHTML() {
             </div>
         </div>
     `;
-}
-
-// 选择蓝海机会，使用其业务方向重新生成画像
-let _selectedOpportunityIndex = null;
-
-function selectMarketOpportunity(index) {
-    const marketAnalysis = _currentMarketAnalysis || {};
-    const opportunities = marketAnalysis.opportunities || [];
-
-    if (!opportunities || !opportunities[index]) {
-        showToast('未找到该机会', 'error');
-        return;
-    }
-
-    const selected = opportunities[index];
-    const businessDir = selected.business_direction || selected.opportunity_name;
-
-    if (!businessDir) {
-        showToast('该机会没有业务方向，无法选择', 'error');
-        return;
-    }
-
-    _selectedOpportunityIndex = index;
-
-    // 更新核心业务输入框
-    const coreBusinessInput = document.getElementById('core-business-input');
-    if (coreBusinessInput) {
-        coreBusinessInput.value = businessDir;
-    }
-
-    // 高亮选中状态
-    document.querySelectorAll('.opportunity-item').forEach((item, i) => {
-        if (i === index) {
-            item.style.border = '2px solid #2e7d32';
-            item.style.background = '#e8f5e9';
-        } else {
-            item.style.border = '1px solid rgba(0,0,0,0.06)';
-            item.style.background = 'white';
-        }
-    });
-
-    showToast(`已选择：${businessDir}，正在重新生成画像...`, 'info');
-
-    // 重新生成画像
-    regeneratePortraitsWithOpportunity(selected);
-}
-
-// 使用选中的蓝海机会重新生成画像
-async function regeneratePortraitsWithOpportunity(opportunity) {
-    const coreBusiness = opportunity.business_direction || opportunity.opportunity_name;
-    if (!coreBusiness) return;
-
-    try {
-        // 获取业务描述输入
-        const businessDesc = document.getElementById('business-desc-input')?.value || coreBusiness;
-        const industry = document.getElementById('industry-input')?.value || '';
-        const businessType = document.getElementById('business-type-select')?.value || 'product';
-
-        const requestData = {
-            business_description: coreBusiness,  // 使用蓝海机会的业务方向
-            industry: industry,
-            business_type: businessType,
-            portraits_per_type: 3,
-            market_opportunity_index: _selectedOpportunityIndex  // 记录选择了哪个机会
-        };
-
-        // 调用API
-        const response = await fetch('/public/api/super-position/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestData)
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            // 更新画像
-            if (result.data.portraits) {
-                _allPortraits = {};
-                result.data.portraits.forEach(p => {
-                    const key = p.problem_type || '_default';
-                    if (!_allPortraits[key]) _allPortraits[key] = [];
-                    _allPortraits[key].push(p);
-                });
-                renderAllPortraits();
-            }
-
-            showToast('画像重新生成完成！', 'success');
-
-            // 显示差异化说明
-            if (opportunity.differentiation) {
-                setTimeout(() => {
-                    showToast('差异化方向：' + opportunity.differentiation, 'info');
-                }, 1500);
-            }
-        } else {
-            showToast('生成失败：' + (result.message || '未知错误'), 'error');
-        }
-    } catch (error) {
-        console.error('重新生成画像失败:', error);
-        showToast('重新生成失败，请重试', 'error');
-    }
 }
 
 // 构建单个问题卡片 HTML

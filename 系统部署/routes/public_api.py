@@ -3167,6 +3167,251 @@ def api_super_position_analyze():
 
 
 # =============================================================================
+# 市场分析 API（仅分析，返回蓝海机会供用户选择）
+# =============================================================================
+
+@public_bp.route('/api/market/analyze', methods=['POST'])
+def api_market_analyze():
+    """
+    市场分析 API - 仅做市场分析，返回蓝海机会供用户选择
+
+    POST /public/api/market/analyze
+    Body: {
+        business_description: str,   # 业务描述
+        industry: str,              # 行业（可选）
+        business_type: str,         # 经营类型
+    }
+
+    Response: {
+        success: True,
+        data: {
+            opportunities: [...],     # 蓝海机会列表
+            subdivision_insights: {}, # 细分洞察
+            keyword_stats: {...},     # 关键词统计
+        }
+    }
+    """
+    from services.market_analyzer import MarketAnalyzer
+
+    logger = logging.getLogger(__name__)
+
+    data = request.get_json() or {}
+    business_description = data.get('business_description', '').strip()
+    if not business_description:
+        return jsonify({
+            'success': False,
+            'message': '请输入业务描述'
+        }), 400
+
+    industry = data.get('industry', '')
+    business_type = data.get('business_type', 'product')
+
+    business_info = {
+        'business_description': business_description,
+        'industry': industry,
+        'business_type': business_type,
+    }
+
+    logger.info(f"[api_market_analyze] 开始市场分析: {business_description[:50]}")
+
+    try:
+        analyzer = MarketAnalyzer()
+        result = analyzer.analyze(
+            business_info=business_info,
+            max_opportunities=5,
+            max_keywords=200,
+        )
+
+        if not result.success:
+            return jsonify({
+                'success': False,
+                'message': f"市场分析失败: {result.error_message}"
+            }), 500
+
+        # 转换蓝海机会格式
+        market_opportunities = [
+            {
+                'opportunity_name': o.opportunity_name,
+                'business_direction': getattr(o, 'business_direction', ''),
+                'target_audience': o.target_audience,
+                'pain_points': o.pain_points,
+                'keywords': o.keywords,
+                'content_direction': o.content_direction,
+                'market_type': o.market_type,
+                'confidence': o.confidence,
+                'differentiation': getattr(o, 'differentiation', ''),
+            }
+            for o in result.market_opportunities
+        ]
+
+        # 关键词统计
+        blue_count = result.blue_ocean_keywords
+        red_count = result.red_ocean_keywords
+        total = result.total_keywords
+        blue_ratio = (blue_count / total * 100) if total > 0 else 0
+
+        logger.info(f"[api_market_analyze] 分析完成: 发现 {len(market_opportunities)} 个蓝海机会")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'opportunities': market_opportunities,
+                'subdivision_insights': result.subdivision_insights,
+                'keyword_stats': {
+                    'total': total,
+                    'blue_ocean': blue_count,
+                    'red_ocean': red_count,
+                    'blue_ratio': round(blue_ratio, 1),
+                },
+                # 保存分析结果用于后续画像生成
+                '_analysis_result': {
+                    'keyword_library': result.keyword_library,
+                    'problem_types': [
+                        {
+                            'type_name': p.type_name,
+                            'description': p.description,
+                            'target_audience': p.target_audience,
+                            'keywords': p.keywords,
+                        }
+                        for p in result.problem_types
+                    ],
+                }
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[api_market_analyze] 异常: {e}\n{tb_module.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'分析异常: {str(e)}'
+        }), 500
+
+
+# =============================================================================
+# 画像生成 API（基于用户选择的蓝海机会）
+# =============================================================================
+
+@public_bp.route('/api/portraits/generate', methods=['POST'])
+def api_portraits_generate():
+    """
+    画像生成 API - 基于选定的蓝海机会生成画像
+
+    POST /public/api/portraits/generate
+    Body: {
+        core_business: str,              # 核心业务（用户选择/输入的蓝海方向）
+        original_business: str,          # 原始业务描述
+        industry: str,                   # 行业
+        business_type: str,              # 经营类型
+        service_scenario: str,           # 服务场景
+        analysis_result: {},             # 市场分析结果（从 market/analyze 获取）
+        portraits_per_type: int,          # 每个问题类型生成的画像数
+    }
+    """
+    from services.portrait_generator import (
+        PortraitGenerator,
+        PortraitGenerationContext,
+        group_portraits_by_problem_type,
+    )
+
+    logger = logging.getLogger(__name__)
+
+    data = request.get_json() or {}
+    core_business = data.get('core_business', '').strip()
+    original_business = data.get('original_business', '').strip()
+    industry = data.get('industry', '')
+    business_type = data.get('business_type', 'product')
+    service_scenario = data.get('service_scenario', 'other')
+    analysis_result = data.get('analysis_result', {})
+    portraits_per_type = data.get('portraits_per_type', 3)
+
+    if not core_business:
+        return jsonify({
+            'success': False,
+            'message': '请选择或输入核心业务'
+        }), 400
+
+    # 构建业务信息
+    business_info = {
+        'business_description': core_business,  # 使用用户选择的蓝海方向
+        'industry': industry,
+        'business_type': business_type,
+        'service_scenario': service_scenario,
+    }
+
+    logger.info(f"[api_portraits_generate] 开始生成画像: {core_business}")
+
+    try:
+        generator = PortraitGenerator()
+
+        # 获取分析结果数据
+        keyword_library = analysis_result.get('keyword_library', {})
+        problem_types = analysis_result.get('problem_types', [])
+        market_opportunities = analysis_result.get('market_opportunities', [])
+
+        # 如果没有传入 market_opportunities，从 analysis_result 的顶层获取
+        if not market_opportunities:
+            # 从 _analysis_result 中获取
+            internal_result = analysis_result.get('_analysis_result', {})
+            problem_types = internal_result.get('problem_types', problem_types)
+
+        context = PortraitGenerationContext(
+            keyword_library=keyword_library,
+            problem_types=problem_types,
+            business_info=business_info,
+            market_opportunities=market_opportunities,
+            portraits_per_type=portraits_per_type,
+        )
+
+        # 生成画像
+        portraits = generator.generate_portraits(context)
+
+        # 转换画像格式
+        portraits_data = [
+            {
+                'portrait_id': p.portrait_id,
+                'problem_type': p.problem_type,
+                'problem_type_description': p.problem_type_description,
+                'identity': p.identity,
+                'identity_description': p.identity_description,
+                'portrait_summary': p.portrait_summary,
+                'pain_points': p.pain_points,
+                'pain_scenarios': p.pain_scenarios,
+                'psychology': p.psychology,
+                'barriers': p.barriers,
+                'search_keywords': p.search_keywords,
+                'content_preferences': p.content_preferences,
+                'market_type': p.market_type,
+                'differentiation': p.differentiation,
+                'scene_tags': p.scene_tags,
+                'behavior_tags': p.behavior_tags,
+                'content_direction': p.content_direction,
+            }
+            for p in portraits
+        ]
+
+        # 按问题类型分组
+        portraits_by_type = group_portraits_by_problem_type(portraits_data)
+
+        logger.info(f"[api_portraits_generate] 生成完成: {len(portraits_data)} 个画像")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'core_business': core_business,
+                'portraits': portraits_data,
+                'portraits_by_type': portraits_by_type,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[api_portraits_generate] 异常: {e}\n{tb_module.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'生成异常: {str(e)}'
+        }), 500
+
+
+# =============================================================================
 # 统一关键词库+选题库生成 API
 # =============================================================================
 
