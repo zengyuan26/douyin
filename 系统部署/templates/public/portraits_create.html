@@ -2688,6 +2688,9 @@ function renderProblemCards(problems) {
     const conversionProblems = problems.filter(p => p.problem_base === '刚需痛点盘' || p.problem_base === '刚需痛点').length;
     const seedingProblems = totalProblems - conversionProblems;
 
+    // 蓝海机会 HTML
+    const marketOpportunitiesHTML = buildMarketOpportunitiesHTML();
+
     // 构建 HTML 结构
     container.innerHTML = `
         <!-- 问题统计概览 -->
@@ -2705,6 +2708,9 @@ function renderProblemCards(problems) {
                 <span class="summary-stat-label">种草型</span>
             </div>
         </div>
+
+        <!-- 蓝海机会展示 -->
+        ${marketOpportunitiesHTML}
 
         <!-- 轮播区域 -->
         <div class="problems-carousel-wrapper">
@@ -2735,6 +2741,90 @@ function renderProblemCards(problems) {
 
     // 初始化轮播位置
     updateCarouselPosition(false);
+}
+
+// 构建蓝海机会展示 HTML
+function buildMarketOpportunitiesHTML() {
+    const marketAnalysis = _currentMarketAnalysis || {};
+    const opportunities = marketAnalysis.opportunities || [];
+    const keywordStats = marketAnalysis.keyword_stats || {};
+    const blueRatio = Math.round((keywordStats.blue_ratio || 0) * 100);
+    const blueCount = keywordStats.blue_ocean || 0;
+    const redCount = keywordStats.red_ocean || 0;
+
+    if (!opportunities || opportunities.length === 0) {
+        // 显示关键词统计
+        if (blueCount > 0 || redCount > 0) {
+            return `
+                <div class="market-opportunities-section" style="margin-bottom: 20px;">
+                    <div class="market-stats-card" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 12px; padding: 16px 20px; border: 1px solid rgba(46, 125, 50, 0.15);">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 40px; height: 40px; background: #2e7d32; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                <i class="bi bi-graph-up-arrow" style="color: white; font-size: 1.2rem;"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-size: 0.8125rem; color: #2e7d32; font-weight: 500; margin-bottom: 4px;">蓝海关键词</div>
+                                <div style="display: flex; gap: 16px; font-size: 0.9375rem;">
+                                    <span style="color: #2e7d32; font-weight: 600;">${blueCount} 个蓝海词</span>
+                                    <span style="color: #666;">${redCount} 个红海词</span>
+                                    <span style="background: #2e7d32; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600;">占比 ${blueRatio}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        return '';
+    }
+
+    // 显示蓝海机会列表
+    const opportunitiesHTML = opportunities.map((opp, idx) => {
+        const painPoints = (opp.pain_points || []).slice(0, 2).join('、');
+        const keywords = (opp.keywords || []).slice(0, 3).join('、');
+        return `
+            <div class="opportunity-item" style="background: white; border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <div style="width: 28px; height: 28px; background: linear-gradient(135deg, #4caf50, #2e7d32); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <span style="color: white; font-size: 0.75rem; font-weight: 700;">${idx + 1}</span>
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">${opp.opportunity_name || '蓝海机会' + (idx + 1)}</div>
+                        <div style="font-size: 0.8125rem; color: #666; margin-bottom: 4px;">
+                            <span style="color: var(--apple-gray);">目标：</span>${opp.target_audience || '待定'}
+                        </div>
+                        ${painPoints ? `<div style="font-size: 0.8125rem; color: #666; margin-bottom: 4px;"><span style="color: var(--apple-gray);">痛点：</span>${painPoints}</div>` : ''}
+                        ${keywords ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
+                            ${(opp.keywords || []).slice(0, 3).map(kw => `<span style="background: #e8f5e9; color: #2e7d32; font-size: 0.6875rem; padding: 2px 8px; border-radius: 8px;">${kw}</span>`).join('')}
+                        </div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="market-opportunities-section" style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #4caf50, #2e7d32); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-rocket-takeoff" style="color: white; font-size: 1rem;"></i>
+                    </div>
+                    <span style="font-size: 0.9375rem; font-weight: 600; color: var(--text-primary);">蓝海机会</span>
+                    <span style="background: #e8f5e9; color: #2e7d32; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; font-weight: 500;">${opportunities.length} 个机会</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #2e7d32; font-weight: 600;">${blueCount} 蓝</span>
+                    <span style="color: #999;">/</span>
+                    <span style="color: #666;">${redCount} 红</span>
+                    <span style="background: ${blueRatio >= 50 ? '#2e7d32' : '#ff9800'}; color: white; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px;">${blueRatio}%</span>
+                </div>
+            </div>
+            <div style="max-height: 200px; overflow-y: auto;">
+                ${opportunitiesHTML}
+            </div>
+        </div>
+    `;
 }
 
 // 构建单个问题卡片 HTML
@@ -4053,9 +4143,6 @@ async function initSnapshotRestore() {
                             delete copy._market_analysis;
                             return copy;
                         });
-                        if (typeof displayMarketAnalysis === 'function') {
-                            displayMarketAnalysis(_currentMarketAnalysis);
-                        }
                     }
 
                     renderProblemCards(_allProblems);
@@ -4091,9 +4178,6 @@ async function initSnapshotRestore() {
                             delete copy._market_analysis;
                             return copy;
                         });
-                        if (typeof displayMarketAnalysis === 'function') {
-                            displayMarketAnalysis(_currentMarketAnalysis);
-                        }
                     }
 
                     renderProblemCards(_allProblems);
