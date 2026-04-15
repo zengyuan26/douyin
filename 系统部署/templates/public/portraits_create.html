@@ -187,6 +187,136 @@
         cursor: not-allowed;
     }
 
+    /* 蓝海机会 Tab 样式 */
+    .opp-cards-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .opp-tab-card {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        border: 2px solid rgba(0,0,0,0.08);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .opp-tab-card:hover {
+        border-color: #4caf50;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(76,175,80,0.15);
+    }
+
+    .opp-tab-card.selected {
+        border-color: #2e7d32;
+        background: #e8f5e9;
+    }
+
+    .opp-tab-card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .opp-tab-number {
+        width: 26px;
+        height: 26px;
+        background: linear-gradient(135deg, #4caf50, #2e7d32);
+        color: white;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    .opp-tab-name {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        flex: 1;
+    }
+
+    .opp-tab-confidence {
+        font-size: 0.6875rem;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-weight: 500;
+    }
+
+    .opp-tab-direction {
+        font-size: 0.9375rem;
+        color: #1565c0;
+        font-weight: 500;
+        margin-bottom: 6px;
+    }
+
+    .opp-tab-direction i {
+        margin-right: 4px;
+    }
+
+    .opp-tab-info {
+        font-size: 0.8125rem;
+        color: #666;
+        margin-bottom: 4px;
+    }
+
+    .opp-tab-info i {
+        margin-right: 4px;
+        color: #999;
+    }
+
+    .opp-tab-diff {
+        font-size: 0.8125rem;
+        color: #2e7d32;
+        margin: 8px 0;
+        padding: 6px 10px;
+        background: #e8f5e9;
+        border-radius: 6px;
+    }
+
+    .opp-tab-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+    }
+
+    .opp-tab-kw {
+        font-size: 0.6875rem;
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 2px 8px;
+        border-radius: 8px;
+    }
+
+    .opp-tab-action {
+        margin-top: 12px;
+    }
+
+    .btn-select-opp {
+        background: linear-gradient(135deg, #4caf50, #2e7d32);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-select-opp:hover {
+        background: linear-gradient(135deg, #43a047, #1b5e20);
+    }
+
     /* 问题识别 Tab 样式 */
     .problems-wrapper {
         max-width: 100%;
@@ -1419,7 +1549,7 @@
                     <i class="bi bi-card-text"></i>描述业务
                 </button>
                 <button class="super-tab-btn" data-super-tab="tab-problems" onclick="switchSuperTab('tab-problems')">
-                    <i class="bi bi-search"></i>问题识别
+                    <i class="bi bi-compass"></i>蓝海机会
                 </button>
                 <button class="super-tab-btn" data-super-tab="tab-portraits" onclick="switchSuperTab('tab-portraits')">
                     <i class="bi bi-people"></i>生成画像
@@ -1526,7 +1656,7 @@
                     </div>
                 </div>
 
-                <!-- Tab2：问题识别 -->
+                <!-- Tab2：蓝海机会 -->
                 <div class="super-tab-panel" id="super-tab-problems">
                     <div class="tab-panel-inner">
                         <div class="problems-wrapper">
@@ -1535,39 +1665,23 @@
                                 <div class="apple-spinner mx-auto" style="width:36px;height:36px;border-width:3px;"></div>
                                 <p style="margin-top:16px;color:var(--text-secondary);font-size:0.9375rem;">
                                     <i class="bi bi-search" style="margin-right:6px;"></i>
-                                    <span id="problem-mining-loading-text">正在深度挖掘目标客户痛点...</span>
+                                    <span id="problem-mining-loading-text">正在深度挖掘蓝海机会...</span>
                                 </p>
                                 <p style="margin-top:8px;color:var(--apple-gray);font-size:0.8125rem;">
                                     基于核心业务描述，结合行业特征与用户行为数据生成分析报告
                                 </p>
                             </div>
+
+                            <!-- 蓝海机会列表区域 -->
+                            <div id="opportunities-section" style="display: none;">
+                                <div id="opportunities-list"></div>
+                            </div>
+
                             <!-- 空状态提示 -->
                             <div class="problems-empty-hint" id="problems-empty-hint" style="display: none;">
-                                <i class="bi bi-search" style="font-size:2rem;margin-bottom:12px;"></i>
+                                <i class="bi bi-compass" style="font-size:2rem;margin-bottom:12px;"></i>
                                 <p>请先在「描述业务」填写信息</p>
                             </div>
-                            <!-- 细分赛道展示区域 -->
-                            <div id="subdivision-section" style="display: none; padding: 0 4px 16px;">
-                                <div class="subdivision-card" id="subdivision-card" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; border: 1px solid rgba(0,0,0,0.06);">
-                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                                        <div style="width: 36px; height: 36px; background: var(--apple-red, #FF3B30); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                            <i class="bi bi-crosshair" style="color: white; font-size: 1.1rem;"></i>
-                                        </div>
-                                        <div>
-                                            <div style="font-size: 0.8125rem; color: var(--apple-gray); font-weight: 500;">细分赛道识别</div>
-                                            <div id="subdivision-name" style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">加载中...</div>
-                                        </div>
-                                        <div style="margin-left: auto;">
-                                            <span id="subdivision-confidence" class="badge" style="background: #e8f5e9; color: #2e7d32; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; font-weight: 500;">置信度 0%</span>
-                                        </div>
-                                    </div>
-                                    <div id="subdivision-meta" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0;">
-                                        <!-- 动态填充业务类型和客户类型标签 -->
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- 问题卡片区域 -->
-                            <div id="problems-section" style="display: none;"></div>
                         </div>
                     </div>
                 </div>
@@ -2359,9 +2473,25 @@ async function portraitMineAndGenerate() {
 
             document.getElementById('problem-mining-loading').style.display = 'none';
 
-            // 如果有蓝海机会，显示选择弹窗
+            // 如果有蓝海机会，显示在蓝海机会 Tab
             if (opportunities.length > 0) {
-                showOpportunityModal(opportunities, businessDesc);
+                // 缓存市场分析结果
+                _marketAnalysisCache = {
+                    business_desc: businessDesc,
+                    business_type: businessType,
+                    service_scenario: serviceScenario,
+                    analysis_result: data._analysis_result || {},
+                    keyword_stats: data.keyword_stats,
+                    subdivision_insights: data.subdivision_insights,
+                    opportunities: opportunities,
+                };
+
+                // 隐藏加载状态，显示蓝海机会列表
+                document.getElementById('problem-mining-loading').style.display = 'none';
+                renderOpportunitiesInTab(opportunities, businessDesc, data.keyword_stats);
+
+                // 切换到蓝海机会 Tab
+                switchSuperTab('tab-problems');
             } else {
                 // 没有蓝海机会，直接用原始业务生成画像
                 showToast('未发现明显蓝海机会，使用原业务生成画像', 'info');
@@ -2384,7 +2514,103 @@ async function portraitMineAndGenerate() {
     }
 }
 
-// 显示蓝海机会选择弹窗
+// 在 Tab 中渲染蓝海机会列表
+function renderOpportunitiesInTab(opportunities, originalBusiness, keywordStats) {
+    const container = document.getElementById('opportunities-list');
+    const section = document.getElementById('opportunities-section');
+
+    const blueCount = keywordStats?.blue_ocean || 0;
+    const redCount = keywordStats?.red_ocean || 0;
+    const blueRatio = Math.round((keywordStats?.blue_ratio || 0) * 100);
+
+    const html = `
+        <div style="margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #4caf50, #2e7d32); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-rocket-takeoff" style="color: white; font-size: 1rem;"></i>
+                    </div>
+                    <span style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">发现 ${opportunities.length} 个蓝海机会</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8125rem;">
+                    <span style="color: #2e7d32; font-weight: 600;">${blueCount} 蓝</span>
+                    <span style="color: #999;">/</span>
+                    <span style="color: #666;">${redCount} 红</span>
+                    <span style="background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 500;">占比 ${blueRatio}%</span>
+                </div>
+            </div>
+            <p style="font-size: 0.8125rem; color: #666; margin-bottom: 16px;">原始业务：${originalBusiness}</p>
+        </div>
+        <div class="opp-cards-container">
+            ${opportunities.map((opp, idx) => {
+                const confidence = Math.round((opp.confidence || 0.8) * 100);
+                const businessDir = opp.business_direction || opp.opportunity_name || '';
+                const differentiation = opp.differentiation || '';
+                const targetAudience = opp.target_audience || '';
+                const painPoints = (opp.pain_points || []).slice(0, 2).join('、');
+                const keywords = (opp.keywords || []).slice(0, 5);
+
+                return `
+                    <div class="opp-tab-card" onclick="selectOpportunityInTab(${idx}, '${(businessDir || opp.opportunity_name || '').replace(/'/g, "\\'")}')">
+                        <div class="opp-tab-card-header">
+                            <span class="opp-tab-number">${idx + 1}</span>
+                            <span class="opp-tab-name">${opp.opportunity_name || '蓝海机会'}</span>
+                            <span class="opp-tab-confidence" style="background: ${confidence >= 80 ? '#e8f5e9' : '#fff3e0'}; color: ${confidence >= 80 ? '#2e7d32' : '#e65100'};">
+                                置信 ${confidence}%
+                            </span>
+                        </div>
+                        ${businessDir ? `<div class="opp-tab-direction"><i class="bi bi-arrow-right-circle"></i> ${businessDir}</div>` : ''}
+                        ${targetAudience ? `<div class="opp-tab-info"><i class="bi bi-people"></i> ${targetAudience}</div>` : ''}
+                        ${painPoints ? `<div class="opp-tab-info"><i class="bi bi-lightbulb"></i> ${painPoints}</div>` : ''}
+                        ${differentiation ? `<div class="opp-tab-diff">${differentiation}</div>` : ''}
+                        ${keywords.length > 0 ? `
+                            <div class="opp-tab-keywords">
+                                ${keywords.map(k => `<span class="opp-tab-kw">${k}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="opp-tab-action">
+                            <button class="btn-select-opp" onclick="event.stopPropagation(); selectOpportunityInTab(${idx}, '${(businessDir || opp.opportunity_name || '').replace(/'/g, "\\'")}')">
+                                <i class="bi bi-check-circle"></i> 选择此方向生成画像
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    container.innerHTML = html;
+    section.style.display = 'block';
+}
+
+// 在 Tab 中选择蓝海机会
+function selectOpportunityInTab(index, businessDirection) {
+    if (!businessDirection) {
+        showToast('该机会没有业务方向', 'error');
+        return;
+    }
+
+    // 高亮选中的卡片
+    document.querySelectorAll('.opp-tab-card').forEach((card, i) => {
+        if (i === index) {
+            card.classList.add('selected');
+            card.style.borderColor = '#2e7d32';
+            card.style.background = '#e8f5e9';
+        } else {
+            card.classList.remove('selected');
+            card.style.borderColor = 'rgba(0,0,0,0.08)';
+            card.style.background = 'white';
+        }
+    });
+
+    // 锁定表单区域
+    lockFormPanel();
+
+    // 跳转到画像生成
+    generatePortraitsWithBusiness(businessDirection);
+}
+
+// 显示蓝海机会选择弹窗（保留用于其他场景）
 function showOpportunityModal(opportunities, originalBusiness) {
     const modal = document.getElementById('opportunity-modal') || createOpportunityModal();
 
@@ -2420,6 +2646,12 @@ function showOpportunityModal(opportunities, originalBusiness) {
     modal.querySelector('.opp-list').innerHTML = cardsHTML;
     modal.querySelector('.opp-original').textContent = `原始业务：${originalBusiness}`;
 
+    // 更新标题中的数量
+    const titleEl = modal.querySelector('.opp-modal-title');
+    if (titleEl) {
+        titleEl.innerHTML = `<i class="bi bi-compass" style="color: #4caf50;"></i> 发现 ${opportunities.length} 个蓝海机会`;
+    }
+
     // 显示弹窗
     modal.style.display = 'flex';
     document.getElementById('btn-one-key-analyze').disabled = false;
@@ -2434,8 +2666,7 @@ function createOpportunityModal() {
         <div class="modal-content opp-modal-content">
             <div class="opp-modal-header">
                 <div class="opp-modal-title">
-                    <i class="bi bi-compass" style="color: #4caf50;"></i>
-                    发现 ${0} 个蓝海机会
+                    <i class="bi bi-compass" style="color: #4caf50;"></i> 发现 0 个蓝海机会
                 </div>
                 <button class="opp-modal-close" onclick="closeOpportunityModal()">&times;</button>
             </div>
@@ -2664,7 +2895,24 @@ async function generatePortraitsWithBusiness(coreBusiness) {
 
     const { business_desc, business_type, service_scenario, analysis_result, keyword_stats, subdivision_insights } = _marketAnalysisCache;
 
-    showToast('正在生成画像...', 'info');
+    // 锁定表单区域
+    lockFormPanel();
+
+    // 显示画像生成加载状态
+    document.getElementById('problems-section').style.display = 'none';
+    document.getElementById('problems-empty-hint').style.display = 'none';
+    document.getElementById('portraits-empty-hint').style.display = 'none';
+    document.getElementById('portrait-generating-loading').style.display = 'block';
+    document.getElementById('target-customers-section').style.display = 'none';
+
+    // 更新加载提示文字，显示选择的业务方向
+    const loadingText = document.querySelector('#portrait-generating-loading p');
+    if (loadingText) {
+        loadingText.innerHTML = `<i class="bi bi-magic" style="margin-right:6px;"></i>正在基于「${coreBusiness || business_desc}」生成精准画像...`;
+    }
+
+    // 跳转到画像 Tab
+    switchTab('portraits');
 
     try {
         const resp = await fetch('/public/api/portraits/generate', {
@@ -2683,6 +2931,8 @@ async function generatePortraitsWithBusiness(coreBusiness) {
 
         if (!resp.ok) {
             showToast('画像生成失败', 'error');
+            document.getElementById('portrait-generating-loading').style.display = 'none';
+            document.getElementById('portraits-empty-hint').style.display = 'flex';
             return;
         }
 
@@ -2734,12 +2984,9 @@ async function generatePortraitsWithBusiness(coreBusiness) {
                 };
             }
 
-            // 隐藏问题识别区域，显示画像区域
-            document.getElementById('problems-section').style.display = 'none';
-            document.getElementById('problems-empty-hint').style.display = 'none';
-
-            // 跳转到画像 Tab
-            switchTab('portraits');
+            // 隐藏加载状态，显示画像区域
+            document.getElementById('portrait-generating-loading').style.display = 'none';
+            document.getElementById('target-customers-section').style.display = 'block';
 
             // 更新业务描述输入框
             const coreBusinessInput = document.getElementById('core-business-input');
@@ -2755,10 +3002,14 @@ async function generatePortraitsWithBusiness(coreBusiness) {
 
         } else {
             showToast(result.message || '画像生成失败', 'error');
+            document.getElementById('portrait-generating-loading').style.display = 'none';
+            document.getElementById('portraits-empty-hint').style.display = 'flex';
         }
     } catch (error) {
         console.error('画像生成失败:', error);
         showToast('画像生成失败，请重试', 'error');
+        document.getElementById('portrait-generating-loading').style.display = 'none';
+        document.getElementById('portraits-empty-hint').style.display = 'flex';
     }
 
     // 清理缓存
