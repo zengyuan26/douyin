@@ -3099,9 +3099,6 @@ def api_super_position_analyze():
         # 生成画像
         portraits = generator.generate_portraits(context)
 
-        # 按问题类型分组
-        portraits_by_type = group_portraits_by_problem_type(portraits)
-
         # 转换画像为字典格式
         portraits_data = [
             {
@@ -3124,6 +3121,9 @@ def api_super_position_analyze():
             }
             for p in portraits
         ]
+
+        # 按问题类型分组（使用字典列表）
+        portraits_by_type = group_portraits_by_problem_type(portraits_data)
 
         # 统计信息
         blue_ocean_count = analysis_result.blue_ocean_keywords
