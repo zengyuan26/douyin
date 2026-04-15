@@ -134,6 +134,12 @@ def portraits_page():
     return render_template('public/portraits.html')
 
 
+@public_bp.route('/quick-analyze-test')
+def quick_analyze_test_page():
+    """一键分析功能测试页"""
+    return render_template('public/quick_analyze_test.html')
+
+
 @public_bp.route('/portraits/create')
 def portraits_create_page():
     """生成画像独立页面（无客户画像/为你推荐）"""
