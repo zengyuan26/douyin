@@ -2978,6 +2978,192 @@ def api_save_snapshot():
 
 
 # =============================================================================
+# 超级定位 - 一键分析 API
+# =============================================================================
+
+@public_bp.route('/api/super-position/analyze', methods=['POST'])
+def api_super_position_analyze():
+    """
+    超级定位一键分析 API
+
+    流程：市场蓝海分析 → 关键词库生成 → 画像生成
+
+    POST /public/api/super-position/analyze
+    Body: {
+        business_description: str,    # 业务描述（必填）
+        industry: str,                # 行业（可选，自动推断）
+        business_type: str,           # 业务类型 product/service
+        service_scenario: str,        # 服务场景
+        portraits_per_type: int,      # 每个问题类型生成画像数（默认3）
+    }
+
+    返回: {
+        success: bool,
+        data: {
+            market_analysis: {...},       # 市场分析结果
+            keyword_library: {...},         # 关键词库
+            problem_types: [...],          # 问题类型列表
+            portraits: [...],              # 画像列表（按问题类型分组）
+            portraits_by_type: {...},      # 按问题类型分组的画像
+        }
+    }
+    """
+    import traceback as tb_module
+    from services.market_analyzer import MarketAnalyzer
+    from services.portrait_generator import (
+        PortraitGenerator,
+        PortraitGenerationContext,
+        group_portraits_by_problem_type,
+    )
+
+    logger = logging.getLogger(__name__)
+
+    # 获取请求数据
+    data = request.get_json() or {}
+
+    business_description = data.get('business_description', '').strip()
+    if not business_description:
+        return jsonify({
+            'success': False,
+            'message': '请输入业务描述'
+        }), 400
+
+    # 参数提取
+    industry = data.get('industry', '')
+    business_type = data.get('business_type', 'product')
+    service_scenario = data.get('service_scenario', 'other')
+    portraits_per_type = data.get('portraits_per_type', 3)
+
+    # 构建业务信息
+    business_info = {
+        'business_description': business_description,
+        'industry': industry,
+        'business_type': business_type,
+        'service_scenario': service_scenario,
+        'keywords': data.get('keywords', []),
+    }
+
+    logger.info(f"[api_super_position_analyze] 开始分析: {business_description[:50]}")
+
+    try:
+        # Step 1: 市场蓝海分析 + 关键词库生成
+        analyzer = MarketAnalyzer()
+        analysis_result = analyzer.analyze(
+            business_info=business_info,
+            max_opportunities=5,
+            max_keywords=200,
+        )
+
+        if not analysis_result.success:
+            return jsonify({
+                'success': False,
+                'message': f"市场分析失败: {analysis_result.error_message}"
+            }), 500
+
+        # Step 2: 画像生成（基于关键词库）
+        generator = PortraitGenerator()
+
+        # 转换数据格式
+        keyword_library = analysis_result.keyword_library or {}
+        problem_types = [
+            {
+                'type_name': p.type_name,
+                'description': p.description,
+                'target_audience': p.target_audience,
+                'keywords': p.keywords,
+            }
+            for p in analysis_result.problem_types
+        ]
+        market_opportunities = [
+            {
+                'opportunity_name': o.opportunity_name,
+                'target_audience': o.target_audience,
+                'pain_points': o.pain_points,
+                'keywords': o.keywords,
+                'content_direction': o.content_direction,
+                'market_type': o.market_type,
+                'confidence': o.confidence,
+            }
+            for o in analysis_result.market_opportunities
+        ]
+
+        # 构建画像生成上下文
+        context = PortraitGenerationContext(
+            keyword_library=keyword_library,
+            problem_types=problem_types,
+            business_info=business_info,
+            market_opportunities=market_opportunities,
+            portraits_per_type=portraits_per_type,
+        )
+
+        # 生成画像
+        portraits = generator.generate_portraits(context)
+
+        # 按问题类型分组
+        portraits_by_type = group_portraits_by_problem_type(portraits)
+
+        # 转换画像为字典格式
+        portraits_data = [
+            {
+                'portrait_id': p.portrait_id,
+                'problem_type': p.problem_type,
+                'problem_type_description': p.problem_type_description,
+                'identity': p.identity,
+                'identity_description': p.identity_description,
+                'pain_points': p.pain_points,
+                'pain_scenarios': p.pain_scenarios,
+                'psychology': p.psychology,
+                'barriers': p.barriers,
+                'search_keywords': p.search_keywords,
+                'content_preferences': p.content_preferences,
+                'market_type': p.market_type,
+                'differentiation': p.differentiation,
+                'scene_tags': p.scene_tags,
+                'behavior_tags': p.behavior_tags,
+                'content_direction': p.content_direction,
+            }
+            for p in portraits
+        ]
+
+        # 统计信息
+        blue_ocean_count = analysis_result.blue_ocean_keywords
+        red_ocean_count = analysis_result.red_ocean_keywords
+
+        logger.info(
+            f"[api_super_position_analyze] 分析完成: "
+            f"问题类型={len(problem_types)}, 画像={len(portraits_data)}, "
+            f"蓝海词={blue_ocean_count}, 红海词={red_ocean_count}"
+        )
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'market_analysis': {
+                    'opportunities': market_opportunities,
+                    'subdivision_insights': analysis_result.subdivision_insights,
+                    'keyword_stats': {
+                        'total': analysis_result.total_keywords,
+                        'blue_ocean': blue_ocean_count,
+                        'red_ocean': red_ocean_count,
+                        'blue_ratio': blue_ocean_count / max(analysis_result.total_keywords, 1),
+                    },
+                },
+                'keyword_library': keyword_library,
+                'problem_types': problem_types,
+                'portraits': portraits_data,
+                'portraits_by_type': portraits_by_type,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[api_super_position_analyze] 异常: {e}\n{tb_module.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'分析异常: {str(e)}'
+        }), 500
+
+
+# =============================================================================
 # 统一关键词库+选题库生成 API
 # =============================================================================
 

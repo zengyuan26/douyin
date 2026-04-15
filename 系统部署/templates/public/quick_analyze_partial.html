@@ -1,0 +1,599 @@
+<!--
+超级定位 - 一键分析模式 HTML 片段
+使用方法：将此片段添加到 portraits_create.html 中，或独立使用
+
+功能：
+1. 简化的一键分析入口
+2. 市场分析结果展示
+3. 问题类型+画像组合展示
+4. 保存画像功能
+-->
+
+<!-- 一键分析入口区域 -->
+<div id="quick-analyze-section" class="quick-analyze-container" style="
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+">
+    <!-- 入口标题 -->
+    <div style="text-align: center; margin-bottom: 24px;">
+        <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+            超级定位 - 一键分析
+        </h2>
+        <p style="color: var(--text-secondary); font-size: 0.9375rem;">
+            输入业务描述，智能挖掘蓝海市场，生成精准画像
+        </p>
+    </div>
+
+    <!-- 简化表单 -->
+    <div class="quick-form" style="
+        background: var(--bg-primary);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+    ">
+        <!-- 业务描述输入 -->
+        <div style="margin-bottom: 16px;">
+            <label style="
+                display: block;
+                font-size: 0.875rem;
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 8px;
+            ">
+                业务描述 <span style="color: var(--apple-red);">*</span>
+            </label>
+            <textarea
+                id="qa-business-desc"
+                rows="3"
+                style="
+                    width: 100%;
+                    border: 1px solid var(--apple-gray4);
+                    border-radius: 8px;
+                    padding: 12px;
+                    font-size: 0.9375rem;
+                    resize: vertical;
+                    min-height: 80px;
+                "
+                placeholder="描述你的核心业务，例如：卖进口奶粉、提供桶装水配送服务..."
+            ></textarea>
+            <div style="font-size: 0.75rem; color: var(--apple-gray); margin-top: 4px;">
+                建议填写1个核心业务，不超过50字
+            </div>
+        </div>
+
+        <!-- 经营类型 -->
+        <div style="margin-bottom: 16px;">
+            <label style="
+                display: block;
+                font-size: 0.875rem;
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 8px;
+            ">
+                经营类型
+            </label>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="radio" name="qa-business-type" value="product" checked style="accent-color: var(--apple-red);">
+                    <span>消费品</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="radio" name="qa-business-type" value="local_service" style="accent-color: var(--apple-red);">
+                    <span>本地服务</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="radio" name="qa-business-type" value="enterprise" style="accent-color: var(--apple-red);">
+                    <span>企业服务</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- 服务场景 -->
+        <div style="margin-bottom: 20px;">
+            <label style="
+                display: block;
+                font-size: 0.875rem;
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 8px;
+            ">
+                主要服务场景
+            </label>
+            <select id="qa-service-scenario" style="
+                width: 100%;
+                border: 1px solid var(--apple-gray4);
+                border-radius: 8px;
+                padding: 10px 12px;
+                font-size: 0.875rem;
+            ">
+                <option value="other">其他/通用场景</option>
+                <option value="hotel_restaurant">酒店/餐饮/茶楼</option>
+                <option value="residential">家用/住宅小区</option>
+                <option value="office_enterprise">写字楼/企业/工厂</option>
+                <option value="institutional">学校/医院/政企单位</option>
+                <option value="retail_chain">实体店/连锁门店</option>
+                <option value="renovation">装修/工程定制</option>
+            </select>
+        </div>
+
+        <!-- 一键分析按钮 -->
+        <button
+            id="qa-analyze-btn"
+            onclick="quickAnalyze()"
+            style="
+                width: 100%;
+                background: var(--apple-red);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                padding: 14px 24px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                transition: all 0.2s;
+            "
+        >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/>
+            </svg>
+            <span>一键分析</span>
+        </button>
+    </div>
+
+    <!-- 加载状态 -->
+    <div id="qa-loading" style="display: none; text-align: center; padding: 40px 20px;">
+        <div class="apple-spinner mx-auto" style="width: 40px; height: 40px; border-width: 3px; margin: 0 auto 16px;"></div>
+        <p style="color: var(--text-secondary); font-size: 1rem;">
+            <span id="qa-loading-text">正在分析市场机会...</span>
+        </p>
+        <p style="color: var(--apple-gray); font-size: 0.8125rem; margin-top: 8px;">
+            预计需要10-20秒，请稍候
+        </p>
+    </div>
+
+    <!-- 结果展示区域 -->
+    <div id="qa-result" style="display: none;">
+        <!-- 市场分析概览 -->
+        <div id="qa-market-overview" style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 20px;
+            color: white;
+            margin-bottom: 16px;
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="font-size: 1.125rem; font-weight: 600; margin: 0;">
+                    <i class="bi bi-graph-up" style="margin-right: 8px;"></i>
+                    市场分析概览
+                </h3>
+                <span id="qa-keyword-ratio" style="
+                    background: rgba(255,255,255,0.2);
+                    padding: 4px 12px;
+                    border-radius: 12px;
+                    font-size: 0.8125rem;
+                "></span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                <div style="text-align: center; background: rgba(255,255,255,0.15); border-radius: 12px; padding: 12px;">
+                    <div id="qa-stat-total" style="font-size: 1.5rem; font-weight: 700;">0</div>
+                    <div style="font-size: 0.75rem; opacity: 0.9;">总关键词</div>
+                </div>
+                <div style="text-align: center; background: rgba(255,255,255,0.15); border-radius: 12px; padding: 12px;">
+                    <div id="qa-stat-blue" style="font-size: 1.5rem; font-weight: 700; color: #a5f3fc;">0</div>
+                    <div style="font-size: 0.75rem; opacity: 0.9;">蓝海词</div>
+                </div>
+                <div style="text-align: center; background: rgba(255,255,255,0.15); border-radius: 12px; padding: 12px;">
+                    <div id="qa-stat-red" style="font-size: 1.5rem; font-weight: 700; color: #fca5a5;">0</div>
+                    <div style="font-size: 0.75rem; opacity: 0.9;">红海词</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 问题类型选择 -->
+        <div style="margin-bottom: 16px;">
+            <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">
+                <i class="bi bi-tags" style="margin-right: 6px; color: var(--apple-red);"></i>
+                问题类型
+            </h3>
+            <div id="qa-problem-types" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+        </div>
+
+        <!-- 画像列表 -->
+        <div style="margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin: 0;">
+                    <i class="bi bi-people" style="margin-right: 6px; color: var(--apple-red);"></i>
+                    画像列表
+                </h3>
+                <span id="qa-portrait-count" style="font-size: 0.8125rem; color: var(--apple-gray);"></span>
+            </div>
+            <div id="qa-portraits-list"></div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
+            <button
+                onclick="qaSavePortraits()"
+                style="
+                    flex: 1;
+                    background: var(--apple-red);
+                    color: white;
+                    border: none;
+                    border-radius: 12px;
+                    padding: 14px 24px;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                "
+            >
+                <i class="bi bi-save" style="margin-right: 6px;"></i>
+                保存画像
+            </button>
+            <button
+                onclick="qaReset()"
+                style="
+                    flex: 1;
+                    background: var(--apple-gray6);
+                    color: var(--text-primary);
+                    border: none;
+                    border-radius: 12px;
+                    padding: 14px 24px;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                "
+            >
+                <i class="bi bi-arrow-repeat" style="margin-right: 6px;"></i>
+                重新分析
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 画像卡片模板 -->
+<template id="qa-portrait-card-template">
+    <div class="qa-portrait-card" style="
+        background: var(--bg-primary);
+        border: 1.5px solid var(--apple-gray5);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        transition: all 0.2s;
+    ">
+        <!-- 卡片头部 -->
+        <div style="
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        ">
+            <div>
+                <span class="qa-portrait-problem-type" style="
+                    display: inline-block;
+                    background: rgba(255, 59, 48, 0.1);
+                    color: var(--apple-red);
+                    padding: 2px 8px;
+                    border-radius: 6px;
+                    font-size: 0.6875rem;
+                    font-weight: 600;
+                    margin-bottom: 4px;
+                "></span>
+                <h4 class="qa-portrait-identity" style="
+                    font-size: 1rem;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    margin: 0;
+                "></h4>
+            </div>
+            <span class="qa-portrait-market-type" style="
+                background: #e8f5e9;
+                color: #2e7d32;
+                padding: 2px 8px;
+                border-radius: 6px;
+                font-size: 0.6875rem;
+                font-weight: 500;
+            ">蓝海</span>
+        </div>
+
+        <!-- 身份描述 -->
+        <p class="qa-portrait-identity-desc" style="
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            line-height: 1.5;
+        "></p>
+
+        <!-- 痛点 -->
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--apple-gray); margin-bottom: 6px;">
+                核心痛点
+            </div>
+            <div class="qa-portrait-pain-points" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+        </div>
+
+        <!-- 关键词 -->
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--apple-gray); margin-bottom: 6px;">
+                搜索关键词
+            </div>
+            <div class="qa-portrait-keywords" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+        </div>
+
+        <!-- 差异化 -->
+        <div style="
+            background: var(--apple-gray6);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 12px;
+        ">
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--apple-gray); margin-bottom: 4px;">
+                差异化方向
+            </div>
+            <p class="qa-portrait-differentiation" style="
+                font-size: 0.8125rem;
+                color: var(--text-primary);
+                margin: 0;
+                line-height: 1.4;
+            "></p>
+        </div>
+    </div>
+</template>
+
+<!-- 隐藏的数据存储 -->
+<div id="qa-data-store" style="display: none;" data-analysis-id="">
+    <!-- 存储分析结果数据 -->
+</div>
+
+<script>
+// ============================================================
+// 超级定位 - 一键分析 JavaScript
+// ============================================================
+
+var _qaResultData = null;  // 存储分析结果
+var _qaSelectedProblemType = null;  // 当前选中的问题类型
+
+/**
+ * 一键分析入口函数
+ */
+async function quickAnalyze() {
+    var businessDesc = document.getElementById('qa-business-desc').value.trim();
+    if (!businessDesc) {
+        alert('请输入业务描述');
+        return;
+    }
+
+    var businessType = document.querySelector('input[name="qa-business-type"]:checked').value;
+    var serviceScenario = document.getElementById('qa-service-scenario').value;
+
+    // 显示加载状态
+    showQALoading(true);
+
+    try {
+        var response = await fetch('/public/api/super-position/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                business_description: businessDesc,
+                business_type: businessType,
+                service_scenario: serviceScenario,
+                portraits_per_type: 3,
+            })
+        });
+
+        var result = await response.json();
+
+        if (result.success) {
+            _qaResultData = result.data;
+            displayQAResult(result.data);
+        } else {
+            alert('分析失败: ' + (result.message || '未知错误'));
+        }
+    } catch (error) {
+        console.error('[quickAnalyze] 异常:', error);
+        alert('分析异常: ' + error.message);
+    } finally {
+        showQALoading(false);
+    }
+}
+
+/**
+ * 显示/隐藏加载状态
+ */
+function showQALoading(show) {
+    document.getElementById('qa-loading').style.display = show ? 'block' : 'none';
+    document.getElementById('qa-result').style.display = 'none';
+    document.querySelector('.quick-form').style.display = show ? 'none' : 'block';
+    document.getElementById('qa-analyze-btn').disabled = show;
+}
+
+/**
+ * 显示分析结果
+ */
+function displayQAResult(data) {
+    document.getElementById('qa-result').style.display = 'block';
+    document.querySelector('.quick-form').style.display = 'none';
+
+    // 更新市场概览
+    var keywordStats = data.market_analysis.keyword_stats;
+    document.getElementById('qa-stat-total').textContent = keywordStats.total || 0;
+    document.getElementById('qa-stat-blue').textContent = keywordStats.blue_ocean || 0;
+    document.getElementById('qa-stat-red').textContent = keywordStats.red_ocean || 0;
+
+    var blueRatio = Math.round((keywordStats.blue_ratio || 0) * 100);
+    document.getElementById('qa-keyword-ratio').textContent = '蓝海占比 ' + blueRatio + '%';
+
+    // 渲染问题类型选择
+    renderQAProblemTypes(data.problem_types);
+
+    // 默认选中第一个问题类型，显示对应画像
+    if (data.problem_types && data.problem_types.length > 0) {
+        selectQAProblemType(data.problem_types[0].type_name, data.portraits_by_type);
+    }
+}
+
+/**
+ * 渲染问题类型选择
+ */
+function renderQAProblemTypes(problemTypes) {
+    var container = document.getElementById('qa-problem-types');
+    container.innerHTML = '';
+
+    problemTypes.forEach(function(pt, index) {
+        var btn = document.createElement('button');
+        btn.className = 'qa-problem-type-btn';
+        btn.style.cssText = [
+            'padding: 8px 16px',
+            'border-radius: 20px',
+            'border: 1.5px solid var(--apple-gray5)',
+            'background: var(--bg-primary)',
+            'color: var(--text-primary)',
+            'font-size: 0.875rem',
+            'cursor: pointer',
+            'transition: all 0.2s',
+            'font-weight: ' + (index === 0 ? '600' : '500'),
+            'border-color: ' + (index === 0 ? 'var(--apple-red)' : 'var(--apple-gray5)'),
+            'background: ' + (index === 0 ? 'rgba(255,59,48,0.08)' : 'var(--bg-primary)'),
+        ].join(';');
+        btn.textContent = pt.type_name;
+        btn.dataset.typeName = pt.type_name;
+
+        btn.onclick = function() {
+            selectQAProblemType(pt.type_name, _qaResultData.portraits_by_type);
+        };
+
+        container.appendChild(btn);
+    });
+}
+
+/**
+ * 选择问题类型，显示对应画像
+ */
+function selectQAProblemType(typeName, portraitsByType) {
+    _qaSelectedProblemType = typeName;
+
+    // 更新按钮样式
+    document.querySelectorAll('.qa-problem-type-btn').forEach(function(btn) {
+        var isActive = btn.dataset.typeName === typeName;
+        btn.style.borderColor = isActive ? 'var(--apple-red)' : 'var(--apple-gray5)';
+        btn.style.background = isActive ? 'rgba(255,59,48,0.08)' : 'var(--bg-primary)';
+        btn.style.fontWeight = isActive ? '600' : '500';
+    });
+
+    // 渲染画像列表
+    var portraits = portraitsByType[typeName] || [];
+    renderQAPortraits(portraits);
+
+    // 更新计数
+    document.getElementById('qa-portrait-count').textContent =
+        '共 ' + portraits.length + ' 个画像';
+}
+
+/**
+ * 渲染画像列表
+ */
+function renderQAPortraits(portraits) {
+    var container = document.getElementById('qa-portraits-list');
+    container.innerHTML = '';
+
+    var template = document.getElementById('qa-portrait-card-template');
+
+    portraits.forEach(function(portrait) {
+        var card = template.content.cloneNode(true);
+
+        // 填充数据
+        card.querySelector('.qa-portrait-problem-type').textContent = portrait.problem_type;
+        card.querySelector('.qa-portrait-identity').textContent = portrait.identity;
+        card.querySelector('.qa-portrait-identity-desc').textContent = portrait.identity_description || '';
+
+        // 痛点标签
+        var painPointsContainer = card.querySelector('.qa-portrait-pain-points');
+        (portrait.pain_points || []).forEach(function(pain) {
+            var tag = document.createElement('span');
+            tag.style.cssText = [
+                'display: inline-block',
+                'padding: 3px 8px',
+                'background: rgba(255,149,0,0.12)',
+                'color: #ff9500',
+                'border-radius: 6px',
+                'font-size: 0.75rem',
+            ].join(';');
+            tag.textContent = pain;
+            painPointsContainer.appendChild(tag);
+        });
+
+        // 关键词标签
+        var keywordsContainer = card.querySelector('.qa-portrait-keywords');
+        (portrait.search_keywords || []).slice(0, 5).forEach(function(kw) {
+            var tag = document.createElement('span');
+            tag.style.cssText = [
+                'display: inline-block',
+                'padding: 3px 8px',
+                'background: rgba(52,199,189,0.1)',
+                'color: #34c759',
+                'border-radius: 6px',
+                'font-size: 0.75rem',
+            ].join(';');
+            tag.textContent = kw;
+            keywordsContainer.appendChild(tag);
+        });
+
+        // 差异化方向
+        card.querySelector('.qa-portrait-differentiation').textContent =
+            portrait.differentiation || '待补充';
+
+        // 市场类型标签
+        var marketTypeEl = card.querySelector('.qa-portrait-market-type');
+        if (portrait.market_type === 'blue_ocean') {
+            marketTypeEl.textContent = '蓝海';
+            marketTypeEl.style.cssText = 'background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 6px; font-size: 0.6875rem; font-weight: 500;';
+        } else {
+            marketTypeEl.textContent = '红海';
+            marketTypeEl.style.cssText = 'background: #ffebee; color: #c62828; padding: 2px 8px; border-radius: 6px; font-size: 0.6875rem; font-weight: 500;';
+        }
+
+        container.appendChild(card);
+    });
+}
+
+/**
+ * 保存画像
+ */
+async function qaSavePortraits() {
+    if (!_qaResultData) {
+        alert('请先生成画像');
+        return;
+    }
+
+    // TODO: 调用保存API
+
+    alert('保存成功！\n\n已保存 ' + _qaResultData.portraits.length + ' 个画像');
+}
+
+/**
+ * 重置
+ */
+function qaReset() {
+    _qaResultData = null;
+    _qaSelectedProblemType = null;
+
+    document.getElementById('qa-business-desc').value = '';
+    document.querySelector('input[name="qa-business-type"][value="product"]').checked = true;
+    document.getElementById('qa-service-scenario').value = 'other';
+
+    document.getElementById('qa-result').style.display = 'none';
+    document.querySelector('.quick-form').style.display = 'block';
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('[QA] 一键分析模块初始化完成');
+});
+</script>
