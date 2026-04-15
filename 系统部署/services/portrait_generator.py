@@ -265,6 +265,7 @@ class PortraitGenerator:
 每个画像必须包含：
 - identity: 身份标签（简短，如"职场新手妈妈"）
 - identity_description: 身份描述（50字内）
+- problem_type_description: 【核心字段】问题类型对应的具体场景枚举，用/分隔，如"宝宝喝奶粉拉肚子/宝宝喝奶粉腹胀/宝宝喝奶粉便秘/宝宝奶粉不消化"。必须基于当前问题类型展开3-5个具体场景
 - portrait_summary: 【核心必填】2-3句口语化自然中文摘要，结构公式：身份 + 当前问题/症状 + 想转变 + 受限于困境 + 【深层需求】。禁止用【】、禁止列模板标签、禁止JSON式字段名。
 - pain_points: 3-5个核心痛点
 - pain_scenarios: 2-3个痛点场景
@@ -283,6 +284,7 @@ class PortraitGenerator:
         {{
             "identity": "画像身份标签",
             "identity_description": "画像身份详细描述",
+            "problem_type_description": "问题类型对应场景枚举（如：宝宝喝奶粉拉肚子/宝宝喝奶粉腹胀/宝宝喝奶粉便秘）",
             "portrait_summary": "【必填】口语化自然中文，结构：身份+问题症状+想转变+困境+【深层需求】",
             "pain_points": ["痛点1", "痛点2", "痛点3"],
             "pain_scenarios": ["场景1", "场景2"],
@@ -333,7 +335,7 @@ class PortraitGenerator:
                 portrait = Portrait(
                     portrait_id=f"{problem_type_name}_{i+1}",
                     problem_type=problem_type_name,
-                    problem_type_description=problem_type_desc,
+                    problem_type_description=p.get('problem_type_description', problem_type_desc),
                     identity=p.get('identity', ''),
                     identity_description=p.get('identity_description', ''),
                     portrait_summary=p.get('portrait_summary', ''),
