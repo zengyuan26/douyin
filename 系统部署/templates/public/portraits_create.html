@@ -2469,20 +2469,65 @@ function convertProblemTypesToProblems(problemTypes) {
  * 将新的画像格式转换为旧的画像格式
  */
 function convertNewPortraitToOldFormat(portrait) {
+    // 将新格式转换为旧格式（兼容卡片渲染）
+    const painPoints = portrait.pain_points || [];
+    const painScenarios = portrait.pain_scenarios || [];
+    const searchKeywords = portrait.search_keywords || [];
+    const contentPreferences = portrait.content_preferences || [];
+    const psychology = portrait.psychology || {};
+
+    // 构建画像摘要（取前3个痛点）
+    const summaryParts = [];
+    if (painPoints.length > 0) {
+        summaryParts.push('痛点: ' + painPoints.slice(0, 2).join('、'));
+    }
+    if (painScenarios.length > 0) {
+        summaryParts.push('场景: ' + painScenarios[0]);
+    }
+    const portraitSummary = summaryParts.join(' | ');
+
+    // 构建用户阶段标签（基于content_direction）
+    const contentDirection = portrait.content_direction || '';
+    const 用户阶段标签 = contentDirection.includes('种草') ? '种草阶段' :
+                         contentDirection.includes('测评') ? '决策阶段' :
+                         contentDirection.includes('知识') ? '认知阶段' : '通用';
+
+    // 使用场景
+    const 使用场景 = painScenarios.length > 0 ? painScenarios[0] : '';
+
+    // 搜索行为预判
+    const 搜索行为预判 = searchKeywords;
+
+    // 身份标签
+    const identity = portrait.identity || '';
+    const identity_tags = {
+        buyer: identity,
+        user: portrait.differentiation || ''
+    };
+
     return {
         portrait_id: portrait.portrait_id || '',
-        identity: portrait.identity || '',
+        name: identity || '目标客户',  // identity 作为 name
+        portrait_summary: portraitSummary,
+        identity: identity,
         identity_description: portrait.identity_description || '',
+        identity_tags: identity_tags,
+        用户阶段标签: 用户阶段标签,
+        使用场景: 使用场景,
+        搜索行为预判: 搜索行为预判,
         problem_type: portrait.problem_type || '',
-        pain_points: portrait.pain_points || [],
-        pain_scenarios: portrait.pain_scenarios || [],
-        psychology: portrait.psychology || {},
+        problem_type_description: portrait.problem_type_description || '',
+        pain_points: painPoints,
+        pain_scenarios: painScenarios,
+        psychology: psychology,
         barriers: portrait.barriers || [],
-        search_keywords: portrait.search_keywords || [],
-        content_preferences: portrait.content_preferences || [],
+        search_keywords: searchKeywords,
+        content_preferences: contentPreferences,
         market_type: portrait.market_type || 'blue_ocean',
         differentiation: portrait.differentiation || '',
-        content_direction: portrait.content_direction || '种草型',
+        content_direction: contentDirection,
+        scene_tags: portrait.scene_tags || [],
+        behavior_tags: portrait.behavior_tags || [],
     };
 }
 
