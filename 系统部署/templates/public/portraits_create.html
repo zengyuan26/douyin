@@ -1830,11 +1830,15 @@ function unlockFormPanel() {
     _formLocked = false;
     var formPanel = document.getElementById('super-tab-form');
     if (!formPanel) return;
+    // 启用所有表单元素
     formPanel.querySelectorAll('input, select, textarea, button').forEach(function(el) {
         el.disabled = false;
     });
+    // 彻底移除遮罩层
     var overlay = formPanel.querySelector('.form-locked-overlay');
-    if (overlay) overlay.style.display = 'none';
+    if (overlay) {
+        overlay.remove();
+    }
 }
 
 // Cover Flow 轮播相关变量
@@ -1943,7 +1947,8 @@ function handleTabAction() {
             resetSuperPortraitFlow();
             break;
         case 'tab-problems':
-            refreshProblems();
+            // 蓝海机会 Tab：重置流程
+            resetSuperPortraitFlow();
             break;
         case 'tab-portraits':
             refreshPortraits();
@@ -1995,12 +2000,27 @@ function resetSuperPortraitFlow() {
     // 重置用户分析标志
     _userStartedAnalysis = false;
 
+    // 先强制解锁表单（移除遮罩、启用所有元素）
+    var formPanel = document.getElementById('super-tab-form');
+    if (formPanel) {
+        formPanel.querySelectorAll('input, select, textarea, button').forEach(function(el) {
+            el.disabled = false;
+        });
+        var overlay = formPanel.querySelector('.form-locked-overlay');
+        if (overlay) {
+            overlay.remove();  // 彻底移除遮罩
+        }
+    }
+
     document.getElementById('business-desc').value = '';
     document.getElementById('local-city').value = '';
     document.getElementById('service-scenario').value = '';
     document.getElementById('other-scenario-input').value = '';
     document.querySelector('input[name="business-range"][value="cross_region"]').checked = true;
-    document.querySelector('input[name="business-type"]').checked = false;
+
+    // 重置业务类型选择
+    const businessTypeRadios = document.querySelectorAll('input[name="business-type"]');
+    businessTypeRadios.forEach(radio => radio.checked = false);
 
     document.getElementById('local-city-wrapper').style.display = 'none';
     document.getElementById('other-scenario-wrapper').style.display = 'none';
@@ -2012,9 +2032,22 @@ function resetSuperPortraitFlow() {
     _generatedPortraits = [];  // 重置一键分析画像
     _qaResultData = null;  // 重置一键分析结果
     _selectedProblemKey = null;
+    _marketAnalysisCache = null;  // 重置市场分析缓存
 
-    document.getElementById('problems-section').innerHTML = '';
-    document.getElementById('problems-section').style.display = 'none';
+    // 清理蓝海机会区域
+    const oppSection = document.getElementById('opportunities-section');
+    if (oppSection) {
+        oppSection.style.display = 'none';
+        const list = document.getElementById('opportunities-list');
+        if (list) list.innerHTML = '';
+    }
+
+    // 清理问题区域（向后兼容）
+    const problemsSection = document.getElementById('problems-section');
+    if (problemsSection) {
+        problemsSection.innerHTML = '';
+        problemsSection.style.display = 'none';
+    }
     document.getElementById('problems-empty-hint').style.display = 'flex';
 
     document.getElementById('target-customers-section').innerHTML = '';
@@ -2022,10 +2055,15 @@ function resetSuperPortraitFlow() {
     document.getElementById('portraits-empty-hint').style.display = 'flex';
     document.getElementById('portrait-generating-loading').style.display = 'none';
 
-    switchSuperTab('tab-form');
+    // 清理蓝海机会区域
+    const oppSection = document.getElementById('opportunities-section');
+    if (oppSection) {
+        oppSection.style.display = 'none';
+        const list = document.getElementById('opportunities-list');
+        if (list) list.innerHTML = '';
+    }
 
-    // 解锁表单
-    unlockFormPanel();
+    switchSuperTab('tab-form');
 }
 
 // ============================================================================
@@ -2109,166 +2147,8 @@ let _refreshProblemsSeq = 0;
 let _refreshProblemsRetryCount = 0;
 
 async function refreshProblems() {
-    if (_allProblems.length === 0 && _allProblemsPool.length === 0) {
-        showToast('请先在一键分析中挖掘问题', 'warning');
-        return;
-    }
-
-    const mySeq = ++_refreshProblemsSeq;
-    const maxRetries = 2;
-    console.log('[换一批-问题] 点击了, seq=' + mySeq + ', round=' + _refreshRound + ', maxRetries=' + maxRetries);
-
-    const btn = document.getElementById('tab-action-text');
-    const originalBtnText = btn ? btn.textContent : '换一批';
-
-    // 显示加载状态
-    document.getElementById('problem-mining-loading').style.display = 'block';
-    document.getElementById('problems-section').style.display = 'none';
-    document.getElementById('problems-empty-hint').style.display = 'none';
-
-    if (btn) {
-        btn.textContent = '加载中...';
-    }
-
-    try {
-        const businessDesc = document.getElementById('business-desc').value.trim();
-        const businessRange = document.querySelector('input[name="business-range"]:checked')?.value;
-        const businessType = document.querySelector('input[name="business-type"]:checked')?.value;
-        const serviceScenario = document.getElementById('service-scenario')?.value || '';
-        const otherScenario = document.getElementById('other-scenario-input')?.value?.trim() || '';
-        const localCity = document.getElementById('local-city')?.value?.trim() || '';
-
-        // 递增轮次（方案一）
-        _refreshRound++;
-
-        // ── 方案四：pool 清空阈值 ──
-        const candidateCount = (_allProblems || []).length + (_allProblemsPool || []).length;
-        const shouldResetPool = _consecutiveNoNewRounds >= 2 && candidateCount >= 20;
-        let forceFresh = false;
-        if (shouldResetPool) {
-            console.log('[换一批-问题] 连续', _consecutiveNoNewRounds, '轮无新问题，候选池共', candidateCount, '条 → 清空候选池，从零生成');
-            forceFresh = true;
-            _allProblemsPool = [];
-            _consecutiveNoNewRounds = 0;
-        }
-
-        const excludeProblems = (_allProblems || []).concat(_allProblemsPool || []).slice(0, 30);
-
-        // ── 使用带超时和重试的请求 ──
-        let retryCount = 0;
-        const resp = await fetchWithRetry('/public/api/targets/problems', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-            },
-            timeout: 90000,  // 90秒超时（留有余量）
-            retries: maxRetries,
-            retryDelay: 1500,
-            onRetry: (attempt, total) => {
-                retryCount = attempt;
-                if (btn) btn.textContent = `重试(${attempt}/${total})...`;
-                updateLoadingText(
-                    `请求超时，正在重试 (${attempt}/${total})...`,
-                    `预计等待时间：${Math.round(retryDelay * attempt / 1000)}秒`
-                );
-            },
-            body: JSON.stringify({
-                business_description: businessDesc,
-                business_range: businessRange,
-                business_type: businessType,
-                service_scenario: serviceScenario,
-                other_scenario: otherScenario,
-                local_city: localCity,
-                refresh_nonce: Date.now(),
-                refresh_round: _refreshRound,
-                exclude_problems: forceFresh ? [] : excludeProblems,
-                force_fresh: forceFresh,
-            })
-        });
-
-        if (mySeq !== _refreshProblemsSeq) {
-            console.log('[换一批-问题] 跳过过期响应 seq=' + mySeq);
-            return;
-        }
-
-        // 重置重试计数
-        _refreshProblemsRetryCount = 0;
-
-        if (!resp.ok) {
-            const errorText = await resp.text().catch(() => '未知错误');
-            throw new Error(`服务器错误 (${resp.status}): ${errorText}`);
-        }
-
-        const data = await resp.json();
-
-        if (data.success && data.problems) {
-            const problems = data.problems.problems || data.problems || [];
-            const marketAnalysis = data.problems.market_analysis || {};
-            _currentMarketAnalysis = marketAnalysis;
-
-            // 将旧一批移入候选池，再追加新一批
-            if (_allProblems.length > 0) {
-                _allProblemsPool = _allProblemsPool.concat(_allProblems);
-            }
-            _allProblems = problems;
-
-            // 检测是否为"有效换一批"
-            const newCount = problems.length;
-            const poolIdentities = new Set((_allProblemsPool || []).map(p => (p.identity || '') + '|' + (p.problem_type || p.concern_type || '')));
-            const trulyNew = problems.filter(p => {
-                const key = (p.identity || '') + '|' + (p.problem_type || p.concern_type || '');
-                return !poolIdentities.has(key);
-            }).length;
-            const newRatio = newCount > 0 ? (trulyNew / newCount) : 0;
-
-            if (newRatio < 0.4) {
-                _consecutiveNoNewRounds++;
-                console.log('[换一批-问题] 新鲜度不足: ' + newRatio.toFixed(1) + '（新' + trulyNew + '/' + newCount + '条），_consecutiveNoNewRounds=' + _consecutiveNoNewRounds);
-            } else {
-                _consecutiveNoNewRounds = 0;
-            }
-            _allPortraits = {};
-            _isPremium = data.is_premium || false;
-
-            document.getElementById('problem-mining-loading').style.display = 'none';
-            document.getElementById('problems-section').style.display = 'block';
-
-            renderProblemCards(_allProblems);
-            saveSnapshotToServer();
-
-            showToast('换一批成功！', 'success');
-        } else {
-            throw new Error(data.message || '问题挖掘失败');
-        }
-    } catch (e) {
-        if (mySeq !== _refreshProblemsSeq) return;
-
-        // 记录重试次数
-        _refreshProblemsRetryCount++;
-
-        // 根据错误类型给出更友好的提示
-        let errorMessage = '换一批失败，请稍后重试';
-        if (e.name === 'AbortError' || e.message.includes('aborted')) {
-            errorMessage = '请求超时，请检查网络后重试';
-            console.error('[换一批-问题] 请求超时', e);
-        } else if (e.message.includes('Failed to fetch') || e.message.includes('network') || e.message.includes('NetworkError')) {
-            errorMessage = '网络连接失败，请检查网络后重试';
-            console.error('[换一批-问题] 网络错误', e);
-        } else {
-            console.error('[换一批-问题] 异常', e);
-        }
-
-        showToast(errorMessage, 'error');
-
-        document.getElementById('problem-mining-loading').style.display = 'none';
-        document.getElementById('problems-section').style.display = 'block';
-    } finally {
-        if (mySeq !== _refreshProblemsSeq) return;
-        if (btn) {
-            btn.textContent = originalBtnText;
-        }
-    }
+    // 蓝海机会已不支持换一批，直接重置
+    resetSuperPortraitFlow();
 }
 
 // 换一批：重新生成画像
@@ -2429,7 +2309,9 @@ async function portraitMineAndGenerate() {
     }
 
     document.getElementById('problem-mining-loading').style.display = 'block';
-    document.getElementById('problems-section').style.display = 'none';
+    // 隐藏机会列表区域（如果存在）
+    const oppSection = document.getElementById('opportunities-section');
+    if (oppSection) oppSection.style.display = 'none';
     document.getElementById('problems-empty-hint').style.display = 'none';
     document.getElementById('btn-one-key-analyze').disabled = true;
 
@@ -2899,7 +2781,8 @@ async function generatePortraitsWithBusiness(coreBusiness) {
     lockFormPanel();
 
     // 显示画像生成加载状态
-    document.getElementById('problems-section').style.display = 'none';
+    const oppSection = document.getElementById('opportunities-section');
+    if (oppSection) oppSection.style.display = 'none';
     document.getElementById('problems-empty-hint').style.display = 'none';
     document.getElementById('portraits-empty-hint').style.display = 'none';
     document.getElementById('portrait-generating-loading').style.display = 'block';
@@ -3235,9 +3118,9 @@ function renderSubdivisionCard(subdivision) {
     console.log('[renderSubdivisionCard] 细分赛道识别结果:', subdivision);
 }
 
-// 渲染问题卡片 - Cover Flow 轮播版本
+// 渲染问题卡片 - Cover Flow 轮播版本（已废弃，保留用于兼容）
 function renderProblemCards(problems) {
-    const container = document.getElementById('problems-section');
+    const container = document.getElementById('problems-section') || document.getElementById('opportunities-section');
     if (!container) return;
 
     // 确保容器可见
