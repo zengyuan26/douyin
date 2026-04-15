@@ -178,7 +178,7 @@ class PortraitGenerator:
 
         # 调用LLM
         try:
-            response = self.llm.call(prompt)
+            response = self.llm.chat(prompt)
             if not response:
                 logger.warning("[PortraitGenerator] LLM返回为空")
                 return portraits
