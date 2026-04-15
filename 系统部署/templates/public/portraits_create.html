@@ -1671,6 +1671,8 @@ var _isSavingPortrait = false;
 // 超级定位流程相关变量
 var _allProblems = [];
 var _allPortraits = {};
+var _generatedPortraits = [];  // 存储一键分析生成的完整画像数据
+var _qaResultData = null;  // 存储一键分析完整结果
 var _selectedProblemKey = null;
 var _currentMarketAnalysis = {};
 var _currentSubdivision = null;  // 细分赛道识别结果
@@ -1893,6 +1895,8 @@ function resetSuperPortraitFlow() {
     _allProblemsPool = [];  // 重置候选池
     _refreshRound = 0;     // 重置轮次计数器
     _allPortraits = {};
+    _generatedPortraits = [];  // 重置一键分析画像
+    _qaResultData = null;  // 重置一键分析结果
     _selectedProblemKey = null;
 
     document.getElementById('problems-section').innerHTML = '';
@@ -2315,25 +2319,21 @@ async function portraitMineAndGenerate() {
     document.getElementById('btn-one-key-analyze').disabled = true;
 
     try {
-        const resp = await fetch('/public/api/targets/problems', {
+        // 调用新的一键分析API（市场分析 + 画像生成）
+        const resp = await fetch('/public/api/super-position/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({
                 business_description: businessDesc,
-                business_range: businessRange,
                 business_type: businessType,
-                service_scenario: serviceScenario,
-                other_scenario: otherScenario,
-                local_city: localCity,
-                refresh_nonce: Date.now(),
-                refresh_round: 0,
+                service_scenario: serviceScenario || 'other',
             })
         });
 
         if (!resp.ok) {
             const errorText = await resp.text();
-            showToast('挖掘问题失败，请稍后重试', 'error');
+            showToast('分析失败，请稍后重试', 'error');
             console.error('API error:', resp.status, errorText);
             document.getElementById('problem-mining-loading').style.display = 'none';
             document.getElementById('problems-empty-hint').style.display = 'flex';
@@ -2341,25 +2341,54 @@ async function portraitMineAndGenerate() {
             return;
         }
 
-        const data = await resp.json();
+        const result = await resp.json();
 
-        if (data.success && data.problems) {
-            const problems = data.problems.problems || data.problems || [];
-            const marketAnalysis = data.problems.market_analysis || {};
-            _currentMarketAnalysis = marketAnalysis;
-            _currentSubdivision = data.subdivision || null;  // 保存细分赛道数据
+        if (result.success && result.data) {
+            const data = result.data;
+
+            // 存储分析结果
+            _qaResultData = data;  // 一键分析结果
+            _currentMarketAnalysis = data.market_analysis || {};
+
+            // 将问题类型转换为问题列表格式（兼容现有渲染逻辑）
+            const problems = convertProblemTypesToProblems(data.problem_types || []);
             _allProblems = problems;
             _allProblemsPool = [];  // 重置候选池
             _refreshRound = 0;     // 重置轮次计数器
             _allPortraits = {};
-            _isPremium = data.is_premium || false;
+
+            // 将画像按问题类型分组存储
+            if (data.portraits && data.portraits.length > 0) {
+                // 存储所有画像
+                _generatedPortraits = data.portraits;
+                // 转换为旧格式
+                data.portraits.forEach(function(portrait) {
+                    const typeKey = portrait.problem_type || 'general';
+                    if (!_allPortraits[typeKey]) {
+                        _allPortraits[typeKey] = [];
+                    }
+                    _allPortraits[typeKey].push(convertNewPortraitToOldFormat(portrait));
+                });
+            }
+
+            // 显示细分赛道信息（如果有）
+            if (data.market_analysis && data.market_analysis.subdivision_insights) {
+                _currentSubdivision = {
+                    subdivision_name: data.market_analysis.subdivision_insights.main_subdivision || businessDesc,
+                    confidence: 0.9,
+                    matched_keywords: data.market_analysis.keyword_stats || {},
+                };
+            }
 
             document.getElementById('problem-mining-loading').style.display = 'none';
             document.getElementById('problems-section').style.display = 'block';
 
             // 渲染细分赛道卡片
-            renderSubdivisionCard(_currentSubdivision);
+            if (_currentSubdivision) {
+                renderSubdivisionCard(_currentSubdivision);
+            }
 
+            // 渲染问题卡片
             renderProblemCards(_allProblems);
 
             // 分析完成后锁定表单区域
@@ -2375,14 +2404,22 @@ async function portraitMineAndGenerate() {
             });
             updateTabActionButton('tab-problems');
 
+            // 保存快照
             saveSuperSnapshot();
             saveSnapshotToServer();
 
-            showToast('问题挖掘完成！点击"生成画像"查看人群画像', 'success');
+            // 构建市场概览提示
+            const stats = data.market_analysis?.keyword_stats || {};
+            const blueRatio = Math.round((stats.blue_ratio || 0) * 100);
+            showToast(
+                `分析完成！发现 ${data.problem_types?.length || 0} 个问题类型，` +
+                `${data.portraits?.length || 0} 个画像，蓝海词占比 ${blueRatio}%`,
+                'success'
+            );
         } else {
             document.getElementById('problem-mining-loading').style.display = 'none';
             document.getElementById('problems-empty-hint').style.display = 'flex';
-            alert(data.message || '问题挖掘失败');
+            alert(result.message || '分析失败');
         }
     } catch (e) {
         document.getElementById('problem-mining-loading').style.display = 'none';
@@ -2393,6 +2430,45 @@ async function portraitMineAndGenerate() {
     } finally {
         document.getElementById('btn-one-key-analyze').disabled = false;
     }
+}
+
+/**
+ * 将新的问题类型格式转换为旧的问题列表格式
+ */
+function convertProblemTypesToProblems(problemTypes) {
+    return problemTypes.map(function(pt, index) {
+        return {
+            id: pt.type_name || ('type_' + index),
+            problem_type: pt.type_name || '未分类',
+            problem_category: pt.type_name || '未分类',
+            description: pt.description || '',
+            identity: pt.target_audience || '',
+            severity: '中',
+            scenario: '通用',
+            _isProblemType: true,  // 标记为问题类型
+        };
+    });
+}
+
+/**
+ * 将新的画像格式转换为旧的画像格式
+ */
+function convertNewPortraitToOldFormat(portrait) {
+    return {
+        portrait_id: portrait.portrait_id || '',
+        identity: portrait.identity || '',
+        identity_description: portrait.identity_description || '',
+        problem_type: portrait.problem_type || '',
+        pain_points: portrait.pain_points || [],
+        pain_scenarios: portrait.pain_scenarios || [],
+        psychology: portrait.psychology || {},
+        barriers: portrait.barriers || [],
+        search_keywords: portrait.search_keywords || [],
+        content_preferences: portrait.content_preferences || [],
+        market_type: portrait.market_type || 'blue_ocean',
+        differentiation: portrait.differentiation || '',
+        content_direction: portrait.content_direction || '种草型',
+    };
 }
 
 // ============================================================================
