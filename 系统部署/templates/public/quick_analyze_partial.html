@@ -572,9 +572,42 @@ async function qaSavePortraits() {
         return;
     }
 
-    // TODO: 调用保存API
+    var btn = document.querySelector('button[onclick="qaSavePortraits()"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split" style="margin-right: 6px;"></i>保存中...';
+    }
 
-    alert('保存成功！\n\n已保存 ' + _qaResultData.portraits.length + ' 个画像');
+    try {
+        var response = await fetch('/public/api/super-position/save-batch', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                analysis_data: _qaResultData,
+                set_as_default: false,
+            })
+        });
+
+        var result = await response.json();
+
+        if (result.success) {
+            alert('保存成功！\n\n已保存 ' + result.data.saved_count + ' 个画像');
+            // 保存成功后可以跳转到画像列表页
+            // window.location.href = '/public/portraits';
+        } else {
+            alert('保存失败: ' + (result.message || '未知错误'));
+        }
+    } catch (error) {
+        console.error('[qaSavePortraits] 异常:', error);
+        alert('保存异常: ' + error.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-save" style="margin-right: 6px;"></i>保存画像';
+        }
+    }
 }
 
 /**

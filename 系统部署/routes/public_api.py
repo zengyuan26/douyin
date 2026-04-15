@@ -3223,6 +3223,161 @@ def generate_unified_library():
         return jsonify(result), 500
 
 
+@public_bp.route('/api/super-position/save-batch', methods=['POST'])
+def api_save_portrait_batch():
+    """
+    保存一键分析结果（批量保存画像）
+
+    POST /public/api/super-position/save-batch
+    Body: {
+        analysis_data: {           # 一键分析返回的完整数据
+            market_analysis: {...},
+            keyword_library: {...},
+            problem_types: [...],
+            portraits: [...],
+            portraits_by_type: {...},
+        },
+        portrait_name: str,       # 画像名称（可选）
+        set_as_default: bool,      # 是否设为默认（可选）
+    }
+    """
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    params = request.get_json() or {}
+    analysis_data = params.get('analysis_data', {})
+    portrait_name = params.get('portrait_name', '')
+    set_as_default = params.get('set_as_default', False)
+
+    if not analysis_data or not analysis_data.get('portraits'):
+        return jsonify({
+            'success': False,
+            'message': '画像数据不能为空'
+        }), 400
+
+    from models.public_models import SavedPortrait
+
+    # 检查保存数量限制
+    current_count = SavedPortrait.query.filter_by(user_id=user.id).count()
+    quota_info = quota_manager.get_user_quota_info(user)
+    max_saved = quota_info.get('max_saved_portraits', 0)
+
+    if max_saved > 0 and current_count >= max_saved:
+        # 先删旧数据再插新数据（替换模式）
+        SavedPortrait.query.filter_by(user_id=user.id).delete()
+        db.session.commit()
+
+    # 提取数据
+    portraits = analysis_data.get('portraits', [])
+    keyword_library = analysis_data.get('keyword_library', {})
+    market_analysis = analysis_data.get('market_analysis', {})
+    business_desc = ''
+
+    # 如果只有一个画像，直接保存
+    saved_portraits = []
+    if len(portraits) == 1:
+        portrait = portraits[0]
+
+        # 生成画像名称
+        if not portrait_name:
+            portrait_name = f"{portrait.get('problem_type', '画像')}_{datetime.now().strftime('%m%d_%H%M')}"
+
+        # 构建画像数据
+        portrait_data = {
+            'problem_type': portrait.get('problem_type', ''),
+            'problem_type_description': portrait.get('problem_type_description', ''),
+            'identity': portrait.get('identity', ''),
+            'identity_description': portrait.get('identity_description', ''),
+            'pain_points': portrait.get('pain_points', []),
+            'pain_scenarios': portrait.get('pain_scenarios', []),
+            'psychology': portrait.get('psychology', {}),
+            'barriers': portrait.get('barriers', []),
+            'search_keywords': portrait.get('search_keywords', []),
+            'content_preferences': portrait.get('content_preferences', []),
+            'market_type': portrait.get('market_type', 'blue_ocean'),
+            'differentiation': portrait.get('differentiation', ''),
+        }
+
+        # 插入新记录
+        new_portrait = SavedPortrait(
+            user_id=user.id,
+            portrait_data=portrait_data,
+            portrait_name=portrait_name,
+            keyword_library=keyword_library,
+            business_description=business_desc,
+            industry=market_analysis.get('subdivision_insights', {}).get('main_subdivision', ''),
+            is_default=set_as_default,
+        )
+        db.session.add(new_portrait)
+        db.session.commit()
+
+        saved_portraits.append({
+            'id': new_portrait.id,
+            'portrait_name': portrait_name,
+            'problem_type': portrait.get('problem_type', ''),
+        })
+
+    # 多个画像：按问题类型分组保存
+    else:
+        portraits_by_type = analysis_data.get('portraits_by_type', {})
+
+        for problem_type, type_portraits in portraits_by_type.items():
+            for i, portrait in enumerate(type_portraits):
+                # 生成画像名称
+                p_name = f"{problem_type}_{i+1}" if len(type_portraits) > 1 else problem_type
+
+                # 构建画像数据
+                portrait_data = {
+                    'problem_type': portrait.get('problem_type', problem_type),
+                    'problem_type_description': portrait.get('problem_type_description', ''),
+                    'identity': portrait.get('identity', ''),
+                    'identity_description': portrait.get('identity_description', ''),
+                    'pain_points': portrait.get('pain_points', []),
+                    'pain_scenarios': portrait.get('pain_scenarios', []),
+                    'psychology': portrait.get('psychology', {}),
+                    'barriers': portrait.get('barriers', []),
+                    'search_keywords': portrait.get('search_keywords', []),
+                    'content_preferences': portrait.get('content_preferences', []),
+                    'market_type': portrait.get('market_type', 'blue_ocean'),
+                    'differentiation': portrait.get('differentiation', ''),
+                }
+
+                # 插入新记录（只给第一个设默认）
+                new_portrait = SavedPortrait(
+                    user_id=user.id,
+                    portrait_data=portrait_data,
+                    portrait_name=p_name,
+                    keyword_library=keyword_library,  # 关键词库共享
+                    business_description=business_desc,
+                    industry=market_analysis.get('subdivision_insights', {}).get('main_subdivision', ''),
+                    is_default=(set_as_default and i == 0),
+                )
+                db.session.add(new_portrait)
+                db.session.commit()
+
+                saved_portraits.append({
+                    'id': new_portrait.id,
+                    'portrait_name': p_name,
+                    'problem_type': problem_type,
+                })
+
+    logger.info(
+        "[api_save_portrait_batch] 保存成功: user_id=%s, portraits_count=%d",
+        user.id, len(saved_portraits)
+    )
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'saved_count': len(saved_portraits),
+            'portraits': saved_portraits,
+            'keyword_library': keyword_library,
+        },
+        'message': f'成功保存 {len(saved_portraits)} 个画像'
+    })
+
+
 # =============================================================================
 # 账号设置 API
 # =============================================================================
