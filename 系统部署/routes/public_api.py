@@ -3107,6 +3107,7 @@ def api_super_position_analyze():
                 'problem_type_description': p.problem_type_description,
                 'identity': p.identity,
                 'identity_description': p.identity_description,
+                'portrait_summary': p.portrait_summary,
                 'pain_points': p.pain_points,
                 'pain_scenarios': p.pain_scenarios,
                 'psychology': p.psychology,

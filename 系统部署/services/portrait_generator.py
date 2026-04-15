@@ -41,6 +41,9 @@ class Portrait:
     identity: str                                # 身份标签
     identity_description: str                   # 身份描述
 
+    # 五要素摘要（核心！）
+    portrait_summary: str = ""                  # 画像摘要：身份+问题+想转变+困境+深层需求
+
     # 痛点相关
     pain_points: List[str]                       # 核心痛点
     pain_scenarios: List[str]                   # 痛点场景
@@ -262,6 +265,7 @@ class PortraitGenerator:
 每个画像必须包含：
 - identity: 身份标签（简短，如"职场新手妈妈"）
 - identity_description: 身份描述（50字内）
+- portrait_summary: 【核心必填】2-3句口语化自然中文摘要，结构公式：身份 + 当前问题/症状 + 想转变 + 受限于困境 + 【深层需求】。禁止用【】、禁止列模板标签、禁止JSON式字段名。
 - pain_points: 3-5个核心痛点
 - pain_scenarios: 2-3个痛点场景
 - psychology: 心理画像
@@ -279,6 +283,7 @@ class PortraitGenerator:
         {{
             "identity": "画像身份标签",
             "identity_description": "画像身份详细描述",
+            "portrait_summary": "【必填】口语化自然中文，结构：身份+问题症状+想转变+困境+【深层需求】",
             "pain_points": ["痛点1", "痛点2", "痛点3"],
             "pain_scenarios": ["场景1", "场景2"],
             "psychology": {{
@@ -331,6 +336,7 @@ class PortraitGenerator:
                     problem_type_description=problem_type_desc,
                     identity=p.get('identity', ''),
                     identity_description=p.get('identity_description', ''),
+                    portrait_summary=p.get('portrait_summary', ''),
                     pain_points=p.get('pain_points', []),
                     pain_scenarios=p.get('pain_scenarios', []),
                     psychology=p.get('psychology', {}),
@@ -343,35 +349,7 @@ class PortraitGenerator:
                 portraits.append(portrait)
 
         except json.JSONDecodeError:
-            logger.warning("[PortraitGenerator] JSON解析失败，尝试修复")
-            # 尝试修复
-            try:
-                # 提取 portrait 数组
-                match = re.search(r'"portraits"\s*:\s*\[(.*?)\]', response, re.DOTALL)
-                if match:
-                    array_text = '[' + match.group(1) + ']'
-                    data = json.loads(array_text)
-                    portrait_list = data if isinstance(data, list) else data.get('portraits', [])
-
-                    for i, p in enumerate(portrait_list):
-                        portrait = Portrait(
-                            portrait_id=f"{problem_type_name}_{i+1}",
-                            problem_type=problem_type_name,
-                            problem_type_description=problem_type_desc,
-                            identity=p.get('identity', ''),
-                            identity_description=p.get('identity_description', ''),
-                            pain_points=p.get('pain_points', []),
-                            pain_scenarios=p.get('pain_scenarios', []),
-                            psychology=p.get('psychology', {}),
-                            barriers=p.get('barriers', []),
-                            search_keywords=p.get('search_keywords', []),
-                            content_preferences=p.get('content_preferences', []),
-                            market_type=p.get('market_type', 'blue_ocean'),
-                            differentiation=p.get('differentiation', ''),
-                        )
-                        portraits.append(portrait)
-            except Exception as e:
-                logger.error("[PortraitGenerator] 修复解析失败: %s", e)
+            logger.warning("[PortraitGenerator] JSON解析失败: %s", response[:200])
 
         return portraits
 
