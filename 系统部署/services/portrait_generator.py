@@ -505,10 +505,11 @@ def generate_portraits_from_analysis(
 
 
 def group_portraits_by_problem_type(
-    portraits: List[Dict[str, Any]]
-) -> Dict[str, List[Dict[str, Any]]]:
+    portraits: List[Union['Portrait', Dict[str, Any]]]
+) -> Dict[str, List[Union['Portrait', Dict[str, Any]]]]:
     """
     按问题类型分组画像
+    支持 Portrait 对象或字典列表
 
     Returns:
         {
@@ -518,7 +519,12 @@ def group_portraits_by_problem_type(
     """
     grouped = {}
     for portrait in portraits:
-        problem_type = portrait.get('problem_type', '未分类')
+        # 支持 Portrait 对象或字典
+        if hasattr(portrait, 'problem_type'):
+            problem_type = portrait.problem_type
+        else:
+            problem_type = portrait.get('problem_type', '未分类') if isinstance(portrait, dict) else '未分类'
+
         if problem_type not in grouped:
             grouped[problem_type] = []
         grouped[problem_type].append(portrait)
