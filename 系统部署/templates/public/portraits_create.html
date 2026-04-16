@@ -2336,6 +2336,9 @@ async function portraitMineAndGenerate() {
     }
 
     document.getElementById('problem-mining-loading').style.display = 'block';
+    // 更新加载提示文字
+    const loadingText = document.getElementById('problem-mining-loading-text');
+    if (loadingText) loadingText.textContent = '正在挖掘蓝海机会...';
     // 隐藏机会列表区域（如果存在）
     const oppSection = document.getElementById('opportunities-section');
     if (oppSection) oppSection.style.display = 'none';
@@ -2343,8 +2346,8 @@ async function portraitMineAndGenerate() {
     document.getElementById('btn-one-key-analyze').disabled = true;
 
     try {
-        // Step 1: 调用市场分析 API
-        const resp = await fetch('/public/api/market/analyze', {
+        // Step 1: 调用两阶段 API - 仅挖掘蓝海机会
+        const resp = await fetch('/public/api/market/analyze_opportunities', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -2377,28 +2380,32 @@ async function portraitMineAndGenerate() {
                 dataKeys: Object.keys(data)
             });
 
-            // 缓存市场分析结果（用于后续画像生成）
+            // 缓存市场分析结果（仅包含蓝海机会，关键词库后续生成）
             _marketAnalysisCache = {
                 business_desc: businessDesc,
                 business_type: businessType,
+                business_range: businessRange,
                 service_scenario: serviceScenario,
-                analysis_result: data._analysis_result || {},
-                keyword_stats: data.keyword_stats,
-                subdivision_insights: data.subdivision_insights,
-                opportunities: opportunities,  // 蓝海机会列表
+                opportunities: opportunities,
+                subdivision_insights: data.subdivision_insights || {},
+                // 以下字段将在选择机会后生成
+                analysis_result: null,
+                keyword_stats: null,
             };
 
             document.getElementById('problem-mining-loading').style.display = 'none';
 
             // 如果有蓝海机会，显示在蓝海机会 Tab
             if (opportunities.length > 0) {
-                renderOpportunitiesInTab(opportunities, businessDesc, data.keyword_stats);
+                renderOpportunitiesInTab(opportunities, businessDesc, null);
                 // 切换到蓝海机会 Tab
                 switchSuperTab('tab-problems');
             } else {
-                // 没有蓝海机会，直接用原始业务生成画像
-                showToast('未发现明显蓝海机会，使用原业务生成画像', 'info');
-                generatePortraitsWithBusiness(businessDesc);
+                // 没有蓝海机会，提示用户
+                showToast('未发现明显蓝海机会', 'info');
+                document.getElementById('problems-empty-hint').style.display = 'flex';
+                unlockFormPanel();
+                document.getElementById('btn-one-key-analyze').disabled = false;
             }
         } else {
             showToast(result.message || '分析失败', 'error');
@@ -2571,10 +2578,15 @@ function clearSelectedOpportunity() {
     }
 }
 
-// 在 Tab 中选择蓝海机会（保存选中状态，切换到画像 Tab）
-function selectOpportunityInTab(index, businessDirection) {
+// 在 Tab 中选择蓝海机会（两阶段：先生成关键词库，再生成画像）
+async function selectOpportunityInTab(index, businessDirection) {
     if (!businessDirection) {
         showToast('该机会没有业务方向', 'error');
+        return;
+    }
+
+    if (!_marketAnalysisCache) {
+        showToast('分析缓存已过期，请重新分析', 'error');
         return;
     }
 
@@ -2599,8 +2611,169 @@ function selectOpportunityInTab(index, businessDirection) {
     // 锁定表单区域
     lockFormPanel();
 
-    // 切换到画像 Tab 生成画像
-    generatePortraitsWithBusiness(businessDirection);
+    // 显示加载状态
+    const oppSection = document.getElementById('opportunities-section');
+    if (oppSection) oppSection.classList.add('force-hidden');
+    document.getElementById('portraits-empty-hint').style.display = 'none';
+    document.getElementById('portrait-generating-loading').style.display = 'block';
+
+    // 更新加载提示
+    const loadingText = document.querySelector('#portrait-generating-loading p');
+    if (loadingText) {
+        loadingText.innerHTML = `<i class="bi bi-search" style="margin-right:6px;"></i>正在基于「${businessDirection}」生成关键词库...`;
+    }
+
+    // 切换到画像 Tab
+    switchSuperTab('tab-portraits');
+
+    try {
+        // Step 2: 调用关键词库生成 API（基于选定的业务方向）
+        const keywordResp = await fetch('/public/api/market/generate_keyword_library', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                business_description: _marketAnalysisCache.business_desc,
+                industry: '',
+                business_type: _marketAnalysisCache.business_type,
+                business_direction: businessDirection,
+            })
+        });
+
+        if (!keywordResp.ok) {
+            showToast('关键词库生成失败', 'error');
+            document.getElementById('portrait-generating-loading').style.display = 'none';
+            document.getElementById('portraits-empty-hint').style.display = 'flex';
+            unlockFormPanel();
+            return;
+        }
+
+        const keywordResult = await keywordResp.json();
+
+        if (!keywordResult.success || !keywordResult.data) {
+            showToast(keywordResult.message || '关键词库生成失败', 'error');
+            document.getElementById('portrait-generating-loading').style.display = 'none';
+            document.getElementById('portraits-empty-hint').style.display = 'flex';
+            unlockFormPanel();
+            return;
+        }
+
+        const keywordData = keywordResult.data;
+
+        // 更新缓存中的关键词库
+        _marketAnalysisCache.analysis_result = {
+            keyword_library: keywordData.keyword_library,
+            problem_types: keywordData.problem_types,
+        };
+        _marketAnalysisCache.keyword_stats = keywordData.keyword_stats;
+
+        // 更新加载提示
+        if (loadingText) {
+            loadingText.innerHTML = `<i class="bi bi-magic" style="margin-right:6px;"></i>正在生成精准画像...`;
+        }
+
+        // Step 3: 调用画像生成 API
+        const portraitResp = await fetch('/public/api/portraits/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                core_business: businessDirection,
+                original_business: _marketAnalysisCache.business_desc,
+                business_type: _marketAnalysisCache.business_type,
+                service_scenario: _marketAnalysisCache.service_scenario,
+                analysis_result: _marketAnalysisCache.analysis_result,
+                portraits_per_type: 3,
+            })
+        });
+
+        if (!portraitResp.ok) {
+            showToast('画像生成失败', 'error');
+            document.getElementById('portrait-generating-loading').style.display = 'none';
+            document.getElementById('portraits-empty-hint').style.display = 'flex';
+            unlockFormPanel();
+            return;
+        }
+
+        const portraitResult = await portraitResp.json();
+
+        if (portraitResult.success && portraitResult.data) {
+            const data = portraitResult.data;
+
+            // 构建完整的 qaResultData 格式
+            _qaResultData = {
+                core_business: data.core_business,
+                market_analysis: {
+                    opportunities: _marketAnalysisCache.opportunities || [],
+                    subdivision_insights: _marketAnalysisCache.subdivision_insights || null,
+                    keyword_stats: _marketAnalysisCache.keyword_stats || {},
+                },
+                problem_types: _marketAnalysisCache.analysis_result?.problem_types || [],
+                portraits: data.portraits || [],
+                portraits_by_type: data.portraits_by_type || {},
+            };
+
+            _currentMarketAnalysis = _qaResultData.market_analysis;
+
+            // 将问题类型转换为问题列表格式
+            const problems = convertProblemTypesToProblems(_qaResultData.problem_types || []);
+            _allProblems = problems;
+            _allProblemsPool = [];
+            _refreshRound = 0;
+            _allPortraits = {};
+
+            // 将画像按问题类型分组存储
+            if (data.portraits && data.portraits.length > 0) {
+                _generatedPortraits = data.portraits;
+                data.portraits.forEach(function(portrait) {
+                    const typeKey = portrait.problem_type || 'general';
+                    if (!_allPortraits[typeKey]) {
+                        _allPortraits[typeKey] = [];
+                    }
+                    _allPortraits[typeKey].push(convertNewPortraitToOldFormat(portrait));
+                });
+            }
+
+            // 显示细分赛道信息
+            if (_marketAnalysisCache.subdivision_insights) {
+                _currentSubdivision = {
+                    subdivision_name: _marketAnalysisCache.subdivision_insights.main_subdivision || businessDirection,
+                    confidence: 0.9,
+                    matched_keywords: _marketAnalysisCache.keyword_stats || {},
+                };
+            }
+
+            // 隐藏加载状态，显示画像区域
+            document.getElementById('portrait-generating-loading').style.display = 'none';
+            document.getElementById('target-customers-section').style.display = 'block';
+
+            // 渲染画像卡片
+            renderTargetCustomerCards(_selectedProblemKey);
+
+            // 更新业务描述输入框
+            const coreBusinessInput = document.getElementById('core-business-input');
+            if (coreBusinessInput) {
+                coreBusinessInput.value = data.core_business;
+            }
+
+            const blueRatio = Math.round((_marketAnalysisCache.keyword_stats?.blue_ratio || 0));
+            showToast(
+                `画像生成完成！核心业务：${data.core_business}，蓝海词占比 ${blueRatio}%`,
+                'success'
+            );
+        } else {
+            showToast(portraitResult.message || '画像生成失败', 'error');
+            document.getElementById('portrait-generating-loading').style.display = 'none';
+            document.getElementById('portraits-empty-hint').style.display = 'flex';
+            unlockFormPanel();
+        }
+    } catch (e) {
+        console.error('[selectOpportunityInTab] 异常:', e);
+        showToast('生成异常', 'error');
+        document.getElementById('portrait-generating-loading').style.display = 'none';
+        document.getElementById('portraits-empty-hint').style.display = 'flex';
+        unlockFormPanel();
+    }
 }
 
 // 显示蓝海机会选择弹窗（保留用于其他场景）

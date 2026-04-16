@@ -3288,6 +3288,186 @@ def api_market_analyze():
 
 
 # =============================================================================
+# 两阶段市场分析 API - Step 1: 挖掘蓝海机会
+# =============================================================================
+
+@public_bp.route('/api/market/analyze_opportunities', methods=['POST'])
+def api_market_analyze_opportunities():
+    """
+    两阶段市场分析 - Step 1: 仅挖掘蓝海机会
+
+    POST /public/api/market/analyze_opportunities
+    Body: {
+        business_description: str,   # 业务描述
+        industry: str,              # 行业（可选）
+        business_type: str,         # 经营类型
+    }
+
+    Response: {
+        success: True,
+        data: {
+            opportunities: [...],     # 蓝海机会列表
+            subdivision_insights: {}, # 细分洞察
+        }
+    }
+    """
+    from services.market_analyzer import MarketAnalyzer
+
+    logger = logging.getLogger(__name__)
+
+    data = request.get_json() or {}
+    business_description = data.get('business_description', '').strip()
+    if not business_description:
+        return jsonify({
+            'success': False,
+            'message': '请输入业务描述'
+        }), 400
+
+    industry = data.get('industry', '')
+    business_type = data.get('business_type', 'product')
+
+    business_info = {
+        'business_description': business_description,
+        'industry': industry,
+        'business_type': business_type,
+    }
+
+    logger.info(f"[api_market_analyze_opportunities] Step 1: 挖掘蓝海机会: {business_description[:50]}")
+
+    try:
+        analyzer = MarketAnalyzer()
+        result = analyzer.analyze_opportunities(
+            business_info=business_info,
+            max_opportunities=5,
+        )
+
+        if not result.get('success'):
+            return jsonify({
+                'success': False,
+                'message': f"分析失败: {result.get('error_message')}"
+            }), 500
+
+        logger.info(f"[api_market_analyze_opportunities] Step 1 完成: 发现 {len(result['market_opportunities'])} 个蓝海机会")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'opportunities': result['market_opportunities'],
+                'subdivision_insights': result['subdivision_insights'],
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[api_market_analyze_opportunities] 异常: {e}\n{tb_module.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'分析异常: {str(e)}'
+        }), 500
+
+
+# =============================================================================
+# 两阶段市场分析 API - Step 2: 基于业务方向生成关键词库
+# =============================================================================
+
+@public_bp.route('/api/market/generate_keyword_library', methods=['POST'])
+def api_generate_keyword_library():
+    """
+    两阶段市场分析 - Step 2: 基于用户选择的业务方向，生成精准关键词库
+
+    POST /public/api/market/generate_keyword_library
+    Body: {
+        business_description: str,   # 原始业务描述
+        industry: str,              # 行业（可选）
+        business_type: str,         # 经营类型
+        business_direction: str,    # 用户选择的蓝海业务方向
+    }
+
+    Response: {
+        success: True,
+        data: {
+            keyword_library: {...},   # 关键词库
+            problem_types: [...],     # 问题类型
+            keyword_stats: {...},     # 关键词统计
+        }
+    }
+    """
+    from services.keyword_library_generator import KeywordLibraryGenerator
+
+    logger = logging.getLogger(__name__)
+
+    data = request.get_json() or {}
+    business_description = data.get('business_description', '').strip()
+    industry = data.get('industry', '')
+    business_type = data.get('business_type', 'product')
+    business_direction = data.get('business_direction', '').strip()
+
+    if not business_description:
+        return jsonify({
+            'success': False,
+            'message': '请输入业务描述'
+        }), 400
+
+    if not business_direction:
+        return jsonify({
+            'success': False,
+            'message': '请选择或输入业务方向'
+        }), 400
+
+    business_info = {
+        'business_description': business_description,
+        'industry': industry,
+        'business_type': business_type,
+    }
+
+    logger.info(f"[api_generate_keyword_library] Step 2: 生成关键词库: {business_direction}")
+
+    try:
+        generator = KeywordLibraryGenerator()
+        result = generator.generate(
+            business_info=business_info,
+            business_direction=business_direction,
+            max_keywords=200,
+        )
+
+        if not result.success:
+            return jsonify({
+                'success': False,
+                'message': f"生成失败: {result.error_message}"
+            }), 500
+
+        logger.info(f"[api_generate_keyword_library] Step 2 完成: {result.total_keywords} 个关键词")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'keyword_library': result.keyword_library,
+                'problem_types': [
+                    {
+                        'type_name': p.type_name,
+                        'description': p.description,
+                        'target_audience': p.target_audience,
+                        'keywords': p.keywords,
+                    }
+                    for p in result.problem_types
+                ],
+                'keyword_stats': {
+                    'total': result.total_keywords,
+                    'blue_ocean': result.blue_ocean_keywords,
+                    'red_ocean': result.red_ocean_keywords,
+                    'blue_ratio': round(result.blue_ocean_keywords / result.total_keywords * 100, 1) if result.total_keywords > 0 else 0,
+                }
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[api_generate_keyword_library] 异常: {e}\n{tb_module.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'生成异常: {str(e)}'
+        }), 500
+
+
+# =============================================================================
 # 画像生成 API（基于用户选择的蓝海机会）
 # =============================================================================
 

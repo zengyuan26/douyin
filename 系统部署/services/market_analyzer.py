@@ -112,6 +112,86 @@ class MarketAnalyzer:
     def __init__(self):
         self.llm = get_llm_service()
 
+    def analyze_opportunities(
+        self,
+        business_info: Dict[str, Any],
+        max_opportunities: int = 5,
+    ) -> Dict[str, Any]:
+        """
+        仅挖掘蓝海市场机会（第一阶段）
+
+        Args:
+            business_info: 业务信息
+            max_opportunities: 最大市场机会数量
+
+        Returns:
+            Dict: 包含 market_opportunities 和 subdivision_insights
+        """
+        result = {
+            'success': False,
+            'error_message': '',
+            'market_opportunities': [],
+            'subdivision_insights': {},
+        }
+
+        try:
+            business_desc = business_info.get('business_description', '')
+            industry = business_info.get('industry', '')
+            business_type = business_info.get('business_type', 'product')
+
+            if not business_desc:
+                result['error_message'] = "业务描述不能为空"
+                return result
+
+            prompt = self._build_opportunity_prompt(
+                business_desc=business_desc,
+                industry=industry,
+                business_type=business_type,
+                max_opportunities=max_opportunities,
+            )
+
+            logger.info("[MarketAnalyzer] Step 1: 挖掘蓝海机会...")
+
+            messages = [{"role": "user", "content": prompt}]
+            response = self.llm.chat(messages, temperature=0.7, max_tokens=3000)
+
+            if not response or not response.strip():
+                result['error_message'] = "LLM调用返回为空"
+                return result
+
+            # 解析结果
+            data = self._try_fix_json(response)
+            if not data:
+                result['error_message'] = "JSON解析失败"
+                return result
+
+            # 解析市场机会
+            opportunities = data.get('market_opportunities', [])
+            for opp in opportunities:
+                result['market_opportunities'].append({
+                    'opportunity_name': opp.get('opportunity_name', ''),
+                    'business_direction': opp.get('business_direction', ''),
+                    'target_audience': opp.get('target_audience', ''),
+                    'pain_points': opp.get('pain_points', []),
+                    'keywords': opp.get('keywords', []),
+                    'content_direction': opp.get('content_direction', ''),
+                    'market_type': opp.get('market_type', 'blue_ocean'),
+                    'confidence': opp.get('confidence', 0.8),
+                    'differentiation': opp.get('differentiation', ''),
+                })
+
+            # 解析细分洞察
+            result['subdivision_insights'] = data.get('subdivision_insights', {})
+            result['success'] = True
+
+            logger.info(f"[MarketAnalyzer] Step 1 完成: 发现 {len(result['market_opportunities'])} 个蓝海机会")
+
+        except Exception as e:
+            logger.error("[MarketAnalyzer] Step 1 异常: %s", str(e))
+            result['error_message'] = f"异常: {str(e)}"
+
+        return result
+
     def analyze(
         self,
         business_info: Dict[str, Any],
@@ -197,6 +277,76 @@ class MarketAnalyzer:
 
         return result
 
+    def _build_opportunity_prompt(
+        self,
+        business_desc: str,
+        industry: str,
+        business_type: str,
+        max_opportunities: int,
+    ) -> str:
+        """构建蓝海机会挖掘Prompt（第一阶段）"""
+
+        # 业务类型适配
+        business_type_hint = ""
+        if business_type == 'product':
+            business_type_hint = "业务为消费品，重点关注：使用者症状、购买者顾虑、选择对比"
+        elif business_type == 'local_service':
+            business_type_hint = "业务为本地服务，重点关注：服务场景、时效顾虑、信任问题"
+        elif business_type == 'enterprise':
+            business_type_hint = "业务为企业服务，重点关注：决策流程、ROI顾虑、供应商选择"
+
+        prompt = f"""你是市场蓝海机会分析专家。请分析以下业务的市场机会，并挖掘可操作的业务细分方向。
+
+=== 业务信息 ===
+业务描述：{business_desc}
+行业：{industry or '根据业务描述推断'}
+业务类型：{business_type_hint}
+
+=== 分析任务 ===
+请完成以下分析并输出JSON格式结果：
+
+1. **市场机会挖掘**：识别{max_opportunities}个蓝海市场机会
+   - 每个机会必须包含：
+     - **opportunity_name**：机会名称，如"高端细分市场"、"特殊人群市场"
+     - **business_direction**：**【关键】业务细分方向，用于直接填入"核心业务"输入框**
+       - 必须具体到可执行的业务方向，如"进口有机羊奶粉"、"乳糖不耐受特殊配方奶粉"
+       - 格式：产品类型 + 特色标签，如"进口"、"有机"、"羊奶"、"配方"
+     - **differentiation**：一句话说明这个机会好在哪、差异化在哪
+   - 目标人群要细分：如"家有0-6个月奶粉喂养宝宝的新手妈妈"
+
+2. **细分赛道洞察**：
+   - main_subdivision: 主流细分方向
+   - blue_ocean_direction: 蓝海差异化方向
+   - differentiation_points: 差异化点列表
+
+=== 输出格式 ===
+请严格按以下JSON格式输出，不要输出任何其他内容：
+
+{{
+    "market_opportunities": [
+        {{
+            "opportunity_name": "高端细分市场",
+            "business_direction": "进口有机羊奶粉",
+            "target_audience": "追求高品质、愿意为宝宝花费更多的30-40岁中产家庭",
+            "pain_points": ["担心国产奶粉质量问题", "想要更接近母乳的配方"],
+            "keywords": ["进口羊奶粉", "有机奶粉", "A2蛋白奶粉"],
+            "content_direction": "种草型：强调品质、安全、专业",
+            "market_type": "blue_ocean",
+            "confidence": 0.85,
+            "differentiation": "竞争少、客单价高、用户忠诚度高"
+        }}
+    ],
+    "subdivision_insights": {{
+        "main_subdivision": "有机/天然概念是主流趋势",
+        "blue_ocean_direction": "细分人群（如早产儿、乳糖不耐受）是蓝海",
+        "differentiation_points": ["有机认证", "特殊配方", "进口品质"]
+    }}
+}}
+
+请开始分析："""
+
+        return prompt
+
     def _build_analysis_prompt(
         self,
         business_desc: str,
@@ -205,7 +355,7 @@ class MarketAnalyzer:
         max_opportunities: int,
         max_keywords: int,
     ) -> str:
-        """构建分析Prompt"""
+        """构建分析Prompt（一次性完整分析，保持向后兼容）"""
 
         # 问题类型分类指引
         problem_type_guide = """
