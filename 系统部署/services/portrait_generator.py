@@ -125,10 +125,12 @@ class PortraitGenerator:
                 type_desc = problem_type.get('description', '')
                 type_audience = problem_type.get('target_audience', '')
                 type_keywords = problem_type.get('keywords', [])
+                # 获取场景关键词列表（用于选题扩展和画像场景覆盖）
+                scene_keywords = problem_type.get('scene_keywords', type_keywords)
 
                 logger.info(
-                    "[PortraitGenerator] 生成问题类型 %d/%d: %s",
-                    i + 1, len(context.problem_types), type_name
+                    "[PortraitGenerator] 生成问题类型 %d/%d: %s (场景数: %d)",
+                    i + 1, len(context.problem_types), type_name, len(scene_keywords)
                 )
 
                 # 为每个问题类型生成多个画像（不同场景）
@@ -137,6 +139,7 @@ class PortraitGenerator:
                     problem_type_desc=type_desc,
                     target_audience=type_audience,
                     type_keywords=type_keywords,
+                    scene_keywords=scene_keywords,  # 新增场景关键词
                     keyword_library=context.keyword_library,
                     business_info=context.business_info,
                     count=context.portraits_per_type,
@@ -158,6 +161,7 @@ class PortraitGenerator:
         problem_type_desc: str,
         target_audience: str,
         type_keywords: List[str],
+        scene_keywords: List[str],  # 新增：场景关键词列表
         keyword_library: Dict[str, Any],
         business_info: Dict[str, Any],
         count: int,
@@ -173,6 +177,7 @@ class PortraitGenerator:
             problem_type_desc=problem_type_desc,
             target_audience=target_audience,
             type_keywords=type_keywords,
+            scene_keywords=scene_keywords,  # 新增
             keyword_library=keyword_library,
             business_info=business_info,
             count=count,
@@ -203,6 +208,7 @@ class PortraitGenerator:
         problem_type_desc: str,
         target_audience: str,
         type_keywords: List[str],
+        scene_keywords: List[str],  # 新增：场景关键词列表
         keyword_library: Dict[str, Any],
         business_info: Dict[str, Any],
         count: int,
@@ -250,6 +256,9 @@ class PortraitGenerator:
                 )
             opportunities_text = "\n".join(opp_list)
 
+        # 场景关键词文本（用于选题覆盖多样性）
+        scene_keywords_text = ', '.join(scene_keywords[:15]) if scene_keywords else ', '.join(type_keywords[:15])
+
         prompt = f"""你是人群画像生成专家。请基于以下信息，为「{problem_type_name}」类型生成{count}个精准人群画像。
 
 === 业务信息 ===
@@ -258,7 +267,10 @@ class PortraitGenerator:
 问题类型：{problem_type_name}
 问题描述：{problem_type_desc}
 目标人群：{target_audience}
-类型关键词（场景枚举参考）：{', '.join(type_keywords[:20])}
+
+=== 【核心】场景关键词列表（选题扩展用，覆盖同一类型的多种场景）===
+【重要】每个画像对应场景关键词列表中的一个场景，让内容选题有足够广度：
+{scene_keywords_text}
 
 === 蓝海关键词（优先使用）===
 {', '.join(blue_ocean_kw[:30])}
@@ -270,10 +282,11 @@ class PortraitGenerator:
 {opportunities_text}
 
 === 画像生成要求 ===
-为「{problem_type_name}」问题类型生成{count}个画像，每个画像对应一个具体场景：
-1. **场景来自关键词**：从上述类型关键词中选取{count}个不同的场景，每个画像对应一个场景
+为「{problem_type_name}」问题类型生成{count}个画像，每个画像对应场景关键词列表中的一个具体场景：
+1. **场景覆盖**：从场景关键词列表中选取{count}个不同的场景，每个画像对应一个场景
 2. **identity差异化**：身份要有区分度，如"职场妈妈" vs "全职妈妈" vs "新手妈妈"
 3. **pain_points聚焦**：痛点围绕该场景展开
+4. **内容选题扩展**：画像的 search_keywords 可以从场景关键词列表中选取多个，覆盖同一问题的不同表达方式
 
 每个画像必须包含：
 - identity: 身份标签（简短，如"职场新手妈妈"）
@@ -284,7 +297,7 @@ class PortraitGenerator:
 - pain_scenarios: 1-2个痛点场景（围绕该场景）
 - psychology: 心理画像
 - barriers: 2-3个购买顾虑
-- search_keywords: 3-5个搜索关键词（用蓝海词）
+- search_keywords: 3-5个搜索关键词（用蓝海词，可从场景关键词列表扩展）
 - content_preferences: 2-3个内容偏好
 - market_type: blue_ocean
 - differentiation: 差异化方向
@@ -444,6 +457,7 @@ def generate_portraits_from_analysis(
                 'description': p.description,
                 'target_audience': p.target_audience,
                 'keywords': p.keywords,
+                'scene_keywords': getattr(p, 'scene_keywords', []),  # 新增
             }
             for p in problem_types
         ]

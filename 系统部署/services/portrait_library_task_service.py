@@ -160,9 +160,10 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str) -> None
 
     流程：
     1. 更新状态 = 'generating'
-    2. 关键词库生成 → 保存
-    3. 选题库生成 → 保存
-    4. 更新状态 = 'completed' / 'failed'
+    2. 检查是否已有关键词库：
+       - 已有关键词库：跳过关键词库生成，只生成选题库
+       - 没有关键词库：生成关键词库 → 保存 → 生成选题库
+    3. 更新状态 = 'completed' / 'failed'
     """
     from models.public_models import SavedPortrait, db
     from services.portrait_save_service import portrait_save_service
@@ -189,6 +190,7 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str) -> None
         portrait_data_dict = portrait.get('portrait_data', {})
         business_description = portrait.get('business_description', '')
         target_customer = portrait.get('target_customer', '')
+        keyword_library_from_db = portrait.get('keyword_library')  # 已有关键词库
 
         # 确保画像数据包含必要的结构化信息
         if not portrait_data_dict:
@@ -213,29 +215,40 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str) -> None
         logger.info("[PortraitLibraryTask] portrait_data identity=" + str(portrait_data_dict.get('identity', '')))
         logger.info("[PortraitLibraryTask] portrait_data pain_point=" + str(portrait_data_dict.get('pain_point', '')))
         logger.info("[PortraitLibraryTask] business_info: " + business_str)
+        logger.info("[PortraitLibraryTask] 已有关键词库: %s", "是" if keyword_library_from_db else "否")
 
-        # 3. 生成关键词库
-        kw_result = keyword_library_generator.generate(
-            portrait_data=portrait_data_dict,
-            business_info=business_info,
-            plan_type=plan_type,
-            portrait_id=portrait_id,
-        )
+        # 3. 判断是否需要生成关键词库
+        kw_library = keyword_library_from_db  # 默认使用已有关键词库
 
-        if kw_result.get('success') and not kw_result.get('_meta', {}).get('from_cache'):
-            keyword_library_generator.save_to_portrait(
-                portrait_id=portrait_id,
-                keyword_library=kw_result['keyword_library'],
-                user_id=user_id,
+        if not kw_library:
+            # 没有已有关键词库，需要生成
+            kw_result = keyword_library_generator.generate(
+                portrait_data=portrait_data_dict,
+                business_info=business_info,
                 plan_type=plan_type,
+                portrait_id=portrait_id,
             )
+
+            if kw_result.get('success') and not kw_result.get('_meta', {}).get('from_cache'):
+                keyword_library_generator.save_to_portrait(
+                    portrait_id=portrait_id,
+                    keyword_library=kw_result['keyword_library'],
+                    user_id=user_id,
+                    plan_type=plan_type,
+                )
+                logger.info(
+                    "[PortraitLibraryTask] 关键词库生成完成 portrait_id=%d",
+                    portrait_id
+                )
+
+            kw_library = kw_result.get('keyword_library')
+        else:
             logger.info(
-                "[PortraitLibraryTask] 关键词库生成完成 portrait_id=%d",
+                "[PortraitLibraryTask] 使用已有关键词库，跳过生成 portrait_id=%d",
                 portrait_id
             )
 
-        # 4. 生成选题库
-        kw_library = kw_result.get('keyword_library')
+        # 4. 生成选题库（使用已有关键词库或刚生成的关键词库）
         topic_result = topic_library_generator.generate(
             portrait_data=portrait_data_dict,
             business_info=business_info,

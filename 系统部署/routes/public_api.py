@@ -923,6 +923,8 @@ def api_save_portrait():
     industry = params.get('industry', '')
     target_customer = params.get('target_customer', '')
     set_as_default = params.get('set_as_default', False)
+    keyword_library = params.get('keyword_library', None)  # 前端传递的关键词库
+    problem_types = params.get('problem_types', [])       # 前端传递的问题类型
     
     if not portrait_data:
         return jsonify({'success': False, 'message': '画像数据不能为空'}), 400
@@ -955,7 +957,8 @@ def api_save_portrait():
         business_description=business_description,
         industry=industry,
         target_customer=target_customer,
-        is_default=set_as_default
+        is_default=set_as_default,
+        keyword_library=keyword_library,  # 保存前端传递的关键词库
     )
     db.session.add(new_portrait)
     db.session.commit()
@@ -3447,6 +3450,7 @@ def api_generate_keyword_library():
                         'description': p.description,
                         'target_audience': p.target_audience,
                         'keywords': p.keywords,
+                        'scene_keywords': p.scene_keywords,  # 场景关键词，用于选题扩展
                     }
                     for p in result.problem_types
                 ],

@@ -1708,12 +1708,46 @@
                                 <i class="bi bi-people" style="font-size:2rem;margin-bottom:12px;"></i>
                                 <p>请先完成问题识别</p>
                             </div>
+                            <!-- 关键词库入口 -->
+                            <div id="keyword-library-entry" style="display: none; margin-bottom: 16px;">
+                                <div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 12px; padding: 16px 20px; border: 1px solid rgba(25, 118, 210, 0.15); cursor: pointer;" onclick="showKeywordLibraryModal()">
+                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            <div style="width: 40px; height: 40px; background: #1976d2; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                                <i class="bi bi-collection" style="color: white; font-size: 1.2rem;"></i>
+                                            </div>
+                                            <div>
+                                                <div style="font-size: 0.9375rem; font-weight: 600; color: #1565c0; margin-bottom: 2px;">关键词库</div>
+                                                <div style="font-size: 0.8125rem; color: #666;" id="keyword-library-summary">查看蓝海词和红海词分布</div>
+                                            </div>
+                                        </div>
+                                        <i class="bi bi-chevron-right" style="color: #999; font-size: 1.2rem;"></i>
+                                    </div>
+                                </div>
+                            </div>
                             <!-- 画像卡片区域 -->
                             <div id="target-customers-section" style="display: none;"></div>
                         </div>
                     </div>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    {# 关键词库弹窗 #}
+    <div class="modal fade" id="keywordLibraryModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-collection me-2"></i>关键词库
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body" id="keywordLibraryBody">
+                    <!-- 内容由JS动态填充 -->
+                </div>
             </div>
         </div>
     </div>
@@ -2440,27 +2474,15 @@ function renderOpportunitiesInTab(opportunities, originalBusiness, keywordStats)
     section.style.display = 'block';
     container.innerHTML = '';  // 清空旧内容
 
-    const blueCount = keywordStats?.blue_ocean || 0;
-    const redCount = keywordStats?.red_ocean || 0;
-    const blueRatio = Math.round(keywordStats?.blue_ratio || 0);  // 后端已返回百分比值（如 90 表示 90%）
-
     const html = `
         <div style="margin-bottom: 16px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #4caf50, #2e7d32); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                        <i class="bi bi-rocket-takeoff" style="color: white; font-size: 1rem;"></i>
-                    </div>
-                    <span style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">发现 ${opportunities.length} 个蓝海机会</span>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #4caf50, #2e7d32); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                    <i class="bi bi-rocket-takeoff" style="color: white; font-size: 1rem;"></i>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8125rem;">
-                    <span style="color: #2e7d32; font-weight: 600;">${blueCount} 蓝</span>
-                    <span style="color: #999;">/</span>
-                    <span style="color: #666;">${redCount} 红</span>
-                    <span style="background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 500;">占比 ${blueRatio}%</span>
-                </div>
+                <span style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">发现 ${opportunities.length} 个蓝海机会</span>
             </div>
-            <p style="font-size: 0.8125rem; color: #666; margin-bottom: 16px;">原始业务：${originalBusiness}</p>
+            <p style="font-size: 0.8125rem; color: #666;">原始业务：${originalBusiness}</p>
         </div>
         <div class="opp-cards-container">
             ${opportunities.map((opp, idx) => {
@@ -2733,6 +2755,10 @@ async function selectOpportunityInTab(index, businessDirection) {
                     _allPortraits[typeKey].push(convertNewPortraitToOldFormat(portrait));
                 });
             }
+
+            // 清除选中的蓝海机会（画像已生成完成，不再需要保留选中状态）
+            _selectedOpportunityIndex = null;
+            _selectedOpportunityData = null;
 
             // 显示细分赛道信息
             if (_marketAnalysisCache.subdivision_insights) {
@@ -3142,6 +3168,10 @@ async function generatePortraitsWithBusiness(coreBusiness) {
                 });
             }
 
+            // 清除选中的蓝海机会（画像已生成完成，不再需要保留选中状态）
+            _selectedOpportunityIndex = null;
+            _selectedOpportunityData = null;
+
             // 显示细分赛道信息
             if (_marketAnalysisCache.subdivision_insights) {
                 _currentSubdivision = {
@@ -3200,6 +3230,7 @@ function convertProblemTypesToProblems(problemTypes) {
             severity: '中',
             scenario: '通用',
             _isProblemType: true,  // 标记为问题类型
+            scene_keywords: pt.scene_keywords || [],  // 场景关键词，用于选题扩展
         };
     });
 }
@@ -3478,109 +3509,117 @@ function renderProblemCards(problems) {
 
 // 构建蓝海机会展示 HTML
 function buildMarketOpportunitiesHTML() {
-    // 在画像 Tab 中不显示蓝海机会（已独立展示在蓝海机会 Tab）
-    // 两种情况：1) 已选择问题 2) 已选择蓝海机会
-    // 注意：通过蓝海机会选择时，_selectedOpportunityData 被设置，但 _selectedProblemKey 为 null
-    // 因此需要分别检查两个条件
-    if (_selectedProblemKey) {
-        return '';
-    }
-    // 检查是否已选择蓝海机会（无论是通过问题选择还是蓝海机会选择）
-    if (_selectedOpportunityData !== null) {
-        return '';
-    }
+    // 在画像 Tab 中不显示蓝海机会
+    return '';
+}
 
+// 显示关键词库弹窗
+function showKeywordLibraryModal() {
+    const modalEl = document.getElementById('keywordLibraryModal');
+    if (!modalEl) return;
+
+    const bodyEl = document.getElementById('keywordLibraryBody');
+    bodyEl.innerHTML = renderKeywordLibraryContent();
+
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+// 渲染关键词库内容
+function renderKeywordLibraryContent() {
     const marketAnalysis = _currentMarketAnalysis || {};
-    const opportunities = marketAnalysis.opportunities || [];
     const keywordStats = marketAnalysis.keyword_stats || {};
-    const blueRatio = Math.round(keywordStats.blue_ratio || 0);  // 后端已返回百分比值（如 90 表示 90%）
+    const keywordLibrary = _marketAnalysisCache?.analysis_result?.keyword_library || null;
+
     const blueCount = keywordStats.blue_ocean || 0;
     const redCount = keywordStats.red_ocean || 0;
+    const blueRatio = Math.round(keywordStats.blue_ratio || 0);
 
-    if (!opportunities || opportunities.length === 0) {
-        // 显示关键词统计
-        if (blueCount > 0 || redCount > 0) {
-            return `
-                <div class="market-opportunities-section" style="margin-bottom: 20px;">
-                    <div class="market-stats-card" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 12px; padding: 16px 20px; border: 1px solid rgba(46, 125, 50, 0.15);">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 40px; height: 40px; background: #2e7d32; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                                <i class="bi bi-graph-up-arrow" style="color: white; font-size: 1.2rem;"></i>
-                            </div>
-                            <div style="flex: 1;">
-                                <div style="font-size: 0.8125rem; color: #2e7d32; font-weight: 500; margin-bottom: 4px;">蓝海关键词</div>
-                                <div style="display: flex; gap: 16px; font-size: 0.9375rem;">
-                                    <span style="color: #2e7d32; font-weight: 600;">${blueCount} 个蓝海词</span>
-                                    <span style="color: #666;">${redCount} 个红海词</span>
-                                    <span style="background: #2e7d32; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600;">占比 ${blueRatio}%</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        return '';
-    }
+    let html = '';
 
-    // 显示蓝海机会列表（只展示，用户已在弹窗中选择过了）
-    const opportunitiesHTML = opportunities.map((opp, idx) => {
-        const painPoints = (opp.pain_points || []).slice(0, 2).join('、');
-        const keywords = (opp.keywords || []).slice(0, 3).join('、');
-        const businessDir = opp.business_direction || '';
-        const differentiation = opp.differentiation || '';
-        const confidence = Math.round((opp.confidence || 0.8) * 100);
-
-        return `
-            <div class="opportunity-item" style="background: white; border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-                <div style="display: flex; align-items: flex-start; gap: 10px;">
-                    <div style="width: 28px; height: 28px; background: linear-gradient(135deg, #4caf50, #2e7d32); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <span style="color: white; font-size: 0.75rem; font-weight: 700;">${idx + 1}</span>
-                    </div>
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                            <span style="font-size: 0.9375rem; font-weight: 600; color: var(--text-primary);">${opp.opportunity_name || '蓝海机会' + (idx + 1)}</span>
-                            <span style="background: ${confidence >= 80 ? '#e8f5e9' : '#fff3e0'}; color: ${confidence >= 80 ? '#2e7d32' : '#e65100'}; font-size: 0.6875rem; padding: 2px 6px; border-radius: 6px;">置信 ${confidence}%</span>
-                        </div>
-                        ${businessDir ? `<div style="font-size: 0.8125rem; color: #1565c0; font-weight: 500; margin-bottom: 4px;">
-                            <i class="bi bi-arrow-right-circle" style="margin-right: 4px;"></i>核心业务：${businessDir}
-                        </div>` : ''}
-                        <div style="font-size: 0.8125rem; color: #666; margin-bottom: 4px;">
-                            <span style="color: var(--apple-gray);">目标：</span>${opp.target_audience || '待定'}
-                        </div>
-                        ${painPoints ? `<div style="font-size: 0.8125rem; color: #666; margin-bottom: 4px;"><span style="color: var(--apple-gray);">痛点：</span>${painPoints}</div>` : ''}
-                        ${differentiation ? `<div style="font-size: 0.8125rem; color: #2e7d32; margin-bottom: 4px;"><i class="bi bi-lightbulb" style="margin-right: 4px;"></i>${differentiation}</div>` : ''}
-                        ${keywords ? `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
-                            ${(opp.keywords || []).slice(0, 3).map(kw => `<span style="background: #e8f5e9; color: #2e7d32; font-size: 0.6875rem; padding: 2px 8px; border-radius: 8px;">${kw}</span>`).join('')}
-                        </div>` : ''}
-                    </div>
-                </div>
+    // 统计概览
+    html += `
+        <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+            <div style="flex: 1; background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius: 12px; padding: 16px; text-align: center;">
+                <div style="font-size: 2rem; font-weight: 700; color: #2e7d32;">${blueCount}</div>
+                <div style="font-size: 0.875rem; color: #2e7d32;">蓝海词</div>
             </div>
-        `;
-    }).join('');
-
-    return `
-        <div class="market-opportunities-section" style="margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #4caf50, #2e7d32); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                        <i class="bi bi-rocket-takeoff" style="color: white; font-size: 1rem;"></i>
-                    </div>
-                    <span style="font-size: 0.9375rem; font-weight: 600; color: var(--text-primary);">蓝海机会</span>
-                    <span style="background: #e8f5e9; color: #2e7d32; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; font-weight: 500;">${opportunities.length} 个机会</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="color: #2e7d32; font-weight: 600;">${blueCount} 蓝</span>
-                    <span style="color: #999;">/</span>
-                    <span style="color: #666;">${redCount} 红</span>
-                    <span style="background: ${blueRatio >= 50 ? '#2e7d32' : '#ff9800'}; color: white; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px;">${blueRatio}%</span>
-                </div>
+            <div style="flex: 1; background: linear-gradient(135deg, #ffebee, #ffcdd2); border-radius: 12px; padding: 16px; text-align: center;">
+                <div style="font-size: 2rem; font-weight: 700; color: #c62828;">${redCount}</div>
+                <div style="font-size: 0.875rem; color: #c62828;">红海词</div>
             </div>
-            <div style="max-height: 200px; overflow-y: auto;">
-                ${opportunitiesHTML}
+            <div style="flex: 1; background: ${blueRatio >= 50 ? 'linear-gradient(135deg, #e8f5e9, #c8e6c9)' : 'linear-gradient(135deg, #fff3e0, #ffe0b2)'}; border-radius: 12px; padding: 16px; text-align: center;">
+                <div style="font-size: 2rem; font-weight: 700; color: ${blueRatio >= 50 ? '#2e7d32' : '#e65100'};">${blueRatio}%</div>
+                <div style="font-size: 0.875rem; color: ${blueRatio >= 50 ? '#2e7d32' : '#e65100'};">蓝海占比</div>
             </div>
         </div>
     `;
+
+    // 如果有完整关键词库，显示分类
+    if (keywordLibrary && keywordLibrary.categories) {
+        html += '<div style="margin-top: 20px;">';
+
+        keywordLibrary.categories.forEach((cat, idx) => {
+            const catName = cat.name || `分类 ${idx + 1}`;
+            const catType = cat.market_type === 'blue_ocean' ? '蓝海' : '红海';
+            const catColor = cat.market_type === 'blue_ocean' ? '#2e7d32' : '#c62828';
+            const catBg = cat.market_type === 'blue_ocean' ? '#e8f5e9' : '#ffebee';
+            const keywords = cat.keywords || [];
+
+            html += `
+                <div style="margin-bottom: 20px; background: white; border-radius: 10px; padding: 16px; border: 1px solid rgba(0,0,0,0.08);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: ${catBg}; color: ${catColor}; font-size: 0.75rem; padding: 2px 8px; border-radius: 6px; font-weight: 600;">${catType}</span>
+                        <span style="font-weight: 600; color: var(--text-primary);">${catName}</span>
+                        <span style="color: #999; font-size: 0.8125rem;">${keywords.length} 个词</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        ${keywords.map(kw => `<span style="background: ${catBg}; color: ${catColor}; font-size: 0.8125rem; padding: 4px 10px; border-radius: 6px;">${kw}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+    } else if (blueCount > 0 || redCount > 0) {
+        // 没有完整关键词库，但有统计数据，显示简要信息
+        html += `
+            <div style="background: #f5f5f5; border-radius: 10px; padding: 20px; text-align: center; color: #666;">
+                <i class="bi bi-info-circle" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
+                <p style="margin: 0;">关键词库数据已用于画像生成</p>
+                <p style="margin: 8px 0 0; font-size: 0.8125rem;">完整的关键词分类可在蓝海机会Tab中查看</p>
+            </div>
+        `;
+    } else {
+        html += `
+            <div style="background: #f5f5f5; border-radius: 10px; padding: 20px; text-align: center; color: #666;">
+                <i class="bi bi-inbox" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
+                <p style="margin: 0;">暂无关键词库数据</p>
+            </div>
+        `;
+    }
+
+    return html;
+}
+
+// 更新关键词库入口显示
+function updateKeywordLibraryEntry() {
+    const entry = document.getElementById('keyword-library-entry');
+    const summary = document.getElementById('keyword-library-summary');
+    if (!entry) return;
+
+    const keywordStats = _currentMarketAnalysis?.keyword_stats || {};
+    const blueCount = keywordStats.blue_ocean || 0;
+    const redCount = keywordStats.red_ocean || 0;
+
+    if (blueCount > 0 || redCount > 0) {
+        entry.style.display = 'block';
+        if (summary) {
+            summary.textContent = `${blueCount} 个蓝海词 / ${redCount} 个红海词`;
+        }
+    } else {
+        entry.style.display = 'none';
+    }
 }
 
 // 构建单个问题卡片 HTML
@@ -3880,6 +3919,10 @@ async function generatePortraitsForProblem(key, index) {
             _allPortraits[key] = portraits;
             _currentPortraitData = portraits[0];
 
+            // 清除选中的蓝海机会（画像已生成完成，不再需要保留选中状态）
+            _selectedOpportunityIndex = null;
+            _selectedOpportunityData = null;
+
             renderTargetCustomerCards(key);
 
             // 直接操作 DOM 切换到画像 tab（不经过防抖）
@@ -4160,6 +4203,9 @@ function renderTargetCustomerCards(focusKey) {
 
     // 确保容器可见
     container.style.display = 'block';
+
+    // 更新关键词库入口
+    updateKeywordLibraryEntry();
 
     const allPortraitKeys = Object.keys(_allPortraits);
     if (allPortraitKeys.length === 0) {
@@ -4609,6 +4655,10 @@ async function portraitConfirmSave() {
     }
 
     try {
+        // 获取关键词库数据（如果有的话）
+        const keywordLibrary = _marketAnalysisCache?.analysis_result?.keyword_library || null;
+        const problemTypes = _marketAnalysisCache?.analysis_result?.problem_types || [];
+
         const resp = await fetch('/public/api/portraits/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -4620,7 +4670,10 @@ async function portraitConfirmSave() {
                 industry: '',
                 target_customer: _currentPortraitData.name || '',
                 source_session_id: '',
-                set_as_default: setDefault
+                set_as_default: setDefault,
+                // 传递关键词库（避免后台重复生成）
+                keyword_library: keywordLibrary,
+                problem_types: problemTypes,
             })
         });
 
