@@ -3306,7 +3306,14 @@ function renderProblemCards(problems) {
 // 构建蓝海机会展示 HTML
 function buildMarketOpportunitiesHTML() {
     // 在画像 Tab 中不显示蓝海机会（已独立展示在蓝海机会 Tab）
+    // 两种情况：1) 已选择问题 2) 已选择蓝海机会
+    // 注意：通过蓝海机会选择时，_selectedOpportunityData 被设置，但 _selectedProblemKey 为 null
+    // 因此需要分别检查两个条件
     if (_selectedProblemKey) {
+        return '';
+    }
+    // 检查是否已选择蓝海机会（无论是通过问题选择还是蓝海机会选择）
+    if (_selectedOpportunityData !== null) {
         return '';
     }
 
