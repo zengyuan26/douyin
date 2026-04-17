@@ -192,7 +192,246 @@
         cursor: not-allowed;
     }
 
-    /* 蓝海机会 Tab 样式 */
+    /* 蓝海机会 Tab 样式 - iPod Classic 轮播风格 */
+    .opp-cover-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        margin: 24px 0 16px;
+    }
+
+    .opp-cover-track {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 640px;
+    }
+
+    .opp-cover-card-main {
+        width: 100%;
+        max-width: 600px;
+        border-radius: 16px;
+        padding: 24px;
+        background: var(--card-bg, white);
+        border: 1px solid var(--card-border, #e8e8ed);
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+        opacity: 1;
+    }
+
+    .opp-cover-card-main.slide-out-left {
+        transform: translateX(-150%) scale(0.95);
+        opacity: 0;
+    }
+
+    .opp-cover-card-main.slide-out-right {
+        transform: translateX(150%) scale(0.95);
+        opacity: 0;
+    }
+
+    .opp-cover-card-main.slide-in-left {
+        animation: slideInFromLeft 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    }
+
+    .opp-cover-card-main.slide-in-right {
+        animation: slideInFromRight 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    }
+
+    @keyframes slideInFromLeft {
+        from {
+            transform: translateX(-150%) scale(0.95);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0) scale(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideInFromRight {
+        from {
+            transform: translateX(150%) scale(0.95);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0) scale(1);
+            opacity: 1;
+        }
+    }
+
+    /* 卡片内部样式 */
+    .opp-cover-card-main .opp-tab-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .opp-cover-card-main .opp-tab-number {
+        width: 28px;
+        height: 28px;
+        background: var(--apple-red);
+        color: white;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+
+    .opp-cover-card-main .opp-tab-name {
+        font-size: 1.0625rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        flex: 1;
+    }
+
+    .opp-cover-card-main .opp-tab-confidence {
+        font-size: 0.75rem;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-weight: 500;
+        background: var(--confidence-bg, #f5f5f7);
+        color: var(--confidence-color, #666);
+    }
+
+    .opp-cover-card-main .opp-tab-direction {
+        font-size: 0.9375rem;
+        color: var(--apple-blue, #007aff);
+        font-weight: 500;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .opp-cover-card-main .opp-tab-info {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .opp-cover-card-main .opp-tab-info i {
+        color: var(--apple-gray);
+        margin-top: 2px;
+        flex-shrink: 0;
+    }
+
+    .opp-cover-card-main .opp-tab-diff {
+        font-size: 0.875rem;
+        color: var(--apple-green, #34c759);
+        margin: 12px 0;
+        padding: 10px 14px;
+        background: var(--green-bg, #f0f9f0);
+        border-radius: 10px;
+        line-height: 1.5;
+    }
+
+    .opp-cover-card-main .opp-tab-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .opp-cover-card-main .opp-tab-kw {
+        font-size: 0.75rem;
+        background: var(--tag-bg, #f0f0f5);
+        color: var(--text-secondary);
+        padding: 4px 10px;
+        border-radius: 12px;
+    }
+
+    .opp-cover-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .opp-cover-nav button {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--card-bg, white);
+        border: 1px solid var(--card-border, #e8e8ed);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        color: var(--text-secondary);
+        font-size: 1.125rem;
+    }
+
+    .opp-cover-nav button:hover:not(:disabled) {
+        background: var(--apple-red);
+        border-color: var(--apple-red);
+        color: white;
+    }
+
+    .opp-cover-nav button:disabled {
+        opacity: 0.25;
+        cursor: not-allowed;
+    }
+
+    .opp-cover-dots {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin: 20px 0;
+    }
+
+    .opp-cover-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--dot-bg, #d1d1d6);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .opp-cover-dot.active {
+        background: var(--apple-red);
+        transform: scale(1.3);
+    }
+
+    .opp-cover-dot:hover:not(.active) {
+        background: var(--dot-hover, #aeaeb2);
+    }
+
+    .opp-cover-action {
+        display: flex;
+        justify-content: center;
+        margin-top: 18px;
+    }
+
+    .opp-cover-action .btn-select-opp {
+        background: var(--apple-red);
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-size: 0.9375rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+
+    .opp-cover-action .btn-select-opp:hover {
+        background: var(--apple-red-dark, #e02d21);
+    }
+
+    /* 保留原有卡片样式（兼容其他场景） */
     .opp-cards-container {
         display: flex;
         flex-direction: column;
@@ -2013,8 +2252,12 @@ function handleTabAction() {
             resetSuperPortraitFlow();
             break;
         case 'tab-problems':
-            // 蓝海机会 Tab：重置流程
-            resetSuperPortraitFlow();
+            // 蓝海机会 Tab：重新获取蓝海机会
+            if (_marketAnalysisCache) {
+                refreshOpportunities();
+            } else {
+                resetSuperPortraitFlow();
+            }
             break;
         case 'tab-portraits':
             refreshPortraits();
@@ -2029,6 +2272,95 @@ window._isUserActionInProgress = false;
 
 // 全局标记：当前活跃的 tab（用于防止意外切换）
 window._activeTabOverride = null;
+
+// ============================================================================
+// 换一批：重新挖掘蓝海机会
+// ============================================================================
+let _refreshOpportunitiesRetryCount = 0;
+
+async function refreshOpportunities() {
+    const businessDesc = document.getElementById('business-desc').value.trim();
+    if (!businessDesc) {
+        showToast('请先输入业务描述', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('tab-action-text');
+    if (btn) {
+        btn.textContent = '换一批...';
+        btn.disabled = true;
+    }
+
+    const listSection = document.getElementById('opportunities-section');
+    const listContainer = document.getElementById('opportunities-list');
+    listSection.classList.remove('force-hidden');
+    listSection.style.display = 'block';
+    listContainer.innerHTML = `
+        <div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+            <div class="spinner-border text-primary" role="status" style="margin-bottom: 16px;">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p>正在分析蓝海机会...</p>
+        </div>
+    `;
+
+    try {
+        const businessType = document.querySelector('input[name="business-type"]:checked')?.value || 'product';
+
+        const resp = await fetch('/public/api/market/analyze_opportunities', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                business_description: businessDesc,
+                industry: '',
+                business_type: businessType,
+            })
+        });
+
+        const result = await resp.json();
+
+        if (!result.success) {
+            showToast(result.message || '分析失败', 'error');
+            listContainer.innerHTML = '';
+            return;
+        }
+
+        const opportunities = result.data?.opportunities || [];
+        if (opportunities.length === 0) {
+            showToast('未发现明显蓝海机会', 'info');
+            listContainer.innerHTML = '';
+            return;
+        }
+
+        // 更新缓存并重新渲染轮播
+        _marketAnalysisCache.opportunities = opportunities;
+        _marketAnalysisCache.subdivision_insights = result.data?.subdivision_insights || {};
+        _opportunityCarouselIndex = 0;
+        _opportunityCarouselData = opportunities;
+        renderOpportunityCarousel();
+
+        _refreshOpportunitiesRetryCount = 0;
+        showToast(`发现 ${opportunities.length} 个蓝海机会`, 'success');
+
+    } catch (e) {
+        console.error('[换一批-蓝海机会] 异常:', e);
+        _refreshOpportunitiesRetryCount++;
+        if (_refreshOpportunitiesRetryCount < 2) {
+            showToast('网络异常，正在重试...', 'warning');
+            await new Promise(r => setTimeout(r, 1500));
+            refreshOpportunities();
+        } else {
+            showToast('换一批失败，请稍后重试', 'error');
+            _refreshOpportunitiesRetryCount = 0;
+            listContainer.innerHTML = '';
+        }
+    } finally {
+        if (btn) {
+            btn.textContent = '换一批';
+            btn.disabled = false;
+        }
+    }
+}
 
 // 点击已生成画像的问题卡片 → 跳转查看
 function goToPortraitsTabWithKey(problemKey) {
@@ -2173,7 +2505,7 @@ async function fetchWithRetry(url, options = {}) {
             const response = await fetch(url, {
                 ...fetchOptions,
                 signal: controller.signal,
-                credentials: 'include',
+            credentials: 'include',
             });
             clearTimeout(timeoutId);
             return response;
@@ -2203,14 +2535,6 @@ async function fetchWithRetry(url, options = {}) {
 // ============================================================================
 // 换一批：重新挖掘问题
 // ============================================================================
-
-let _refreshProblemsSeq = 0;
-let _refreshProblemsRetryCount = 0;
-
-async function refreshProblems() {
-    // 蓝海机会已不支持换一批，直接重置
-    resetSuperPortraitFlow();
-}
 
 // 换一批：重新生成画像
 let _refreshPortraitsSeq = 0;
@@ -2458,7 +2782,11 @@ async function portraitMineAndGenerate() {
     }
 }
 
-// 在 Tab 中渲染蓝海机会列表
+// 全局变量 - 蓝海机会轮播
+var _opportunityCarouselIndex = 0;
+var _opportunityCarouselData = [];
+
+// 在 Tab 中渲染蓝海机会列表 - iPod Classic 风格
 function renderOpportunitiesInTab(opportunities, originalBusiness, keywordStats) {
     const container = document.getElementById('opportunities-list');
     const section = document.getElementById('opportunities-section');
@@ -2469,61 +2797,148 @@ function renderOpportunitiesInTab(opportunities, originalBusiness, keywordStats)
         keywordStats
     });
 
+    // 保存数据供切换使用
+    _opportunityCarouselData = opportunities;
+    _opportunityCarouselIndex = 0;
+
     // 显示区域（移除强制隐藏类，并设置 display）
     section.classList.remove('force-hidden');
     section.style.display = 'block';
     container.innerHTML = '';  // 清空旧内容
 
+    renderOpportunityCarousel();
+}
+
+// 渲染蓝海机会轮播
+function renderOpportunityCarousel() {
+    const container = document.getElementById('opportunities-list');
+    const opportunities = _opportunityCarouselData;
+    const count = opportunities.length;
+    const current = _opportunityCarouselIndex;
+
+    const opp = opportunities[current];
+    const confidence = Math.round((opp.confidence || 0.8) * 100);
+    const businessDir = opp.business_direction || opp.opportunity_name || '';
+    const differentiation = opp.differentiation || '';
+    const targetAudience = opp.target_audience || '';
+    const painPoints = (opp.pain_points || []).slice(0, 2).join('、');
+    const keywords = (opp.keywords || []).slice(0, 5);
+    const escapedName = (opp.opportunity_name || '蓝海机会').replace(/'/g, "\\'");
+
     const html = `
         <div style="margin-bottom: 16px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #4caf50, #2e7d32); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <div style="width: 32px; height: 32px; background: var(--apple-red); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
                     <i class="bi bi-rocket-takeoff" style="color: white; font-size: 1rem;"></i>
                 </div>
-                <span style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">发现 ${opportunities.length} 个蓝海机会</span>
+                <span style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">发现 ${count} 个蓝海机会</span>
             </div>
-            <p style="font-size: 0.8125rem; color: #666;">原始业务：${originalBusiness}</p>
+            <p style="font-size: 0.8125rem; color: var(--text-secondary);">原始业务：${_marketAnalysisCache?.business_desc || ''}</p>
         </div>
-        <div class="opp-cards-container">
-            ${opportunities.map((opp, idx) => {
-                const confidence = Math.round((opp.confidence || 0.8) * 100);
-                const businessDir = opp.business_direction || opp.opportunity_name || '';
-                const differentiation = opp.differentiation || '';
-                const targetAudience = opp.target_audience || '';
-                const painPoints = (opp.pain_points || []).slice(0, 2).join('、');
-                const keywords = (opp.keywords || []).slice(0, 5);
 
-                return `
-                    <div class="opp-tab-card" onclick="selectOpportunityInTab(${idx}, '${(businessDir || opp.opportunity_name || '').replace(/'/g, "\\'")}')">
-                        <div class="opp-tab-card-header">
-                            <span class="opp-tab-number">${idx + 1}</span>
-                            <span class="opp-tab-name">${opp.opportunity_name || '蓝海机会'}</span>
-                            <span class="opp-tab-confidence" style="background: ${confidence >= 80 ? '#e8f5e9' : '#fff3e0'}; color: ${confidence >= 80 ? '#2e7d32' : '#e65100'};">
-                                置信 ${confidence}%
-                            </span>
-                        </div>
-                        ${businessDir ? `<div class="opp-tab-direction"><i class="bi bi-arrow-right-circle"></i> ${businessDir}</div>` : ''}
-                        ${targetAudience ? `<div class="opp-tab-info"><i class="bi bi-people"></i> ${targetAudience}</div>` : ''}
-                        ${painPoints ? `<div class="opp-tab-info"><i class="bi bi-lightbulb"></i> ${painPoints}</div>` : ''}
-                        ${differentiation ? `<div class="opp-tab-diff">${differentiation}</div>` : ''}
-                        ${keywords.length > 0 ? `
-                            <div class="opp-tab-keywords">
-                                ${keywords.map(k => `<span class="opp-tab-kw">${k}</span>`).join('')}
-                            </div>
-                        ` : ''}
-                        <div class="opp-tab-action">
-                            <button class="btn-select-opp" onclick="event.stopPropagation(); selectOpportunityInTab(${idx}, '${(businessDir || opp.opportunity_name || '').replace(/'/g, "\\'")}')">
-                                <i class="bi bi-check-circle"></i> 选择此方向生成画像
-                            </button>
-                        </div>
+        <div class="opp-cover-wrapper">
+            <div class="opp-cover-nav">
+                <button onclick="opportunitySlidePrev()" ${current === 0 ? 'disabled' : ''} title="上一个">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+            </div>
+
+            <div class="opp-cover-track">
+                <div class="opp-cover-card-main" id="opp-card-current">
+                    <div class="opp-tab-card-header">
+                        <span class="opp-tab-number">${current + 1}</span>
+                        <span class="opp-tab-name">${opp.opportunity_name || '蓝海机会'}</span>
+                        <span class="opp-tab-confidence" style="background: ${confidence >= 80 ? '#e8f5e9' : '#fff3e0'}; color: ${confidence >= 80 ? '#2e7d32' : '#e65100'};">
+                            置信 ${confidence}%
+                        </span>
                     </div>
-                `;
-            }).join('')}
+                    ${businessDir ? `<div class="opp-tab-direction"><i class="bi bi-arrow-right-circle"></i> ${businessDir}</div>` : ''}
+                    ${targetAudience ? `<div class="opp-tab-info"><i class="bi bi-people"></i> ${targetAudience}</div>` : ''}
+                    ${painPoints ? `<div class="opp-tab-info"><i class="bi bi-lightbulb"></i> ${painPoints}</div>` : ''}
+                    ${differentiation ? `<div class="opp-tab-diff">${differentiation}</div>` : ''}
+                    ${keywords.length > 0 ? `
+                        <div class="opp-tab-keywords">
+                            ${keywords.map(k => `<span class="opp-tab-kw">${k}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    <div class="opp-cover-action">
+                        <button class="btn-select-opp" onclick="selectOpportunityInTab(${current}, '${escapedName}')">
+                            <i class="bi bi-check-circle"></i> 选择此方向生成画像
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="opp-cover-nav">
+                <button onclick="opportunitySlideNext()" ${current === count - 1 ? 'disabled' : ''} title="下一个">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="opp-cover-dots">
+            ${opportunities.map((_, idx) => `
+                <div class="opp-cover-dot ${idx === current ? 'active' : ''}" onclick="opportunitySlideTo(${idx})"></div>
+            `).join('')}
         </div>
     `;
 
     container.innerHTML = html;
-    section.style.display = 'block';
+}
+
+// 切换到上一个蓝海机会
+function opportunitySlidePrev() {
+    if (_opportunityCarouselIndex > 0) {
+        const card = document.getElementById('opp-card-current');
+        if (card) {
+            card.classList.add('slide-out-right');
+        }
+        setTimeout(() => {
+            _opportunityCarouselIndex--;
+            renderOpportunityCarousel();
+            const newCard = document.getElementById('opp-card-current');
+            if (newCard) {
+                newCard.classList.add('slide-in-right');
+            }
+        }, 150);
+    }
+}
+
+// 切换到下一个蓝海机会
+function opportunitySlideNext() {
+    if (_opportunityCarouselIndex < _opportunityCarouselData.length - 1) {
+        const card = document.getElementById('opp-card-current');
+        if (card) {
+            card.classList.add('slide-out-left');
+        }
+        setTimeout(() => {
+            _opportunityCarouselIndex++;
+            renderOpportunityCarousel();
+            const newCard = document.getElementById('opp-card-current');
+            if (newCard) {
+                newCard.classList.add('slide-in-left');
+            }
+        }, 150);
+    }
+}
+
+// 切换到指定索引的蓝海机会
+function opportunitySlideTo(index) {
+    if (index >= 0 && index < _opportunityCarouselData.length && index !== _opportunityCarouselIndex) {
+        const card = document.getElementById('opp-card-current');
+        const direction = index > _opportunityCarouselIndex ? 'slide-out-left' : 'slide-out-right';
+        if (card) {
+            card.classList.add(direction);
+        }
+        setTimeout(() => {
+            _opportunityCarouselIndex = index;
+            renderOpportunityCarousel();
+            const newCard = document.getElementById('opp-card-current');
+            if (newCard) {
+                newCard.classList.add(index > _opportunityCarouselIndex ? 'slide-in-left' : 'slide-in-right');
+            }
+        }, 150);
+    }
 }
 
 // 渲染选中的机会快照（只显示选中的那个，并标记为已选择）
@@ -2631,7 +3046,7 @@ async function selectOpportunityInTab(index, businessDirection) {
     });
 
     // 锁定表单区域
-    lockFormPanel();
+            lockFormPanel();
 
     // 显示加载状态
     const oppSection = document.getElementById('opportunities-section');
@@ -2846,8 +3261,8 @@ function showOpportunityModal(opportunities, originalBusiness) {
 
     // 显示弹窗
     modal.style.display = 'flex';
-    document.getElementById('btn-one-key-analyze').disabled = false;
-}
+        document.getElementById('btn-one-key-analyze').disabled = false;
+    }
 
 // 创建蓝海机会选择弹窗
 function createOpportunityModal() {
@@ -3560,7 +3975,8 @@ function renderKeywordLibraryContent() {
         html += '<div style="margin-top: 20px;">';
 
         keywordLibrary.categories.forEach((cat, idx) => {
-            const catName = cat.name || `分类 ${idx + 1}`;
+            const catName = cat.category_name || cat.name || `分类 ${idx + 1}`;
+            const catDesc = cat.category_desc || '';
             const catType = cat.market_type === 'blue_ocean' ? '蓝海' : '红海';
             const catColor = cat.market_type === 'blue_ocean' ? '#2e7d32' : '#c62828';
             const catBg = cat.market_type === 'blue_ocean' ? '#e8f5e9' : '#ffebee';
@@ -3568,11 +3984,12 @@ function renderKeywordLibraryContent() {
 
             html += `
                 <div style="margin-bottom: 20px; background: white; border-radius: 10px; padding: 16px; border: 1px solid rgba(0,0,0,0.08);">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                         <span style="background: ${catBg}; color: ${catColor}; font-size: 0.75rem; padding: 2px 8px; border-radius: 6px; font-weight: 600;">${catType}</span>
                         <span style="font-weight: 600; color: var(--text-primary);">${catName}</span>
                         <span style="color: #999; font-size: 0.8125rem;">${keywords.length} 个词</span>
                     </div>
+                    ${catDesc ? `<div style="color: #666; font-size: 0.8125rem; margin-bottom: 10px;">${catDesc}</div>` : ''}
                     <div style="display: flex; flex-wrap: wrap; gap: 6px;">
                         ${keywords.map(kw => `<span style="background: ${catBg}; color: ${catColor}; font-size: 0.8125rem; padding: 4px 10px; border-radius: 6px;">${kw}</span>`).join('')}
                     </div>

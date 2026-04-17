@@ -1133,9 +1133,16 @@ def api_get_keyword_library_md(portrait_id):
     # 类别关键词
     if keyword_library.get('categories'):
         for cat in keyword_library['categories']:
-            cat_name = cat.get('name', '未分类')
+            cat_name = cat.get('category_name', cat.get('name', '未分类'))
+            cat_desc = cat.get('category_desc', '')
+            market_type = cat.get('market_type', '')
             keywords = cat.get('keywords', [])
-            md_lines.append(f"## {cat_name}")
+
+            # 构建分类标题（包含描述和市场类型）
+            market_icon = '🌊' if market_type == 'blue_ocean' else ('🔴' if market_type == 'red_ocean' else '⚪')
+            md_lines.append(f"## {market_icon} {cat_name}")
+            if cat_desc:
+                md_lines.append(f"*{cat_desc}*")
             md_lines.append("")
             for kw in keywords:
                 md_lines.append(f"- {kw}")
@@ -3426,16 +3433,19 @@ def api_generate_keyword_library():
 
     try:
         generator = KeywordLibraryGenerator()
+
+        # 核心业务词：使用原始业务描述中的核心词，而非用户选择的蓝海机会
+        # 蓝海机会是营销定位，关键词库应该基于实际业务
         result = generator.generate(
             business_info=business_info,
-            business_direction=business_direction,
+            core_business=None,  # 让服务自动从业务描述提取核心词
             max_keywords=200,
         )
 
         if not result.success:
             return jsonify({
                 'success': False,
-                'message': f"生成失败: {result.error_message}"
+                'message': f"生成失败: {result.error_message or '未知错误'}"
             }), 500
 
         logger.info(f"[api_generate_keyword_library] Step 2 完成: {result.total_keywords} 个关键词")
@@ -3443,28 +3453,20 @@ def api_generate_keyword_library():
         return jsonify({
             'success': True,
             'data': {
-                'keyword_library': result.keyword_library,
-                'problem_types': [
-                    {
-                        'type_name': p.type_name,
-                        'description': p.description,
-                        'target_audience': p.target_audience,
-                        'keywords': p.keywords,
-                        'scene_keywords': p.scene_keywords,  # 场景关键词，用于选题扩展
-                    }
-                    for p in result.problem_types
-                ],
+                'keyword_library': result.keyword_library or {},
+                'problem_types': [pt.to_dict() if hasattr(pt, 'to_dict') else pt.__dict__ for pt in result.problem_types],
                 'keyword_stats': {
-                    'total': result.total_keywords,
-                    'blue_ocean': result.blue_ocean_keywords,
-                    'red_ocean': result.red_ocean_keywords,
-                    'blue_ratio': round(result.blue_ocean_keywords / result.total_keywords * 100, 1) if result.total_keywords > 0 else 0,
+                    'total': result.total_keywords or 0,
+                    'blue_ocean': result.blue_ocean_keywords or 0,
+                    'red_ocean': result.red_ocean_keywords or 0,
+                    'blue_ratio': round((result.blue_ocean_keywords or 0) / (result.total_keywords or 1) * 100, 1),
                 }
             }
         })
 
     except Exception as e:
-        logger.error(f"[api_generate_keyword_library] 异常: {e}\n{tb_module.format_exc()}")
+        import traceback
+        logger.error(f"[api_generate_keyword_library] 异常: {e}\n{traceback.format_exc()}")
         return jsonify({
             'success': False,
             'message': f'生成异常: {str(e)}'

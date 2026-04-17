@@ -301,6 +301,58 @@ class TopicLibraryGenerator:
     }
 
     # =============================================================================
+    # 画像维度 → 选题类型映射（本地控制）
+    # =============================================================================
+
+    # 画像维度特征词（用于检测画像包含哪些维度）
+    PORTRAIT_DIMENSION_KEYWORDS = {
+        'identity': {
+            'keywords': ['人群', '身份', '宝爸', '宝妈', '家长', '老人', '儿童', '学生', '孕妈', '产妇', '中老年', '新手', '过敏'],
+            'dimension_name': '人群身份',
+        },
+        'pain_point': {
+            'keywords': ['痛点', '问题', '困扰', '烦恼', '难受', '不适', '担心', '焦虑', '害怕', '不会', '不懂', '拉肚子', '便秘', '上火'],
+            'dimension_name': '痛点需求',
+        },
+        'concern': {
+            'keywords': ['顾虑', '担心', '害怕', '顾虑', '疑虑', '怕', '担忧', '不确定', '安全', '质量', '真假', '成分', '价格贵'],
+            'dimension_name': '购买顾虑',
+        },
+        'scenario': {
+            'keywords': ['场景', '时候', '情况', '高铁', '旅行', '旅游', '上班', '上学', '早餐', '睡前', '断奶', '辅食', '术后', '产后'],
+            'dimension_name': '使用场景',
+        },
+    }
+
+    # 画像维度 → 三盘优先映射
+    DIMENSION_BASE_PRIORITY = {
+        'identity': {
+            'primary_base': '前置观望种草盘',
+            'secondary_bases': ['使用配套搜后种草盘'],
+            'preferred_type_keys': ['compare', 'tutorial', 'cause', 'upstream', 'scene'],
+            'dimension_weight': 0.8,
+        },
+        'pain_point': {
+            'primary_base': '刚需痛点盘',
+            'secondary_bases': ['前置观望种草盘'],
+            'preferred_type_keys': ['pain_point', 'decision_encourage', 'effect_proof', 'pitfall'],
+            'dimension_weight': 0.9,
+        },
+        'concern': {
+            'primary_base': '刚需痛点盘',
+            'secondary_bases': ['前置观望种草盘'],
+            'preferred_type_keys': ['decision_encourage', 'rethink', 'pitfall', 'cause'],
+            'dimension_weight': 0.85,
+        },
+        'scenario': {
+            'primary_base': '使用配套搜后种草盘',
+            'secondary_bases': ['前置观望种草盘'],
+            'preferred_type_keys': ['skill', 'seasonal', 'festival', 'scene', 'emotional'],
+            'dimension_weight': 0.75,
+        },
+    }
+
+    # =============================================================================
     # GEO 模式核心规则（100% 本地控制）
     # =============================================================================
 
@@ -446,9 +498,18 @@ class TopicLibraryGenerator:
 
             # ── 4. 获取阶段配置 ─────────────────────────
             stage = content_stage or '成长阶段'
-            stage_config = self.STAGE_RATIO_MAP.get(stage, self.STAGE_RATIO_MAP['成长阶段'])
+            stage_config = self.STAGE_RATIO_MAP.get(stage, self.STAGE_RATIO_MAP['成长阶段']).copy()
             logger.info("[TopicLibraryGenerator] 阶段: %s | 三盘: %s",
                         stage, stage_config['description'])
+
+            # ── 4.1 画像维度分析 → 调整三盘配比 ───────────
+            portrait_dimensions = self._analyze_portrait_dimensions(portrait_data)
+            if portrait_dimensions:
+                stage_config = self._adjust_base_ratio_by_portrait(
+                    portrait_data, portrait_dimensions, stage_config, topic_count
+                )
+                logger.info("[TopicLibraryGenerator] 画像维度: %s | 调整后三盘: %s",
+                           portrait_dimensions, stage_config.get('_adjusted_description', ''))
 
             # ── 5. 构建上下文 ───────────────────────────
             context = self._build_context(portrait_data, business_info, keyword_library)
@@ -472,8 +533,10 @@ class TopicLibraryGenerator:
             parsed_topics = self._parse_response_7layer(response)
             logger.info("[TopicLibraryGenerator] 解析得到 %d 条", len(parsed_topics))
 
-            # ── 9. 本地分配 type_key（三盘比例） ────────
-            typed_topics = self._assign_type_keys(parsed_topics, stage_config, topic_count)
+            # ── 9. 本地分配 type_key（三盘比例 + 画像维度） ────────
+            typed_topics = self._assign_type_keys(
+                parsed_topics, stage_config, topic_count, portrait_dimensions
+            )
 
             # ── 10. 兜底补全 ────────────────────────────
             filled_topics = self._fill_missing_topics(
@@ -481,13 +544,19 @@ class TopicLibraryGenerator:
             )
 
             # ── 11. 组装最终结构 ───────────────────────
+            # 排除非底盘字段
+            result_base_ratio = {
+                k: v for k, v in stage_config.items()
+                if k in ('前置观望种草盘', '刚需痛点盘', '使用配套搜后种草盘')
+            }
             result = {
                 'topics': filled_topics,
                 'by_type': self._count_by_type(filled_topics),
                 'priorities': self._count_by_priority(filled_topics),
                 'stage': stage,
-                'base_ratio': {k: v for k, v in stage_config.items() if k != 'description'},
+                'base_ratio': result_base_ratio,
                 'generated_at': datetime.utcnow().isoformat(),
+                '_portrait_dimensions': portrait_dimensions,
             }
 
             return {
@@ -947,6 +1016,171 @@ class TopicLibraryGenerator:
         }
 
     # ===========================================================================
+    # 画像维度分析（本地计算）
+    # ===========================================================================
+
+    def _analyze_portrait_dimensions(self, portrait_data: Dict) -> Dict[str, float]:
+        """
+        分析画像数据包含哪些维度及其强度
+
+        Returns:
+            Dict: {dimension: score}，如 {'identity': 0.8, 'pain_point': 0.6}
+        """
+        if not portrait_data:
+            return {}
+
+        dimensions = {}
+
+        # 提取画像中的关键文本（用于关键词匹配）
+        portrait_text = ' '.join([
+            str(portrait_data.get('identity', '') or ''),
+            str(portrait_data.get('pain_point', '') or ''),
+            str(portrait_data.get('concern', '') or ''),
+            str(portrait_data.get('scenario', '') or ''),
+            str(portrait_data.get('portrait_summary', '') or ''),
+            # 包含子字段
+            str(portrait_data.get('user_perspective', {}).get('problem', '') or ''),
+            str(portrait_data.get('buyer_perspective', {}).get('obstacles', '') or ''),
+            str(portrait_data.get('buyer_perspective', {}).get('psychology', '') or ''),
+        ]).lower()
+
+        # 检测每个维度
+        for dim_key, dim_config in self.PORTRAIT_DIMENSION_KEYWORDS.items():
+            score = 0.0
+            for keyword in dim_config['keywords']:
+                if keyword.lower() in portrait_text:
+                    score += 0.3
+            # 直接字段存在时加分
+            if portrait_data.get(dim_key):
+                score += 0.4
+            # 子字段检查
+            if dim_key == 'identity' and portrait_data.get('identity_tags'):
+                score += 0.3
+            if dim_key == 'concern' and portrait_data.get('barriers'):
+                score += 0.3
+
+            if score > 0:
+                dimensions[dim_key] = min(score, 1.0)
+
+        return dimensions
+
+    def _adjust_base_ratio_by_portrait(
+        self,
+        portrait_data: Dict,
+        portrait_dimensions: Dict[str, float],
+        stage_config: Dict,
+        topic_count: int,
+    ) -> Dict:
+        """
+        根据画像维度调整三盘配比
+
+        策略：
+        1. 分析画像的主要维度特征
+        2. 根据维度强度调整三盘比例
+        3. 优先维度获得更多选题配额
+        """
+        if not portrait_dimensions:
+            stage_config['_adjusted_description'] = stage_config.get('description', '')
+            return stage_config
+
+        # 找出最强维度
+        strongest_dim = max(portrait_dimensions.items(), key=lambda x: x[1])
+        dim_key = strongest_dim[0]
+        dim_score = strongest_dim[1]
+
+        # 复制配置，避免修改原始数据
+        adjusted = stage_config.copy()
+
+        # 获取维度配置
+        dim_config = self.DIMENSION_BASE_PRIORITY.get(dim_key, {})
+
+        if not dim_config:
+            return adjusted
+
+        # 根据维度强度和账号阶段调整配比
+        primary_base = dim_config['primary_base']
+        secondary_base = dim_config['secondary_bases'][0] if dim_config['secondary_bases'] else '前置观望种草盘'
+
+        # 获取当前阶段的基础配比
+        base_ratio = {
+            k: v for k, v in adjusted.items()
+            if k not in ('description', '_adjusted_description')
+        }
+
+        # 根据维度强度调整
+        adjustment_factor = dim_score * 0.3  # 最大调整30%
+
+        if dim_key == 'pain_point':
+            # 痛点维度：增加刚需痛点盘
+            base_ratio['刚需痛点盘'] = min(0.50, base_ratio.get('刚需痛点盘', 0.15) + adjustment_factor)
+            base_ratio['前置观望种草盘'] = max(0.30, base_ratio.get('前置观望种草盘', 0.60) - adjustment_factor * 0.5)
+            base_ratio['使用配套搜后种草盘'] = max(0.15, base_ratio.get('使用配套搜后种草盘', 0.25) - adjustment_factor * 0.5)
+
+        elif dim_key == 'concern':
+            # 顾忌维度：增加刚需痛点盘（决策安心类）
+            base_ratio['刚需痛点盘'] = min(0.45, base_ratio.get('刚需痛点盘', 0.15) + adjustment_factor)
+            base_ratio['前置观望种草盘'] = max(0.35, base_ratio.get('前置观望种草盘', 0.60) - adjustment_factor * 0.3)
+            base_ratio['使用配套搜后种草盘'] = base_ratio.get('使用配套搜后种草盘', 0.25)
+
+        elif dim_key == 'identity':
+            # 人群维度：增加前置观望种草盘（对比选型、知识教程）
+            base_ratio['前置观望种草盘'] = min(0.80, base_ratio.get('前置观望种草盘', 0.60) + adjustment_factor)
+            base_ratio['刚需痛点盘'] = max(0.05, base_ratio.get('刚需痛点盘', 0.15) - adjustment_factor * 0.3)
+            base_ratio['使用配套搜后种草盘'] = base_ratio.get('使用配套搜后种草盘', 0.25)
+
+        elif dim_key == 'scenario':
+            # 场景维度：增加使用配套搜后种草盘
+            base_ratio['使用配套搜后种草盘'] = min(0.50, base_ratio.get('使用配套搜后种草盘', 0.25) + adjustment_factor)
+            base_ratio['前置观望种草盘'] = max(0.30, base_ratio.get('前置观望种草盘', 0.60) - adjustment_factor * 0.5)
+            base_ratio['刚需痛点盘'] = base_ratio.get('刚需痛点盘', 0.15)
+
+        # 归一化，确保总和为1
+        total = sum(base_ratio.values())
+        if total > 0 and abs(total - 1.0) > 0.01:
+            for k in base_ratio:
+                base_ratio[k] = base_ratio[k] / total
+
+        # 更新配置
+        adjusted.update(base_ratio)
+        adjusted['_adjusted_description'] = (
+            f"画像维度调整({dim_config['dimension_name']}={dim_score:.1f}): "
+            f"前置={base_ratio.get('前置观望种草盘', 0):.0%}, "
+            f"刚需={base_ratio.get('刚需痛点盘', 0):.0%}, "
+            f"配套={base_ratio.get('使用配套搜后种草盘', 0):.0%}"
+        )
+        adjusted['_portrait_dimension'] = dim_key
+        adjusted['_dimension_score'] = dim_score
+
+        return adjusted
+
+    def _get_preferred_type_keys_by_dimension(self, portrait_dimensions: Dict[str, float]) -> List[str]:
+        """
+        根据画像维度获取优先的type_key列表
+        """
+        preferred_keys = []
+
+        # 按维度权重排序
+        sorted_dims = sorted(
+            portrait_dimensions.items(),
+            key=lambda x: self.DIMENSION_BASE_PRIORITY.get(x[0], {}).get('dimension_weight', 0) * x[1],
+            reverse=True
+        )
+
+        for dim_key, score in sorted_dims:
+            dim_config = self.DIMENSION_BASE_PRIORITY.get(dim_key, {})
+            preferred_keys.extend(dim_config.get('preferred_type_keys', []))
+
+        # 去重但保留顺序
+        seen = set()
+        unique_keys = []
+        for key in preferred_keys:
+            if key not in seen:
+                seen.add(key)
+                unique_keys.append(key)
+
+        return unique_keys
+
+    # ===========================================================================
     # type_key 分配（本地计算）
     # ===========================================================================
 
@@ -955,6 +1189,7 @@ class TopicLibraryGenerator:
         topics: List[Dict],
         stage_config: Dict,
         topic_count: int = 20,
+        portrait_dimensions: Dict = None,
     ) -> List[Dict]:
         """本地按三盘比例分配 type_key"""
         if not topics:
@@ -966,10 +1201,14 @@ class TopicLibraryGenerator:
             '使用配套搜后种草盘':  [t['key'] for t in self.TOPIC_TYPES if t['base'] == '使用配套搜后种草盘'],
         }
 
+        # 获取调整后的三盘配比（排除非底盘字段）
+        base_ratio = {
+            k: v for k, v in stage_config.items()
+            if k in base_keys
+        }
+
         base_counts = {}
-        for base_name, ratio in stage_config.items():
-            if base_name == 'description':
-                continue
+        for base_name, ratio in base_ratio.items():
             count = int(round(ratio * topic_count))
             base_counts[base_name] = count
 
@@ -981,6 +1220,11 @@ class TopicLibraryGenerator:
         base_assignments = {base: 0 for base in base_counts}
         used_keys = set()
 
+        # 获取画像维度优先的type_key
+        preferred_keys_by_dim = []
+        if portrait_dimensions:
+            preferred_keys_by_dim = self._get_preferred_type_keys_by_dimension(portrait_dimensions)
+
         for topic in topics:
             if len(result) >= topic_count:
                 break
@@ -990,7 +1234,15 @@ class TopicLibraryGenerator:
                 if base_assignments[base_name] >= count:
                     continue
 
+                # 优先从画像维度推荐的type_key中选择
                 available_keys = [k for k in base_keys[base_name] if k not in used_keys]
+
+                # 如果有画像维度推荐的key，优先使用
+                if preferred_keys_by_dim:
+                    dim_preferred = [k for k in preferred_keys_by_dim if k in available_keys]
+                    if dim_preferred:
+                        available_keys = dim_preferred
+
                 if not available_keys:
                     available_keys = base_keys[base_name]
 
