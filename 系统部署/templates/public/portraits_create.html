@@ -3073,7 +3073,8 @@ async function selectOpportunityInTab(index, businessDirection) {
                 business_description: _marketAnalysisCache.business_desc,
                 industry: '',
                 business_type: _marketAnalysisCache.business_type,
-                business_direction: businessDirection,
+                core_business: businessDirection,  // 核心业务词
+                blue_ocean_opportunity: _marketAnalysisCache.selected_opportunity?.opportunity_name || '',  // 蓝海机会
             })
         });
 
@@ -3101,6 +3102,7 @@ async function selectOpportunityInTab(index, businessDirection) {
         _marketAnalysisCache.analysis_result = {
             keyword_library: keywordData.keyword_library,
             problem_types: keywordData.problem_types,
+            question_samples: keywordData.question_samples || [],  // 问句示范
         };
         _marketAnalysisCache.keyword_stats = keywordData.keyword_stats;
 

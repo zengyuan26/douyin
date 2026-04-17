@@ -1132,15 +1132,16 @@ def api_get_keyword_library_md(portrait_id):
 
     # 类别关键词
     if keyword_library.get('categories'):
+        md_lines.append("## 一、关键词库")
+        md_lines.append("")
         for cat in keyword_library['categories']:
             cat_name = cat.get('category_name', cat.get('name', '未分类'))
             cat_desc = cat.get('category_desc', '')
             market_type = cat.get('market_type', '')
             keywords = cat.get('keywords', [])
 
-            # 构建分类标题（包含描述和市场类型）
             market_icon = '🌊' if market_type == 'blue_ocean' else ('🔴' if market_type == 'red_ocean' else '⚪')
-            md_lines.append(f"## {market_icon} {cat_name}")
+            md_lines.append(f"### {market_icon} {cat_name}")
             if cat_desc:
                 md_lines.append(f"*{cat_desc}*")
             md_lines.append("")
@@ -1148,13 +1149,37 @@ def api_get_keyword_library_md(portrait_id):
                 md_lines.append(f"- {kw}")
             md_lines.append("")
 
-    # 蓝海词
-    if keyword_library.get('blue_ocean'):
-        md_lines.append("## 蓝海关键词")
+    # 问句示范
+    question_samples = portrait.question_samples
+    if question_samples:
+        md_lines.append("## 二、问句示范")
         md_lines.append("")
-        for kw in keyword_library['blue_ocean']:
-            md_lines.append(f"- {kw}")
-        md_lines.append("")
+
+        # 前置问句
+        pre_questions = [q for q in question_samples if q.get('question_type') == 'pre']
+        if pre_questions:
+            md_lines.append("### 🔍 前置问句（用户遇到问题但还没找到解决方案）")
+            md_lines.append("")
+            for q in pre_questions:
+                md_lines.append(f"- **{q.get('question', '')}**")
+                components = q.get('components', {})
+                if components:
+                    parts = [f"{k}={v}" for k, v in components.items()]
+                    md_lines.append(f"  - 组成：{' | '.join(parts)}")
+            md_lines.append("")
+
+        # 后置问句
+        post_questions = [q for q in question_samples if q.get('question_type') == 'post']
+        if post_questions:
+            md_lines.append("### 🛒 后置问句（用户用了产品后发现新问题）")
+            md_lines.append("")
+            for q in post_questions:
+                md_lines.append(f"- **{q.get('question', '')}**")
+                components = q.get('components', {})
+                if components:
+                    parts = [f"{k}={v}" for k, v in components.items()]
+                    md_lines.append(f"  - 组成：{' | '.join(parts)}")
+            md_lines.append("")
 
     return jsonify({
         'success': True,
@@ -3389,7 +3414,8 @@ def api_generate_keyword_library():
         business_description: str,   # 原始业务描述
         industry: str,              # 行业（可选）
         business_type: str,         # 经营类型
-        business_direction: str,    # 用户选择的蓝海业务方向
+        core_business: str,        # 核心业务词（可选，默认从业务描述提取）
+        blue_ocean_opportunity: str, # 蓝海机会描述（可选，用于指导关键词生成方向）
     }
 
     Response: {
@@ -3397,6 +3423,7 @@ def api_generate_keyword_library():
         data: {
             keyword_library: {...},   # 关键词库
             problem_types: [...],     # 问题类型
+            question_samples: [...],  # 问句示范（新增）
             keyword_stats: {...},     # 关键词统计
         }
     }
@@ -3409,18 +3436,13 @@ def api_generate_keyword_library():
     business_description = data.get('business_description', '').strip()
     industry = data.get('industry', '')
     business_type = data.get('business_type', 'product')
-    business_direction = data.get('business_direction', '').strip()
+    core_business = data.get('core_business', '').strip()
+    blue_ocean_opportunity = data.get('blue_ocean_opportunity', '').strip()
 
     if not business_description:
         return jsonify({
             'success': False,
             'message': '请输入业务描述'
-        }), 400
-
-    if not business_direction:
-        return jsonify({
-            'success': False,
-            'message': '请选择或输入业务方向'
         }), 400
 
     business_info = {
@@ -3429,17 +3451,16 @@ def api_generate_keyword_library():
         'business_type': business_type,
     }
 
-    logger.info(f"[api_generate_keyword_library] Step 2: 生成关键词库: {business_direction}")
+    logger.info(f"[api_generate_keyword_library] Step 2: 生成关键词库 (蓝海机会={blue_ocean_opportunity})")
 
     try:
         generator = KeywordLibraryGenerator()
 
-        # 核心业务词：使用原始业务描述中的核心词，而非用户选择的蓝海机会
-        # 蓝海机会是营销定位，关键词库应该基于实际业务
         result = generator.generate(
             business_info=business_info,
-            core_business=None,  # 让服务自动从业务描述提取核心词
+            core_business=core_business or None,
             max_keywords=200,
+            blue_ocean_opportunity=blue_ocean_opportunity or None,
         )
 
         if not result.success:
@@ -3448,13 +3469,14 @@ def api_generate_keyword_library():
                 'message': f"生成失败: {result.error_message or '未知错误'}"
             }), 500
 
-        logger.info(f"[api_generate_keyword_library] Step 2 完成: {result.total_keywords} 个关键词")
+        logger.info(f"[api_generate_keyword_library] Step 2 完成: {result.total_keywords} 个关键词, {len(result.question_samples)} 个问句")
 
         return jsonify({
             'success': True,
             'data': {
                 'keyword_library': result.keyword_library or {},
-                'problem_types': [pt.to_dict() if hasattr(pt, 'to_dict') else pt.__dict__ for pt in result.problem_types],
+                'problem_types': result.to_dict().get('problem_types', []),
+                'question_samples': result.to_dict().get('question_samples', []),
                 'keyword_stats': {
                     'total': result.total_keywords or 0,
                     'blue_ocean': result.blue_ocean_keywords or 0,

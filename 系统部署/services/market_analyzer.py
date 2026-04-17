@@ -36,6 +36,19 @@ from services.llm import get_llm_service
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# 延迟导入（避免循环依赖）
+# =============================================================================
+
+def _get_search_verifier():
+    """延迟获取搜索验证器"""
+    try:
+        from services.blue_ocean_search_verifier import BlueOceanSearchVerifier, CandidateDirection
+        return BlueOceanSearchVerifier, CandidateDirection
+    except ImportError:
+        return None, None
+
+
 class MarketType(Enum):
     """市场类型枚举"""
     BLUE_OCEAN = "blue_ocean"  # 蓝海：细分人群/长尾需求
@@ -116,6 +129,7 @@ class MarketAnalyzer:
         self,
         business_info: Dict[str, Any],
         max_opportunities: int = 5,
+        use_search_verification: bool = True,
     ) -> Dict[str, Any]:
         """
         仅挖掘蓝海市场机会（第一阶段）
@@ -123,6 +137,7 @@ class MarketAnalyzer:
         Args:
             business_info: 业务信息
             max_opportunities: 最大市场机会数量
+            use_search_verification: 是否启用搜索增强验证（默认开启）
 
         Returns:
             Dict: 包含 market_opportunities 和 subdivision_insights
@@ -132,6 +147,7 @@ class MarketAnalyzer:
             'error_message': '',
             'market_opportunities': [],
             'subdivision_insights': {},
+            'search_verification': None,  # 搜索验证数据
         }
 
         try:
@@ -143,6 +159,7 @@ class MarketAnalyzer:
                 result['error_message'] = "业务描述不能为空"
                 return result
 
+            # Phase 1: LLM 提出候选方向（含搜索假设）
             prompt = self._build_opportunity_prompt(
                 business_desc=business_desc,
                 industry=industry,
@@ -150,10 +167,10 @@ class MarketAnalyzer:
                 max_opportunities=max_opportunities,
             )
 
-            logger.info("[MarketAnalyzer] Step 1: 挖掘蓝海机会...")
+            logger.info(f"[MarketAnalyzer] Step 1: 挖掘蓝海机会（搜索增强={use_search_verification}）...")
 
             messages = [{"role": "user", "content": prompt}]
-            response = self.llm.chat(messages, temperature=0.7, max_tokens=3000)
+            response = self.llm.chat(messages, temperature=0.7, max_tokens=4000)
 
             if not response or not response.strip():
                 result['error_message'] = "LLM调用返回为空"
@@ -166,9 +183,16 @@ class MarketAnalyzer:
                 return result
 
             # 解析市场机会
-            opportunities = data.get('market_opportunities', [])
-            for opp in opportunities:
-                result['market_opportunities'].append({
+            raw_opportunities = data.get('market_opportunities', [])
+
+            # Phase 2: 搜索增强验证（如果启用）
+            search_verification = None
+            if use_search_verification and raw_opportunities:
+                search_verification = self._verify_with_search(raw_opportunities, business_info)
+
+            # 合并结果
+            for i, opp in enumerate(raw_opportunities):
+                opp_data = {
                     'opportunity_name': opp.get('opportunity_name', ''),
                     'business_direction': opp.get('business_direction', ''),
                     'target_audience': opp.get('target_audience', ''),
@@ -176,12 +200,24 @@ class MarketAnalyzer:
                     'keywords': opp.get('keywords', []),
                     'content_direction': opp.get('content_direction', ''),
                     'market_type': opp.get('market_type', 'blue_ocean'),
-                    'confidence': opp.get('confidence', 0.8),
                     'differentiation': opp.get('differentiation', ''),
-                })
+                }
+
+                # 如果有搜索验证数据，合并进去
+                if search_verification and i < len(search_verification):
+                    sv = search_verification[i]
+                    opp_data['confidence'] = sv.get('final_confidence', opp.get('confidence', 0.8))
+                    opp_data['final_verdict'] = sv.get('final_verdict', '')
+                    opp_data['search_evidence'] = sv.get('search_evidence', [])
+                    opp_data['verification_data'] = sv.get('verification_data', {})
+                else:
+                    opp_data['confidence'] = opp.get('confidence', 0.8)
+
+                result['market_opportunities'].append(opp_data)
 
             # 解析细分洞察
             result['subdivision_insights'] = data.get('subdivision_insights', {})
+            result['search_verification'] = search_verification
             result['success'] = True
 
             logger.info(f"[MarketAnalyzer] Step 1 完成: 发现 {len(result['market_opportunities'])} 个蓝海机会")
@@ -191,6 +227,61 @@ class MarketAnalyzer:
             result['error_message'] = f"异常: {str(e)}"
 
         return result
+
+    def _verify_with_search(
+        self,
+        opportunities: List[Dict],
+        business_info: Dict[str, Any],
+    ) -> Optional[List[Dict]]:
+        """
+        使用搜索增强验证机会
+
+        Returns:
+            List[Dict]: 每个机会的验证数据
+        """
+        BlueOceanSearchVerifier, CandidateDirection = _get_search_verifier()
+
+        if not BlueOceanSearchVerifier:
+            logger.warning("[MarketAnalyzer] 搜索验证器不可用，跳过搜索增强")
+            return None
+
+        try:
+            verifier = BlueOceanSearchVerifier(max_workers=8, timeout=8)
+
+            # 转换为 CandidateDirection 对象
+            candidates = []
+            for opp in opportunities:
+                candidate = CandidateDirection(
+                    opportunity_name=opp.get('opportunity_name', ''),
+                    business_direction=opp.get('business_direction', ''),
+                    target_audience=opp.get('target_audience', ''),
+                    pain_points=opp.get('pain_points', []),
+                    keywords=opp.get('keywords', []),
+                    content_direction=opp.get('content_direction', ''),
+                    confidence=opp.get('confidence', 0.8),
+                )
+
+                # 从 opportunity 提取搜索假设（如果有）
+                search_hypotheses = opp.get('search_hypotheses', {})
+                if search_hypotheses:
+                    candidate.search_hypotheses = search_hypotheses
+
+                candidates.append(candidate)
+
+            # 执行验证
+            verification_result = verifier.verify_candidates(candidates, business_info)
+
+            if verification_result.success:
+                # 转换回 dict 格式
+                result_dict = verifier.to_dict(verification_result)
+                return result_dict.get('candidates', [])
+
+            logger.warning(f"[MarketAnalyzer] 搜索验证失败: {verification_result.error_message}")
+            return None
+
+        except Exception as e:
+            logger.warning(f"[MarketAnalyzer] 搜索验证异常: {e}")
+            return None
 
     def analyze(
         self,
@@ -307,12 +398,17 @@ class MarketAnalyzer:
 
 1. **市场机会挖掘**：识别{max_opportunities}个蓝海市场机会
    - 每个机会必须包含：
-     - **opportunity_name**：机会名称，如"高端细分市场"、"特殊人群市场"
+     - **opportunity_name**：机会名称，如"特殊配方细分市场"、"人群细分市场"
      - **business_direction**：**【关键】业务细分方向，用于直接填入"核心业务"输入框**
-       - 必须具体到可执行的业务方向，如"进口有机羊奶粉"、"乳糖不耐受特殊配方奶粉"
-       - 格式：产品类型 + 特色标签，如"进口"、"有机"、"羊奶"、"配方"
+       - 必须具体到可执行的业务方向，如"乳糖不耐受婴儿特殊配方奶粉"、"早产儿追赶生长奶粉"
+       - 格式：产品类型 + 特色标签 + 人群标签
      - **differentiation**：一句话说明这个机会好在哪、差异化在哪
-   - 目标人群要细分：如"家有0-6个月奶粉喂养宝宝的新手妈妈"
+   - 目标人群要细分：如"家有0-12个月乳糖不耐受宝宝的新手父母"
+   - **【新增】search_hypotheses**：每个方向对应的4个搜索假设句（用于后续搜索验证）
+     - demand：验证这个方向需求真实性的搜索句，如"乳糖不耐受宝宝吃什么奶粉好"
+     - competition：验证竞争强度的搜索句，如"乳糖不耐受奶粉推荐 哪个牌子好"
+     - scarcity：验证解决方案稀缺度的搜索句，如"乳糖不耐受奶粉怎么选"
+     - content_gap：验证内容缺口的搜索句，如"乳糖不耐受宝宝喂养全攻略"
 
 2. **细分赛道洞察**：
    - main_subdivision: 主流细分方向
@@ -325,15 +421,21 @@ class MarketAnalyzer:
 {{
     "market_opportunities": [
         {{
-            "opportunity_name": "高端细分市场",
-            "business_direction": "进口有机羊奶粉",
-            "target_audience": "追求高品质、愿意为宝宝花费更多的30-40岁中产家庭",
-            "pain_points": ["担心国产奶粉质量问题", "想要更接近母乳的配方"],
-            "keywords": ["进口羊奶粉", "有机奶粉", "A2蛋白奶粉"],
-            "content_direction": "种草型：强调品质、安全、专业",
+            "opportunity_name": "乳糖不耐受宝宝细分市场",
+            "business_direction": "乳糖不耐受婴儿无乳糖配方奶粉",
+            "target_audience": "0-12个月乳糖不耐受宝宝的父母",
+            "pain_points": ["反复腹泻影响发育", "不知道选无乳糖还是深度水解", "担心长期喝特殊奶粉影响"],
+            "keywords": ["无乳糖奶粉", "乳糖不耐受宝宝奶粉", "腹泻奶粉"],
+            "content_direction": "知识型：乳糖不耐受喂养全攻略+产品推荐",
             "market_type": "blue_ocean",
             "confidence": 0.85,
-            "differentiation": "竞争少、客单价高、用户忠诚度高"
+            "differentiation": "竞争比普通奶粉少，需求真实但解决方案分散",
+            "search_hypotheses": {{
+                "demand": "乳糖不耐受宝宝吃什么奶粉 一直拉肚子",
+                "competition": "乳糖不耐受奶粉推荐 哪个牌子好",
+                "scarcity": "无乳糖奶粉怎么选 婴儿",
+                "content_gap": "乳糖不耐受宝宝喂养指南 攻略"
+            }}
         }}
     ],
     "subdivision_insights": {{

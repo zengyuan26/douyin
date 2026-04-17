@@ -2,9 +2,21 @@
 关键词库生成服务
 
 功能：
-1. 基于业务描述和选定的业务方向，生成精准的关键词库
+1. 基于业务描述，生成精准的关键词库（原子零件 + 问句示范）
 2. 生成问题类型标签
 3. 区分蓝海/红海关键词
+
+关键词结构（新版）：
+- atom_keywords：原子关键词（组成问句的零件）
+  - 人群标签：定位谁有这个痛点
+  - 场景/时机：定位问题发生的具体情境
+  - 症状/困境：描述用户当前的苦恼
+  - 顾虑/疑问：用户搜索时的问题词
+- red_ocean_keywords：红海关键词
+  - 品类大词、通用需求词、品牌词
+- question_samples：问句示范
+  - pre_questions：前置问句（用户遇到问题但还没找到解决方案）
+  - post_questions：后置问句（用户用了产品后发现新问题）
 
 使用方式：
 from services.keyword_library_generator import KeywordLibraryGenerator, KeywordLibraryResult
@@ -12,11 +24,12 @@ from services.keyword_library_generator import KeywordLibraryGenerator, KeywordL
 generator = KeywordLibraryGenerator()
 result = generator.generate(
     business_info={'business_description': '卖奶粉', 'industry': '奶粉'},
-    business_direction='进口有机羊奶粉',  # 用户选择的蓝海方向
+    core_business='特殊配方奶粉',
     max_keywords=200
 )
 
-result.keyword_library  # 关键词库
+result.keyword_library  # 关键词库（新结构）
+result.question_samples  # 问句示范
 result.problem_types    # 问题类型
 """
 
@@ -41,6 +54,14 @@ class ProblemType:
 
 
 @dataclass
+class QuestionSample:
+    """问句示范（前置/后置）"""
+    question: str           # 问句
+    question_type: str      # pre（前置）/ post（后置）
+    components: Dict[str, str] = field(default_factory=dict)  # 组成成分：{人群: "...", 场景: "...", 症状: "...", 解决方案: "..."}
+
+
+@dataclass
 class KeywordLibraryResult:
     """关键词库生成结果"""
     success: bool = False
@@ -49,6 +70,7 @@ class KeywordLibraryResult:
     # 核心产出
     keyword_library: Dict[str, Any] = field(default_factory=dict)
     problem_types: List[ProblemType] = field(default_factory=list)
+    question_samples: List[QuestionSample] = field(default_factory=list)  # 新增：问句示范
 
     # 原始LLM输出（用于调试）
     raw_output: Dict[str, Any] = field(default_factory=dict)
@@ -57,6 +79,35 @@ class KeywordLibraryResult:
     total_keywords: int = 0
     blue_ocean_keywords: int = 0
     red_ocean_keywords: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        return {
+            'success': self.success,
+            'error_message': self.error_message,
+            'keyword_library': self.keyword_library,
+            'problem_types': [
+                {
+                    'type_name': pt.type_name,
+                    'description': pt.description,
+                    'target_audience': pt.target_audience,
+                    'keywords': pt.keywords,
+                    'scene_keywords': pt.scene_keywords,
+                }
+                for pt in self.problem_types
+            ],
+            'question_samples': [
+                {
+                    'question': qs.question,
+                    'question_type': qs.question_type,
+                    'components': qs.components,
+                }
+                for qs in self.question_samples
+            ],
+            'total_keywords': self.total_keywords,
+            'blue_ocean_keywords': self.blue_ocean_keywords,
+            'red_ocean_keywords': self.red_ocean_keywords,
+        }
 
 
 class KeywordLibraryGenerator:
@@ -81,6 +132,7 @@ class KeywordLibraryGenerator:
         business_info: Dict[str, Any],
         core_business: str = None,
         max_keywords: int = 200,
+        blue_ocean_opportunity: str = None,
     ) -> KeywordLibraryResult:
         """
         生成关键词库
@@ -92,6 +144,7 @@ class KeywordLibraryGenerator:
                 - business_type: 业务类型 (product/service)
             core_business: 核心业务词（可选，默认从业务描述提取）
             max_keywords: 最大关键词数量
+            blue_ocean_opportunity: 蓝海机会描述（可选，用于指导关键词生成方向）
 
         Returns:
             KeywordLibraryResult: 生成结果
@@ -125,14 +178,17 @@ class KeywordLibraryGenerator:
                 business_type=business_type,
                 keyword_core=keyword_core,
                 max_keywords=max_keywords,
+                blue_ocean_opportunity=blue_ocean_opportunity,
             )
 
             # 调用LLM
             logger.info("[KeywordLibraryGenerator] 开始调用LLM...")
             logger.info(f"[KeywordLibraryGenerator] 核心业务: {keyword_core}")
+            if blue_ocean_opportunity:
+                logger.info(f"[KeywordLibraryGenerator] 蓝海机会: {blue_ocean_opportunity}")
 
             messages = [{"role": "user", "content": prompt}]
-            response = self.llm.chat(messages, temperature=0.7, max_tokens=4000)
+            response = self.llm.chat(messages, temperature=0.7, max_tokens=5000)
 
             if not response or not response.strip():
                 result.error_message = "LLM调用返回为空"
@@ -160,11 +216,12 @@ class KeywordLibraryGenerator:
 
             result.success = True
             logger.info(
-                "[KeywordLibraryGenerator] 生成完成: 问题类型=%d, 关键词=%d (蓝海=%d, 红海=%d)",
+                "[KeywordLibraryGenerator] 生成完成: 问题类型=%d, 关键词=%d (蓝海=%d, 红海=%d), 问句=%d",
                 len(result.problem_types),
                 result.total_keywords,
                 result.blue_ocean_keywords,
                 result.red_ocean_keywords,
+                len(result.question_samples),
             )
 
         except Exception as e:
@@ -180,8 +237,225 @@ class KeywordLibraryGenerator:
         business_type: str,
         keyword_core: str,
         max_keywords: int,
+        blue_ocean_opportunity: str = None,
     ) -> str:
-        """构建关键词库生成Prompt"""
+        """构建关键词库生成Prompt（新结构：原子零件 + 问句示范）"""
+
+        # 蓝海机会引导语
+        blue_ocean_hint = ""
+        if blue_ocean_opportunity:
+            blue_ocean_hint = f"\n=== 蓝海机会背景 ===\n用户已选择以下蓝海机会：「{blue_ocean_opportunity}」\n请围绕这个细分方向生成关键词，重点挖掘该方向下的细分人群、场景和痛点。\n"
+
+        # 业务类型适配
+        business_type_hint = ""
+        if business_type == 'product':
+            business_type_hint = "业务为消费品，重点关注：使用者症状、购买者顾虑、选择对比"
+        elif business_type == 'local_service':
+            business_type_hint = "业务为本地服务，重点关注：服务场景、时效顾虑、信任问题"
+        elif business_type == 'enterprise':
+            business_type_hint = "业务为企业服务，重点关注：决策流程、ROI顾虑、供应商选择"
+        else:
+            business_type_hint = "业务为个人服务，重点关注：使用场景、效果顾虑、服务选择"
+
+        # 数量计算
+        n_crowd = int(max_keywords * 0.12)
+        n_scene = int(max_keywords * 0.12)
+        n_symptom = int(max_keywords * 0.18)
+        n_concern = int(max_keywords * 0.08)
+        n_category = int(max_keywords * 0.05)
+        n_brand = int(max_keywords * 0.05)
+        n_generic = int(max_keywords * 0.10)
+
+        prompt = f"""你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成精准的关键词库和问题类型。
+
+=== 业务信息 ===
+原始业务描述：{business_desc}
+行业：{industry or '根据业务描述推断'}
+业务类型：{business_type_hint}{blue_ocean_hint}
+
+=== 核心业务（必须围绕此词生成关键词）===
+{keyword_core}
+
+=== 生成任务 ===
+
+1. **问题类型生成**：基于核心业务，生成3-6个问题类型
+   - 一个类型对应一类痛点
+   - 每个类型必须生成5-10个场景关键词，用于后续画像生成
+
+2. **关键词库生成**（新版结构：原子零件 + 问句示范）
+
+一、原子关键词（组成问句的零件）
+
+1. **人群标签**（{n_crowd}个）：定位谁有这个痛点
+   - 格式：年龄/体质/阶段/身份 + 核心业务
+   - 举例：乳糖不耐受宝宝、早产儿、剖腹产宝宝、断奶期宝宝
+   - 注意：不要太泛（宝宝、婴儿、儿童是泛词）
+
+2. **场景/时机**（{n_scene}个）：定位问题发生的具体情境
+   - 格式：具体情境 + 核心业务
+   - 举例：断奶期转奶、夜醒频繁、高铁出行、添加辅食后、打疫苗后
+   - 注意：要有具体时机，不要太泛
+
+3. **症状/困境**（{n_symptom}个）：描述用户当前的苦恼
+   - 格式：具体症状 + 核心业务
+   - 举例：拉肚子不长肉、喝了还哭闹、过敏起疹子、拒奶胀气
+   - 注意：症状要可感知，不要太模糊
+
+4. **顾虑/疑问**（{n_concern}个）：用户搜索时的问题词
+   - 格式：怎么办/怎么/哪个/能否
+   - 举例：怎么办、怎么回事、怎么选、能不能、会不会
+
+二、红海关键词
+
+5. **品类大词**（{n_category}个，允许填空）
+   - 核心品类：{keyword_core}
+
+6. **品牌词**（{n_brand}个，允许填空）
+   - 竞品品牌
+
+7. **通用需求词**（{n_generic}个）
+   - 格式：核心业务 + 推荐/哪个好/多少钱
+   - 举例：{keyword_core}推荐、{keyword_core}哪个牌子好、{keyword_core}多少钱
+
+三、问句示范（选题种子）
+
+【前置问句】：用户遇到问题但还没找到解决方案时会问什么
+- 模板：「人群」+「症状」+「顾虑」 → "乳糖不耐受宝宝拉肚子怎么办"
+- 模板：「场景」+「人群」+「困境」 → "早产儿断奶期怎么追重"
+- 模板：「顾虑」+「人群」+「品类」 → "深度水解奶粉太苦宝宝不喝怎么办"
+
+【后置问句】：用户用了产品后发现新问题会问什么
+- 模板：「产品」+「使用后症状」 → "喝了氨基酸奶粉还过敏怎么回事"
+- 模板：「转奶」+「症状」 → "深度水解转普通奶粉拉肚子正常吗"
+- 模板：「长期使用」+「顾虑」 → "无乳糖奶粉可以一直喝吗"
+
+=== 输出格式 ===
+请严格按以下JSON格式输出，不要输出任何其他内容：
+
+{{
+    "problem_types": [
+        {{
+            "type_name": "过敏担忧",
+            "description": "担心宝宝对普通奶粉蛋白过敏，不知道如何选择特殊配方",
+            "target_audience": "有家族过敏史或宝宝已出现过敏症状的新手父母",
+            "scene_keywords": [
+                "宝宝喝普通奶粉起疹子怎么办",
+                "蛋白过敏宝宝怎么选奶粉",
+                "水解奶粉味道苦宝宝不喝怎么办"
+            ],
+            "keywords": ["特殊配方奶粉", "水解奶粉", "抗过敏奶粉"]
+        }}
+    ],
+    "keyword_library": {{
+        "keyword_core": "{keyword_core}",
+        "categories": [
+            {{
+                "category_name": "人群标签",
+                "category_desc": "定位谁有这个痛点",
+                "keywords": [
+                    "乳糖不耐受宝宝",
+                    "早产儿",
+                    "剖腹产宝宝",
+                    "断奶期宝宝"
+                ],
+                "market_type": "blue_ocean"
+            }},
+            {{
+                "category_name": "场景/时机",
+                "category_desc": "定位问题发生的具体情境",
+                "keywords": [
+                    "断奶期转奶",
+                    "夜醒频繁",
+                    "添加辅食后",
+                    "打疫苗后"
+                ],
+                "market_type": "blue_ocean"
+            }},
+            {{
+                "category_name": "症状/困境",
+                "category_desc": "描述用户当前的苦恼",
+                "keywords": [
+                    "拉肚子不长肉",
+                    "喝了还哭闹",
+                    "过敏起疹子"
+                ],
+                "market_type": "blue_ocean"
+            }},
+            {{
+                "category_name": "顾虑/疑问",
+                "category_desc": "用户搜索时的问题词",
+                "keywords": [
+                    "怎么办",
+                    "怎么回事",
+                    "怎么选",
+                    "能不能",
+                    "会不会"
+                ],
+                "market_type": "blue_ocean"
+            }},
+            {{
+                "category_name": "品类大词",
+                "category_desc": "核心品类词",
+                "keywords": ["{keyword_core}"],
+                "market_type": "red_ocean"
+            }},
+            {{
+                "category_name": "品牌词",
+                "category_desc": "竞品品牌",
+                "keywords": [],
+                "market_type": "red_ocean"
+            }},
+            {{
+                "category_name": "通用需求词",
+                "category_desc": "通用搜索意图词",
+                "keywords": ["{keyword_core}推荐", "{keyword_core}哪个牌子好"],
+                "market_type": "red_ocean"
+            }}
+        ]
+    }},
+    "question_samples": {{
+        "pre_questions": [
+            {{
+                "question": "乳糖不耐受宝宝拉肚子怎么办",
+                "components": {{"人群": "乳糖不耐受宝宝", "症状": "拉肚子", "顾虑": "怎么办"}}
+            }},
+            {{
+                "question": "早产儿断奶期怎么追重",
+                "components": {{"人群": "早产儿", "场景": "断奶期", "困境": "追重"}}
+            }},
+            {{
+                "question": "深度水解奶粉太苦宝宝不喝怎么办",
+                "components": {{"顾虑": "太苦", "产品": "深度水解奶粉", "困境": "不喝", "疑问": "怎么办"}}
+            }}
+        ],
+        "post_questions": [
+            {{
+                "question": "喝了氨基酸奶粉还过敏怎么回事",
+                "components": {{"产品": "氨基酸奶粉", "症状": "还过敏"}}
+            }},
+            {{
+                "question": "深度水解转普通奶粉拉肚子正常吗",
+                "components": {{"场景": "深度水解转普通奶粉", "症状": "拉肚子"}}
+            }},
+            {{
+                "question": "无乳糖奶粉可以一直喝吗",
+                "components": {{"产品": "无乳糖奶粉", "顾虑": "可以一直喝吗"}}
+            }}
+        ]
+    }}
+}}
+
+重要说明：
+1. 关键词必须是真实用户搜索词，体现具体搜索意图
+2. 人群标签要具体（体质/年龄/阶段），场景要具体（时机/情境），症状要可感知
+3. 前置问句覆盖"发现→搜索→比较"全链路，后置问句覆盖"使用→问题→转化"全链路
+4. 每个分类关键词数量不得少于规定数量
+5. 品牌词如果没有具体品牌可以填空数组
+6. 蓝海关键词（人群/场景/症状/顾虑）应占总量60%以上
+
+请开始生成："""
+
+        return prompt
 
         # 问题类型分类指引（通用版本，无行业示例）
         problem_type_guide = """
@@ -498,6 +772,24 @@ class KeywordLibraryGenerator:
 
         # 解析关键词库
         result.keyword_library = data.get('keyword_library', {})
+
+        # 解析问句示范
+        question_samples_data = data.get('question_samples', {})
+        if question_samples_data:
+            # 解析前置问句
+            for q in question_samples_data.get('pre_questions', []):
+                result.question_samples.append(QuestionSample(
+                    question=q.get('question', ''),
+                    question_type='pre',
+                    components=q.get('components', {}),
+                ))
+            # 解析后置问句
+            for q in question_samples_data.get('post_questions', []):
+                result.question_samples.append(QuestionSample(
+                    question=q.get('question', ''),
+                    question_type='post',
+                    components=q.get('components', {}),
+                ))
 
         return result
 
