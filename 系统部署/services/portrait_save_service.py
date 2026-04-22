@@ -21,7 +21,7 @@ class PortraitSaveService:
     
     @classmethod
     def save_portrait(cls, user_id: int, portrait_data: Dict,
-                    portrait_name: str = None, 
+                    portrait_name: str = None,
                     business_description: str = None,
                     industry: str = None,
                     target_customer: str = None,
@@ -70,9 +70,10 @@ class PortraitSaveService:
                 text("""
                     INSERT INTO saved_portraits
                     (user_id, portrait_name, portrait_data, business_description,
-                     industry, target_customer, is_default, source_session_id, created_at)
+                     industry, target_customer, is_default, source_session_id,
+                     generation_status, created_at)
                     VALUES (:user_id, :name, :data, :desc, :industry, :customer,
-                            :is_default, :session_id, NOW())
+                            :is_default, :session_id, :gen_status, NOW())
                 """),
                 {
                     'user_id': user_id,
@@ -82,9 +83,12 @@ class PortraitSaveService:
                     'industry': industry,
                     'customer': target_customer,
                     'is_default': set_as_default,
-                    'session_id': source_session_id
+                    'session_id': source_session_id,
+                    'gen_status': 'pending',
                 }
             )
+
+            # #endregion
 
             saved_id = result.lastrowid
             db.session.commit()
@@ -224,8 +228,12 @@ class PortraitSaveService:
         portraits = []
         for r in results:
             # 调试日志
-            print(f"[get_user_portraits] 画像 {r[0]} r[17]={r[17]}, r[18]={r[18]}")
-            
+            # 索引: 0=id, 1=portrait_name, 2=portrait_data, 3=industry, 4=target_customer,
+            #       5=is_default, 6=used_count, 7=last_used_at, 8=created_at,
+            #       9=keyword_library, 10=topic_library,
+            #       11=keyword_updated_at, 12=keyword_update_count, 13=keyword_cache_expires_at,
+            #       14=topic_updated_at, 15=topic_update_count, 16=topic_cache_expires_at,
+            #       17=generation_status, 18=generation_error
             portrait = {
                 'id': r[0],
                 'portrait_name': r[1],
@@ -248,9 +256,6 @@ class PortraitSaveService:
                 'generation_status': r[17] or 'pending',
                 'generation_error': r[18],
             }
-            
-            print(f"[get_user_portraits] 返回 portrait: generation_status={portrait.get('generation_status')}")
-
             if include_data:
                 portrait['portrait_data'] = parse_json(r[2])
 

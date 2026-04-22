@@ -8,11 +8,10 @@
 4. Flask app context 支持（后台线程在请求结束后执行，必须手动创建 context）
 """
 
-import json
-import threading
 import logging
+import threading
 from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Dict, Optional
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +107,7 @@ task_service = PortraitLibraryTaskService()
 def generate_with_semaphore(
     portrait_id: int,
     user_id: int,
-    plan_type: str,
+    plan_type: str = 'free',
 ) -> None:
     """
     带 Semaphore 限制的词库生成函数
@@ -154,21 +153,18 @@ def generate_with_semaphore(
             )
 
 
-def _do_generate_library(portrait_id: int, user_id: int, plan_type: str) -> None:
+def _do_generate_library(portrait_id: int, user_id: int, plan_type: str = 'free') -> None:
     """
     执行词库生成（核心逻辑，在 Semaphore 内执行）
 
     流程：
     1. 更新状态 = 'generating'
-    2. 检查是否已有关键词库：
-       - 已有关键词库：跳过关键词库生成，只生成选题库
-       - 没有关键词库：生成关键词库 → 保存 → 生成选题库
-    3. 更新状态 = 'completed' / 'failed'
+    2. 使用 KeywordLibraryGenerator.generate_template() 按模板生成关键词库（9分类，100+个）
+    3. 保存结果，更新状态 = 'completed' / 'failed'
     """
     from models.public_models import SavedPortrait, db
     from services.portrait_save_service import portrait_save_service
-    from services.keyword_library_generator import keyword_library_generator
-    from services.topic_library_generator import topic_library_generator
+    from services.keyword_library_generator import KeywordLibraryGenerator
 
     try:
         # 1. 更新状态：生成中
@@ -187,97 +183,65 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str) -> None
             )
             return
 
-        portrait_data_dict = portrait.get('portrait_data', {})
-        business_description = portrait.get('business_description', '')
-        target_customer = portrait.get('target_customer', '')
-        keyword_library_from_db = portrait.get('keyword_library')  # 已有关键词库
+        portrait_data_dict = portrait.get('portrait_data', {}) or {}
+        business_description = portrait.get('business_description', '') or ''
+        target_customer = portrait.get('target_customer', '') or ''
+        region = portrait.get('region', '') or ''
 
-        # 确保画像数据包含必要的结构化信息
-        if not portrait_data_dict:
-            portrait_data_dict = {}
+        def _to_list(val):
+            if val is None:
+                return []
+            if isinstance(val, list):
+                return val
+            if isinstance(val, str):
+                return [val] if val.strip() else []
+            return []
 
-        # 从 business_description 和 target_customer 中提取身份和痛点
-        if not portrait_data_dict.get('identity') and target_customer:
-            portrait_data_dict['identity'] = target_customer
-        if not portrait_data_dict.get('pain_point') and business_description:
-            portrait_data_dict['pain_point'] = business_description
+        pain_points = _to_list(portrait_data_dict.get('pain_points', []))
+        if not pain_points:
+            pp = portrait_data_dict.get('pain_point', '')
+            if isinstance(pp, str) and pp.strip():
+                pain_points = [pp.strip()]
 
-        business_info = {
-            'business_description': business_description,
-            'industry': portrait.get('industry', ''),
-            'products': portrait.get('products', []),
-            'region': portrait.get('region', ''),
-            'target_customer': target_customer,
+        portrait_data = {
+            'pain_points': pain_points,
+            'pain_scenarios': _to_list(portrait_data_dict.get('pain_scenarios', [])),
+            'barriers': _to_list(portrait_data_dict.get('barriers', [])),
         }
-        # 调试日志
-        business_str = json.dumps(business_info, ensure_ascii=False) if business_info else '{}'
-        logger.info("[PortraitLibraryTask] portrait_data keys=" + str(list(portrait_data_dict.keys()) if portrait_data_dict else []))
-        logger.info("[PortraitLibraryTask] portrait_data identity=" + str(portrait_data_dict.get('identity', '')))
-        logger.info("[PortraitLibraryTask] portrait_data pain_point=" + str(portrait_data_dict.get('pain_point', '')))
-        logger.info("[PortraitLibraryTask] business_info: " + business_str)
-        logger.info("[PortraitLibraryTask] 已有关键词库: %s", "是" if keyword_library_from_db else "否")
 
-        # 3. 判断是否需要生成关键词库
-        kw_library = keyword_library_from_db  # 默认使用已有关键词库
-
-        if not kw_library:
-            # 没有已有关键词库，需要生成
-            kw_result = keyword_library_generator.generate(
-                portrait_data=portrait_data_dict,
-                business_info=business_info,
-                plan_type=plan_type,
-                portrait_id=portrait_id,
-            )
-
-            if kw_result.get('success') and not kw_result.get('_meta', {}).get('from_cache'):
-                keyword_library_generator.save_to_portrait(
-                    portrait_id=portrait_id,
-                    keyword_library=kw_result['keyword_library'],
-                    user_id=user_id,
-                    plan_type=plan_type,
-                )
-                logger.info(
-                    "[PortraitLibraryTask] 关键词库生成完成 portrait_id=%d",
-                    portrait_id
-                )
-
-            kw_library = kw_result.get('keyword_library')
-        else:
-            logger.info(
-                "[PortraitLibraryTask] 使用已有关键词库，跳过生成 portrait_id=%d",
-                portrait_id
-            )
-
-        # 4. 生成选题库（使用已有关键词库或刚生成的关键词库）
-        topic_result = topic_library_generator.generate(
-            portrait_data=portrait_data_dict,
-            business_info=business_info,
-            keyword_library=kw_library,
-            plan_type=plan_type,
-            portrait_id=portrait_id,
+        # ── 生成关键词库（9分类，100+）─────────────────────────────
+        # 按照关键词库模板，一次LLM调用生成9大分类关键词
+        generator = KeywordLibraryGenerator()
+        result = generator.generate_template(
+            business_info={
+                'business_description': business_description,
+                'industry': portrait.get('industry', ''),
+            },
+            core_business=business_description,
+            region=region,
+            portrait_data=portrait_data,
         )
 
-        if topic_result.get('success') and not topic_result.get('_meta', {}).get('from_cache'):
-            topic_library_generator.save_to_portrait(
-                portrait_id=portrait_id,
-                topic_library=topic_result['topic_library'],
-                user_id=user_id,
-                plan_type=plan_type,
-            )
-            logger.info(
-                "[PortraitLibraryTask] 选题库生成完成 portrait_id=%d",
-                portrait_id
-            )
+        if result.success:
+            portrait_row = SavedPortrait.query.get(portrait_id)
+            if portrait_row:
+                kl = result.keyword_library or {}
+                total_kw = result.total_keywords
+                logger.info(
+                    "[PortraitLibraryTask] 关键词库生成完成 portrait_id=%d: 总关键词=%d",
+                    portrait_id, total_kw,
+                )
 
-        # 5. 更新状态：完成
-        portrait_row = SavedPortrait.query.get(portrait_id)
-        if portrait_row:
-            portrait_row.generation_status = 'completed'
-            db.session.commit()
-            logger.info(
-                "[PortraitLibraryTask] 双库生成全部完成 portrait_id=%d",
-                portrait_id
-            )
+                portrait_row.keyword_library = kl
+                portrait_row.generation_status = 'completed'
+                db.session.commit()
+
+                logger.info(
+                    "[PortraitLibraryTask] 关键词库生成全部完成 portrait_id=%d",
+                    portrait_id
+                )
+        else:
+            raise Exception(result.error_message or "生成失败")
 
     except Exception as e:
         import traceback

@@ -947,7 +947,7 @@ def api_save_portrait():
 
     # 生成画像名称
     if not portrait_name:
-        portrait_name = f"画像_{datetime.now().strftime('%m%d_%H%M')}"
+        portrait_name = f"画像_{datetime.datetime.now().strftime('%m%d_%H%M')}"
 
     # 插入新记录
     new_portrait = SavedPortrait(
@@ -990,18 +990,15 @@ def api_save_portrait():
     )
     db.session.commit()
 
-    # 启动后台线程生成词库（通过 Semaphore 控制 LLM 并发数）
-    import threading
-    plan_type = user.premium_plan or 'basic'
     try:
         from services.portrait_library_task_service import generate_with_semaphore
         thread = threading.Thread(
             target=generate_with_semaphore,
-            args=(portrait_id, user.id, plan_type),
+            args=(portrait_id, user.id),
             daemon=True
         )
         thread.start()
-        logger.info("[api_save_portrait] 已提交词库生成任务 portrait_id=%s plan_type=%s", portrait_id, plan_type)
+        logger.info("[api_save_portrait] 已提交词库生成任务 portrait_id=%s", portrait_id)
     except Exception as e:
         logger.error("[api_save_portrait] 启动词库生成任务失败: %s", e)
         # 任务启动失败不影响保存成功返回
@@ -1069,6 +1066,40 @@ def api_get_portrait_detail(portrait_id):
     })
 
 
+@public_bp.route('/api/portraits/<int:portrait_id>/status', methods=['GET'])
+def api_portrait_status(portrait_id):
+    """轻量化状态端点（轮询专用，仅返回生成状态字段）"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+
+    # 从数据库直接获取 generation_status
+    row = db.session.execute(
+        text("SELECT generation_status, generation_error FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+
+    gen_status = row[0] if row else 'pending'
+    gen_error = row[1] if row else None
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': portrait.id,
+            'generation_status': gen_status,
+            'generation_error': gen_error,
+            'keyword_library': portrait.keyword_library,
+            'topic_library': portrait.topic_library,
+            'keyword_updated_at': portrait.keyword_updated_at.isoformat() if portrait.keyword_updated_at else None,
+            'topic_updated_at': portrait.topic_updated_at.isoformat() if portrait.topic_updated_at else None,
+        }
+    })
+
+
 @public_bp.route('/api/portraits/<int:portrait_id>/library/generate', methods=['POST'])
 def api_trigger_library_generate(portrait_id):
     """触发关键词库和选题库生成"""
@@ -1099,7 +1130,7 @@ def api_trigger_library_generate(portrait_id):
         from services.portrait_library_task_service import generate_with_semaphore
         thread = threading.Thread(
             target=generate_with_semaphore,
-            args=(portrait_id, user.id, plan_type),
+            args=(portrait_id, user.id),
             daemon=True
         )
         thread.start()
@@ -1130,8 +1161,44 @@ def api_get_keyword_library_md(portrait_id):
     md_lines = [f"# {portrait.portrait_name or '关键词库'}"]
     md_lines.append("")
 
-    # 类别关键词
-    if keyword_library.get('categories'):
+    # 判断格式类型
+    # 新模板格式（generate_template）：categories[].category_name + keywords
+    # 旧蓝海格式（market_analyzer）：categories[].market_type 或 blue_ocean 字段
+    # 旧画像格式（KeywordTopicGenerator）：problem_type_keywords 等扁平字段
+    has_categories = bool(keyword_library.get('categories'))
+    has_market_type = any(
+        cat.get('market_type') for cat in keyword_library.get('categories', [])
+        if isinstance(cat, dict)
+    )
+    has_blue_ocean = bool(keyword_library.get('blue_ocean'))
+    has_flat_fields = bool(
+        keyword_library.get('problem_type_keywords') or
+        keyword_library.get('pain_point_keywords') or
+        keyword_library.get('scene_keywords') or
+        keyword_library.get('concern_keywords')
+    )
+
+    is_template_format = has_categories and not has_market_type and not has_blue_ocean
+    is_old_market_format = has_market_type or has_blue_ocean
+
+    if is_template_format:
+        # === 模板格式（9大分类）：categories[].category_name + keywords ===
+        md_lines.append("## 关键词库")
+        md_lines.append("")
+        total_count = 0
+        for i, cat in enumerate(keyword_library['categories'], 1):
+            cat_name = cat.get('category_name', cat.get('name', '未分类'))
+            keywords = cat.get('keywords', [])
+            total_count += len(keywords)
+            md_lines.append(f"### {i}、{cat_name}（{len(keywords)}个）")
+            md_lines.append("")
+            for kw in keywords:
+                md_lines.append(f"- {kw}")
+            md_lines.append("")
+        md_lines.append(f"*合计：{total_count}个关键词*")
+
+    elif is_old_market_format:
+        # === 旧格式（蓝海/红海分类）：market_type ===
         md_lines.append("## 一、关键词库")
         md_lines.append("")
         for cat in keyword_library['categories']:
@@ -1149,36 +1216,28 @@ def api_get_keyword_library_md(portrait_id):
                 md_lines.append(f"- {kw}")
             md_lines.append("")
 
-    # 问句示范
-    question_samples = portrait.question_samples
-    if question_samples:
-        md_lines.append("## 二、问句示范")
-        md_lines.append("")
-
-        # 前置问句
-        pre_questions = [q for q in question_samples if q.get('question_type') == 'pre']
-        if pre_questions:
-            md_lines.append("### 🔍 前置问句（用户遇到问题但还没找到解决方案）")
+    elif has_flat_fields:
+        # === 旧格式（KeywordTopicGenerator扁平字段）===
+        def write_kw_section(title, keywords):
+            if not keywords:
+                return
+            md_lines.append(f"## {title}")
             md_lines.append("")
-            for q in pre_questions:
-                md_lines.append(f"- **{q.get('question', '')}**")
-                components = q.get('components', {})
-                if components:
-                    parts = [f"{k}={v}" for k, v in components.items()]
-                    md_lines.append(f"  - 组成：{' | '.join(parts)}")
+            for kw in keywords:
+                md_lines.append(f"- {kw}")
             md_lines.append("")
 
-        # 后置问句
-        post_questions = [q for q in question_samples if q.get('question_type') == 'post']
-        if post_questions:
-            md_lines.append("### 🛒 后置问句（用户用了产品后发现新问题）")
+        write_kw_section("一、问题类型关键词", keyword_library.get('problem_type_keywords', []))
+        write_kw_section("二、痛点关键词", keyword_library.get('pain_point_keywords', []))
+        write_kw_section("三、场景关键词", keyword_library.get('scene_keywords', []))
+        write_kw_section("四、顾虑关键词", keyword_library.get('concern_keywords', []))
+
+        blue_ocean = keyword_library.get('blue_ocean', [])
+        if blue_ocean:
+            md_lines.append("## 五、蓝海关键词")
             md_lines.append("")
-            for q in post_questions:
-                md_lines.append(f"- **{q.get('question', '')}**")
-                components = q.get('components', {})
-                if components:
-                    parts = [f"{k}={v}" for k, v in components.items()]
-                    md_lines.append(f"  - 组成：{' | '.join(parts)}")
+            for kw in blue_ocean:
+                md_lines.append(f"- {kw}")
             md_lines.append("")
 
     return jsonify({
@@ -2893,7 +2952,7 @@ def api_get_current_snapshot():
     row = db.session.execute(
         db.text("""
             SELECT id, session_id, version, form_data, problems_data, portraits_data,
-                   selected_problem_id, selected_portrait_index, created_at, updated_at
+                   selected_problem_id, selected_portrait_index, opp_portraits_data, created_at, updated_at
             FROM super_snapshots
             WHERE user_id = :user_id
             ORDER BY updated_at DESC
@@ -2907,7 +2966,7 @@ def api_get_current_snapshot():
 
     # 解析 JSON 字段
     row_dict = dict(row._mapping)
-    for field in ['form_data', 'problems_data', 'portraits_data']:
+    for field in ['form_data', 'problems_data', 'portraits_data', 'opp_portraits_data']:
         if row_dict.get(field):
             try:
                 row_dict[field] = json.loads(row_dict[field])
@@ -2915,6 +2974,25 @@ def api_get_current_snapshot():
                 pass
 
     return jsonify({'success': True, 'snapshot': row_dict})
+
+
+@public_bp.route('/api/snapshots/current', methods=['DELETE'])
+def api_delete_current_snapshot():
+    """
+    删除当前用户的最新超级定位快照（用于手动刷新页面时清空状态）
+
+    DELETE /public/api/snapshots/current
+    """
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    db.session.execute(
+        db.text("DELETE FROM super_snapshots WHERE user_id = :user_id"),
+        {'user_id': user.id}
+    )
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 @public_bp.route('/api/snapshots/save', methods=['POST'])
@@ -2943,6 +3021,7 @@ def api_save_snapshot():
     portraits_data = params.get('portraits_data', {})
     selected_problem_id = params.get('selected_problem_id')
     selected_portrait_index = params.get('selected_portrait_index')
+    opp_portraits_data = params.get('opp_portraits_data', {})
 
     # 检查是否已存在同 session 的快照，有则更新，无则插入
     existing = db.session.execute(
@@ -2963,6 +3042,7 @@ def api_save_snapshot():
                     portraits_data = :portraits_data,
                     selected_problem_id = :selected_problem_id,
                     selected_portrait_index = :selected_portrait_index,
+                    opp_portraits_data = :opp_portraits_data,
                     updated_at = :now
                 WHERE id = :id
             """),
@@ -2973,6 +3053,7 @@ def api_save_snapshot():
                 'portraits_data': json.dumps(portraits_data, ensure_ascii=False),
                 'selected_problem_id': selected_problem_id,
                 'selected_portrait_index': selected_portrait_index,
+                'opp_portraits_data': json.dumps(opp_portraits_data, ensure_ascii=False),
                 'now': now
             }
         )
@@ -2984,10 +3065,10 @@ def api_save_snapshot():
             db.text("""
                 INSERT INTO super_snapshots
                     (user_id, session_id, version, form_data, problems_data, portraits_data,
-                     selected_problem_id, selected_portrait_index, created_at, updated_at)
+                     selected_problem_id, selected_portrait_index, opp_portraits_data, created_at, updated_at)
                 VALUES
                     (:uid, :sid, 1, :form_data, :problems_data, :portraits_data,
-                     :selected_problem_id, :selected_portrait_index, :now, :now)
+                     :selected_problem_id, :selected_portrait_index, :opp_portraits_data, :now, :now)
             """),
             {
                 'uid': user.id,
@@ -2997,6 +3078,7 @@ def api_save_snapshot():
                 'portraits_data': json.dumps(portraits_data, ensure_ascii=False),
                 'selected_problem_id': selected_problem_id,
                 'selected_portrait_index': selected_portrait_index,
+                'opp_portraits_data': json.dumps(opp_portraits_data, ensure_ascii=False),
                 'now': now
             }
         )
@@ -3100,17 +3182,12 @@ def api_super_position_analyze():
 
         # 转换数据格式
         keyword_library = analysis_result.keyword_library or {}
-        problem_types = [
-            {
-                'type_name': p.type_name,
-                'description': p.description,
-                'target_audience': p.target_audience,
-                'keywords': p.keywords,
-            }
-            for p in analysis_result.problem_types
-        ]
-        market_opportunities = [
-            {
+
+        # 从蓝海机会中提取问题类型和场景
+        market_opportunities = []
+
+        for o in analysis_result.market_opportunities:
+            opp_dict = {
                 'opportunity_name': o.opportunity_name,
                 'business_direction': getattr(o, 'business_direction', ''),
                 'target_audience': o.target_audience,
@@ -3120,16 +3197,32 @@ def api_super_position_analyze():
                 'market_type': o.market_type,
                 'confidence': o.confidence,
                 'differentiation': getattr(o, 'differentiation', ''),
+                'problem_types': [],
             }
-            for o in analysis_result.market_opportunities
-        ]
+
+            # 转换 ProblemType 对象 → dict（scenes 现在是 List[Dict]）
+            problem_types_for_opp = []
+            for pt in o.problem_types:
+                pt_dict = {
+                    'name': pt.name,
+                    'description': pt.description,
+                    'keywords': pt.keywords,
+                    'scenes': pt.scenes,  # 已是 List[Dict]
+                }
+                problem_types_for_opp.append(pt_dict)
+
+            opp_dict['problem_types'] = problem_types_for_opp
+            market_opportunities.append(opp_dict)
 
         # 构建画像生成上下文
+        # 一键分析：使用 market_opportunities 中第一个机会生成画像
+        selected = market_opportunities[0] if market_opportunities else {}
         context = PortraitGenerationContext(
             keyword_library=keyword_library,
-            problem_types=problem_types,
+            problem_types=[],  # 已合并到 selected_opportunity 中
             business_info=business_info,
             market_opportunities=market_opportunities,
+            selected_opportunity=selected,  # 使用第一个机会
             portraits_per_type=portraits_per_type,
         )
 
@@ -3240,14 +3333,20 @@ def api_market_analyze():
 
     industry = data.get('industry', '')
     business_type = data.get('business_type', 'product')
+    business_range = data.get('business_range', '')
+    local_city = data.get('local_city', '').strip()
+    service_scenario = data.get('service_scenario', '')
 
     business_info = {
         'business_description': business_description,
         'industry': industry,
         'business_type': business_type,
+        'business_range': business_range,
+        'local_city': local_city,
+        'service_scenario': service_scenario,
     }
 
-    logger.info(f"[api_market_analyze] 开始市场分析: {business_description[:50]}")
+    logger.info(f"[api_market_analyze] 开始市场分析: {business_description[:50]}，经营范围={business_range}，服务场景={service_scenario}")
 
     try:
         analyzer = MarketAnalyzer()
@@ -3264,8 +3363,18 @@ def api_market_analyze():
             }), 500
 
         # 转换蓝海机会格式
-        market_opportunities = [
-            {
+        market_opportunities = []
+        for o in result.market_opportunities:
+            # 转换 ProblemType 对象 → dict（scenes 已是 List[Dict]）
+            problem_types_for_opp = []
+            for pt in o.problem_types:
+                problem_types_for_opp.append({
+                    'name': pt.name,
+                    'description': pt.description,
+                    'keywords': pt.keywords,
+                    'scenes': pt.scenes,
+                })
+            market_opportunities.append({
                 'opportunity_name': o.opportunity_name,
                 'business_direction': getattr(o, 'business_direction', ''),
                 'target_audience': o.target_audience,
@@ -3275,9 +3384,9 @@ def api_market_analyze():
                 'market_type': o.market_type,
                 'confidence': o.confidence,
                 'differentiation': getattr(o, 'differentiation', ''),
-            }
-            for o in result.market_opportunities
-        ]
+                'logic_chain': getattr(o, 'logic_chain', ''),
+                'problem_types': problem_types_for_opp,
+            })
 
         # 关键词统计
         blue_count = result.blue_ocean_keywords
@@ -3336,6 +3445,7 @@ def api_market_analyze_opportunities():
         business_description: str,   # 业务描述
         industry: str,              # 行业（可选）
         business_type: str,         # 经营类型
+        use_search: bool,           # 是否启用搜索增强（默认 True）
     }
 
     Response: {
@@ -3360,20 +3470,28 @@ def api_market_analyze_opportunities():
 
     industry = data.get('industry', '')
     business_type = data.get('business_type', 'product')
+    business_range = data.get('business_range', '')
+    local_city = data.get('local_city', '').strip()
+    service_scenario = data.get('service_scenario', '')
 
     business_info = {
         'business_description': business_description,
         'industry': industry,
         'business_type': business_type,
+        'business_range': business_range,
+        'local_city': local_city,
+        'service_scenario': service_scenario,
     }
+    use_search = data.get('use_search', True)  # 默认开启搜索增强
 
-    logger.info(f"[api_market_analyze_opportunities] Step 1: 挖掘蓝海机会: {business_description[:50]}")
+    logger.info(f"[api_market_analyze_opportunities] Step 1: 挖掘蓝海机会（搜索增强={use_search}）: {business_description[:50]}，经营范围={business_range}，服务场景={service_scenario}")
 
     try:
         analyzer = MarketAnalyzer()
         result = analyzer.analyze_opportunities(
             business_info=business_info,
             max_opportunities=5,
+            use_search_verification=use_search,
         )
 
         if not result.get('success'):
@@ -3388,7 +3506,7 @@ def api_market_analyze_opportunities():
             'success': True,
             'data': {
                 'opportunities': result['market_opportunities'],
-                'subdivision_insights': result['subdivision_insights'],
+                'subdivision_insights': result.get('subdivision_insights', {}),
             }
         })
 
@@ -3398,6 +3516,173 @@ def api_market_analyze_opportunities():
             'success': False,
             'message': f'分析异常: {str(e)}'
         }), 500
+
+
+# =============================================================================
+# 蓝海机会快照 API - 收藏功能
+# =============================================================================
+
+@public_bp.route('/api/opportunities/snapshots', methods=['GET'])
+def api_get_opportunity_snapshots():
+    """获取用户收藏的蓝海机会快照列表"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    from models.public_models import OpportunitySnapshot
+
+    page = request.args.get('page', 1, type=int)
+    page_size = request.args.get('page_size', 20, type=int)
+    page_size = min(page_size, 50)
+
+    query = OpportunitySnapshot.query.filter_by(user_id=user.id).order_by(
+        OpportunitySnapshot.created_at.desc()
+    )
+
+    total = query.count()
+    snapshots = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'total': total,
+            'page': page,
+            'page_size': page_size,
+            'snapshots': [_serialize_snapshot(s) for s in snapshots]
+        }
+    })
+
+
+@public_bp.route('/api/opportunities/snapshots', methods=['POST'])
+def api_create_opportunity_snapshot():
+    """收藏一个蓝海机会"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    data = request.get_json() or {}
+    snapshot_data = data.get('snapshot_data')
+
+    if not snapshot_data:
+        return jsonify({'success': False, 'message': '快照数据不能为空'}), 400
+
+    from models.public_models import OpportunitySnapshot
+    current_count = OpportunitySnapshot.query.filter_by(user_id=user.id).count()
+    if current_count >= 20:
+        return jsonify({
+            'success': False,
+            'message': '收藏已达上限（20个），请先删除不需要的快照'
+        }), 400
+
+    source_analyzed_at = None
+    if data.get('source_analyzed_at'):
+        try:
+            source_analyzed_at = datetime.datetime.fromisoformat(
+                data['source_analyzed_at'].replace('Z', '+00:00')
+            )
+        except (ValueError, AttributeError):
+            source_analyzed_at = datetime.datetime.utcnow()
+
+    new_snapshot = OpportunitySnapshot(
+        user_id=user.id,
+        snapshot_data=snapshot_data,
+        note=data.get('note', ''),
+        source_business_desc=data.get('source_business_desc', ''),
+        source_business_type=data.get('source_business_type', ''),
+        source_analyzed_at=source_analyzed_at or datetime.datetime.utcnow(),
+    )
+    db.session.add(new_snapshot)
+    db.session.commit()
+
+    logger.info(f"[api_create_opportunity_snapshot] 用户 {user.id} 收藏了蓝海机会: {snapshot_data.get('opportunity_name', 'unknown')}")
+
+    return jsonify({
+        'success': True,
+        'data': _serialize_snapshot(new_snapshot),
+        'message': '收藏成功'
+    }), 201
+
+
+@public_bp.route('/api/opportunities/snapshots/<int:snapshot_id>', methods=['PUT'])
+def api_update_opportunity_snapshot(snapshot_id):
+    """更新快照备注"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    from models.public_models import OpportunitySnapshot
+    snapshot = OpportunitySnapshot.query.filter_by(
+        id=snapshot_id, user_id=user.id
+    ).first()
+
+    if not snapshot:
+        return jsonify({'success': False, 'message': '快照不存在'}), 404
+
+    data = request.get_json() or {}
+    snapshot.note = data.get('note', '')
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'data': _serialize_snapshot(snapshot),
+        'message': '更新成功'
+    })
+
+
+@public_bp.route('/api/opportunities/snapshots/<int:snapshot_id>', methods=['DELETE'])
+def api_delete_opportunity_snapshot(snapshot_id):
+    """删除快照"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    from models.public_models import OpportunitySnapshot
+    snapshot = OpportunitySnapshot.query.filter_by(
+        id=snapshot_id, user_id=user.id
+    ).first()
+
+    if not snapshot:
+        return jsonify({'success': False, 'message': '快照不存在'}), 404
+
+    db.session.delete(snapshot)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': '已删除'})
+
+
+@public_bp.route('/api/opportunities/snapshots/clear', methods=['POST'])
+def api_clear_all_snapshots():
+    """清空当前用户所有快照（业务描述重置时调用）"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    from models.public_models import OpportunitySnapshot
+    deleted = OpportunitySnapshot.query.filter_by(user_id=user.id).delete()
+    db.session.commit()
+
+    logger.info(f"[api_clear_all_snapshots] 用户 {user.id} 清空了 {deleted} 个快照")
+
+    return jsonify({
+        'success': True,
+        'message': f'已清空 {deleted} 个快照'
+    })
+
+
+def _serialize_snapshot(snapshot):
+    """序列化快照对象"""
+    return {
+        'id': snapshot.id,
+        'snapshot_data': snapshot.snapshot_data,
+        'note': snapshot.note,
+        'source_business_desc': snapshot.source_business_desc,
+        'source_business_type': snapshot.source_business_type,
+        'source_analyzed_at': (
+            snapshot.source_analyzed_at.isoformat() if snapshot.source_analyzed_at else None
+        ),
+        'used_for_portrait_id': snapshot.used_for_portrait_id,
+        'created_at': snapshot.created_at.isoformat() if snapshot.created_at else None,
+    }
 
 
 # =============================================================================
@@ -3416,15 +3701,25 @@ def api_generate_keyword_library():
         business_type: str,         # 经营类型
         core_business: str,        # 核心业务词（可选，默认从业务描述提取）
         blue_ocean_opportunity: str, # 蓝海机会描述（可选，用于指导关键词生成方向）
+        portraits: [                # 画像列表（可选，用于生成个性化关键词）
+            {portrait_id: str, name: str, problem_type: str},
+            ...
+        ]
     }
 
     Response: {
         success: True,
         data: {
-            keyword_library: {...},   # 关键词库
-            problem_types: [...],     # 问题类型
-            question_samples: [...],  # 问句示范（新增）
-            keyword_stats: {...},     # 关键词统计
+            keyword_library: {...},   # 关键词库（包含 common_keywords 和 portrait_keywords）
+            problem_types: [...],     # 问题类型（画像）
+            portrait_keywords: [...],  # 画像专属关键词（新增）
+            keyword_stats: {          # 关键词统计
+                total: int,
+                common: int,          # 公用关键词数量（新增）
+                portrait: int,        # 个性化关键词数量（新增）
+                blue_ocean: int,
+                red_ocean: int,
+            }
         }
     }
     """
@@ -3438,6 +3733,7 @@ def api_generate_keyword_library():
     business_type = data.get('business_type', 'product')
     core_business = data.get('core_business', '').strip()
     blue_ocean_opportunity = data.get('blue_ocean_opportunity', '').strip()
+    portraits = data.get('portraits', [])  # 新增：画像列表
 
     if not business_description:
         return jsonify({
@@ -3451,7 +3747,7 @@ def api_generate_keyword_library():
         'business_type': business_type,
     }
 
-    logger.info(f"[api_generate_keyword_library] Step 2: 生成关键词库 (蓝海机会={blue_ocean_opportunity})")
+    logger.info(f"[api_generate_keyword_library] Step 2: 生成关键词库 (蓝海机会={blue_ocean_opportunity}, 画像数={len(portraits)})")
 
     try:
         generator = KeywordLibraryGenerator()
@@ -3461,6 +3757,7 @@ def api_generate_keyword_library():
             core_business=core_business or None,
             max_keywords=200,
             blue_ocean_opportunity=blue_ocean_opportunity or None,
+            portraits=portraits or None,
         )
 
         if not result.success:
@@ -3469,19 +3766,20 @@ def api_generate_keyword_library():
                 'message': f"生成失败: {result.error_message or '未知错误'}"
             }), 500
 
-        logger.info(f"[api_generate_keyword_library] Step 2 完成: {result.total_keywords} 个关键词, {len(result.question_samples)} 个问句")
+        logger.info(f"[api_generate_keyword_library] Step 2 完成: 关键词={result.total_keywords} (公用={result.common_keywords_count}, 个性化={result.portrait_keywords_count})")
 
         return jsonify({
             'success': True,
             'data': {
                 'keyword_library': result.keyword_library or {},
                 'problem_types': result.to_dict().get('problem_types', []),
-                'question_samples': result.to_dict().get('question_samples', []),
+                'portrait_keywords': result.to_dict().get('portrait_keywords', []),
                 'keyword_stats': {
                     'total': result.total_keywords or 0,
+                    'common': result.common_keywords_count or 0,  # 公用关键词
+                    'portrait': result.portrait_keywords_count or 0,  # 个性化关键词
                     'blue_ocean': result.blue_ocean_keywords or 0,
                     'red_ocean': result.red_ocean_keywords or 0,
-                    'blue_ratio': round((result.blue_ocean_keywords or 0) / (result.total_keywords or 1) * 100, 1),
                 }
             }
         })
@@ -3512,7 +3810,8 @@ def api_portraits_generate():
         business_type: str,              # 经营类型
         service_scenario: str,           # 服务场景
         analysis_result: {},             # 市场分析结果（从 market/analyze 获取）
-        portraits_per_type: int,          # 每个问题类型生成的画像数
+        portraits_per_type: int,         # 每个问题类型生成的画像数
+        selected_opportunity: {}        # 用户选中的蓝海机会（含 problem_types → scenes）
     }
     """
     from services.portrait_generator import (
@@ -3531,6 +3830,7 @@ def api_portraits_generate():
     service_scenario = data.get('service_scenario', 'other')
     analysis_result = data.get('analysis_result', {})
     portraits_per_type = data.get('portraits_per_type', 3)
+    selected_opportunity = data.get('selected_opportunity', {})
 
     if not core_business:
         return jsonify({
@@ -3558,15 +3858,15 @@ def api_portraits_generate():
 
         # 如果没有传入 market_opportunities，从 analysis_result 的顶层获取
         if not market_opportunities:
-            # 从 _analysis_result 中获取
             internal_result = analysis_result.get('_analysis_result', {})
-            problem_types = internal_result.get('problem_types', problem_types)
+            market_opportunities = internal_result.get('market_opportunities', market_opportunities)
 
         context = PortraitGenerationContext(
             keyword_library=keyword_library,
             problem_types=problem_types,
             business_info=business_info,
             market_opportunities=market_opportunities,
+            selected_opportunity=selected_opportunity,
             portraits_per_type=portraits_per_type,
         )
 
@@ -3613,6 +3913,225 @@ def api_portraits_generate():
 
     except Exception as e:
         logger.error(f"[api_portraits_generate] 异常: {e}\n{tb_module.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'生成异常: {str(e)}'
+        }), 500
+
+
+# =============================================================================
+# 画像专属关键词库+选题库生成 API
+# =============================================================================
+
+@public_bp.route('/api/portraits/generate_keywords_topics', methods=['POST'])
+def api_portrait_keywords_topics_generate():
+    """
+    画像专属关键词库+选题库生成
+    触发时机：画像保存时或画像列表页点击"生成关键词/选题"
+
+    POST /public/api/portraits/generate_keywords_topics
+    Body: {
+        core_business: str,         # 核心业务（如"农村考生志愿辅导"）
+        industry: str,                # 行业
+        business_type: str,          # 经营类型
+        portrait: {},                # 单个画像对象
+    }
+
+    Response: {
+        success: True,
+        data: {
+            portrait_id: str,
+            keyword_library: {
+                problem_type_keywords: [...],  # 问题类型关键词（10个）
+                pain_point_keywords: [...],    # 痛点关键词（10个）
+                scene_keywords: [...],       # 场景关键词（5个）
+                concern_keywords: [...],     # 顾虑关键词（5个）
+            },
+            topic_library: {
+                audience_lock_topics: [...],   # 受众锁定类（8个）
+                pain_amplify_topics: [...],     # 痛点放大类（10个）
+                solution_compare_topics: [...],  # 方案对比类（8个）
+                vision_topics: [...],          # 愿景勾画类（8个）
+                barrier_remove_topics: [...],   # 顾虑消除类（8个）
+            }
+        }
+    }
+    """
+    from services.keyword_topic_generator import KeywordTopicGenerator
+    from services.keyword_library_generator import KeywordLibraryGenerator
+
+    logger = logging.getLogger(__name__)
+
+    data = request.get_json() or {}
+    core_business = data.get('core_business', '').strip()
+    industry = data.get('industry', '').strip()
+    portrait = data.get('portrait', {})
+
+    if not core_business:
+        return jsonify({
+            'success': False,
+            'message': '请提供核心业务'
+        }), 400
+
+    if not portrait:
+        return jsonify({
+            'success': False,
+            'message': '请提供画像数据'
+        }), 400
+
+    logger.info(f"[api_portrait_keywords_topics_generate] 生成关键词选题: 画像={portrait.get('portrait_id', 'N/A')}, 业务={core_business}")
+
+    try:
+        # 先生成市场关键词库（100+）
+        market_kw_lib = {}
+        try:
+            kl_gen = KeywordLibraryGenerator()
+            kl_result = kl_gen.generate(
+                business_info={
+                    'business_description': core_business,
+                    'industry': industry,
+                    'business_type': data.get('business_type', 'product'),
+                },
+                core_business=None,
+                max_keywords=200,
+                blue_ocean_opportunity=None,
+                portraits=None,
+            )
+            if kl_result.success:
+                market_kw_lib = kl_result.keyword_library or {}
+                logger.info(f"[api_portrait_keywords_topics_generate] 市场关键词库生成完成: {kl_result.total_keywords} 个")
+            else:
+                logger.warning(f"[api_portrait_keywords_topics_generate] 市场关键词库生成失败: {kl_result.error_message}")
+        except Exception as e:
+            logger.warning(f"[api_portrait_keywords_topics_generate] 市场关键词库生成异常: {e}")
+
+        generator = KeywordTopicGenerator()
+        result = generator.generate_for_portrait(
+            core_business=core_business,
+            portrait=portrait,
+            portrait_id=portrait.get('portrait_id', ''),
+        )
+
+        if not result.success:
+            return jsonify({
+                'success': False,
+                'message': f"生成失败: {result.error_message}"
+            }), 500
+
+        logger.info(f"[api_portrait_keywords_topics_generate] 生成完成: 画像={portrait.get('portrait_id', 'N/A')}")
+
+        # 合并 market_keywords 到 keyword_library
+        rd = result.to_dict()
+        if 'keyword_library' in rd:
+            rd['keyword_library'] = {**market_kw_lib, **rd['keyword_library']}
+
+        return jsonify({
+            'success': True,
+            'data': rd
+        })
+
+    except Exception as e:
+        logger.error(f"[api_portrait_keywords_topics_generate] 异常: {e}\n{tb_module.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'生成异常: {str(e)}'
+        }), 500
+
+
+# =============================================================================
+# 批量画像专属关键词库+选题库生成 API
+# =============================================================================
+
+@public_bp.route('/api/portraits/generate_keywords_topics_batch', methods=['POST'])
+def api_portrait_keywords_topics_generate_batch():
+    """
+    批量生成画像专属关键词库+选题库（含市场关键词库）
+
+    POST /public/api/portraits/generate_keywords_topics_batch
+    Body: {
+        core_business: str,
+        industry: str,
+        business_type: str,
+        portraits: [],  # 画像列表
+    }
+    """
+    from services.keyword_topic_generator import KeywordTopicGenerator
+    from services.keyword_library_generator import KeywordLibraryGenerator
+
+    logger = logging.getLogger(__name__)
+
+    data = request.get_json() or {}
+    core_business = data.get('core_business', '').strip()
+    industry = data.get('industry', '').strip()
+    portraits = data.get('portraits', [])
+
+    if not core_business:
+        return jsonify({'success': False, 'message': '请提供核心业务'}), 400
+
+    if not portraits:
+        return jsonify({'success': False, 'message': '请提供画像数据'}), 400
+
+    logger.info(f"[api_portrait_keywords_topics_batch] 批量生成: 业务={core_business}, 画像数={len(portraits)}")
+
+    try:
+        # 先生成市场关键词库（100+），所有画像共享
+        market_kw_lib = {}
+        market_kw_stats = {}
+        try:
+            kl_gen = KeywordLibraryGenerator()
+            kl_result = kl_gen.generate(
+                business_info={
+                    'business_description': core_business,
+                    'industry': industry,
+                    'business_type': data.get('business_type', 'product'),
+                },
+                core_business=None,
+                max_keywords=200,
+                blue_ocean_opportunity=None,
+                portraits=None,
+            )
+            if kl_result.success:
+                market_kw_lib = kl_result.keyword_library or {}
+                market_kw_stats = {
+                    'total': kl_result.total_keywords,
+                    'blue_ocean': kl_result.blue_ocean_keywords,
+                    'red_ocean': kl_result.red_ocean_keywords,
+                }
+                logger.info(f"[api_portrait_keywords_topics_batch] 市场关键词库生成完成: {kl_result.total_keywords} 个")
+            else:
+                logger.warning(f"[api_portrait_keywords_topics_batch] 市场关键词库生成失败: {kl_result.error_message}")
+        except Exception as e:
+            logger.warning(f"[api_portrait_keywords_topics_batch] 市场关键词库生成异常: {e}")
+
+        # 批量生成画像专属关键词库+选题库
+        generator = KeywordTopicGenerator()
+        results = generator.generate_batch(
+            core_business=core_business,
+            portraits=portraits,
+        )
+
+        # 合并市场关键词库到每个结果
+        results_data = []
+        for r in results:
+            rd = r.to_dict()
+            # 合并 market_keywords 到 keyword_library 字段
+            if 'keyword_library' in rd:
+                merged_kl = {**market_kw_lib, **rd['keyword_library']}
+                rd['keyword_library'] = merged_kl
+            rd['market_kw_stats'] = market_kw_stats
+            results_data.append(rd)
+
+        logger.info(f"[api_portrait_keywords_topics_batch] 批量生成完成: {len(results_data)} 个画像")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'portraits': results_data,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[api_portrait_keywords_topics_batch] 异常: {e}\n{tb_module.format_exc()}")
         return jsonify({
             'success': False,
             'message': f'生成异常: {str(e)}'
@@ -3737,7 +4256,7 @@ def api_save_portrait_batch():
 
         # 生成画像名称
         if not portrait_name:
-            portrait_name = f"{portrait.get('problem_type', '画像')}_{datetime.now().strftime('%m%d_%H%M')}"
+            portrait_name = f"{portrait.get('problem_type', '画像')}_{datetime.datetime.now().strftime('%m%d_%H%M')}"
 
         # 构建画像数据
         portrait_data = {

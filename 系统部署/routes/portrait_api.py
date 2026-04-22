@@ -85,6 +85,31 @@ def save_portrait(user):
         business_description, industry, target_customer)
     current_app.logger.info("[save_portrait] portrait_data keys=%s", list(portrait_data.keys()) if isinstance(portrait_data, dict) else type(portrait_data))
 
+    # #region agent_debug_log
+    try:
+        _log_path = "/Volumes/增元/项目/douyin/.cursor/debug.log"
+        _entry = {
+            "hypothesisId": "H1_H2",
+            "location": "portrait_api.py:75",
+            "message": "save endpoint received portrait_data from frontend",
+            "data": {
+                "portrait_data_keys": list(portrait_data.keys()) if isinstance(portrait_data, dict) else str(type(portrait_data)),
+                "pain_points": portrait_data.get('pain_points') if isinstance(portrait_data, dict) else None,
+                "pain_scenarios": portrait_data.get('pain_scenarios') if isinstance(portrait_data, dict) else None,
+                "barriers": portrait_data.get('barriers') if isinstance(portrait_data, dict) else None,
+                "problem_type_description": portrait_data.get('problem_type_description') if isinstance(portrait_data, dict) else None,
+                "identity": portrait_data.get('identity') if isinstance(portrait_data, dict) else None,
+                "business_description": business_description,
+                "target_customer": target_customer,
+            },
+            "timestamp": __import__("time").time(),
+        }
+        with open(_log_path, "a", encoding="utf-8") as _f:
+            _f.write(__import__("json").dumps(_entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    # #endregion
+
     success, message, saved = portrait_save_service.save_portrait(
         user_id=user.id,
         portrait_data=portrait_data,
@@ -93,7 +118,7 @@ def save_portrait(user):
         industry=industry,
         target_customer=target_customer,
         source_session_id=source_session_id,
-        set_as_default=set_as_default
+        set_as_default=set_as_default,
     )
 
     if not success:
@@ -119,7 +144,7 @@ def save_portrait(user):
             'data': saved,
         })
 
-    # 付费用户：立即更新 generation_status = 'generating' 并启动后台线程
+    # 付费用户：始终启动后台生成关键词库和选题库
     if portrait_id:
         db.session.execute(
             text("UPDATE saved_portraits SET generation_status = 'generating' WHERE id = :id"),
@@ -153,11 +178,7 @@ def get_saved_portraits(user):
     portraits = portrait_save_service.get_user_portraits(
         user.id, include_data=include_data
     )
-    
-    print(f"[get_saved_portraits] 返回 {len(portraits)} 个画像")
-    for p in portraits:
-        print(f"  画像 {p['id']} {p['portrait_name']}: generation_status={p.get('generation_status')}, has_kw={p.get('keyword_library') is not None}, has_topic={p.get('topic_library') is not None}")
-    
+
     return jsonify({
         'success': True,
         'data': portraits,
@@ -530,12 +551,56 @@ def get_portrait_topics(user, portrait_id):
     topic_library = portrait.get('topic_library')
     all_topics = []
 
+    # 兼容新旧两种格式
+    # 旧格式：topics 数组（每个元素是 dict，带 id/title/type 等字段）
     if topic_library and 'topics' in topic_library:
         all_topics = topic_library.get('topics', [])
 
+    # 新格式：扁平字段（audience_lock_topics, pain_amplify_topics, ...）
+    # 每个 section 里的元素可能是 dict{{}} 或字符串，需要统一转成带 id/title 的 dict
+    if topic_library:
+        sections = [
+            topic_library.get('audience_lock_topics', []),
+            topic_library.get('pain_amplify_topics', []),
+            topic_library.get('solution_compare_topics', []),
+            topic_library.get('vision_topics', []),
+            topic_library.get('barrier_remove_topics', []),
+            topic_library.get('direct_need_topics', []),
+            topic_library.get('skill_tutorial_topics', []),
+        ]
+        new_format_topics = []
+        for sec in sections:
+            if isinstance(sec, list):
+                for item in sec:
+                    # dict：直接使用
+                    if isinstance(item, dict):
+                        new_format_topics.append(item)
+                    # 字符串：转成带 id/title 的标准化 dict
+                    elif isinstance(item, str):
+                        topic_id = str(hash(item))  # 用内容 hash 做稳定 id
+                        new_format_topics.append({
+                            'id': topic_id,
+                            'title': item,
+                            'created_at': None,
+                        })
+        # 旧格式为空时才用新格式兜底
+        if not all_topics and new_format_topics:
+            all_topics = new_format_topics
+        # 新格式始终补充（即使是 dict 格式也追加，避免遗漏）
+        elif new_format_topics:
+            existing_ids = {t.get('id') for t in all_topics if isinstance(t, dict) and t.get('id')}
+            for t in new_format_topics:
+                if t.get('id') not in existing_ids:
+                    all_topics.append(t)
+
+    logger.info("[get_portrait_topics] portrait_id=%s, 原始选题数量=%d", portrait_id, len(all_topics))
+
     # 按 created_at 倒序排列
     def sort_key(t):
-        created = t.get('created_at', '')
+        if isinstance(t, dict):
+            created = t.get('created_at', '')
+        else:
+            created = ''
         return created if created else ''
 
     all_topics = sorted(all_topics, key=sort_key, reverse=True)
@@ -550,7 +615,7 @@ def get_portrait_topics(user, portrait_id):
     page_topics = enrich_topics_with_scene_options(page_topics)
 
     # ── 补充 link 信息（版本数量、使用次数）──
-    topic_ids = [str(t.get('id')) for t in page_topics if t.get('id')]
+    topic_ids = [str(t.get('id')) for t in page_topics if isinstance(t, dict) and t.get('id')]
     if topic_ids and portrait_id:
         links = TopicGenerationLink.query.filter_by(
             portrait_id=portrait_id, user_id=user.id
@@ -558,7 +623,7 @@ def get_portrait_topics(user, portrait_id):
         # topic_id 统一为字符串建 map，防止类型不一致导致匹配失败
         link_map = {str(l.topic_id): l for l in links}
         for t in page_topics:
-            tid = str(t.get('id')) if t.get('id') is not None else ''
+            tid = str(t.get('id')) if isinstance(t, dict) and t.get('id') is not None else ''
             if tid and tid in link_map:
                 link = link_map[tid]
                 t['_link_id'] = link.id
@@ -573,9 +638,15 @@ def get_portrait_topics(user, portrait_id):
     # 调试日志：检查 business_description 的实际值
     logger.info("[get_portrait_topics] portrait_id=%s, business_description=%r, business_name=%r",
         portrait_id, portrait.get('business_description'), business_name)
+    logger.info("[get_portrait_topics] portrait_id=%s, 返回 topics=%d, total=%d",
+        portrait_id, len(page_topics), total)
+    if page_topics:
+        for t in page_topics[:3]:
+            logger.info("[get_portrait_topics]   topic: id=%r, title=%r", t.get('id'), t.get('title')[:30] if t.get('title') else None)
 
     for t in page_topics:
-        t['_business_name'] = business_name
+        if isinstance(t, dict):
+            t['_business_name'] = business_name
 
     return jsonify({
         'success': True,
@@ -615,6 +686,8 @@ def get_portrait_topics_quick(user, portrait_id):
     topics = []
     from_portrait = False
 
+    # 兼容新旧两种格式
+    # 旧格式：topics 数组
     if topic_library and 'topics' in topic_library:
         from services.topic_library_generator import topic_library_generator
         topics = topic_library_generator.select_topics(
@@ -622,18 +695,53 @@ def get_portrait_topics_quick(user, portrait_id):
             count=count,
         )
         from_portrait = True
+    else:
+        # 新格式：扁平字段（audience_lock_topics, pain_amplify_topics, ...）
+        sections = [
+            topic_library.get('audience_lock_topics', []) if topic_library else [],
+            topic_library.get('pain_amplify_topics', []) if topic_library else [],
+            topic_library.get('solution_compare_topics', []) if topic_library else [],
+            topic_library.get('vision_topics', []) if topic_library else [],
+            topic_library.get('barrier_remove_topics', []) if topic_library else [],
+            topic_library.get('direct_need_topics', []) if topic_library else [],
+            topic_library.get('skill_tutorial_topics', []) if topic_library else [],
+        ]
+        all_topics = []
+        for sec in sections:
+            if isinstance(sec, list):
+                for item in sec:
+                    # dict：直接使用
+                    if isinstance(item, dict):
+                        all_topics.append(item)
+                    # 字符串：转成带 id/title 的标准化 dict
+                    elif isinstance(item, str):
+                        all_topics.append({
+                            'id': str(hash(item)),
+                            'title': item,
+                        })
+        import random
+        topics = random.sample(all_topics, min(count, len(all_topics))) if all_topics else []
+        from_portrait = bool(topics)
 
-    # 获取核心业务词（从关键词库的第一个分类中提取）
-    core_business = ''
+    # 获取核心业务词
+    core_business = portrait.get('business_description', '').strip()
     keyword_library = portrait.get('keyword_library')
-    if keyword_library and 'categories' in keyword_library:
-        categories = keyword_library.get('categories', [])
-        if categories and len(categories) > 0:
-            first_cat = categories[0]
-            keywords = first_cat.get('keywords', [])
-            if keywords and len(keywords) > 0:
-                # 取前3个关键词作为核心业务词展示
-                core_business = '、'.join(keywords[:3])
+    if not core_business and keyword_library:
+        # 兼容旧格式：categories
+        if 'categories' in keyword_library:
+            categories = keyword_library.get('categories', [])
+            if categories and len(categories) > 0:
+                first_cat = categories[0]
+                keywords = first_cat.get('keywords', [])
+                if keywords and len(keywords) > 0:
+                    core_business = '、'.join(keywords[:3])
+        # 兼容新格式：扁平字段
+        if not core_business:
+            for field in ['problem_type_keywords', 'pain_point_keywords', 'scene_keywords']:
+                kws = keyword_library.get(field, [])
+                if isinstance(kws, list) and len(kws) > 0:
+                    core_business = '、'.join(kws[:3])
+                    break
 
     return jsonify({
         'success': True,
@@ -897,16 +1005,35 @@ def increment_topic_generation_count(user, portrait_id):
         return jsonify({'success': False, 'message': '缺少 topic_id'}), 400
 
     topic_library = portrait.get('topic_library') or {}
-    topics = topic_library.get('topics', [])
 
+    # 从旧格式 topics 数组中查找
+    topics = topic_library.get('topics', [])
+    found = False
     for topic in topics:
         if topic.get('id') == topic_id:
             topic['generation_count'] = topic.get('generation_count', 0) + 1
+            found = True
             break
-    else:
+
+    # 从新格式扁平字段中查找
+    if not found:
+        flat_sections = [
+            'audience_lock_topics', 'pain_amplify_topics', 'solution_compare_topics',
+            'vision_topics', 'barrier_remove_topics', 'direct_need_topics', 'skill_tutorial_topics',
+        ]
+        for section_key in flat_sections:
+            section = topic_library.get(section_key, [])
+            for topic in section:
+                if isinstance(topic, dict) and topic.get('id') == topic_id:
+                    topic['generation_count'] = topic.get('generation_count', 0) + 1
+                    found = True
+                    break
+            if found:
+                break
+
+    if not found:
         return jsonify({'success': False, 'message': '选题不存在'}), 404
 
-    topic_library['topics'] = topics
     portrait_model = SavedPortrait.query.get(portrait_id)
     if portrait_model:
         portrait_model.topic_library = topic_library
@@ -992,6 +1119,10 @@ def _build_keyword_library_markdown(kw_lib: dict, portrait_name: str,
                                      industry: str, business_desc: str,
                                      updated_at: str) -> str:
     """将关键词库字典渲染为 Markdown 文本"""
+    import logging
+    _logger = logging.getLogger('werkzeug')
+    _logger.info(f"[keyword_md] kw_lib type={type(kw_lib)}, keys={list(kw_lib.keys()) if isinstance(kw_lib, dict) else 'NOT_DICT'}")
+    _logger.info(f"[keyword_md] common_keywords={bool(kw_lib.get('common_keywords') if isinstance(kw_lib, dict) else None)}, personas={bool(kw_lib.get('personas') if isinstance(kw_lib, dict) else None)}")
     lines = [
         f"# 📚 {portrait_name} - 关键词库",
         "",
@@ -1003,6 +1134,103 @@ def _build_keyword_library_markdown(kw_lib: dict, portrait_name: str,
         "",
     ]
 
+    # 新格式扁平结构（KeywordTopicGenerator）
+    flat_kw_sections = [
+        ('problem_type_keywords', '🔍 问题类型词'),
+        ('pain_point_keywords', '😣 痛点关键词'),
+        ('scene_keywords', '🎬 场景关键词'),
+        ('concern_keywords', '❓ 顾虑关键词'),
+    ]
+    flat_found = False
+    for kw_key, kw_label in flat_kw_sections:
+        kws = kw_lib.get(kw_key, [])
+        if kws:
+            if not flat_found:
+                lines.append("---")
+                lines.append("")
+                lines.append("## 关键词分类（新格式）")
+                lines.append("")
+                flat_found = True
+            lines.append(f"### {kw_label}（{len(kws)}个）")
+            for i in range(0, len(kws), 4):
+                row = kws[i:i+4]
+                lines.append("| " + " | ".join(str(k) for k in row) + " |")
+            lines.append("")
+
+    # ── 新格式：KeywordLibraryGenerator 产出的市场关键词库 ──────────────────
+    # 结构：common_keywords, personas, upstream_keywords, downstream_keywords,
+    #       supporting_tools_keywords, technique_keywords
+    if kw_lib.get('common_keywords'):
+        lines.append("---")
+        lines.append("")
+        lines.append("## 市场公用关键词库（KeywordLibraryGenerator）")
+        lines.append("")
+        common = kw_lib.get('common_keywords', {})
+        if isinstance(common, dict):
+            for cat_name, kws in common.items():
+                if kws and isinstance(kws, list):
+                    lines.append(f"### {cat_name}（{len(kws)}个）")
+                    for i in range(0, len(kws), 4):
+                        row = kws[i:i+4]
+                        lines.append("| " + " | ".join(str(k) if not isinstance(k, dict) else k.get('keyword', k.get('name', '')) for k in row) + " |")
+                    lines.append("")
+        elif isinstance(common, list):
+            lines.append(f"共 {len(common)} 个")
+            for i in range(0, len(common), 4):
+                row = common[i:i+4]
+                lines.append("| " + " | ".join(str(k) for k in row) + " |")
+            lines.append("")
+
+    if kw_lib.get('personas'):
+        lines.append("---")
+        lines.append("")
+        lines.append("## 画像专属关键词库")
+        lines.append("")
+        personas = kw_lib.get('personas', [])
+        if isinstance(personas, list):
+            for i, p in enumerate(personas):
+                if not isinstance(p, dict):
+                    continue
+                p_name = p.get('portrait_name', p.get('persona_problem_type', f'画像{i+1}'))
+                lines.append(f"### {p_name}")
+                for field, label in [
+                    ('pain_points', '痛点关键词'),
+                    ('scene_keywords', '场景关键词'),
+                    ('concerns', '顾虑关键词'),
+                ]:
+                    kws = p.get(field, [])
+                    if kws:
+                        lines.append(f"**{label}（{len(kws)}个）**：")
+                        kw_strs = [k.get('keyword', k.get('name', '')) if isinstance(k, dict) else str(k) for k in kws]
+                        for j in range(0, len(kw_strs), 4):
+                            lines.append("| " + " | ".join(kw_strs[j:j+4]) + " |")
+                lines.append("")
+
+    upstream = kw_lib.get('upstream_keywords', [])
+    downstream = kw_lib.get('downstream_keywords', [])
+    tools_kw = kw_lib.get('supporting_tools_keywords', [])
+    tech_kw = kw_lib.get('technique_keywords', [])
+
+    if upstream or downstream or tools_kw or tech_kw:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 行业上下游关键词库")
+        lines.append("")
+        for field, label in [
+            ('upstream_keywords', '上游原材料'),
+            ('downstream_keywords', '下游配套服务'),
+            ('supporting_tools_keywords', '配套工具'),
+            ('technique_keywords', '技艺工艺'),
+        ]:
+            kws = kw_lib.get(field, [])
+            if kws and isinstance(kws, list):
+                lines.append(f"### {label}（{len(kws)}个）")
+                kw_strs = [k.get('keyword', k.get('name', '')) if isinstance(k, dict) else str(k) for k in kws]
+                for i in range(0, len(kw_strs), 4):
+                    lines.append("| " + " | ".join(kw_strs[i:i+4]) + " |")
+                lines.append("")
+
+    # 旧格式 categories 结构
     categories = kw_lib.get('categories', [])
     if categories:
         lines.append("---")
@@ -1123,6 +1351,34 @@ def _build_topic_library_markdown(topic_lib: dict, portrait_name: str,
         "",
     ]
 
+    # 新格式扁平结构（KeywordTopicGenerator）
+    flat_topic_sections = [
+        ('audience_lock_topics', '🎯 受众锁定'),
+        ('pain_amplify_topics', '😣 痛点放大'),
+        ('solution_compare_topics', '⚖️ 方案对比'),
+        ('vision_topics', '✨ 愿景勾画'),
+        ('barrier_remove_topics', '💡 顾虑消除'),
+    ]
+    flat_found = False
+    for topic_key, topic_label in flat_topic_sections:
+        topics = topic_lib.get(topic_key, [])
+        if topics:
+            if not flat_found:
+                lines.append("---")
+                lines.append("")
+                lines.append("## 选题列表（新格式）")
+                lines.append("")
+                flat_found = True
+            lines.append(f"### {topic_label}（{len(topics)}个）")
+            for t in topics:
+                if isinstance(t, dict):
+                    title = t.get('title', str(t))[:40]
+                    lines.append(f"- {title}")
+                else:
+                    lines.append(f"- {str(t)}")
+            lines.append("")
+
+    # 旧格式 topics 数组
     topics = topic_lib.get('topics', [])
     if topics:
         lines.append("---")

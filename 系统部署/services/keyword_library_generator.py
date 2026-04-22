@@ -2,35 +2,32 @@
 关键词库生成服务
 
 功能：
-1. 基于业务描述，生成精准的关键词库（原子零件 + 问句示范）
-2. 生成问题类型标签
-3. 区分蓝海/红海关键词
+基于业务描述，按照关键词库模板生成精准的关键词库（9大分类，100+个关键词）。
 
-关键词结构（新版）：
-- atom_keywords：原子关键词（组成问句的零件）
-  - 人群标签：定位谁有这个痛点
-  - 场景/时机：定位问题发生的具体情境
-  - 症状/困境：描述用户当前的苦恼
-  - 顾虑/疑问：用户搜索时的问题词
-- red_ocean_keywords：红海关键词
-  - 品类大词、通用需求词、品牌词
-- question_samples：问句示范
-  - pre_questions：前置问句（用户遇到问题但还没找到解决方案）
-  - post_questions：后置问句（用户用了产品后发现新问题）
+关键词库模板分类（9大类）：
+1. 直接需求关键词（≥20个）：核心品类词 + 品质服务类
+2. 痛点关键词（≥15个）：问题型 + 担心型 + 后果型
+3. 搜索关键词（≥15个）：疑问型 + 方法型 + 对比型
+4. 场景关键词（≥15个）：客户类型 + 具体场景
+5. 地域关键词（≥10个）：本地 + 周边扩展
+6. 季节/时间关键词（≥10个）：旺季 + 淡季
+7. 技巧/干货关键词（≥10个）：干货型 + 数字型/承诺型
+8. 认知颠覆/反向关键词（≥5个）：颠覆常识
+9. 节日/节气关键词（≥15个）：传统节日 + 现代节日 + 节气
 
 使用方式：
-from services.keyword_library_generator import KeywordLibraryGenerator, KeywordLibraryResult
+from services.keyword_library_generator import KeywordLibraryGenerator
 
 generator = KeywordLibraryGenerator()
-result = generator.generate(
-    business_info={'business_description': '卖奶粉', 'industry': '奶粉'},
-    core_business='特殊配方奶粉',
-    max_keywords=200
+result = generator.generate_template(
+    business_info={'business_description': '灌香肠加工服务'},
+    core_business='灌香肠',
+    region='南漳',
 )
 
-result.keyword_library  # 关键词库（新结构）
-result.question_samples  # 问句示范
-result.problem_types    # 问题类型
+result.success
+result.keyword_library  # 关键词库（9分类，100+个）
+result.total_keywords   # 总关键词数
 """
 
 import json
@@ -46,7 +43,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ProblemType:
     """问题类型（画像分类标签）"""
-    type_name: str                   # 类型名称，如"肠道问题"
+    type_name: str                   # 类型名称，如"价格问题"
     description: str                 # 描述
     target_audience: str             # 目标人群
     keywords: List[str]               # 关联关键词
@@ -71,6 +68,7 @@ class KeywordLibraryResult:
     keyword_library: Dict[str, Any] = field(default_factory=dict)
     problem_types: List[ProblemType] = field(default_factory=list)
     question_samples: List[QuestionSample] = field(default_factory=list)  # 新增：问句示范
+    portrait_keywords: List[Dict] = field(default_factory=list)  # 画像关键词
 
     # 原始LLM输出（用于调试）
     raw_output: Dict[str, Any] = field(default_factory=dict)
@@ -79,13 +77,15 @@ class KeywordLibraryResult:
     total_keywords: int = 0
     blue_ocean_keywords: int = 0
     red_ocean_keywords: int = 0
+    common_keywords_count: int = 0  # 公用关键词数量
+    portrait_keywords_count: int = 0  # 个性化关键词数量
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
         return {
             'success': self.success,
             'error_message': self.error_message,
-            'keyword_library': self.keyword_library,
+            'keyword_library': self.keyword_library or {},
             'problem_types': [
                 {
                     'type_name': pt.type_name,
@@ -131,8 +131,9 @@ class KeywordLibraryGenerator:
         self,
         business_info: Dict[str, Any],
         core_business: str = None,
-        max_keywords: int = 200,
+        max_keywords: int = 100,
         blue_ocean_opportunity: str = None,
+        portraits: list = None,
     ) -> KeywordLibraryResult:
         """
         生成关键词库
@@ -143,7 +144,7 @@ class KeywordLibraryGenerator:
                 - industry: 行业
                 - business_type: 业务类型 (product/service)
             core_business: 核心业务词（可选，默认从业务描述提取）
-            max_keywords: 最大关键词数量
+            max_keywords: 最大关键词数量，默认100
             blue_ocean_opportunity: 蓝海机会描述（可选，用于指导关键词生成方向）
 
         Returns:
@@ -152,7 +153,6 @@ class KeywordLibraryGenerator:
         result = KeywordLibraryResult()
 
         try:
-            # 参数提取
             business_desc = business_info.get('business_description', '')
             industry = business_info.get('industry', '')
             business_type = business_info.get('business_type', 'product')
@@ -161,17 +161,14 @@ class KeywordLibraryGenerator:
                 result.error_message = "业务描述不能为空"
                 return result
 
-            # 获取核心业务词：优先使用传入的 core_business，其次从业务描述提取
             keyword_core = core_business
             if not keyword_core:
-                # 从业务描述中提取核心业务词
                 keyword_core = self._extract_core_business(business_desc, industry)
 
             if not keyword_core:
                 result.error_message = "核心业务不能为空"
                 return result
 
-            # 生成Prompt
             prompt = self._build_keyword_prompt(
                 business_desc=business_desc,
                 industry=industry,
@@ -179,40 +176,54 @@ class KeywordLibraryGenerator:
                 keyword_core=keyword_core,
                 max_keywords=max_keywords,
                 blue_ocean_opportunity=blue_ocean_opportunity,
+                portraits=portraits,
             )
 
-            # 调用LLM
             logger.info("[KeywordLibraryGenerator] 开始调用LLM...")
             logger.info(f"[KeywordLibraryGenerator] 核心业务: {keyword_core}")
             if blue_ocean_opportunity:
                 logger.info(f"[KeywordLibraryGenerator] 蓝海机会: {blue_ocean_opportunity}")
 
             messages = [{"role": "user", "content": prompt}]
-            response = self.llm.chat(messages, temperature=0.7, max_tokens=5000)
+            response = self.llm.chat(messages, temperature=0.7, max_tokens=8000)
 
             if not response or not response.strip():
                 result.error_message = "LLM调用返回为空"
                 return result
 
-            # 解析结果
             result = self._parse_result(response, result)
 
-            # 过滤关键词
             if result.keyword_library:
                 result.keyword_library = self._filter_keywords(result.keyword_library, keyword_core)
 
-            # 统计关键词
             if result.keyword_library:
+                kw_lib = result.keyword_library or {}
                 all_kw = []
-                for cat in result.keyword_library.get('categories', []):
-                    all_kw.extend(cat.get('keywords', []))
+                # 公用关键词（common_keywords）
+                common = kw_lib.get('common_keywords') or {}
+                for cat_kws in common.values():
+                    if isinstance(cat_kws, list):
+                        all_kw.extend(cat_kws)
+                # 画像专属关键词（personas）
+                for p in kw_lib.get('personas') or []:
+                    if not isinstance(p, dict):
+                        continue
+                    all_kw.extend(p.get('pain_points') or [])
+                    all_kw.extend(p.get('scene_keywords') or [])
+                    all_kw.extend(p.get('concerns') or [])
+                # 上下游关键词
+                all_kw.extend(kw_lib.get('upstream_keywords') or [])
+                all_kw.extend(kw_lib.get('downstream_keywords') or [])
+                all_kw.extend(kw_lib.get('supporting_tools_keywords') or [])
+                all_kw.extend(kw_lib.get('technique_keywords') or [])
                 result.total_keywords = len(all_kw)
-                result.blue_ocean_keywords = sum(
-                    1 for cat in result.keyword_library.get('categories', [])
-                    if cat.get('market_type') == 'blue_ocean'
-                    for kw in cat.get('keywords', [])
-                )
-                result.red_ocean_keywords = result.total_keywords - result.blue_ocean_keywords
+                # 蓝海/红海统计：关键词可能是字符串或 dict
+                def get_level(kw):
+                    if isinstance(kw, dict):
+                        return (kw.get('competition_level') or '').lower()
+                    return ''
+                result.blue_ocean_keywords = sum(1 for kw in all_kw if get_level(kw) == 'low')
+                result.red_ocean_keywords = sum(1 for kw in all_kw if get_level(kw) == 'high')
 
             result.success = True
             logger.info(
@@ -230,6 +241,367 @@ class KeywordLibraryGenerator:
 
         return result
 
+    def generate_template(
+        self,
+        business_info: Dict[str, Any],
+        core_business: str = None,
+        region: str = None,
+        portrait_data: Dict[str, Any] = None,
+    ) -> KeywordLibraryResult:
+        """
+        按照关键词库模板（9大分类）生成100+个关键词。
+
+        分类结构：
+        1. 直接需求关键词（≥20个）：核心品类词 + 品质服务类
+        2. 痛点关键词（≥15个）：问题型 + 担心型 + 后果型
+        3. 搜索关键词（≥15个）：疑问型 + 方法型 + 对比型
+        4. 场景关键词（≥15个）：客户类型 + 具体场景
+        5. 地域关键词（≥10个）：本地 + 周边扩展
+        6. 季节/时间关键词（≥10个）：旺季 + 淡季
+        7. 技巧/干货关键词（≥10个）：干货型 + 数字型/承诺型
+        8. 认知颠覆/反向关键词（≥5个）：颠覆常识
+        9. 节日/节气关键词（≥15个）：传统节日 + 现代节日 + 节气
+
+        Args:
+            business_info: 业务信息（business_description, industry）
+            core_business: 核心业务词（用于生成关键词前缀）
+            region: 主要地域（如"南漳"）
+            portrait_data: 画像数据（可选，包含 pain_points、pain_scenarios、barriers）
+
+        Returns:
+            KeywordLibraryResult: 生成结果
+        """
+        result = KeywordLibraryResult()
+
+        try:
+            business_desc = business_info.get('business_description', '') or ''
+            industry = business_info.get('industry', '') or ''
+            keyword_core = core_business or business_desc or ''
+
+            if not keyword_core:
+                result.error_message = "核心业务不能为空"
+                return result
+
+            # 提取画像信息
+            pain_points = []
+            pain_scenarios = []
+            barriers = []
+            if portrait_data:
+                def _to_list(val):
+                    if val is None:
+                        return []
+                    if isinstance(val, list):
+                        return val
+                    if isinstance(val, str):
+                        return [val] if val.strip() else []
+                    return []
+                pain_points = _to_list(portrait_data.get('pain_points', []))
+                pain_scenarios = _to_list(portrait_data.get('pain_scenarios', []))
+                barriers = _to_list(portrait_data.get('barriers', []))
+                if not pain_points:
+                    pp = portrait_data.get('pain_point', '')
+                    if isinstance(pp, str) and pp.strip():
+                        pain_points = [pp.strip()]
+
+            prompt = self._build_template_prompt(
+                keyword_core=keyword_core,
+                region=region or '',
+                industry=industry,
+                pain_points=pain_points,
+                pain_scenarios=pain_scenarios,
+                barriers=barriers,
+            )
+
+            logger.info("[KeywordLibraryGenerator] 开始按模板生成关键词库，核心业务: %s", keyword_core)
+            messages = [{"role": "user", "content": prompt}]
+            response = self.llm.chat(messages, temperature=0.7, max_tokens=12000)
+
+            if not response or not response.strip():
+                result.error_message = "LLM调用返回为空"
+                return result
+
+            result = self._parse_template_result(response, result, keyword_core)
+
+            if result.success:
+                total = result.total_keywords
+                logger.info(
+                    "[KeywordLibraryGenerator] 模板关键词库生成完成: 总关键词=%d",
+                    total,
+                )
+
+        except Exception as e:
+            logger.error("[KeywordLibraryGenerator] 生成异常: %s", str(e))
+            result.error_message = f"生成异常: {str(e)}"
+
+        return result
+
+    def _build_template_prompt(
+        self,
+        keyword_core: str,
+        region: str,
+        industry: str,
+        pain_points: List[str],
+        pain_scenarios: List[str],
+        barriers: List[str],
+    ) -> str:
+        """构建关键词库模板Prompt（9大分类，100+关键词）"""
+
+        pain_points_str = "\n".join([f"- {p}" for p in pain_points]) if pain_points else "（未提供）"
+        pain_scenarios_str = "\n".join([f"- {s}" for s in pain_scenarios]) if pain_scenarios else "（未提供）"
+        barriers_str = "\n".join([f"- {b}" for b in barriers]) if barriers else "（未提供）"
+
+        # 季节和节日根据行业自动推断
+        seasons = "春节前、冬季" if "香肠" in keyword_core or "腊肉" in keyword_core else "节假日前"
+
+        prompt = f"""你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成一份高质量的关键词库。
+
+=== 业务信息 ===
+核心业务：{keyword_core}
+地域：{region or '（未指定，根据业务推断）'}
+行业：{industry or '（根据业务推断）'}
+
+=== 画像痛点信息（供参考）===
+核心痛点：
+{pain_points_str}
+
+痛点场景：
+{pain_scenarios_str}
+
+顾虑障碍：
+{barriers_str}
+
+=== 【关键词库生成规则】 ===
+
+**核心原则：**
+1. 关键词来自真实用户搜索意图，不是产品介绍
+2. 关键词长度6-14字，越短越好
+3. 痛点原则：是不是客户真实想要的？是不是客户的痛点？
+4. 禁止空洞泛化词如"怎么选"、"哪家好"单独出现
+
+**关键词库结构（9大分类，共100+个）：**
+
+---
+
+### 一、直接需求关键词（≥20个）
+目的：用户直接表达购买/服务意向
+类型：
+- 核心品类词（8个）：{keyword_core}、{keyword_core}哪家好、{keyword_core}多少钱、{keyword_core}哪里正宗、{keyword_core}怎么联系、{keyword_core}报价、{keyword_core}定制、{keyword_core}批发
+- 品质服务类（8个）：{keyword_core}质量好吗、{keyword_core}正规吗、{keyword_core}靠谱吗、{keyword_core}口碑怎么样、{keyword_core}有实体店吗、{keyword_core}送货上门、{keyword_core}可以加急吗、{keyword_core}怎么联系
+
+---
+
+### 二、痛点关键词（≥15个）
+目的：从用户真实痛点出发
+方法论来源：评论区挖痛点
+类型：
+- 问题型（5个）：{keyword_core}坏了怎么办、{keyword_core}过期了能吃吗、{keyword_core}质量有问题找谁、{keyword_core}不新鲜怎么办、{keyword_core}有异味正常吗
+- 担心型（5个）：{keyword_core}卫生吗、{keyword_core}添加剂多吗、{keyword_core}家人能吃吗、{keyword_core}小孩能吃吗、{keyword_core}孕妇能吃吗
+- 后果型（5个）：{keyword_core}吃坏肚子了、{keyword_core}变质了怎么处理、{keyword_core}效果不好怎么办、{keyword_core}后悔了、{keyword_core}质量不行怎么维权
+
+---
+
+### 三、搜索关键词（≥15个）
+目的：用户主动搜索方法/教程/对比
+方法论来源：搜索框挖需求
+类型：
+- 疑问型（5个）：{keyword_core}怎么保存、{keyword_core}怎么选、{keyword_core}哪家正宗、{keyword_core}怎么辨别、{keyword_core}什么价位
+- 方法型（5个）：{keyword_core}方法、{keyword_core}技巧、{keyword_core}配方、{keyword_core}教程、{keyword_core}注意事项
+- 对比型（5个）：{keyword_core}A还是B、{keyword_core}区别、{keyword_core}哪个牌子好、{keyword_core}贵和便宜差别、{keyword_core}网上买还是实体店
+
+---
+
+### 四、场景关键词（≥15个）
+目的：特定场景下的精准需求
+方法论来源：传统经验挖掘
+类型：
+- 客户类型（5个）：家庭{keyword_core}、饭店{keyword_core}、食堂{keyword_core}、婚宴{keyword_core}、送礼{keyword_core}
+- 具体场景（5个）：过年{keyword_core}、结婚{keyword_core}、满月酒{keyword_core}、走亲戚{keyword_core}、工地食堂{keyword_core}
+- 需求场景（5个）：大量采购{keyword_core}、长期供应{keyword_core}、定制{keyword_core}、团购{keyword_core}、零售{keyword_core}
+
+---
+
+### 五、地域关键词（≥10个）
+目的：获取本地精准流量
+方法论来源：流量关键词 - 地域型
+类型：
+- 本地核心（4个）：{region + keyword_core if region else '本地' + keyword_core}、{region + keyword_core + '哪家好' if region else ''}、{region + keyword_core + '电话' if region else ''}、{region + keyword_core + '地址' if region else ''}
+- 周边扩展（4个）：{"附近" + keyword_core}、{"周边" + keyword_core}、{"就近" + keyword_core}、{"同城" + keyword_core}
+- 上级地域（2个）：{"本地" + keyword_core}、{"市区" + keyword_core}
+
+---
+
+### 六、季节/时间关键词（≥10个）
+目的：抓住旺季流量，淡季做留存
+方法论来源：季节节点
+类型：
+- 旺季关键词（5个）：{seasons}、{seasons}+优惠、{seasons}+团购、{seasons}+批发、{seasons}+送礼
+- 淡季关键词（5个）：{"夏季" + keyword_core}、{"天热" + keyword_core}、{"保存" + keyword_core}、{"反季" + keyword_core}、{"错峰" + keyword_core}
+
+---
+
+### 七、技巧/干货关键词（≥10个）
+目的：吸引学习型用户，建立专业信任
+方法论来源：技巧关键词
+类型：
+- 干货型（5个）：{keyword_core}+技巧、{keyword_core}+记住这3点、{keyword_core}+方法、{keyword_core}+秘方、{keyword_core}+绝招
+- 数字型/承诺型（5个）：{keyword_core}+记住这X点、{keyword_core}+X个技巧、{keyword_core}+好用、{keyword_core}+秘诀、{keyword_core}+值得推荐
+
+---
+
+### 八、认知颠覆/反向关键词（≥5个）
+目的：引发好奇心，提高点击率
+方法论来源：颠覆常识
+类型：
+- 颠覆型（5个）：{keyword_core}+不是越贵越好、{keyword_core}+90%的人选错了、原来{keyword_core}+要这样、{keyword_core}+别再被骗了、{keyword_core}+真相
+
+---
+
+### 九、节日/节气关键词（≥15个）
+目的：抓住节日流量高峰
+方法论来源：节日方法论
+类型：
+- 传统节日（6个）：{keyword_core}+春节、{keyword_core}+中秋节、{keyword_core}+端午节、{keyword_core}+过年、{keyword_core}+元宵节、{keyword_core}+重阳节
+- 现代节日（5个）：{keyword_core}+母亲节、{keyword_core}+父亲节、{keyword_core}+教师节、{keyword_core}+情人节、{keyword_core}+520
+- 节气/送礼（4个）：{keyword_core}+送礼、{keyword_core}+送人、{keyword_core}+礼物、{keyword_core}+企业福利
+
+---
+
+=== 输出格式 ===
+
+请严格按以下JSON格式输出，不要输出任何其他内容：
+
+{{
+    "keyword_library": {{
+        "direct_demand_keywords": [
+            "{keyword_core}哪家好",
+            "{keyword_core}多少钱",
+            "{keyword_core}哪里正宗"
+        ],
+        "pain_point_keywords": [
+            "{keyword_core}坏了怎么办",
+            "{keyword_core}卫生吗"
+        ],
+        "search_keywords": [
+            "{keyword_core}怎么保存",
+            "{keyword_core}怎么选"
+        ],
+        "scene_keywords": [
+            "家庭{keyword_core}",
+            "过年{keyword_core}"
+        ],
+        "region_keywords": [
+            "{region or '本地'}{keyword_core}",
+            "附近{keyword_core}"
+        ],
+        "season_keywords": [
+            "春节前{keyword_core}",
+            "夏季{keyword_core}保存"
+        ],
+        "skill_keywords": [
+            "{keyword_core}技巧",
+            "{keyword_core}记住这3点"
+        ],
+        "reverse_keywords": [
+            "{keyword_core}不是越贵越好",
+            "{keyword_core}90%的人选错了"
+        ],
+        "festival_keywords": [
+            "{keyword_core}春节",
+            "{keyword_core}中秋节",
+            "{keyword_core}送礼"
+        ]
+    }}
+}}
+
+=== 强制约束 ===
+1. **数量**：直接需求≥20、痛点≥15、搜索≥15、场景≥15、地域≥10、季节≥10、技巧≥10、颠覆≥5、节日≥15，总计≥100
+2. **质量**：每个关键词必须有真实搜索意图，不是产品介绍
+3. **禁止**：纯大词如"{keyword_core}"单独出现、无地域修饰的价格词
+4. **可实现**：关键词要符合{keyword_core}业务的实际用户搜索场景
+5. **地域**：如果提供了地域，地域词要包含该地域；如果未提供，则用"本地"、"附近"等通用词
+
+请开始生成："""
+
+        return prompt
+
+    def _parse_template_result(
+        self,
+        response: str,
+        result: KeywordLibraryResult,
+        keyword_core: str,
+    ) -> KeywordLibraryResult:
+        """解析模板格式LLM返回结果"""
+
+        try:
+            text = response.strip()
+            if text.startswith('```json'):
+                text = text[7:]
+            if text.startswith('```'):
+                text = text[3:]
+            if text.endswith('```'):
+                text = text[:-3]
+            text = text.strip()
+            data = json.loads(text)
+            if data is None:
+                logger.warning("[KeywordLibraryGenerator] LLM返回了null JSON")
+                result.error_message = "LLM返回了null JSON"
+                return result
+            result.raw_output = data
+
+        except json.JSONDecodeError:
+            logger.warning("[KeywordLibraryGenerator] JSON解析失败，尝试修复")
+            data = self._try_fix_json(response)
+            if not data or not isinstance(data, dict):
+                result.error_message = "JSON解析失败"
+                return result
+            result.raw_output = data
+
+        kl_data = data.get('keyword_library') or {}
+        if not isinstance(kl_data, dict):
+            kl_data = {}
+
+        # 构建扁平结构关键词库
+        categories = []
+        total_count = 0
+
+        category_map = [
+            ('direct_demand_keywords', '直接需求关键词'),
+            ('pain_point_keywords', '痛点关键词'),
+            ('search_keywords', '搜索关键词'),
+            ('scene_keywords', '场景关键词'),
+            ('region_keywords', '地域关键词'),
+            ('season_keywords', '季节关键词'),
+            ('skill_keywords', '技巧/干货关键词'),
+            ('reverse_keywords', '认知颠覆关键词'),
+            ('festival_keywords', '节日/节气关键词'),
+        ]
+
+        for field_key, cat_name in category_map:
+            kws = kl_data.get(field_key) or []
+            if isinstance(kws, list):
+                # 字符串关键词去重
+                clean_kws = []
+                seen = set()
+                for kw in kws:
+                    kw_str = kw if isinstance(kw, str) else str(kw)
+                    if kw_str and kw_str not in seen:
+                        seen.add(kw_str)
+                        clean_kws.append(kw_str)
+                categories.append({
+                    'category_name': cat_name,
+                    'keywords': clean_kws,
+                })
+                total_count += len(clean_kws)
+
+        result.keyword_library = {
+            'categories': categories,
+            'keyword_core': keyword_core,
+        }
+        result.total_keywords = total_count
+        result.success = True
+
+        return result
+
     def _build_keyword_prompt(
         self,
         business_desc: str,
@@ -238,15 +610,19 @@ class KeywordLibraryGenerator:
         keyword_core: str,
         max_keywords: int,
         blue_ocean_opportunity: str = None,
+        industry_insight: str = None,
+        portraits: list = None,
     ) -> str:
-        """构建关键词库生成Prompt（新结构：原子零件 + 问句示范）"""
+        """构建关键词库生成Prompt（v3：固定100个+决策链路+竞争度+场景支撑+上下游）"""
 
-        # 蓝海机会引导语
         blue_ocean_hint = ""
         if blue_ocean_opportunity:
             blue_ocean_hint = f"\n=== 蓝海机会背景 ===\n用户已选择以下蓝海机会：「{blue_ocean_opportunity}」\n请围绕这个细分方向生成关键词，重点挖掘该方向下的细分人群、场景和痛点。\n"
 
-        # 业务类型适配
+        insight_section = ""
+        if industry_insight:
+            insight_section = f"\n=== 行业洞察（基于真实搜索场景分析）===\n{industry_insight}\n\n以上洞察说明了这个行业用户的真实搜索场景。请基于这些洞察生成关键词。"
+
         business_type_hint = ""
         if business_type == 'product':
             business_type_hint = "业务为消费品，重点关注：使用者症状、购买者顾虑、选择对比"
@@ -257,475 +633,265 @@ class KeywordLibraryGenerator:
         else:
             business_type_hint = "业务为个人服务，重点关注：使用场景、效果顾虑、服务选择"
 
-        # 数量计算
-        n_crowd = int(max_keywords * 0.12)
-        n_scene = int(max_keywords * 0.12)
-        n_symptom = int(max_keywords * 0.18)
-        n_concern = int(max_keywords * 0.08)
-        n_category = int(max_keywords * 0.05)
-        n_brand = int(max_keywords * 0.05)
-        n_generic = int(max_keywords * 0.10)
+        safe_keyword_core = keyword_core or ''
+        short_core = safe_keyword_core[:4] if len(safe_keyword_core) >= 4 else safe_keyword_core
 
-        prompt = f"""你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成精准的关键词库和问题类型。
+        portraits_info = ""
+        if portraits:
+            for i, p in enumerate(portraits):
+                portrait_id = chr(65 + i)
+                portrait_name = p.get('name', f'画像{portrait_id}')
+                problem_type = p.get('problem_type', '')
+                portraits_info += f"\n- 画像{portrait_id}：{portrait_name}（{problem_type}）"
+
+        # ── 预渲染画像段落（A/B/C），避免在 .format() 模板里写复杂表达式 ──
+        def _safe(val, default=''):
+            return val if val else default
+
+        pA_name = _safe(portraits[0].get('name')) if portraits and len(portraits) > 0 else '画像A名称'
+        pA_pt   = _safe(portraits[0].get('problem_type')) if portraits and len(portraits) > 0 else '画像A的问题类型'
+        pA_desc = _safe(portraits[0].get('description')) if portraits and len(portraits) > 0 else '画像A的目标人群描述'
+
+        pB_name = _safe(portraits[1].get('name')) if portraits and len(portraits) > 1 else '画像B名称'
+        pB_pt   = _safe(portraits[1].get('problem_type')) if portraits and len(portraits) > 1 else '画像B的问题类型'
+        pB_desc = _safe(portraits[1].get('description')) if portraits and len(portraits) > 1 else '画像B的目标人群描述'
+
+        pC_name = _safe(portraits[2].get('name')) if portraits and len(portraits) > 2 else '画像C名称'
+        pC_pt   = _safe(portraits[2].get('problem_type')) if portraits and len(portraits) > 2 else '画像C的问题类型'
+        pC_desc = _safe(portraits[2].get('description')) if portraits and len(portraits) > 2 else '画像C的目标人群描述'
+
+        prompt = ("""你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成一份高质量的关键词库。
 
 === 业务信息 ===
 原始业务描述：{business_desc}
-行业：{industry or '根据业务描述推断'}
+行业：{industry_or}
 业务类型：{business_type_hint}{blue_ocean_hint}
 
-=== 核心业务（必须围绕此词生成关键词）===
+=== 核心业务 ===
 {keyword_core}
+{insight_section}
 
-=== 生成任务 ===
+=== 画像列表 ===
+{portraits_info}
 
-1. **问题类型生成**：基于核心业务，生成3-6个问题类型
-   - 一个类型对应一类痛点
-   - 每个类型必须生成5-10个场景关键词，用于后续画像生成
+---
 
-2. **关键词库生成**（新版结构：原子零件 + 问句示范）
+## 【重要】质量红线
 
-一、原子关键词（组成问句的零件）
+每个关键词必须满足以下条件才能输出：
 
-1. **人群标签**（{n_crowd}个）：定位谁有这个痛点
-   - 格式：年龄/体质/阶段/身份 + 核心业务
-   - 举例：乳糖不耐受宝宝、早产儿、剖腹产宝宝、断奶期宝宝
-   - 注意：不要太泛（宝宝、婴儿、儿童是泛词）
+1. **有具体场景**：不是泛泛的"质量不放心"，而是"宝宝喝奶粉拉肚子"、"灌香肠肥瘦比例多少"。避免空洞的问题词如"质量怎么判断"，必须有具体场景支撑。
+2. **有明确搜索意图**：用户搜索这个词是想解决什么问题？
+3. **禁止泛化词**：仅"怎么选"、"哪家好"、"多少钱" 没有具体场景支撑不得输出。
+4. **禁止红海大词**：品类大词（如"灌香肠"单独出现）、节假日通用词（如"春节灌香肠"）竞争太激烈，新号不要正面竞争，改为长尾化。
 
-2. **场景/时机**（{n_scene}个）：定位问题发生的具体情境
-   - 格式：具体情境 + 核心业务
-   - 举例：断奶期转奶、夜醒频繁、高铁出行、添加辅食后、打疫苗后
-   - 注意：要有具体时机，不要太泛
+---
 
-3. **症状/困境**（{n_symptom}个）：描述用户当前的苦恼
-   - 格式：具体症状 + 核心业务
-   - 举例：拉肚子不长肉、喝了还哭闹、过敏起疹子、拒奶胀气
-   - 注意：症状要可感知，不要太模糊
+## 【关键词生成方法论】
 
-4. **顾虑/疑问**（{n_concern}个）：用户搜索时的问题词
-   - 格式：怎么办/怎么/哪个/能否
-   - 举例：怎么办、怎么回事、怎么选、能不能、会不会
+### 决策链路三阶段
 
-二、红海关键词
+每个关键词必须归入以下一个阶段：
 
-5. **品类大词**（{n_category}个，允许填空）
-   - 核心品类：{keyword_core}
+| 阶段 | 特征 | 示例 |
+|------|------|------|
+| **认知阶段（awareness）** | 用户发现问题但还没确定方向，以"哪里有""是怎么回事""怎么判断"为主 | 灌香肠去哪里做好、怎么判断肉新不新鲜 |
+| **考量阶段（consideration）** | 用户有方向后在比较方案，以"哪个好""有什么区别""怎么选"为主 | 灌香肠加肥肉好吃还是瘦肉、香肠烟熏几天最好 |
+| **决策阶段（decision）** | 用户在做最终选择，以"多少钱""怎么联系""哪家靠谱"为主 | 灌香肠多少钱一斤、南漳灌香肠电话 |
 
-6. **品牌词**（{n_brand}个，允许填空）
-   - 竞品品牌
+### 竞争度三档
 
-7. **通用需求词**（{n_generic}个）
-   - 格式：核心业务 + 推荐/哪个好/多少钱
-   - 举例：{keyword_core}推荐、{keyword_core}哪个牌子好、{keyword_core}多少钱
+| 竞争度 | 特征 | 策略 |
+|--------|------|------|
+| **high** | 品类大词、节假日词、无地域修饰的通用词 | 新号避让，或长尾化后使用 |
+| **medium** | 带方法/技巧/对比的词，场景细分词 | 可做，需差异化内容 |
+| **low** | 具体痛点词、带地域/人群修饰的长尾词、专业场景词 | 蓝海机会，优先做 |
 
-三、问句示范（选题种子）
+---
 
-【前置问句】：用户遇到问题但还没找到解决方案时会问什么
-- 模板：「人群」+「症状」+「顾虑」 → "乳糖不耐受宝宝拉肚子怎么办"
-- 模板：「场景」+「人群」+「困境」 → "早产儿断奶期怎么追重"
-- 模板：「顾虑」+「人群」+「品类」 → "深度水解奶粉太苦宝宝不喝怎么办"
+## 生成任务
 
-【后置问句】：用户用了产品后发现新问题会问什么
-- 模板：「产品」+「使用后症状」 → "喝了氨基酸奶粉还过敏怎么回事"
-- 模板：「转奶」+「症状」 → "深度水解转普通奶粉拉肚子正常吗"
-- 模板：「长期使用」+「顾虑」 → "无乳糖奶粉可以一直喝吗"
+关键词库共需生成 **100个关键词**，分为四部分：
+
+---
+
+### 第一部分：公用关键词（40个，所有画像共享）
+
+围绕核心业务「{keyword_core}」，覆盖所有用户都会关心的通用问题，共40个，分5类，每类8个。
+
+**【关键要求】关键词像真实用户自然搜索，长度6-14字，前缀用「{short_core}」就够了，不要拼接完整 keyword_core！**
+
+#### 意愿/价格类（8个）
+目的：了解价格、选择哪个
+示例：{short_core}多少钱、{short_core}哪里便宜、{short_core}什么时候打折
+
+#### 渠道/真假类（8个）
+目的：哪里买、怎么辨别真假
+示例：{short_core}哪里正宗、{short_core}是正品吗、{short_core}网上买靠谱吗
+
+#### 效果/安全类（8个）
+目的：有没有效果，安全吗
+示例：{short_core}安全吗、{short_core}有副作用吗、{short_core}什么人适合
+
+#### 使用/保存类（8个）
+目的：怎么用、怎么保存
+示例：{short_core}开封后能放多久、{short_core}坏了怎么办、{short_core}有问题找谁
+
+#### 选择/对比类（8个）
+目的：哪个好、怎么选
+示例：{short_core}什么牌子好、{short_core}怎么选、{short_core}口碑怎么样
+
+---
+
+### 第二部分：画像专属关键词（60个）
+
+每个画像 = 痛点8个 + 场景8个 + 顾虑4个 = 20个，3个画像共60个。
+
+**【核心公式】关键词 = [问题特征/场景/顾虑] + [具体疑问]**
+**【关键约束】画像关键词禁止以核心业务「{keyword_core}」开头！**
+**【质量要求】每个关键词必须带 scene_description（场景描述），解释这个关键词背后的用户真实场景。**
+
+#### 画像A：{pA_name}
+> 问题类型：{pA_pt}
+> 目标人群：{pA_desc}
+
+- **细分画像名称**（受众锁定用）：[问题类型/身份标签] + 身份词，如"选择困难型用户"
+
+**痛点关键词（8个）**：该画像面临的具体问题，直接写问题本身，不加核心业务词前缀
+**场景关键词（8个）**：该画像的具体使用场景，场景+问题，不加核心业务词
+**顾虑关键词（4个）**：该画像的担忧和疑虑，顾虑+问题，不加核心业务词
+
+#### 画像B：{pB_name}
+> 问题类型：{pB_pt}
+> 目标人群：{pB_desc}
+
+痛点关键词（8个）、场景关键词（8个）、顾虑关键词（4个）
+
+#### 画像C：{pC_name}
+> 问题类型：{pC_pt}
+> 目标人群：{pC_desc}
+
+痛点关键词（8个）、场景关键词（8个）、顾虑关键词（4个）
+
+---
+
+### 第三部分：行业上下游关键词（20个）
+
+围绕核心业务的产业链上下游，挖掘用户可能关心的关联词。
+
+#### 上游关键词（5个）
+上游：原材料、供应链相关
+示例（灌香肠场景）：猪肉哪里买正宗、肠衣哪里有卖、香肠调料配方
+
+#### 下游关键词（5个）
+下游：加工服务、配套服务
+示例（灌香肠场景）：香肠熏制服务、香肠包装设计、香肠礼盒定制
+
+#### 配套工具关键词（5个）
+配套工具：制作工具、辅助材料
+示例（灌香肠场景）：灌香肠机器哪里有卖、绞肉机推荐、香肠烟熏炉
+
+#### 技艺/工艺关键词（5个）
+技艺类：制作技巧、工艺知识（指导后续选题生成）
+示例（灌香肠场景）：灌香肠要不要加香油、香肠晒干需要几天、烟熏用什么木料
+
+---
+
+### 第四部分：禁用红海大词清单（供参考，不要生成）
+
+以下大词竞争太激烈，新号不要用，改为长尾化：
+- `{keyword_core}` 单独出现（无任何修饰）
+- `{keyword_core}+多少钱` 类无地域修饰的价格词
+- 节假日通用词（如"春节灌香肠"无特色）
+- 品牌对比词（如"XX品牌和XX品牌哪个好"）
+
+---
 
 === 输出格式 ===
+
 请严格按以下JSON格式输出，不要输出任何其他内容：
 
 {{
-    "problem_types": [
-        {{
-            "type_name": "过敏担忧",
-            "description": "担心宝宝对普通奶粉蛋白过敏，不知道如何选择特殊配方",
-            "target_audience": "有家族过敏史或宝宝已出现过敏症状的新手父母",
-            "scene_keywords": [
-                "宝宝喝普通奶粉起疹子怎么办",
-                "蛋白过敏宝宝怎么选奶粉",
-                "水解奶粉味道苦宝宝不喝怎么办"
-            ],
-            "keywords": ["特殊配方奶粉", "水解奶粉", "抗过敏奶粉"]
-        }}
-    ],
     "keyword_library": {{
         "keyword_core": "{keyword_core}",
-        "categories": [
+        "common_keywords": {{
+            "意愿/价格": [
+                {{"keyword": "{short_core}多少钱", "competition_level": "high", "decision_stage": "decision", "scene_description": "用户在了解基础价格信息"}},
+                {{"keyword": "{short_core}哪里便宜", "competition_level": "medium", "decision_stage": "decision", "scene_description": "用户在寻找性价比更高的购买渠道"}}
+            ],
+            "渠道/真假": [
+                {{"keyword": "{short_core}哪里正宗", "competition_level": "medium", "decision_stage": "consideration", "scene_description": "用户在辨别哪里能找到正宗的产品"}},
+                {{"keyword": "{short_core}是正品吗", "competition_level": "low", "decision_stage": "consideration", "scene_description": "用户在担心买到假冒伪劣产品"}}
+            ],
+            "效果/安全": [
+                {{"keyword": "{short_core}安全吗", "competition_level": "medium", "decision_stage": "consideration", "scene_description": "用户担心产品安全性"}},
+                {{"keyword": "{short_core}有副作用吗", "competition_level": "low", "decision_stage": "consideration", "scene_description": "用户担心长期使用有负面影响"}}
+            ],
+            "使用/保存": [
+                {{"keyword": "{short_core}开封后能放多久", "competition_level": "low", "decision_stage": "decision", "scene_description": "用户购买后关心保存期限"}},
+                {{"keyword": "{short_core}坏了怎么办", "competition_level": "low", "decision_stage": "decision", "scene_description": "用户担心产品变质后的处理方式"}}
+            ],
+            "选择/对比": [
+                {{"keyword": "{short_core}什么牌子好", "competition_level": "high", "decision_stage": "consideration", "scene_description": "用户在选择品牌阶段"}},
+                {{"keyword": "{short_core}怎么选", "competition_level": "medium", "decision_stage": "consideration", "scene_description": "用户在寻求选购指导"}}
+            ]
+        }},
+        "personas": [
             {{
-                "category_name": "人群标签",
-                "category_desc": "定位谁有这个痛点",
-                "keywords": [
-                    "乳糖不耐受宝宝",
-                    "早产儿",
-                    "剖腹产宝宝",
-                    "断奶期宝宝"
+                "portrait_name": "XX型需求用户",
+                "persona_problem_type": "XX问题型",
+                "target_audience": "XX需求的用户群体",
+                "pain_points": [
+                    {{"keyword": "XX问题怎么处理", "competition_level": "low", "decision_stage": "consideration", "scene_description": "用户在遇到XX情况时不知道如何处理"}},
+                    {{"keyword": "XX情况怎么选", "competition_level": "medium", "decision_stage": "consideration", "scene_description": "用户在XX场景下需要做选择"}}
                 ],
-                "market_type": "blue_ocean"
-            }},
-            {{
-                "category_name": "场景/时机",
-                "category_desc": "定位问题发生的具体情境",
-                "keywords": [
-                    "断奶期转奶",
-                    "夜醒频繁",
-                    "添加辅食后",
-                    "打疫苗后"
+                "scene_keywords": [
+                    {{"keyword": "XX场景+怎么处理", "competition_level": "low", "decision_stage": "awareness", "scene_description": "用户在XX具体场景中遇到问题"}}
                 ],
-                "market_type": "blue_ocean"
-            }},
-            {{
-                "category_name": "症状/困境",
-                "category_desc": "描述用户当前的苦恼",
-                "keywords": [
-                    "拉肚子不长肉",
-                    "喝了还哭闹",
-                    "过敏起疹子"
-                ],
-                "market_type": "blue_ocean"
-            }},
-            {{
-                "category_name": "顾虑/疑问",
-                "category_desc": "用户搜索时的问题词",
-                "keywords": [
-                    "怎么办",
-                    "怎么回事",
-                    "怎么选",
-                    "能不能",
-                    "会不会"
-                ],
-                "market_type": "blue_ocean"
-            }},
-            {{
-                "category_name": "品类大词",
-                "category_desc": "核心品类词",
-                "keywords": ["{keyword_core}"],
-                "market_type": "red_ocean"
-            }},
-            {{
-                "category_name": "品牌词",
-                "category_desc": "竞品品牌",
-                "keywords": [],
-                "market_type": "red_ocean"
-            }},
-            {{
-                "category_name": "通用需求词",
-                "category_desc": "通用搜索意图词",
-                "keywords": ["{keyword_core}推荐", "{keyword_core}哪个牌子好"],
-                "market_type": "red_ocean"
-            }}
-        ]
-    }},
-    "question_samples": {{
-        "pre_questions": [
-            {{
-                "question": "乳糖不耐受宝宝拉肚子怎么办",
-                "components": {{"人群": "乳糖不耐受宝宝", "症状": "拉肚子", "顾虑": "怎么办"}}
-            }},
-            {{
-                "question": "早产儿断奶期怎么追重",
-                "components": {{"人群": "早产儿", "场景": "断奶期", "困境": "追重"}}
-            }},
-            {{
-                "question": "深度水解奶粉太苦宝宝不喝怎么办",
-                "components": {{"顾虑": "太苦", "产品": "深度水解奶粉", "困境": "不喝", "疑问": "怎么办"}}
+                "concerns": [
+                    {{"keyword": "XX风险怎么避免", "competition_level": "low", "decision_stage": "awareness", "scene_description": "用户担心XX风险，希望提前了解"}}
+                ]
             }}
         ],
-        "post_questions": [
-            {{
-                "question": "喝了氨基酸奶粉还过敏怎么回事",
-                "components": {{"产品": "氨基酸奶粉", "症状": "还过敏"}}
-            }},
-            {{
-                "question": "深度水解转普通奶粉拉肚子正常吗",
-                "components": {{"场景": "深度水解转普通奶粉", "症状": "拉肚子"}}
-            }},
-            {{
-                "question": "无乳糖奶粉可以一直喝吗",
-                "components": {{"产品": "无乳糖奶粉", "顾虑": "可以一直喝吗"}}
-            }}
+        "upstream_keywords": [
+            {{"keyword": "猪肉哪里买正宗", "competition_level": "low", "decision_stage": "awareness", "scene_description": "用户在上游寻找正宗原材料"}}
+        ],
+        "downstream_keywords": [
+            {{"keyword": "香肠熏制服务", "competition_level": "low", "decision_stage": "consideration", "scene_description": "用户在寻找下游加工服务"}}
+        ],
+        "supporting_tools_keywords": [
+            {{"keyword": "灌香肠机器哪里有卖", "competition_level": "low", "decision_stage": "decision", "scene_description": "用户在寻找配套制作工具"}}
+        ],
+        "technique_keywords": [
+            {{"keyword": "灌香肠要不要加香油", "competition_level": "low", "decision_stage": "consideration", "scene_description": "用户在制作工艺上有疑问，指导具体选题方向"}}
         ]
     }}
 }}
 
-重要说明：
-1. 关键词必须是真实用户搜索词，体现具体搜索意图
-2. 人群标签要具体（体质/年龄/阶段），场景要具体（时机/情境），症状要可感知
-3. 前置问句覆盖"发现→搜索→比较"全链路，后置问句覆盖"使用→问题→转化"全链路
-4. 每个分类关键词数量不得少于规定数量
-5. 品牌词如果没有具体品牌可以填空数组
-6. 蓝海关键词（人群/场景/症状/顾虑）应占总量60%以上
+=== 强制约束 ===
+1. **数量约束**：公用关键词40个（每类8个）+ 画像专属60个（3画像×20）+ 上下游20个 = 总计100个
+2. **竞争度分布**：low至少40个、medium至少30个、high最多10个（high只出现在公用关键词的选择/对比类）
+3. **决策链路分布**：awareness约30个、consideration约40个、decision约30个
+4. **质量红线**：每个keyword必须有合理的scene_description，禁止空洞泛化词
+5. **画像多样性**：三个画像的痛点关键词必须彼此不同，聚焦各自特定问题
+6. **禁止重复**：同一个意思只保留1个最自然的表达
+7. **前缀规则**：公用关键词前缀用「{short_core}」，画像关键词禁止以「{keyword_core}」开头
 
-请开始生成："""
+请开始生成：""")
 
-        return prompt
-
-        # 问题类型分类指引（通用版本，无行业示例）
-        problem_type_guide = """
-【问题类型分类指引】（重要！用于指导内容选题和画像生成）
-
-每个问题类型需要包含：
-1. type_name：类型名称（2-4个字，如"时效担忧"、"信任顾虑"）
-2. description：类型描述（一句话说明）
-3. target_audience：目标人群
-4. scene_keywords：场景关键词列表（5-15个，用于选题扩展，覆盖该类型的多种场景）
-5. keywords：内容关键词（用于SEO/投放）
-
-=== 场景关键词设计原则 ===
-- 场景关键词是用户搜索的具体问题/需求
-- 同一个问题类型下，场景关键词应该有差异性
-- 场景关键词决定选题的广度，内容不要过于垂直单一
-
-=== 示例（本地服务行业） ===
-
-问题类型1: 时效担忧
-  - description: 服务响应时间和时效相关顾虑
-  - target_audience: 需要快速响应的客户
-  - scene_keywords: ["需要紧急上门", "周末能约吗", "晚上下班后能服务吗", "最快多久能到", "临时需要加急", "预约要等多久", "工作日没时间"]
-  - keywords: ["上门服务", "时效", "预约", "响应"]
-
-问题类型2: 信任顾虑
-  - description: 服务质量和专业性相关担忧
-  - target_audience: 首次尝试服务的客户
-  - scene_keywords: ["服务靠谱吗", "会不会乱收费", "有售后保障吗", "专业吗", "经验怎么样", "用的什么材料", "有没有资质"]
-  - keywords: ["服务", "质量", "保障", "专业"]
-"""
-
-        # 关键词库分类 - 核心要求
-        keyword_guide = """
-【关键词库生成要求】
-基于核心业务「{keyword_core}」，生成精准的关键词库。
-
-【强制要求 - 数量约束】
-每个分类必须严格按照以下数量生成，禁止少于指定数量：
-- 细分人群词：{crowd}个
-- 细分场景词：{scene}个
-- 细分痛点词：{pain_point}个
-- 长尾问题词：{long_tail}个
-- 品类大词：{category}个（允许填空数组）
-- 品牌词：{brand}个（允许填空数组）
-- 通用需求词：{generic}个
-
-【什么是真正的"细分"关键词？】
-
-细分人群词 = 细分维度（年龄/职业/体质/阶段） + 核心业务
-  ✅ "6个月宝宝奶粉推荐"、"剖腹产宝宝吃什么奶粉好"、"乳糖不耐受宝宝奶粉"、"早产儿追重奶粉"
-  ❌ "奶粉推荐"、"宝宝奶粉"、"婴儿奶粉"
-  ❌ "奶粉冲泡方法"（这是场景词，不是人群词）
-
-细分场景词 = 具体使用场景/时机 + 核心业务
-  ✅ "断奶期奶粉怎么选"、"宝宝转奶怎么过渡"、"高铁上宝宝饿了怎么办"、"夜醒频繁要换奶粉吗"
-  ❌ "奶粉喂养时间"（太泛，缺乏具体情境）
-  ❌ "奶粉冲泡注意事项"（这更偏向问题词，不是场景词）
-
-细分痛点词 = 具体担忧/问题 + 核心业务
-  ✅ "宝宝喝奶粉不长肉怎么办"、"奶粉腥味太重宝宝不爱喝"、"换新奶粉宝宝拉肚子"、"奶粉挂壁是不是质量有问题"
-  ❌ "奶粉宝宝过敏"（缺少"怎么办"的搜索意图）
-  ❌ "奶粉宝宝不喝"（过于简短，缺乏具体性）
-
-长尾问题词 = 用户实际搜索时的完整问句
-  ✅ "1岁宝宝奶粉段位怎么选择"、"深度水解奶粉要喝多久才能换普通奶粉"、"有机奶粉和普通奶粉营养差别大吗"
-  ✅ "早产儿奶粉吃到几个月转普通奶粉"、"宝宝换了奶粉牌子便秘是怎么回事"
-  ❌ "奶粉宝宝长牙齿"（缺少搜索意图）
-  ❌ "奶粉宝宝生长发育"（用户不会这样搜）
-
-【关于「特殊配方奶粉」的关键词生成指导】
-核心业务 = 特殊配方奶粉，关键词必须体现以下细分方向：
-- 特殊配方类型细分：深度水解、适度水解、氨基酸、无乳糖、部分水解
-- 宝宝体质细分：乳糖不耐受、蛋白过敏、早产/低体重、追重/偏瘦、乳糖酶缺乏
-- 阶段细分：断奶期、转奶期、厌奶期、辅食添加期
-- 问题导向细分：不长肉、拉肚子、过敏症状、拒奶、胀气
-
-错误示范（太平淡）：
-- "特殊配方奶粉推荐" — 太泛
-- "奶粉怎么选择" — 脱离了特殊配方语境
-
-正确示范（真细分）：
-- "乳糖不耐受宝宝喝什么奶粉"
-- "深度水解奶粉哪个品牌好"
-- "蛋白过敏宝宝奶粉怎么选"
-- "无乳糖奶粉长期喝可以吗"
-- "早产儿追赶生长吃什么奶粉"
-""".format(
-            keyword_core=keyword_core,
-            total_count=max_keywords,
-            crowd=int(max_keywords * 0.25),
-            scene=int(max_keywords * 0.20),
-            pain_point=int(max_keywords * 0.20),
-            long_tail=int(max_keywords * 0.15),
-            category=int(max_keywords * 0.05),
-            brand=int(max_keywords * 0.05),
-            generic=int(max_keywords * 0.10),
+        prompt = prompt.format(
+            keyword_core=safe_keyword_core,
+            business_desc=business_desc,
+            industry_or=industry or '根据业务描述推断',
+            business_type_hint=business_type_hint,
+            blue_ocean_hint=blue_ocean_hint,
+            insight_section=insight_section,
+            portraits_info=portraits_info or '（未提供画像，将自动推断3个画像）',
+            short_core=short_core,
+            pA_name=pA_name, pA_pt=pA_pt, pA_desc=pA_desc,
+            pB_name=pB_name, pB_pt=pB_pt, pB_desc=pB_desc,
+            pC_name=pC_name, pC_pt=pC_pt, pC_desc=pC_desc,
         )
-
-        # 业务类型适配
-        business_type_hint = ""
-        if business_type == 'product':
-            business_type_hint = "业务为消费品，重点关注：使用者症状、购买者顾虑、选择对比"
-        elif business_type == 'local_service':
-            business_type_hint = "业务为本地服务，重点关注：服务场景、时效顾虑、信任问题"
-        elif business_type == 'enterprise':
-            business_type_hint = "业务为企业服务，重点关注：决策流程、ROI顾虑、供应商选择"
-        else:
-            business_type_hint = "业务为个人服务，重点关注：使用场景、效果顾虑、服务选择"
-
-        prompt = f"""你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成精准的关键词库和问题类型。
-
-=== 业务信息 ===
-原始业务描述：{business_desc}
-行业：{industry or '根据业务描述推断'}
-业务类型：{business_type_hint}
-
-=== 核心业务（必须围绕此词生成关键词）===
-{keyword_core}
-
-这是你的核心业务词，所有关键词都必须围绕这个业务生成。
-
-=== 生成任务 ===
-
-1. **问题类型生成**：基于核心业务，生成3-6个问题类型
-   - 一个类型对应一类痛点
-   - **【重要】每个类型必须生成5-10个场景关键词，用于后续画像生成**
-{problem_type_guide}
-
-2. **关键词库生成**（区分蓝海/红海）：
-{keyword_guide}
-
-=== 输出格式 ===
-请严格按以下JSON格式输出，不要输出任何其他内容：
-
-{{
-    "problem_types": [
-        {{
-            "type_name": "过敏担忧",
-            "description": "担心宝宝对普通奶粉蛋白过敏，不知道如何选择特殊配方",
-            "target_audience": "有家族过敏史或宝宝已出现过敏症状的新手父母",
-            "scene_keywords": [
-                "宝宝喝普通奶粉起疹子怎么办",
-                "蛋白过敏宝宝怎么选奶粉",
-                "适度水解奶粉能预防过敏吗",
-                "氨基酸奶粉和深度水解奶粉区别",
-                "宝宝过敏症状好了能转普通奶粉吗",
-                "有湿疹的宝宝喝什么奶粉",
-                "水解奶粉味道苦宝宝不喝怎么办"
-            ],
-            "keywords": ["特殊配方奶粉", "水解奶粉", "抗过敏奶粉", "低敏奶粉"]
-        }},
-        {{
-            "type_name": "不长肉",
-            "description": "宝宝喝奶粉体重增长不理想，担心营养不够",
-            "target_audience": "宝宝偏瘦、体重增长缓慢的家长",
-            "scene_keywords": [
-                "宝宝喝奶粉不长肉怎么回事",
-                "早产儿追赶体重吃什么奶粉好",
-                "一岁宝宝偏瘦奶粉推荐",
-                "奶粉宝宝体重不达标怎么办",
-                "高热量奶粉能让宝宝长肉吗",
-                "脾胃虚弱的宝宝喝什么奶粉",
-                "宝宝光吃奶粉不长肉是奶粉问题吗"
-            ],
-            "keywords": ["追重奶粉", "长肉奶粉", "早产儿奶粉", "高能量奶粉"]
-        }}
-    ],
-    "keyword_library": {{
-        "total_count": {max_keywords},
-        "keyword_core": "{keyword_core}",
-        "categories": [
-            {{
-                "category_name": "细分人群词",
-                "keywords": [
-                    "6个月宝宝奶粉推荐",
-                    "剖腹产宝宝吃什么奶粉好",
-                    "乳糖不耐受宝宝奶粉怎么选",
-                    "早产儿追赶生长奶粉",
-                    "蛋白过敏宝宝专用奶粉",
-                    "体弱多病宝宝增强体质奶粉",
-                    "脾胃虚弱宝宝好消化奶粉",
-                    "厌奶期宝宝开胃奶粉",
-                    "混合喂养宝宝奶粉推荐",
-                    "断奶期宝宝奶粉过渡"
-                ],
-                "market_type": "blue_ocean",
-                "proportion": 0.25
-            }},
-            {{
-                "category_name": "细分场景词",
-                "keywords": [
-                    "断奶期怎么选合适奶粉",
-                    "宝宝转奶怎么过渡最安全",
-                    "高铁上宝宝饿了怎么办",
-                    "夜醒频繁要换奶粉吗",
-                    "宝宝厌奶期持续多久",
-                    "宝宝打疫苗前后能换奶粉吗",
-                    "换季宝宝拉肚子要换奶粉吗",
-                    "宝宝上火了换什么奶粉",
-                    "宝宝便秘是奶粉的原因吗",
-                    "宝宝发烧期间喂养注意什么"
-                ],
-                "market_type": "blue_ocean",
-                "proportion": 0.20
-            }},
-            {{
-                "category_name": "细分痛点词",
-                "keywords": [
-                    "宝宝喝奶粉不长肉怎么办",
-                    "奶粉腥味太重宝宝不爱喝怎么办",
-                    "换新奶粉宝宝拉肚子怎么回事",
-                    "奶粉挂壁是不是质量有问题",
-                    "深度水解奶粉太苦宝宝不喝",
-                    "宝宝喝完奶粉嘴边发红是过敏吗",
-                    "长期喝无乳糖奶粉会有影响吗",
-                    "特殊奶粉价格太贵负担不起",
-                    "不知道什么时候该换奶粉段位",
-                    "水解奶粉营养够不够"
-                ],
-                "market_type": "blue_ocean",
-                "proportion": 0.20
-            }},
-            {{
-                "category_name": "长尾问题词",
-                "keywords": [
-                    "深度水解奶粉要喝多久才能转普通奶粉",
-                    "氨基酸奶粉和深度水解奶粉哪个好",
-                    "早产儿奶粉吃到几个月可以换普通奶粉",
-                    "乳糖不耐受和蛋白过敏怎么判断",
-                    "适度水解奶粉可以长期喝吗",
-                    "部分水解奶粉转普通奶粉怎么过渡",
-                    "宝宝换奶粉牌子便秘是怎么回事",
-                    "特殊配方奶粉医保能报销吗",
-                    "过敏宝宝辅食添加和奶粉冲突吗",
-                    "水解奶粉化了有颗粒是正常的吗"
-                ],
-                "market_type": "blue_ocean",
-                "proportion": 0.15
-            }},
-            {{
-                "category_name": "品类大词",
-                "keywords": ["{keyword_core}", "特殊配方奶粉品牌"],
-                "market_type": "red_ocean",
-                "proportion": 0.05
-            }},
-            {{
-                "category_name": "品牌词",
-                "keywords": [],
-                "market_type": "red_ocean",
-                "proportion": 0.05
-            }},
-            {{
-                "category_name": "通用需求词",
-                "keywords": ["{keyword_core}推荐", "{keyword_core}哪个牌子好", "{keyword_core}多少钱一罐"],
-                "market_type": "red_ocean",
-                "proportion": 0.10
-            }}
-        ]
-    }}
-}}
-
-重要说明：
-1. 关键词必须是真实用户搜索词，体现具体搜索意图，不是泛泛的"XX+核心词"
-2. 细分人群词要带具体人群标签（年龄/体质/阶段），细分场景词要带具体情境，细分痛点词要带"怎么办/怎么解决"
-3. 每个分类关键词数量不得少于规定数量，否则视为不合格
-4. 品牌词如果没有具体品牌可以填空数组
-5. 蓝海关键词（细分人群/场景/痛点/长尾）应占总量80%以上
-
-请开始生成："""
 
         return prompt
 
@@ -736,9 +902,7 @@ class KeywordLibraryGenerator:
     ) -> KeywordLibraryResult:
         """解析LLM返回结果"""
 
-        # 尝试JSON解析
         try:
-            # 清理响应文本
             text = response.strip()
             if text.startswith('```json'):
                 text = text[7:]
@@ -747,48 +911,86 @@ class KeywordLibraryGenerator:
             if text.endswith('```'):
                 text = text[:-3]
             text = text.strip()
-
             data = json.loads(text)
-            result.raw_output = data
-
-        except json.JSONDecodeError as e:
-            logger.warning("[KeywordLibraryGenerator] JSON解析失败，尝试修复: %s", e)
-            data = self._try_fix_json(response)
-            if not data:
-                result.error_message = "JSON解析失败"
+            if data is None:
+                logger.warning("[KeywordLibraryGenerator] LLM返回了null JSON")
+                result.error_message = "LLM返回了null JSON"
                 return result
             result.raw_output = data
 
-        # 解析问题类型
-        problem_types = data.get('problem_types', [])
-        for pt in problem_types:
-            result.problem_types.append(ProblemType(
-                type_name=pt.get('type_name', ''),
-                description=pt.get('description', ''),
-                target_audience=pt.get('target_audience', ''),
-                keywords=pt.get('keywords', []),
-                scene_keywords=pt.get('scene_keywords', []),
-            ))
+        except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as e:
+            import traceback
+            logger.warning(
+                "[KeywordLibraryGenerator] JSON解析失败，尝试修复: %s | response前200字符: %s | 堆栈: %s",
+                e, text[:200] if text else '', traceback.format_exc()
+            )
+            data = self._try_fix_json(response)
+            if not data or not isinstance(data, dict):
+                result.error_message = f"JSON解析失败: {e}"
+                return result
+            result.raw_output = data
 
-        # 解析关键词库
-        result.keyword_library = data.get('keyword_library', {})
-
-        # 解析问句示范
-        question_samples_data = data.get('question_samples', {})
-        if question_samples_data:
-            # 解析前置问句
-            for q in question_samples_data.get('pre_questions', []):
-                result.question_samples.append(QuestionSample(
-                    question=q.get('question', ''),
-                    question_type='pre',
-                    components=q.get('components', {}),
+        problem_types = (data.get('problem_types') or [])
+        for pt in (problem_types or []):
+                result.problem_types.append(ProblemType(
+                    type_name=pt.get('type_name', '') if isinstance(pt, dict) else '',
+                    description=pt.get('description', '') if isinstance(pt, dict) else '',
+                    target_audience=pt.get('target_audience', '') if isinstance(pt, dict) else '',
+                    keywords=pt.get('keywords') or [],
+                    scene_keywords=pt.get('scene_keywords') or [],
                 ))
-            # 解析后置问句
-            for q in question_samples_data.get('post_questions', []):
+
+        raw_kw_lib = data.get('keyword_library')
+        if raw_kw_lib is None:
+            raw_kw_lib = {}
+        # 防御：如果 LLM 返回的 keyword_library 不是 dict，记录并跳过
+        if not isinstance(raw_kw_lib, dict):
+            logger.warning(
+                "[KeywordLibraryGenerator] keyword_library 类型异常: type=%s, 值前200字: %s",
+                type(raw_kw_lib), str(raw_kw_lib)[:200]
+            )
+            raw_kw_lib = {}
+        result.keyword_library = raw_kw_lib
+
+        personas = (raw_kw_lib.get('personas') or []) or []
+        if personas:
+            for p in personas:
+                if not isinstance(p, dict):
+                    continue
+                portrait_kw = {
+                    'portrait_name': p.get('portrait_name', ''),
+                    'persona_problem_type': p.get('persona_problem_type', ''),
+                    'target_audience': p.get('target_audience', ''),
+                    'pain_points': p.get('pain_points') or [],
+                    'scene_keywords': p.get('scene_keywords') or [],
+                    'concerns': p.get('concerns') or [],
+                }
+                result.portrait_keywords.append(portrait_kw)
+                result.portrait_keywords_count += (
+                    len(p.get('pain_points') or []) +
+                    len(p.get('scene_keywords') or []) +
+                    len(p.get('concerns') or [])
+                )
+
+        common_kw = raw_kw_lib.get('common_keywords') or {}
+        if common_kw:
+            for cat_kws in common_kw.values():
+                if isinstance(cat_kws, list):
+                    result.common_keywords_count += len(cat_kws)
+
+        question_samples_data = data.get('question_samples') or {}
+        if question_samples_data and isinstance(question_samples_data, dict):
+            for q in (question_samples_data.get('pre_questions') or []):
                 result.question_samples.append(QuestionSample(
-                    question=q.get('question', ''),
+                    question=q.get('question', '') if isinstance(q, dict) else '',
+                    question_type='pre',
+                    components=q.get('components') or {},
+                ))
+            for q in (question_samples_data.get('post_questions') or []):
+                result.question_samples.append(QuestionSample(
+                    question=q.get('question', '') if isinstance(q, dict) else '',
                     question_type='post',
-                    components=q.get('components', {}),
+                    components=q.get('components') or {},
                 ))
 
         return result
@@ -809,7 +1011,6 @@ class KeywordLibraryGenerator:
 
         text = business_desc.strip()
 
-        # 移除常见前缀
         prefixes = ['我们公司是', '我们是', '主要做', '主要从事', '业务是', '业务范围是',
                     '主要业务是', '公司主要做', '公司主要从事', '公司业务是',
                     '专业做', '专业从事', '从事', '做']
@@ -817,12 +1018,10 @@ class KeywordLibraryGenerator:
             if text.startswith(prefix):
                 text = text[len(prefix):].strip()
 
-        # 移除常见前缀词
         for prefix in ['卖', '销售', '提供', '经营']:
             if text.startswith(prefix) and len(text) > len(prefix):
                 text = text[len(prefix):].strip()
 
-        # 移除常见后缀
         for suffix in ['的公司', '的业务', '的服务', '的产品', '的生意',
                        '有限公司', '有限责任公司', '股份公司', '集团']:
             if text.endswith(suffix):
@@ -831,7 +1030,6 @@ class KeywordLibraryGenerator:
         if len(text) <= 5:
             return text if text else industry or ''
 
-        # 常见产品/服务词列表
         product_indicators = [
             '羊奶粉', '牛奶粉', '奶粉', '牛奶', '酸奶', '鲜奶',
             '婴幼儿奶粉', '儿童奶粉', '成人奶粉', '中老年奶粉',
@@ -847,28 +1045,22 @@ class KeywordLibraryGenerator:
             '法律咨询', '财务咨询', '税务代理', '知识产权',
             '软件开发', '网站建设', 'APP开发', '小程序开发',
             '矿泉水', '饮用水', '桶装水', '瓶装水',
-            # 农村/上门服务类
             '土灶', '打土灶', '农村土灶', '土灶建造', '土灶维修',
             '上门服务', '家政', '维修', '安装', '清洗', '清洁',
             '农村服务', '农机', '农具', '农作物', '农产品',
-            # 婚恋服务
             '婚姻介绍', '婚介', '相亲', '交友', '婚恋服务',
         ]
 
-        # 检查是否包含已知产品词
         for product in product_indicators:
             if product in text:
                 return product
 
-        # 如果文本较短且不包含营销词，返回前6个字符
         if len(text) <= 8:
-            # 排除营销词
             marketing_words = ['市场', '蓝海', '红海', '赛道', '机会', '定位',
                              '高端', '细分', '垂直', '特色', '专业', '品质',
                              '优质', '创新', '独特', '个性', '专属', '定制化']
             for word in marketing_words:
                 if word in text:
-                    # 尝试提取服务词
                     for indicator in ['服务', '维修', '安装', '建造', '清洗', '销售', '定制', '介绍']:
                         if indicator in text:
                             idx = text.index(indicator)
@@ -876,7 +1068,6 @@ class KeywordLibraryGenerator:
                     return ''
             return text
 
-        # 返回前8个字符
         return text[:8].strip() if text else industry or ''
 
     def _filter_keywords(self, keyword_library: Dict, keyword_core: str) -> Dict:
@@ -890,7 +1081,9 @@ class KeywordLibraryGenerator:
         Returns:
             过滤后的关键词库
         """
-        # 不合适的关键词后缀模式
+        if not keyword_library:
+            return keyword_library or {}
+
         bad_suffixes = [
             '长期喝', '长期用', '长期服用', '长期食用',
             '高铁上', '高铁', '飞机上', '旅行携带', '断奶期', '断奶',
@@ -898,31 +1091,45 @@ class KeywordLibraryGenerator:
             '婴儿', '新生儿', '宝宝', '儿童', '奶粉', '辅食',
         ]
 
-        # 不合适的问题词
         bad_questions = [
             '可以长期喝', '可以长期用', '可以长期服用',
             '对身体有害吗', '会有副作用吗', '能长期喝吗',
         ]
 
-        for cat in keyword_library.get('categories', []):
-            keywords = cat.get('keywords', [])
-            filtered = []
-            for kw in keywords:
-                # 检查后缀
-                bad = False
-                for suffix in bad_suffixes:
-                    if kw.endswith(suffix):
-                        bad = True
-                        break
-                # 检查问题词
-                if not bad:
-                    for q in bad_questions:
-                        if q in kw:
-                            bad = True
-                            break
-                if not bad:
-                    filtered.append(kw)
-            cat['keywords'] = filtered
+        def _filter_keyword_item(item: Any) -> bool:
+            """判断单个关键词项是否应该保留"""
+            kw_text = item.get('keyword', '') if isinstance(item, dict) else str(item)
+            for suffix in bad_suffixes:
+                if kw_text.endswith(suffix):
+                    return False
+            for q in bad_questions:
+                if q in kw_text:
+                    return False
+            return True
+
+        def filter_list(kw_list: List) -> List:
+            return [kw for kw in kw_list if _filter_keyword_item(kw)]
+
+        # 公用关键词
+        common = (keyword_library or {}).get('common_keywords') or {}
+        for cat, kws in common.items():
+            if isinstance(kws, list):
+                common[cat] = filter_list(kws)
+
+        # 画像专属关键词
+        for p in (keyword_library or {}).get('personas') or []:
+            if not isinstance(p, dict):
+                continue
+            p['pain_points'] = filter_list(p.get('pain_points') or [])
+            p['scene_keywords'] = filter_list(p.get('scene_keywords') or [])
+            p['concerns'] = filter_list(p.get('concerns') or [])
+
+        # 上下游关键词
+        for field in ['upstream_keywords', 'downstream_keywords',
+                       'supporting_tools_keywords', 'technique_keywords']:
+            kw_list = (keyword_library or {}).get(field)
+            if isinstance(kw_list, list):
+                keyword_library[field] = filter_list(kw_list)
 
         return keyword_library
 
@@ -942,7 +1149,6 @@ class KeywordLibraryGenerator:
             except:
                 pass
 
-            # 修复常见问题
             json_str = re.sub(r',\s*}', '}', json_str)
             json_str = re.sub(r',\s*]', ']', json_str)
 
@@ -961,7 +1167,7 @@ class KeywordLibraryGenerator:
 def generate_keyword_library(
     business_info: Dict[str, Any],
     business_direction: str,
-    max_keywords: int = 200,
+    max_keywords: int = 100,
 ) -> KeywordLibraryResult:
     """
     便捷函数：生成关键词库
@@ -970,9 +1176,9 @@ def generate_keyword_library(
         from services.keyword_library_generator import generate_keyword_library
 
         result = generate_keyword_library(
-            business_info={'business_description': '卖奶粉', 'industry': '奶粉'},
-            business_direction='进口有机羊奶粉',
-            max_keywords=200
+            business_info={'business_description': 'XX产品定制服务', 'industry': '定制服务'},
+            business_direction='XX产品定制代理',
+            max_keywords=100
         )
 
         if result.success:

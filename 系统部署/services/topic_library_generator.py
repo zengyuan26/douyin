@@ -331,24 +331,28 @@ class TopicLibraryGenerator:
             'secondary_bases': ['使用配套搜后种草盘'],
             'preferred_type_keys': ['compare', 'tutorial', 'cause', 'upstream', 'scene'],
             'dimension_weight': 0.8,
+            'dimension_name': '人群身份',
         },
         'pain_point': {
             'primary_base': '刚需痛点盘',
             'secondary_bases': ['前置观望种草盘'],
             'preferred_type_keys': ['pain_point', 'decision_encourage', 'effect_proof', 'pitfall'],
             'dimension_weight': 0.9,
+            'dimension_name': '痛点需求',
         },
         'concern': {
             'primary_base': '刚需痛点盘',
             'secondary_bases': ['前置观望种草盘'],
             'preferred_type_keys': ['decision_encourage', 'rethink', 'pitfall', 'cause'],
             'dimension_weight': 0.85,
+            'dimension_name': '购买顾虑',
         },
         'scenario': {
             'primary_base': '使用配套搜后种草盘',
             'secondary_bases': ['前置观望种草盘'],
             'preferred_type_keys': ['skill', 'seasonal', 'festival', 'scene', 'emotional'],
             'dimension_weight': 0.75,
+            'dimension_name': '使用场景',
         },
     }
 
@@ -1699,6 +1703,8 @@ class TopicLibraryGenerator:
         topics = topic_library.get('topics', [])
         if not topics:
             return []
+        # 确保是字典列表
+        topics = [t for t in topics if isinstance(t, dict)]
 
         if keyword_hint and keyword_hint.strip():
             keyword = keyword_hint.strip().lower()
