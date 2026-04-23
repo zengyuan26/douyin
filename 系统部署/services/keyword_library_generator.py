@@ -634,6 +634,9 @@ class KeywordLibraryGenerator:
         if not isinstance(kl_data, dict):
             kl_data = {}
 
+        categories = []
+        total_count = 0
+
         # 支持两种格式：新格式（5分类/5分类） & 旧格式（9分类）
         # 新格式1：付费者=使用者（搜前搜+搜后搜+上下游+信任+直接需求）
         # 新格式2：付费者≠使用者（使用者问题+付费者顾虑+产品推荐+搜前搜+搜后搜）
