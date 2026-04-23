@@ -344,184 +344,258 @@ class KeywordLibraryGenerator:
         pain_scenarios: List[str],
         barriers: List[str],
     ) -> str:
-        """构建关键词库模板Prompt（9大分类，100+关键词）"""
+        """构建关键词库模板Prompt（根据业务类型自动选择分类逻辑）"""
+
+        core_lower = keyword_core.lower()
+        # 付费者≠使用者关键词：用户与付费者分离（宝宝/婴儿/孕妇/老人/孩子/学生/童装等）
+        is_separate_payer = any(
+            kw in core_lower
+            for kw in ['宝宝', '婴儿', '奶粉', '孕妇', '老人', '孩子', '学生', '童装',
+                       '儿童', '小儿', ' baby', 'infant', 'kids']
+        )
 
         pain_points_str = "\n".join([f"- {p}" for p in pain_points]) if pain_points else "（未提供）"
         pain_scenarios_str = "\n".join([f"- {s}" for s in pain_scenarios]) if pain_scenarios else "（未提供）"
         barriers_str = "\n".join([f"- {b}" for b in barriers]) if barriers else "（未提供）"
+        region_str = region or '（未指定，根据业务推断）'
 
-        # 季节和节日根据行业自动推断
-        seasons = "春节前、冬季" if "香肠" in keyword_core or "腊肉" in keyword_core else "节假日前"
+        if is_separate_payer:
+            return self._build_separate_payer_prompt(
+                keyword_core, region_str, industry,
+                pain_points_str, pain_scenarios_str, barriers_str
+            )
+        else:
+            return self._build_same_payer_prompt(
+                keyword_core, region_str, industry,
+                pain_points_str, pain_scenarios_str, barriers_str
+            )
+
+    def _build_same_payer_prompt(
+        self,
+        keyword_core: str,
+        region_str: str,
+        industry: str,
+        pain_points_str: str,
+        pain_scenarios_str: str,
+        barriers_str: str,
+    ) -> str:
+        """
+        付费者=使用者分类逻辑（如灌香肠、建材、本地服务）
+        结构：搜前搜(25%) + 搜后搜(25%) + 上下游(20%) + 信任佐证(15%) + 直接需求(15%)
+        """
+        seasons_hint = (
+            "春节前、冬季" if "香肠" in keyword_core or "腊肉" in keyword_core
+            else "节假日前"
+        )
 
         prompt = f"""你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成一份高质量的关键词库。
 
 === 业务信息 ===
 核心业务：{keyword_core}
-地域：{region or '（未指定，根据业务推断）'}
+地域：{region_str}
 行业：{industry or '（根据业务推断）'}
 
 === 画像痛点信息（供参考）===
-核心痛点：
-{pain_points_str}
+核心痛点：{pain_points_str}
+痛点场景：{pain_scenarios_str}
+顾虑障碍：{barriers_str}
 
-痛点场景：
-{pain_scenarios_str}
+=== 分类逻辑 ===
+本业务为"付费者=使用者"类型（客户自己买、自己用），关键词从用户决策链路出发：
+1. 搜前搜：用户买之前会搜索哪些问题？（了解工艺/价格/质量）
+2. 搜后搜：用户买之后会搜索哪些问题？（保存/烹饪/故障处理）
+3. 上下游：上下游关联词（吸引潜在客户）
+4. 信任佐证：建立信任的关键词
+5. 直接需求：直接表达购买意向的词
 
-顾虑障碍：
-{barriers_str}
-
-=== 【关键词库生成规则】 ===
-
+=== 【关键词生成规则】 ===
 **核心原则：**
 1. 关键词来自真实用户搜索意图，不是产品介绍
-2. 关键词长度6-14字，越短越好
-3. 痛点原则：是不是客户真实想要的？是不是客户的痛点？
-4. 禁止空洞泛化词如"怎么选"、"哪家好"单独出现
+2. 关键词必须语义通顺，可直接作为用户搜索词使用
+3. 长度6-14字，禁止生硬拼接
+4. 结合画像痛点信息生成真实场景关键词
 
-**关键词库结构（9大分类，共100+个）：**
+=== 【搜前搜关键词】（25个）===
+用户"买之前"会搜索的问题：
+- 了解工艺："{keyword_core}配方比例"、"{keyword_core}做法步骤"、"{keyword_core}盐放多少"
+- 了解价格："{keyword_core}多少钱一斤"、"{keyword_core}手工费多少"、"{keyword_core}成本"
+- 了解质量："{keyword_core}哪家好吃"、"{keyword_core}卫生吗"、"{keyword_core}正宗吗"
+请围绕"买之前用户会问什么"生成关键词，如：
+- "{keyword_core}做法"、"{keyword_core}配方"、"{keyword_core}肥瘦比例"
+- "{keyword_core}多少钱"、"{keyword_core}收费"
+- "{keyword_core}正宗"、"{keyword_core}卫生"、"{keyword_core}哪里好"
 
----
+=== 【搜后搜关键词】（25个）===
+用户"买之后"会搜索的问题：
+- 保存问题："{keyword_core}怎么保存"、"香肠能放多久"
+- 烹饪问题："{keyword_core}怎么做好吃"、"{keyword_core}蒸多久"
+- 售后顾虑："{keyword_core}不好吃怎么办"、"{keyword_core}坏了怎么处理"
+请围绕"买之后用户会遇到什么问题"生成关键词，如：
+- "香肠保存方法"、"香肠能放多久"、"香肠冷冻还是冷藏"
+- "香肠怎么做好吃"、"香肠做法大全"
+- "香肠发霉还能吃吗"、"香肠太咸怎么办"
 
-### 一、直接需求关键词（≥20个）
-目的：用户直接表达购买/服务意向
-类型：
-- 核心品类词（8个）：{keyword_core}、{keyword_core}哪家好、{keyword_core}多少钱、{keyword_core}哪里正宗、{keyword_core}怎么联系、{keyword_core}报价、{keyword_core}定制、{keyword_core}批发
-- 品质服务类（8个）：{keyword_core}质量好吗、{keyword_core}正规吗、{keyword_core}靠谱吗、{keyword_core}口碑怎么样、{keyword_core}有实体店吗、{keyword_core}送货上门、{keyword_core}可以加急吗、{keyword_core}怎么联系
+=== 【行业上下游关联词】（20个）===
+吸引上下游潜在客户：
+- 上游材料："香肠肠衣在哪买"、"灌香肠调料配方"
+- 下游烹饪："香肠怎么炒好吃"、"香肠煮多久"
+- 地域词：{region_str}{keyword_core}、"附近哪里有做{keyword_core}"
+请生成上下游关联词，如：
+- "灌{keyword_core}肠衣"、"{keyword_core}调料"
+- "香肠炒什么好吃"、"香肠做法"
+- "{region_str}{keyword_core}"、{"附近哪里有做" + keyword_core if region_str == "（未指定）" else region_str + "做" + keyword_core}
 
----
+=== 【信任佐证关键词】（15个）===
+解决"能不能帮我做好"：
+如："{keyword_core}22年老店"、"{keyword_core}现场观看"、"{keyword_core}客户反馈"
+请生成建立信任的关键词，如：
+- "{keyword_core}老师傅"、"{keyword_core}22年品质"
+- "{keyword_core}现场观看"、"{keyword_core}制作过程"
+- "{keyword_core}客户好评"
 
-### 二、痛点关键词（≥15个）
-目的：从用户真实痛点出发
-方法论来源：评论区挖痛点
-类型：
-- 问题型（5个）：{keyword_core}坏了怎么办、{keyword_core}过期了能吃吗、{keyword_core}质量有问题找谁、{keyword_core}不新鲜怎么办、{keyword_core}有异味正常吗
-- 担心型（5个）：{keyword_core}卫生吗、{keyword_core}添加剂多吗、{keyword_core}家人能吃吗、{keyword_core}小孩能吃吗、{keyword_core}孕妇能吃吗
-- 后果型（5个）：{keyword_core}吃坏肚子了、{keyword_core}变质了怎么处理、{keyword_core}效果不好怎么办、{keyword_core}后悔了、{keyword_core}质量不行怎么维权
-
----
-
-### 三、搜索关键词（≥15个）
-目的：用户主动搜索方法/教程/对比
-方法论来源：搜索框挖需求
-类型：
-- 疑问型（5个）：{keyword_core}怎么保存、{keyword_core}怎么选、{keyword_core}哪家正宗、{keyword_core}怎么辨别、{keyword_core}什么价位
-- 方法型（5个）：{keyword_core}方法、{keyword_core}技巧、{keyword_core}配方、{keyword_core}教程、{keyword_core}注意事项
-- 对比型（5个）：{keyword_core}A还是B、{keyword_core}区别、{keyword_core}哪个牌子好、{keyword_core}贵和便宜差别、{keyword_core}网上买还是实体店
-
----
-
-### 四、场景关键词（≥15个）
-目的：特定场景下的精准需求
-方法论来源：传统经验挖掘
-类型：
-- 客户类型（5个）：家庭{keyword_core}、饭店{keyword_core}、食堂{keyword_core}、婚宴{keyword_core}、送礼{keyword_core}
-- 具体场景（5个）：过年{keyword_core}、结婚{keyword_core}、满月酒{keyword_core}、走亲戚{keyword_core}、工地食堂{keyword_core}
-- 需求场景（5个）：大量采购{keyword_core}、长期供应{keyword_core}、定制{keyword_core}、团购{keyword_core}、零售{keyword_core}
-
----
-
-### 五、地域关键词（≥10个）
-目的：获取本地精准流量
-方法论来源：流量关键词 - 地域型
-类型：
-- 本地核心（4个）：{region + keyword_core if region else '本地' + keyword_core}、{region + keyword_core + '哪家好' if region else ''}、{region + keyword_core + '电话' if region else ''}、{region + keyword_core + '地址' if region else ''}
-- 周边扩展（4个）：{"附近" + keyword_core}、{"周边" + keyword_core}、{"就近" + keyword_core}、{"同城" + keyword_core}
-- 上级地域（2个）：{"本地" + keyword_core}、{"市区" + keyword_core}
-
----
-
-### 六、季节/时间关键词（≥10个）
-目的：抓住旺季流量，淡季做留存
-方法论来源：季节节点
-类型：
-- 旺季关键词（5个）：{seasons}、{seasons}+优惠、{seasons}+团购、{seasons}+批发、{seasons}+送礼
-- 淡季关键词（5个）：{"夏季" + keyword_core}、{"天热" + keyword_core}、{"保存" + keyword_core}、{"反季" + keyword_core}、{"错峰" + keyword_core}
-
----
-
-### 七、技巧/干货关键词（≥10个）
-目的：吸引学习型用户，建立专业信任
-方法论来源：技巧关键词
-类型：
-- 干货型（5个）：{keyword_core}+技巧、{keyword_core}+记住这3点、{keyword_core}+方法、{keyword_core}+秘方、{keyword_core}+绝招
-- 数字型/承诺型（5个）：{keyword_core}+记住这X点、{keyword_core}+X个技巧、{keyword_core}+好用、{keyword_core}+秘诀、{keyword_core}+值得推荐
-
----
-
-### 八、认知颠覆/反向关键词（≥5个）
-目的：引发好奇心，提高点击率
-方法论来源：颠覆常识
-类型：
-- 颠覆型（5个）：{keyword_core}+不是越贵越好、{keyword_core}+90%的人选错了、原来{keyword_core}+要这样、{keyword_core}+别再被骗了、{keyword_core}+真相
-
----
-
-### 九、节日/节气关键词（≥15个）
-目的：抓住节日流量高峰
-方法论来源：节日方法论
-类型：
-- 传统节日（6个）：{keyword_core}+春节、{keyword_core}+中秋节、{keyword_core}+端午节、{keyword_core}+过年、{keyword_core}+元宵节、{keyword_core}+重阳节
-- 现代节日（5个）：{keyword_core}+母亲节、{keyword_core}+父亲节、{keyword_core}+教师节、{keyword_core}+情人节、{keyword_core}+520
-- 节气/送礼（4个）：{keyword_core}+送礼、{keyword_core}+送人、{keyword_core}+礼物、{keyword_core}+企业福利
-
----
+=== 【直接需求关键词】（15个）===
+用户直接表达购买意向：
+如："{keyword_core}电话多少"、"{keyword_core}地址在哪"
+请生成直接需求的关键词，如：
+- "{keyword_core}电话"、"{keyword_core}地址"
+- "{keyword_core}多少钱一斤"、"{keyword_core}加工费"
+- "{keyword_core}批发"、"{keyword_core}定制"
 
 === 输出格式 ===
-
 请严格按以下JSON格式输出，不要输出任何其他内容：
-
 {{
     "keyword_library": {{
-        "direct_demand_keywords": [
-            "{keyword_core}哪家好",
-            "{keyword_core}多少钱",
-            "{keyword_core}哪里正宗"
-        ],
-        "pain_point_keywords": [
-            "{keyword_core}坏了怎么办",
-            "{keyword_core}卫生吗"
-        ],
-        "search_keywords": [
-            "{keyword_core}怎么保存",
-            "{keyword_core}怎么选"
-        ],
-        "scene_keywords": [
-            "家庭{keyword_core}",
-            "过年{keyword_core}"
-        ],
-        "region_keywords": [
-            "{region or '本地'}{keyword_core}",
-            "附近{keyword_core}"
-        ],
-        "season_keywords": [
-            "春节前{keyword_core}",
-            "夏季{keyword_core}保存"
-        ],
-        "skill_keywords": [
-            "{keyword_core}技巧",
-            "{keyword_core}记住这3点"
-        ],
-        "reverse_keywords": [
-            "{keyword_core}不是越贵越好",
-            "{keyword_core}90%的人选错了"
-        ],
-        "festival_keywords": [
-            "{keyword_core}春节",
-            "{keyword_core}中秋节",
-            "{keyword_core}送礼"
-        ]
+        "pre_search_keywords": ["搜前搜关键词示例1", "搜前搜关键词示例2"],
+        "post_search_keywords": ["搜后搜关键词示例1", "搜后搜关键词示例2"],
+        "industry_chain_keywords": ["上下游关键词示例1", "上下游关键词示例2"],
+        "trust_keywords": ["信任佐证关键词示例1", "信任佐证关键词示例2"],
+        "direct_demand_keywords": ["直接需求关键词示例1", "直接需求关键词示例2"]
     }}
 }}
 
 === 强制约束 ===
-1. **数量**：直接需求≥20、痛点≥15、搜索≥15、场景≥15、地域≥10、季节≥10、技巧≥10、颠覆≥5、节日≥15，总计≥100
-2. **质量**：每个关键词必须有真实搜索意图，不是产品介绍
-3. **禁止**：纯大词如"{keyword_core}"单独出现、无地域修饰的价格词
-4. **可实现**：关键词要符合{keyword_core}业务的实际用户搜索场景
-5. **地域**：如果提供了地域，地域词要包含该地域；如果未提供，则用"本地"、"附近"等通用词
+1. 数量：搜前搜≥25、搜后搜≥25、上下游≥20、信任佐证≥15、直接需求≥15，总计≥100
+2. 质量：每个关键词必须有真实搜索意图，语义通顺，不是产品介绍
+3. 禁止：前缀拼接生硬词如"{keyword_core}坏了怎么办"（语义不通）
+4. 地域词必须有实际地名，不能只写"本地"
 
 请开始生成："""
+        return prompt
 
+    def _build_separate_payer_prompt(
+        self,
+        keyword_core: str,
+        region_str: str,
+        industry: str,
+        pain_points_str: str,
+        pain_scenarios_str: str,
+        barriers_str: str,
+    ) -> str:
+        """
+        付费者≠使用者分类逻辑（如奶粉、童装、养老服务、礼品）
+        用户：产品使用者（如宝宝）
+        付费者：购买决策者（如宝爸宝妈）
+        结构：使用者问题(30%) + 付费者顾虑(30%) + 产品推荐(20%) + 搜前搜(10%) + 搜后搜(10%)
+        """
+        kw_short = keyword_core[:4]
+
+        prompt = f"""你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成一份高质量的关键词库。
+
+=== 业务信息 ===
+核心业务：{keyword_core}
+地域：{region_str}
+行业：{industry or '（根据业务推断）'}
+
+=== 画像信息（关键！用于生成真实关键词）===
+核心痛点（使用者遇到的问题）：{pain_points_str}
+使用场景：{pain_scenarios_str}
+付费者顾虑：{barriers_str}
+
+=== 分类逻辑 ===
+本业务为"付费者≠使用者"类型：
+- 使用者（如宝宝/孩子/老人）是产品直接体验者，会有症状/问题
+- 付费者（如宝爸宝妈/子女）是购买决策者，会有顾虑/担忧
+
+关键词必须从"真实用户行为"出发，而不是产品名称前缀拼接！
+
+=== 【使用者问题关键词】（30个）===
+使用者（患者/体验者）遇到的具体问题：
+参考：宝宝喝奶粉拉肚子、宝宝奶粉过敏、宝宝不长肉
+请结合画像痛点生成真实问题词，如：
+- "{keyword_core}拉肚子"
+- "{keyword_core}便秘怎么办"
+- "{keyword_core}过敏症状"
+- "{keyword_core}不吸收"
+- "{keyword_core}不长肉"
+
+请生成30个使用者问题关键词，围绕使用者症状（如肠胃问题、过敏、发育迟缓等）。
+
+=== 【付费者顾虑关键词】（30个）===
+付费者（决策者）关心的三大类问题：
+
+1. 真假/信任问题（如：进口奶粉真假辨别、哪里买是正品）
+   - "{keyword_core}真假辨别"
+   - "{keyword_core}正品哪里买"
+   - "{keyword_core}是正品吗"
+
+2. 价格/划算问题（如：进口奶粉多少钱、哪个便宜）
+   - "{keyword_core}多少钱一盒"
+   - "{keyword_core}价格表"
+   - "{keyword_core}在哪里买便宜"
+
+3. 选择/对比问题（如：哪个牌子好、怎么选）
+   - "{keyword_core}哪个牌子好"
+   - "{keyword_core}怎么选"
+   - "{keyword_core}排行榜"
+
+请生成30个顾虑关键词，覆盖真假/价格/选择三大类。
+
+=== 【产品推荐关键词】（20个）===
+用户选购时搜索的产品对比词：
+如：爱他美和美赞臣哪个好、A2奶粉和普通奶粉区别
+
+请生成品牌对比/段数选择关键词：
+- "{keyword_core}A和B哪个好"
+- "{keyword_core}1段2段区别"
+- "口碑最好的{kw_short}"
+
+=== 【搜前搜关键词】（10个）===
+用户买之前不了解产品时会搜：
+如：宝宝出生要准备什么奶粉、待产包需要准备奶粉吗
+
+请生成准备型/了解型关键词：
+- "宝宝要准备什么{kw_short}"
+- "第一次买{kw_short}怎么选"
+
+=== 【搜后搜关键词】（10个）===
+用户买了之后会遇到的问题：
+如：奶粉怎么冲泡、奶粉可以换牌子吗、奶粉开封后能放多久
+
+请生成使用后续问题词：
+- "{keyword_core}怎么冲泡"
+- "{keyword_core}开封后能放多久"
+- "宝宝不喝{kw_short}怎么办"
+
+=== 输出格式 ===
+请严格按以下JSON格式输出，不要输出任何其他内容：
+{{
+    "keyword_library": {{
+        "user_problem_keywords": ["使用者问题词1", "使用者问题词2"],
+        "payer_concern_keywords": ["付费者顾虑词1", "付费者顾虑词2"],
+        "product_recommend_keywords": ["产品推荐词1", "产品推荐词2"],
+        "pre_search_keywords": ["搜前搜词1", "搜前搜词2"],
+        "post_search_keywords": ["搜后搜词1", "搜后搜词2"]
+    }}
+}}
+
+=== 强制约束 ===
+1. 数量：使用者问题≥30、付费者顾虑≥30、产品推荐≥20、搜前搜≥10、搜后搜≥10，总计≥100
+2. 质量：每个关键词必须是真实用户搜索词，语义通顺，禁止前缀生硬拼接
+3. 使用者问题：必须描述使用者（宝宝/孩子/老人）的真实症状，如"喝{kw_short}拉肚子"
+4. 禁止：前缀拼接如"卖{kw_short}坏了怎么办"（语义不通）
+5. 地域词必须包含实际地名，不能只写"本地"
+
+请开始生成："""
         return prompt
 
     def _parse_template_result(
@@ -560,14 +634,24 @@ class KeywordLibraryGenerator:
         if not isinstance(kl_data, dict):
             kl_data = {}
 
-        # 构建扁平结构关键词库
-        categories = []
-        total_count = 0
-
+        # 支持两种格式：新格式（5分类/5分类） & 旧格式（9分类）
+        # 新格式1：付费者=使用者（搜前搜+搜后搜+上下游+信任+直接需求）
+        # 新格式2：付费者≠使用者（使用者问题+付费者顾虑+产品推荐+搜前搜+搜后搜）
+        # 旧格式：直接需求+痛点+搜索+场景+地域+季节+技巧+颠覆+节日
         category_map = [
+            # 通用分类（两种格式都可能有）
+            ('pre_search_keywords', '搜前搜关键词'),
+            ('post_search_keywords', '搜后搜关键词'),
+            # 付费者=使用者
+            ('industry_chain_keywords', '行业上下游关联词'),
+            ('trust_keywords', '信任佐证关键词'),
             ('direct_demand_keywords', '直接需求关键词'),
+            # 付费者≠使用者
+            ('user_problem_keywords', '使用者问题关键词'),
+            ('payer_concern_keywords', '付费者顾虑关键词'),
+            ('product_recommend_keywords', '产品推荐关键词'),
+            # 旧格式（兼容）
             ('pain_point_keywords', '痛点关键词'),
-            ('search_keywords', '搜索关键词'),
             ('scene_keywords', '场景关键词'),
             ('region_keywords', '地域关键词'),
             ('season_keywords', '季节关键词'),
