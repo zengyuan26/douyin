@@ -637,25 +637,23 @@ class KeywordLibraryGenerator:
         categories = []
         total_count = 0
 
-        # 支持两种格式：新格式（5分类/5分类） & 旧格式（9分类）
-        # 新格式1：付费者=使用者（搜前搜+搜后搜+上下游+信任+直接需求）
-        # 新格式2：付费者≠使用者（使用者问题+付费者顾虑+产品推荐+搜前搜+搜后搜）
-        # 旧格式：直接需求+痛点+搜索+场景+地域+季节+技巧+颠覆+节日
+        # category_map：每个 key 唯一，不重复
+        # 付费者=使用者用前5个key，付费者≠使用者用后5个key，解析时各取各的
         category_map = [
-            # 通用分类（两种格式都可能有）
+            # 付费者=使用者（5个key）
             ('pre_search_keywords', '搜前搜关键词'),
             ('post_search_keywords', '搜后搜关键词'),
-            # 付费者=使用者
             ('industry_chain_keywords', '行业上下游关联词'),
             ('trust_keywords', '信任佐证关键词'),
             ('direct_demand_keywords', '直接需求关键词'),
-            # 付费者≠使用者
+            # 付费者≠使用者（5个key）
             ('user_problem_keywords', '使用者问题关键词'),
             ('payer_concern_keywords', '付费者顾虑关键词'),
             ('product_recommend_keywords', '产品推荐关键词'),
             # 旧格式（兼容）
             ('pain_point_keywords', '痛点关键词'),
             ('scene_keywords', '场景关键词'),
+            ('concern_keywords', '顾虑关键词'),
             ('region_keywords', '地域关键词'),
             ('season_keywords', '季节关键词'),
             ('skill_keywords', '技巧/干货关键词'),
@@ -682,44 +680,68 @@ class KeywordLibraryGenerator:
 
         # 构建扁平字段（兼容下游服务：选题库、前端渲染、肖像生成）
         flat_fields = {}
+
+        def _clean_kws(raw_list):
+            """字符串关键词去重，保持顺序"""
+            seen = set()
+            result = []
+            for kw in (raw_list or []):
+                kw_str = kw if isinstance(kw, str) else str(kw)
+                if kw_str and kw_str not in seen:
+                    seen.add(kw_str)
+                    result.append(kw_str)
+            return result
+
         # 搜前搜 → problem_type_keywords
         if kl_data.get('pre_search_keywords'):
-            flat_fields['problem_type_keywords'] = kl_data['pre_search_keywords']
-        # 搜后搜 → pain_point_keywords
-        if kl_data.get('post_search_keywords'):
-            flat_fields['pain_point_keywords'] = kl_data['post_search_keywords']
-        # 上下游 + 场景 → scene_keywords
-        scene_kws = []
-        if kl_data.get('industry_chain_keywords'):
-            scene_kws.extend(kl_data['industry_chain_keywords'])
-        if kl_data.get('scene_keywords'):
-            scene_kws.extend(kl_data['scene_keywords'])
+            flat_fields['problem_type_keywords'] = _clean_kws(kl_data['pre_search_keywords'])
+        # 搜后搜 + 使用者问题 + 旧痛点 → pain_point_keywords（去重合并）
+        pain_kws = _clean_kws(kl_data.get('post_search_keywords'))
+        seen_pain = set(pain_kws)
+        for kw in _clean_kws(kl_data.get('user_problem_keywords')):
+            if kw not in seen_pain:
+                pain_kws.append(kw)
+                seen_pain.add(kw)
+        for kw in _clean_kws(kl_data.get('pain_point_keywords')):  # 旧格式
+            if kw not in seen_pain:
+                pain_kws.append(kw)
+                seen_pain.add(kw)
+        if pain_kws:
+            flat_fields['pain_point_keywords'] = pain_kws
+        # 行业上下游 + 产品推荐 + 旧场景 → scene_keywords（去重合并）
+        scene_kws = _clean_kws(kl_data.get('industry_chain_keywords'))
+        seen_scene = set(scene_kws)
+        for kw in _clean_kws(kl_data.get('product_recommend_keywords')):
+            if kw not in seen_scene:
+                scene_kws.append(kw)
+                seen_scene.add(kw)
+        for kw in _clean_kws(kl_data.get('scene_keywords')):  # 旧格式
+            if kw not in seen_scene:
+                scene_kws.append(kw)
+                seen_scene.add(kw)
         if scene_kws:
             flat_fields['scene_keywords'] = scene_kws
-        # 信任佐证 + 顾虑 → concern_keywords
-        concern_kws = []
-        if kl_data.get('trust_keywords'):
-            concern_kws.extend(kl_data['trust_keywords'])
-        if kl_data.get('payer_concern_keywords'):
-            concern_kws.extend(kl_data['payer_concern_keywords'])
+        # 信任佐证 + 付费者顾虑 + 旧顾虑 → concern_keywords（去重合并）
+        concern_kws = _clean_kws(kl_data.get('trust_keywords'))
+        seen_concern = set(concern_kws)
+        for kw in _clean_kws(kl_data.get('payer_concern_keywords')):
+            if kw not in seen_concern:
+                concern_kws.append(kw)
+                seen_concern.add(kw)
+        for kw in _clean_kws(kl_data.get('concern_keywords')):  # 旧格式
+            if kw not in seen_concern:
+                concern_kws.append(kw)
+                seen_concern.add(kw)
         if concern_kws:
             flat_fields['concern_keywords'] = concern_kws
         # 直接需求
         if kl_data.get('direct_demand_keywords'):
-            flat_fields['direct_demand_keywords'] = kl_data['direct_demand_keywords']
-        # 使用者问题 → 作为 pain_point_keywords 的补充
-        if kl_data.get('user_problem_keywords'):
-            existing_pain = flat_fields.get('pain_point_keywords', [])
-            flat_fields['pain_point_keywords'] = list(existing_pain) + kl_data['user_problem_keywords']
-        # 产品推荐 → 作为 scene_keywords 的补充
-        if kl_data.get('product_recommend_keywords'):
-            existing_scene = flat_fields.get('scene_keywords', [])
-            flat_fields['scene_keywords'] = list(existing_scene) + kl_data['product_recommend_keywords']
-        # 旧格式兼容
-        for old_key in ['pain_point_keywords', 'scene_keywords', 'region_keywords',
-                         'season_keywords', 'skill_keywords', 'reverse_keywords', 'festival_keywords']:
+            flat_fields['direct_demand_keywords'] = _clean_kws(kl_data['direct_demand_keywords'])
+        # 旧格式剩余字段
+        for old_key in ['region_keywords', 'season_keywords',
+                         'skill_keywords', 'reverse_keywords', 'festival_keywords']:
             if kl_data.get(old_key) and old_key not in flat_fields:
-                flat_fields[old_key] = kl_data[old_key]
+                flat_fields[old_key] = _clean_kws(kl_data[old_key])
 
         result.keyword_library = {
             'categories': categories,
