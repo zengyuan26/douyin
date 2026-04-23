@@ -462,14 +462,24 @@ class KeywordLibraryGenerator:
 - "{keyword_core}批发"、"{keyword_core}定制"
 
 === 输出格式 ===
+**【关键】JSON必须严格使用以下英文key，不得使用中文key！**
+
+| 中文含义 | 英文key（必须使用） |
+|---|---|
+| 搜前搜关键词 | pre_search_keywords |
+| 搜后搜关键词 | post_search_keywords |
+| 行业上下游关联词 | industry_chain_keywords |
+| 信任佐证关键词 | trust_keywords |
+| 直接需求关键词 | direct_demand_keywords |
+
 请严格按以下JSON格式输出，不要输出任何其他内容：
 {{
     "keyword_library": {{
-        "pre_search_keywords": ["搜前搜关键词示例1", "搜前搜关键词示例2"],
-        "post_search_keywords": ["搜后搜关键词示例1", "搜后搜关键词示例2"],
-        "industry_chain_keywords": ["上下游关键词示例1", "上下游关键词示例2"],
-        "trust_keywords": ["信任佐证关键词示例1", "信任佐证关键词示例2"],
-        "direct_demand_keywords": ["直接需求关键词示例1", "直接需求关键词示例2"]
+        "pre_search_keywords": ["搜前搜关键词1", "搜前搜关键词2"],
+        "post_search_keywords": ["搜后搜关键词1", "搜后搜关键词2"],
+        "industry_chain_keywords": ["上下游关键词1", "上下游关键词2"],
+        "trust_keywords": ["信任佐证关键词1", "信任佐证关键词2"],
+        "direct_demand_keywords": ["直接需求关键词1", "直接需求关键词2"]
     }}
 }}
 
@@ -577,6 +587,16 @@ class KeywordLibraryGenerator:
 - "宝宝不喝{kw_short}怎么办"
 
 === 输出格式 ===
+**【关键】JSON必须严格使用以下英文key，不得使用中文key！**
+
+| 中文含义 | 英文key（必须使用） |
+|---|---|
+| 使用者问题关键词 | user_problem_keywords |
+| 付费者顾虑关键词 | payer_concern_keywords |
+| 产品推荐关键词 | product_recommend_keywords |
+| 搜前搜关键词 | pre_search_keywords |
+| 搜后搜关键词 | post_search_keywords |
+
 请严格按以下JSON格式输出，不要输出任何其他内容：
 {{
     "keyword_library": {{
@@ -633,6 +653,38 @@ class KeywordLibraryGenerator:
         kl_data = data.get('keyword_library') or {}
         if not isinstance(kl_data, dict):
             kl_data = {}
+
+        # 中文key→英文key 兜底映射（LLM有时用中文key）
+        zh_to_en = {
+            '搜前搜关键词': 'pre_search_keywords',
+            '搜后搜关键词': 'post_search_keywords',
+            '行业上下游关联词': 'industry_chain_keywords',
+            '上下游关键词': 'industry_chain_keywords',
+            '信任佐证关键词': 'trust_keywords',
+            '直接需求关键词': 'direct_demand_keywords',
+            '使用者问题关键词': 'user_problem_keywords',
+            '使用者问题词': 'user_problem_keywords',
+            '付费者顾虑关键词': 'payer_concern_keywords',
+            '付费者顾虑词': 'payer_concern_keywords',
+            '产品推荐关键词': 'product_recommend_keywords',
+            '产品推荐词': 'product_recommend_keywords',
+            '痛点关键词': 'pain_point_keywords',
+            '痛点词': 'pain_point_keywords',
+            '场景关键词': 'scene_keywords',
+            '顾虑关键词': 'concern_keywords',
+            '顾虑词': 'concern_keywords',
+            '地域关键词': 'region_keywords',
+            '季节关键词': 'season_keywords',
+            '技巧/干货关键词': 'skill_keywords',
+            '技巧关键词': 'skill_keywords',
+            '认知颠覆关键词': 'reverse_keywords',
+            '节日/节气关键词': 'festival_keywords',
+            '节日关键词': 'festival_keywords',
+        }
+        # 将中文key替换为英文key
+        for zh, en in zh_to_en.items():
+            if zh in kl_data:
+                kl_data[en] = kl_data.get(en) or kl_data[zh]
 
         categories = []
         total_count = 0
