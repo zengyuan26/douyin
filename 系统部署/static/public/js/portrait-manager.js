@@ -8,7 +8,7 @@
  * 4. 选题选择（专属库 + 实时混合）
  */
 
-const PortraitManager = {
+var PortraitManager = {
     _savedPortraits: [],
     _currentPortraitId: null,
     _quota: null,
@@ -44,6 +44,84 @@ const PortraitManager = {
         this._currentPortraitIndex = 0;
     },
 
+    // 统一计算选题库总数（兼容新旧两种格式）
+    _getTopicCount(topicLibrary) {
+        if (!topicLibrary) return 0;
+        const tl = topicLibrary;
+        let count = 0;
+        // 新格式（KeywordTopicGenerator）
+        if (tl.audience_lock_topics) count += tl.audience_lock_topics.length;
+        if (tl.pain_amplify_topics) count += tl.pain_amplify_topics.length;
+        if (tl.solution_compare_topics) count += tl.solution_compare_topics.length;
+        if (tl.vision_topics) count += tl.vision_topics.length;
+        if (tl.barrier_remove_topics) count += tl.barrier_remove_topics.length;
+        if (tl.direct_need_topics) count += tl.direct_need_topics.length;
+        if (tl.skill_tutorial_topics) count += tl.skill_tutorial_topics.length;
+        // 旧格式
+        if (tl.topics) count += tl.topics.length;
+        return count;
+    },
+
+    // [DEBUG b91e2a] H2: _getKwCount counting
+    _getKwCount(kwLibrary) {
+        if (!kwLibrary) return 0;
+        fetch('http://127.0.0.1:7518/ingest/617e5924-00cd-4f93-9d83-7b2c53a2bc94',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b91e2a'},body:JSON.stringify({sessionId:'b91e2a',location:'portrait-manager.js:_getKwCount',message:'_getKwCount input',hypothesisId:'H2_kwcount',data:{keys:Object.keys(kwLibrary),types:{k:typeof kwLibrary.k,cK:typeof kwLibrary.common_keywords,p:typeof kwLibrary.personas,pt:typeof kwLibrary.problem_type_keywords,pp:typeof kwLibrary.pain_point_keywords,sc:typeof kwLibrary.scene_keywords,co:typeof kwLibrary.concern_keywords,cat:typeof kwLibrary.categories}},timestamp:Date.now()})}).catch(()=>{});
+        const kl = kwLibrary;
+        let count = 0;
+        // 新格式（keyword_topic_generator）：问题类型/痛点/场景/顾虑
+        if (kl.problem_type_keywords) count += kl.problem_type_keywords.length;
+        if (kl.pain_point_keywords) count += kl.pain_point_keywords.length;
+        if (kl.scene_keywords) count += kl.scene_keywords.length;
+        if (kl.concern_keywords) count += kl.concern_keywords.length;
+        // 旧格式（market_analyzer）：categories
+        if (kl.categories) kl.categories.forEach(cat => { count += (cat.keywords || []).length; });
+        if (kl.blue_ocean) count += kl.blue_ocean.length;
+        // keyword_library_generator 格式：公用关键词
+        if (kl.common_keywords) {
+            Object.values(kl.common_keywords).forEach(kws => {
+                if (Array.isArray(kws)) count += kws.length;
+            });
+        }
+        // keyword_library_generator 格式：画像专属关键词
+        if (kl.personas && Array.isArray(kl.personas)) {
+            kl.personas.forEach(p => {
+                if (Array.isArray(p.pain_points)) count += p.pain_points.length;
+                if (Array.isArray(p.scene_keywords)) count += p.scene_keywords.length;
+                if (Array.isArray(p.concerns)) count += p.concerns.length;
+            });
+        }
+        return count;
+    },
+
+    // 统一获取选题数组（兼容新旧格式，返回扁平化数组）
+    _getTopics(topicLibrary) {
+        if (!topicLibrary) return [];
+        const tl = topicLibrary;
+        let allTopics = [];
+        // 新格式各分类
+        const sections = [
+            tl.audience_lock_topics, tl.pain_amplify_topics,
+            tl.solution_compare_topics, tl.vision_topics,
+            tl.barrier_remove_topics, tl.direct_need_topics,
+            tl.skill_tutorial_topics
+        ];
+        for (const sec of sections) {
+            if (Array.isArray(sec)) allTopics = allTopics.concat(sec);
+        }
+        // 旧格式
+        if (Array.isArray(tl.topics)) allTopics = allTopics.concat(tl.topics);
+        return allTopics;
+    },
+
+    // 获取选题数组并统一为对象格式（字符串转对象）
+    _getTopicsAsObjects(topicLibrary) {
+        const arr = this._getTopics(topicLibrary);
+        return arr.map(item => {
+            if (typeof item === 'string') return { title: item };
+            return item;
+        });
+    },
+
     // ========================================================================
     // 二、配额管理
     // ========================================================================
@@ -55,11 +133,6 @@ const PortraitManager = {
             if (data.success) {
                 this._quota = data.data;
                 this.updateQuotaDisplay();
-                // 付费用户显示画像专区（横铺）- portrait-section 已移至客户画像页面
-                if (this._quota && this._quota.can_save) {
-                    document.getElementById('portraits-row-section').style.display = 'block';
-                    // document.getElementById('portrait-section').style.display = 'block';
-                }
             }
         } catch (e) {
             console.error('[PortraitManager] 加载配额失败:', e);
@@ -99,12 +172,16 @@ const PortraitManager = {
                 this._savedPortraits = data.data || [];
                 // 重置当前索引
                 this._currentPortraitIndex = 0;
+                // DEBUG: trace keyword_library structure for first portrait
                 console.log('[PortraitManager] 已加载画像数量:', this._savedPortraits.length);
                 
+                // [DEBUG b91e2a] H2: Log the actual keyword_library structure from API response
+                fetch('http://127.0.0.1:7518/ingest/617e5924-00cd-4f93-9d83-7b2c53a2bc94',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b91e2a'},body:JSON.stringify({sessionId:'b91e2a',location:'portrait-manager.js:loadSavedPortraits',message:'API returned keyword_library for first portrait',hypothesisId:'H2_kwcount',data:{portrait_id:data.data[0]?.id,kl_keys:Object.keys(data.data[0]?.keyword_library||{}),ck:typeof data.data[0]?.keyword_library?.common_keywords,ck_vals:data.data[0]?.keyword_library?.common_keywords?Object.keys(data.data[0].keyword_library.common_keywords):'null',per:data.data[0]?.keyword_library?.personas?.length,pt:Array.isArray(data.data[0]?.keyword_library?.problem_type_keywords),pp:Array.isArray(data.data[0]?.keyword_library?.pain_point_keywords)},timestamp:Date.now()})}).catch(()=>{});
+
                 // 调试：打印每个画像的状态
                 this._savedPortraits.forEach(p => {
                     const kwCount = (p.keyword_library?.categories || []).reduce((sum, cat) => sum + (cat.keywords || []).length, 0);
-                    console.log(`[PortraitManager] 画像 ${p.id} ${p.portrait_name}: status=${p.generation_status}, kwCount=${kwCount}, topicCount=${p.topic_library?.topics?.length || 0}`);
+                    console.log(`[PortraitManager] 画像 ${p.id} ${p.portrait_name}: status=${p.generation_status}, kwCount=${kwCount}, topicCount=${this._getTopicCount(p.topic_library)}`);
                 });
 
                 // 优先使用传入的画像ID（保存成功后）
@@ -150,10 +227,8 @@ const PortraitManager = {
         const loading = document.getElementById('portrait-cards-loading');
         // 先移除 loading，防止元素缺失时 loading 一直存在
         if (loading) loading.style.display = 'none';
-        if (!container) {
-            console.error('[PortraitManager] 未找到画像卡片容器 #portrait-cards-list');
-            return;
-        }
+        // #portrait-cards-list 仅存在于首页，画像页无此容器，静默跳过
+        if (!container) return;
 
         if (this._savedPortraits.length === 0) {
             container.innerHTML = `
@@ -173,23 +248,41 @@ const PortraitManager = {
 
             const total = this._savedPortraits.length;
 
-            // 只显示当前索引的画像
-            const p = this._savedPortraits[this._currentPortraitIndex];
+            // 优先使用 _currentPortraitId 匹配画像，兜底用 _currentPortraitIndex
+            const p = this._currentPortraitId
+                ? this._savedPortraits.find(p => p.id === this._currentPortraitId)
+                : this._savedPortraits[this._currentPortraitIndex || 0];
 
-            // 计算关键词库和选题库数量
+            // 计算关键词库数量（兼容新旧两种数据格式）
             let kwCount = 0;
-            if (p.keyword_library && p.keyword_library.categories) {
-                p.keyword_library.categories.forEach(cat => {
-                    kwCount += (cat.keywords || []).length;
-                });
-                if (p.keyword_library.blue_ocean) {
-                    kwCount += p.keyword_library.blue_ocean.length;
+            if (p.keyword_library) {
+                const kl = p.keyword_library;
+                // 新格式（KeywordTopicGenerator）：扁平结构
+                if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+                if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+                if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+                if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+                // 旧格式（market_analyzer）：categories 结构
+                if (kl.categories) {
+                    kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
                 }
+                if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
             }
 
+            // 计算选题库数量（兼容新旧两种数据格式）
             let topicCount = 0;
-            if (p.topic_library && p.topic_library.topics) {
-                topicCount = p.topic_library.topics.length;
+            if (p.topic_library) {
+                const tl = p.topic_library;
+                // 新格式（KeywordTopicGenerator）：扁平结构
+                if (tl.audience_lock_topics) topicCount += tl.audience_lock_topics.length;
+                if (tl.pain_amplify_topics) topicCount += tl.pain_amplify_topics.length;
+                if (tl.solution_compare_topics) topicCount += tl.solution_compare_topics.length;
+                if (tl.vision_topics) topicCount += tl.vision_topics.length;
+                if (tl.barrier_remove_topics) topicCount += tl.barrier_remove_topics.length;
+                if (tl.direct_need_topics) topicCount += tl.direct_need_topics.length;
+                if (tl.skill_tutorial_topics) topicCount += tl.skill_tutorial_topics.length;
+                // 旧格式：topics 数组
+                if (tl.topics) topicCount += tl.topics.length;
             }
 
             // 生成状态
@@ -202,6 +295,8 @@ const PortraitManager = {
                 kwBadge = `<span class="badge me-1" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); color: #f57f17; border: 1px solid #ffe082; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="kw-status-badge-${p.id}">📚 关键词库 <span class="spinner-border spinner-border-sm" style="width:10px;height:10px;"></span> 生成中</span>`;
             } else if (genStatus === 'failed') {
                 kwBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="kw-status-badge-${p.id}" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})" title="点击重试">📚 关键词库 生成失败（点击重试）</span>`;
+            } else if (genStatus === 'completed') {
+                kwBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; box-shadow: 0 2px 6px rgba(46,125,50,0.15); font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})" title="点击查看关键词库">📚 关键词库 ${kwCount} 个</span>`;
             } else {
                 kwBadge = `<span class="badge me-1" style="background: #f5f5f5; color: #8e8e93; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="kw-status-badge-${p.id}">📚 关键词库 待生成</span>`;
             }
@@ -213,6 +308,8 @@ const PortraitManager = {
                 topicBadge = `<span class="badge me-1" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); color: #f57f17; border: 1px solid #ffe082; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="topic-status-badge-${p.id}">📋 选题库 <span class="spinner-border spinner-border-sm" style="width:10px;height:10px;"></span> 生成中</span>`;
             } else if (genStatus === 'failed') {
                 topicBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="topic-status-badge-${p.id}" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})" title="点击重试">📋 选题库 生成失败（点击重试）</span>`;
+            } else if (genStatus === 'completed') {
+                topicBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; box-shadow: 0 2px 6px rgba(21,101,192,0.15); font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})" title="点击查看选题库 Markdown">📋 选题库 ${topicCount} 个</span>`;
             } else {
                 topicBadge = `<span class="badge me-1" style="background: #f5f5f5; color: #8e8e93; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" id="topic-status-badge-${p.id}">📋 选题库 待生成</span>`;
             }
@@ -343,9 +440,9 @@ const PortraitManager = {
                 if (status === 'completed' || status === 'failed') {
                     // 生成完成或失败，停止轮询
                     delete this._pollingTimers[portraitId];
-                    
+
                     // 重新加载完整画像列表，确保包含最新生成的词库数据
-                    await this.loadSavedPortraits(portraitId);
+                    await this.loadSavedPortraits();
 
                     if (status === 'failed') {
                         const errMsg = data.data.generation_error || '未知错误';
@@ -407,7 +504,7 @@ const PortraitManager = {
 
         // 检查词库生成状态
         const genStatus = portrait.generation_status || 'pending';
-        const topics = portrait.topic_library?.topics || [];
+                const topics = this._getTopics(p.topic_library);
 
         if (genStatus === 'generating') {
             showToast('词库正在生成中，请稍候...', 'info');
@@ -546,7 +643,7 @@ const PortraitManager = {
 
         // 检查词库生成状态
         const genStatus = portrait.generation_status || 'pending';
-        const topics = portrait.topic_library?.topics || [];
+        const topics = this._getTopics(portrait.topic_library);
 
         console.log('[推荐选题] 画像状态:', genStatus, '选题数量:', topics.length);
 
@@ -877,15 +974,37 @@ const PortraitManager = {
     },
 
     // 显示画像详情弹窗（直接展示超级定位保存的画像信息）
-    showPortraitDetail(portraitId) {
+    async showPortraitDetail(portraitId) {
+        // 先从服务器获取最新数据，避免缓存问题
+        try {
+            const resp = await fetch(`/public/api/portraits/${portraitId}`, { credentials: 'include' });
+            const data = await resp.json();
+            if (data.success && data.data) {
+                // 更新缓存中的画像数据
+                const idx = this._savedPortraits.findIndex(p => p.id === portraitId);
+                if (idx >= 0) {
+                    this._savedPortraits[idx] = { ...this._savedPortraits[idx], ...data.data };
+                } else {
+                    this._savedPortraits.push(data.data);
+                }
+            }
+        } catch (e) {
+            console.warn('[PortraitManager] 刷新画像数据失败，使用缓存', e);
+        }
+
         const portrait = this._savedPortraits.find(p => p.id === portraitId);
         if (!portrait) return;
 
-        // 计算关键词库数量和状态
+        // 计算关键词库数量（兼容新旧两种数据格式）
         let kwCount = 0;
-        if (portrait.keyword_library && portrait.keyword_library.categories) {
-            portrait.keyword_library.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
-            if (portrait.keyword_library.blue_ocean) kwCount += portrait.keyword_library.blue_ocean.length;
+        if (portrait.keyword_library) {
+            const kl = portrait.keyword_library;
+            if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+            if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+            if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+            if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+            if (kl.categories) kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
         }
         const genStatus = portrait.generation_status || 'pending';
 
@@ -926,7 +1045,7 @@ const PortraitManager = {
                     </div>
                     <div class="modal-footer" style="background: white; border-top: 1px solid rgba(0,0,0,0.06%);">
                         ${kwBtnHtml}
-                        <button type="button" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; border-radius: 10px; font-weight: 600;" onclick="PortraitManager.showPortraitLibrary(${portrait.id})">
+                        <button type="button" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; border-radius: 10px; font-weight: 600;" onclick="PortraitManager.showTopicListModal(${portrait.id})">
                             <i class="bi bi-bookmark-star me-1"></i>查看专属库
                         </button>
                         <button type="button" class="btn" style="background: white; border: 1px solid #e5e7eb; color: #3c3c43; border-radius: 10px; font-weight: 600;" data-bs-dismiss="modal">关闭</button>
@@ -1026,14 +1145,19 @@ const PortraitManager = {
                 if (!btn) return; // 弹窗可能已关闭
 
                 if (status === 'completed') {
-                    // 重新加载数据
-                    await this.loadSavedPortraits(portraitId);
+                    // 重新加载数据（不传 ID，避免切换当前显示的画像）
+                    await this.loadSavedPortraits();
                     const portrait = this._savedPortraits.find(p => p.id === portraitId);
                     if (portrait) {
                         let kwCount = 0;
-                        if (portrait.keyword_library && portrait.keyword_library.categories) {
-                            portrait.keyword_library.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
-                            if (portrait.keyword_library.blue_ocean) kwCount += portrait.keyword_library.blue_ocean.length;
+                        if (portrait.keyword_library) {
+                            const kl = portrait.keyword_library;
+                            if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+                            if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+                            if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+                            if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+                            if (kl.categories) kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+                            if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
                         }
                         // 更新为已完成状态按钮
                         btn.onclick = () => this.showKeywordLibraryMd(portraitId);
@@ -1233,16 +1357,89 @@ const PortraitManager = {
                     <div class="mb-3">
                         <span class="badge" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600; box-shadow: 0 1px 4px rgba(46,125,50,0.1);">蓝海关键词</span>
                         <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
-                            ${kl.blue_ocean.map(k => `<span class="badge" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500; box-shadow: 0 1px 4px rgba(21,101,192,0.1);">${this.escapeHtml(k)}</span>`).join('')}
+                            ${kl.blue_ocean.map(k => `<span class="badge" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500; box-shadow: 0 1px 4px rgba(21,101,192,0.1);">${this.escapeHtml(typeof k === 'string' ? k : (k.full_keyword || k.keyword || JSON.stringify(k)))}</span>`).join('')}
                         </div>
                     </div>`;
             }
+            // keyword_library_generator 新格式：扁平关键词分类
+            const flatSections = [
+                { key: 'problem_type_keywords', label: '问题类型词', color: '#667eea', bg: '#eef0ff' },
+                { key: 'pain_point_keywords', label: '痛点关键词', color: '#f093fb', bg: '#fff0fc' },
+                { key: 'scene_keywords', label: '场景关键词', color: '#4facfe', bg: '#f0f9ff' },
+                { key: 'concern_keywords', label: '顾虑关键词', color: '#fa709a', bg: '#fff0f3' },
+            ];
+            flatSections.forEach(sec => {
+                const kws = kl[sec.key];
+                if (kws && kws.length > 0) {
+                    html += `<div class="mb-3">
+                        <span class="badge" style="background: ${sec.bg}; color: ${sec.color}; border: 1px solid ${sec.color}40; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">${sec.label}（${kws.length}个）</span>
+                        <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
+                            ${kws.map(k => `<span class="badge" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); color: #495057; border: 1px solid #dee2e6; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500;">${this.escapeHtml(typeof k === 'string' ? k : (k.keyword || JSON.stringify(k)))}</span>`).join('')}
+                        </div>
+                    </div>`;
+                }
+            });
+            // keyword_library_generator：画像专属关键词
+            if (kl.personas && Array.isArray(kl.personas) && kl.personas.length > 0) {
+                kl.personas.forEach((p, pi) => {
+                    const pName = p.portrait_name || p.persona_problem_type || `画像${pi + 1}`;
+                    html += `<div class="mb-3">
+                        <span class="badge" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); color: #e65100; border: 1px solid #ffb74d; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">画像专属：${this.escapeHtml(pName)}</span>`;
+                    const personaFields = [
+                        { key: 'pain_points', label: '痛点' },
+                        { key: 'scene_keywords', label: '场景' },
+                        { key: 'concerns', label: '顾虑' },
+                    ];
+                    personaFields.forEach(f => {
+                        const kws = p[f.key];
+                        if (kws && kws.length > 0) {
+                            html += `<div class="mt-2 ms-2"><span class="small fw-bold" style="color: #8e8e93;">${f.label}（${kws.length}）：</span><div class="d-flex flex-wrap gap-1 mt-1">`;
+                            html += kws.map(k => `<span class="badge" style="background: #fafafa; color: #555; border: 1px solid #ddd; font-size: 11px; padding: 3px 8px; border-radius: 8px;">${this.escapeHtml(typeof k === 'string' ? k : (k.keyword || JSON.stringify(k)))}</span>`).join('');
+                            html += `</div></div>`;
+                        }
+                    });
+                    html += `</div>`;
+                });
+            }
+            // keyword_library_generator：市场公用关键词
+            if (kl.common_keywords && typeof kl.common_keywords === 'object') {
+                const commEntries = Object.entries(kl.common_keywords).filter(([, v]) => Array.isArray(v) && v.length > 0);
+                if (commEntries.length > 0) {
+                    commEntries.forEach(([catName, kws]) => {
+                        html += `<div class="mb-3">
+                            <span class="badge" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">市场公用：${this.escapeHtml(catName)}（${kws.length}个）</span>
+                            <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
+                                ${kws.map(k => `<span class="badge" style="background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%); color: #334e68; border: 1px solid #bcccdc; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500;">${this.escapeHtml(typeof k === 'string' ? k : (k.keyword || JSON.stringify(k)))}</span>`).join('')}
+                            </div>
+                        </div>`;
+                    });
+                }
+            }
+            // 上下游关键词
+            const chainFields = [
+                { key: 'upstream_keywords', label: '上游原材料' },
+                { key: 'downstream_keywords', label: '下游配套服务' },
+                { key: 'supporting_tools_keywords', label: '配套工具' },
+                { key: 'technique_keywords', label: '技艺工艺' },
+            ];
+            chainFields.forEach(f => {
+                const kws = kl[f.key];
+                if (kws && kws.length > 0) {
+                    html += `<div class="mb-3">
+                        <span class="badge" style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #7b1fa2; border: 1px solid #ce93d8; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">${f.label}（${kws.length}个）</span>
+                        <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
+                            ${kws.map(k => `<span class="badge" style="background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%); color: #666; border: 1px solid #e0e0e0; font-size: 11px; padding: 4px 10px; border-radius: 10px;">${this.escapeHtml(typeof k === 'string' ? k : (k.keyword || JSON.stringify(k)))}</span>`).join('')}
+                        </div>
+                    </div>`;
+                }
+            });
         }
 
         // 选题库
-        if (portrait.topic_library && portrait.topic_library.topics && portrait.topic_library.topics.length > 0) {
+        const detailTopics = this._getTopics(portrait.topic_library);
+        if (detailTopics.length > 0) {
             html += `<h6 class="mb-3 mt-4" style="color: #007AFF; font-weight: 700; display: flex; align-items: center; gap: 8px;"><i class="bi bi-lightbulb me-1"></i>选题库</h6>`;
-            portrait.topic_library.topics.slice(0, 10).forEach(t => {
+            detailTopics.slice(0, 10).forEach(t => {
                 html += `
                     <div class="card mb-2 border" style="border-radius: 12px !important; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
                         <div class="card-body py-2 px-3">
@@ -1257,8 +1454,8 @@ const PortraitManager = {
                         </div>
                     </div>`;
             });
-            if (portrait.topic_library.topics.length > 10) {
-                html += `<div class="text-center small mt-2" style="color: #8e8e93;">还有 ${portrait.topic_library.topics.length - 10} 个选题...</div>`;
+            if (detailTopics.length > 10) {
+                html += `<div class="text-center small mt-2" style="color: #8e8e93;">还有 ${detailTopics.length - 10} 个选题...</div>`;
             }
         }
 
@@ -1319,8 +1516,12 @@ const PortraitManager = {
                 await this.loadQuota();
 
                 // 启动轮询检查选题库生成状态（付费用户）
+                console.log('[DEBUG saveCurrentPortrait] _quota:', JSON.stringify(this._quota), 'can_save:', this._quota?.can_save);
                 if (this._quota && this._quota.can_save) {
+                    console.log('[DEBUG saveCurrentPortrait] 启动 _startTopicPolling for portraitId:', savedPortraitId);
                     this._startTopicPolling(savedPortraitId);
+                } else {
+                    console.log('[DEBUG saveCurrentPortrait] 未启动轮询，_quota:', JSON.stringify(this._quota));
                 }
 
                 console.log('[PortraitManager.saveCurrentPortrait] 返回 savedPortraitId:', savedPortraitId);
@@ -1415,7 +1616,7 @@ const PortraitManager = {
         document.getElementById('library-portrait-industry').textContent = portrait.industry || '';
 
         // 更新状态徽章（仅选题库）
-        const hasTopic = portrait.topic_library && portrait.topic_library.topics && portrait.topic_library.topics.length > 0;
+        const hasTopic = this._getTopicCount(portrait.topic_library) > 0;
         const topicExpired = this._isExpired(portrait.topic_cache_expires_at);
 
         const topicStatus = document.getElementById('library-topic-status');
@@ -1522,7 +1723,8 @@ const PortraitManager = {
 
         loading.style.display = 'none';
 
-        if (!lib.topic_library || !lib.topic_library.topics || lib.topic_library.topics.length === 0) {
+        const topicCount = this._getTopicCount(lib.topic_library);
+        if (topicCount === 0) {
             empty.style.display = 'block';
             detail.style.display = 'none';
             // 无数据时绑定生成按钮
@@ -1534,17 +1736,16 @@ const PortraitManager = {
 
             const updatedAt = lib.topic_updated_at ? new Date(lib.topic_updated_at).toLocaleString() : '未知';
             document.getElementById('topic-updated-at').textContent = `更新于：${updatedAt}`;
-            const total = lib.topic_library.topics.length;
-            document.getElementById('topic-total-hint').textContent = `共 ${total} 条`;
+            document.getElementById('topic-total-hint').textContent = `共 ${topicCount} 条`;
 
             // 滑条最大值为总数，最小5步长5
             const slider = document.getElementById('topic-count-slider');
             if (slider) {
-                slider.max = Math.max(5, total);
-                if (parseInt(slider.value) > total) slider.value = Math.min(20, total);
+                slider.max = Math.max(5, topicCount);
+                if (parseInt(slider.value) > topicCount) slider.value = Math.min(20, topicCount);
             }
             const label = document.getElementById('topic-count-label');
-            if (label) label.textContent = Math.min(parseInt(slider?.value || 20), total);
+            if (label) label.textContent = Math.min(parseInt(slider?.value || 20), topicCount);
 
             // 清空摘要区域
             document.getElementById('topic-summary').innerHTML = '';
@@ -1563,9 +1764,9 @@ const PortraitManager = {
 
     _renderTopicList(lib, count, typeFilter = 'all', dirFilter = 'all') {
         const list = document.getElementById('topic-list');
-        const topics = lib.topic_library?.topics || [];
-
-        let filtered = topics;
+        // 兼容新旧格式：统一转为对象数组
+        const rawTopics = this._getTopicsAsObjects(lib.topic_library);
+        let filtered = rawTopics;
         if (typeFilter !== 'all') {
             filtered = filtered.filter(t => (t.type_name || t.type || '') === typeFilter);
         }
@@ -1760,14 +1961,27 @@ const PortraitManager = {
         if (!container) return;
 
         let kwCount = 0;
-        if (p.keyword_library && p.keyword_library.categories) {
-            p.keyword_library.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
-            if (p.keyword_library.blue_ocean) kwCount += p.keyword_library.blue_ocean.length;
+        if (p.keyword_library) {
+            const kl = p.keyword_library;
+            if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+            if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+            if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+            if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+            if (kl.categories) kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
         }
 
         let topicCount = 0;
-        if (p.topic_library && p.topic_library.topics) {
-            topicCount = p.topic_library.topics.length;
+        if (p.topic_library) {
+            const tl = p.topic_library;
+            if (tl.audience_lock_topics) topicCount += tl.audience_lock_topics.length;
+            if (tl.pain_amplify_topics) topicCount += tl.pain_amplify_topics.length;
+            if (tl.solution_compare_topics) topicCount += tl.solution_compare_topics.length;
+            if (tl.vision_topics) topicCount += tl.vision_topics.length;
+            if (tl.barrier_remove_topics) topicCount += tl.barrier_remove_topics.length;
+            if (tl.direct_need_topics) topicCount += tl.direct_need_topics.length;
+            if (tl.skill_tutorial_topics) topicCount += tl.skill_tutorial_topics.length;
+            if (tl.topics) topicCount += tl.topics.length;
         }
 
         const genStatus = p.generation_status || 'pending';
@@ -1778,6 +1992,8 @@ const PortraitManager = {
             kwBadge = `<span class="badge me-1" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); color: #f57f17; border: 1px solid #ffe082; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-kw-status="generating">📚 关键词库 生成中...</span>`;
         } else if (genStatus === 'failed') {
             kwBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-kw-status="failed" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})">📚 关键词库 生成失败（点击重试）</span>`;
+        } else if (genStatus === 'completed') {
+            kwBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; box-shadow: 0 2px 6px rgba(46,125,50,0.15); font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" onclick="event.stopPropagation(); PortraitManager.showKeywordLibraryMd(${p.id})" title="点击查看关键词库">📚 关键词库 ${kwCount} 个</span>`;
         } else {
             kwBadge = `<span class="badge me-1" style="background: #f5f5f5; color: #8e8e93; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-kw-status="pending">📚 关键词库 待生成</span>`;
         }
@@ -1789,6 +2005,8 @@ const PortraitManager = {
             topicBadge = `<span class="badge me-1" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); color: #f57f17; border: 1px solid #ffe082; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-topic-status="generating">📋 选题库 生成中...</span>`;
         } else if (genStatus === 'failed') {
             topicBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); color: #c62828; border: 1px solid #ef9a9a; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-topic-status="failed" onclick="event.stopPropagation(); PortraitManager.retryGenerateLibrary(${p.id})">📋 选题库 生成失败（点击重试）</span>`;
+        } else if (genStatus === 'completed') {
+            topicBadge = `<span class="badge me-1" style="cursor:pointer; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; box-shadow: 0 2px 6px rgba(21,101,192,0.15); font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" onclick="event.stopPropagation(); PortraitManager.showTopicLibraryMd(${p.id})" title="点击查看选题库 Markdown">📋 选题库 ${topicCount} 个</span>`;
         } else {
             topicBadge = `<span class="badge me-1" style="background: #f5f5f5; color: #8e8e93; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600;" data-topic-status="pending">📋 选题库 待生成</span>`;
         }
@@ -1798,6 +2016,7 @@ const PortraitManager = {
     
     // 轮询检查选题库生成状态（使用轻量化状态端点）
     _startTopicPolling(portraitId) {
+        console.log('[DEBUG _startTopicPolling] STARTED for portraitId:', portraitId);
         let attempts = 0;
         const maxAttempts = 120; // 最多120次，每次3秒 = 6分钟
         let kwReady = false;
@@ -1820,6 +2039,14 @@ const PortraitManager = {
                 if (topicBadge && !topicReady) {
                     topicBadge.innerHTML = `📋 选题库 生成中(${minSec})...`;
                 }
+            }
+            // 更新侧边栏徽章
+            const sidebarBadge = document.getElementById('sidebar-portraits-badge');
+            if (sidebarBadge) {
+                sidebarBadge.style.display = '';
+                sidebarBadge.style.background = 'linear-gradient(135deg, #fff8e1, #ffecb3)';
+                sidebarBadge.style.color = '#f57f17';
+                sidebarBadge.innerHTML = `<span class="spinner-border spinner-border-sm" style="width:10px;height:10px;border-width:1.5px;"></span>`;
             }
         };
 
@@ -1853,6 +2080,7 @@ const PortraitManager = {
                         if (localPortrait) {
                             Object.assign(localPortrait, status);
                         }
+
                         this.renderPortraitCards();
                         this.renderPortraitsRow();
 
@@ -1875,8 +2103,8 @@ const PortraitManager = {
                         }
                     }
 
-                    // 选题库
-                    if (status.topic_library && status.topic_library.topics && status.topic_library.topics.length > 0 && !topicReady) {
+                    // 选题库（兼容新旧格式）
+                    if (this._getTopicCount(status.topic_library) > 0 && !topicReady) {
                         topicReady = true;
                         const localPortrait = this._savedPortraits.find(p => p.id === portraitId);
                         if (localPortrait) {
@@ -1898,6 +2126,26 @@ const PortraitManager = {
         };
 
         setTimeout(poll, 3000);
+    },
+
+    // 更新侧边栏客户画像徽章
+    _updateSidebarBadge(status, genStatus) {
+        const badge = document.getElementById('sidebar-portraits-badge');
+        if (!badge) return;
+
+        if (genStatus === 'failed') {
+            badge.style.display = '';
+            badge.style.background = 'linear-gradient(135deg, #ffebee, #ffcdd2)';
+            badge.style.color = '#c62828';
+            badge.innerHTML = '失败';
+        } else if (genStatus === 'completed') {
+            const kwCount = this._getKwCount(status.keyword_library);
+            const topicCount = this._getTopicCount(status.topic_library);
+            badge.style.display = '';
+            badge.style.background = 'linear-gradient(135deg, #e8f5e9, #c8e6c9)';
+            badge.style.color = '#2e7d32';
+            badge.innerHTML = `${kwCount}词/${topicCount}题`;
+        }
     },
 
     // 使用选题生成内容
@@ -1936,7 +2184,7 @@ const PortraitManager = {
         document.getElementById('kw-md-text').textContent = '';
 
         try {
-            const resp = await fetch(`/public/api/portraits/${portraitId}/keyword-library/markdown`, {
+            const resp = await fetch(`/public/api/portraits/${portraitId}/keyword-library-md`, {
                 credentials: 'include'
             });
             const data = await resp.json();
@@ -2025,11 +2273,27 @@ const PortraitManager = {
     },
 
     // 显示选题库列表弹窗
-    showTopicListModal(portraitId) {
+    async showTopicListModal(portraitId) {
+        // 先从服务器获取最新数据
+        try {
+            const resp = await fetch(`/public/api/portraits/${portraitId}`, { credentials: 'include' });
+            const data = await resp.json();
+            if (data.success && data.data) {
+                const idx = this._savedPortraits.findIndex(p => p.id === portraitId);
+                if (idx >= 0) {
+                    this._savedPortraits[idx] = { ...this._savedPortraits[idx], ...data.data };
+                } else {
+                    this._savedPortraits.push(data.data);
+                }
+            }
+        } catch (e) {
+            console.warn('[PortraitManager] 刷新画像数据失败，使用缓存', e);
+        }
+
         const portrait = this._savedPortraits.find(p => p.id === portraitId);
         if (!portrait) return;
         
-        const topics = portrait.topic_library?.topics || [];
+        const topics = this._getTopics(portrait.topic_library);
         if (topics.length === 0) {
             showToast('选题库为空，请稍后刷新页面', 'info');
             return;
@@ -2090,7 +2354,7 @@ const PortraitManager = {
         const portrait = this._topicListModalPortrait || this._savedPortraits.find(p => p.id === portraitId);
         if (!portrait) return;
         
-        const topics = portrait.topic_library?.topics || [];
+        const topics = this._getTopics(portrait.topic_library);
         if (topics.length === 0) {
             showToast('选题库为空', 'error');
             return;
@@ -2190,8 +2454,28 @@ const PortraitManager = {
             const date = p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '';
             const isActive = p.id === this._currentPortraitId;
             let topicCount = 0;
-            if (p.topic_library && p.topic_library.topics) topicCount = p.topic_library.topics.length;
-            const statText = topicCount > 0 ? `🎧 ${topicCount} 个选题` : '🎧 选题待生成';
+            if (p.topic_library) {
+                const tl = p.topic_library;
+                // 新格式（KeywordTopicGenerator）：扁平结构
+                if (tl.audience_lock_topics) topicCount += tl.audience_lock_topics.length;
+                if (tl.pain_amplify_topics) topicCount += tl.pain_amplify_topics.length;
+                if (tl.solution_compare_topics) topicCount += tl.solution_compare_topics.length;
+                if (tl.vision_topics) topicCount += tl.vision_topics.length;
+                if (tl.barrier_remove_topics) topicCount += tl.barrier_remove_topics.length;
+                if (tl.direct_need_topics) topicCount += tl.direct_need_topics.length;
+                if (tl.skill_tutorial_topics) topicCount += tl.skill_tutorial_topics.length;
+                // 旧格式：topics 数组
+                if (tl.topics) topicCount += tl.topics.length;
+            }
+            const genStatus = p.generation_status || 'pending';
+            let statText;
+            if (topicCount > 0) {
+                statText = `🎧 ${topicCount} 个选题`;
+            } else if (genStatus === 'generating') {
+                statText = '🎧 选题生成中...';
+            } else {
+                statText = '🎧 选题待生成';
+            }
 
             // 直接从业务描述字段获取核心业务词
             const coreBusinessText = p.business_description || '暂无核心业务词';
@@ -2223,6 +2507,13 @@ const PortraitManager = {
         }).join('');
 
         scroll.innerHTML = html;
+
+        // 为所有正在生成中的画像启动轮询
+        this._savedPortraits.forEach(p => {
+            if ((p.generation_status || 'pending') === 'generating') {
+                this._startLibraryPolling(p.id);
+            }
+        });
 
         // 渲染已缓存的选题（防止 hover 再次触发时闪烁）
         Object.keys(this._quickTopicsCache).forEach(pid => {
@@ -2294,13 +2585,17 @@ const PortraitManager = {
 
     selectPortraitById(portraitId) {
         this._currentPortraitId = portraitId;
+        // 同步更新 _currentPortraitIndex
+        const idx = this._savedPortraits.findIndex(p => p.id === portraitId);
+        if (idx >= 0) {
+            this._currentPortraitIndex = idx;
+        }
         this.renderPortraitsRow();
         // 同时更新原 accordion 区（如果存在）
         if (typeof this.renderPortraitCards === 'function') {
             this.renderPortraitCards();
         }
         // 滚动到当前卡片
-        const idx = this._savedPortraits.findIndex(p => p.id === portraitId);
         if (idx >= 0) {
             const row = document.getElementById('portraits-row-scroll');
             const card = row?.querySelectorAll('.pr-card')[idx];
@@ -2311,31 +2606,6 @@ const PortraitManager = {
     confirmDeletePortrait(portraitId) {
         if (!confirm('确定要删除这个画像吗？')) return;
         this.deletePortrait(portraitId);
-    },
-
-    renderPortraitCards() {
-        const container = document.getElementById('portrait-cards-list');
-        const loading = document.getElementById('portrait-cards-loading');
-        if (!container) {
-            console.error('[PortraitManager] 未找到画像卡片容器 #portrait-cards-list');
-            return;
-        }
-        if (loading) loading.style.display = 'none';
-
-        if (this._savedPortraits.length === 0) {
-            container.innerHTML = `
-                <div class="cf-empty text-center py-5">
-                    <i class="bi bi-inbox" style="font-size:3rem;color:#d1d1d6;"></i>
-                    <p class="mt-3 text-muted">暂无已保存的画像</p>
-                    <p class="small text-secondary">在下方超级定位流程中生成并保存画像后，可在此快速访问</p>
-                </div>`;
-            return;
-        }
-
-        // Cover Flow 模式：有多张画像时启用
-        this._cfContainer = container;
-        container.innerHTML = this._buildCoverFlowHTML();
-        this._initCoverFlow();
     },
 
     _buildCoverFlowHTML() {
@@ -2390,12 +2660,27 @@ const PortraitManager = {
     _getCoverFlowCardBody(p) {
         const genStatus = p.generation_status || 'pending';
         let kwCount = 0;
-        if (p.keyword_library?.categories) {
-            p.keyword_library.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
-            if (p.keyword_library.blue_ocean) kwCount += p.keyword_library.blue_ocean.length;
+        if (p.keyword_library) {
+            const kl = p.keyword_library;
+            if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+            if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+            if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+            if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+            if (kl.categories) kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
         }
         let topicCount = 0;
-        if (p.topic_library?.topics) topicCount = p.topic_library.topics.length;
+        if (p.topic_library) {
+            const tl = p.topic_library;
+            if (tl.audience_lock_topics) topicCount += tl.audience_lock_topics.length;
+            if (tl.pain_amplify_topics) topicCount += tl.pain_amplify_topics.length;
+            if (tl.solution_compare_topics) topicCount += tl.solution_compare_topics.length;
+            if (tl.vision_topics) topicCount += tl.vision_topics.length;
+            if (tl.barrier_remove_topics) topicCount += tl.barrier_remove_topics.length;
+            if (tl.direct_need_topics) topicCount += tl.direct_need_topics.length;
+            if (tl.skill_tutorial_topics) topicCount += tl.skill_tutorial_topics.length;
+            if (tl.topics) topicCount += tl.topics.length;
+        }
 
         let kwBadge = '', topicBadge = '';
         if (kwCount > 0) {

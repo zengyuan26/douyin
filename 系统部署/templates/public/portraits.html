@@ -1295,16 +1295,38 @@ function buildRecommendPrCard(p, i) {
     var tone = (i % 4) + 1;
     var name = escHtml(p.portrait_name || ('画像' + (i + 1)));
     var dateStr = p.created_at ? formatDate(p.created_at) : '';
+    // 兼容新旧两种格式：旧(categories/topics) + 新(扁平字段)
     var topicCount = 0;
-    if (p.topic_library && p.topic_library.topics) topicCount = p.topic_library.topics.length;
+    var tl = p.topic_library;
+    if (tl) {
+        // 新格式：扁平字段
+        if (tl.audience_lock_topics) topicCount += tl.audience_lock_topics.length;
+        if (tl.pain_amplify_topics) topicCount += tl.pain_amplify_topics.length;
+        if (tl.solution_compare_topics) topicCount += tl.solution_compare_topics.length;
+        if (tl.vision_topics) topicCount += tl.vision_topics.length;
+        if (tl.barrier_remove_topics) topicCount += tl.barrier_remove_topics.length;
+        if (tl.direct_need_topics) topicCount += tl.direct_need_topics.length;
+        if (tl.skill_tutorial_topics) topicCount += tl.skill_tutorial_topics.length;
+        // 旧格式：topics 数组
+        if (tl.topics) topicCount += tl.topics.length;
+    }
     var statText = topicCount > 0 ? ('🎧 ' + topicCount + ' 个选题') : '🎧 选题待生成';
     var pid = p.id;
 
-    // 计算关键词库状态和数量
+    // 计算关键词库数量（兼容新旧两种格式）
     var kwCount = 0;
-    if (p.keyword_library && p.keyword_library.categories) {
-        p.keyword_library.categories.forEach(function(cat) { kwCount += (cat.keywords || []).length; });
-        if (p.keyword_library.blue_ocean) kwCount += p.keyword_library.blue_ocean.length;
+    var kl = p.keyword_library;
+    if (kl) {
+        // 新格式：扁平字段
+        if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+        if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+        if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+        if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+        // 旧格式：categories 结构
+        if (kl.categories) {
+            kl.categories.forEach(function(cat) { kwCount += (cat.keywords || []).length; });
+        }
+        if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
     }
     var genStatus = p.generation_status || 'pending';
 

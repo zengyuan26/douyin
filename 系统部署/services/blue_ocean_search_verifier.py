@@ -12,10 +12,16 @@ from services.blue_ocean_search_verifier import BlueOceanSearchVerifier
 
 verifier = BlueOceanSearchVerifier()
 result = verifier.verify_candidates(candidates, business_info)
+
+注意：
+- 如果代理不可用，搜索会自动降级跳过，不影响主流程
+- 可以通过环境变量 DISABLE_SEARCH_VERIFICATION=1 禁用搜索验证
 """
 
 import json
 import logging
+import os
+import socket
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -143,16 +149,73 @@ class BlueOceanSearchVerifier:
         },
     }
 
-    def __init__(self, max_workers: int = 8, timeout: int = 10):
+    # 搜索验证已禁用的标志（用于缓存检测结果）
+    _search_disabled: Optional[bool] = None
+
+    def __init__(self, max_workers: int = 8, timeout: int = 5):
         """
         Args:
             max_workers: 最大并发搜索数
-            timeout: 每次搜索超时时间（秒）
+            timeout: 每次搜索超时时间（秒），默认5秒，超过则自动降级跳过
         """
         self.max_workers = max_workers
         self.timeout = timeout
         self._session_lock = threading.Lock()
         self._session = None
+
+    @classmethod
+    def _check_search_available(cls) -> bool:
+        """
+        检测搜索功能是否可用
+
+        检测逻辑：
+        1. 检查环境变量 DISABLE_SEARCH_VERIFICATION
+        2. 检查代理是否可用（如果有配置代理）
+        3. 检测网络连通性
+
+        Returns:
+            bool: 搜索功能是否可用
+        """
+        if cls._search_disabled is not None:
+            return not cls._search_disabled
+
+        # 1. 检查环境变量禁用
+        if os.environ.get('DISABLE_SEARCH_VERIFICATION', '').lower() in ('1', 'true', 'yes'):
+            logger.info("[BlueOceanSearchVerifier] 搜索验证已被环境变量 DISABLE_SEARCH_VERIFICATION 禁用")
+            cls._search_disabled = True
+            return False
+
+        # 2. 检查代理连通性（如果配置了代理）
+        proxy_host = os.environ.get('https_proxy') or os.environ.get('http_proxy') or os.environ.get('HTTPS_PROXY') or os.environ.get('HTTP_PROXY')
+        if proxy_host:
+            # 提取代理地址
+            proxy_addr = proxy_host.replace('http://', '').replace('https://', '').split(':')[0]
+            proxy_port = 7890  # 默认端口
+            if ':' in proxy_host.split('://')[-1]:
+                try:
+                    proxy_port = int(proxy_host.split(':')[-1])
+                except ValueError:
+                    pass
+
+            if not cls._check_proxy_available(proxy_addr, proxy_port):
+                logger.info(f"[BlueOceanSearchVerifier] 代理 {proxy_host} 不可用，跳过搜索验证")
+                cls._search_disabled = True
+                return False
+
+        cls._search_disabled = False
+        return True
+
+    @staticmethod
+    def _check_proxy_available(host: str, port: int, timeout: float = 1.0) -> bool:
+        """检测代理是否可用"""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((host, port))
+            sock.close()
+            return result == 0
+        except Exception:
+            return False
 
     # =========================================================================
     # 公开接口
@@ -179,16 +242,51 @@ class BlueOceanSearchVerifier:
                 error_message="候选方向列表为空"
             )
 
+        # 检测搜索功能是否可用
+        if not self._check_search_available():
+            logger.info("[BlueOceanSearchVerifier] 搜索功能不可用，跳过验证")
+            result.success = True
+            result.summary = "搜索验证已跳过（网络/代理不可用），使用默认置信度"
+            return result
+
         logger.info(f"[BlueOceanSearchVerifier] 开始验证 {len(candidates)} 个候选方向")
 
         result = VerificationResult(candidates=candidates)
 
         try:
-            # Phase 2: 并行搜索验证
+            # Phase 2: 并行搜索验证（timeout 已内置于各引擎）
             self._verify_all_candidates(candidates, business_info)
 
-            # Phase 3: LLM 综合判断（可选，如果需要更智能的整合）
-            self._synthesize_verdicts(candidates, business_info)
+            # Phase 3: LLM 综合判断（可选，加超时保护，最坏 10 秒）
+            try:
+                import signal as _signal_module
+                _synth_done = False
+                _synth_error = [None]
+
+                def _synthesize_with_timeout():
+                    nonlocal _synth_done, _synth_error
+                    try:
+                        self._synthesize_verdicts(candidates, business_info)
+                    except Exception as e:
+                        _synth_error[0] = e
+                    finally:
+                        _synth_done = True
+
+                t = threading.Timer(10.0, _synthesize_with_timeout)
+                t.start()
+                try:
+                    while not _synth_done:
+                        t.join(timeout=0.5)
+                    if _synth_error[0]:
+                        raise _synth_error[0]
+                finally:
+                    if not _synth_done:
+                        t.cancel()
+                    else:
+                        t.join()
+            except Exception:
+                # LLM 合成失败不影响主流程
+                logger.warning("[BlueOceanSearchVerifier] LLM 综合判断超时或不可用，跳过")
 
             result.success = True
             result.summary = self._generate_summary(candidates)

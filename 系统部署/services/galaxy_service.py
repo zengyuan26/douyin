@@ -127,6 +127,8 @@ def enrich_topics_with_scene_options(topics: list) -> list:
     """
     enriched = []
     for topic in topics:
+        if not isinstance(topic, dict):
+            continue
         t = dict(topic)
 
         if isinstance(t.get('scene_options'), list) and len(t.get('scene_options', [])) > 0:

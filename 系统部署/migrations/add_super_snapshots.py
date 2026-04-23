@@ -29,6 +29,7 @@ def upgrade():
             portraits_data TEXT,
             selected_problem_id INTEGER,
             selected_portrait_index INTEGER,
+            opp_portraits_data TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )

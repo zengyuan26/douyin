@@ -315,6 +315,43 @@ class SavedPortrait(db.Model):
         return self.topic_cache_expires_at < datetime.utcnow()
 
 
+class OpportunitySnapshot(db.Model):
+    """用户收藏的蓝海机会快照"""
+    __tablename__ = 'opportunity_snapshots'
+    __table_args__ = (
+        db.Index('idx_snapshot_user', 'user_id'),
+        db.Index('idx_snapshot_user_created', 'user_id', 'created_at'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('public_users.id'), nullable=False)
+
+    # 快照核心数据（JSON，完整保留 AI 返回的所有字段）
+    snapshot_data = db.Column(db.JSON, nullable=False)
+
+    # 快照元信息
+    note = db.Column(db.String(200))                     # 用户备注（可选）
+    source_business_desc = db.Column(db.String(500))      # 来源业务描述（快照副本）
+    source_business_type = db.Column(db.String(50))      # 来源业务类型
+    source_analyzed_at = db.Column(db.DateTime)          # 来源分析时间
+
+    # 关联状态
+    used_for_portrait_id = db.Column(
+        db.Integer, db.ForeignKey('saved_portraits.id'), nullable=True
+    )
+
+    # 时间戳
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = db.relationship('PublicUser', backref='opportunity_snapshots')
+    used_for_portrait = db.relationship(
+        'SavedPortrait',
+        foreign_keys=[used_for_portrait_id],
+        backref='derived_from_snapshot'
+    )
+
+
 class PublicPricingPlan(db.Model):
     """定价方案表"""
     __tablename__ = 'public_pricing_plans'
