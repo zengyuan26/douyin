@@ -677,9 +677,56 @@ class KeywordLibraryGenerator:
                 })
                 total_count += len(clean_kws)
 
+        # 构建扁平字段（兼容下游服务：选题库、前端渲染、肖像生成）
+        flat_fields = {}
+        # 搜前搜 → problem_type_keywords
+        if kl_data.get('pre_search_keywords'):
+            flat_fields['problem_type_keywords'] = kl_data['pre_search_keywords']
+        # 搜后搜 → pain_point_keywords
+        if kl_data.get('post_search_keywords'):
+            flat_fields['pain_point_keywords'] = kl_data['post_search_keywords']
+        # 上下游 + 场景 → scene_keywords
+        scene_kws = []
+        if kl_data.get('industry_chain_keywords'):
+            scene_kws.extend(kl_data['industry_chain_keywords'])
+        if kl_data.get('scene_keywords'):
+            scene_kws.extend(kl_data['scene_keywords'])
+        if scene_kws:
+            flat_fields['scene_keywords'] = scene_kws
+        # 信任佐证 + 顾虑 → concern_keywords
+        concern_kws = []
+        if kl_data.get('trust_keywords'):
+            concern_kws.extend(kl_data['trust_keywords'])
+        if kl_data.get('payer_concern_keywords'):
+            concern_kws.extend(kl_data['payer_concern_keywords'])
+        if concern_kws:
+            flat_fields['concern_keywords'] = concern_kws
+        # 直接需求
+        if kl_data.get('direct_demand_keywords'):
+            flat_fields['direct_demand_keywords'] = kl_data['direct_demand_keywords']
+        # 使用者问题 → 作为 pain_point_keywords 的补充
+        if kl_data.get('user_problem_keywords'):
+            existing_pain = flat_fields.get('pain_point_keywords', [])
+            flat_fields['pain_point_keywords'] = list(existing_pain) + kl_data['user_problem_keywords']
+        # 产品推荐 → 作为 scene_keywords 的补充
+        if kl_data.get('product_recommend_keywords'):
+            existing_scene = flat_fields.get('scene_keywords', [])
+            flat_fields['scene_keywords'] = list(existing_scene) + kl_data['product_recommend_keywords']
+        # 旧格式兼容
+        for old_key in ['pain_point_keywords', 'scene_keywords', 'region_keywords',
+                         'season_keywords', 'skill_keywords', 'reverse_keywords', 'festival_keywords']:
+            if kl_data.get(old_key) and old_key not in flat_fields:
+                flat_fields[old_key] = kl_data[old_key]
+
         result.keyword_library = {
             'categories': categories,
             'keyword_core': keyword_core,
+            # 扁平字段：兼容下游服务（选题库、前端渲染）
+            'problem_type_keywords': flat_fields.get('problem_type_keywords', []),
+            'pain_point_keywords': flat_fields.get('pain_point_keywords', []),
+            'scene_keywords': flat_fields.get('scene_keywords', []),
+            'concern_keywords': flat_fields.get('concern_keywords', []),
+            'direct_demand_keywords': flat_fields.get('direct_demand_keywords', []),
         }
         result.total_keywords = total_count
         result.success = True

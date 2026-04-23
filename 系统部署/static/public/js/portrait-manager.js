@@ -1342,77 +1342,70 @@ var PortraitManager = {
             html += `<h6 class="mb-3 mt-4" style="color: #007AFF; font-weight: 700; display: flex; align-items: center; gap: 8px;"><i class="bi bi-key me-1"></i>关键词库</h6>`;
             const kl = portrait.keyword_library;
             if (kl.categories && kl.categories.length > 0) {
+                // === 新格式（generate_template）：categories 结构 ===
                 kl.categories.forEach(cat => {
                     html += `
                         <div class="mb-3">
-                            <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">${this.escapeHtml(cat.name || '未分类')}</span>
+                            <span class="badge" style="background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%); color: #3c3c43; border: 1px solid #e5e7eb; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">${this.escapeHtml(cat.category_name || cat.name || '未分类')}</span>
                             <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
                                 ${(cat.keywords || []).map(k => `<span class="badge" style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); color: #7b1fa2; border: 1px solid #ce93d8; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500; box-shadow: 0 1px 4px rgba(123,31,162,0.1);">${this.escapeHtml(k)}</span>`).join('')}
                             </div>
                         </div>`;
                 });
-            }
-            if (kl.blue_ocean && kl.blue_ocean.length > 0) {
-                html += `
-                    <div class="mb-3">
-                        <span class="badge" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600; box-shadow: 0 1px 4px rgba(46,125,50,0.1);">蓝海关键词</span>
-                        <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
-                            ${kl.blue_ocean.map(k => `<span class="badge" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #1565c0; border: 1px solid #90caf9; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500; box-shadow: 0 1px 4px rgba(21,101,192,0.1);">${this.escapeHtml(typeof k === 'string' ? k : (k.full_keyword || k.keyword || JSON.stringify(k)))}</span>`).join('')}
-                        </div>
-                    </div>`;
-            }
-            // keyword_library_generator 新格式：扁平关键词分类
-            const flatSections = [
-                { key: 'problem_type_keywords', label: '问题类型词', color: '#667eea', bg: '#eef0ff' },
-                { key: 'pain_point_keywords', label: '痛点关键词', color: '#f093fb', bg: '#fff0fc' },
-                { key: 'scene_keywords', label: '场景关键词', color: '#4facfe', bg: '#f0f9ff' },
-                { key: 'concern_keywords', label: '顾虑关键词', color: '#fa709a', bg: '#fff0f3' },
-            ];
-            flatSections.forEach(sec => {
-                const kws = kl[sec.key];
-                if (kws && kws.length > 0) {
-                    html += `<div class="mb-3">
-                        <span class="badge" style="background: ${sec.bg}; color: ${sec.color}; border: 1px solid ${sec.color}40; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">${sec.label}（${kws.length}个）</span>
-                        <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
-                            ${kws.map(k => `<span class="badge" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); color: #495057; border: 1px solid #dee2e6; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500;">${this.escapeHtml(typeof k === 'string' ? k : (k.keyword || JSON.stringify(k)))}</span>`).join('')}
-                        </div>
-                    </div>`;
-                }
-            });
-            // keyword_library_generator：画像专属关键词
-            if (kl.personas && Array.isArray(kl.personas) && kl.personas.length > 0) {
-                kl.personas.forEach((p, pi) => {
-                    const pName = p.portrait_name || p.persona_problem_type || `画像${pi + 1}`;
-                    html += `<div class="mb-3">
-                        <span class="badge" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); color: #e65100; border: 1px solid #ffb74d; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">画像专属：${this.escapeHtml(pName)}</span>`;
-                    const personaFields = [
-                        { key: 'pain_points', label: '痛点' },
-                        { key: 'scene_keywords', label: '场景' },
-                        { key: 'concerns', label: '顾虑' },
-                    ];
-                    personaFields.forEach(f => {
-                        const kws = p[f.key];
-                        if (kws && kws.length > 0) {
-                            html += `<div class="mt-2 ms-2"><span class="small fw-bold" style="color: #8e8e93;">${f.label}（${kws.length}）：</span><div class="d-flex flex-wrap gap-1 mt-1">`;
-                            html += kws.map(k => `<span class="badge" style="background: #fafafa; color: #555; border: 1px solid #ddd; font-size: 11px; padding: 3px 8px; border-radius: 8px;">${this.escapeHtml(typeof k === 'string' ? k : (k.keyword || JSON.stringify(k)))}</span>`).join('');
-                            html += `</div></div>`;
-                        }
-                    });
-                    html += `</div>`;
-                });
-            }
-            // keyword_library_generator：市场公用关键词
-            if (kl.common_keywords && typeof kl.common_keywords === 'object') {
-                const commEntries = Object.entries(kl.common_keywords).filter(([, v]) => Array.isArray(v) && v.length > 0);
-                if (commEntries.length > 0) {
-                    commEntries.forEach(([catName, kws]) => {
+            } else {
+                // === 旧格式：扁平字段 + personas + common_keywords ===
+                const flatSections = [
+                    { key: 'problem_type_keywords', label: '问题类型词', color: '#667eea', bg: '#eef0ff' },
+                    { key: 'pain_point_keywords', label: '痛点关键词', color: '#f093fb', bg: '#fff0fc' },
+                    { key: 'scene_keywords', label: '场景关键词', color: '#4facfe', bg: '#f0f9ff' },
+                    { key: 'concern_keywords', label: '顾虑关键词', color: '#fa709a', bg: '#fff0f3' },
+                ];
+                flatSections.forEach(sec => {
+                    const kws = kl[sec.key];
+                    if (kws && kws.length > 0) {
                         html += `<div class="mb-3">
-                            <span class="badge" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">市场公用：${this.escapeHtml(catName)}（${kws.length}个）</span>
+                            <span class="badge" style="background: ${sec.bg}; color: ${sec.color}; border: 1px solid ${sec.color}40; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">${sec.label}（${kws.length}个）</span>
                             <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
-                                ${kws.map(k => `<span class="badge" style="background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%); color: #334e68; border: 1px solid #bcccdc; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500;">${this.escapeHtml(typeof k === 'string' ? k : (k.keyword || JSON.stringify(k)))}</span>`).join('')}
+                                ${kws.map(k => `<span class="badge" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); color: #495057; border: 1px solid #dee2e6; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500;">${this.escapeHtml(typeof k === 'string' ? k : (k.keyword || JSON.stringify(k)))}</span>`).join('')}
                             </div>
                         </div>`;
+                    }
+                });
+                // keyword_library_generator：画像专属关键词
+                if (kl.personas && Array.isArray(kl.personas) && kl.personas.length > 0) {
+                    kl.personas.forEach((p, pi) => {
+                        const pName = p.portrait_name || p.persona_problem_type || `画像${pi + 1}`;
+                        html += `<div class="mb-3">
+                            <span class="badge" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); color: #e65100; border: 1px solid #ffb74d; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">画像专属：${this.escapeHtml(pName)}</span>`;
+                        const personaFields = [
+                            { key: 'pain_points', label: '痛点' },
+                            { key: 'scene_keywords', label: '场景' },
+                            { key: 'concerns', label: '顾虑' },
+                        ];
+                        personaFields.forEach(f => {
+                            const kws = p[f.key];
+                            if (kws && kws.length > 0) {
+                                html += `<div class="mt-2 ms-2"><span class="small fw-bold" style="color: #8e8e93;">${f.label}（${kws.length}）：</span><div class="d-flex flex-wrap gap-1 mt-1">`;
+                                html += kws.map(k => `<span class="badge" style="background: #fafafa; color: #555; border: 1px solid #ddd; font-size: 11px; padding: 3px 8px; border-radius: 8px;">${this.escapeHtml(typeof k === 'string' ? k : (k.keyword || JSON.stringify(k)))}</span>`).join('');
+                                html += `</div></div>`;
+                            }
+                        });
+                        html += `</div>`;
                     });
+                }
+                // keyword_library_generator：市场公用关键词
+                if (kl.common_keywords && typeof kl.common_keywords === 'object') {
+                    const commEntries = Object.entries(kl.common_keywords).filter(([, v]) => Array.isArray(v) && v.length > 0);
+                    if (commEntries.length > 0) {
+                        commEntries.forEach(([catName, kws]) => {
+                            html += `<div class="mb-3">
+                                <span class="badge" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); color: #2e7d32; border: 1px solid #a5d6a7; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">市场公用：${this.escapeHtml(catName)}（${kws.length}个）</span>
+                                <div class="mt-2 ms-2 d-flex flex-wrap gap-2">
+                                    ${kws.map(k => `<span class="badge" style="background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%); color: #334e68; border: 1px solid #bcccdc; font-size: 11px; padding: 4px 10px; border-radius: 10px; font-weight: 500;">${this.escapeHtml(typeof k === 'string' ? k : (k.keyword || JSON.stringify(k)))}</span>`).join('')}
+                                </div>
+                            </div>`;
+                        });
+                    }
                 }
             }
             // 上下游关键词
