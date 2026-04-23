@@ -11,7 +11,7 @@
 import json
 import logging
 import threading
-import datetime
+from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from flask_login import current_user
 from functools import wraps
@@ -547,6 +547,7 @@ def get_portrait_topics(user, portrait_id):
 
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 10))
+    stage_key_filter = request.args.get('stage_key', '')  # 五段式阶段筛选
 
     topic_library = portrait.get('topic_library')
     all_topics = []
@@ -605,6 +606,10 @@ def get_portrait_topics(user, portrait_id):
 
     all_topics = sorted(all_topics, key=sort_key, reverse=True)
 
+    # ── 五段式阶段筛选 ──
+    if stage_key_filter:
+        all_topics = [t for t in all_topics if isinstance(t, dict) and t.get('stage_key') == stage_key_filter]
+
     # 分页
     total = len(all_topics)
     start = (page - 1) * per_page
@@ -657,6 +662,8 @@ def get_portrait_topics(user, portrait_id):
             'per_page': per_page,
             'pages': (total + per_page - 1) // per_page if per_page > 0 else 0,
             'portrait_id': portrait_id,
+            'stage_key_filter': stage_key_filter,
+            'by_stage': topic_library.get('by_stage') if topic_library else None,
         }
     })
 
@@ -894,6 +901,7 @@ def regenerate_portrait_topics(user, portrait_id):
 
     Body: {
         count: 新增数量，默认10
+        content_stage: 内容阶段（起号阶段/成长阶段/成熟阶段），默认成长阶段
     }
     """
     portrait = portrait_save_service.get_saved_portrait(portrait_id)
@@ -908,6 +916,7 @@ def regenerate_portrait_topics(user, portrait_id):
 
     data = request.get_json() or {}
     extra_count = int(data.get('count', 10))
+    content_stage = data.get('content_stage', '成长阶段')
 
     # 所有用户都可以重新生成选题（无付费限制）
 
@@ -926,15 +935,19 @@ def regenerate_portrait_topics(user, portrait_id):
         topic_library = portrait.get('topic_library') or {}
         existing_topics = topic_library.get('topics', [])
 
-        # 生成新增选题
+        # 获取关键词库（用于选题生成参考）
+        keyword_library = portrait.get('keyword_library')
+
+        # 生成新增选题（传入内容阶段）
         from services.topic_library_generator import topic_library_generator
         result = topic_library_generator.generate(
             portrait_data=portrait_data,
             business_info=business_info,
-            keyword_library=None,
+            keyword_library=keyword_library,
             plan_type=plan_type,
             topic_count=extra_count,
             portrait_id=portrait_id,
+            content_stage=content_stage,
             user_id=user.id,
         )
 
@@ -951,6 +964,9 @@ def regenerate_portrait_topics(user, portrait_id):
         topic_library['topics'] = merged_topics
         topic_library['generated_at'] = datetime.utcnow().isoformat()
 
+        # 更新 by_stage 统计
+        topic_library['by_stage'] = topic_library_generator._count_by_stage(merged_topics)
+
         # 保存
         topic_library_generator.save_to_portrait(
             portrait_id=portrait_id,
@@ -965,6 +981,7 @@ def regenerate_portrait_topics(user, portrait_id):
                 'total': len(merged_topics),
                 'new_count': len(new_topics),
                 'existing_count': len(existing_topics),
+                'by_stage': topic_library.get('by_stage', {}),
             }
         })
 
@@ -1230,27 +1247,28 @@ def _build_keyword_library_markdown(kw_lib: dict, portrait_name: str,
                     lines.append("| " + " | ".join(kw_strs[i:i+4]) + " |")
                 lines.append("")
 
-    # 旧格式 categories 结构
+    # categories 结构（generate_template 新格式 & 旧格式兼容）
     categories = kw_lib.get('categories', [])
     if categories:
-        lines.append("---")
-        lines.append("")
-        lines.append("## 关键词分类")
-        lines.append("")
+        # 过滤掉空分类
+        non_empty = [c for c in categories if (c.get('keywords') or [])]
+        if non_empty:
+            lines.append("---")
+            lines.append("")
+            lines.append("## 关键词分类")
+            lines.append("")
 
-        for cat in categories:
-            cat_name = cat.get('name', cat.get('key', '未知分类'))
-            keywords = cat.get('keywords', [])
-            count = cat.get('count', len(keywords))
-            lines.append(f"### {cat_name}（{count}个）")
-            if keywords:
+            for cat in non_empty:
+                # 优先用 category_name（新格式），兼容 name/key（旧格式）
+                cat_name = cat.get('category_name') or cat.get('name') or cat.get('key') or '未知分类'
+                keywords = cat.get('keywords', [])
+                count = len(keywords)
+                lines.append(f"### {cat_name}（{count}个）")
                 # 每行显示4个，用 | 分隔
                 for i in range(0, len(keywords), 4):
                     row = keywords[i:i+4]
                     lines.append("| " + " | ".join(str(k) for k in row) + " |")
-            else:
-                lines.append("*（暂无关键词）*")
-            lines.append("")
+                lines.append("")
 
     # 蓝海长尾词
     blue_ocean = kw_lib.get('blue_ocean', [])

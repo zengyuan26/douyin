@@ -1317,15 +1317,22 @@ function buildRecommendPrCard(p, i) {
     var kwCount = 0;
     var kl = p.keyword_library;
     if (kl) {
-        // 新格式：扁平字段
-        if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
-        if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
-        if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
-        if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
-        // 旧格式：categories 结构
-        if (kl.categories) {
+        // 新格式（generate_template）：categories 已聚合，优先用
+        if (kl.categories && Array.isArray(kl.categories)) {
             kl.categories.forEach(function(cat) { kwCount += (cat.keywords || []).length; });
+        } else {
+            // same-payer 旧格式 flat fields
+            if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+            if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+            if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+            if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+            if (kl.direct_demand_keywords) kwCount += kl.direct_demand_keywords.length;
+            // separate-payer 旧格式 flat fields
+            if (kl.user_problem_keywords) kwCount += kl.user_problem_keywords.length;
+            if (kl.payer_concern_keywords) kwCount += kl.payer_concern_keywords.length;
+            if (kl.product_recommend_keywords) kwCount += kl.product_recommend_keywords.length;
         }
+        // blue_ocean 独立字段
         if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
     }
     var genStatus = p.generation_status || 'pending';

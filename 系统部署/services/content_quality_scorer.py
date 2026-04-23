@@ -437,14 +437,19 @@ class ContentQualityScorer:
 
         return results
 
-    def score_text(self, text: str, brand_name: str = '', content_type: str = 'graphic') -> ScoreResult:
+    def score_text(self, text: str, brand_name: str = '', content_type: str = 'graphic',
+                   business_type: str = 'local_service') -> ScoreResult:
         """
-        对文本内容评分（用于长文等纯文本内容）
+        对文本内容评分（用于长文等纯文本内容）。
+
+        统一使用完整 10 项评估流程，与 score() 方法保持一致。
+        5 项规则评分 + 5 项 LLM 评分，满分 100。
 
         Args:
             text: 文本内容（可能是 Markdown 或纯文本）
             brand_name: 品牌名
             content_type: 内容类型（graphic/long_text/video）
+            business_type: 经营类型，用于动态权重和及格分数线
 
         Returns:
             ScoreResult: 评分结果
@@ -464,62 +469,64 @@ class ContentQualityScorer:
         # 构建完整文本
         full_text = text
 
-        # 规则评分
-        results = {}
+        # 阶段一：规则评分（5项）
+        rule_results = self._score_by_rules(
+            title, full_text, body, brand_name, {}, []
+        )
 
-        # 1. 标题吸引力
-        results[1] = self._check_title_attraction(title)
+        # 阶段二：LLM 评分（5项），截取前 3000 字控制 token
+        llm_results = self._score_by_llm(title, body[:3000], brand_name)
 
-        # 3. 结构清晰度
-        results[3] = self._check_structure(body)
+        # 合并结果
+        all_results = {**rule_results, **llm_results}
 
-        # 6. 品牌锚点
-        results[6] = self._check_brand_anchor(full_text, brand_name)
-
-        # 7. 关键词密度
-        results[7] = self._check_keyword_density(full_text, [])
-
-        # 8. 可读性
-        results[8] = self._check_readability(body)
-
-        # 构建评分项
-        weights = get_self_check_weights('local_service')
+        # 构建评分项列表（统一10分满分，80%及格=8分）
         items = []
-        for item_id in [1, 3, 6, 7, 8]:
-            item_config = next((x for x in self.SCORING_ITEMS if x['id'] == item_id), None)
-            if item_config and item_id in results:
-                result = results[item_id]
-                # 计算通过状态（原始分 >= 6 为通过）
-                raw_score = result.get('score', 0)
-                original_pass = raw_score >= 6
+        for item_config in self.SCORING_ITEMS:
+            item_id = item_config['id']
+            if item_id in all_results:
+                result = all_results[item_id]
+                raw_score = result['score']
+
                 items.append(ScoreItem(
                     id=item_id,
-                    category=item_config.get('category', '质量'),
+                    category=item_config['category'],
                     name=item_config['name'],
-                    score=raw_score,
-                    max_score=item_config.get('max_score', 10),
-                    weight=weights.get(item_id, item_config.get('weight', 1.0)),
-                    passed=original_pass,
+                    score=round(raw_score, 1),
+                    max_score=10,
+                    passed=raw_score >= 8,
                     detail=result.get('detail', ''),
-                    icon='✅' if original_pass else '⚠️'
+                    suggestion=result.get('suggestion', ''),
+                    icon='✅' if raw_score >= 6 else '⚠️'
                 ))
 
-        # 计算总分
-        total_score = sum(item.score * item.weight for item in items)
-        total_max = sum(item.max_score * item.weight for item in items)
-        percentage = (total_score / total_max * 100) if total_max > 0 else 0
-        pass_threshold = get_pass_threshold('local_service')
-        passed = percentage >= pass_threshold
+        # 计算加权总分
+        total_score = sum(item.score for item in items)
+
+        # 确定等级
+        grade, grade_label = self._calculate_grade(total_score)
+
+        # 提取不达标项
+        failed_items = [item for item in items if not item.passed]
+
+        # 生成改进建议
+        suggestions = self._generate_suggestions(failed_items)
+
+        # 生成整体评价
+        summary = self._generate_summary(total_score, items)
+
+        pass_threshold = get_pass_threshold(business_type)
 
         return ScoreResult(
-            total_score=round(percentage, 1),
-            grade=self._get_grade(percentage),
-            grade_label=self._get_grade_label(percentage),
-            passed=passed,
+            total_score=round(total_score, 1),
+            grade=grade,
+            grade_label=grade_label,
+            passed=total_score >= pass_threshold,
             pass_threshold=pass_threshold,
             items=items,
-            summary=f'文本内容评分：{percentage:.1f}分',
-            suggestions=self._generate_suggestions(items)
+            failed_items=failed_items,
+            summary=summary,
+            suggestions=suggestions
         )
 
     def _get_grade(self, percentage: float) -> str:
@@ -544,8 +551,33 @@ class ContentQualityScorer:
         else:
             return '需改进'
 
+    # 情绪词列表（高情绪词加分）
+    TITLE_EMOTION_WORDS = [
+        '终于', '后悔', '崩溃', '哭死', '救命', '绝了', '太牛了',
+        '后悔', '扎心', '破防', '泪目', '笑死', '炸裂', '必看',
+        '千万别', '一定要', '收藏', '赶紧', '速看', '曝光',
+        '揭秘', '内幕', '真相', '套路', '坑', '血亏',
+        '强推', '安利', '种草', '测评', '实测',
+    ]
+
+    # 差异化检测词（扣分词：模板化、泛滥标题党）
+    TITLE_TRASH_WORDS = [
+        '怎么办', '大全', '收藏', '必看', '最全',
+        '建议收藏', '建议收藏备用', '抓紧收藏',
+    ]
+
     def _check_title_attraction(self, title: str) -> Dict:
-        """检查标题吸引力"""
+        """
+        检查标题吸引力（多维度综合评分）。
+
+        维度：
+        1. 疑问词（+3）：是搜索类标题的核心
+        2. 情绪词（+2）：高情绪词增加点击率
+        3. 价值承诺词（+1）：辅助加分
+        4. 长度适中（+1/-1）
+        5. 情绪钩子多样性（+1）：有数字/对比/反问等结构
+        6. 扣分项（-2）：模板化泛滥标题党
+        """
         if not title:
             return {
                 'score': 3,
@@ -554,28 +586,49 @@ class ContentQualityScorer:
             }
 
         title_lower = title.lower()
-        has_question = any(word in title_lower for word in self.TITLE_QUESTION_WORDS)
-        has_value = any(word in title_lower for word in self.TITLE_VALUE_WORDS)
-
-        # 检查标题长度
         title_len = len(title)
-
         score = 5  # 基础分
 
+        # 1. 疑问词（核心搜索特征）
+        has_question = any(word in title_lower for word in self.TITLE_QUESTION_WORDS)
         if has_question:
             score += 3
-        if has_value:
+
+        # 2. 情绪词（高点击率词）
+        has_emotion = any(word in title_lower for word in self.TITLE_EMOTION_WORDS)
+        if has_emotion:
             score += 2
 
-        # 标题长度适中（10-30字）
+        # 3. 价值承诺词
+        has_value = any(word in title_lower for word in self.TITLE_VALUE_WORDS)
+        if has_value:
+            score += 1
+
+        # 4. 长度适中（10-30字最优）
         if 10 <= title_len <= 30:
-            score += 2
+            score += 1
         elif title_len < 10:
-            score -= 2
+            score -= 1
         elif title_len > 40:
             score -= 1
 
-        # 标题不能太短
+        # 5. 情绪钩子多样性（有数字/对比/反问等结构）
+        has_number = bool(re.search(r'\d+', title))
+        has_comparison = any(word in title_lower for word in ['vs', '还是', '对比', '比较', '哪个', '不如', '比'])
+        has_negation = any(word in title_lower for word in ['不是', '千万别', '别再', '别以为', '别再', '不要'])
+        if has_number or has_comparison or has_negation:
+            score += 1
+
+        # 6. 扣分：检测模板化泛滥标题党
+        trash_count = sum(1 for word in self.TITLE_TRASH_WORDS if word in title_lower)
+        if trash_count > 0:
+            score -= 2 * trash_count
+
+        # 特殊扣分：单独出现的"怎么办"（无上下文）
+        if '怎么办' in title and not has_question:
+            score -= 1
+
+        # 标题太短直接低分
         if title_len < 5:
             return {
                 'score': 2,
@@ -586,16 +639,16 @@ class ContentQualityScorer:
         score = max(0, min(10, score))
 
         if score >= 8:
-            detail = '标题清晰，包含疑问词或价值承诺，吸引点击'
-        elif score >= 5:
-            detail = '标题基本合格，可进一步优化'
+            detail = '标题质量优秀，包含搜索词+情绪钩子，点击率高'
+        elif score >= 6:
+            detail = '标题基本合格，有搜索特征，可进一步加入情绪词'
         else:
-            detail = '标题缺乏吸引力，建议增加疑问词或价值承诺'
+            detail = '标题缺乏吸引力，建议增加疑问词或情绪词，避免模板化表达'
 
         return {
             'score': score,
             'detail': detail,
-            'suggestion': '建议：包含「为什么/怎么/必看/收藏」等词' if score < 8 else ''
+            'suggestion': '建议：加入情绪词或数字钩子，避免「大全/必看/怎么办」等泛滥词' if score < 8 else ''
         }
 
     def _check_structure(self, body: str) -> Dict:
@@ -784,7 +837,7 @@ class ContentQualityScorer:
     # ==================== LLM评分 ====================
 
     def _score_by_llm(self, title: str, body: str, brand_name: str) -> Dict[int, Dict]:
-        """LLM评分（4项）"""
+        """LLM评分（5项）：开篇直接性、模块化完整、信任证据、行动号召、改造潜力"""
         results = {}
 
         # 构建评估文本
@@ -805,11 +858,11 @@ class ContentQualityScorer:
             results[9] = self._llm_check_call_to_action(content_for_eval)
             results[10] = self._llm_check_potential(content_for_eval)
         except Exception as e:
-            logger.error(f"[ContentQualityScorer] LLM评分异常: {e}")
-            # 异常时给默认值
+            logger.error("[ContentQualityScorer] LLM评分异常: %s", e)
+            # 异常时给默认值（5分，及格线以下）
             for item_id in self.LLM_ITEM_IDS:
                 results[item_id] = {
-                    'score': 6,
+                    'score': 5,
                     'detail': 'LLM评估异常，使用默认值',
                     'suggestion': ''
                 }
@@ -817,7 +870,7 @@ class ContentQualityScorer:
         return results
 
     def _llm_check_opening_directness(self, content: str) -> Dict:
-        """检查开篇直接性 - LLM评估"""
+        """检查开篇直接性 - LLM评估（带重试）"""
         prompt = f"""你是一位GEO内容优化专家。请评估以下内容的「开篇直接性」。
 
 评分标准：
@@ -833,19 +886,12 @@ class ContentQualityScorer:
 请以JSON格式返回：
 {{"score": 分数(0-10), "detail": "评分理由", "suggestion": "改进建议（如果需要）"}}
 """
-
-        try:
-            response = self.llm.chat([
-                {"role": "system", "content": "你是一位严格的内容质量评审专家。"},
-                {"role": "user", "content": prompt}
-            ])
-            return self._parse_llm_response(response, default_score=7)
-        except Exception as e:
-            logger.error(f"[LLM评估] 开篇直接性失败: {e}")
-            return {'score': 7, 'detail': '开篇直接性评估失败，使用默认分', 'suggestion': ''}
+        return self._llm_eval_with_retry(
+            '开篇直接性', prompt, default_score=5, max_retries=3
+        )
 
     def _llm_check_modularity(self, content: str) -> Dict:
-        """检查模块化完整 - LLM评估"""
+        """检查模块化完整 - LLM评估（带重试）"""
         prompt = f"""你是一位GEO内容优化专家。请评估以下内容的「模块化完整性」。
 
 评分标准：
@@ -861,19 +907,12 @@ class ContentQualityScorer:
 请以JSON格式返回：
 {{"score": 分数(0-10), "detail": "评分理由", "suggestion": "改进建议（如果需要）"}}
 """
-
-        try:
-            response = self.llm.chat([
-                {"role": "system", "content": "你是一位严格的内容质量评审专家。"},
-                {"role": "user", "content": prompt}
-            ])
-            return self._parse_llm_response(response, default_score=7)
-        except Exception as e:
-            logger.error(f"[LLM评估] 模块化完整失败: {e}")
-            return {'score': 7, 'detail': '模块化评估失败，使用默认分', 'suggestion': ''}
+        return self._llm_eval_with_retry(
+            '模块化完整', prompt, default_score=5, max_retries=3
+        )
 
     def _llm_check_trust_evidence(self, content: str) -> Dict:
-        """检查信任证据 - LLM评估"""
+        """检查信任证据 - LLM评估（带重试）"""
         prompt = f"""你是一位GEO内容优化专家。请评估以下内容的「信任证据」。
 
 评分标准：
@@ -889,19 +928,12 @@ class ContentQualityScorer:
 请以JSON格式返回：
 {{"score": 分数(0-10), "detail": "评分理由", "suggestion": "改进建议（如果需要）"}}
 """
-
-        try:
-            response = self.llm.chat([
-                {"role": "system", "content": "你是一位严格的内容质量评审专家。"},
-                {"role": "user", "content": prompt}
-            ])
-            return self._parse_llm_response(response, default_score=6)
-        except Exception as e:
-            logger.error(f"[LLM评估] 信任证据失败: {e}")
-            return {'score': 6, 'detail': '信任证据评估失败，使用默认分', 'suggestion': ''}
+        return self._llm_eval_with_retry(
+            '信任证据', prompt, default_score=5, max_retries=3
+        )
 
     def _llm_check_call_to_action(self, content: str) -> Dict:
-        """检查行动号召 - LLM评估"""
+        """检查行动号召 - LLM评估（带重试）"""
         prompt = f"""你是一位GEO内容优化专家。请评估以下内容的「行动号召(CTA)」。
 
 评分标准：
@@ -917,19 +949,12 @@ class ContentQualityScorer:
 请以JSON格式返回：
 {{"score": 分数(0-10), "detail": "评分理由", "suggestion": "改进建议（如果需要）"}}
 """
-
-        try:
-            response = self.llm.chat([
-                {"role": "system", "content": "你是一位严格的内容质量评审专家。"},
-                {"role": "user", "content": prompt}
-            ])
-            return self._parse_llm_response(response, default_score=6)
-        except Exception as e:
-            logger.error(f"[LLM评估] 行动号召失败: {e}")
-            return {'score': 6, 'detail': '行动号召评估失败，使用默认分', 'suggestion': ''}
+        return self._llm_eval_with_retry(
+            '行动号召', prompt, default_score=5, max_retries=3
+        )
 
     def _llm_check_potential(self, content: str) -> Dict:
-        """检查改造潜力 - LLM评估"""
+        """检查改造潜力 - LLM评估（带重试）"""
         prompt = f"""你是一位GEO内容优化专家。请评估以下内容的「多形式改造潜力」。
 
 评分标准：
@@ -945,50 +970,135 @@ class ContentQualityScorer:
 请以JSON格式返回：
 {{"score": 分数(0-10), "detail": "评分理由", "suggestion": "改进建议（如果需要）"}}
 """
+        return self._llm_eval_with_retry(
+            '改造潜力', prompt, default_score=5, max_retries=3
+        )
 
-        try:
-            response = self.llm.chat([
-                {"role": "system", "content": "你是一位严格的内容质量评审专家。"},
-                {"role": "user", "content": prompt}
-            ])
-            return self._parse_llm_response(response, default_score=7)
-        except Exception as e:
-            logger.error(f"[LLM评估] 改造潜力失败: {e}")
-            return {'score': 7, 'detail': '改造潜力评估失败，使用默认分', 'suggestion': ''}
+    def _llm_eval_with_retry(
+        self, item_name: str, prompt: str, default_score: int = 5, max_retries: int = 3
+    ) -> Dict:
+        """LLM 评估统一重试封装
 
-    def _parse_llm_response(self, response: str, default_score: int = 6) -> Dict:
-        """解析LLM响应"""
+        最多重试 max_retries 次。每次解析失败后继续重试，
+        全部失败才返回 default_score（5分，及格线以下）。
+        """
+        for attempt in range(max_retries):
+            try:
+                response = self.llm.chat([
+                    {"role": "system", "content": "你是一位严格的内容质量评审专家。"},
+                    {"role": "user", "content": prompt}
+                ])
+                result = self._parse_llm_response(response, default_score=default_score)
+                # 如果解析成功（非默认分），直接返回
+                if result.get('detail') != 'LLM响应解析失败，使用默认分':
+                    logger.info("[LLM评估] %s成功（尝试%d），得分=%s",
+                                item_name, attempt + 1, result.get('score'))
+                    return result
+                # 解析失败，记录日志后重试
+                logger.warning("[LLM评估] %s解析失败（尝试%d），重试中...", item_name, attempt + 1)
+            except Exception as e:
+                logger.warning("[LLM评估] %s异常（尝试%d）: %s，重试中...", item_name, attempt + 1, str(e))
+
+        # 全部重试失败
+        logger.error("[LLM评估] %s全部重试失败，使用默认分 %d", item_name, default_score)
+        return {
+            'score': default_score,
+            'detail': f'{item_name}评估全部重试失败，使用默认分',
+            'suggestion': ''
+        }
+
+    def _parse_llm_response(self, response: str, default_score: int = 5) -> Dict:
+        """
+        解析 LLM 响应，支持多层降级解析。
+
+        降级策略：
+        1. 提取 JSON 对象（兼容多层嵌套）
+        2. 提取 JSON 数组元素
+        3. 从文本中提取 score 字段
+        4. 从文本中提取纯数字分数
+        """
         if not response:
-            logger.debug("[LLM解析] 响应为空，使用默认分")
+            logger.debug("[LLM解析] 响应为空，使用默认分 %d", default_score)
             return {
                 'score': default_score,
                 'detail': 'LLM响应为空，使用默认分',
                 'suggestion': ''
             }
         try:
-            # 尝试从响应中提取JSON
-            json_match = re.search(r'\{[^}]+\}', response, re.DOTALL)
-            if json_match:
-                import json
-                data = json.loads(json_match.group(0))
-                score = int(data.get('score', default_score))
+            # ── 降级层 1：完整 JSON 对象解析 ──
+            import json as _json
+
+            # 去除 markdown 代码块
+            clean = response.strip()
+            if clean.startswith('```json'):
+                clean = clean[7:]
+            elif clean.startswith('```'):
+                clean = clean[3:]
+            if clean.endswith('```'):
+                clean = clean[:-3]
+            clean = clean.strip()
+
+            # 尝试直接解析
+            try:
+                data = _json.loads(clean)
+                if isinstance(data, dict):
+                    score = int(data.get('score', default_score))
+                    return {
+                        'score': max(0, min(10, score)),
+                        'detail': data.get('detail', 'LLM评估结果'),
+                        'suggestion': data.get('suggestion', '')
+                    }
+                elif isinstance(data, list) and len(data) > 0:
+                    # 取第一个元素
+                    item = data[0] if isinstance(data[0], dict) else {}
+                    score = int(item.get('score', default_score))
+                    return {
+                        'score': max(0, min(10, score)),
+                        'detail': item.get('detail', 'LLM评估结果'),
+                        'suggestion': item.get('suggestion', '')
+                    }
+            except _json.JSONDecodeError:
+                pass
+
+            # ── 降级层 2：查找 JSON 对象边界 ──
+            start = clean.find('{')
+            if start != -1:
+                for end in range(len(clean), start, -1):
+                    candidate = clean[start:end].replace('{{', '{').replace('}}', '}')
+                    try:
+                        data = _json.loads(candidate)
+                        if isinstance(data, dict) and 'score' in data:
+                            score = int(data.get('score', default_score))
+                            return {
+                                'score': max(0, min(10, score)),
+                                'detail': data.get('detail', 'LLM评估结果'),
+                                'suggestion': data.get('suggestion', '')
+                            }
+                    except _json.JSONDecodeError:
+                        continue
+
+            # ── 降级层 3：从文本提取 "score": N ──
+            score_match = re.search(r'["\s]score["\s]*[:=]\s*(\d+)', response)
+            if score_match:
+                score = int(score_match.group(1))
                 return {
                     'score': max(0, min(10, score)),
-                    'detail': data.get('detail', ''),
-                    'suggestion': data.get('suggestion', '')
+                    'detail': '从文本提取分数',
+                    'suggestion': ''
                 }
-        except Exception as e:
-            logger.debug(f"[LLM解析] JSON解析失败: {e}")
 
-        # 兜底：从文本中提取分数
-        score_match = re.search(r'["\s]score["\s]*[:=]\s*(\d+)', response)
-        if score_match:
-            score = int(score_match.group(1))
-            return {
-                'score': max(0, min(10, score)),
-                'detail': 'LLM评估结果',
-                'suggestion': ''
-            }
+            # ── 降级层 4：提取纯数字分数（中文响应兼容）──
+            num_match = re.search(r'(?:得分?|评分?|分数)[：:\s]*(\d+)', response)
+            if num_match:
+                score = int(num_match.group(1))
+                return {
+                    'score': max(0, min(10, score)),
+                    'detail': '从文本提取数字分数',
+                    'suggestion': ''
+                }
+
+        except Exception as e:
+            logger.debug("[LLM解析] 解析异常: %s", str(e))
 
         return {
             'score': default_score,

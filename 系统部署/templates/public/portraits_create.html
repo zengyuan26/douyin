@@ -4370,15 +4370,44 @@ function renderKeywordLibraryContent() {
                 }
             });
 
-            const topicSections = [
-                { label: '受众锁定', color: '#1565c0', bg: '#e3f2fd', topics: tl.audience_lock_topics || [] },
-                { label: '痛点放大', color: '#c62828', bg: '#ffebee', topics: tl.pain_amplify_topics || [] },
-                { label: '方案对比', color: '#2e7d32', bg: '#e8f5e9', topics: tl.solution_compare_topics || [] },
-                { label: '愿景勾画', color: '#f57c00', bg: '#fff3e0', topics: tl.vision_topics || [] },
-                { label: '顾虑消除', color: '#6a1b9a', bg: '#f3e5f5', topics: tl.barrier_remove_topics || [] },
-                { label: '直接需求', color: '#00838f', bg: '#e0f7fa', topics: tl.direct_need_topics || [] },
-                { label: '技巧干货', color: '#4e342e', bg: '#efebe9', topics: tl.skill_tutorial_topics || [] },
-            ];
+            // 兼容新旧两种选题库格式：
+            // 新格式（topic_library_generator.py）：topics 数组，每条含 stage_key
+            // 旧格式（KeywordTopicGenerator）：audience_lock_topics 等扁平字段
+            let topicSections = [];
+            const flatTopics = tl.topics || [];
+            if (flatTopics.length > 0) {
+                // 新格式：按 stage_key 分组
+                const stageMap = {
+                    'audience':   { label: '受众锁定', color: '#1565c0', bg: '#e3f2fd' },
+                    'pain':       { label: '痛点放大', color: '#c62828', bg: '#ffebee' },
+                    'compare':    { label: '方案对比', color: '#2e7d32', bg: '#e8f5e9' },
+                    'vision':     { label: '愿景勾画', color: '#f57c00', bg: '#fff3e0' },
+                    'hesitation': { label: '顾虑消除', color: '#6a1b9a', bg: '#f3e5f5' },
+                };
+                const grouped = {};
+                for (const t of flatTopics) {
+                    const sk = t.stage_key || t.stage || 'audience';
+                    if (!grouped[sk]) grouped[sk] = [];
+                    grouped[sk].push(typeof t === 'string' ? t : (t.title || ''));
+                }
+                topicSections = Object.entries(grouped).map(([sk, titles]) => ({
+                    label: (stageMap[sk] || { label: sk }).label,
+                    color: (stageMap[sk] || { color: '#999' }).color,
+                    bg: (stageMap[sk] || { bg: '#f5f5f5' }).bg,
+                    topics: titles,
+                }));
+            } else {
+                // 旧格式：扁平字段
+                topicSections = [
+                    { label: '受众锁定', color: '#1565c0', bg: '#e3f2fd', topics: tl.audience_lock_topics || [] },
+                    { label: '痛点放大', color: '#c62828', bg: '#ffebee', topics: tl.pain_amplify_topics || [] },
+                    { label: '方案对比', color: '#2e7d32', bg: '#e8f5e9', topics: tl.solution_compare_topics || [] },
+                    { label: '愿景勾画', color: '#f57c00', bg: '#fff3e0', topics: tl.vision_topics || [] },
+                    { label: '顾虑消除', color: '#6a1b9a', bg: '#f3e5f5', topics: tl.barrier_remove_topics || [] },
+                    { label: '直接需求', color: '#00838f', bg: '#e0f7fa', topics: tl.direct_need_topics || [] },
+                    { label: '技巧干货', color: '#4e342e', bg: '#efebe9', topics: tl.skill_tutorial_topics || [] },
+                ];
+            }
 
             const kwTotal = kwSections.reduce((s, sec) => s + sec.kws.length, 0);
             const topicTotal = topicSections.reduce((s, sec) => s + sec.topics.length, 0);
@@ -4420,7 +4449,10 @@ function renderKeywordLibraryContent() {
                                 return `
                                     <div>
                                         <div style="font-size: 0.6875rem; color: ${sec.color}; font-weight: 600; margin-bottom: 3px;">${sec.label}（${sec.topics.length}）</div>
-                                        ${sec.topics.map(t => `<div style="font-size: 0.8125rem; color: #333; padding: 4px 0; border-bottom: 1px dashed #f0f0f0;">${t}</div>`).join('')}
+                                        ${sec.topics.map(t => {
+                                            const title = typeof t === 'string' ? t : (t.title || '');
+                                            return `<div style="font-size: 0.8125rem; color: #333; padding: 4px 0; border-bottom: 1px dashed #f0f0f0;">${title}</div>`;
+                                        }).join('')}
                                     </div>
                                 `;
                             }).join('')}
@@ -5805,11 +5837,18 @@ function showPortraitLibraryStatus(portraitId) {
 function countKeywordLibrary(kl) {
     if (!kl) return 0;
     let count = 0;
-    if (kl.problem_type_keywords) count += kl.problem_type_keywords.length;
-    if (kl.pain_point_keywords) count += kl.pain_point_keywords.length;
-    if (kl.scene_keywords) count += kl.scene_keywords.length;
-    if (kl.concern_keywords) count += kl.concern_keywords.length;
-    if (kl.categories) kl.categories.forEach(cat => { count += (cat.keywords || []).length; });
+    if (kl.categories && Array.isArray(kl.categories)) {
+        kl.categories.forEach(cat => { count += (cat.keywords || []).length; });
+    } else {
+        if (kl.problem_type_keywords) count += kl.problem_type_keywords.length;
+        if (kl.pain_point_keywords) count += kl.pain_point_keywords.length;
+        if (kl.scene_keywords) count += kl.scene_keywords.length;
+        if (kl.concern_keywords) count += kl.concern_keywords.length;
+        if (kl.direct_demand_keywords) count += kl.direct_demand_keywords.length;
+        if (kl.user_problem_keywords) count += kl.user_problem_keywords.length;
+        if (kl.payer_concern_keywords) count += kl.payer_concern_keywords.length;
+        if (kl.product_recommend_keywords) count += kl.product_recommend_keywords.length;
+    }
     if (kl.blue_ocean) count += kl.blue_ocean.length;
     return count;
 }

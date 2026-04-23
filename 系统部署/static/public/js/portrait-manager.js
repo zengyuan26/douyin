@@ -65,31 +65,43 @@ var PortraitManager = {
     // [DEBUG b91e2a] H2: _getKwCount counting
     _getKwCount(kwLibrary) {
         if (!kwLibrary) return 0;
-        fetch('http://127.0.0.1:7518/ingest/617e5924-00cd-4f93-9d83-7b2c53a2bc94',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b91e2a'},body:JSON.stringify({sessionId:'b91e2a',location:'portrait-manager.js:_getKwCount',message:'_getKwCount input',hypothesisId:'H2_kwcount',data:{keys:Object.keys(kwLibrary),types:{k:typeof kwLibrary.k,cK:typeof kwLibrary.common_keywords,p:typeof kwLibrary.personas,pt:typeof kwLibrary.problem_type_keywords,pp:typeof kwLibrary.pain_point_keywords,sc:typeof kwLibrary.scene_keywords,co:typeof kwLibrary.concern_keywords,cat:typeof kwLibrary.categories}},timestamp:Date.now()})}).catch(()=>{});
         const kl = kwLibrary;
         let count = 0;
-        // 新格式（keyword_topic_generator）：问题类型/痛点/场景/顾虑
-        if (kl.problem_type_keywords) count += kl.problem_type_keywords.length;
-        if (kl.pain_point_keywords) count += kl.pain_point_keywords.length;
-        if (kl.scene_keywords) count += kl.scene_keywords.length;
-        if (kl.concern_keywords) count += kl.concern_keywords.length;
-        // 旧格式（market_analyzer）：categories
-        if (kl.categories) kl.categories.forEach(cat => { count += (cat.keywords || []).length; });
+
+        // 新格式（generate_template）：categories 已是聚合结果，不与 flat fields 共存
+        // 优先取 categories，只有旧数据没有 categories 时才取 flat fields
+        if (kl.categories && Array.isArray(kl.categories)) {
+            kl.categories.forEach(cat => { count += (cat.keywords || []).length; });
+        } else {
+            // same-payer 旧格式 flat fields
+            if (kl.problem_type_keywords) count += kl.problem_type_keywords.length;
+            if (kl.pain_point_keywords) count += kl.pain_point_keywords.length;
+            if (kl.scene_keywords) count += kl.scene_keywords.length;
+            if (kl.concern_keywords) count += kl.concern_keywords.length;
+            if (kl.direct_demand_keywords) count += kl.direct_demand_keywords.length;
+            // separate-payer 旧格式 flat fields
+            if (kl.user_problem_keywords) count += kl.user_problem_keywords.length;
+            if (kl.payer_concern_keywords) count += kl.payer_concern_keywords.length;
+            if (kl.product_recommend_keywords) count += kl.product_recommend_keywords.length;
+            // 旧格式：common_keywords
+            if (kl.common_keywords) {
+                Object.values(kl.common_keywords).forEach(kws => {
+                    if (Array.isArray(kws)) count += kws.length;
+                });
+            }
+            // 旧格式：personas
+            if (kl.personas && Array.isArray(kl.personas)) {
+                kl.personas.forEach(p => {
+                    if (Array.isArray(p.pain_points)) count += p.pain_points.length;
+                    if (Array.isArray(p.scene_keywords)) count += p.scene_keywords.length;
+                    if (Array.isArray(p.concerns)) count += p.concerns.length;
+                });
+            }
+        }
+
+        // blue_ocean 独立字段，与 categories/flat_fields 均不重叠
         if (kl.blue_ocean) count += kl.blue_ocean.length;
-        // keyword_library_generator 格式：公用关键词
-        if (kl.common_keywords) {
-            Object.values(kl.common_keywords).forEach(kws => {
-                if (Array.isArray(kws)) count += kws.length;
-            });
-        }
-        // keyword_library_generator 格式：画像专属关键词
-        if (kl.personas && Array.isArray(kl.personas)) {
-            kl.personas.forEach(p => {
-                if (Array.isArray(p.pain_points)) count += p.pain_points.length;
-                if (Array.isArray(p.scene_keywords)) count += p.scene_keywords.length;
-                if (Array.isArray(p.concerns)) count += p.concerns.length;
-            });
-        }
+
         return count;
     },
 
@@ -257,15 +269,22 @@ var PortraitManager = {
             let kwCount = 0;
             if (p.keyword_library) {
                 const kl = p.keyword_library;
-                // 新格式（KeywordTopicGenerator）：扁平结构
-                if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
-                if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
-                if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
-                if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
-                // 旧格式（market_analyzer）：categories 结构
-                if (kl.categories) {
+                // 新格式（generate_template）：categories 已聚合，优先用
+                if (kl.categories && Array.isArray(kl.categories)) {
                     kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+                } else {
+                    // same-payer 旧格式 flat fields
+                    if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+                    if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+                    if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+                    if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+                    if (kl.direct_demand_keywords) kwCount += kl.direct_demand_keywords.length;
+                    // separate-payer 旧格式 flat fields
+                    if (kl.user_problem_keywords) kwCount += kl.user_problem_keywords.length;
+                    if (kl.payer_concern_keywords) kwCount += kl.payer_concern_keywords.length;
+                    if (kl.product_recommend_keywords) kwCount += kl.product_recommend_keywords.length;
                 }
+                // blue_ocean 独立字段
                 if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
             }
 
@@ -999,11 +1018,18 @@ var PortraitManager = {
         let kwCount = 0;
         if (portrait.keyword_library) {
             const kl = portrait.keyword_library;
-            if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
-            if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
-            if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
-            if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
-            if (kl.categories) kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            if (kl.categories && Array.isArray(kl.categories)) {
+                kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            } else {
+                if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+                if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+                if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+                if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+                if (kl.direct_demand_keywords) kwCount += kl.direct_demand_keywords.length;
+                if (kl.user_problem_keywords) kwCount += kl.user_problem_keywords.length;
+                if (kl.payer_concern_keywords) kwCount += kl.payer_concern_keywords.length;
+                if (kl.product_recommend_keywords) kwCount += kl.product_recommend_keywords.length;
+            }
             if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
         }
         const genStatus = portrait.generation_status || 'pending';
@@ -1152,11 +1178,18 @@ var PortraitManager = {
                         let kwCount = 0;
                         if (portrait.keyword_library) {
                             const kl = portrait.keyword_library;
-                            if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
-                            if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
-                            if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
-                            if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
-                            if (kl.categories) kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+                            if (kl.categories && Array.isArray(kl.categories)) {
+                                kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+                            } else {
+                                if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+                                if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+                                if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+                                if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+                                if (kl.direct_demand_keywords) kwCount += kl.direct_demand_keywords.length;
+                                if (kl.user_problem_keywords) kwCount += kl.user_problem_keywords.length;
+                                if (kl.payer_concern_keywords) kwCount += kl.payer_concern_keywords.length;
+                                if (kl.product_recommend_keywords) kwCount += kl.product_recommend_keywords.length;
+                            }
                             if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
                         }
                         // 更新为已完成状态按钮
@@ -1956,11 +1989,18 @@ var PortraitManager = {
         let kwCount = 0;
         if (p.keyword_library) {
             const kl = p.keyword_library;
-            if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
-            if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
-            if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
-            if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
-            if (kl.categories) kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            if (kl.categories && Array.isArray(kl.categories)) {
+                kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            } else {
+                if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+                if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+                if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+                if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+                if (kl.direct_demand_keywords) kwCount += kl.direct_demand_keywords.length;
+                if (kl.user_problem_keywords) kwCount += kl.user_problem_keywords.length;
+                if (kl.payer_concern_keywords) kwCount += kl.payer_concern_keywords.length;
+                if (kl.product_recommend_keywords) kwCount += kl.product_recommend_keywords.length;
+            }
             if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
         }
 
@@ -2655,11 +2695,18 @@ var PortraitManager = {
         let kwCount = 0;
         if (p.keyword_library) {
             const kl = p.keyword_library;
-            if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
-            if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
-            if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
-            if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
-            if (kl.categories) kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            if (kl.categories && Array.isArray(kl.categories)) {
+                kl.categories.forEach(cat => { kwCount += (cat.keywords || []).length; });
+            } else {
+                if (kl.problem_type_keywords) kwCount += kl.problem_type_keywords.length;
+                if (kl.pain_point_keywords) kwCount += kl.pain_point_keywords.length;
+                if (kl.scene_keywords) kwCount += kl.scene_keywords.length;
+                if (kl.concern_keywords) kwCount += kl.concern_keywords.length;
+                if (kl.direct_demand_keywords) kwCount += kl.direct_demand_keywords.length;
+                if (kl.user_problem_keywords) kwCount += kl.user_problem_keywords.length;
+                if (kl.payer_concern_keywords) kwCount += kl.payer_concern_keywords.length;
+                if (kl.product_recommend_keywords) kwCount += kl.product_recommend_keywords.length;
+            }
             if (kl.blue_ocean) kwCount += kl.blue_ocean.length;
         }
         let topicCount = 0;

@@ -160,7 +160,8 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str = 'free'
     流程：
     1. 更新状态 = 'generating'
     2. 使用 KeywordLibraryGenerator.generate_template() 按模板生成关键词库（9分类，100+个）
-    3. 保存结果，更新状态 = 'completed' / 'failed'
+    3. 使用 TopicLibraryGenerator.generate() 生成选题库（五段式）
+    4. 保存结果，更新状态 = 'completed' / 'failed'
     """
     from models.public_models import SavedPortrait, db
     from services.portrait_save_service import portrait_save_service
@@ -209,10 +210,9 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str = 'free'
             'barriers': _to_list(portrait_data_dict.get('barriers', [])),
         }
 
-        # ── 生成关键词库（9分类，100+）─────────────────────────────
-        # 按照关键词库模板，一次LLM调用生成9大分类关键词
-        generator = KeywordLibraryGenerator()
-        result = generator.generate_template(
+        # ── ① 生成关键词库（9分类，100+）─────────────────────────────
+        keyword_generator = KeywordLibraryGenerator()
+        kw_result = keyword_generator.generate_template(
             business_info={
                 'business_description': business_description,
                 'industry': portrait.get('industry', ''),
@@ -222,33 +222,63 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str = 'free'
             portrait_data=portrait_data,
         )
 
-        if result.success:
-            portrait_row = SavedPortrait.query.get(portrait_id)
-            if portrait_row:
-                kl = result.keyword_library or {}
-                total_kw = result.total_keywords
-                logger.info(
-                    "[PortraitLibraryTask] 关键词库生成完成 portrait_id=%d: 总关键词=%d",
-                    portrait_id, total_kw,
-                )
+        if not kw_result.success:
+            raise Exception(kw_result.error_message or "关键词库生成失败")
 
-                portrait_row.keyword_library = kl
-                portrait_row.generation_status = 'completed'
-                db.session.commit()
+        kl = kw_result.keyword_library or {}
+        total_kw = kw_result.total_keywords
+        logger.info(
+            "[PortraitLibraryTask] 关键词库生成完成 portrait_id=%d: 总关键词=%d",
+            portrait_id, total_kw,
+        )
 
-                logger.info(
-                    "[PortraitLibraryTask] 关键词库生成全部完成 portrait_id=%d",
-                    portrait_id
-                )
+        # ── ② 生成选题库（五段式）─────────────────────────────
+        from services.topic_library_generator import topic_library_generator
+        topic_result = topic_library_generator.generate(
+            portrait_data=portrait_data_dict,
+            business_info={
+                'business_description': business_description,
+                'industry': portrait.get('industry', ''),
+                'products': [],
+                'region': region,
+                'target_customer': target_customer,
+            },
+            keyword_library=kl,
+            plan_type=plan_type,
+            portrait_id=portrait_id,
+            content_stage='起号阶段',
+            user_id=user_id,
+        )
+
+        if not topic_result.get('success'):
+            raise Exception(topic_result.get('error', '选题库生成失败'))
+
+        tl = topic_result.get('topic_library', {})
+        logger.info(
+            "[PortraitLibraryTask] 选题库生成完成 portrait_id=%d: 总选题=%d",
+            portrait_id, len(tl.get('topics', [])),
+        )
+
+        # ── ③ 保存两个库，更新状态 ──────────────────────────────
+        portrait_row = SavedPortrait.query.get(portrait_id)
+        if portrait_row:
+            portrait_row.keyword_library = kl
+            portrait_row.topic_library = tl
+            portrait_row.generation_status = 'completed'
+            db.session.commit()
+
+            logger.info(
+                "[PortraitLibraryTask] 关键词库+选题库全部生成完成 portrait_id=%d",
+                portrait_id
+            )
         else:
-            raise Exception(result.error_message or "生成失败")
+            raise Exception("画像记录不存在，无法保存")
 
     except Exception as e:
         import traceback
         error_str = str(e)
         if len(error_str) > 300:
             error_str = error_str[:300] + '...'
-        # 异常信息本身可能含 { } 或 %，用字符串拼接避免二次格式化
         logger.error("[PortraitLibraryTask] 异常 portrait_id=%d: " + error_str, portrait_id)
         logger.debug(
             "[PortraitLibraryTask] 堆栈 portrait_id=%d: " + traceback.format_exc(),

@@ -1,12 +1,11 @@
 """
-画像专属选题库生成服务 + GEO 六模式全绑定系统
+画像专属选题库生成服务
 
 核心原则：
-- LLM 只负责生成：title、keywords、recommended_reason、scene_options、geo_mode、structure_rule
-- 本地代码控制：GEO 模式枚举、三盘映射、阶段配比、分配逻辑、校验、兜底、缓存
-- 每个选题强制归属一种 GEO 模式
-- 按三盘比例分配 GEO 模式
-- 后处理校验 GEO 模式合规性
+- LLM 只负责生成：title、keywords、recommended_reason、type_key
+- 本地代码控制：五段式阶段配比、选题类型分配、兜底补全、缓存
+- 每个选题强制归属一个五段式阶段（受众锁定 / 痛点放大 / 方案对比 / 愿景勾画 / 顾虑消除）
+- GEO 模式在内容生成时由 content_generator.match_geo_mode() 动态决定
 """
 
 import json
@@ -26,278 +25,118 @@ from services.template_config_service import template_config_service
 from services.llm import get_llm_service
 
 
-# =============================================================================
-# GEO 六模式枚举库（100% 本地控制）
-# =============================================================================
-
-class GEOMode:
-    """
-    GEO 六模式枚举
-
-    字段说明：
-    - key: 英文标识
-    - name: 中文名称
-    - weight: 权重（按权重排序决定优先级）
-    - title_rule: 标题生成规则（LLM 必须遵守）
-    - structure_rule: 内容结构规则（LLM 必须遵守）
-    - ban_patterns: 标题禁令正则列表
-    - ban_phrases: 标题禁令词列表
-    - compatible_types: 兼容的 type_key 列表
-    """
-    QA = 'qa'               # 问题-答案模式
-    DEFINE = 'define'        # 定义-解释模式
-    ARGUMENT = 'argument'    # 金句-论证模式
-    FRAMEWORK = 'framework'  # 框架-工具模式
-    LIST = 'list'            # 清单体
-    HERO = 'hero'           # 英雄之旅
-
-
-GEO_MODES = {
-    # ── 1. 问题-答案模式（权重最高）─────────────────────────────────────────────
-    GEOMode.QA: {
-        'key': GEOMode.QA,
-        'name': '问题-答案模式',
-        'weight': 6,
-        'title_rule': '标题必须是用户真实搜索的问题，格式：XX怎么办？/ XX怎么选？/ XX是什么？/ XX好不好？',
-        'title_examples': [
-            '桶装水有异味怎么办？',
-            '酒店餐具破损怎么处理？',
-            '高考志愿怎么填报最稳妥？',
-            '豆芽批发怎么找靠谱供应商？',
-        ],
-        'structure_rule': '首段直接给答案，不需要铺垫。结构：答案开门见山 → 原因分析 → 具体方法 → 行动指引',
-        'structure_template': '【开篇】直接给答案 | 【展开】原因拆解 | 【方法】具体步骤 | 【收尾】引导行动',
-        'ban_patterns': [
-            r'.*的正确认知',
-            r'.*的底层逻辑',
-            r'.*的真相',
-            r'.*全面解析',
-            r'.*完全指南',
-            r'.*入门.*',
-            r'春季.*|冬季.*|夏季.*',  # 季节拼接禁令
-        ],
-        'ban_phrases': ['正确认知', '底层逻辑', '真相', '全面解析', '完全指南', '原料', '供应链'],
-        'compatible_types': ['pain_point', 'decision_encourage', 'cause', 'compare', 'pitfall', 'scene'],
-    },
-
-    # ── 2. 定义-解释模式 ───────────────────────────────────────────────────
-    GEOMode.DEFINE: {
-        'key': GEOMode.DEFINE,
-        'name': '定义-解释模式',
-        'weight': 5,
-        'title_rule': '标题格式：什么是XX？/ XX是什么？/ 一文讲透XX / XX怎么选？',
-        'title_examples': [
-            '什么是真正的好桶装水？',
-            '酒店陶瓷餐具修复是什么服务？',
-            '高考志愿填报辅导怎么选？',
-            '桶装水配送服务是什么？',
-        ],
-        'structure_rule': '结构：定义 → 比喻/类比 → 核心要素 → 案例说明',
-        'structure_template': '【定义】XX是什么 | 【比喻】像YY一样 | 【要素】3个关键点 | 【案例】具体例子',
-        'ban_patterns': [
-            r'.*的正确认知',
-            r'.*底层逻辑',
-            r'.*真相',
-            r'.*全面解析',
-            r'春季.*|冬季.*|夏季.*',
-        ],
-        'ban_phrases': ['正确认知', '底层逻辑', '真相', '全面解析', '原料', '供应链'],
-        'compatible_types': ['tutorial', 'upstream', 'cause', 'scene', 'region'],
-    },
-
-    # ── 3. 金句-论证模式 ─────────────────────────────────────────────────────
-    GEOMode.ARGUMENT: {
-        'key': GEOMode.ARGUMENT,
-        'name': '金句-论证模式',
-        'weight': 4,
-        'title_rule': '标题格式：反常识金句开头，打破用户固有认知。格式：XX都错了！/ 别再XX了！/ 以为XX就行？',
-        'title_examples': [
-            '桶装水便宜就好？90%的人都选错了！',
-            '别再被误导了！酒店餐具修复不是小事',
-            '以为随便选就行？高考志愿填报3大误区',
-            '酒店采购只看价格？难怪年年亏钱',
-        ],
-        'structure_rule': '结构：反常识金句 → 破（打破旧认知）→ 立（新认知） → 方案指引',
-        'structure_template': '【金句】反常识开头 | 【破】打破旧认知 | 【立】建立新认知 | 【方案】具体行动',
-        'ban_patterns': [
-            r'.*的正确认知',
-            r'.*底层逻辑',
-            r'.*真相',
-            r'.*全面解析',
-            r'春季.*|冬季.*',
-        ],
-        'ban_phrases': ['正确认知', '底层逻辑', '真相', '全面解析', '原料', '供应链'],
-        'compatible_types': ['rethink', 'pitfall', 'decision_encourage', 'compare'],
-    },
-
-    # ── 4. 框架-工具模式 ─────────────────────────────────────────────────────
-    GEOMode.FRAMEWORK: {
-        'key': GEOMode.FRAMEWORK,
-        'name': '框架-工具模式',
-        'weight': 3,
-        'title_rule': '标题格式：框架名称 + 核心价值。格式：XX框架！3步搞定XX / XX工具，推荐收藏',
-        'title_examples': [
-            '酒店采购避坑框架！3步选出靠谱供应商',
-            '高考志愿填报框架！一张表搞定所有选择',
-            '桶装水选购框架！5分钟选出好水源',
-            '餐厅食材采购框架！成本降低30%的秘密',
-        ],
-        'structure_rule': '结构：框架概述 → 工具/清单 → 操作步骤 → 自检清单',
-        'structure_template': '【框架】是什么+解决什么问题 | 【工具】具体方法 | 【步骤】123操作 | 【自检】检查清单',
-        'ban_patterns': [
-            r'.*的正确认知',
-            r'.*底层逻辑',
-            r'.*全面解析',
-            r'.*完全指南',
-            r'春季.*|冬季.*',
-        ],
-        'ban_phrases': ['正确认知', '底层逻辑', '全面解析', '完全指南', '原料', '供应链'],
-        'compatible_types': ['tutorial', 'upstream', 'skill', 'effect_proof', 'price'],
-    },
-
-    # ── 5. 清单体 ────────────────────────────────────────────────────────────
-    GEOMode.LIST: {
-        'key': GEOMode.LIST,
-        'name': '清单体',
-        'weight': 2,
-        'title_rule': '标题格式：数字 + 结果导向。格式：X个XX / XX清单 / XX检查表 / XX指南',
-        'title_examples': [
-            '桶装水辨别指南！3步判断水质好坏',
-            '酒店采购必看！5个坑千万别踩',
-            '高考前必做清单！家长收藏',
-            '桶装水配送协议检查清单',
-        ],
-        'structure_rule': '结构：数字开头 → 分点清单 → 每个要点一句话说明 → 总结收尾',
-        'structure_template': '【数字】X个要点 | 【清单】逐条列出 | 【说明】每条一句话 | 【总结】核心建议',
-        'ban_patterns': [
-            r'.*的正确认知',
-            r'.*底层逻辑',
-            r'.*真相',
-            r'春季.*|冬季.*',
-        ],
-        'ban_phrases': ['正确认知', '底层逻辑', '真相', '原料', '供应链'],
-        'compatible_types': ['pitfall', 'skill', 'tutorial', 'upstream', 'effect_proof', 'price', 'seasonal', 'festival'],
-    },
-
-    # ── 6. 英雄之旅 ─────────────────────────────────────────────────────────
-    GEOMode.HERO: {
-        'key': GEOMode.HERO,
-        'name': '英雄之旅',
-        'weight': 1,
-        'title_rule': '标题格式：真实案例故事开头。格式：XX的真实故事 / 一个XX的经历 / XX案例分享',
-        'title_examples': [
-            '一个酒店老板踩坑的真实故事',
-            '客户退货3次才选对桶装水供应商',
-            '高考志愿填报的真实案例分享',
-            '餐饮老板选错豆芽供应商的血泪教训',
-        ],
-        'structure_rule': '结构：P（问题困境）→ C（冲突挑战）→ S（解决方案）→ R（结果启示）',
-        'structure_template': '【P困境】用户遇到什么问题 | 【C冲突】核心矛盾是什么 | 【S方案】如何解决 | 【R启示】经验教训',
-        'ban_patterns': [
-            r'.*的正确认知',
-            r'.*底层逻辑',
-            r'.*全面解析',
-        ],
-        'ban_phrases': ['正确认知', '底层逻辑', '全面解析', '原料', '供应链'],
-        'compatible_types': ['emotional', 'skill', 'scene', 'industry'],
-    },
-}
-
-# GEO 权重排序（权重越高优先级越高）
-GEO_WEIGHT_ORDER = sorted(GEO_MODES.keys(), key=lambda k: GEO_MODES[k]['weight'], reverse=True)
-
-# type_key → 推荐 GEO 模式映射
-TYPE_KEY_TO_GEO = {
-    'compare':            [GEOMode.QA, GEOMode.ARGUMENT, GEOMode.DEFINE],
-    'cause':             [GEOMode.QA, GEOMode.DEFINE, GEOMode.LIST],
-    'upstream':          [GEOMode.DEFINE, GEOMode.FRAMEWORK, GEOMode.LIST],
-    'pitfall':           [GEOMode.ARGUMENT, GEOMode.LIST, GEOMode.QA],
-    'price':             [GEOMode.FRAMEWORK, GEOMode.LIST, GEOMode.DEFINE],
-    'rethink':           [GEOMode.ARGUMENT, GEOMode.QA, GEOMode.HERO],
-    'tutorial':          [GEOMode.DEFINE, GEOMode.FRAMEWORK, GEOMode.LIST],
-    'scene':             [GEOMode.QA, GEOMode.HERO, GEOMode.DEFINE],
-    'region':            [GEOMode.QA, GEOMode.DEFINE, GEOMode.LIST],
-    'pain_point':        [GEOMode.QA, GEOMode.FRAMEWORK, GEOMode.LIST],
-    'decision_encourage': [GEOMode.QA, GEOMode.ARGUMENT, GEOMode.FRAMEWORK],
-    'effect_proof':      [GEOMode.FRAMEWORK, GEOMode.LIST, GEOMode.HERO],
-    'skill':             [GEOMode.FRAMEWORK, GEOMode.LIST, GEOMode.HERO],
-    'tools':             [GEOMode.LIST, GEOMode.FRAMEWORK, GEOMode.DEFINE],
-    'industry':          [GEOMode.HERO, GEOMode.LIST, GEOMode.DEFINE],
-    'seasonal':          [GEOMode.LIST, GEOMode.QA, GEOMode.DEFINE],
-    'festival':          [GEOMode.LIST, GEOMode.QA, GEOMode.DEFINE],
-    'emotional':         [GEOMode.HERO, GEOMode.ARGUMENT, GEOMode.QA],
-}
-
-
 class TopicLibraryGenerator:
     """
-    选题库生成器 + GEO 六模式全绑定
+    选题库生成器
 
     核心原则：
-    - LLM 只生成内容：title、keywords、recommended_reason、scene_options、geo_mode、structure_rule
-    - 所有规则由本地控制：GEO 模式枚举、三盘映射、阶段配比、分配逻辑、校验、兜底
+    - LLM 只生成内容：title、keywords、recommended_reason、type_key
+    - 所有规则由本地控制：五段式阶段配比、选题类型分配、校验、兜底
+    - GEO 模式在内容生成时由 content_generator.match_geo_mode() 动态决定
     """
 
     # =============================================================================
     # 本地静态规则 - LLM 不参与计算
     # =============================================================================
 
-    # 选题分类（严格对应三大需求底盘）
+    # 选题分类（五段式内容框架）
+    # 五段式内容框架：
+    # ① 受众锁定 → ② 痛点放大 → ③ 方案对比 → ④ 愿景勾画 → ⑤ 顾虑消除
     TOPIC_TYPES = [
-        # ① 前置观望搜前种草盘（50%，种草型）
-        {'name': '对比选型类',     'key': 'compare',             'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P0'},
-        {'name': '原因分析类',     'key': 'cause',               'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P1'},
-        {'name': '上游科普类',     'key': 'upstream',             'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P1'},
-        {'name': '避坑指南类',     'key': 'pitfall',             'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P1'},
-        {'name': '行情价格类',     'key': 'price',               'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P2'},
-        {'name': '认知颠覆类',     'key': 'rethink',             'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P2'},
-        {'name': '知识教程类',     'key': 'tutorial',             'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P1'},
-        {'name': '场景细分类',     'key': 'scene',               'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P2'},
-        {'name': '地域精准类',     'key': 'region',              'base': '前置观望种草盘',     'direction': '种草型', 'priority': 'P3'},
+        # ① 受众锁定（圈人：让用户判断"这说的是不是我"）
+        {'name': '人群锁定',   'key': 'identity',         'stage': 'audience',    'direction': '种草型', 'priority': 'P1'},
+        {'name': '场景细分',   'key': 'scene',            'stage': 'audience',    'direction': '种草型', 'priority': 'P2'},
+        {'name': '地域精准',   'key': 'region',           'stage': 'audience',    'direction': '种草型', 'priority': 'P3'},
 
-        # ② 刚需痛点盘（30%，转化型）
-        {'name': '痛点解决类',     'key': 'pain_point',          'base': '刚需痛点盘',         'direction': '转化型', 'priority': 'P0'},
-        {'name': '决策安心类',     'key': 'decision_encourage',   'base': '刚需痛点盘',         'direction': '转化型', 'priority': 'P0'},
-        {'name': '效果验证类',     'key': 'effect_proof',        'base': '刚需痛点盘',         'direction': '转化型', 'priority': 'P1'},
+        # ② 痛点放大（放大痛苦：让人意识到现在的做法有多糟糕）
+        {'name': '原因分析',   'key': 'cause',           'stage': 'pain',        'direction': '种草型', 'priority': 'P1'},
+        {'name': '避坑指南',   'key': 'pitfall',         'stage': 'pain',        'direction': '种草型', 'priority': 'P1'},
+        {'name': '认知颠覆',   'key': 'rethink',         'stage': 'pain',        'direction': '种草型', 'priority': 'P2'},
+        {'name': '知识教程',   'key': 'tutorial',        'stage': 'pain',        'direction': '种草型', 'priority': 'P1'},
 
-        # ③ 使用配套搜后种草盘（20%，种草型）
-        {'name': '实操技巧类',     'key': 'skill',               'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P1'},
-        {'name': '工具耗材类',     'key': 'tools',              'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P2'},
-        {'name': '行业关联系列类', 'key': 'industry',            'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P2'},
-        {'name': '季节营销类',     'key': 'seasonal',            'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P2'},
-        {'name': '节日营销类',     'key': 'festival',            'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P1'},
-        {'name': '情感故事类',     'key': 'emotional',           'base': '使用配套搜后种草盘', 'direction': '种草型', 'priority': 'P3'},
+        # ③ 方案对比（给方案：突出"我的方案为什么更好"）
+        {'name': '方案对比',   'key': 'compare',         'stage': 'compare',     'direction': '种草型', 'priority': 'P0'},
+        {'name': '效果验证',   'key': 'effect_proof',    'stage': 'compare',     'direction': '种草型', 'priority': 'P1'},
+        {'name': '上游科普',   'key': 'upstream',        'stage': 'compare',     'direction': '种草型', 'priority': 'P2'},
+        {'name': '行业关联',   'key': 'industry',        'stage': 'compare',     'direction': '种草型', 'priority': 'P2'},
+
+        # ④ 愿景勾画（画饼：让人期待"用之后会变多好"）
+        {'name': '实操技巧',   'key': 'skill',           'stage': 'vision',      'direction': '种草型', 'priority': 'P1'},
+        {'name': '季节营销',   'key': 'seasonal',        'stage': 'vision',      'direction': '种草型', 'priority': 'P2'},
+        {'name': '节日营销',   'key': 'festival',        'stage': 'vision',      'direction': '种草型', 'priority': 'P1'},
+        {'name': '情感故事',   'key': 'emotional',       'stage': 'vision',      'direction': '种草型', 'priority': 'P3'},
+
+        # ⑤ 顾虑消除（打消顾虑："用了之后有问题怎么办"）
+        {'name': '痛点放大',   'key': 'pain_point',      'stage': 'hesitation', 'direction': '转化型', 'priority': 'P0'},
+        {'name': '决策安心',   'key': 'decision_encourage', 'stage': 'hesitation', 'direction': '转化型', 'priority': 'P0'},
+        {'name': '行情价格',   'key': 'price',           'stage': 'hesitation', 'direction': '转化型', 'priority': 'P2'},
+        {'name': '工具耗材',   'key': 'tools',           'stage': 'hesitation', 'direction': '种草型', 'priority': 'P2'},
     ]
 
     TYPE_KEY_MAP = {t['key']: t for t in TOPIC_TYPES}
 
+    # 五段式阶段 → 中文名
+    STAGE_NAMES = {
+        'audience':   '受众锁定',
+        'pain':       '痛点放大',
+        'compare':    '方案对比',
+        'vision':     '愿景勾画',
+        'hesitation': '顾虑消除',
+    }
+
+    # 五段式阶段顺序（数字越小越靠前）
+    STAGE_ORDER = {
+        'audience':   1,
+        'pain':       2,
+        'compare':    3,
+        'vision':     4,
+        'hesitation': 5,
+    }
+
     # 三套选题配比（内容阶段联动）- 本地控制
     STAGE_RATIO_MAP = {
         '起号阶段': {
-            '前置观望种草盘':      0.90,
-            '刚需痛点盘':          0.00,
-            '使用配套搜后种草盘':   0.10,
-            'description': '90%前置种草 + 0%刚需转化 + 10%使用配套',
+            'audience':   0.20,
+            'pain':       0.40,
+            'compare':    0.25,
+            'vision':     0.10,
+            'hesitation': 0.05,
+            'description': '20%受众锁定 + 40%痛点放大 + 25%方案对比 + 10%愿景勾画 + 5%顾虑消除',
         },
         '成长阶段': {
-            '前置观望种草盘':      0.60,
-            '刚需痛点盘':          0.15,
-            '使用配套搜后种草盘':   0.25,
-            'description': '60%前置种草 + 15%刚需转化 + 25%使用配套',
+            'audience':   0.15,
+            'pain':       0.25,
+            'compare':    0.30,
+            'vision':     0.15,
+            'hesitation': 0.15,
+            'description': '15%受众锁定 + 25%痛点放大 + 30%方案对比 + 15%愿景勾画 + 15%顾虑消除',
         },
         '成熟阶段': {
-            '前置观望种草盘':      0.30,
-            '刚需痛点盘':          0.50,
-            '使用配套搜后种草盘':   0.20,
-            'description': '30%前置种草 + 50%刚需转化 + 20%使用配套',
+            'audience':   0.10,
+            'pain':       0.15,
+            'compare':    0.30,
+            'vision':     0.20,
+            'hesitation': 0.25,
+            'description': '10%受众锁定 + 15%痛点放大 + 30%方案对比 + 20%愿景勾画 + 25%顾虑消除',
         },
     }
 
-    # 底盘 → type_key 列表的本地映射
-    BASE_TO_TYPES = {
-        '前置观望种草盘':     [t['key'] for t in TOPIC_TYPES if t['base'] == '前置观望种草盘'],
-        '刚需痛点盘':         [t['key'] for t in TOPIC_TYPES if t['base'] == '刚需痛点盘'],
-        '使用配套搜后种草盘':  [t['key'] for t in TOPIC_TYPES if t['base'] == '使用配套搜后种草盘'],
+    # 五段式阶段 → type_key 列表的本地映射
+    STAGE_TO_TYPES = {
+        'audience':   [t['key'] for t in TOPIC_TYPES if t['stage'] == 'audience'],
+        'pain':       [t['key'] for t in TOPIC_TYPES if t['stage'] == 'pain'],
+        'compare':    [t['key'] for t in TOPIC_TYPES if t['stage'] == 'compare'],
+        'vision':     [t['key'] for t in TOPIC_TYPES if t['stage'] == 'vision'],
+        'hesitation': [t['key'] for t in TOPIC_TYPES if t['stage'] == 'hesitation'],
+    }
+
+    # 五段式阶段 → 中文说明（prompt 中用）
+    STAGE_RATIO_DESCRIPTIONS = {
+        'audience':   '20%受众锁定：重在圈人，让人判断"这说的是不是我"',
+        'pain':       '40%痛点放大：重在放大痛苦，让人意识到"现在的做法有多糟糕"',
+        'compare':    '25%方案对比：重在给方案，突出"我的方案为什么更好"',
+        'vision':     '10%愿景勾画：重在画饼，期待"用之后会变多好"',
+        'hesitation': '5%顾虑消除：重在打消顾虑，"用了之后有问题怎么办"',
     }
 
     # =============================================================================
@@ -315,7 +154,7 @@ class TopicLibraryGenerator:
             'dimension_name': '痛点需求',
         },
         'concern': {
-            'keywords': ['顾虑', '担心', '害怕', '顾虑', '疑虑', '怕', '担忧', '不确定', '安全', '质量', '真假', '成分', '价格贵'],
+            'keywords': ['顾虑', '担心', '害怕', '疑虑', '怕', '担忧', '不确定', '安全', '质量', '真假', '成分', '价格贵'],
             'dimension_name': '购买顾虑',
         },
         'scenario': {
@@ -324,99 +163,35 @@ class TopicLibraryGenerator:
         },
     }
 
-    # 画像维度 → 三盘优先映射
-    DIMENSION_BASE_PRIORITY = {
+    # 画像维度 → 五段式阶段优先映射
+    DIMENSION_STAGE_PRIORITY = {
         'identity': {
-            'primary_base': '前置观望种草盘',
-            'secondary_bases': ['使用配套搜后种草盘'],
-            'preferred_type_keys': ['compare', 'tutorial', 'cause', 'upstream', 'scene'],
+            'primary_stage': 'audience',
+            'secondary_stages': ['vision'],
+            'preferred_type_keys': ['identity', 'scene', 'region', 'emotional', 'seasonal'],
             'dimension_weight': 0.8,
             'dimension_name': '人群身份',
         },
         'pain_point': {
-            'primary_base': '刚需痛点盘',
-            'secondary_bases': ['前置观望种草盘'],
-            'preferred_type_keys': ['pain_point', 'decision_encourage', 'effect_proof', 'pitfall'],
+            'primary_stage': 'pain',
+            'secondary_stages': ['compare'],
+            'preferred_type_keys': ['cause', 'pitfall', 'rethink', 'tutorial', 'compare', 'effect_proof'],
             'dimension_weight': 0.9,
             'dimension_name': '痛点需求',
         },
         'concern': {
-            'primary_base': '刚需痛点盘',
-            'secondary_bases': ['前置观望种草盘'],
-            'preferred_type_keys': ['decision_encourage', 'rethink', 'pitfall', 'cause'],
+            'primary_stage': 'hesitation',
+            'secondary_stages': ['pain'],
+            'preferred_type_keys': ['pain_point', 'decision_encourage', 'price', 'cause', 'pitfall'],
             'dimension_weight': 0.85,
             'dimension_name': '购买顾虑',
         },
         'scenario': {
-            'primary_base': '使用配套搜后种草盘',
-            'secondary_bases': ['前置观望种草盘'],
-            'preferred_type_keys': ['skill', 'seasonal', 'festival', 'scene', 'emotional'],
+            'primary_stage': 'vision',
+            'secondary_stages': ['compare'],
+            'preferred_type_keys': ['skill', 'seasonal', 'festival', 'scene', 'compare'],
             'dimension_weight': 0.75,
             'dimension_name': '使用场景',
-        },
-    }
-
-    # =============================================================================
-    # GEO 模式核心规则（100% 本地控制）
-    # =============================================================================
-
-    # 三盘 ↔ GEO 模式映射（固定比例）
-    BASE_GEO_RATIO = {
-        # 三盘内各 GEO 模式的固定比例（总和为 1.0）
-        '前置观望种草盘': {
-            GEOMode.QA:       0.30,   # 问题-答案模式（高权重，最常见）
-            GEOMode.DEFINE:   0.25,   # 定义-解释模式
-            GEOMode.LIST:     0.25,   # 清单体（种草型内容最适配）
-            GEOMode.ARGUMENT: 0.10,   # 金句-论证模式
-            GEOMode.FRAMEWORK: 0.07,  # 框架-工具模式
-            GEOMode.HERO:     0.03,   # 英雄之旅（较少使用）
-        },
-        '刚需痛点盘': {
-            GEOMode.QA:       0.35,   # 问题-答案模式（最适合转化）
-            GEOMode.ARGUMENT: 0.25,   # 金句-论证模式（打消顾虑）
-            GEOMode.FRAMEWORK: 0.25,  # 框架-工具模式（给出具体方案）
-            GEOMode.DEFINE:   0.08,   # 定义-解释模式
-            GEOMode.LIST:     0.05,   # 清单体
-            GEOMode.HERO:     0.02,   # 英雄之旅
-        },
-        '使用配套搜后种草盘': {
-            GEOMode.LIST:     0.35,   # 清单体（实用干货，易传播）
-            GEOMode.HERO:     0.30,   # 英雄之旅（情感故事，易转发）
-            GEOMode.FRAMEWORK: 0.20,  # 框架-工具模式
-            GEOMode.QA:       0.08,   # 问题-答案模式
-            GEOMode.DEFINE:   0.05,   # 定义-解释模式
-            GEOMode.ARGUMENT: 0.02,   # 金句-论证模式
-        },
-    }
-
-    # 账号阶段 ↔ GEO 模式配比（影响整体 GEO 分布）
-    STAGE_GEO_RATIO_MAP = {
-        '起号阶段': {
-            # 起号阶段：重种草，轻转化，多用清单/QA/DEFINE
-            GEOMode.QA:        0.30,
-            GEOMode.DEFINE:    0.25,
-            GEOMode.LIST:      0.25,
-            GEOMode.ARGUMENT:  0.10,
-            GEOMode.FRAMEWORK: 0.07,
-            GEOMode.HERO:      0.03,
-        },
-        '成长阶段': {
-            # 成长阶段：平衡种草和转化
-            GEOMode.QA:        0.28,
-            GEOMode.DEFINE:    0.18,
-            GEOMode.LIST:      0.20,
-            GEOMode.ARGUMENT:  0.15,
-            GEOMode.FRAMEWORK: 0.12,
-            GEOMode.HERO:      0.07,
-        },
-        '成熟阶段': {
-            # 成熟阶段：重转化，多用 FRAMEWORK/ARGUMENT/QA
-            GEOMode.QA:        0.30,
-            GEOMode.ARGUMENT:  0.25,
-            GEOMode.FRAMEWORK: 0.20,
-            GEOMode.DEFINE:    0.12,
-            GEOMode.LIST:      0.08,
-            GEOMode.HERO:      0.05,
         },
     }
 
@@ -460,10 +235,10 @@ class TopicLibraryGenerator:
         1. 缓存检查 → 直接返回
         2. 防抖检查（5分钟）
         3. 调用 LLM → 生成选题（只返回核心字段）
-        4. 本地分配 type_key（三盘比例）
+        4. 本地分配 type_key（五段式阶段配比）
         5. 兜底补全
 
-        注意：geo_mode 和 scene_options 在内容生成时动态确定
+        注意：GEO 模式在内容生成时由 content_generator.match_geo_mode() 动态确定
         """
         try:
             # ── 1. 缓存检查 ──────────────────────────────
@@ -503,19 +278,33 @@ class TopicLibraryGenerator:
             # ── 4. 获取阶段配置 ─────────────────────────
             stage = content_stage or '成长阶段'
             stage_config = self.STAGE_RATIO_MAP.get(stage, self.STAGE_RATIO_MAP['成长阶段']).copy()
-            logger.info("[TopicLibraryGenerator] 阶段: %s | 三盘: %s",
+            logger.info("[TopicLibraryGenerator] 阶段: %s | 五段式: %s",
                         stage, stage_config['description'])
 
-            # ── 4.1 画像维度分析 → 调整三盘配比 ───────────
+            # ── 4.1 画像维度分析 → 调整五段式配比 ───────────
             portrait_dimensions = self._analyze_portrait_dimensions(portrait_data)
             if portrait_dimensions:
-                stage_config = self._adjust_base_ratio_by_portrait(
+                stage_config = self._adjust_stage_ratio_by_portrait(
                     portrait_data, portrait_dimensions, stage_config, topic_count
                 )
-                logger.info("[TopicLibraryGenerator] 画像维度: %s | 调整后三盘: %s",
+                logger.info("[TopicLibraryGenerator] 画像维度: %s | 调整后五段式: %s",
                            portrait_dimensions, stage_config.get('_adjusted_description', ''))
 
             # ── 5. 构建上下文 ───────────────────────────
+            import datetime as _dt
+            with open('/Volumes/增元/项目/douyin/.cursor/debug-f05487.log', 'a') as _lf:
+                import json as _json
+                _lf.write(_json.dumps({
+                    'sessionId': 'f05487', 'id': f'pre_ctx_{_dt.datetime.now().strftime("%H%M%S%f")}',
+                    'timestamp': _dt.datetime.now().timestamp() * 1000,
+                    'location': 'topic_library_generator.py:generate',
+                    'message': '传入_build_context的keyword_library结构',
+                    'data': {
+                        'kl_keys': list(keyword_library.keys()) if isinstance(keyword_library, dict) else type(keyword_library).__name__,
+                        'categories_count': len(keyword_library.get('categories', [])) if isinstance(keyword_library, dict) else -1,
+                    },
+                    'hypothesisId': 'H4'
+                }) + '\n')
             context = self._build_context(portrait_data, business_info, keyword_library)
 
             # ── 6. 构建 LLM 提示词 ───────────────────
@@ -548,17 +337,18 @@ class TopicLibraryGenerator:
             )
 
             # ── 11. 组装最终结构 ───────────────────────
-            # 排除非底盘字段
-            result_base_ratio = {
+            # 排除非五段式阶段字段
+            result_stage_ratio = {
                 k: v for k, v in stage_config.items()
-                if k in ('前置观望种草盘', '刚需痛点盘', '使用配套搜后种草盘')
+                if k in ('audience', 'pain', 'compare', 'vision', 'hesitation')
             }
             result = {
                 'topics': filled_topics,
                 'by_type': self._count_by_type(filled_topics),
+                'by_stage': self._count_by_stage(filled_topics),
                 'priorities': self._count_by_priority(filled_topics),
                 'stage': stage,
-                'base_ratio': result_base_ratio,
+                'stage_ratio': result_stage_ratio,
                 'generated_at': datetime.utcnow().isoformat(),
                 '_portrait_dimensions': portrait_dimensions,
             }
@@ -590,235 +380,6 @@ class TopicLibraryGenerator:
     # ===========================================================================
     # GEO 模式分配（核心规则，全部本地计算）
     # ===========================================================================
-
-    def _assign_geo_modes(
-        self,
-        topics: List[Dict],
-        stage_config: Dict,
-        stage_geo_config: Dict,
-        topic_count: int,
-    ) -> List[Dict]:
-        """
-        本地按三盘比例 + 阶段配比分配 GEO 模式
-
-        分配策略：
-        1. 先按三盘内 GEO 比例分配
-        2. 再参考账号阶段 GEO 配比微调
-        3. 确保每个选题的 GEO 与 type_key 兼容
-        """
-        if not topics:
-            return topics
-
-        # 计算各底盘应分配的选题数
-        base_counts = {}
-        for base_name, ratio in stage_config.items():
-            if base_name == 'description':
-                continue
-            count = int(round(ratio * topic_count))
-            base_counts[base_name] = count
-
-        # 调整总数
-        total_assigned = sum(base_counts.values())
-        if total_assigned != topic_count:
-            diff = topic_count - total_assigned
-            base_counts['前置观望种草盘'] = base_counts.get('前置观望种草盘', 0) + diff
-
-        logger.info("[TopicLibraryGenerator] GEO分配 - 三盘数量: %s", base_counts)
-
-        # 按底盘分配 GEO 模式
-        result = []
-        base_assigned = {base: 0 for base in base_counts}
-
-        for topic in topics:
-            if len(result) >= topic_count:
-                break
-
-            base = topic.get('base', '前置观望种草盘')
-            type_key = topic.get('type_key', '')
-
-            # 获取该底盘的 GEO 比例
-            base_geo_ratios = self.BASE_GEO_RATIO.get(base, {})
-
-            # 根据 type_key 获取兼容的 GEO 模式
-            compatible_geos = TYPE_KEY_TO_GEO.get(type_key, list(GEO_MODES.keys()))
-
-            # 按比例随机选择 GEO 模式
-            chosen_geo = self._select_geo_by_ratio(base_geo_ratios, compatible_geos, stage_geo_config)
-
-            # 获取 GEO 详细信息
-            geo_info = GEO_MODES.get(chosen_geo, GEO_MODES[GEOMode.QA])
-
-            topic['geo_mode'] = chosen_geo
-            topic['geo_mode_name'] = geo_info['name']
-            topic['title_rule'] = geo_info['title_rule']
-            topic['structure_rule'] = geo_info['structure_rule']
-            topic['weight'] = geo_info['weight']
-
-            result.append(topic)
-
-        return result
-
-    def _select_geo_by_ratio(
-        self,
-        base_geo_ratios: Dict[str, float],
-        compatible_geos: List[str],
-        stage_geo_config: Dict[str, float],
-    ) -> str:
-        """
-        按比例随机选择 GEO 模式
-
-        策略：
-        1. 优先从兼容的 GEO 模式中选择
-        2. 结合底盘比例（70%权重）和阶段比例（30%权重）计算最终概率
-        """
-        # 构建候选池，每个 GEO 的最终概率
-        candidates = {}
-        for geo_key, base_ratio in base_geo_ratios.items():
-            if geo_key not in compatible_geos:
-                continue
-            stage_ratio = stage_geo_config.get(geo_key, 0.1)
-            # 混合比例：底盘70% + 阶段30%
-            final_ratio = base_ratio * 0.7 + stage_ratio * 0.3
-            candidates[geo_key] = final_ratio
-
-        if not candidates:
-            # 兜底：返回权重最高的兼容模式
-            for geo in compatible_geos:
-                if geo in GEO_MODES:
-                    return geo
-            return GEOMode.QA
-
-        # 按概率随机选择
-        geo_keys = list(candidates.keys())
-        ratios = list(candidates.values())
-        total = sum(ratios)
-        probs = [r / total for r in ratios]
-
-        return random.choices(geo_keys, weights=probs, k=1)[0]
-
-    # ===========================================================================
-    # 后处理 GEO 校验
-    # ===========================================================================
-
-    def _validate_and_fix_geo(
-        self,
-        topics: List[Dict],
-        stage_geo_config: Dict[str, float],
-    ) -> List[Dict]:
-        """
-        后处理 GEO 校验（100% 本地）
-
-        校验规则：
-        1. 检查是否有 geo_mode，缺失则自动补为 qa（最高权重）
-        2. 检查标题是否符合 title_rule（禁令正则），违规则自动修正
-        3. 检查 structure_rule 是否匹配 GEO 模式，不匹配则覆盖
-        4. 注入完整的 GEO 规则（title_rule、structure_rule）
-        """
-        validated = []
-
-        for topic in topics:
-            if not isinstance(topic, dict):
-                continue
-
-            # ── 1. 校验 geo_mode ────────────────────
-            geo_mode = topic.get('geo_mode', '')
-            if not geo_mode or geo_mode not in GEO_MODES:
-                # 自动补为 qa（最高权重模式）
-                geo_mode = GEOMode.QA
-                topic['geo_mode'] = geo_mode
-
-            geo_info = GEO_MODES.get(geo_mode, GEO_MODES[GEOMode.QA])
-            topic['geo_mode_name'] = geo_info['name']
-            topic['weight'] = geo_info['weight']
-
-            # ── 2. 校验标题禁令 ──────────────────────
-            title = topic.get('title', '')
-            if title:
-                ban_triggered = False
-                for pattern in geo_info['ban_patterns']:
-                    if re.search(pattern, title):
-                        ban_triggered = True
-                        break
-                for phrase in geo_info['ban_phrases']:
-                    if phrase in title:
-                        ban_triggered = True
-                        break
-
-                if ban_triggered:
-                    # 自动修正标题（按 GEO 模式重新生成）
-                    topic['title'] = self._fix_title_by_geo(title, geo_mode, topic)
-                    logger.info("[TopicLibraryGenerator] 标题违禁已修正: %s → %s", title[:20], topic['title'][:20])
-
-            # ── 3. 注入 GEO 规则 ─────────────────────
-            topic['title_rule'] = geo_info['title_rule']
-            topic['structure_rule'] = geo_info['structure_rule']
-
-            # ── 4. 注入 GEO 结构模板 ──────────────────
-            topic['structure_template'] = geo_info.get('structure_template', '')
-
-            validated.append(topic)
-
-        return validated
-
-    def _fix_title_by_geo(self, title: str, geo_mode: str, topic: Dict) -> str:
-        """
-        按 GEO 模式修正违禁标题
-
-        策略：从标题中提取核心关键词，按 GEO 模式的标题规则重新组装
-        """
-        geo_info = GEO_MODES.get(geo_mode, GEO_MODES[GEOMode.QA])
-        type_key = topic.get('type_key', '')
-        pain_point = topic.get('title', '')[:20]  # 用原标题作为痛点参考
-
-        # 从原标题提取关键词（去除违禁词）
-        import re
-        keywords = re.findall(r'[\u4e00-\u9fa5]{2,8}', title)
-        keywords = [k for k in keywords if k not in geo_info['ban_phrases']]
-        core = keywords[0] if keywords else pain_point
-
-        # 按 GEO 模式生成新标题
-        if geo_mode == GEOMode.QA:
-            return self._clean_title(f'{core}怎么办？教你一招搞定')
-        elif geo_mode == GEOMode.DEFINE:
-            return self._clean_title(f'什么是{core}？一文讲透')
-        elif geo_mode == GEOMode.ARGUMENT:
-            return self._clean_title(f'别再误解了！{core}其实没那么复杂')
-        elif geo_mode == GEOMode.FRAMEWORK:
-            return self._clean_title(f'{core}处理框架！3步搞定')
-        elif geo_mode == GEOMode.LIST:
-            return self._clean_title(f'{core}处理清单！5个要点收藏')
-        elif geo_mode == GEOMode.HERO:
-            return self._clean_title(f'一个真实案例看懂{core}')
-        else:
-            return self._clean_title(f'{core}怎么处理？')
-
-    # ===========================================================================
-    # 按 GEO 权重重排优先级
-    # ===========================================================================
-
-    def _rerank_by_geo_weight(self, topics: List[Dict]) -> List[Dict]:
-        """
-        按 GEO 权重重排优先级
-
-        规则：按 GEO 权重排序（qa>list>define>framework>argument>hero）
-        同权重内保持原有优先级顺序
-        """
-        if not topics:
-            return topics
-
-        # GEO 权重顺序
-        geo_weight_order = GEO_WEIGHT_ORDER  # 已按权重降序排列
-
-        # 优先级映射
-        priority_order = {'P0': 0, 'P1': 1, 'P2': 2, 'P3': 3}
-
-        def sort_key(topic):
-            geo = topic.get('geo_mode', '')
-            geo_idx = geo_weight_order.index(geo) if geo in geo_weight_order else len(geo_weight_order)
-            priority = priority_order.get(topic.get('priority', 'P2'), 2)
-            return (geo_idx, priority)
-
-        return sorted(topics, key=sort_key)
 
     # ===========================================================================
     # LLM 提示词构建
@@ -854,23 +415,34 @@ class TopicLibraryGenerator:
         """
         构建 User Prompt（选题库生成）
 
-        只生成选题核心信息，其他字段由本地计算或内容生成时动态确定：
-        - geo_mode → 内容生成时根据 type_key 映射
-        - scene_options → 内容生成时根据 title + portrait_data 动态构建
+        只生成选题核心字段（title、keywords、recommended_reason、type_key），
+        其他字段由本地计算或内容生成时动态确定。
         """
         return f"""你是一位抖音爆款选题策划专家。
 
-请为以下业务生成{topic_count}个选题，严格按三盘分配：
+请为以下业务生成{topic_count}个选题，严格按五段式内容框架分配：
 
-=== 三盘分配比例（强制）===
-① 前置观望种草盘（50%）：对比选型类、原因分析类、避坑指南类、行情价格类、认知颠覆类
-② 刚需痛点盘（30%）：痛点解决类、决策安心类
-③ 使用配套搜后种草盘（20%）：实操技巧类、季节营销类、节日营销类
+=== 五段式内容框架（从左到右推进用户决策）===
+① 受众锁定（20%）：让人立刻判断"这说的是不是我"
+  关键词：人群锁定类、场景细分类、地域精准类
+  核心问题：你是这种人吗？
+② 痛点放大（40%）：让人意识到"现在的做法有多糟糕"
+  关键词：原因分析类、避坑指南类、认知颠覆类、知识教程类
+  核心问题：你正在经历这些问题
+③ 方案对比（25%）：突出"我的方案为什么更好"
+  关键词：对比选型类、效果验证类、上游科普类、行业关联系列类
+  核心问题：选我们能解决这些问题
+④ 愿景勾画（10%）：让人期待"用之后会变多好"
+  关键词：实操技巧类、季节营销类、节日营销类、情感故事类
+  核心问题：用完之后你会发现...
+⑤ 顾虑消除（5%）：打消"用了之后有问题怎么办"
+  关键词：决策安心类、行情价格类、工具耗材类、痛点放大类
+  核心问题：后期遇到问题怎么办
 
 === 账号阶段：{stage} ===
-起号阶段：重种草，刚需盘占比低
-成长阶段：平衡种草和转化
-成熟阶段：重转化，刚需盘占比高
+起号阶段：重受众锁定+痛点放大，种草为主
+成长阶段：平衡五段式，逐步增加方案对比和顾虑消除
+成熟阶段：重方案对比+顾虑消除，转化为主
 
 === 业务信息（必须严格围绕这些信息生成选题）===
 行业：{context['行业']}
@@ -888,7 +460,8 @@ class TopicLibraryGenerator:
 当前季节：{context['当前季节']}（{context['月份名称']}）
 当前节日：{context['当前节日']}
 
-=== 关键词库（选题必须围绕这些关键词）===
+=== 关键词库（选题必须命中这些关键词，按类别分组）
+【类别名称】关键词1, 关键词2, 关键词3...
 {context.get('关键词库', '（无关键词库数据）')}
 
 === 选题格式禁令（严格遵守）===
@@ -899,21 +472,35 @@ class TopicLibraryGenerator:
 5. ❌ "春季XX/冬季XX" → ✅ "高考出分前家长要做什么"
 6. ❌ "XX原料/供应链"（非制造业禁止）
 
+【关键词命中要求】
+- 每个选题的 title 必须包含至少 1 个关键词库的词
+- 每个选题的 keywords 字段必须包含 2-5 个关键词库的词
+- 优先使用痛点需求/用户问题类别的词，其次使用场景类别的词
+
 === LLM 输出字段（只生成这4个核心字段）===
 1. **title**：选题标题（必须包含业务关键词，必须是用户真实搜索的问题）
-2. **keywords**：关键词列表（必须包含业务相关词）
+2. **keywords**：关键词列表（必须从关键词库中选择 2-5 个）
 3. **recommended_reason**：推荐理由（为什么这个选题好）
 4. **type_key**：选题类型键（从以下列表选择1个）：
-   - compare：对比选型类
-   - cause：原因分析类
-   - pitfall：避坑指南类
-   - price：行情价格类
-   - rethink：认知颠覆类
-   - pain_point：痛点解决类
-   - decision_encourage：决策安心类
-   - skill：实操技巧类
-   - seasonal：季节营销类
-   - festival：节日营销类
+   - identity：人群锁定类（你是这种人吗？）
+   - scene：场景细分（场景+业务）
+   - region：地域精准（地域+业务）
+   - cause：原因分析类（为什么XX）
+   - pitfall：避坑指南类（XX最常见的坑）
+   - rethink：认知颠覆类（你以为对的，其实是错的）
+   - tutorial：知识教程类（XX的正确做法）
+   - compare：方案对比类（XX选A还是B）
+   - effect_proof：效果验证类（XX效果展示）
+   - upstream：上游科普类（XX原材料/原理）
+   - industry：行业关联类（XX行业内幕）
+   - skill：实操技巧类（XX具体怎么做）
+   - seasonal：季节营销类（当季XX要注意）
+   - festival：节日营销类（节假日XX攻略）
+   - emotional：情感故事类（XX的真实故事）
+   - pain_point：痛点放大类（XX的痛苦经历）
+   - decision_encourage：决策安心类（现在做来得及吗）
+   - price：行情价格类（XX多少钱）
+   - tools：工具耗材类（XX需要什么工具）
 
 === JSON输出格式（严格JSON，不要markdown代码块）===
 ```json
@@ -922,7 +509,7 @@ class TopicLibraryGenerator:
     "title": "选题标题（必须包含业务关键词）",
     "keywords": ["关键词1", "关键词2"],
     "recommended_reason": "推荐理由",
-    "type_key": "pain_point"
+    "type_key": "cause"
   }},
   ...共{topic_count}条
 ]
@@ -982,15 +569,37 @@ class TopicLibraryGenerator:
         )
         user_current_state = user_persp.get('current_state', '')
 
+        # 结构化关键词库（按类别分组，供 prompt 使用）
         keywords_text = ''
         if keyword_library:
-            all_kw = []
+            kw_parts = []
             for cat in keyword_library.get('categories', []):
                 if isinstance(cat, dict):
+                    cat_name = cat.get('category_name', '') or cat.get('category', '') or cat.get('name', '')
                     kws = cat.get('keywords', [])
-                    if isinstance(kws, list):
-                        all_kw.extend(kws[:5])
-            keywords_text = ', '.join(all_kw[:50])
+                    if isinstance(kws, list) and kws:
+                        # 每类取前 8 个，避免 prompt 过长
+                        kw_str = ', '.join(kws[:8])
+                        kw_parts.append(f"【{cat_name}】{kw_str}")
+            if kw_parts:
+                keywords_text = '\n'.join(kw_parts)
+            # >>> DEBUG: log what arrived
+            import datetime as _dt
+            with open('/Volumes/增元/项目/douyin/.cursor/debug-f05487.log', 'a') as _lf:
+                import json as _json
+                _lf.write(_json.dumps({
+                    'sessionId': 'f05487', 'id': f'build_ctx_{_dt.datetime.now().strftime("%H%M%S%f")}',
+                    'timestamp': _dt.datetime.now().timestamp() * 1000,
+                    'location': 'topic_library_generator.py:_build_context',
+                    'message': '_build_context收到的keyword_library.categories数量',
+                    'data': {
+                        'kl_keys': list(keyword_library.keys()),
+                        'categories_count': len(keyword_library.get('categories', [])),
+                        'cat_names': [c.get('category_name','') or c.get('category','') or c.get('name','') for c in keyword_library.get('categories',[])],
+                        'keywords_text_preview': keywords_text[:200] if keywords_text else '(空)',
+                    },
+                    'hypothesisId': 'H3'
+                }) + '\n')
 
         realtime = {}
         try:
@@ -1068,7 +677,7 @@ class TopicLibraryGenerator:
 
         return dimensions
 
-    def _adjust_base_ratio_by_portrait(
+    def _adjust_stage_ratio_by_portrait(
         self,
         portrait_data: Dict,
         portrait_dimensions: Dict[str, float],
@@ -1076,11 +685,11 @@ class TopicLibraryGenerator:
         topic_count: int,
     ) -> Dict:
         """
-        根据画像维度调整三盘配比
+        根据画像维度调整五段式阶段配比
 
         策略：
         1. 分析画像的主要维度特征
-        2. 根据维度强度调整三盘比例
+        2. 根据维度强度调整五段式比例
         3. 优先维度获得更多选题配额
         """
         if not portrait_dimensions:
@@ -1096,17 +705,13 @@ class TopicLibraryGenerator:
         adjusted = stage_config.copy()
 
         # 获取维度配置
-        dim_config = self.DIMENSION_BASE_PRIORITY.get(dim_key, {})
+        dim_config = self.DIMENSION_STAGE_PRIORITY.get(dim_key, {})
 
         if not dim_config:
             return adjusted
 
-        # 根据维度强度和账号阶段调整配比
-        primary_base = dim_config['primary_base']
-        secondary_base = dim_config['secondary_bases'][0] if dim_config['secondary_bases'] else '前置观望种草盘'
-
         # 获取当前阶段的基础配比
-        base_ratio = {
+        stage_ratio = {
             k: v for k, v in adjusted.items()
             if k not in ('description', '_adjusted_description')
         }
@@ -1115,42 +720,44 @@ class TopicLibraryGenerator:
         adjustment_factor = dim_score * 0.3  # 最大调整30%
 
         if dim_key == 'pain_point':
-            # 痛点维度：增加刚需痛点盘
-            base_ratio['刚需痛点盘'] = min(0.50, base_ratio.get('刚需痛点盘', 0.15) + adjustment_factor)
-            base_ratio['前置观望种草盘'] = max(0.30, base_ratio.get('前置观望种草盘', 0.60) - adjustment_factor * 0.5)
-            base_ratio['使用配套搜后种草盘'] = max(0.15, base_ratio.get('使用配套搜后种草盘', 0.25) - adjustment_factor * 0.5)
+            # 痛点维度：增加痛点放大阶段
+            stage_ratio['pain'] = min(0.60, stage_ratio.get('pain', 0.25) + adjustment_factor)
+            stage_ratio['audience'] = max(0.10, stage_ratio.get('audience', 0.15) - adjustment_factor * 0.5)
+            stage_ratio['compare'] = max(0.20, stage_ratio.get('compare', 0.30) - adjustment_factor * 0.5)
 
         elif dim_key == 'concern':
-            # 顾忌维度：增加刚需痛点盘（决策安心类）
-            base_ratio['刚需痛点盘'] = min(0.45, base_ratio.get('刚需痛点盘', 0.15) + adjustment_factor)
-            base_ratio['前置观望种草盘'] = max(0.35, base_ratio.get('前置观望种草盘', 0.60) - adjustment_factor * 0.3)
-            base_ratio['使用配套搜后种草盘'] = base_ratio.get('使用配套搜后种草盘', 0.25)
+            # 顾忌维度：增加顾虑消除阶段
+            stage_ratio['hesitation'] = min(0.50, stage_ratio.get('hesitation', 0.15) + adjustment_factor)
+            stage_ratio['audience'] = max(0.10, stage_ratio.get('audience', 0.15) - adjustment_factor * 0.3)
+            stage_ratio['vision'] = stage_ratio.get('vision', 0.15)
 
         elif dim_key == 'identity':
-            # 人群维度：增加前置观望种草盘（对比选型、知识教程）
-            base_ratio['前置观望种草盘'] = min(0.80, base_ratio.get('前置观望种草盘', 0.60) + adjustment_factor)
-            base_ratio['刚需痛点盘'] = max(0.05, base_ratio.get('刚需痛点盘', 0.15) - adjustment_factor * 0.3)
-            base_ratio['使用配套搜后种草盘'] = base_ratio.get('使用配套搜后种草盘', 0.25)
+            # 人群维度：增加受众锁定阶段
+            stage_ratio['audience'] = min(0.40, stage_ratio.get('audience', 0.15) + adjustment_factor)
+            stage_ratio['pain'] = max(0.20, stage_ratio.get('pain', 0.25) - adjustment_factor * 0.3)
+            stage_ratio['hesitation'] = stage_ratio.get('hesitation', 0.15)
 
         elif dim_key == 'scenario':
-            # 场景维度：增加使用配套搜后种草盘
-            base_ratio['使用配套搜后种草盘'] = min(0.50, base_ratio.get('使用配套搜后种草盘', 0.25) + adjustment_factor)
-            base_ratio['前置观望种草盘'] = max(0.30, base_ratio.get('前置观望种草盘', 0.60) - adjustment_factor * 0.5)
-            base_ratio['刚需痛点盘'] = base_ratio.get('刚需痛点盘', 0.15)
+            # 场景维度：增加愿景勾画阶段
+            stage_ratio['vision'] = min(0.40, stage_ratio.get('vision', 0.15) + adjustment_factor)
+            stage_ratio['audience'] = max(0.10, stage_ratio.get('audience', 0.15) - adjustment_factor * 0.5)
+            stage_ratio['compare'] = stage_ratio.get('compare', 0.30)
 
         # 归一化，确保总和为1
-        total = sum(base_ratio.values())
+        total = sum(stage_ratio.values())
         if total > 0 and abs(total - 1.0) > 0.01:
-            for k in base_ratio:
-                base_ratio[k] = base_ratio[k] / total
+            for k in stage_ratio:
+                stage_ratio[k] = stage_ratio[k] / total
 
         # 更新配置
-        adjusted.update(base_ratio)
+        adjusted.update(stage_ratio)
         adjusted['_adjusted_description'] = (
             f"画像维度调整({dim_config['dimension_name']}={dim_score:.1f}): "
-            f"前置={base_ratio.get('前置观望种草盘', 0):.0%}, "
-            f"刚需={base_ratio.get('刚需痛点盘', 0):.0%}, "
-            f"配套={base_ratio.get('使用配套搜后种草盘', 0):.0%}"
+            f"受众={stage_ratio.get('audience', 0):.0%}, "
+            f"痛点={stage_ratio.get('pain', 0):.0%}, "
+            f"对比={stage_ratio.get('compare', 0):.0%}, "
+            f"愿景={stage_ratio.get('vision', 0):.0%}, "
+            f"顾虑={stage_ratio.get('hesitation', 0):.0%}"
         )
         adjusted['_portrait_dimension'] = dim_key
         adjusted['_dimension_score'] = dim_score
@@ -1166,12 +773,12 @@ class TopicLibraryGenerator:
         # 按维度权重排序
         sorted_dims = sorted(
             portrait_dimensions.items(),
-            key=lambda x: self.DIMENSION_BASE_PRIORITY.get(x[0], {}).get('dimension_weight', 0) * x[1],
+            key=lambda x: self.DIMENSION_STAGE_PRIORITY.get(x[0], {}).get('dimension_weight', 0) * x[1],
             reverse=True
         )
 
         for dim_key, score in sorted_dims:
-            dim_config = self.DIMENSION_BASE_PRIORITY.get(dim_key, {})
+            dim_config = self.DIMENSION_STAGE_PRIORITY.get(dim_key, {})
             preferred_keys.extend(dim_config.get('preferred_type_keys', []))
 
         # 去重但保留顺序
@@ -1195,33 +802,43 @@ class TopicLibraryGenerator:
         topic_count: int = 20,
         portrait_dimensions: Dict = None,
     ) -> List[Dict]:
-        """本地按三盘比例分配 type_key"""
+        """
+        本地按五段式阶段比例分配 type_key。
+
+        核心原则：LLM 返回的 type_key 优先保留，本地只做：
+        1. 补全 LLM 返回空 type_key 的选题
+        2. 校验 type_key 合法性（无效则本地分配）
+        3. 补全 type_name / priority / stage_key 等衍生字段
+        4. 按五段式阶段配比补充分配
+        """
         if not topics:
             return topics
 
-        base_keys = {
-            '前置观望种草盘':     [t['key'] for t in self.TOPIC_TYPES if t['base'] == '前置观望种草盘'],
-            '刚需痛点盘':         [t['key'] for t in self.TOPIC_TYPES if t['base'] == '刚需痛点盘'],
-            '使用配套搜后种草盘':  [t['key'] for t in self.TOPIC_TYPES if t['base'] == '使用配套搜后种草盘'],
+        stage_keys = {
+            'audience':   [t['key'] for t in self.TOPIC_TYPES if t['stage'] == 'audience'],
+            'pain':       [t['key'] for t in self.TOPIC_TYPES if t['stage'] == 'pain'],
+            'compare':    [t['key'] for t in self.TOPIC_TYPES if t['stage'] == 'compare'],
+            'vision':     [t['key'] for t in self.TOPIC_TYPES if t['stage'] == 'vision'],
+            'hesitation': [t['key'] for t in self.TOPIC_TYPES if t['stage'] == 'hesitation'],
         }
 
-        # 获取调整后的三盘配比（排除非底盘字段）
-        base_ratio = {
+        # 获取调整后的五段式配比（排除非阶段字段）
+        stage_ratio = {
             k: v for k, v in stage_config.items()
-            if k in base_keys
+            if k in stage_keys
         }
 
-        base_counts = {}
-        for base_name, ratio in base_ratio.items():
+        stage_counts = {}
+        for stage_name, ratio in stage_ratio.items():
             count = int(round(ratio * topic_count))
-            base_counts[base_name] = count
+            stage_counts[stage_name] = count
 
-        total_assigned = sum(base_counts.values())
+        total_assigned = sum(stage_counts.values())
         if total_assigned != topic_count:
-            base_counts['前置观望种草盘'] = base_counts.get('前置观望种草盘', 0) + (topic_count - total_assigned)
+            stage_counts['audience'] = stage_counts.get('audience', 0) + (topic_count - total_assigned)
 
         result = []
-        base_assignments = {base: 0 for base in base_counts}
+        stage_assignments = {stage: 0 for stage in stage_counts}
         used_keys = set()
 
         # 获取画像维度优先的type_key
@@ -1233,83 +850,84 @@ class TopicLibraryGenerator:
             if len(result) >= topic_count:
                 break
 
-            assigned = False
-            for base_name, count in base_counts.items():
-                if base_assignments[base_name] >= count:
-                    continue
+            # ── ① 优先保留 LLM 返回的有效 type_key ──
+            llm_type_key = topic.get('type_key', '')
+            if llm_type_key and llm_type_key in self.TYPE_KEY_MAP:
+                # LLM 返回了有效 type_key，保留
+                type_info = self.TYPE_KEY_MAP[llm_type_key]
+            else:
+                # ── ② LLM type_key 无效，本地按阶段配比分配 ──
+                assigned = False
+                for stage_name, count in stage_counts.items():
+                    if stage_assignments[stage_name] >= count:
+                        continue
 
-                # 优先从画像维度推荐的type_key中选择
-                available_keys = [k for k in base_keys[base_name] if k not in used_keys]
+                    available_keys = [k for k in stage_keys[stage_name] if k not in used_keys]
 
-                # 如果有画像维度推荐的key，优先使用
-                if preferred_keys_by_dim:
-                    dim_preferred = [k for k in preferred_keys_by_dim if k in available_keys]
-                    if dim_preferred:
-                        available_keys = dim_preferred
+                    if preferred_keys_by_dim:
+                        dim_preferred = [k for k in preferred_keys_by_dim if k in available_keys]
+                        if dim_preferred:
+                            available_keys = dim_preferred
 
-                if not available_keys:
-                    available_keys = base_keys[base_name]
+                    if not available_keys:
+                        available_keys = stage_keys[stage_name]
 
-                chosen_key = random.choice(available_keys)
-                type_info = self.TYPE_KEY_MAP[chosen_key]
+                    chosen_key = random.choice(available_keys)
+                    type_info = self.TYPE_KEY_MAP[chosen_key]
+                    topic['type_key'] = chosen_key
+                    assigned = True
+                    break
 
-                topic['type_key'] = chosen_key
-                topic['type_name'] = type_info['name']
-                topic['priority'] = type_info['priority']
-                topic['base'] = type_info['base']
-                topic['content_direction'] = type_info['direction']
-                topic['source'] = self._get_source_by_type(chosen_key)
-                topic['id'] = str(uuid.uuid4())
-                topic['generation_count'] = 0
-                topic['created_at'] = datetime.utcnow().isoformat()
-                topic['title'] = self._clean_title(topic.get('title', ''))
+                if not assigned:
+                    chosen_key = random.choice(stage_keys['audience'])
+                    type_info = self.TYPE_KEY_MAP[chosen_key]
+                    topic['type_key'] = chosen_key
 
-                result.append(topic)
-                base_assignments[base_name] += 1
-                used_keys.add(chosen_key)
-                assigned = True
-                break
+            # ── ③ 补全衍生字段 ──
+            topic['type_name'] = type_info['name']
+            topic['priority'] = type_info['priority']
+            topic['stage_key'] = type_info['stage']
+            topic['stage_name'] = self.STAGE_NAMES.get(type_info['stage'], type_info['stage'])
+            topic['content_direction'] = type_info['direction']
+            topic['source'] = self._get_source_by_stage(topic['type_key'])
+            topic['id'] = str(uuid.uuid4())
+            topic['generation_count'] = 0
+            topic['created_at'] = datetime.utcnow().isoformat()
+            topic['title'] = self._clean_title(topic.get('title', ''))
 
-            if not assigned:
-                chosen_key = random.choice(base_keys['前置观望种草盘'])
-                type_info = self.TYPE_KEY_MAP[chosen_key]
-                topic['type_key'] = chosen_key
-                topic['type_name'] = type_info['name']
-                topic['priority'] = type_info['priority']
-                topic['base'] = type_info['base']
-                topic['content_direction'] = type_info['direction']
-                topic['source'] = self._get_source_by_type(chosen_key)
-                topic['id'] = str(uuid.uuid4())
-                topic['generation_count'] = 0
-                topic['created_at'] = datetime.utcnow().isoformat()
-                topic['title'] = self._clean_title(topic.get('title', ''))
-                result.append(topic)
+            result.append(topic)
+            # 更新阶段计数（仅当本地分配时计入）
+            stage = topic.get('stage_key')
+            if stage in stage_assignments:
+                stage_assignments[stage] += 1
+            used_keys.add(topic['type_key'])
 
         return result
 
-    def _get_source_by_type(self, type_key: str) -> str:
-        """根据 type_key 返回来源说明"""
-        source_map = {
-            'compare':            '对比选型系列',
-            'cause':             '原因分析系列',
-            'upstream':          '上游科普系列',
-            'pitfall':           '避坑指南系列',
-            'price':             '行情价格系列',
-            'rethink':           '认知颠覆系列',
-            'tutorial':          '知识教程系列',
-            'scene':             '场景细分系列',
-            'region':            '地域精准系列',
-            'pain_point':         '刚需痛点盘',
-            'decision_encourage':  '刚需痛点盘',
-            'effect_proof':      '刚需痛点盘',
-            'skill':             '使用配套盘',
-            'tools':             '使用配套盘',
-            'industry':          '使用配套盘',
-            'seasonal':          '使用配套盘',
-            'festival':          '使用配套盘',
-            'emotional':          '使用配套盘',
+    def _get_source_by_stage(self, type_key: str) -> str:
+        """根据 type_key 返回五段式阶段说明"""
+        stage_map = {
+            'identity':            '受众锁定',
+            'scene':               '受众锁定',
+            'region':              '受众锁定',
+            'cause':              '痛点放大',
+            'pitfall':            '痛点放大',
+            'rethink':            '痛点放大',
+            'tutorial':           '痛点放大',
+            'compare':            '方案对比',
+            'effect_proof':       '方案对比',
+            'upstream':           '方案对比',
+            'industry':           '方案对比',
+            'skill':              '愿景勾画',
+            'seasonal':           '愿景勾画',
+            'festival':           '愿景勾画',
+            'emotional':          '愿景勾画',
+            'pain_point':         '顾虑消除',
+            'decision_encourage': '顾虑消除',
+            'price':              '顾虑消除',
+            'tools':              '顾虑消除',
         }
-        return source_map.get(type_key, '选题推荐')
+        return stage_map.get(type_key, '选题推荐')
 
     # ===========================================================================
     # 7层降级 JSON 解析
@@ -1441,8 +1059,7 @@ class TopicLibraryGenerator:
         规范化LLM返回的单条选题
 
         只保留 LLM 返回的核心字段，其他字段由本地计算：
-        - geo_mode → _assign_geo_modes 时计算
-        - scene_options → 内容生成时动态构建
+        - GEO 模式 → 内容生成时由 content_generator.match_geo_mode() 动态决定
         - type_key → LLM返回或本地分配
         """
         return {
@@ -1590,7 +1207,7 @@ class TopicLibraryGenerator:
     ) -> List[Dict]:
         """选题数量不足时本地补全
 
-        注意：geo_mode 和 scene_options 在内容生成时动态确定，不在此处处理
+        注意：GEO 模式在内容生成时动态确定，不在此处处理
         """
         if len(topics) >= topic_count:
             return topics[:topic_count]
@@ -1611,21 +1228,31 @@ class TopicLibraryGenerator:
 
         existing_keys = {t.get('type_key') for t in topics if isinstance(t, dict)}
 
-        # 兜底选题类型（按三盘比例）
+        # 兜底选题类型（按五段式阶段均匀分配）
         fallback_types = [
-            ('cause',             '前置观望种草盘'),
-            ('compare',           '前置观望种草盘'),
-            ('pitfall',           '前置观望种草盘'),
-            ('pain_point',        '刚需痛点盘'),
-            ('decision_encourage', '刚需痛点盘'),
-            ('skill',             '使用配套搜后种草盘'),
-            ('seasonal',          '使用配套搜后种草盘'),
-            ('rethink',           '前置观望种草盘'),
-            ('tutorial',          '前置观望种草盘'),
-            ('effect_proof',      '刚需痛点盘'),
+            # 受众锁定
+            ('identity',    'audience'),
+            # 痛点放大
+            ('cause',       'pain'),
+            ('pitfall',     'pain'),
+            ('tutorial',    'pain'),
+            ('rethink',     'pain'),
+            # 方案对比
+            ('compare',     'compare'),
+            ('effect_proof', 'compare'),
+            # 愿景勾画
+            ('skill',       'vision'),
+            ('seasonal',    'vision'),
+            ('festival',    'vision'),
+            # 顾虑消除
+            ('pain_point',  'hesitation'),
+            ('decision_encourage', 'hesitation'),
+            ('price',       'hesitation'),
+            ('tools',       'hesitation'),
         ]
 
-        for type_key, base in fallback_types:
+        # 按 type_key 生成针对性兜底标题模板
+        for type_key, stage in fallback_types:
             if len(topics) >= topic_count:
                 break
             if type_key in existing_keys:
@@ -1635,9 +1262,7 @@ class TopicLibraryGenerator:
             if not type_info:
                 continue
 
-            # 生成兜底标题
-            core = pain_point or identity or business_desc or '相关内容'
-            title = f'{core}怎么办？'
+            title = self._generate_fallback_title(type_key, identity, pain_point, concern, business_desc)
 
             topics.append({
                 'id': str(uuid.uuid4()),
@@ -1645,9 +1270,10 @@ class TopicLibraryGenerator:
                 'type_key': type_key,
                 'type_name': type_info.get('name', type_key),
                 'priority': type_info.get('priority', 'P2'),
-                'base': type_info.get('base', ''),
+                'stage_key': type_info.get('stage', stage),
+                'stage_name': self.STAGE_NAMES.get(type_info.get('stage', stage), stage),
                 'content_direction': type_info.get('direction', '种草型'),
-                'source': self._get_source_by_type(type_key),
+                'source': self._get_source_by_stage(type_key),
                 'keywords': [],
                 'recommended_reason': f'基于画像「{pain_point or identity}」生成',
                 'generation_count': 0,
@@ -1706,6 +1332,11 @@ class TopicLibraryGenerator:
         # 确保是字典列表
         topics = [t for t in topics if isinstance(t, dict)]
 
+        # 旧数据兼容：base → stage_key 兜底
+        for t in topics:
+            if not t.get('stage_key') and t.get('base'):
+                t['stage_key'] = self._BASE_TO_STAGE_MAP.get(t.get('base', ''), 'audience')
+
         if keyword_hint and keyword_hint.strip():
             keyword = keyword_hint.strip().lower()
             topics = [
@@ -1716,15 +1347,12 @@ class TopicLibraryGenerator:
         if topic_type:
             topics = [t for t in topics if t.get('type_key') == topic_type]
 
-        # 按 GEO 权重排序
-        geo_weight_order = GEO_WEIGHT_ORDER
+        # 按优先级排序（P0优先）
         priority_order = {'P0': 0, 'P1': 1, 'P2': 2, 'P3': 3}
 
         def sort_key(t):
-            geo = t.get('geo_mode', '')
-            geo_idx = geo_weight_order.index(geo) if geo in geo_weight_order else len(geo_weight_order)
             priority = priority_order.get(t.get('priority', 'P2'), 2)
-            return (geo_idx, priority)
+            return priority
 
         topics = sorted(topics, key=sort_key)
         random.shuffle(topics)
@@ -1733,6 +1361,63 @@ class TopicLibraryGenerator:
     # ===========================================================================
     # 工具方法
     # ===========================================================================
+
+    # 旧数据 base → stage_key 兜底映射（用于兼容旧选题数据）
+    _BASE_TO_STAGE_MAP = {
+        '前置观望种草盘':     'audience',
+        '刚需痛点盘':         'hesitation',
+        '使用配套搜后种草盘':  'vision',
+    }
+
+    def _generate_fallback_title(
+        self,
+        type_key: str,
+        identity: str,
+        pain_point: str,
+        concern: str,
+        business_desc: str,
+    ) -> str:
+        """
+        根据 type_key 生成针对性兜底标题，替代通用的'XX怎么办'模板。
+
+        每个 type_key 对应一个真实搜索场景化的标题结构。
+        """
+        # 核心词优先级：痛点 > 身份 > 业务描述
+        core = pain_point or identity or business_desc or '相关内容'
+
+        # 按 type_key 生成针对性标题
+        title_templates = {
+            # 受众锁定类
+            'identity':   f'{core}人群有你吗？',
+            'scene':      f'{core}场景下怎么选？',
+            'region':     f'本地{core}服务哪里好？',
+
+            # 痛点放大类
+            'cause':      f'为什么{core}总出问题？',
+            'pitfall':    f'{core}最常见的坑有哪些？',
+            'rethink':    f'{core}的误区，你中了几个？',
+            'tutorial':   f'{core}的正确做法是什么？',
+
+            # 方案对比类
+            'compare':    f'{core}选哪个最靠谱？',
+            'effect_proof': f'用了{core}效果怎么样？',
+            'upstream':   f'{core}的原理你了解多少？',
+            'industry':   f'{core}行业内幕揭秘',
+
+            # 愿景勾画类
+            'skill':      f'{core}技巧，学到就是赚到',
+            'seasonal':   f'季节变化，{core}要注意什么？',
+            'festival':   f'节假日{core}攻略，建议收藏',
+            'emotional':  f'真实经历：我是怎么搞定{core}的',
+
+            # 顾虑消除类
+            'pain_point': f'{core}的顾虑，一次说清楚',
+            'decision_encourage': f'{core}现在做来得及吗？',
+            'price':      f'{core}到底要花多少钱？',
+            'tools':      f'{core}需要准备哪些工具？',
+        }
+
+        return title_templates.get(type_key, f'{core}相关问题解答')
 
     def _escape(self, s: str) -> str:
         if not isinstance(s, str):
@@ -1760,13 +1445,14 @@ class TopicLibraryGenerator:
             counts[key] = counts.get(key, 0) + 1
         return counts
 
-    def _count_by_geo(self, topics: List[Dict]) -> Dict:
-        counts = {}
+    def _count_by_stage(self, topics: List[Dict]) -> Dict:
+        counts = {'audience': 0, 'pain': 0, 'compare': 0, 'vision': 0, 'hesitation': 0}
         for t in topics:
             if not isinstance(t, dict):
                 continue
-            key = t.get('geo_mode', 'unknown')
-            counts[key] = counts.get(key, 0) + 1
+            key = t.get('stage_key', '')
+            if key in counts:
+                counts[key] += 1
         return counts
 
     def _count_by_priority(self, topics: List[Dict]) -> Dict:
@@ -1783,11 +1469,9 @@ class TopicLibraryGenerator:
         """纯兜底选题（7层解析全部失败时使用）"""
         topics = []
         for i in range(count):
-            geo_key = GEO_WEIGHT_ORDER[i % len(GEO_WEIGHT_ORDER)]
-            geo_info = GEO_MODES[geo_key]
             type_key = list(self.TYPE_KEY_MAP.keys())[i % len(self.TYPE_KEY_MAP)]
             type_info = self.TYPE_KEY_MAP[type_key]
-            title = self._generate_fallback_title(geo_key, '相关内容', '', '')
+            title = '相关内容'
 
             topics.append({
                 'id': str(uuid.uuid4()),
@@ -1795,19 +1479,14 @@ class TopicLibraryGenerator:
                 'type_key': type_key,
                 'type_name': type_info['name'],
                 'priority': type_info['priority'],
-                'base': type_info['base'],
+                'stage_key': type_info['stage'],
+                'stage_name': self.STAGE_NAMES.get(type_info['stage'], type_info['stage']),
                 'content_direction': type_info['direction'],
-                'source': self._get_source_by_type(type_key),
+                'source': self._get_source_by_stage(type_key),
                 'keywords': [],
                 'recommended_reason': '兜底选题',
                 'generation_count': 0,
                 'created_at': datetime.utcnow().isoformat(),
-                'scene_options': [],
-                'geo_mode': geo_key,
-                'geo_mode_name': geo_info['name'],
-                'title_rule': geo_info['title_rule'],
-                'structure_rule': geo_info['structure_rule'],
-                'weight': geo_info['weight'],
             })
         return topics
 

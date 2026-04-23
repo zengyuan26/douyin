@@ -1976,7 +1976,11 @@ def api_generate_content_from_topic():
             # 首次评分（content 可能是 str 或 dict）
             from services.content_quality_scorer import content_scorer
             if isinstance(content, str):
-                score_result = content_scorer.score_text(content, brand_name, content_type=result_type)
+                score_result = content_scorer.score_text(
+                    content, brand_name,
+                    content_type=result_type,
+                    business_type=params.get('business_type', 'local_service')
+                )
             else:
                 score_result = content_scorer.score(content, brand_name)
             first_score = score_result.total_score

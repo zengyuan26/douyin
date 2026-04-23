@@ -360,8 +360,9 @@ class KeywordLibraryGenerator:
         region_str = region or '（未指定，根据业务推断）'
 
         if is_separate_payer:
+            cleaned_core = self._extract_core_business(keyword_core, industry)
             return self._build_separate_payer_prompt(
-                keyword_core, region_str, industry,
+                cleaned_core, region_str, industry,
                 pain_points_str, pain_scenarios_str, barriers_str
             )
         else:
@@ -383,8 +384,11 @@ class KeywordLibraryGenerator:
         付费者=使用者分类逻辑（如灌香肠、建材、本地服务）
         结构：搜前搜(25%) + 搜后搜(25%) + 上下游(20%) + 信任佐证(15%) + 直接需求(15%)
         """
+        # 清理前缀（防止"卖奶粉"→"卖灌香肠"等错误拼接）
+        cleaned_core = self._extract_core_business(keyword_core, industry)
+        kw_short = cleaned_core[:4]
         seasons_hint = (
-            "春节前、冬季" if "香肠" in keyword_core or "腊肉" in keyword_core
+            "春节前、冬季" if "香肠" in cleaned_core or "腊肉" in cleaned_core
             else "节假日前"
         )
 
@@ -400,13 +404,18 @@ class KeywordLibraryGenerator:
 痛点场景：{pain_scenarios_str}
 顾虑障碍：{barriers_str}
 
-=== 分类逻辑 ===
+        === 分类逻辑 ===
 本业务为"付费者=使用者"类型（客户自己买、自己用），关键词从用户决策链路出发：
 1. 搜前搜：用户买之前会搜索哪些问题？（了解工艺/价格/质量）
 2. 搜后搜：用户买之后会搜索哪些问题？（保存/烹饪/故障处理）
 3. 上下游：上下游关联词（吸引潜在客户）
 4. 信任佐证：建立信任的关键词
 5. 直接需求：直接表达购买意向的词
+6. 地域关键词：本地及周边地域词
+7. 季节/时间关键词：旺季、淡季、节假日前后
+8. 技巧/干货关键词：实用方法、辨别技巧
+9. 认知颠覆/反向关键词：打破常识、引发好奇
+10. 节日/节气关键词：传统节日、现代节日送礼需求
 
 === 【关键词生成规则】 ===
 **核心原则：**
@@ -417,49 +426,89 @@ class KeywordLibraryGenerator:
 
 === 【搜前搜关键词】（25个）===
 用户"买之前"会搜索的问题：
-- 了解工艺："{keyword_core}配方比例"、"{keyword_core}做法步骤"、"{keyword_core}盐放多少"
-- 了解价格："{keyword_core}多少钱一斤"、"{keyword_core}手工费多少"、"{keyword_core}成本"
-- 了解质量："{keyword_core}哪家好吃"、"{keyword_core}卫生吗"、"{keyword_core}正宗吗"
+- 了解工艺："{{cleaned_core}}配方比例"、"{{cleaned_core}}做法步骤"、"{{cleaned_core}}盐放多少"
+- 了解价格："{{cleaned_core}}多少钱一斤"、"{{cleaned_core}}手工费多少"、"{{cleaned_core}}成本"
+- 了解质量："{{cleaned_core}}哪家好吃"、"{{cleaned_core}}卫生吗"、"{{cleaned_core}}正宗吗"
 请围绕"买之前用户会问什么"生成关键词，如：
-- "{keyword_core}做法"、"{keyword_core}配方"、"{keyword_core}肥瘦比例"
-- "{keyword_core}多少钱"、"{keyword_core}收费"
-- "{keyword_core}正宗"、"{keyword_core}卫生"、"{keyword_core}哪里好"
+- "{{cleaned_core}}做法"、"{{cleaned_core}}配方"、"{{cleaned_core}}肥瘦比例"
+- "{{cleaned_core}}多少钱"、"{{cleaned_core}}收费"
+- "{{cleaned_core}}正宗"、"{{cleaned_core}}卫生"、"{{cleaned_core}}哪里好"
 
 === 【搜后搜关键词】（25个）===
 用户"买之后"会搜索的问题：
-- 保存问题："{keyword_core}怎么保存"、"香肠能放多久"
-- 烹饪问题："{keyword_core}怎么做好吃"、"{keyword_core}蒸多久"
-- 售后顾虑："{keyword_core}不好吃怎么办"、"{keyword_core}坏了怎么处理"
+- 保存问题："{{cleaned_core}}怎么保存"、"{{cleaned_core}}能放多久"
+- 烹饪问题："{{cleaned_core}}怎么做好吃"、"{{cleaned_core}}蒸多久"
+- 售后顾虑："{{cleaned_core}}不好吃怎么办"、"{{cleaned_core}}坏了怎么处理"
 请围绕"买之后用户会遇到什么问题"生成关键词，如：
-- "香肠保存方法"、"香肠能放多久"、"香肠冷冻还是冷藏"
-- "香肠怎么做好吃"、"香肠做法大全"
-- "香肠发霉还能吃吗"、"香肠太咸怎么办"
+- "{{cleaned_core}}保存方法"、"{{cleaned_core}}能放多久"、"{{cleaned_core}}冷冻还是冷藏"
+- "{{cleaned_core}}怎么做好吃"、"{{cleaned_core}}做法大全"
+- "{{cleaned_core}}发霉还能吃吗"、"{{cleaned_core}}太咸怎么办"
 
 === 【行业上下游关联词】（20个）===
 吸引上下游潜在客户：
-- 上游材料："香肠肠衣在哪买"、"灌香肠调料配方"
-- 下游烹饪："香肠怎么炒好吃"、"香肠煮多久"
-- 地域词：{region_str}{keyword_core}、"附近哪里有做{keyword_core}"
+- 上游材料："{{cleaned_core}}肠衣在哪买"、"{{cleaned_core}}调料配方"
+- 下游烹饪："{{cleaned_core}}怎么炒好吃"、"{{cleaned_core}}煮多久"
+- 地域词：{region_str}{{cleaned_core}}、"附近哪里有做{{cleaned_core}}"
 请生成上下游关联词，如：
-- "灌{keyword_core}肠衣"、"{keyword_core}调料"
-- "香肠炒什么好吃"、"香肠做法"
-- "{region_str}{keyword_core}"、{"附近哪里有做" + keyword_core if region_str == "（未指定）" else region_str + "做" + keyword_core}
+- "{{cleaned_core}}肠衣"、"{{cleaned_core}}调料"
+- "{{cleaned_core}}炒什么好吃"、"{{cleaned_core}}做法"
+- "{region_str}{{cleaned_core}}"、{"附近哪里有做" + cleaned_core if region_str == "（未指定）" else region_str + "做" + cleaned_core}
 
 === 【信任佐证关键词】（15个）===
 解决"能不能帮我做好"：
-如："{keyword_core}22年老店"、"{keyword_core}现场观看"、"{keyword_core}客户反馈"
+如："{{cleaned_core}}22年老店"、"{{cleaned_core}}现场观看"、"{{cleaned_core}}客户反馈"
 请生成建立信任的关键词，如：
-- "{keyword_core}老师傅"、"{keyword_core}22年品质"
-- "{keyword_core}现场观看"、"{keyword_core}制作过程"
-- "{keyword_core}客户好评"
+- "{{cleaned_core}}老师傅"、"{{cleaned_core}}22年品质"
+- "{{cleaned_core}}现场观看"、"{{cleaned_core}}制作过程"
+- "{{cleaned_core}}客户好评"
 
 === 【直接需求关键词】（15个）===
 用户直接表达购买意向：
-如："{keyword_core}电话多少"、"{keyword_core}地址在哪"
+如："{{cleaned_core}}电话多少"、"{{cleaned_core}}地址在哪"
 请生成直接需求的关键词，如：
-- "{keyword_core}电话"、"{keyword_core}地址"
-- "{keyword_core}多少钱一斤"、"{keyword_core}加工费"
-- "{keyword_core}批发"、"{keyword_core}定制"
+- "{{cleaned_core}}电话"、"{{cleaned_core}}地址"
+- "{{cleaned_core}}多少钱一斤"、"{{cleaned_core}}加工费"
+- "{{cleaned_core}}批发"、"{{cleaned_core}}定制"
+
+=== 【地域关键词】（10个）===
+用户搜索时带上本地地名来找附近供应商/门店：
+如："南漳{{cleaned_core}}"、"附近哪里有做{{cleaned_core}}"
+请生成地域关键词，如：
+- "{region_str}{{cleaned_core}}"、"本地{{cleaned_core}}哪里好"
+- "附近{{cleaned_core}}"、"周边{{cleaned_core}}推荐"
+（注：如未指定具体地域，使用"本地/附近/周边"等通用词）
+
+=== 【季节/时间关键词】（10个）===
+节假日、换季等时间节点影响购买需求：
+如："{seasons_hint}适合做{{cleaned_core}}"
+请生成季节/时间关键词，如：
+- "冬季做{{cleaned_core}}"、"过年做{{cleaned_core}}"
+- "{{cleaned_core}}什么时候做最好"、"{{cleaned_core}}保质期多久"
+- "{{cleaned_core}}淡季"、"{{cleaned_core}}旺季"
+
+=== 【技巧/干货关键词】（10个）===
+用户想学习选购知识、辨别技巧：
+如："{{cleaned_core}}怎么挑选"、"{{cleaned_core}}辨别真假小技巧"
+请生成技巧/干货关键词，如：
+- "{{cleaned_core}}怎么挑选"、"{{cleaned_core}}辨别好坏"
+- "{{cleaned_core}}制作小技巧"、"{{cleaned_core}}保存方法"
+- "{{cleaned_core}}选购指南"、"{{cleaned_core}}入门教程"
+
+=== 【认知颠覆/反向关键词】（8个）===
+打破用户常识、引发好奇心：
+如："{{cleaned_core}}越贵越好？不一定"
+请生成认知颠覆关键词，如：
+- "{{cleaned_core}}越贵越好？不一定"
+- "{{cleaned_core}}添加剂真的有害吗"
+- "{{cleaned_core}}手工比机器好？真相是"
+
+=== 【节日/节气关键词】（10个）===
+传统节日、现代节日送礼需求：
+如："过年送{{cleaned_core}}"
+请生成节日/节气关键词，如：
+- "过年送{{cleaned_core}}"、"中秋节{{cleaned_core}}礼盒"
+- "春节{{cleaned_core}}推荐"、"节日{{cleaned_core}}优惠"
+- "端午{{cleaned_core}}"、"节气{{cleaned_core}}"
 
 === 输出格式 ===
 **【关键】JSON必须严格使用以下英文key，不得使用中文key！**
@@ -471,6 +520,11 @@ class KeywordLibraryGenerator:
 | 行业上下游关联词 | industry_chain_keywords |
 | 信任佐证关键词 | trust_keywords |
 | 直接需求关键词 | direct_demand_keywords |
+| 地域关键词 | region_keywords |
+| 季节/时间关键词 | season_keywords |
+| 技巧/干货关键词 | skill_keywords |
+| 认知颠覆/反向关键词 | reverse_keywords |
+| 节日/节气关键词 | festival_keywords |
 
 请严格按以下JSON格式输出，不要输出任何其他内容：
 {{
@@ -479,12 +533,17 @@ class KeywordLibraryGenerator:
         "post_search_keywords": ["搜后搜关键词1", "搜后搜关键词2"],
         "industry_chain_keywords": ["上下游关键词1", "上下游关键词2"],
         "trust_keywords": ["信任佐证关键词1", "信任佐证关键词2"],
-        "direct_demand_keywords": ["直接需求关键词1", "直接需求关键词2"]
+        "direct_demand_keywords": ["直接需求关键词1", "直接需求关键词2"],
+        "region_keywords": ["地域关键词1", "地域关键词2"],
+        "season_keywords": ["季节关键词1", "季节关键词2"],
+        "skill_keywords": ["技巧关键词1", "技巧关键词2"],
+        "reverse_keywords": ["认知颠覆词1", "认知颠覆词2"],
+        "festival_keywords": ["节日关键词1", "节日关键词2"]
     }}
 }}
 
 === 强制约束 ===
-1. 数量：搜前搜≥25、搜后搜≥25、上下游≥20、信任佐证≥15、直接需求≥15，总计≥100
+1. 数量：搜前搜≥25、搜后搜≥25、上下游≥20、信任佐证≥15、直接需求≥15、地域≥10、季节≥10、技巧≥10、认知颠覆≥8、节日≥10，总计≥145
 2. 质量：每个关键词必须有真实搜索意图，语义通顺，不是产品介绍
 3. 禁止：前缀拼接生硬词如"{keyword_core}坏了怎么办"（语义不通）
 4. 地域词必须有实际地名，不能只写"本地"
@@ -505,9 +564,10 @@ class KeywordLibraryGenerator:
         付费者≠使用者分类逻辑（如奶粉、童装、养老服务、礼品）
         用户：产品使用者（如宝宝）
         付费者：购买决策者（如宝爸宝妈）
-        结构：使用者问题(30%) + 付费者顾虑(30%) + 产品推荐(20%) + 搜前搜(10%) + 搜后搜(10%)
+        结构：搜前搜 + 搜后搜 + 使用者问题 + 付费者顾虑 + 产品推荐 + 地域 + 季节 + 技巧 + 认知颠覆 + 节日（共10类）
         """
-        kw_short = keyword_core[:4]
+        cleaned_core = self._extract_core_business(keyword_core, industry)
+        kw_short = cleaned_core[:4]
 
         prompt = f"""你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成一份高质量的关键词库。
 
@@ -516,7 +576,7 @@ class KeywordLibraryGenerator:
 地域：{region_str}
 行业：{industry or '（根据业务推断）'}
 
-=== 画像信息（关键！用于生成真实关键词）===
+=== 画像信息（关键词生成的核心依据，必须结合这些信息生成真实问题词）===
 核心痛点（使用者遇到的问题）：{pain_points_str}
 使用场景：{pain_scenarios_str}
 付费者顾虑：{barriers_str}
@@ -525,95 +585,204 @@ class KeywordLibraryGenerator:
 本业务为"付费者≠使用者"类型：
 - 使用者（如宝宝/孩子/老人）是产品直接体验者，会有症状/问题
 - 付费者（如宝爸宝妈/子女）是购买决策者，会有顾虑/担忧
+- 核心原则：**关键词来自用户真实问题，不是产品名称前缀拼接**
 
-关键词必须从"真实用户行为"出发，而不是产品名称前缀拼接！
+---
 
-=== 【使用者问题关键词】（30个）===
-使用者（患者/体验者）遇到的具体问题：
-参考：宝宝喝奶粉拉肚子、宝宝奶粉过敏、宝宝不长肉
-请结合画像痛点生成真实问题词，如：
-- "{keyword_core}拉肚子"
-- "{keyword_core}便秘怎么办"
-- "{keyword_core}过敏症状"
-- "{keyword_core}不吸收"
-- "{keyword_core}不长肉"
+=== 【搜前搜关键词】（20个）===
+定义：家长在购买之前、不了解该买什么时，会搜索的问题。
+这些关键词的典型特征是带有"什么/怎么选/哪个/多少"等疑问词，用户此时还在对比决策阶段。
 
-请生成30个使用者问题关键词，围绕使用者症状（如肠胃问题、过敏、发育迟缓等）。
+**必须结合画像痛点生成**，例如画像描述的是"过敏体质宝宝"，则搜前搜应围绕：
+- 过敏宝宝适合喝什么奶粉
+- 水解奶粉和普通奶粉区别
+- 宝宝牛奶蛋白过敏怎么选奶粉
+- 深度水解奶粉推荐
+- 氨基酸奶粉和深度水解哪个好
 
-=== 【付费者顾虑关键词】（30个）===
-付费者（决策者）关心的三大类问题：
+参考示例：
+- "{cleaned_core}怎么选"
+- "{cleaned_core}什么牌子好"
+- "过敏宝宝喝{kw_short}"
+- "{kw_short}和普通{kw_short}区别"
+- "{kw_short}成分怎么看"
+- "特殊配方{kw_short}有哪些"
+- "{kw_short}适合什么体质"
 
-1. 真假/信任问题（如：进口奶粉真假辨别、哪里买是正品）
-   - "{keyword_core}真假辨别"
-   - "{keyword_core}正品哪里买"
-   - "{keyword_core}是正品吗"
+请生成20个搜前搜关键词，必须覆盖以下维度：
+1. 体质/情况适配（结合画像痛点，如"过敏体质"、"挑食"等）
+2. 品牌/产品对比
+3. 成分/配方选择
+4. 段数/年龄段选择
 
-2. 价格/划算问题（如：进口奶粉多少钱、哪个便宜）
-   - "{keyword_core}多少钱一盒"
-   - "{keyword_core}价格表"
-   - "{keyword_core}在哪里买便宜"
+---
 
-3. 选择/对比问题（如：哪个牌子好、怎么选）
-   - "{keyword_core}哪个牌子好"
-   - "{keyword_core}怎么选"
-   - "{keyword_core}排行榜"
+=== 【搜后搜关键词】（15个）===
+定义：家长购买后开始使用时，遇到的具体操作问题和异常情况。
+典型特征：包含"怎么/如何/多久/怎么办"等，问题具体且实际发生。
 
-请生成30个顾虑关键词，覆盖真假/价格/选择三大类。
+例如：
+- 怎么冲泡才正确
+- 宝宝不喝怎么办
+- 出现xx症状怎么办
+-开封后能放多久
 
-=== 【产品推荐关键词】（20个）===
-用户选购时搜索的产品对比词：
-如：爱他美和美赞臣哪个好、A2奶粉和普通奶粉区别
+请生成15个搜后搜关键词，覆盖：
+1. 操作问题（冲泡/喂养/保存）
+2. 异常情况应对（不吃/不适/症状处理）
+3. 换牌/转奶问题
 
-请生成品牌对比/段数选择关键词：
-- "{keyword_core}A和B哪个好"
-- "{keyword_core}1段2段区别"
-- "口碑最好的{kw_short}"
+---
 
-=== 【搜前搜关键词】（10个）===
-用户买之前不了解产品时会搜：
-如：宝宝出生要准备什么奶粉、待产包需要准备奶粉吗
+=== 【使用者问题关键词】（25个）===
+定义：产品使用者（宝宝/孩子/老人）直接体验后产生的身体/心理反应。
+关键词描述的是使用者自身的症状，不含选购意图。
 
-请生成准备型/了解型关键词：
-- "宝宝要准备什么{kw_short}"
-- "第一次买{kw_short}怎么选"
+**必须结合画像痛点**（如"过敏体质宝宝"）：
+- 宝宝喝{kw_short}身上起红疹
+- 宝宝喝{kw_short}拉肚子
+- 宝宝喝{kw_short}便秘
+- 宝宝喝{kw_short}不长肉
+- 宝宝喝{kw_short}厌奶
 
-=== 【搜后搜关键词】（10个）===
-用户买了之后会遇到的问题：
-如：奶粉怎么冲泡、奶粉可以换牌子吗、奶粉开封后能放多久
+请生成25个使用者问题关键词，围绕使用者症状（肠胃问题/过敏反应/发育问题/皮肤问题等）。
 
-请生成使用后续问题词：
-- "{keyword_core}怎么冲泡"
-- "{keyword_core}开封后能放多久"
-- "宝宝不喝{kw_short}怎么办"
+---
+
+=== 【付费者顾虑关键词】（25个）===
+定义：购买决策者（家长/子女）在选购时的担忧和疑虑。
+关键词反映的是"买的时候在担心什么"。
+
+必须覆盖以下四大类：
+1. 真假/信任（进口/正品/辨别）
+   如："{kw_short}真假辨别"、"哪里买是正品"
+2. 价格/划算（多少钱/性价比/便宜）
+   如："{kw_short}多少钱一罐"、"进口{kw_short}价格"
+3. 安全性/成分（成分/添加剂/过敏原）
+   如："{kw_short}成分表"、"不含糖{kw_short}"
+4. 选择/对比（牌子/评价/推荐）
+   如："{kw_short}哪个牌子好"、"妈妈们推荐{kw_short}"
+
+请生成25个付费者顾虑关键词。
+
+---
+
+=== 【产品推荐关键词】（15个）===
+定义：用户有购买意向后，对比具体产品时的搜索词。
+典型特征：包含两个或以上具体品牌/型号/配方名称。
+
+例如：
+- 飞鹤和伊利{kw_short}哪个好
+- A2{kw_short}和普通{kw_short}区别
+- 1段{kw_short}推荐
+- 深度水解{kw_short}排行榜
+
+请生成15个产品推荐关键词，覆盖：品牌对比、段数选择、配方选择。
+
+---
+
+=== 【地域关键词】（10个）===
+定义：用户搜索时带上本地地名来找附近供应商/门店。
+典型特征：地域词+核心业务，可不含疑问词。
+
+例如：
+- 武汉{kw_short}专卖店
+- 本地{kw_short}
+- 附近{kw_short}哪里有卖
+
+请生成10个地域关键词（注：如未指定具体地域，使用"本地/附近/周边"等通用词）。
+
+---
+
+=== 【季节/时间关键词】（10个）===
+定义：节假日、换季、开学季等时间节点影响购买需求，用户在这些节点会搜索特定问题。
+
+例如：
+- 过年买{kw_short}囤货
+- 开学季{kw_short}优惠
+- {kw_short}什么时候打折
+- {kw_short}保质期多久
+
+请生成10个季节/时间关键词。
+
+---
+
+=== 【技巧/干货关键词】（10个）===
+定义：用户想学习选购知识、辨别技巧、喂养方法的搜索词。
+
+例如：
+- {kw_short}怎么挑选
+- {kw_short}辨别真假小技巧
+- {kw_short}喂养指南
+- 如何判断{kw_short}适合宝宝
+
+请生成10个技巧/干货关键词。
+
+---
+
+=== 【认知颠覆/反向关键词】（8个）===
+定义：打破用户常识、引发好奇心、吸引点击的内容。
+
+例如：
+- {kw_short}越贵越好？不一定
+- 进口{kw_short}一定比国产好？真相是
+- {kw_short}配方表怎么看
+
+请生成8个认知颠覆关键词。
+
+---
+
+=== 【节日/节气关键词】（10个）===
+定义：传统节日/现代节日送礼需求，用户在节日期间搜索的礼品相关词。
+
+例如：
+- 过年送{kw_short}
+- 母亲节{kw_short}推荐
+- 中秋节{kw_short}礼盒
+
+请生成10个节日/节气关键词。
+
+---
 
 === 输出格式 ===
 **【关键】JSON必须严格使用以下英文key，不得使用中文key！**
 
 | 中文含义 | 英文key（必须使用） |
 |---|---|
+| 搜前搜关键词 | pre_search_keywords |
+| 搜后搜关键词 | post_search_keywords |
 | 使用者问题关键词 | user_problem_keywords |
 | 付费者顾虑关键词 | payer_concern_keywords |
 | 产品推荐关键词 | product_recommend_keywords |
-| 搜前搜关键词 | pre_search_keywords |
-| 搜后搜关键词 | post_search_keywords |
+| 地域关键词 | region_keywords |
+| 季节/时间关键词 | season_keywords |
+| 技巧/干货关键词 | skill_keywords |
+| 认知颠覆/反向关键词 | reverse_keywords |
+| 节日/节气关键词 | festival_keywords |
 
 请严格按以下JSON格式输出，不要输出任何其他内容：
 {{
     "keyword_library": {{
+        "pre_search_keywords": ["搜前搜词1", "搜前搜词2"],
+        "post_search_keywords": ["搜后搜词1", "搜后搜词2"],
         "user_problem_keywords": ["使用者问题词1", "使用者问题词2"],
         "payer_concern_keywords": ["付费者顾虑词1", "付费者顾虑词2"],
         "product_recommend_keywords": ["产品推荐词1", "产品推荐词2"],
-        "pre_search_keywords": ["搜前搜词1", "搜前搜词2"],
-        "post_search_keywords": ["搜后搜词1", "搜后搜词2"]
+        "region_keywords": ["地域词1", "地域词2"],
+        "season_keywords": ["季节词1", "季节词2"],
+        "skill_keywords": ["技巧词1", "技巧词2"],
+        "reverse_keywords": ["认知颠覆词1", "认知颠覆词2"],
+        "festival_keywords": ["节日词1", "节日词2"]
     }}
 }}
 
 === 强制约束 ===
-1. 数量：使用者问题≥30、付费者顾虑≥30、产品推荐≥20、搜前搜≥10、搜后搜≥10，总计≥100
+1. 数量：搜前搜≥20、搜后搜≥15、使用者问题≥25、付费者顾虑≥25、产品推荐≥15、地域≥10、季节≥10、技巧≥10、认知颠覆≥8、节日≥10，总计≥140
 2. 质量：每个关键词必须是真实用户搜索词，语义通顺，禁止前缀生硬拼接
-3. 使用者问题：必须描述使用者（宝宝/孩子/老人）的真实症状，如"喝{kw_short}拉肚子"
+3. **搜前搜关键词**：必须结合画像痛点（如"过敏体质"），生成"过敏宝宝喝什么{kw_short}"而非"宝宝{kw_short}购买攻略"——核心是用户的问题，不是产品选购指南
 4. 禁止：前缀拼接如"卖{kw_short}坏了怎么办"（语义不通）
-5. 地域词必须包含实际地名，不能只写"本地"
+5. 地域词如果未指定具体地名，使用"本地/附近/周边"等通用词
+6. 每个分类关键词之间不要重复（避免"选购技巧"和"挑选技巧"同时出现）
 
 请开始生成："""
         return prompt
@@ -660,6 +829,18 @@ class KeywordLibraryGenerator:
             "[KeywordLibraryGenerator] LLM原始返回keyword_library的keys（共%d个）: %s",
             len(llm_keys), llm_keys
         )
+        # >>> DEBUG: write raw keys to NDJSON log
+        import datetime as _dt
+        with open('/Volumes/增元/项目/douyin/.cursor/debug-f05487.log', 'a') as _lf:
+            import json as _json
+            _lf.write(_json.dumps({
+                'sessionId': 'f05487', 'id': f'llm_keys_{_dt.datetime.now().strftime("%H%M%S%f")}',
+                'timestamp': _dt.datetime.now().timestamp() * 1000,
+                'location': 'keyword_library_generator.py:_parse_template_result',
+                'message': 'LLM返回的keyword_library keys',
+                'data': {'llm_keys': llm_keys},
+                'hypothesisId': 'H1'
+            }) + '\n')
 
         # 中文key→英文key 兜底映射（LLM有时用中文key）
         zh_to_en = {
@@ -696,8 +877,9 @@ class KeywordLibraryGenerator:
         categories = []
         total_count = 0
 
-        # category_map：每个 key 唯一，不重复
-        # 付费者=使用者用前5个key，付费者≠使用者用后5个key，解析时各取各的
+        # category_map：必须和 prompt 中定义的分类完全一致，否则新增的分类会被丢弃
+        # same-payer prompt 新增了地域/季节/技巧/认知颠覆/节日，共10类
+        # 旧格式兜底（兼容）：仅当独立 key 未命中时使用
         category_map = [
             # 付费者=使用者（5个key）
             ('pre_search_keywords', '搜前搜关键词'),
@@ -705,37 +887,50 @@ class KeywordLibraryGenerator:
             ('industry_chain_keywords', '行业上下游关联词'),
             ('trust_keywords', '信任佐证关键词'),
             ('direct_demand_keywords', '直接需求关键词'),
-            # 付费者≠使用者（5个key）
+            # same-payer 新增5类（prompt 新增：地域/季节/技巧/认知颠覆/节日）
+            ('region_keywords', '地域关键词'),
+            ('season_keywords', '季节/时间关键词'),
+            ('skill_keywords', '技巧/干货关键词'),
+            ('reverse_keywords', '认知颠覆/反向关键词'),
+            ('festival_keywords', '节日/节气关键词'),
+            # 付费者≠使用者（3个key，替代 same-payer 的痛点/场景/顾虑）
             ('user_problem_keywords', '使用者问题关键词'),
             ('payer_concern_keywords', '付费者顾虑关键词'),
             ('product_recommend_keywords', '产品推荐关键词'),
-            # 旧格式（兼容）
+            # 旧格式兜底（兼容）
             ('pain_point_keywords', '痛点关键词'),
             ('scene_keywords', '场景关键词'),
             ('concern_keywords', '顾虑关键词'),
-            ('region_keywords', '地域关键词'),
-            ('season_keywords', '季节关键词'),
-            ('skill_keywords', '技巧/干货关键词'),
-            ('reverse_keywords', '认知颠覆关键词'),
-            ('festival_keywords', '节日/节气关键词'),
         ]
 
+        seen_in_categories = set()  # 避免同一 field_key 被重复添加到 categories
         for field_key, cat_name in category_map:
-            kws = kl_data.get(field_key) or []
-            if isinstance(kws, list):
-                # 字符串关键词去重
-                clean_kws = []
-                seen = set()
-                for kw in kws:
-                    kw_str = kw if isinstance(kw, str) else str(kw)
-                    if kw_str and kw_str not in seen:
-                        seen.add(kw_str)
-                        clean_kws.append(kw_str)
-                categories.append({
-                    'category_name': cat_name,
-                    'keywords': clean_kws,
-                })
-                total_count += len(clean_kws)
+            kws = kl_data.get(field_key)
+            if not kws:
+                continue
+            if not isinstance(kws, list):
+                continue
+            # 字符串关键词去重
+            clean_kws = []
+            seen = set()
+            for kw in kws:
+                kw_str = kw if isinstance(kw, str) else str(kw)
+                if kw_str and kw_str not in seen:
+                    seen.add(kw_str)
+                    clean_kws.append(kw_str)
+            # 跳过空分类
+            if not clean_kws:
+                continue
+            # 跳过已出现过的 field_key（避免重复）
+            if field_key in seen_in_categories:
+                continue
+            seen_in_categories.add(field_key)
+            categories.append({
+                'category_name': cat_name,
+                'field_key': field_key,
+                'keywords': clean_kws,
+            })
+            total_count += len(clean_kws)
 
         # 构建扁平字段（兼容下游服务：选题库、前端渲染、肖像生成）
         flat_fields = {}
@@ -751,56 +946,83 @@ class KeywordLibraryGenerator:
                     result.append(kw_str)
             return result
 
-        # 搜前搜 → problem_type_keywords
+        # same-payer: 搜前搜 → problem_type_keywords
         if kl_data.get('pre_search_keywords'):
             flat_fields['problem_type_keywords'] = _clean_kws(kl_data['pre_search_keywords'])
-        # 搜后搜 + 使用者问题 + 旧痛点 → pain_point_keywords（去重合并）
-        pain_kws = _clean_kws(kl_data.get('post_search_keywords'))
-        seen_pain = set(pain_kws)
-        for kw in _clean_kws(kl_data.get('user_problem_keywords')):
-            if kw not in seen_pain:
-                pain_kws.append(kw)
-                seen_pain.add(kw)
-        for kw in _clean_kws(kl_data.get('pain_point_keywords')):  # 旧格式
-            if kw not in seen_pain:
-                pain_kws.append(kw)
-                seen_pain.add(kw)
-        if pain_kws:
-            flat_fields['pain_point_keywords'] = pain_kws
-        # 行业上下游 + 产品推荐 + 旧场景 → scene_keywords（去重合并）
-        scene_kws = _clean_kws(kl_data.get('industry_chain_keywords'))
-        seen_scene = set(scene_kws)
-        for kw in _clean_kws(kl_data.get('product_recommend_keywords')):
-            if kw not in seen_scene:
-                scene_kws.append(kw)
-                seen_scene.add(kw)
-        for kw in _clean_kws(kl_data.get('scene_keywords')):  # 旧格式
-            if kw not in seen_scene:
-                scene_kws.append(kw)
-                seen_scene.add(kw)
-        if scene_kws:
-            flat_fields['scene_keywords'] = scene_kws
-        # 信任佐证 + 付费者顾虑 + 旧顾虑 → concern_keywords（去重合并）
-        concern_kws = _clean_kws(kl_data.get('trust_keywords'))
-        seen_concern = set(concern_kws)
-        for kw in _clean_kws(kl_data.get('payer_concern_keywords')):
-            if kw not in seen_concern:
-                concern_kws.append(kw)
-                seen_concern.add(kw)
-        for kw in _clean_kws(kl_data.get('concern_keywords')):  # 旧格式
-            if kw not in seen_concern:
-                concern_kws.append(kw)
-                seen_concern.add(kw)
-        if concern_kws:
-            flat_fields['concern_keywords'] = concern_kws
+        # same-payer: 搜后搜 → pain_point_keywords
+        if kl_data.get('post_search_keywords'):
+            flat_fields['pain_point_keywords'] = _clean_kws(kl_data['post_search_keywords'])
+        # 使用者问题关键词（separate-payer 专用）
+        if kl_data.get('user_problem_keywords'):
+            flat_fields['user_problem_keywords'] = _clean_kws(kl_data['user_problem_keywords'])
+            if 'pain_point_keywords' not in flat_fields:
+                flat_fields['pain_point_keywords'] = list(flat_fields['user_problem_keywords'])
+            else:
+                for kw in flat_fields['user_problem_keywords']:
+                    if kw not in flat_fields['pain_point_keywords']:
+                        flat_fields['pain_point_keywords'].append(kw)
+        # 行业上下游 → scene_keywords
+        if kl_data.get('industry_chain_keywords'):
+            flat_fields['scene_keywords'] = _clean_kws(kl_data['industry_chain_keywords'])
+        # 产品推荐关键词（separate-payer 专用）
+        if kl_data.get('product_recommend_keywords'):
+            flat_fields['product_recommend_keywords'] = _clean_kws(kl_data['product_recommend_keywords'])
+            if 'scene_keywords' not in flat_fields:
+                flat_fields['scene_keywords'] = list(flat_fields['product_recommend_keywords'])
+            else:
+                for kw in flat_fields['product_recommend_keywords']:
+                    if kw not in flat_fields['scene_keywords']:
+                        flat_fields['scene_keywords'].append(kw)
+        # 信任佐证 → concern_keywords
+        if kl_data.get('trust_keywords'):
+            flat_fields['concern_keywords'] = _clean_kws(kl_data['trust_keywords'])
+        # 付费者顾虑关键词（separate-payer 专用）
+        if kl_data.get('payer_concern_keywords'):
+            flat_fields['payer_concern_keywords'] = _clean_kws(kl_data['payer_concern_keywords'])
+            if 'concern_keywords' not in flat_fields:
+                flat_fields['concern_keywords'] = list(flat_fields['payer_concern_keywords'])
+            else:
+                for kw in flat_fields['payer_concern_keywords']:
+                    if kw not in flat_fields['concern_keywords']:
+                        flat_fields['concern_keywords'].append(kw)
         # 直接需求
         if kl_data.get('direct_demand_keywords'):
             flat_fields['direct_demand_keywords'] = _clean_kws(kl_data['direct_demand_keywords'])
-        # 旧格式剩余字段
+        # 旧格式兜底（pain_point / scene / concern）
+        for old_kw, flat_key in [
+            ('pain_point_keywords', 'pain_point_keywords'),
+            ('scene_keywords', 'scene_keywords'),
+            ('concern_keywords', 'concern_keywords'),
+        ]:
+            for kw in _clean_kws(kl_data.get(old_kw)):
+                if flat_key not in flat_fields:
+                    flat_fields[flat_key] = [kw]
+                elif kw not in flat_fields[flat_key]:
+                    flat_fields[flat_key].append(kw)
+        # 其他旧格式字段
         for old_key in ['region_keywords', 'season_keywords',
                          'skill_keywords', 'reverse_keywords', 'festival_keywords']:
             if kl_data.get(old_key) and old_key not in flat_fields:
                 flat_fields[old_key] = _clean_kws(kl_data[old_key])
+
+        # 【调试】记录解析结果
+        cat_summary = [(c['category_name'], len(c['keywords'])) for c in categories]
+        logger.info(
+            "[KeywordLibraryGenerator] 解析完成: 总分类=%d, 总关键词=%d, 分类摘要=%s",
+            len(categories), total_count, cat_summary
+        )
+        # >>> DEBUG: write parsed categories to NDJSON log
+        import datetime as _dt
+        with open('/Volumes/增元/项目/douyin/.cursor/debug-f05487.log', 'a') as _lf:
+            import json as _json
+            _lf.write(_json.dumps({
+                'sessionId': 'f05487', 'id': f'parse_done_{_dt.datetime.now().strftime("%H%M%S%f")}',
+                'timestamp': _dt.datetime.now().timestamp() * 1000,
+                'location': 'keyword_library_generator.py:_parse_template_result',
+                'message': '解析后的categories数量和名称',
+                'data': {'categories_count': len(categories), 'cat_names': [c['category_name'] for c in categories]},
+                'hypothesisId': 'H2'
+            }) + '\n')
 
         result.keyword_library = {
             'categories': categories,
@@ -811,6 +1033,10 @@ class KeywordLibraryGenerator:
             'scene_keywords': flat_fields.get('scene_keywords', []),
             'concern_keywords': flat_fields.get('concern_keywords', []),
             'direct_demand_keywords': flat_fields.get('direct_demand_keywords', []),
+            # separate-payer 专用字段
+            'user_problem_keywords': flat_fields.get('user_problem_keywords', []),
+            'payer_concern_keywords': flat_fields.get('payer_concern_keywords', []),
+            'product_recommend_keywords': flat_fields.get('product_recommend_keywords', []),
         }
         result.total_keywords = total_count
         result.success = True
