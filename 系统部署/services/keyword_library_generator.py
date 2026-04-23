@@ -654,6 +654,13 @@ class KeywordLibraryGenerator:
         if not isinstance(kl_data, dict):
             kl_data = {}
 
+        # 【调试】记录LLM原始返回的所有key
+        llm_keys = list(kl_data.keys())
+        logger.info(
+            "[KeywordLibraryGenerator] LLM原始返回keyword_library的keys（共%d个）: %s",
+            len(llm_keys), llm_keys
+        )
+
         # 中文key→英文key 兜底映射（LLM有时用中文key）
         zh_to_en = {
             '搜前搜关键词': 'pre_search_keywords',
