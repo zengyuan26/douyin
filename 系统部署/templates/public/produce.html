@@ -182,6 +182,205 @@
         border-radius: 10px;
     }
 
+    /* ── 选题热力图小卡片 ── */
+    .topic-heatmap-card {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 220px;
+        max-width: 280px;
+        padding: 10px 14px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--apple-gray6);
+        border-radius: var(--radius-md);
+        flex-shrink: 0;
+    }
+
+    .heatmap-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .heatmap-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .heatmap-nav-btn {
+        background: none;
+        border: none;
+        padding: 0 2px;
+        cursor: pointer;
+        color: var(--apple-gray);
+        font-size: 0.75rem;
+        line-height: 1;
+        transition: color 0.15s;
+    }
+    .heatmap-nav-btn:hover { color: var(--text-primary); }
+
+    .heatmap-month-label {
+        font-size: 0.75rem;
+        color: var(--apple-gray);
+    }
+
+    .heatmap-summary {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.75rem;
+    }
+
+    .heatmap-stat {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+    }
+    .heatmap-stat .num { font-weight: 700; color: var(--text-primary); }
+    .heatmap-stat .label { color: var(--apple-gray); }
+
+    .heatmap-concentration {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .heatmap-concentration .bar {
+        display: flex;
+        gap: 2px;
+    }
+    .heatmap-concentration .bar-cell {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        background: var(--apple-gray6);
+    }
+    .heatmap-concentration .bar-cell.active-high { background: #e53935; }
+    .heatmap-concentration .bar-cell.active-medium { background: #fb8c00; }
+    .heatmap-concentration .bar-cell.active-low { background: #fb8c0066; }
+    .heatmap-concentration .trend {
+        font-size: 0.6875rem;
+        font-weight: 600;
+    }
+    .heatmap-concentration .trend.up { color: #4caf50; }
+    .heatmap-concentration .trend.down { color: #e53935; }
+    .heatmap-concentration .trend.stable { color: var(--apple-gray); }
+
+    .heatmap-calendar {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+    }
+
+    .heatmap-weekday {
+        text-align: center;
+        font-size: 0.6rem;
+        color: var(--apple-gray);
+        font-weight: 500;
+        padding: 1px 0;
+    }
+
+    .heatmap-cell {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: 3px;
+        background: var(--apple-gray6);
+        opacity: 0.35;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.1s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.5rem;
+        color: white;
+        font-weight: 600;
+    }
+    .heatmap-cell:hover { opacity: 1 !important; transform: scale(1.15); z-index: 1; }
+    .heatmap-cell.none { background: var(--apple-gray6); opacity: 0.15; cursor: default; }
+    .heatmap-cell.low { background: #fb8c0066; opacity: 0.7; }
+    .heatmap-cell.medium { background: #fb8c00; opacity: 0.85; }
+    .heatmap-cell.high { background: #e53935; opacity: 1; }
+
+    .heatmap-empty {
+        font-size: 0.6875rem;
+        color: var(--apple-gray);
+        text-align: center;
+        padding: 6px 0;
+    }
+
+    .heatmap-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px 0;
+    }
+
+    .heatmap-tooltip {
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text-primary);
+        color: white;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 0.6875rem;
+        white-space: nowrap;
+        z-index: 100;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .heatmap-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: var(--text-primary);
+    }
+    .heatmap-tooltip .tip-title { font-weight: 600; margin-bottom: 2px; }
+    .heatmap-tooltip .tip-detail { color: rgba(255,255,255,0.7); font-size: 0.625rem; }
+
+    /* 内容日历 Tab */
+    .playlist-title.active { color: var(--text-primary) !important; font-weight: 600; }
+    .playlist-title.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: var(--accent-color, #e53935); border-radius: 1px; }
+    #tab-title-topics, #tab-title-calendar { position: relative; padding-bottom: 8px; }
+
+    /* 日历格子 */
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: auto repeat(6, 1fr); gap: 3px; height: 100%; align-items: stretch; justify-items: stretch; }
+    .cal-weekday { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 0.5625rem; color: var(--apple-gray); font-weight: 600; height: 22px; }
+    .cal-cell { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; font-size: 0.6875rem; color: var(--text-secondary); transition: transform 0.15s, box-shadow 0.15s; min-height: 0; padding: 2px; box-sizing: border-box; width: 100%; height: 100%; }
+    .cal-cell > span { line-height: 1; }
+    .cal-cell:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .cal-cell.empty { background: rgba(120,120,128,0.12); cursor: default; }
+    .cal-cell.empty:hover { transform: none; box-shadow: none; }
+    .cal-cell.has-content { background: var(--bg-secondary); }
+    .cal-cell.no-data { background: rgba(120,120,128,0.06); }
+    .cal-cell.peak { border: 1.5px solid #FF9500; }
+    .cal-cell.off-season { background: rgba(142,142,146,0.12) !important; }
+    .cal-cell.off-season .cal-dots { opacity: 0.4; }
+    .cal-dots { display: flex; gap: 1px; margin-top: 1px; justify-content: center; }
+    .cal-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+    .cal-dot.seed { background: #007AFF; }
+    .cal-dot.convert { background: #FF9500; }
+    .cal-dot.persona { background: #8E8E93; }
+    .cal-cell.today { border: 1.5px solid var(--accent-color, #e53935); }
+    .cal-cell.selected { background: rgba(229, 57, 53, 0.1); }
+
+    /* 当日详情侧边栏 */
+    .day-detail-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--card-border); }
+    .day-detail-item:last-child { border-bottom: none; }
+    .day-detail-cat { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.625rem; color: white; }
+    .day-detail-cat.seed { background: #007AFF; }
+    .day-detail-cat.convert { background: #FF9500; }
+    .day-detail-cat.persona { background: #8E8E93; }
+    .day-detail-meta { font-size: 0.625rem; color: var(--apple-gray); margin-top: 2px; }
+    .day-detail-title { font-size: 0.75rem; font-weight: 500; line-height: 1.4; }
+
     /* 列表列头 */
     .playlist-cols {
         display: grid;
@@ -1236,10 +1435,6 @@
             <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
             开始创作
         </a>
-        <a class="public-sidebar-link" href="/public/galaxy">
-            <i class="bi bi-stars" aria-hidden="true"></i>
-            内容星球
-        </a>
     </div>
 
     {# 分组2：我的 #}
@@ -1340,6 +1535,9 @@
                             <i class="bi bi-arrow-clockwise"></i>
                             重新生成选题
                         </button>
+                        <button id="btn-today-count" onclick="jumpToTodayCalendar()" style="display:none;padding:5px 10px;background:var(--bg-secondary);border:1px solid var(--card-border);border-radius:6px;cursor:pointer;font-size:0.6875rem;color:var(--apple-gray);white-space:nowrap;">
+                            <i class="bi bi-calendar3" style="margin-right:3px;"></i><span id="today-count-text"></span>
+                        </button>
                     </div>
                 </div>
                 <p class="portrait-info-desc" id="portrait-desc">--</p>
@@ -1348,65 +1546,112 @@
 
         {# 播放列表区 #}
         <div class="playlist-container" id="playlist-container">
-            {# 列表头部 #}
+            {# 列表头部 + Tab 切换 #}
             <div class="playlist-header">
-                <div class="playlist-title">
-                    <i class="bi bi-list-ul"></i>
-                    选题列表
+                <div style="display:flex;align-items:center;gap:0;">
+                    <div class="playlist-title" id="tab-title-topics" style="cursor:pointer;" onclick="switchMainTab('topics')">
+                        <i class="bi bi-list-ul"></i>
+                        选题列表
+                    </div>
+                    <div class="playlist-title" id="tab-title-calendar" style="cursor:pointer;margin-left:16px;color:var(--apple-gray);" onclick="switchMainTab('calendar')">
+                        <i class="bi bi-calendar3"></i>
+                        内容日历
+                    </div>
                 </div>
             </div>
 
-            {# 列表列头 #}
-            <div class="playlist-cols">
-                <div style="text-align:center;">选择</div>
-                <div>选题名称</div>
-                <div style="text-align:center;">业务名称</div>
-                <div style="text-align:center;">生成次数</div>
-                <div style="text-align:center;">查看</div>
-            </div>
-
-            {# 列表内容 #}
-            <div class="playlist-body" id="playlist-body">
-                {# 加载状态 #}
-                <div class="playlist-loading" id="playlist-loading">
-                    <div class="apple-spinner mx-auto" style="width:28px;height:28px;border-width:3px;"></div>
-                    <p style="margin-top: 12px; color: var(--apple-gray); font-size: 0.875rem;">加载选题中...</p>
+            {# ── 选题列表 Tab ── #}
+            <div id="tab-panel-topics">
+                {# 列表列头 #}
+                <div class="playlist-cols">
+                    <div style="text-align:center;">选择</div>
+                    <div>选题名称</div>
+                    <div style="text-align:center;">业务名称</div>
+                    <div style="text-align:center;">生成次数</div>
+                    <div style="text-align:center;">查看</div>
                 </div>
 
-                {# 空状态 #}
-                <div class="playlist-empty" id="playlist-empty" style="display:none;">
-                    <div class="playlist-empty-icon">&#128203;</div>
-                    <h3>暂无选题</h3>
-                    <p>该画像还没有生成选题库，请先生成选题</p>
-                    <button class="btn-generate" onclick="regenerateTopics()" style="margin: 0 auto;">
-                        <i class="bi bi-lightning-charge-fill"></i>
-                        生成选题库
+                {# 列表内容 #}
+                <div class="playlist-body" id="playlist-body">
+                    <div class="playlist-loading" id="playlist-loading">
+                        <div class="apple-spinner mx-auto" style="width:28px;height:28px;border-width:3px;"></div>
+                        <p style="margin-top: 12px; color: var(--apple-gray); font-size: 0.875rem;">加载选题中...</p>
+                    </div>
+                    <div class="playlist-empty" id="playlist-empty" style="display:none;">
+                        <div class="playlist-empty-icon">&#128203;</div>
+                        <h3>暂无选题</h3>
+                        <p>该画像还没有生成选题库，请先生成选题</p>
+                        <button class="btn-generate" onclick="regenerateTopics()" style="margin: 0 auto;">
+                            <i class="bi bi-lightning-charge-fill"></i>
+                            生成选题库
+                        </button>
+                    </div>
+                    <div id="playlist-rows" style="display:none;"></div>
+                </div>
+
+                {# 列表底部 #}
+                <div class="playlist-footer">
+                    <div class="playlist-pagination" id="playlist-pagination">
+                        <button class="page-btn" id="page-prev" onclick="changePage(-1)" disabled>
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <span class="page-info" id="page-info">第 1 页，共 1 页</span>
+                        <button class="page-btn" id="page-next" onclick="changePage(1)" disabled>
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                    <button class="btn-generate" id="btn-generate" onclick="generateContent()" disabled>
+                        <i class="bi bi-play-circle-fill"></i>
+                        <span id="btn-generate-text">请先选择选题</span>
                     </button>
                 </div>
-
-                {# 列表内容（由 JS 渲染） #}
-                <div id="playlist-rows" style="display:none;"></div>
             </div>
 
-            {# 列表底部 #}
-            <div class="playlist-footer">
-                {# 分页 #}
-                <div class="playlist-pagination" id="playlist-pagination">
-                    <button class="page-btn" id="page-prev" onclick="changePage(-1)" disabled>
-                        <i class="bi bi-chevron-left"></i>
-                    </button>
-                    <span class="page-info" id="page-info">第 1 页，共 1 页</span>
-                    <button class="page-btn" id="page-next" onclick="changePage(1)" disabled>
-                        <i class="bi bi-chevron-right"></i>
-                    </button>
+            {# ── 内容日历 Tab ── #}
+            <div id="tab-panel-calendar" style="display:none;overflow:hidden;height:100%;flex-direction:column;">
+                {# 日历头部：月份导航 + 图例 #}
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px 6px;border-bottom:1px solid var(--card-border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <button class="heatmap-nav-btn" onclick="calendarNav(-1)">&#9664;</button>
+                        <span class="heatmap-month-label" id="calendar-month-label">--</span>
+                        <button class="heatmap-nav-btn" onclick="calendarNav(1)">&#9654;</button>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;font-size:0.6875rem;color:var(--apple-gray);">
+                        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#007AFF;vertical-align:middle;margin-right:3px;"></span>种草型</span>
+                        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#FF9500;vertical-align:middle;margin-right:3px;"></span>转化型</span>
+                        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#8E8E93;vertical-align:middle;margin-right:3px;"></span>人设型</span>
+                    </div>
                 </div>
 
-                {# 生成按钮 #}
-                <button class="btn-generate" id="btn-generate" onclick="generateContent()" disabled>
-                    <i class="bi bi-play-circle-fill"></i>
-                    <span id="btn-generate-text">请先选择选题</span>
-                </button>
+                {# 月历格子 #}
+                <div id="calendar-grid" style="padding:8px 16px 12px;height:calc(100% - 44px);min-height:280px;overflow:hidden;">
+                    <div style="text-align:center;padding:24px;color:var(--apple-gray);">加载中...</div>
+                </div>
+
+                {# 月度统计 + 阶段建议 #}
+                <div id="calendar-stats" style="display:none;padding:0 16px 12px;flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:16px;font-size:0.6875rem;padding:10px 12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:6px;">
+                        <div style="text-align:center;"><span class="num" id="cal-total-gen" style="font-size:1rem;font-weight:600;">0</span><span class="label">篇</span></div>
+                        <div style="text-align:center;"><span style="color:#007AFF;font-weight:600;" id="cal-seed-n">0</span> 种草</div>
+                        <div style="text-align:center;"><span style="color:#FF9500;font-weight:600;" id="cal-convert-n">0</span> 转化</div>
+                        <div style="text-align:center;"><span style="color:#8E8E93;font-weight:600;" id="cal-persona-n">0</span> 人设</div>
+                        <div style="flex:1;"></div>
+                        <div style="text-align:center;"><span class="num" id="cal-days-n" style="font-size:0.875rem;font-weight:600;">0</span><span class="label" style="font-size:0.625rem;">天有内容</span></div>
+                    </div>
+                    <div id="cal-suggestion" style="font-size:0.6875rem;color:var(--apple-gray);padding:0 4px;"></div>
+                </div>
             </div>
+        </div>
+
+        {# 当日详情侧边栏 #}
+        <div class="day-detail-overlay" id="day-detail-overlay" onclick="closeDayDetail(event)" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:999;"></div>
+        <div class="day-detail-panel" id="day-detail-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:340px;background:var(--bg-primary);box-shadow:-4px 0 20px rgba(0,0,0,0.15);z-index:1000;overflow-y:auto;padding:20px;transform:translateX(100%);transition:transform 0.25s ease;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <div id="day-detail-title" style="font-size:0.9375rem;font-weight:600;"></div>
+                <button onclick="closeDayDetail()" style="background:none;border:none;cursor:pointer;font-size:1.125rem;color:var(--apple-gray);">×</button>
+            </div>
+            <div id="day-detail-summary" style="font-size:0.75rem;color:var(--apple-gray);margin-bottom:12px;"></div>
+            <div id="day-detail-list"></div>
         </div>
 
         {# 内容版本面板（选中选题后显示） #}
@@ -1558,6 +1803,7 @@ async function loadUserAuth() {
         const resp = await fetch('/public/api/quota', { credentials: 'include' });
         const data = await resp.json();
         if (data.success && data.data) {
+            window._userAuthed = true;
             const user = data.data;
             document.getElementById('topbar-auth').style.display = 'none';
             const topbarUser = document.getElementById('topbar-user');
@@ -2338,5 +2584,271 @@ function getPublicSkin() {
         return 'classic-red';
     }
 }
-</script>
+
+// ═══════════════════════════════════════════════════════════════════
+// 内容日历 Tab
+// ═══════════════════════════════════════════════════════════════════
+var _calendarYear = new Date().getFullYear();
+var _calendarMonth = new Date().getMonth() + 1;
+
+function switchMainTab(tab) {
+    var topicsPanel = document.getElementById('tab-panel-topics');
+    var calPanel = document.getElementById('tab-panel-calendar');
+    var topicsTitle = document.getElementById('tab-title-topics');
+    var calTitle = document.getElementById('tab-title-calendar');
+
+    if (tab === 'calendar') {
+        calPanel.style.display = 'block';
+        topicsPanel.style.display = 'none';
+        calTitle.classList.add('active');
+        topicsTitle.classList.remove('active');
+        if (!_calendarYear || !_calendarMonth) {
+            _calendarYear = new Date().getFullYear();
+            _calendarMonth = new Date().getMonth() + 1;
+        }
+        loadCalendar();
+    } else {
+        calPanel.style.display = 'none';
+        topicsPanel.style.display = 'block';
+        topicsTitle.classList.add('active');
+        calTitle.classList.remove('active');
+    }
+}
+
+function calendarNav(delta) {
+    _calendarMonth += delta;
+    if (_calendarMonth > 12) { _calendarMonth = 1; _calendarYear++; }
+    else if (_calendarMonth < 1) { _calendarMonth = 12; _calendarYear--; }
+    loadCalendar();
+}
+
+async function loadCalendar() {
+    if (!_portraitId) return;
+    var grid = document.getElementById('calendar-grid');
+    var label = document.getElementById('calendar-month-label');
+    if (!grid) return;
+    var months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    label.textContent = _calendarYear + '年' + months[_calendarMonth - 1];
+    grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--apple-gray);">加载中...</div>';
+
+    try {
+        var url = '/public/api/produce/calendar?portrait_id=' + _portraitId
+            + '&year=' + _calendarYear + '&month=' + _calendarMonth;
+        var resp = await fetch(url, { credentials: 'include' });
+        var result = await resp.json();
+        if (result.success) {
+            renderCalendar(result.data);
+        } else {
+            grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--apple-gray);">暂无数据</div>';
+        }
+    } catch (e) {
+        grid.innerHTML = '<div style="text-align:center;padding:24px;color:#e53935;">加载失败 <button onclick="loadCalendar()" style="margin-left:8px;padding:2px 8px;border:1px solid #e53935;background:none;color:#e53935;border-radius:4px;cursor:pointer;">重试</button></div>';
+    }
+}
+
+function renderCalendar(data) {
+    var grid = document.getElementById('calendar-grid');
+    var stats = document.getElementById('calendar-stats');
+    if (!grid) return;
+
+    var weekdays = ['日','一','二','三','四','五','六'];
+    var today = new Date();
+    var isCurrentMonth = (today.getFullYear() === data.year && (today.getMonth() + 1) === data.month);
+    var todayDate = isCurrentMonth ? today.getDate() : -1;
+
+    var firstDay = new Date(data.year, data.month - 1, 1).getDay();
+    var days = data.days || [];
+    var dayMap = {};
+    days.forEach(function(d) { dayMap[d.day] = d; });
+
+    var html = '<div class="cal-grid">';
+    // 周标题
+    weekdays.forEach(function(w) {
+        html += '<div class="cal-weekday">' + w + '</div>';
+    });
+    // 空白格子
+    for (var k = 0; k < firstDay; k++) {
+        html += '<div class="cal-cell empty"></div>';
+    }
+    // 日期格子（JS Date月份0-indexed，data.month为1-indexed）
+    var daysInMonth = new Date(data.year, data.month - 1, 0).getDate();
+    for (var d = 1; d <= daysInMonth; d++) {
+        var dayData = dayMap[d] || {};
+        var gc = dayData.generation_count || 0;
+        var dominant = dayData.dominant_type || null;
+        var isPeak = dayData.is_peak || false;
+        var isToday = (d === todayDate);
+        var isSelected = false;
+
+        var cls = 'cal-cell';
+        if (gc > 0) cls += ' has-content';
+        else cls += ' no-data';
+        if (isPeak) cls += ' peak';
+        if (dayData.is_off_season) cls += ' off-season';
+        if (isToday) cls += ' today';
+
+        var dots = '';
+        if (gc > 0 && dominant) {
+            var breakdown = dayData.breakdown || {};
+            var types = ['seed', 'convert', 'persona'];
+            var dotCount = 0;
+            for (var t = 0; t < types.length; t++) {
+                var cnt = breakdown[types[t]] || 0;
+                if (cnt > 0 && dotCount < 3) {
+                    dots += '<div class="cal-dot ' + types[t] + '"></div>';
+                    dotCount++;
+                }
+            }
+            if (gc > 3) {
+                dots = '<div style="font-size:0.5625rem;color:var(--apple-gray);">' + gc + '</div>';
+            }
+        }
+
+        html += '<div class="' + cls + '" data-day="' + d + '" data-date="' + dayData.date + '" onclick="openDayDetail(\'' + dayData.date + '\')">' +
+            '<span>' + d + '</span>' +
+            (dots ? '<div class="cal-dots">' + dots + '</div>' : '') +
+            '</div>';
+    }
+    html += '</div>';
+    grid.innerHTML = html;
+
+    // 月度统计
+    var ms = data.month_stats || {};
+    document.getElementById('cal-total-gen').textContent = ms.total_generations || 0;
+    document.getElementById('cal-seed-n').textContent = ms.seed_count || 0;
+    document.getElementById('cal-convert-n').textContent = ms.convert_count || 0;
+    document.getElementById('cal-persona-n').textContent = ms.persona_count || 0;
+    document.getElementById('cal-days-n').textContent = ms.days_with_content || 0;
+
+    var sug = data.stage_suggestion || {};
+    var sugText = '';
+    if (sug.suggestions && sug.suggestions.length > 0) {
+        sugText = '<span style="font-weight:600;color:var(--text-secondary);">💡 ' + sug.suggestions[0] + '</span>';
+    }
+    if (sug.stage) {
+        sugText += ' <span style="color:var(--apple-gray);">阶段：' + sug.stage + '</span>';
+    }
+    document.getElementById('cal-suggestion').innerHTML = sugText;
+    stats.style.display = 'block';
+}
+
+// 当日详情
+async function openDayDetail(dateStr) {
+    var panel = document.getElementById('day-detail-panel');
+    var overlay = document.getElementById('day-detail-overlay');
+    var title = document.getElementById('day-detail-title');
+    var summary = document.getElementById('day-detail-summary');
+    var list = document.getElementById('day-detail-list');
+
+    // 解析日期格式化显示
+    var parts = dateStr.split('-');
+    var month = parseInt(parts[1]);
+    var day = parseInt(parts[2]);
+    title.textContent = month + '月' + day + '日';
+
+    list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--apple-gray);">加载中...</div>';
+    panel.style.display = 'block';
+    overlay.style.display = 'block';
+    setTimeout(function() {
+        panel.style.transform = 'translateX(0)';
+    }, 10);
+
+    try {
+        var url = '/public/api/portraits/' + _portraitId + '/calendar/day?date=' + dateStr;
+        var resp = await fetch(url, { credentials: 'include' });
+        var result = await resp.json();
+        if (result.success) {
+            summary.textContent = result.data.day_summary || '';
+            renderDayDetailItems(result.data.generations || []);
+        } else {
+            list.innerHTML = '<div style="color:var(--apple-gray);text-align:center;padding:16px;">加载失败</div>';
+        }
+    } catch (e) {
+        list.innerHTML = '<div style="color:#e53935;text-align:center;padding:16px;">网络错误</div>';
+    }
+}
+
+function renderDayDetailItems(generations) {
+    var list = document.getElementById('day-detail-list');
+    if (!generations || generations.length === 0) {
+        list.innerHTML = '<div style="color:var(--apple-gray);text-align:center;padding:16px;font-size:0.75rem;">当天没有生成内容</div>';
+        return;
+    }
+    var catMap = { 'seed': '种草', 'convert': '转化', 'persona': '人设' };
+    var catColor = { 'seed': '#007AFF', 'convert': '#FF9500', 'persona': '#8E8E93' };
+    var html = '';
+    generations.forEach(function(g) {
+        var cat = g.category || 'seed';
+        var catName = catMap[cat] || '种草';
+        var color = catColor[cat] || '#007AFF';
+        var direction = g.direction || (cat === 'convert' ? '转化型' : '种草型');
+        var meta = [direction, g.content_type === 'graphic' ? '图文' : (g.content_type === 'short_video' ? '短视频' : '长文'), g.created_at.split(' ')[1]].filter(Boolean).join(' | ');
+        html += '<div class="day-detail-item">' +
+            '<div class="day-detail-cat ' + cat + '">' + catName.charAt(0) + '</div>' +
+            '<div>' +
+                '<div class="day-detail-title">' + (g.title || '(无标题)') + '</div>' +
+                '<div class="day-detail-meta">' + (g.stage_name || '') + ' · ' + meta + '</div>' +
+            '</div>' +
+        '</div>';
+    });
+    var totalCount = generations.length;
+    if (totalCount > 5) {
+        html += '<div style="text-align:center;padding:8px 0 4px;">' +
+            '<a href="/public/produce?portrait_id=' + _portraitId + '" style="color:var(--accent-color,#e53935);font-size:0.6875rem;text-decoration:none;">查看全部 ' + totalCount + ' 条 →</a>' +
+            '</div>';
+    }
+    list.innerHTML = html;
+}
+
+function closeDayDetail(e) {
+    if (e && e.target !== document.getElementById('day-detail-overlay')) return;
+    var panel = document.getElementById('day-detail-panel');
+    var overlay = document.getElementById('day-detail-overlay');
+    panel.style.transform = 'translateX(100%)';
+    setTimeout(function() {
+        panel.style.display = 'none';
+        overlay.style.display = 'none';
+    }, 250);
+}
+
+// 跳转到今日日历
+function jumpToTodayCalendar() {
+    var now = new Date();
+    _calendarYear = now.getFullYear();
+    _calendarMonth = now.getMonth() + 1;
+    switchMainTab('calendar');
+}
+
+function loadTodayCount() {
+    var now = new Date();
+    var today = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
+    if (!_portraitId) return;
+    fetch('/public/api/produce/calendar?portrait_id=' + _portraitId
+        + '&year=' + now.getFullYear() + '&month=' + (now.getMonth() + 1),
+        { credentials: 'include' })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.success && result.data) {
+                var days = result.data.days || [];
+                for (var i = 0; i < days.length; i++) {
+                    if (days[i].date === today && days[i].generation_count > 0) {
+                        var btn = document.getElementById('btn-today-count');
+                        var txt = document.getElementById('today-count-text');
+                        if (btn && txt) {
+                            btn.style.display = 'inline-flex';
+                            btn.style.alignItems = 'center';
+                            txt.textContent = '今日 ' + days[i].generation_count + ' 条';
+                        }
+                        return;
+                    }
+                }
+            }
+        })
+        .catch(function() {});
+}
+
+// Tab 初始化（默认选题列表）
+switchMainTab('topics');
+document.getElementById('tab-title-topics').classList.add('active');
+loadTodayCount();</script>
 {% endblock %}

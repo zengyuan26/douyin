@@ -3954,11 +3954,6 @@
         <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
         开始创作
     </a>
-    <a class="public-sidebar-link" href="/public/galaxy" id="sidebar-galaxy-link"
-       onclick="sidebarNavLink(event, this)" data-page="galaxy">
-        <i class="bi bi-stars" aria-hidden="true"></i>
-        内容星球
-    </a>
 </div>
 
 <!-- 分组2：我的 -->
@@ -8068,7 +8063,7 @@
 
         /**
          * 切换侧栏 Tab
-         * @param {string} tabName - 'tab-super' | 'tab-portraits' | 'tab-topics' | 'tab-contents' | 'tab-planet'
+         * @param {string} tabName - 'tab-super' | 'tab-portraits' | 'tab-topics' | 'tab-contents'
          */
         function switchSidebarTab(tabName) {
             _currentSidebarTab = tabName;
@@ -8136,54 +8131,7 @@
                 document.getElementById('result').style.display = 'none';
                 // 内容清单暂未实现，显示提示
                 showToast('内容清单功能即将上线', 'info');
-            } else if (tabName === 'tab-planet') {
-                // 内容星球 - 显示敬请期待弹层
-                showPlanetComingSoon();
             }
-        }
-
-        /**
-         * 显示「内容星球」敬请期待弹层
-         */
-        function showPlanetComingSoon() {
-            const modalEl = document.getElementById('planet-coming-soon-modal') || createPlanetModal();
-            const modal = new bootstrap.Modal(modalEl);
-            modal.show();
-        }
-
-        /**
-         * 创建「内容星球」弹层 DOM
-         */
-        function createPlanetModal() {
-            const modalHtml = `
-                <div class="modal fade" id="planet-coming-soon-modal" tabindex="-1">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content" style="border-radius: 14px; border: none;">
-                            <div class="modal-body text-center p-5">
-                                <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                                        <circle cx="12" cy="12" r="10" stroke="white" stroke-width="2" fill="none"/>
-                                        <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke="white" stroke-width="2" fill="none"/>
-                                        <path d="M2 12h20" stroke="white" stroke-width="2"/>
-                                    </svg>
-                                </div>
-                                <h5 style="font-weight: 600; margin-bottom: 8px;">内容星球</h5>
-                                <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 20px;">
-                                    这是一个全新的内容创作宇宙<br>让我们一起探索更多可能
-                                </p>
-                                <div style="display: flex; gap: 8px; justify-content: center;">
-                                    <span class="apple-badge orange">即将上线</span>
-                                    <span class="apple-badge gray">敬请期待</span>
-                                </div>
-                                <div style="margin-top: 24px;">
-                                    <button class="btn btn-primary" data-bs-dismiss="modal" style="border-radius: 8px;">我知道了</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-            return document.getElementById('planet-coming-soon-modal');
         }
 
         /**

@@ -104,12 +104,6 @@ def register_page():
     return redirect(url_for('auth.public_register'))
 
 
-@public_bp.route('/galaxy')
-def galaxy_page():
-    """星系内容宇宙 - 可视化页面"""
-    return render_template('public/galaxy.html')
-
-
 @public_bp.route('/produce')
 def produce_page():
     """生成内容页 - 网易云播放列表风格"""
@@ -949,6 +943,7 @@ def api_save_portrait():
     if not portrait_name:
         portrait_name = f"画像_{datetime.datetime.now().strftime('%m%d_%H%M')}"
 
+    seasonal_config = params.get('seasonal_config', None)
     # 插入新记录
     new_portrait = SavedPortrait(
         user_id=user.id,
@@ -959,6 +954,7 @@ def api_save_portrait():
         target_customer=target_customer,
         is_default=set_as_default,
         keyword_library=keyword_library,  # 保存前端传递的关键词库
+        seasonal_config=seasonal_config,
     )
     db.session.add(new_portrait)
     db.session.commit()
@@ -1318,6 +1314,433 @@ def api_get_portrait_stats():
             'total_portraits': total,
             'default_portraits': default_count,
             'total_uses': total_uses
+        }
+    })
+
+
+# =============================================================================
+# 选题热力日历 API
+# =============================================================================
+
+# 内容类型分类（根据 content_type / content_style / geo_mode 推断）
+_CONTENT_CATEGORY_WEIGHTS = {
+    'short_video': 'seed',       # 短视频 → 种草型
+    'graphic': 'convert',        # 图文 → 转化型（图文偏向成交）
+    'long_text': 'persona',     # 长文 → 人设型
+}
+_STYLE_TO_CATEGORY = {
+    '情绪共鸣': 'seed', '痛点放大': 'seed', '问题锁定': 'seed',
+    '方案对比': 'seed', '对比型': 'seed',
+    '产品种草': 'seed',
+    '转化型': 'convert', '顾虑消除': 'convert', '促销催促': 'convert',
+    '人设故事': 'persona', '情感故事': 'persona', '行业科普': 'persona',
+    '实操技巧': 'persona', '技能分享': 'persona',
+}
+
+
+def _infer_content_category(gen, link):
+    """根据 generation 和 link 推断内容类别：seed(种草)/convert(转化)/persona(人设)"""
+    # 优先看 content_style
+    style = (gen.content_style or '').strip()
+    if style in _STYLE_TO_CATEGORY:
+        return _STYLE_TO_CATEGORY[style]
+    # 其次看 content_type
+    ctype = (gen.content_type or '').strip()
+    if ctype in _CONTENT_CATEGORY_WEIGHTS:
+        return _CONTENT_CATEGORY_WEIGHTS[ctype]
+    # 默认按 geo_mode 猜
+    geo = (gen.geo_mode_used or '').strip()
+    if '对比' in geo or '答案' in geo or '场景' in geo:
+        return 'seed'
+    if '顾虑' in geo or '促销' in geo:
+        return 'convert'
+    if '故事' in geo or '科普' in geo or '技巧' in geo:
+        return 'persona'
+    return 'seed'
+
+
+def _get_stage_suggestion(stage, seed_pct, convert_pct, persona_pct,
+                          seasonal_config=None, month=None):
+    """根据阶段和近期内容配比，给出内容方向建议"""
+    suggestions = []
+    off_season_note = ''
+    is_current_off_season = False
+
+    if stage in ('起号阶段', '起号'):
+        ideal = {'seed': 60, 'convert': 5, 'persona': 35}
+    elif stage in ('成长阶段', '成长'):
+        ideal = {'seed': 55, 'convert': 20, 'persona': 25}
+    else:
+        ideal = {'seed': 40, 'convert': 40, 'persona': 20}
+
+    if seed_pct > ideal['seed'] + 15:
+        suggestions.append('痛点内容偏多，可适当增加人设内容平衡')
+    elif seed_pct < ideal['seed'] - 20:
+        suggestions.append('建议增加痛点放大类内容，增强圈人效果')
+
+    if convert_pct < ideal['convert'] - 10 and stage != '起号阶段':
+        suggestions.append('转化型内容偏少，可适当增加顾虑消除内容')
+
+    if persona_pct < ideal['persona'] - 15:
+        suggestions.append('人设内容偏少，建议补充情感故事或行业科普内容')
+
+    if not suggestions:
+        suggestions.append('内容配比良好，继续保持')
+
+    # 淡季提示
+    if seasonal_config and seasonal_config.get('has_seasonality') and month is not None:
+        peak = seasonal_config.get('peak_months', [])
+        if month not in peak:
+            is_current_off_season = True
+            note = seasonal_config.get('off_season_note', '').strip()
+            if note:
+                off_season_note = note
+                suggestions.insert(0, '⚠️ 当前为淡季月：' + note)
+            else:
+                suggestions.insert(0, '⚠️ 当前为淡季月，内容方向可偏向人设和行业科普')
+
+    return {
+        'stage': stage,
+        'ideal_ratio': ideal,
+        'current_ratio': {'seed': seed_pct, 'convert': convert_pct, 'persona': persona_pct},
+        'suggestions': suggestions,
+        'is_current_off_season': is_current_off_season,
+        'off_season_note': off_season_note,
+    }
+
+
+def _is_peak_month(seasonal_config, month):
+    """判断某月是否为旺季"""
+    if not seasonal_config or not seasonal_config.get('has_seasonality'):
+        return False
+    peak = seasonal_config.get('peak_months', [])
+    return month in peak
+
+
+def _is_off_season_month(seasonal_config, month):
+    """判断某月是否为淡季（旺月之外的其他月份视为淡季）"""
+    if not seasonal_config or not seasonal_config.get('has_seasonality'):
+        return False
+    peak = seasonal_config.get('peak_months', [])
+    return month not in peak
+
+@public_bp.route('/api/produce/calendar', methods=['GET'])
+def api_produce_calendar():
+    """
+    获取选题使用热力日历数据
+
+    Query Params:
+        portrait_id: 画像ID（必填）
+        year: 年份，默认当前年
+        month: 月份，默认当前月
+    """
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    portrait_id = request.args.get('portrait_id', type=int)
+    if not portrait_id:
+        return jsonify({'success': False, 'message': 'portrait_id 为必填参数'}), 400
+
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+    now = datetime.datetime.now()
+    if not year:
+        year = now.year
+    if not month:
+        month = now.month
+
+    from models.public_models import TopicGenerationLink, PublicGeneration
+
+    month_start = datetime.datetime(year, month, 1)
+    if month == 12:
+        month_end = datetime.datetime(year + 1, 1, 1)
+    else:
+        month_end = datetime.datetime(year, month + 1, 1)
+
+    links = (
+        db.session.query(PublicGeneration, TopicGenerationLink)
+        .join(TopicGenerationLink, PublicGeneration.link_id == TopicGenerationLink.id)
+        .filter(
+            PublicGeneration.user_id == user.id,
+            PublicGeneration.portrait_id == portrait_id,
+            PublicGeneration.created_at >= month_start,
+            PublicGeneration.created_at < month_end,
+        )
+        .order_by(PublicGeneration.created_at.desc())
+        .all()
+    )
+
+    # 取画像配置（淡旺季 + 阶段）
+    portrait = db.session.get(SavedPortrait, portrait_id)
+    seasonal_config = portrait.seasonal_config if portrait else None
+    content_stage = (portrait.content_stage or '成长阶段') if portrait else '成长阶段'
+
+    day_map = {}
+    total_generations = 0
+    all_topics = set()
+    type_counts = {'seed': 0, 'convert': 0, 'persona': 0}
+
+    for gen, link in links:
+        day = gen.created_at.day
+        cat = _infer_content_category(gen, link)
+        if day not in day_map:
+            day_map[day] = {'generations': [], 'topic_count': set(), 'topic_names': [], 'types': {'seed': 0, 'convert': 0, 'persona': 0}}
+        day_map[day]['generations'].append(gen)
+        day_map[day]['types'][cat] = day_map[day]['types'].get(cat, 0) + 1
+        type_counts[cat] = type_counts.get(cat, 0) + 1
+        if link.topic_id:
+            day_map[day]['topic_count'].add(link.topic_id)
+            all_topics.add(link.topic_id)
+            if link.topic_title:
+                day_map[day]['topic_names'].append(link.topic_title)
+        total_generations += 1
+
+    # 月度集中度
+    concentration_score = 0.0
+    if day_map:
+        daily_scores = []
+        for day, info in day_map.items():
+            gc = len(info['generations'])
+            tc = max(len(info['topic_count']), 1)
+            daily_scores.append(gc / tc)
+        concentration_score = min(1.0, (sum(daily_scores) / len(daily_scores)) / 5.0)
+
+    # 上月集中度对比
+    prev_month = month - 1 if month > 1 else 12
+    prev_year = year if month > 1 else year - 1
+    prev_start = datetime.datetime(prev_year, prev_month, 1)
+    prev_end = month_start  # current month's start
+
+    prev_links = (
+        db.session.query(PublicGeneration, TopicGenerationLink)
+        .join(TopicGenerationLink, PublicGeneration.link_id == TopicGenerationLink.id)
+        .filter(
+            PublicGeneration.user_id == user.id,
+            PublicGeneration.portrait_id == portrait_id,
+            PublicGeneration.created_at >= prev_start,
+            PublicGeneration.created_at < prev_end,
+        )
+        .all()
+    )
+
+    prev_day_map = {}
+    for gen, link in prev_links:
+        day = gen.created_at.day
+        if day not in prev_day_map:
+            prev_day_map[day] = {'generations': 0, 'topic_count': set()}
+        prev_day_map[day]['generations'] += 1
+        if link.topic_id:
+            prev_day_map[day]['topic_count'].add(link.topic_id)
+
+    prev_score = 0.0
+    if prev_day_map:
+        prev_scores = []
+        for day, info in prev_day_map.items():
+            gc = info['generations']
+            tc = max(len(info['topic_count']), 1)
+            prev_scores.append(gc / tc)
+        prev_score = min(1.0, (sum(prev_scores) / len(prev_scores)) / 5.0)
+
+    diff = concentration_score - prev_score
+    if abs(diff) < 0.05:
+        concentration_trend, trend_value = 'stable', '持平'
+    elif diff > 0:
+        concentration_trend, trend_value = 'up', f'+{int(diff * 100)}%'
+    else:
+        concentration_trend, trend_value = 'down', f'{int(diff * 100)}%'
+
+    # 类型占比（用于阶段建议）
+    seed_count = type_counts.get('seed', 0)
+    convert_count = type_counts.get('convert', 0)
+    persona_count = type_counts.get('persona', 0)
+    total_cat = max(seed_count + convert_count + persona_count, 1)
+    seed_pct = round(seed_count / total_cat * 100)
+    convert_pct = round(convert_count / total_cat * 100)
+    persona_pct = 100 - seed_pct - convert_pct
+
+    # 每日格子数据（含类型分类 + 旺淡月标识）
+    import calendar as cal_module
+    days_in_month = cal_module.monthrange(year, month)[1]
+    is_peak = _is_peak_month(seasonal_config, month)
+    is_off_season = _is_off_season_month(seasonal_config, month)
+    days_data = []
+    for day in range(1, days_in_month + 1):
+        if day in day_map:
+            info = day_map[day]
+            gc = len(info['generations'])
+            tc = len(info['topic_count'])
+            topic_names = list(dict.fromkeys(info['topic_names']))[:5]
+
+            topic_gen_count = {}
+            for gen in info['generations']:
+                if gen.link and gen.link.topic_title:
+                    t = gen.link.topic_title
+                    topic_gen_count[t] = topic_gen_count.get(t, 0) + 1
+            hottest = max(topic_gen_count, key=topic_gen_count.get) if topic_gen_count else ''
+            hottest_count = max(topic_gen_count.values()) if topic_gen_count else 0
+
+            ratio = gc / max(tc, 1)
+            concentration = 'high' if ratio >= 3 else ('medium' if ratio >= 1.5 else 'low')
+
+            # 当天主导类型
+            day_types = info.get('types', {})
+            dominant = max(day_types, key=day_types.get) if day_types else 'seed'
+            dominant_count = day_types.get(dominant, 0) if day_types else 0
+
+            days_data.append({
+                'day': day,
+                'date': f'{year}-{month:02d}-{day:02d}',
+                'generation_count': gc,
+                'topic_count': tc,
+                'topic_names': topic_names,
+                'topic_repeated': gc > tc,
+                'concentration': concentration,
+                'hottest_topic': hottest,
+                'hottest_topic_count': hottest_count,
+                'breakdown': day_types,
+                'dominant_type': dominant if dominant_count > 0 else None,
+                'is_peak': is_peak,
+                'is_off_season': is_off_season,
+            })
+        else:
+            days_data.append({
+                'day': day,
+                'date': f'{year}-{month:02d}-{day:02d}',
+                'generation_count': 0,
+                'topic_count': 0,
+                'topic_names': [],
+                'topic_repeated': False,
+                'concentration': 'none',
+                'hottest_topic': '',
+                'hottest_topic_count': 0,
+                'breakdown': {'seed': 0, 'convert': 0, 'persona': 0},
+                'dominant_type': None,
+                'is_peak': is_peak,
+                'is_off_season': is_off_season,
+            })
+
+    # 阶段建议（含淡季提示）
+    stage_suggestion = _get_stage_suggestion(content_stage, seed_pct, convert_pct, persona_pct,
+                                             seasonal_config=seasonal_config, month=month)
+    # 有内容的总天数
+    days_with_content = sum(1 for d in days_data if d['generation_count'] > 0)
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'year': year,
+            'month': month,
+            'portrait_id': portrait_id,
+            'seasonal_config': seasonal_config,
+            'total_generations': total_generations,
+            'total_topics': len(all_topics),
+            'concentration_score': round(concentration_score, 2),
+            'concentration_trend': concentration_trend,
+            'trend_value': trend_value,
+            'days': days_data,
+            'month_stats': {
+                'total_generations': total_generations,
+                'seed_count': seed_count,
+                'convert_count': convert_count,
+                'persona_count': persona_count,
+                'days_with_content': days_with_content,
+            },
+            'stage_suggestion': stage_suggestion,
+        }
+    })
+
+
+@public_bp.route('/api/portraits/<int:portrait_id>/calendar/day', methods=['GET'])
+def api_portrait_calendar_day(portrait_id):
+    """获取某一天的生成内容详情"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    date_str = request.args.get('date')  # YYYY-MM-DD
+    if not date_str:
+        return jsonify({'success': False, 'message': 'date 参数必填'}), 400
+
+    try:
+        target = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'success': False, 'message': '日期格式错误，请使用 YYYY-MM-DD'}), 400
+
+    day_start = target
+    day_end = target + datetime.timedelta(days=1)
+
+    generations = (
+        db.session.query(PublicGeneration, TopicGenerationLink)
+        .outerjoin(TopicGenerationLink, PublicGeneration.link_id == TopicGenerationLink.id)
+        .filter(
+            PublicGeneration.user_id == user.id,
+            PublicGeneration.portrait_id == portrait_id,
+            PublicGeneration.created_at >= day_start,
+            PublicGeneration.created_at < day_end,
+        )
+        .order_by(PublicGeneration.created_at.desc())
+        .all()
+    )
+
+    items = []
+    for gen, link in generations:
+        title = ''
+        if gen.titles and isinstance(gen.titles, list) and len(gen.titles) > 0:
+            title = gen.titles[0].get('title', '')
+        elif gen.content_data:
+            title = gen.content_data.get('title', '')
+
+        cat = _infer_content_category(gen, link)
+        stage_name_map = {
+            'audience': '受众锁定', 'pain': '痛点放大', 'compare': '方案对比',
+            'hesitation': '顾虑消除', 'upstream': '上游科普',
+            'industry': '行业关联', 'emotional': '情感故事', 'skill': '实操技巧',
+        }
+        geo_mode = gen.geo_mode_used or (link.geo_mode if link else '')
+        stage_key = ''
+        for k in stage_name_map:
+            if k in (geo_mode or ''):
+                stage_key = k
+                break
+
+        # 推断内容方向
+        dir_map = {'seed': '种草型', 'convert': '转化型', 'persona': '种草型'}
+        direction = dir_map.get(cat, '种草型')
+
+        items.append({
+            'id': gen.id,
+            'title': title,
+            'content_type': gen.content_type or 'graphic',
+            'content_style': gen.content_style or '',
+            'geo_mode': geo_mode,
+            'stage_key': stage_key,
+            'stage_name': stage_name_map.get(stage_key, ''),
+            'direction': direction,
+            'category': cat,
+            'created_at': gen.created_at.strftime('%Y-%m-%d %H:%M'),
+        })
+
+    # 摘要
+    seed_n = sum(1 for i in items if i['category'] == 'seed')
+    convert_n = sum(1 for i in items if i['category'] == 'convert')
+    persona_n = sum(1 for i in items if i['category'] == 'persona')
+    summary_parts = []
+    if seed_n:
+        summary_parts.append(f'{seed_n}篇种草型')
+    if convert_n:
+        summary_parts.append(f'{convert_n}篇转化型')
+    if persona_n:
+        summary_parts.append(f'{persona_n}篇人设型')
+    day_summary = ('今天主要生成了 ' + '、'.join(summary_parts)) if summary_parts else '今天没有生成内容'
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'date': date_str,
+            'total_count': len(items),
+            'generations': items,
+            'day_summary': day_summary,
         }
     })
 

@@ -276,6 +276,9 @@ class SavedPortrait(db.Model):
     # 内容阶段配置（管理员专属，仅内部可见）：起号阶段/成长阶段/成熟阶段
     content_stage = db.Column(db.String(20), default='成长阶段')
 
+    # 淡旺季配置（JSON）：has_seasonality, peak_months, off_season_note
+    seasonal_config = db.Column(db.JSON)
+
     # 时间戳
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

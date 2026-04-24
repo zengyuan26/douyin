@@ -1692,14 +1692,6 @@
     </script>
 
     <script>
-    // 侧栏 new 徽章处理：如果当前在内容星球页面，隐藏所有 new 徽章
-    (function() {
-        if (window.location.pathname === '/public/galaxy') {
-            document.querySelectorAll('.sidebar-new-badge').forEach(function(badge) {
-                badge.style.display = 'none';
-            });
-        }
-    })();
     </script>
 
     {% block layout_extra_js %}{% endblock %}

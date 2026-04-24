@@ -860,10 +860,6 @@
             <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
             开始创作
         </a>
-        <a class="public-sidebar-link" href="/public/galaxy" id="sidebar-galaxy-link">
-            <i class="bi bi-stars" aria-hidden="true"></i>
-            内容星球
-        </a>
     </div>
 
     {# 分组2：我的 #}
@@ -996,6 +992,26 @@
                         <input class="form-check-input" type="checkbox" id="portrait-default-check">
                         <label class="form-check-label" for="portrait-default-check">设为默认画像</label>
                     </div>
+                    <hr style="margin: 14px 0;">
+                    <div class="mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="has-seasonality-check" onchange="toggleSeasonalityConfig()">
+                            <label class="form-check-label" for="has-seasonality-check">
+                                <span style="font-size:0.8125rem;">本行业有明显淡旺季</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="seasonality-config-panel" style="display:none; padding: 10px 0 4px 24px;">
+                        <div class="mb-2">
+                            <label class="form-label" style="font-size:0.75rem; color:var(--apple-gray);">旺季月份（可多选）</label>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;" id="peak-months-grid">
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" style="font-size:0.75rem; color:var(--apple-gray);">淡季内容提示</label>
+                            <input type="text" class="form-control form-control-sm" id="off-season-note-input" placeholder="如：淡季主做人设和行业科普">
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
@@ -1070,6 +1086,7 @@ var _isSavingPortrait = false;
 document.addEventListener('DOMContentLoaded', function() {
     loadUserAuth();
     loadPortraits();
+    initSeasonalityGrid();
 });
 
 /**
@@ -1187,7 +1204,8 @@ async function portraitConfirmSave() {
                 industry: '',
                 target_customer: _currentPortraitData.name || '',
                 source_session_id: '',
-                set_as_default: setDefault
+                set_as_default: setDefault,
+                seasonal_config: buildSeasonalConfig(),
             })
         });
 
@@ -1224,6 +1242,42 @@ function resetSavePortraitBtn(btn, originalText) {
         btn.disabled = false;
         btn.innerHTML = originalText || '<i class="bi bi-check-lg me-1"></i>保存画像';
     }
+}
+
+// 淡旺季配置
+function toggleSeasonalityConfig() {
+    var panel = document.getElementById('seasonality-config-panel');
+    var checked = document.getElementById('has-seasonality-check').checked;
+    panel.style.display = checked ? 'block' : 'none';
+}
+
+function initSeasonalityGrid() {
+    var grid = document.getElementById('peak-months-grid');
+    if (!grid) return;
+    var months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    var html = '';
+    for (var i = 1; i <= 12; i++) {
+        html += '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.6875rem;padding:3px 8px;background:var(--bg-secondary);border-radius:4px;border:1px solid var(--card-border);">';
+        html += '<input type="checkbox" value="' + i + '" class="peak-month-check" style="accent-color:var(--accent-color,#e53935);">';
+        html += months[i - 1];
+        html += '</label>';
+    }
+    grid.innerHTML = html;
+}
+
+function buildSeasonalConfig() {
+    var hasSeasonality = document.getElementById('has-seasonality-check').checked;
+    if (!hasSeasonality) return null;
+    var peakMonths = [];
+    document.querySelectorAll('.peak-month-check:checked').forEach(function(cb) {
+        peakMonths.push(parseInt(cb.value));
+    });
+    var offSeasonNote = document.getElementById('off-season-note-input').value.trim();
+    return {
+        has_seasonality: true,
+        peak_months: peakMonths,
+        off_season_note: offSeasonNote,
+    };
 }
 
 async function loadUserAuth() {

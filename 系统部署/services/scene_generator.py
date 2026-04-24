@@ -14,6 +14,9 @@ import re
 import uuid
 from typing import List, Dict, Optional
 
+from models.models import db
+from models.public_models import SavedPortrait, PublicGeneration, PublicIndustryTopic
+
 
 class SceneGenerator:
     """通用场景生成器 v2"""
@@ -418,6 +421,157 @@ class SceneGenerator:
             'icon': '💭',
             'desc': '通用风格',
         })
+
+    @classmethod
+    def _normalize_scene_options(cls, scene_options: list) -> list:
+        """
+        将旧格式场景选项转换为新格式。
+
+        旧格式：[{ "id": "...", "标签": "...", "组合": "...", "风格": "..." }]
+        新格式：[{ "id": "...", "pain_name": "...", "group": "...", "style": "..." }]
+        """
+        if not scene_options:
+            return []
+
+        normalized = []
+        for scene in scene_options:
+            if 'pain_name' in scene or 'label' in scene:
+                normalized.append(scene)
+                continue
+
+            new_scene = {
+                'id': scene.get('id', f'scene_{uuid.uuid4().hex[:8]}'),
+                'pain_type': cls._infer_pain_type_from_style(scene.get('风格', '')),
+                'pain_name': scene.get('标签', '通用场景').replace('型', ''),
+                'pain_desc': scene.get('组合', ''),
+                'label': scene.get('标签', '通用场景'),
+                'group': scene.get('组合', ''),
+                'question': scene.get('组合', '怎么办'),
+                'style': scene.get('风格', '情绪共鸣'),
+                'priority': cls._infer_priority_from_style(scene.get('风格', '')),
+                'urgency': 'medium',
+                'keywords': [],
+                'audience': cls._extract_audience_from_label(scene.get('标签', '')),
+            }
+            normalized.append(new_scene)
+
+        normalized.sort(key=lambda x: x.get('priority', 99))
+        return normalized[:5]
+
+    @classmethod
+    def _infer_pain_type_from_style(cls, style: str) -> str:
+        style_pain_map = {
+            '情绪共鸣': 'risk',
+            '干货科普': 'info',
+            '故事叙述': 'effect',
+            '权威背书': 'choice',
+            '犀利吐槽': 'cost',
+        }
+        return style_pain_map.get(style, 'info')
+
+    @classmethod
+    def _infer_priority_from_style(cls, style: str) -> int:
+        style_priority_map = {
+            '情绪共鸣': 1,
+            '干货科普': 5,
+            '故事叙述': 2,
+            '权威背书': 4,
+            '犀利吐槽': 3,
+        }
+        return style_priority_map.get(style, 5)
+
+    @classmethod
+    def _extract_audience_from_label(cls, label: str) -> str:
+        if not label:
+            return '目标用户'
+        label = label.replace('型', '')
+        if '-' in label:
+            return label.split('-')[0].strip()
+        return label
+
+    DEFAULT_SCENE_TEMPLATES = [
+        {'pain_type': 'info',     'pain_name': '信息恐慌',       'style': '干货科普',   'label': '信息恐慌型'},
+        {'pain_type': 'cost',    'pain_name': '成本焦虑',       'style': '犀利吐槽',   'label': '成本焦虑型'},
+        {'pain_type': 'risk',    'pain_name': '风险担忧',       'style': '情绪共鸣',   'label': '风险担忧型'},
+        {'pain_type': 'effect',  'pain_name': '效果怀疑',       'style': '故事叙述',   'label': '效果怀疑型'},
+        {'pain_type': 'choice',  'pain_name': '选择困难',       'style': '权威背书',   'label': '选择困难型'},
+    ]
+
+    @classmethod
+    def _fill_scene_options_to_min(cls, scene_options: list, topic_title: str = '') -> list:
+        if not scene_options:
+            scene_options = []
+
+        existing_types = set(s.get('pain_type', 'info') for s in scene_options)
+        count = len(scene_options)
+        next_id = count
+
+        for tmpl in cls.DEFAULT_SCENE_TEMPLATES:
+            if count >= 3:
+                break
+            if tmpl['pain_type'] in existing_types:
+                continue
+            scene_options.append({
+                'id': f'scene_default_{next_id}',
+                'pain_type': tmpl['pain_type'],
+                'pain_name': tmpl['pain_name'],
+                'pain_desc': '',
+                'label': tmpl['label'],
+                'group': topic_title,
+                'question': tmpl['pain_name'].replace('型', '') + '怎么办',
+                'style': tmpl['style'],
+                'priority': count + 1,
+                'urgency': 'medium',
+                'keywords': [],
+                'audience': '目标用户',
+            })
+            existing_types.add(tmpl['pain_type'])
+            next_id += 1
+            count += 1
+
+        return scene_options
+
+    @classmethod
+    def enrich_topics_with_scene_options(cls, topics: list) -> list:
+        """
+        为选题列表补充 scene_options 和 content_style 字段。
+        """
+        enriched = []
+        for topic in topics:
+            if not isinstance(topic, dict):
+                continue
+            t = dict(topic)
+
+            if isinstance(t.get('scene_options'), list) and len(t.get('scene_options', [])) > 0:
+                t['scene_options'] = cls._normalize_scene_options(t['scene_options'])
+                t['scene_options'] = cls._fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+                t['content_style'] = t.get('content_style', '') or (
+                    t['scene_options'][0]['style'] if t['scene_options'] else ''
+                )
+            elif 'industry' in t and 'title' in t:
+                db_topic = PublicIndustryTopic.query.filter_by(title=t['title']).first()
+                if db_topic and db_topic.scene_options:
+                    t['scene_options'] = cls._normalize_scene_options(db_topic.scene_options)
+                    t['scene_options'] = cls._fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+                    t['content_style'] = db_topic.content_style or (
+                        t['scene_options'][0]['style'] if t['scene_options'] else ''
+                    )
+                else:
+                    t['scene_options'] = cls.generate_scenes(t)
+                    t['scene_options'] = cls._fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+                    t['content_style'] = t.get('content_style', '') or (
+                        t['scene_options'][0]['style'] if t['scene_options'] else ''
+                    )
+            else:
+                t['scene_options'] = cls.generate_scenes(t)
+                t['scene_options'] = cls._fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+                t['content_style'] = t.get('content_style', '') or (
+                    t['scene_options'][0]['style'] if t['scene_options'] else ''
+                )
+
+            enriched.append(t)
+
+        return enriched
 
 
 scene_generator = SceneGenerator()

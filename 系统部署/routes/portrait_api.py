@@ -17,6 +17,7 @@ from flask_login import current_user
 from functools import wraps
 import re
 from services.portrait_save_service import portrait_save_service
+from services.scene_generator import scene_generator
 from services.portrait_frequency_controller import portrait_frequency_controller
 from services.portrait_library_task_service import generate_with_semaphore
 from models.public_models import PublicUser, SavedPortrait, TopicGenerationLink, PublicGeneration
@@ -28,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 
 
-from services.galaxy_service import enrich_topics_with_scene_options
 
 portrait_bp = Blueprint('portrait', __name__, url_prefix='/public/api/portraits')
 
@@ -617,7 +617,7 @@ def get_portrait_topics(user, portrait_id):
     page_topics = all_topics[start:end]
 
     # ── 星系增强：补充 scene_options 和 content_style ──
-    page_topics = enrich_topics_with_scene_options(page_topics)
+    page_topics = scene_generator.enrich_topics_with_scene_options(page_topics)
 
     # ── 补充 link 信息（版本数量、使用次数）──
     topic_ids = [str(t.get('id')) for t in page_topics if isinstance(t, dict) and t.get('id')]
