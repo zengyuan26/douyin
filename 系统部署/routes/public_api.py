@@ -3738,6 +3738,7 @@ def api_generate_keyword_library():
     core_business = data.get('core_business', '').strip()
     blue_ocean_opportunity = data.get('blue_ocean_opportunity', '').strip()
     portraits = data.get('portraits', [])  # 新增：画像列表
+    portrait_data = data.get('portrait_data', {})  # 画像痛点数据（pain_points/pain_scenarios/barriers）
 
     if not business_description:
         return jsonify({
@@ -3762,6 +3763,7 @@ def api_generate_keyword_library():
             max_keywords=200,
             blue_ocean_opportunity=blue_ocean_opportunity or None,
             portraits=portraits or None,
+            portrait_data=portrait_data or None,
         )
 
         if not result.success:
@@ -3985,6 +3987,9 @@ def api_portrait_keywords_topics_generate():
 
     logger.info(f"[api_portrait_keywords_topics_generate] 生成关键词选题: 画像={portrait.get('portrait_id', 'N/A')}, 业务={core_business}")
 
+    # 从 portrait 提取 portrait_data（pain_points/pain_scenarios/barriers）
+    portrait_data_dict = portrait.get('portrait_data', {}) or {}
+
     try:
         # 先生成市场关键词库（100+）
         market_kw_lib = {}
@@ -4000,6 +4005,7 @@ def api_portrait_keywords_topics_generate():
                 max_keywords=200,
                 blue_ocean_opportunity=None,
                 portraits=None,
+                portrait_data=portrait_data_dict,
             )
             if kl_result.success:
                 market_kw_lib = kl_result.keyword_library or {}
@@ -4068,6 +4074,8 @@ def api_portrait_keywords_topics_generate_batch():
     core_business = data.get('core_business', '').strip()
     industry = data.get('industry', '').strip()
     portraits = data.get('portraits', [])
+    # 取第一个画像的 portrait_data 用于市场关键词库生成（所有画像共享）
+    first_portrait_data = (portraits[0].get('portrait_data', {}) or {}) if portraits else {}
 
     if not core_business:
         return jsonify({'success': False, 'message': '请提供核心业务'}), 400
@@ -4093,6 +4101,7 @@ def api_portrait_keywords_topics_generate_batch():
                 max_keywords=200,
                 blue_ocean_opportunity=None,
                 portraits=None,
+                portrait_data=first_portrait_data,
             )
             if kl_result.success:
                 market_kw_lib = kl_result.keyword_library or {}
