@@ -463,136 +463,87 @@ class MarketAnalyzer:
         service_scenario: str = '',
         max_opportunities: int = 5,
     ) -> str:
-        """构建蓝海机会挖掘Prompt（第一阶段）"""
+        """构建蓝海机会挖掘Prompt（精简版）"""
 
-        # 业务类型适配
-        business_type_hint = ""
-        if business_type == 'product':
-            business_type_hint = "业务为消费品，重点关注：使用者症状、购买者顾虑、选择对比"
-        elif business_type == 'local_service':
-            business_type_hint = "业务为本地服务，重点关注：服务场景、时效顾虑、信任问题"
-        elif business_type == 'enterprise':
-            business_type_hint = "业务为企业服务，重点关注：决策流程、ROI顾虑、供应商选择"
+        # ── 业务类型适配 ──
+        business_type_map = {
+            'product': '消费品：重点关注使用者症状、购买者顾虑、选择对比',
+            'local_service': '本地服务：重点关注服务场景、时效顾虑、信任问题',
+            'enterprise': '企业服务：重点关注决策流程、ROI顾虑、供应商选择',
+        }
+        business_type_hint = business_type_map.get(business_type, f'业务类型：{business_type}')
 
-        # 经营范围适配
-        range_hint = ""
+        # ── 经营范围适配 ──
         if business_range == 'local':
-            if local_city:
-                range_hint = f"经营范围为本地服务（限定城市：{local_city}），蓝海机会需聚焦本地化需求，如同城配送、本地上门、当地渠道等"
-            else:
-                range_hint = "经营范围为本地服务，蓝海机会需聚焦同城/本地的差异化需求"
+            range_hint = f'本地服务（{local_city or "未指定城市"}），聚焦同城差异化'
         elif business_range == 'cross_region':
-            range_hint = "经营范围为全国/跨区域，蓝海机会可聚焦全国性需求或跨区域差异化服务"
+            range_hint = '全国/跨区域，可聚焦全国性需求'
+        else:
+            range_hint = ''
 
-        # 服务场景适配
-        scenario_hint = ""
-        if service_scenario:
-            scenario_hint = f"主要服务场景：{service_scenario}，蓝海机会需紧密围绕该服务场景中的真实痛点"
+        # ── 服务场景 ──
+        scenario_hint = f'服务场景：{service_scenario}' if service_scenario else ''
 
-        prompt = f"""你是市场蓝海机会分析专家。请分析以下业务的市场机会，并挖掘可操作的业务细分方向。
+        # ── 通用红线约束（提炼到prompt顶部，避免LLM套模板） ──
+        redlines = f"""
+**红线（违反则输出作废）**
+1. 细分方向必须与「{business_desc}」有直接逻辑关联，禁止凭空创造无关产品/服务
+2. 目标人群禁止虚构，必须基于业务自然延伸（如买主→使用者、用户→决策者）
+3. 问题类型必须是真实痛点，禁止填业务流程步骤（如"付款方式"、"取车手续"）
+4. 输出内容必须基于输入业务，禁止复制示例格式套用"""
+
+        return f"""你是蓝海市场分析专家。请为以下业务识别 {max_opportunities} 个蓝海机会。
 
 === 业务信息 ===
-业务描述：{business_desc}
-行业：{industry or '根据业务描述推断'}
-业务类型：{business_type_hint}
+{business_desc}
+行业：{industry or '从业务描述推断'}
+类型：{business_type_hint}
 {range_hint}
 {scenario_hint}
+{redlines}
 
-=== 分析任务 ===
-请完成以下分析并输出JSON格式结果：
+=== 任务 ===
+识别 {max_opportunities} 个蓝海市场机会，每个机会输出：
 
-1. **市场机会挖掘**：识别{max_opportunities}个蓝海市场机会
-
-   **【强制约束】必须严格遵循以下规则：**
-   - 业务细分方向必须与输入业务存在直接的逻辑关联，禁止凭空创造不相关的产品或服务
-   - 目标人群必须基于真实用户画像，禁止虚构特殊人群（如"乳糖不耐受婴儿"等与输入业务无关的人群）
-   - 每个机会必须包含完整的逻辑链：输入业务 → 用户群体 → 真实痛点 → 可落地服务
-   - 置信度评分必须基于逻辑链的完整性，而非主观臆断
-
-   每个机会必须包含：
-     - **opportunity_name**：机会名称，如"XX细分市场"、"XX人群市场"
-     - **business_direction**：**【关键】业务细分方向，用于直接填入"核心业务"输入框**
-       - 必须基于输入业务{business_desc}进行合理细分
-       - 格式：输入业务 + 服务形式/人群细分，如"XX产品定制方案"、"XX服务本地代理"、"XX人群专属套餐"（不得替换输入业务的核心关键词）
-     - **logic_chain**：**【新增-强制】逻辑链自证，说明"输入业务→细分方向"的推理过程**
-       - 格式：输入业务是"XX"，目标人群是"XX"，因为"XX（真实原因）"，所以"XX（服务内容）"
-     - **differentiation**：一句话说明这个机会好在哪、差异化在哪
-   - **目标人群**：要细分，如"有需求但不知如何选择的30-40岁城市上班族"
-   - **【核心】问题类型和场景**：
-     - 一个机会可包含 1-3 个问题类型（如"肠道问题"、"过敏问题"、"真假顾虑"）
-     - 每个问题类型下包含 2-4 个问题场景
-     - **问题类型**：用户遇到的真实问题大类（如"宝宝喝奶粉后肠胃不适"、"进口奶粉真假难辨"），禁止填业务流程步骤（如"取车流程"、"付款方式"）
-     - **问题场景**：该问题类型下的具体症状/情境，每个场景对应一个画像
-       - 正确示例：场景名="喝奶粉拉肚子"、场景名="喝奶粉腹胀"、场景名="换奶粉后绿便"
-       - 错误示例：场景名="取车手续"（这是流程步骤，不是问题场景）
-     - **search_hypotheses**：每个方向对应的4个搜索假设句（用于后续搜索验证）
-       - 将 `业务细分方向` 的核心词代入以下模板生成：
-         - demand：`{{业务细分方向}} {{需求动词}}`，如"XXX服务 哪里找"、"XXX方案 多少钱"
-         - competition：`{{业务细分方向}} {{竞争词}}`，如"XXX定制 本地供应商"、"XXX服务 有哪些公司"
-         - scarcity：`{{业务细分方向}} {{稀缺词}}`，如"XXX服务 专业团队"、"XXX方案 哪里有"
-         - content_gap：`{{业务细分方向}} {{缺口词}}`，如"XXX全流程攻略"、"XXX注意事项"
-
-2. **细分赛道洞察**：
-   - main_subdivision: 主流细分方向（基于{industry or '推断行业'}的实际市场
-   - blue_ocean_direction: 蓝海差异化方向（与输入业务的逻辑关联
-   - differentiation_points: 差异化点列表（必须与输入业务相关
+1. **opportunity_name**：机会名称，直接命中细分人群/需求
+2. **business_direction**：细分方向，直接填入"核心业务"输入框
+   - 格式：「{business_desc} + 服务形式」或「{business_desc} + 人群细分」
+   - 不得替换核心关键词
+3. **logic_chain**：逻辑链自证，格式：输入业务是X，目标人群是Y，因为Z（真实原因），所以提供W
+4. **differentiation**：一句话差异化说明
+5. **target_audience**：细分人群描述（如"XX情况但不知怎么选的30-40岁XX"）
+6. **pain_points**：该人群的2-4个真实痛点
+7. **problem_types**：问题类型+场景，每个机会1-3个问题类型
+   - 问题类型：该人群遇到的具体问题大类（如"担心XX"、"不知道怎么选XX"）
+   - 场景：该问题下的具体症状/情境（如"XX情况但不知道怎么解决"）
 
 === 输出格式 ===
-请严格按以下JSON格式输出，不要输出任何其他内容：
-
+```json
 {{
     "market_opportunities": [
         {{
-            "opportunity_name": "【禁止输出占位符，必须基于{business_desc}生成真实名称，如"XX细分人群市场"】",
-            "business_direction": "基于{business_desc}的合理细分方向",
-            "target_audience": "基于真实用户画像细分",
-            "pain_points": ["与输入业务相关的真实痛点"],
-            "keywords": ["与细分方向相关的关键词"],
-            "content_direction": "基于真实痛点的内容方向",
-            "market_type": "blue_ocean",
-            "confidence": 0.0,
-            "differentiation": "逻辑链自证",
-            "logic_chain": "输入业务是XX，目标人群是XX，因为XX（真实原因），所以提供XX（服务内容）",
-            "search_hypotheses": {{
-                "demand": "搜索句",
-                "competition": "搜索句",
-                "scarcity": "搜索句",
-                "content_gap": "搜索句"
-            }},
+            "opportunity_name": "具体人群+具体需求的市场",
+            "business_direction": "{business_desc}+细分形式",
+            "logic_chain": "输入业务是X，目标人群是Y，因为Z，所以提供W",
+            "differentiation": "一句话说明好在哪",
+            "target_audience": "细分人群描述",
+            "pain_points": ["痛点1", "痛点2"],
             "problem_types": [
                 {{
-                    "name": "【问题类型名称，如"肠道问题"、"真假顾虑"、"效果担忧"】",
-                    "description": "问题类型描述",
-                    "keywords": ["问题类型相关关键词"],
+                    "name": "担心/不知/不会+具体问题",
                     "scenes": [
-                        {{
-                            "name": "【问题场景名，禁止是流程步骤，如"喝奶粉拉肚子"、"进口奶粉真假辨别"】",
-                            "description": "问题场景描述"
-                        }},
-                        {{
-                            "name": "【第二个问题场景】",
-                            "description": "问题场景描述"
-                        }}
+                        {{"name": "具体症状情境"}},
+                        {{"name": "第二个具体症状"}}
                     ]
                 }}
             ]
         }}
-    ],
-    "subdivision_insights": {{
-        "main_subdivision": "主流方向（基于实际市场）",
-        "blue_ocean_direction": "蓝海方向（与输入业务逻辑关联）",
-        "differentiation_points": ["与输入业务相关的差异化点"]
-    }}
+    ]
 }}
-
-**【重要提醒】**
-- 禁止复制上述示例格式，必须基于输入业务" {business_desc} "进行真实分析
-- 问题类型必须是用户遇到的真实问题（如"效果不好"、"真假难辨"），禁止填业务流程步骤（如"取车流程"、"付款方式"）
-- 问题场景必须是问题的具体症状/情境，禁止填操作步骤（如"取车手续"）
+```
+**禁止复制上述示例格式**，必须基于输入业务「{business_desc}」真实生成。
 
 请开始分析："""
-
-        return prompt
 
     def _parse_analysis_result(
         self,
