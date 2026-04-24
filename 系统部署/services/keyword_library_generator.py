@@ -134,6 +134,7 @@ class KeywordLibraryGenerator:
         max_keywords: int = 100,
         blue_ocean_opportunity: str = None,
         portraits: list = None,
+        portrait_data: dict = None,
     ) -> KeywordLibraryResult:
         """
         生成关键词库
@@ -146,6 +147,8 @@ class KeywordLibraryGenerator:
             core_business: 核心业务词（可选，默认从业务描述提取）
             max_keywords: 最大关键词数量，默认100
             blue_ocean_opportunity: 蓝海机会描述（可选，用于指导关键词生成方向）
+            portraits: 画像列表（可选，来自已保存的画像）
+            portrait_data: 画像数据字典（可选，包含 pain_points、pain_scenarios、barriers）
 
         Returns:
             KeywordLibraryResult: 生成结果
@@ -169,6 +172,27 @@ class KeywordLibraryGenerator:
                 result.error_message = "核心业务不能为空"
                 return result
 
+            # 从 portrait_data 提取痛点信息（用于 prompt 中的画像专属关键词生成指引）
+            pain_points = []
+            pain_scenarios = []
+            barriers = []
+            if portrait_data:
+                def _to_list(val):
+                    if val is None:
+                        return []
+                    if isinstance(val, list):
+                        return val
+                    if isinstance(val, str):
+                        return [val] if val.strip() else []
+                    return []
+                pain_points = _to_list(portrait_data.get('pain_points', []))
+                pain_scenarios = _to_list(portrait_data.get('pain_scenarios', []))
+                barriers = _to_list(portrait_data.get('barriers', []))
+                if not pain_points:
+                    pp = portrait_data.get('pain_point', '')
+                    if isinstance(pp, str) and pp.strip():
+                        pain_points = [pp.strip()]
+
             prompt = self._build_keyword_prompt(
                 business_desc=business_desc,
                 industry=industry,
@@ -177,6 +201,7 @@ class KeywordLibraryGenerator:
                 max_keywords=max_keywords,
                 blue_ocean_opportunity=blue_ocean_opportunity,
                 portraits=portraits,
+                portrait_data=portrait_data,
             )
 
             logger.info("[KeywordLibraryGenerator] 开始调用LLM...")
@@ -347,11 +372,12 @@ class KeywordLibraryGenerator:
         """构建关键词库模板Prompt（根据业务类型自动选择分类逻辑）"""
 
         core_lower = keyword_core.lower()
-        # 付费者≠使用者关键词：用户与付费者分离（宝宝/婴儿/孕妇/老人/孩子/学生/童装等）
+        # 付费者≠使用者关键词：用户与付费者分离
+        # 仅检测明确的婴儿/孕妇产品关键词，不包括"学生/孩子"（容易误判教育/咨询服务）
         is_separate_payer = any(
             kw in core_lower
-            for kw in ['宝宝', '婴儿', '奶粉', '孕妇', '老人', '孩子', '学生', '童装',
-                       '儿童', '小儿', ' baby', 'infant', 'kids']
+            for kw in ['宝宝', '婴儿', '奶粉', '孕妇', '童装',
+                       ' baby', 'infant', 'kids']
         )
 
         pain_points_str = "\n".join([f"- {p}" for p in pain_points]) if pain_points else "（未提供）"
@@ -382,133 +408,194 @@ class KeywordLibraryGenerator:
     ) -> str:
         """
         付费者=使用者分类逻辑（如灌香肠、建材、本地服务）
-        结构：搜前搜(25%) + 搜后搜(25%) + 上下游(20%) + 信任佐证(15%) + 直接需求(15%)
+        关键词从用户决策链路出发：
+        - 搜前搜：用户在"决定之前"担心什么、怕什么、纠结什么
+        - 搜后搜：用户在"使用/享受之后"遇到什么实际问题
+        - 上下游：产业链上下游关联词
+        - 信任佐证：建立信任的关键词
+        - 直接需求：直接表达购买意向的词
         """
-        # 清理前缀（防止"卖奶粉"→"卖灌香肠"等错误拼接）
         cleaned_core = self._extract_core_business(keyword_core, industry)
-        kw_short = cleaned_core[:4]
-        seasons_hint = (
-            "春节前、冬季" if "香肠" in cleaned_core or "腊肉" in cleaned_core
-            else "节假日前"
-        )
 
-        prompt = f"""你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成一份高质量的关键词库。
+        prompt = """你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成一份高质量的关键词库。
 
 === 业务信息 ===
 核心业务：{keyword_core}
 地域：{region_str}
-行业：{industry or '（根据业务推断）'}
+行业：{industry}
 
-=== 画像痛点信息（供参考）===
-核心痛点：{pain_points_str}
-痛点场景：{pain_scenarios_str}
+=== 画像痛点信息（关键词生成的核心依据）===
+核心痛点（用户在担心什么）：{pain_points_str}
+使用场景：{pain_scenarios_str}
 顾虑障碍：{barriers_str}
 
-        === 分类逻辑 ===
-本业务为"付费者=使用者"类型（客户自己买、自己用），关键词从用户决策链路出发：
-1. 搜前搜：用户买之前会搜索哪些问题？（了解工艺/价格/质量）
-2. 搜后搜：用户买之后会搜索哪些问题？（保存/烹饪/故障处理）
-3. 上下游：上下游关联词（吸引潜在客户）
-4. 信任佐证：建立信任的关键词
-5. 直接需求：直接表达购买意向的词
-6. 地域关键词：本地及周边地域词
-7. 季节/时间关键词：旺季、淡季、节假日前后
-8. 技巧/干货关键词：实用方法、辨别技巧
-9. 认知颠覆/反向关键词：打破常识、引发好奇
-10. 节日/节气关键词：传统节日、现代节日送礼需求
+---
 
-=== 【关键词生成规则】 ===
-**核心原则：**
-1. 关键词来自真实用户搜索意图，不是产品介绍
-2. 关键词必须语义通顺，可直接作为用户搜索词使用
-3. 长度6-14字，禁止生硬拼接
-4. 结合画像痛点信息生成真实场景关键词
+=== 【核心理念：关键词=用户的问题和顾虑，不是产品介绍】 ===
+
+同一个业务，不同用户的痛点不同：
+- 高考志愿填报 → 家长怕浪费分、怕填错、怕孩子怪
+- 灌香肠 → 用户怕不卫生、怕不好吃、怕被宰
+- 装修服务 → 业主怕被坑、怕质量差、怕超预算
+
+**严禁**：把关键词写成业务介绍，如"高考志愿填报流程"、"灌香肠的做法步骤"。
+**必须**：从用户视角出发，写用户搜索时脑子里真正在想的词。
+
+---
 
 === 【搜前搜关键词】（25个）===
-用户"买之前"会搜索的问题：
-- 了解工艺："{{cleaned_core}}配方比例"、"{{cleaned_core}}做法步骤"、"{{cleaned_core}}盐放多少"
-- 了解价格："{{cleaned_core}}多少钱一斤"、"{{cleaned_core}}手工费多少"、"{{cleaned_core}}成本"
-- 了解质量："{{cleaned_core}}哪家好吃"、"{{cleaned_core}}卫生吗"、"{{cleaned_core}}正宗吗"
-请围绕"买之前用户会问什么"生成关键词，如：
-- "{{cleaned_core}}做法"、"{{cleaned_core}}配方"、"{{cleaned_core}}肥瘦比例"
-- "{{cleaned_core}}多少钱"、"{{cleaned_core}}收费"
-- "{{cleaned_core}}正宗"、"{{cleaned_core}}卫生"、"{{cleaned_core}}哪里好"
+定义：用户在决定之前、在网上搜索时打出来的词。
+这个阶段用户最大的特点是"还没决定，还在犹豫"，关键词要反映：
+- 用户的担忧（怕什么）
+- 用户的纠结（不知道选哪个）
+- 用户的问题（不了解、不知道怎么办）
+
+**禁止**：了解型/工艺介绍型词，如"流程"、"步骤"、"攻略"、"指南"。
+**必须**：问题型/顾虑型/纠结型词。
+
+请围绕"买/用之前用户在担心什么"生成关键词，每个分类混合两类词：
+
+A类-核心业务通用（12个）：所有用户买之前都担心的问题
+- 用户在担心：{cleaned_core}不靠谱怎么办、选错了后果谁来承担
+- 用户在纠结：{cleaned_core}到底值不值、哪家更靠谱
+- 用户不了解：{cleaned_core}要注意什么、有哪些坑
+- 用户怕后果：{cleaned_core}出问题找谁、店家跑路了怎么办
+
+B类-画像专属垂直（13个）：该画像人群特有的担心（围绕画像pain_points/barriers生成，比例调高）
+示例（画像=乳糖不耐受宝宝喝奶粉）：
+- 宝宝拉肚子是不是换奶粉的问题 → 圈了：怀疑奶粉质量的家长
+- 乳糖不耐受喝什么奶粉 → 圈了：刚确诊不知道喝什么的家长
+- 换了奶粉还是拉肚子怎么办 → 圈了：换奶后症状持续的家长
+- 无乳糖奶粉和深度水解哪个对 → 圈了：不懂区分的家长
+- 特殊奶粉价格贵值得吗 → 圈了：价格敏感的家长
+- 母婴店推荐的敢不敢信 → 圈了：信任困难的家长
+- 朋友圈推荐的靠不靠谱 → 圈了：微商信任困难的家长
+- 宝宝不喝特殊奶粉怎么办 → 圈了：喂养困难型家长
+- 水解奶粉有没有副作用 → 圈了：担心长期影响的家长
+- 乳糖不耐受能自愈吗 → 圈了：希望不喝特殊奶粉的家长
+- 特奶粉喝了多久能加母乳 → 圈了：想转奶的家长
+- 特殊奶粉哪里买正品 → 圈了：渠道信任困难的家长
+- 去医院检测还是母婴店 → 圈了：不确定就医还是自行判断的家长
+---
 
 === 【搜后搜关键词】（25个）===
-用户"买之后"会搜索的问题：
-- 保存问题："{{cleaned_core}}怎么保存"、"{{cleaned_core}}能放多久"
-- 烹饪问题："{{cleaned_core}}怎么做好吃"、"{{cleaned_core}}蒸多久"
-- 售后顾虑："{{cleaned_core}}不好吃怎么办"、"{{cleaned_core}}坏了怎么处理"
-请围绕"买之后用户会遇到什么问题"生成关键词，如：
-- "{{cleaned_core}}保存方法"、"{{cleaned_core}}能放多久"、"{{cleaned_core}}冷冻还是冷藏"
-- "{{cleaned_core}}怎么做好吃"、"{{cleaned_core}}做法大全"
-- "{{cleaned_core}}发霉还能吃吗"、"{{cleaned_core}}太咸怎么办"
+定义：用户购买/使用之后，遇到的实际操作问题和异常情况。
+这个阶段用户最大的特点是"已经买了，在用的时候遇到问题"。
+
+请围绕"买之后用户在经历什么问题"生成关键词，每个分类混合两类词：
+
+A类-核心业务通用（12个）：用户购买后都会遇到的问题
+- 保存/保鲜问题：{cleaned_core}怎么保存、能放多久、保存不当会坏吗
+- 使用操作问题：{cleaned_core}怎么做好吃、坏了还能用吗、不满意能返工吗
+- 售后问题：{cleaned_core}不好吃怎么办、有问题找谁、店家态度怎么样
+- 异常情况：{cleaned_core}发霉了还能吃吗、变色正常吗、感觉被坑了怎么办
+
+B类-画像专属垂直（13个）：该画像人群使用后的特殊困惑（围绕画像pain_points/barriers生成）
+示例（画像=乳糖不耐受宝宝喝奶粉）：
+- 换奶粉后还是拉肚子怎么回事 → 圈了：换奶后症状持续的家长
+- 特殊奶粉宝宝不爱喝怎么办 → 圈了：喂养困难型家长
+- 喝多久才能判断适不适合 → 圈了：急于判断效果的家长
+- 可以掺着普通奶粉转奶吗 → 圈了：不清楚转奶方法的家长
+- 好转了可以换回普通奶粉吗 → 圈了：想恢复正常喂养的家长
+- 喝了便秘是奶粉问题吗 → 圈了：遇到新症状的家长
+- 特殊奶粉开封后多久要喝完 → 圈了：保存困惑的家长
+- 宝宝湿疹加重是奶粉原因吗 → 圈了：出现皮肤症状的家长
+- 大便有奶瓣是奶粉不消化吗 → 圈了：大便异常的家长
+- 体重不涨和奶粉有关吗 → 圈了：担心发育的家长
+- 可以同时喝两种奶粉吗 → 圈了：混合喂养困惑的家长
+- 特奶粉加辅食要间隔多久 → 圈了：喂养方式困惑的家长
+- 喝了胀气是乳糖不耐受吗 → 圈了：症状判断困惑的家长
+---
 
 === 【行业上下游关联词】（20个）===
 吸引上下游潜在客户：
-- 上游材料："{{cleaned_core}}肠衣在哪买"、"{{cleaned_core}}调料配方"
-- 下游烹饪："{{cleaned_core}}怎么炒好吃"、"{{cleaned_core}}煮多久"
-- 地域词：{region_str}{{cleaned_core}}、"附近哪里有做{{cleaned_core}}"
-请生成上下游关联词，如：
-- "{{cleaned_core}}肠衣"、"{{cleaned_core}}调料"
-- "{{cleaned_core}}炒什么好吃"、"{{cleaned_core}}做法"
-- "{region_str}{{cleaned_core}}"、{"附近哪里有做" + cleaned_core if region_str == "（未指定）" else region_str + "做" + cleaned_core}
+- 上游材料/原料："{cleaned_core}肠衣在哪买"、"{cleaned_core}原材料哪里正宗"
+- 下游使用/配套："{cleaned_core}怎么炒好吃"、"{cleaned_core}礼盒包装推荐"
+- 地域词：{region_str}{cleaned_core}附近哪里有
+
+---
 
 === 【信任佐证关键词】（15个）===
-解决"能不能帮我做好"：
-如："{{cleaned_core}}22年老店"、"{{cleaned_core}}现场观看"、"{{cleaned_core}}客户反馈"
-请生成建立信任的关键词，如：
-- "{{cleaned_core}}老师傅"、"{{cleaned_core}}22年品质"
-- "{{cleaned_core}}现场观看"、"{{cleaned_core}}制作过程"
-- "{{cleaned_core}}客户好评"
+解决"能不能帮我做好/买好"的问题。每个分类混合两类词：
+- A类（核心业务通用，7个）：所有用户的通用信任障碍
+- B类（画像专属垂直，8个）：该画像人群特有的信任担忧（围绕画像pain_points/barriers生成，比例调高）
+
+A类-核心业务通用（7个）：
+- 有问题能找得到人吗 → 售后担忧用户
+- 评价是不是刷的 → 怀疑型用户
+- 能不能先试试再决定 → 谨慎型用户
+- 以前客户都怎么样了 → 结果导向型用户
+- 店家靠不靠谱怎么判断 → 判断力弱用户
+- 店家跑了怎么办 → 跑路担忧用户
+- 有没有实体店可以看 → 实体店信任用户
+
+B类-画像专属垂直（8个）：
+示例（画像=乳糖不耐受宝宝喝奶粉）：
+- 有没有同样乳糖不耐受宝宝喝好的 → 圈了：需要同类案例的家长
+- 特殊奶粉吃了多久见效 → 圈了：急于看到效果的家长
+- 乳糖不耐受检测哪里做靠谱 → 圈了：不确定检测机构的家长
+- 特奶粉和普通奶粉能掺着喝吗 → 圈了：不清楚转奶方法的家长
+- 有没有医生推荐背书 → 圈了：需要专业背书的家长
+- 喝特奶粉期间能打疫苗吗 → 圈了：担心疫苗冲突的家长
+- 母婴店推荐的我要不要信 → 圈了：信息冲突不知听谁的家长
+- 特奶粉保税区和直邮哪个真 → 圈了：渠道信任困难的家长
+---
 
 === 【直接需求关键词】（15个）===
-用户直接表达购买意向：
-如："{{cleaned_core}}电话多少"、"{{cleaned_core}}地址在哪"
+用户直接表达购买意向的词：
+如："{cleaned_core}电话多少"、"{cleaned_core}地址在哪"
 请生成直接需求的关键词，如：
-- "{{cleaned_core}}电话"、"{{cleaned_core}}地址"
-- "{{cleaned_core}}多少钱一斤"、"{{cleaned_core}}加工费"
-- "{{cleaned_core}}批发"、"{{cleaned_core}}定制"
+- "{cleaned_core}电话"、"{cleaned_core}地址"
+- "{cleaned_core}多少钱一斤"、"{cleaned_core}加工费"
+- "{cleaned_core}批发"、"{cleaned_core}定制"
+
+---
 
 === 【地域关键词】（10个）===
 用户搜索时带上本地地名来找附近供应商/门店：
-如："南漳{{cleaned_core}}"、"附近哪里有做{{cleaned_core}}"
+如："南漳{cleaned_core}"、"附近哪里有做{cleaned_core}"
 请生成地域关键词，如：
-- "{region_str}{{cleaned_core}}"、"本地{{cleaned_core}}哪里好"
-- "附近{{cleaned_core}}"、"周边{{cleaned_core}}推荐"
+- "{region_str}{cleaned_core}"、"本地{cleaned_core}哪里好"
+- "附近{cleaned_core}"、"周边{cleaned_core}推荐"
 （注：如未指定具体地域，使用"本地/附近/周边"等通用词）
+
+---
 
 === 【季节/时间关键词】（10个）===
 节假日、换季等时间节点影响购买需求：
-如："{seasons_hint}适合做{{cleaned_core}}"
 请生成季节/时间关键词，如：
-- "冬季做{{cleaned_core}}"、"过年做{{cleaned_core}}"
-- "{{cleaned_core}}什么时候做最好"、"{{cleaned_core}}保质期多久"
-- "{{cleaned_core}}淡季"、"{{cleaned_core}}旺季"
+- "冬季做{cleaned_core}"、"过年做{cleaned_core}"
+- "{cleaned_core}什么时候做最好"、"{cleaned_core}保质期多久"
+- "{cleaned_core}淡季"、"{cleaned_core}旺季"
+
+---
 
 === 【技巧/干货关键词】（10个）===
 用户想学习选购知识、辨别技巧：
-如："{{cleaned_core}}怎么挑选"、"{{cleaned_core}}辨别真假小技巧"
 请生成技巧/干货关键词，如：
-- "{{cleaned_core}}怎么挑选"、"{{cleaned_core}}辨别好坏"
-- "{{cleaned_core}}制作小技巧"、"{{cleaned_core}}保存方法"
-- "{{cleaned_core}}选购指南"、"{{cleaned_core}}入门教程"
+- "{cleaned_core}怎么挑选"、"{cleaned_core}辨别好坏"
+- "{cleaned_core}制作小技巧"、"{cleaned_core}选购指南"
+- "{cleaned_core}入门教程"
+
+---
 
 === 【认知颠覆/反向关键词】（8个）===
 打破用户常识、引发好奇心：
-如："{{cleaned_core}}越贵越好？不一定"
 请生成认知颠覆关键词，如：
-- "{{cleaned_core}}越贵越好？不一定"
-- "{{cleaned_core}}添加剂真的有害吗"
-- "{{cleaned_core}}手工比机器好？真相是"
+- "{cleaned_core}越贵越好？不一定"
+- "{cleaned_core}便宜的和贵的有什么区别"
+- "{cleaned_core}手工比机器好？真相是"
+
+---
 
 === 【节日/节气关键词】（10个）===
 传统节日、现代节日送礼需求：
-如："过年送{{cleaned_core}}"
 请生成节日/节气关键词，如：
-- "过年送{{cleaned_core}}"、"中秋节{{cleaned_core}}礼盒"
-- "春节{{cleaned_core}}推荐"、"节日{{cleaned_core}}优惠"
-- "端午{{cleaned_core}}"、"节气{{cleaned_core}}"
+- "过年送{cleaned_core}"、"中秋节{cleaned_core}礼盒"
+- "春节{cleaned_core}推荐"、"节日{cleaned_core}优惠"
+- "端午{cleaned_core}"
+
+---
 
 === 输出格式 ===
 **【关键】JSON必须严格使用以下英文key，不得使用中文key！**
@@ -544,11 +631,25 @@ class KeywordLibraryGenerator:
 
 === 强制约束 ===
 1. 数量：搜前搜≥25、搜后搜≥25、上下游≥20、信任佐证≥15、直接需求≥15、地域≥10、季节≥10、技巧≥10、认知颠覆≥8、节日≥10，总计≥145
-2. 质量：每个关键词必须有真实搜索意图，语义通顺，不是产品介绍
-3. 禁止：前缀拼接生硬词如"{keyword_core}坏了怎么办"（语义不通）
-4. 地域词必须有实际地名，不能只写"本地"
+2. **质量红线**：
+   - 搜前搜关键词必须反映用户决策时的担忧、顾虑、纠结
+   - 禁止"流程/步骤/攻略/指南/全面解析"类信息介绍词
+   - 禁止前缀拼接生硬词（如"卖{cleaned_core}坏了怎么办"语义不通）
+3. 搜前搜关键词质量判断：用户搜索这个词时，心里在想什么？如果是在了解产品介绍，就不合格
+4. 地域词如果未指定具体地名，使用"本地/附近/周边"等通用词
+5. 每个分类关键词之间不要重复
 
 请开始生成："""
+
+        prompt = prompt.format(
+            keyword_core=keyword_core,
+            region_str=region_str,
+            industry=industry or '（根据业务推断）',
+            pain_points_str=pain_points_str,
+            pain_scenarios_str=pain_scenarios_str,
+            barriers_str=barriers_str,
+            cleaned_core=cleaned_core,
+        )
         return prompt
 
     def _build_separate_payer_prompt(
@@ -561,20 +662,21 @@ class KeywordLibraryGenerator:
         barriers_str: str,
     ) -> str:
         """
-        付费者≠使用者分类逻辑（如奶粉、童装、养老服务、礼品）
+        付费者≠使用者分类逻辑（如奶粉、童装、母婴用品）
         用户：产品使用者（如宝宝）
         付费者：购买决策者（如宝爸宝妈）
         结构：搜前搜 + 搜后搜 + 使用者问题 + 付费者顾虑 + 产品推荐 + 地域 + 季节 + 技巧 + 认知颠覆 + 节日（共10类）
+        核心：关键词来自用户真实问题，不是产品名称前缀拼接。
         """
         cleaned_core = self._extract_core_business(keyword_core, industry)
         kw_short = cleaned_core[:4]
 
-        prompt = f"""你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成一份高质量的关键词库。
+        prompt = """你是关键词库生成专家。请基于核心业务「{keyword_core}」，生成一份高质量的关键词库。
 
 === 业务信息 ===
 核心业务：{keyword_core}
 地域：{region_str}
-行业：{industry or '（根据业务推断）'}
+行业：{industry}
 
 === 画像信息（关键词生成的核心依据，必须结合这些信息生成真实问题词）===
 核心痛点（使用者遇到的问题）：{pain_points_str}
@@ -583,83 +685,75 @@ class KeywordLibraryGenerator:
 
 === 分类逻辑 ===
 本业务为"付费者≠使用者"类型：
-- 使用者（如宝宝/孩子/老人）是产品直接体验者，会有症状/问题
-- 付费者（如宝爸宝妈/子女）是购买决策者，会有顾虑/担忧
+- 使用者（如宝宝/孩子）是产品直接体验者，会有症状/问题
+- 付费者（如宝爸宝妈）是购买决策者，会有顾虑/担忧
 - 核心原则：**关键词来自用户真实问题，不是产品名称前缀拼接**
 
 ---
 
 === 【搜前搜关键词】（20个）===
-定义：家长在购买之前、不了解该买什么时，会搜索的问题。
+定义：购买者（付费者）在购买之前、不了解该买什么时，会搜索的问题。
 这些关键词的典型特征是带有"什么/怎么选/哪个/多少"等疑问词，用户此时还在对比决策阶段。
 
-**必须结合画像痛点生成**，例如画像描述的是"过敏体质宝宝"，则搜前搜应围绕：
-- 过敏宝宝适合喝什么奶粉
-- 水解奶粉和普通奶粉区别
-- 宝宝牛奶蛋白过敏怎么选奶粉
-- 深度水解奶粉推荐
-- 氨基酸奶粉和深度水解哪个好
+**必须结合画像痛点生成**，例如画像描述的是"XX体质/情况的用户"，则搜前搜应围绕该体质/情况的适配问题。
 
 参考示例：
 - "{cleaned_core}怎么选"
 - "{cleaned_core}什么牌子好"
-- "过敏宝宝喝{kw_short}"
 - "{kw_short}和普通{kw_short}区别"
 - "{kw_short}成分怎么看"
-- "特殊配方{kw_short}有哪些"
 - "{kw_short}适合什么体质"
+- "特殊{kw_short}有哪些"
+- "XX体质适合什么{kw_short}"
 
 请生成20个搜前搜关键词，必须覆盖以下维度：
 1. 体质/情况适配（结合画像痛点，如"过敏体质"、"挑食"等）
 2. 品牌/产品对比
 3. 成分/配方选择
-4. 段数/年龄段选择
+4. 年龄段/规格选择
 
 ---
 
 === 【搜后搜关键词】（15个）===
-定义：家长购买后开始使用时，遇到的具体操作问题和异常情况。
+定义：购买者购买后开始使用时，遇到的具体操作问题和异常情况。
 典型特征：包含"怎么/如何/多久/怎么办"等，问题具体且实际发生。
 
-例如：
-- 怎么冲泡才正确
-- 宝宝不喝怎么办
-- 出现xx症状怎么办
--开封后能放多久
+参考示例：
+- 怎么使用才正确
+- 不接受怎么办
+- 出现异常情况怎么办
+- 开封后能放多久
 
 请生成15个搜后搜关键词，覆盖：
-1. 操作问题（冲泡/喂养/保存）
-2. 异常情况应对（不吃/不适/症状处理）
-3. 换牌/转奶问题
+1. 操作问题（使用/保存）
+2. 异常情况应对（不适/症状处理）
+3. 换产品/换规格问题
 
 ---
 
 === 【使用者问题关键词】（25个）===
-定义：产品使用者（宝宝/孩子/老人）直接体验后产生的身体/心理反应。
+定义：产品使用者（宝宝/孩子）直接体验后产生的身体/心理反应。
 关键词描述的是使用者自身的症状，不含选购意图。
 
-**必须结合画像痛点**（如"过敏体质宝宝"）：
-- 宝宝喝{kw_short}身上起红疹
-- 宝宝喝{kw_short}拉肚子
-- 宝宝喝{kw_short}便秘
-- 宝宝喝{kw_short}不长肉
-- 宝宝喝{kw_short}厌奶
+**必须结合画像痛点**，例如画像描述的是"XX情况的宝宝"：
+- 宝宝用{kw_short}后XX情况
+- 宝宝用{kw_short}后YY问题
 
 请生成25个使用者问题关键词，围绕使用者症状（肠胃问题/过敏反应/发育问题/皮肤问题等）。
 
 ---
 
 === 【付费者顾虑关键词】（25个）===
-定义：购买决策者（家长/子女）在选购时的担忧和疑虑。
+定义：购买决策者（家长/监护人）在选购时的担忧和疑虑。
 关键词反映的是"买的时候在担心什么"。
 
 必须覆盖以下四大类：
-1. 真假/信任（进口/正品/辨别）
+1. 真假/信任（正品/辨别/可靠）
    如："{kw_short}真假辨别"、"哪里买是正品"
 2. 价格/划算（多少钱/性价比/便宜）
-   如："{kw_short}多少钱一罐"、"进口{kw_short}价格"
+   如："{kw_short}多少钱"、"{kw_short}性价比"
 3. 安全性/成分（成分/添加剂/过敏原）
-   如："{kw_short}成分表"、"不含糖{kw_short}"
+   如："{kw_short}成分表"、"不含添加剂{kw_short}"
 4. 选择/对比（牌子/评价/推荐）
    如："{kw_short}哪个牌子好"、"妈妈们推荐{kw_short}"
 
@@ -671,13 +765,12 @@ class KeywordLibraryGenerator:
 定义：用户有购买意向后，对比具体产品时的搜索词。
 典型特征：包含两个或以上具体品牌/型号/配方名称。
 
-例如：
-- 飞鹤和伊利{kw_short}哪个好
-- A2{kw_short}和普通{kw_short}区别
+参考示例：
+- AA品牌和BB品牌{kw_short}哪个好
+- A款{kw_short}和B款{kw_short}区别
 - 1段{kw_short}推荐
-- 深度水解{kw_short}排行榜
 
-请生成15个产品推荐关键词，覆盖：品牌对比、段数选择、配方选择。
+请生成15个产品推荐关键词，覆盖：品牌对比、规格选择、配方选择。
 
 ---
 
@@ -685,7 +778,7 @@ class KeywordLibraryGenerator:
 定义：用户搜索时带上本地地名来找附近供应商/门店。
 典型特征：地域词+核心业务，可不含疑问词。
 
-例如：
+参考示例：
 - 武汉{kw_short}专卖店
 - 本地{kw_short}
 - 附近{kw_short}哪里有卖
@@ -697,7 +790,7 @@ class KeywordLibraryGenerator:
 === 【季节/时间关键词】（10个）===
 定义：节假日、换季、开学季等时间节点影响购买需求，用户在这些节点会搜索特定问题。
 
-例如：
+参考示例：
 - 过年买{kw_short}囤货
 - 开学季{kw_short}优惠
 - {kw_short}什么时候打折
@@ -708,12 +801,12 @@ class KeywordLibraryGenerator:
 ---
 
 === 【技巧/干货关键词】（10个）===
-定义：用户想学习选购知识、辨别技巧、喂养方法的搜索词。
+定义：用户想学习选购知识、辨别技巧、使用方法的搜索词。
 
-例如：
+参考示例：
 - {kw_short}怎么挑选
 - {kw_short}辨别真假小技巧
-- {kw_short}喂养指南
+- {kw_short}使用指南
 - 如何判断{kw_short}适合宝宝
 
 请生成10个技巧/干货关键词。
@@ -723,7 +816,7 @@ class KeywordLibraryGenerator:
 === 【认知颠覆/反向关键词】（8个）===
 定义：打破用户常识、引发好奇心、吸引点击的内容。
 
-例如：
+参考示例：
 - {kw_short}越贵越好？不一定
 - 进口{kw_short}一定比国产好？真相是
 - {kw_short}配方表怎么看
@@ -735,7 +828,7 @@ class KeywordLibraryGenerator:
 === 【节日/节气关键词】（10个）===
 定义：传统节日/现代节日送礼需求，用户在节日期间搜索的礼品相关词。
 
-例如：
+参考示例：
 - 过年送{kw_short}
 - 母亲节{kw_short}推荐
 - 中秋节{kw_short}礼盒
@@ -778,13 +871,25 @@ class KeywordLibraryGenerator:
 
 === 强制约束 ===
 1. 数量：搜前搜≥20、搜后搜≥15、使用者问题≥25、付费者顾虑≥25、产品推荐≥15、地域≥10、季节≥10、技巧≥10、认知颠覆≥8、节日≥10，总计≥140
-2. 质量：每个关键词必须是真实用户搜索词，语义通顺，禁止前缀生硬拼接
-3. **搜前搜关键词**：必须结合画像痛点（如"过敏体质"），生成"过敏宝宝喝什么{kw_short}"而非"宝宝{kw_short}购买攻略"——核心是用户的问题，不是产品选购指南
-4. 禁止：前缀拼接如"卖{kw_short}坏了怎么办"（语义不通）
-5. 地域词如果未指定具体地名，使用"本地/附近/周边"等通用词
-6. 每个分类关键词之间不要重复（避免"选购技巧"和"挑选技巧"同时出现）
+2. **质量红线**：
+   - 搜前搜关键词必须结合画像痛点，反映购买者决策时的担忧和顾虑
+   - 禁止"流程/步骤/攻略/指南/全面解析"类信息介绍词
+   - 禁止前缀拼接生硬词（如"卖{kw_short}坏了怎么办"语义不通）
+3. 搜前搜关键词质量判断：用户搜索这个词时，心里在想什么？如果是在了解产品介绍，就不合格
+4. 每个分类关键词之间不要重复
 
 请开始生成："""
+
+        prompt = prompt.format(
+            keyword_core=keyword_core,
+            region_str=region_str,
+            industry=industry or '（根据业务推断）',
+            pain_points_str=pain_points_str,
+            pain_scenarios_str=pain_scenarios_str,
+            barriers_str=barriers_str,
+            cleaned_core=cleaned_core,
+            kw_short=kw_short,
+        )
         return prompt
 
     def _parse_template_result(
@@ -1053,8 +1158,34 @@ class KeywordLibraryGenerator:
         blue_ocean_opportunity: str = None,
         industry_insight: str = None,
         portraits: list = None,
+        portrait_data: dict = None,
     ) -> str:
         """构建关键词库生成Prompt（v3：固定100个+决策链路+竞争度+场景支撑+上下游）"""
+
+        # 从 portrait_data 提取痛点信息
+        pain_points = []
+        pain_scenarios = []
+        barriers = []
+        if portrait_data:
+            def _to_list(val):
+                if val is None:
+                    return []
+                if isinstance(val, list):
+                    return val
+                if isinstance(val, str):
+                    return [val] if val.strip() else []
+                return []
+            pain_points = _to_list(portrait_data.get('pain_points', []))
+            pain_scenarios = _to_list(portrait_data.get('pain_scenarios', []))
+            barriers = _to_list(portrait_data.get('barriers', []))
+            if not pain_points:
+                pp = portrait_data.get('pain_point', '')
+                if isinstance(pp, str) and pp.strip():
+                    pain_points = [pp.strip()]
+
+        pain_points_str = "\n".join([f"- {p}" for p in pain_points]) if pain_points else "（未提供）"
+        pain_scenarios_str = "\n".join([f"- {s}" for s in pain_scenarios]) if pain_scenarios else "（未提供）"
+        barriers_str = "\n".join([f"- {b}" for b in barriers]) if barriers else "（未提供）"
 
         blue_ocean_hint = ""
         if blue_ocean_opportunity:
@@ -1115,6 +1246,17 @@ class KeywordLibraryGenerator:
 === 画像列表 ===
 {portraits_info}
 
+=== 画像痛点信息（关键词生成的核心依据）===
+核心痛点（用户在担心什么）：{pain_points_str}
+使用场景：{pain_scenarios_str}
+顾虑障碍：{barriers_str}
+
+【画像专属关键词生成指引】
+关键词从画像人群的视角出发，描述他们在现实中遇到的具体困惑。
+B类画像专属词必须围绕"画像人群在{场景}中遇到的{具体问题}"。
+画像专属词要能回答：这类人群最担心什么、最常问什么、最容易遇到什么。
+一个画像专属词就是一个精准的"圈人"钩子。
+
 ---
 
 ## 【重要】质量红线
@@ -1160,27 +1302,88 @@ class KeywordLibraryGenerator:
 
 围绕核心业务「{keyword_core}」，覆盖所有用户都会关心的通用问题，共40个，分5类，每类8个。
 
-**【关键要求】关键词像真实用户自然搜索，长度6-14字，前缀用「{short_core}」就够了，不要拼接完整 keyword_core！**
+**【关键要求】关键词像真实用户自然搜索，长度6-14字。不要拼接无意义的完整业务词！**
 
-#### 意愿/价格类（8个）
-目的：了解价格、选择哪个
-示例：{short_core}多少钱、{short_core}哪里便宜、{short_core}什么时候打折
+#### 决策顾虑类（8个）
+目的：用户在买之前最担心的问题。这个担心本身就标识了特定人群。
+说明：关键词像真实用户自然搜索，描述"用户脑子里真正在想的词"。禁止业务流程词。
 
-#### 渠道/真假类（8个）
-目的：哪里买、怎么辨别真假
-示例：{short_core}哪里正宗、{short_core}是正品吗、{short_core}网上买靠谱吗
+A类-核心业务通用（4个）：所有用户买之前都担心的问题
+- {short_core}不靠谱怎么办 → 所有用户都在担心
+- {short_core}选错了后果严重吗 → 所有用户都在担心
+- {short_core}不满意怎么处理 → 所有用户都在担心
+- {short_core}店家跑路了怎么办 → 所有用户都在担心
 
-#### 效果/安全类（8个）
-目的：有没有效果，安全吗
-示例：{short_core}安全吗、{short_core}有副作用吗、{short_core}什么人适合
+B类-画像专属垂直（4个）：该画像人群特有的担心（围绕画像pain_points/barriers生成，比例调高）
+示例（画像=乳糖不耐受宝宝喝奶粉）：
+- 宝宝拉肚子是不是换奶粉的问题 → 圈了：怀疑奶粉质量的家长
+- 换了奶粉还是拉肚子怎么办 → 圈了：换奶粉后症状持续的家长
+- 水解奶粉和普通奶粉怎么区分 → 圈了：不懂奶粉分类的家长
+- 特殊奶粉价格贵但值得吗 → 圈了：价格敏感的家长
 
-#### 使用/保存类（8个）
-目的：怎么用、怎么保存
-示例：{short_core}开封后能放多久、{short_core}坏了怎么办、{short_core}有问题找谁
+#### 认知了解类（8个）
+目的：用户在研究"这是什么/为什么"时的具体困惑。
 
-#### 选择/对比类（8个）
-目的：哪个好、怎么选
-示例：{short_core}什么牌子好、{short_core}怎么选、{short_core}口碑怎么样
+A类-核心业务通用（4个）：
+- 这家和别家有什么区别 → 正在对比的用户
+- 贵和便宜差在哪 → 价格困惑用户
+- 别人说好是真的好吗 → 怀疑型用户
+- 网上评价可信吗 → 谨慎型用户
+
+B类-画像专属垂直（4个）：
+示例（画像=乳糖不耐受宝宝喝奶粉）：
+- 水解奶粉和普通奶粉有什么区别 → 圈了：不懂奶粉分类的家长
+- 乳糖不耐受和牛奶蛋白过敏一样吗 → 圈了：对症状原因不了解的家长
+- 无乳糖奶粉口感怎么样宝宝肯喝吗 → 圈了：担心宝宝不接受特殊奶粉的家长
+- 深度水解和部分水解哪个更适合 → 圈了：不知道选哪种水解程度的家长
+
+#### 选择纠结类（8个）
+目的：用户在纠结"选哪个"时的具体对比点。
+
+A类-核心业务通用（4个）：
+- 选便宜的还是选口碑好的 → 选择困难型用户
+- 听家人推荐还是自己判断 → 意见分歧型用户
+- 大份划算还是小份试试 → 精打细算型用户
+- 线上买还是线下买 → 渠道困惑型用户
+
+B类-画像专属垂直（4个）：
+示例（画像=乳糖不耐受宝宝喝奶粉）：
+- 继续喝普通奶粉还是换特殊奶粉 → 圈了：犹豫要不要换的家长
+- 选羊奶粉还是选水解奶粉 → 圈了：在两种特殊奶粉间犹豫的家长
+- 进口特殊奶粉和国产哪个好 → 圈了：奶粉品牌纠结的家长
+- 听医生建议还是听店员推荐 → 圈了：信息冲突不知听谁的家长
+
+#### 使用后问题类（8个）
+目的：用户使用/体验后遇到的具体问题。这是已购用户的真实困惑。
+
+A类-核心业务通用（4个）：
+- 买完感觉不对劲怎么办 → 已购高焦虑用户
+- 出问题店家态度怎么样 → 售后担忧型用户
+- 下次还找这家还是换一家 → 复购决策型用户
+- 好的话怎么推荐给朋友 → 推荐意愿型用户
+
+B类-画像专属垂直（4个）：
+示例（画像=乳糖不耐受宝宝喝奶粉）：
+- 换了奶粉还是拉肚子怎么回事 → 圈了：换奶粉后症状未改善的家长
+- 特殊奶粉宝宝不爱喝怎么办 → 圈了：喂养困难型家长
+- 喝多久才能判断奶粉适不适合 → 圈了：急于判断效果的家长
+- 可以掺着普通奶粉转奶吗 → 圈了：不清楚转奶方法的家长
+
+#### 信任佐证类（8个）
+目的：用户在问"能不能帮我做好"时的具体信任障碍。
+
+A类-核心业务通用（4个）：
+- 有问题能找得到人吗 → 售后担忧用户
+- 评价是不是刷的 → 怀疑型用户
+- 能不能先试试再决定 → 谨慎型用户
+- 以前客户都怎么样了 → 结果导向型用户
+
+B类-画像专属垂直（4个）：
+示例（画像=乳糖不耐受宝宝喝奶粉）：
+- 有没有同样乳糖不耐受的宝宝喝好的 → 圈了：需要同类案例参考的家长
+- 特殊奶粉吃了多久见效 → 圈了：急于看到效果的家长
+- 乳糖不耐受检测在哪里做 → 圈了：还没确诊不确定的家长
+- 喝特奶粉后能打疫苗吗 → 圈了：担心奶粉影响疫苗的家长
 
 ---
 
@@ -1256,25 +1459,25 @@ class KeywordLibraryGenerator:
     "keyword_library": {{
         "keyword_core": "{keyword_core}",
         "common_keywords": {{
-            "意愿/价格": [
-                {{"keyword": "{short_core}多少钱", "competition_level": "high", "decision_stage": "decision", "scene_description": "用户在了解基础价格信息"}},
-                {{"keyword": "{short_core}哪里便宜", "competition_level": "medium", "decision_stage": "decision", "scene_description": "用户在寻找性价比更高的购买渠道"}}
+            "决策顾虑": [
+                {{"keyword": "找人做不靠谱怎么办", "competition_level": "low", "decision_stage": "awareness", "scene_description": "用户担心选错服务商/产品，后果严重"}},
+                {{"keyword": "选错了后果谁来承担", "competition_level": "low", "decision_stage": "awareness", "scene_description": "用户在担心如果做了错误的选择"}}
             ],
-            "渠道/真假": [
-                {{"keyword": "{short_core}哪里正宗", "competition_level": "medium", "decision_stage": "consideration", "scene_description": "用户在辨别哪里能找到正宗的产品"}},
-                {{"keyword": "{short_core}是正品吗", "competition_level": "low", "decision_stage": "consideration", "scene_description": "用户在担心买到假冒伪劣产品"}}
+            "认知了解": [
+                {{"keyword": "这家和别家有什么区别", "competition_level": "medium", "decision_stage": "consideration", "scene_description": "用户正在对比两家商家"}},
+                {{"keyword": "贵和便宜差在哪", "competition_level": "medium", "decision_stage": "consideration", "scene_description": "用户对价格差异感到困惑"}}
             ],
-            "效果/安全": [
-                {{"keyword": "{short_core}安全吗", "competition_level": "medium", "decision_stage": "consideration", "scene_description": "用户担心产品安全性"}},
-                {{"keyword": "{short_core}有副作用吗", "competition_level": "low", "decision_stage": "consideration", "scene_description": "用户担心长期使用有负面影响"}}
+            "选择纠结": [
+                {{"keyword": "选便宜的还是选口碑好的", "competition_level": "medium", "decision_stage": "consideration", "scene_description": "用户在选择困难中"}},
+                {{"keyword": "听家人还是听朋友的", "competition_level": "low", "decision_stage": "consideration", "scene_description": "用户意见分歧，不知听谁的"}}
             ],
-            "使用/保存": [
-                {{"keyword": "{short_core}开封后能放多久", "competition_level": "low", "decision_stage": "decision", "scene_description": "用户购买后关心保存期限"}},
-                {{"keyword": "{short_core}坏了怎么办", "competition_level": "low", "decision_stage": "decision", "scene_description": "用户担心产品变质后的处理方式"}}
+            "使用后问题": [
+                {{"keyword": "做完感觉不对劲怎么办", "competition_level": "low", "decision_stage": "decision", "scene_description": "用户购买后感到不满意，想知道如何处理"}},
+                {{"keyword": "下次还找这家还是换一家", "competition_level": "low", "decision_stage": "decision", "scene_description": "用户在复购决策中犹豫"}}
             ],
-            "选择/对比": [
-                {{"keyword": "{short_core}什么牌子好", "competition_level": "high", "decision_stage": "consideration", "scene_description": "用户在选择品牌阶段"}},
-                {{"keyword": "{short_core}怎么选", "competition_level": "medium", "decision_stage": "consideration", "scene_description": "用户在寻求选购指导"}}
+            "信任佐证": [
+                {{"keyword": "有问题能找得到人吗", "competition_level": "low", "decision_stage": "awareness", "scene_description": "用户担心售后服务缺失"}},
+                {{"keyword": "评价是不是刷的", "competition_level": "low", "decision_stage": "consideration", "scene_description": "用户怀疑评价真实性"}}
             ]
         }},
         "personas": [
@@ -1311,8 +1514,8 @@ class KeywordLibraryGenerator:
 
 === 强制约束 ===
 1. **数量约束**：公用关键词40个（每类8个）+ 画像专属60个（3画像×20）+ 上下游20个 = 总计100个
-2. **竞争度分布**：low至少40个、medium至少30个、high最多10个（high只出现在公用关键词的选择/对比类）
-3. **决策链路分布**：awareness约30个、consideration约40个、decision约30个
+2. **竞争度分布**：low至少40个、medium至少30个、high最多10个（high只出现在选择纠结类）
+3. **画像比例**：公用关键词中B类画像专属词占比约50%，围绕画像pain_points/barriers生成
 4. **质量红线**：每个keyword必须有合理的scene_description，禁止空洞泛化词
 5. **画像多样性**：三个画像的痛点关键词必须彼此不同，聚焦各自特定问题
 6. **禁止重复**：同一个意思只保留1个最自然的表达
@@ -1328,6 +1531,9 @@ class KeywordLibraryGenerator:
             blue_ocean_hint=blue_ocean_hint,
             insight_section=insight_section,
             portraits_info=portraits_info or '（未提供画像，将自动推断3个画像）',
+            pain_points_str=pain_points_str,
+            pain_scenarios_str=pain_scenarios_str,
+            barriers_str=barriers_str,
             short_core=short_core,
             pA_name=pA_name, pA_pt=pA_pt, pA_desc=pA_desc,
             pB_name=pB_name, pB_pt=pB_pt, pB_desc=pB_desc,
