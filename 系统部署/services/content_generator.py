@@ -21,6 +21,8 @@ import re
 import logging
 from datetime import datetime
 from services.llm import get_llm_service
+from services.content_quality_scorer import ContentQualityScorer, content_scorer
+from services.content_quality_optimizer import ProgressiveContentOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +130,9 @@ class TopicContentGenerator:
         is_premium: bool = False,
         premium_plan: str = 'free',
         content_style: str = '',
-        selected_scene: dict = None
+        selected_scene: dict = None,
+        brand_context: dict = None,
+        keyword_library: dict = None,
     ) -> dict:
         """
         生成图文内容
@@ -177,6 +181,8 @@ class TopicContentGenerator:
                 content_style=content_style,
                 selected_scene=selected_scene,
                 geo_mode_info=geo_mode_info,
+                brand_context=brand_context,
+                keyword_library=keyword_library,
             )
 
             # 调用 LLM 生成
@@ -208,13 +214,123 @@ class TopicContentGenerator:
                     'error': 'LLM 响应解析失败，请重试'
                 }
 
+            # ── 强制 GEO 评分+优化循环（迭代版）──
+            # 从 brand_context 提取品牌名，用于评分和优化
+            brand_name_for_score = ''
+            if brand_context and brand_context.get('include_brand') and brand_context.get('brand_name'):
+                brand_name_for_score = brand_context['brand_name']
+                logger.info(f"[GEO评分] 使用品牌名: {brand_name_for_score}")
+
+            geo_score_result = content_scorer.score(content, brand_name=brand_name_for_score, business_type='local_service')
+            initial_geo_score = geo_score_result.total_score
+            logger.info(f"[GEO优化] 初始评分: {initial_geo_score}/100, 不合格项: {[f.name for f in geo_score_result.failed_items]}")
+
+            optimized_content = content
+            final_geo_score = initial_geo_score
+            total_opt_rounds = 0
+
+            if initial_geo_score < 80 and geo_score_result.failed_items:
+                current_content = content
+                current_score = initial_geo_score
+                best_content = content
+                best_score = initial_geo_score
+                max_total_rounds = 6
+                no_improvement_count = 0
+
+                try:
+                    for iteration in range(1, max_total_rounds + 1):
+                        total_opt_rounds += 1
+                        logger.info(f"[GEO优化] === 迭代 {iteration}：当前基准分={current_score}/100 ===")
+
+                        # 重新获取当前内容的不合格项
+                        iter_score_result = content_scorer.score(current_content, brand_name=brand_name_for_score, business_type='local_service')
+                        iter_failed = iter_score_result.failed_items
+
+                        if not iter_failed:
+                            logger.info(f"[GEO优化] 迭代{iteration}：无不合格项，停止")
+                            break
+
+                        # 每轮最多3次ABC递进修补
+                        optimizer = ProgressiveContentOptimizer()
+                        opt_result = optimizer.optimize(
+                            current_content,
+                            iter_failed,
+                            current_score,
+                            brand_name=brand_name_for_score,
+                            business_desc=business_description,
+                            max_rounds=3,
+                        )
+
+                        if not opt_result.success:
+                            logger.warning(f"[GEO优化] 迭代{iteration}：优化器返回失败，停止")
+                            break
+
+                        iter_content = opt_result.optimized_content
+                        iter_score = opt_result.final_score
+
+                        # 更新全局最优
+                        if iter_score > best_score:
+                            best_score = iter_score
+                            best_content = iter_content
+                            no_improvement_count = 0
+                            logger.info(f"[GEO优化] 迭代{iteration}：{current_score}→{iter_score}，刷新最优")
+                        else:
+                            no_improvement_count += 1
+                            logger.info(f"[GEO优化] 迭代{iteration}：{current_score}→{iter_score}，未提升（连续{no_improvement_count}次）")
+
+                        # 更新基准用于下一轮
+                        current_content = iter_content
+                        current_score = iter_score
+
+                        # 达到80分立即停止
+                        if iter_score >= 80:
+                            logger.info(f"[GEO优化] 迭代{iteration}：达到80分，停止")
+                            best_score = iter_score
+                            best_content = iter_content
+                            break
+
+                        # 连续2轮无提升停止
+                        if no_improvement_count >= 2:
+                            logger.info(f"[GEO优化] 连续{no_improvement_count}轮无提升，停止")
+                            break
+
+                    optimized_content = best_content
+                    final_geo_score = best_score
+                    logger.info(f"[GEO优化] 迭代完成，总轮次={total_opt_rounds}，最终最优分={final_geo_score}/100")
+                except Exception as e:
+                    logger.warning(f"[GEO优化] 迭代优化过程异常: {e}，使用原始内容")
+                    final_geo_score = initial_geo_score
+                    optimized_content = content
+            else:
+                logger.info(f"[GEO优化] 初始评分{initial_geo_score}≥80或无不合格项，跳过优化")
+
             # 估算 token
             tokens_used = self.TOKEN_ESTIMATE.get(premium_plan, self.TOKEN_ESTIMATE['free'])['total']
 
             return {
                 'success': True,
-                'content': content,
+                'content': optimized_content,
                 'tokens_used': tokens_used,
+                'geo_score': final_geo_score,
+                'geo_report': {
+                    'total_score': final_geo_score,
+                    'grade': geo_score_result.grade,
+                    'items': [
+                        {
+                            'id': i.id,
+                            'name': i.name,
+                            'category': i.category,
+                            'score': i.score,
+                            'max_score': i.max_score,
+                            'passed': i.passed,
+                            'detail': i.detail,
+                            'suggestion': i.suggestion,
+                        }
+                        for i in geo_score_result.items
+                    ],
+                    'failed_items': [f.name for f in geo_score_result.failed_items],
+                    'summary': geo_score_result.summary,
+                },
                 '_meta': {
                     'plan': premium_plan,
                     'structures_available': len(structures),
@@ -242,6 +358,8 @@ class TopicContentGenerator:
         content_style: str = '',
         selected_scene: dict = None,
         geo_mode_info: dict = None,
+        brand_context: dict = None,
+        keyword_library: dict = None,
     ) -> str:
         """构建内容生成 Prompt"""
 
@@ -262,6 +380,9 @@ class TopicContentGenerator:
         geo_section = ''
         if geo_mode_info:
             geo_section = self._get_geo_mode_guide(geo_mode_info)
+
+        # ── 品牌锚点+信任佐证区块 ──
+        brand_trust_section = self._build_brand_trust_section(brand_context, keyword_library, topic_type)
 
         # SEO 和精准埋词（专业版/企业版专属）
         seo_section = ""
@@ -305,7 +426,7 @@ class TopicContentGenerator:
 
 ## 目标用户画像
 {portrait_info}
-
+{brand_trust_section}
 ## 当前时间
 - 月份：{current_month}月
 - 季节：{current_season}
@@ -320,6 +441,28 @@ class TopicContentGenerator:
 2. 每张图必须嵌入GEO模式相关的核心关键词
 3. 内容结构必须体现GEO模式的特征（如：问题-答案模式的"开篇直接给答案"）
 4. 禁止使用与GEO模式不匹配的内容结构（如：问题-答案模式不能用故事叙述型）
+
+## ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## 【核心内容质量要求】← 此部分决定评分，必须满足
+以下3项是GEO评分的关键维度，生成内容时必须满足，否则分数无法达标：
+
+1. **开篇直接性**：封面图或第一段文字的前30字内必须直接给出核心结论/答案，禁止任何铺垫（如"近年来""随着社会发展""大家好"等）
+   - ✅ 正确示例：「医学影像学就业稳定，三甲医院缺口大，起薪8K+」
+   - ❌ 错误示例：「随着医疗行业的发展，医学影像学专业越来越受到关注...」
+
+2. **信任证据**：必须包含至少3条具体数据、案例或权威引用（不能全是主观陈述）
+   - 数据类型：据xxx报告/数据显示+具体数字+结论
+   - 案例类型：某三甲医院/某地区/某时间段+具体事件+结果
+   - 引用类型：权威机构/专家+观点+来源
+   - 格式：放入每张图的 sub_points 或独立的 trust_evidence 字段中
+
+3. **行动号召(CTA)**：结尾必须有一条唯一、明确、低门槛的下一步行动
+   - 必须包含：具体动作词（私信/评论/关注/扫码）+ 联系方式/入口
+   - 禁止：多个CTA、模糊CTA（如"有需要可以联系我们"）
+   - ✅ 正确示例：「想了解更多云南高考志愿填报技巧，点击主页关注，私信『志愿』获取一对一指导」
+   - ❌ 错误示例：「欢迎大家评论区留言交流」
+
 ## ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 可用内容结构（共{len(structures)}种）
@@ -401,7 +544,7 @@ class TopicContentGenerator:
       "keywords": ["埋入的关键词"],
       "visual_style": "画面风格描述",
       "design_specs": "设计规格，如：尺寸1080x1920px，背景白色，标题醒目",
-      "sub_points": ["子要点1", "子要点2"],
+      "sub_points": ["子要点1（包含具体数据/案例）", "子要点2"],
       "data_content": "具体数据内容（如有）"
     }}
   ],
@@ -420,7 +563,16 @@ class TopicContentGenerator:
     "opening_words": "开头词：如真相、揭秘、必看",
     "emotion_words": "情绪词：如终于搞懂、原来如此",
     "action_guide": "行动引导：如收藏、转发"
-  }}
+  }},
+  "opening": "开篇核心句（≤30字，必须在第一张图/段落的前30字内直接呈现核心结论）",
+  "trust_evidence": [
+    {{
+      "type": "data|case|quote",
+      "content": "具体内容：据xxx数据/案例/引用+具体数字/事件+结论",
+      "source": "数据来源（如：国家统计局2023年/云南省卫健委/某三甲医院等）"
+    }}
+  ],
+  "cta": "唯一明确行动号召（包含：动作词+具体入口/联系方式，≤50字）"
 }}
 ```
 
@@ -429,24 +581,202 @@ class TopicContentGenerator:
         return prompt
 
     def _get_portrait_info(self, portrait: dict) -> str:
-        """获取画像信息"""
+        """获取画像信息 — 完整版本"""
         if not portrait:
             return "暂无详细画像信息"
 
         if isinstance(portrait, dict):
+            # ── 原有4字段 ──
             identity = portrait.get('identity', '')
             pain_point = portrait.get('pain_point', portrait.get('核心痛点', ''))
             concern = portrait.get('concern', portrait.get('核心顾虑', ''))
             scenario = portrait.get('scenario', portrait.get('场景', ''))
+            # 兼容旧格式
+            if isinstance(scenario, list):
+                scenario = '；'.join(scenario) if scenario else ''
+            if not scenario:
+                scenarios = portrait.get('pain_scenarios', [])
+                if isinstance(scenarios, list):
+                    scenario = '；'.join(scenarios)
 
-            info = f"用户身份：{identity}" if identity else ""
-            info += f"\n核心痛点：{pain_point}" if pain_point else ""
-            info += f"\n核心顾虑：{concern}" if concern else ""
-            info += f"\n使用场景：{scenario}" if scenario else ""
+            # ── 新增完整字段 ──
+            psychology = portrait.get('psychology', {})
+            if isinstance(psychology, dict):
+                psych_parts = []
+                if psychology.get('核心需求'):
+                    psych_parts.append(f"核心需求：{psychology['核心需求']}")
+                if psychology.get('购买动机'):
+                    psych_parts.append(f"购买动机：{psychology['购买动机']}")
+                if psychology.get('决策顾虑'):
+                    psych_parts.append(f"决策顾虑：{psychology['决策顾虑']}")
+                psychology_text = '；'.join(psych_parts)
+            else:
+                psychology_text = str(psychology) if psychology else ''
 
-            return info or "暂无详细画像信息"
+            content_preferences = portrait.get('content_preferences', [])
+            if isinstance(content_preferences, list):
+                content_prefs_text = '、'.join(content_preferences)
+            else:
+                content_prefs_text = str(content_preferences) if content_preferences else ''
+
+            scene_tags = portrait.get('scene_tags', [])
+            if isinstance(scene_tags, list):
+                scene_tags_text = '、'.join(scene_tags)
+            else:
+                scene_tags_text = str(scene_tags) if scene_tags else ''
+
+            behavior_tags = portrait.get('behavior_tags', [])
+            if isinstance(behavior_tags, list):
+                behavior_tags_text = '、'.join(behavior_tags)
+            else:
+                behavior_tags_text = str(behavior_tags) if behavior_tags else ''
+
+            portrait_summary = portrait.get('portrait_summary', '')
+            problem_type = portrait.get('problem_type', '')
+            market_type = portrait.get('market_type', '')
+            differentiation = portrait.get('differentiation', '')
+
+            lines = []
+            if identity:
+                lines.append(f"用户身份：{identity}")
+            if pain_point:
+                lines.append(f"核心痛点：{pain_point}")
+            if concern:
+                lines.append(f"购买顾虑：{concern}")
+            if scenario:
+                lines.append(f"使用场景：{scenario}")
+            if psychology_text:
+                lines.append(f"心理画像：{psychology_text}")
+            if content_prefs_text:
+                lines.append(f"内容偏好：{content_prefs_text}")
+            if scene_tags_text:
+                lines.append(f"场景标签：{scene_tags_text}")
+            if behavior_tags_text:
+                lines.append(f"行为标签：{behavior_tags_text}")
+            if portrait_summary:
+                lines.append(f"画像摘要：{portrait_summary}")
+            if problem_type:
+                lines.append(f"问题类型：{problem_type}")
+            if market_type:
+                market_label = '蓝海（细分机会）' if market_type == 'blue_ocean' else '红海（大众竞争）'
+                lines.append(f"市场类型：{market_label}")
+            if differentiation:
+                lines.append(f"差异化方向：{differentiation}")
+
+            return '\n'.join(lines) if lines else "暂无详细画像信息"
 
         return str(portrait)
+
+    def _build_brand_trust_section(
+        self,
+        brand_context: dict = None,
+        keyword_library: dict = None,
+        topic_type: str = '',
+    ) -> str:
+        """
+        构建品牌锚点+信任佐证 prompt 区块
+
+        Args:
+            brand_context: 品牌上下文，格式：
+                {
+                    'include_brand': True/False,  # 是否植入品牌信息，默认False
+                    'brand_name': '品牌名',
+                    'years_experience': '32年',
+                    'brand_claims': ['承诺1', '承诺2'],  # 品牌承诺列表
+                    'anchor_positions': ['开头', '结尾'],  # 植入位置
+                    'content_purpose': 'traffic/conversion'  # 内容目的：流量型/转化型
+                }
+            keyword_library: 关键词库，用于提取 trust_keywords
+            topic_type: 选题类型，用于判断内容目的（种草型=流量，转化型=转化）
+
+        Returns:
+            str: prompt 区块文本，无内容时返回空字符串
+        """
+        if not brand_context or not brand_context.get('include_brand'):
+            return ''
+
+        brand_name = brand_context.get('brand_name', '')
+        years_exp = brand_context.get('years_experience', '')
+        claims = brand_context.get('brand_claims', [])
+        positions = brand_context.get('anchor_positions', ['开头', '结尾'])
+        purpose = brand_context.get('content_purpose', '')
+
+        # 自动根据选题类型判断内容目的
+        if not purpose:
+            if '种草' in topic_type or '流量' in topic_type:
+                purpose = 'traffic'
+            elif '转化' in topic_type or '成交' in topic_type:
+                purpose = 'conversion'
+            else:
+                purpose = 'traffic'
+
+        # 提取信任佐证素材（从关键词库）
+        trust_keywords = []
+        if keyword_library and isinstance(keyword_library, dict):
+            tk = keyword_library.get('trust_keywords', [])
+            if tk:
+                trust_keywords = tk if isinstance(tk, list) else list(tk)
+            # 也尝试从 categories 中找 trust_keywords
+            if not trust_keywords:
+                for cat in keyword_library.get('categories', []):
+                    cat_tk = cat.get('trust_keywords', [])
+                    if cat_tk:
+                        trust_keywords = cat_tk if isinstance(cat_tk, list) else list(cat_tk)
+                        break
+
+        # 信任佐证密度：转化型 > 种草型
+        trust_density = '高密度' if purpose == 'conversion' else '低密度'
+
+        # 构建品牌承诺文本
+        claims_text = ''
+        if claims:
+            claims_text = '；'.join(claims) if isinstance(claims, list) else str(claims)
+        else:
+            if years_exp:
+                claims_text = f'{years_exp}行业经验'
+            if not claims_text:
+                claims_text = '品质保障，售后无忧'
+
+        # 植入位置说明
+        positions_text = '、'.join(positions) if positions else '开头、结尾'
+
+        # 信任佐证类型说明
+        trust_types_text = ''
+        if trust_keywords:
+            # 取前6个信任关键词
+            sample_keywords = trust_keywords[:6]
+            trust_types_text = f'\n- 可用信任佐证素材：{"、".join(sample_keywords)}'
+
+        section = f"""
+## 品牌锚点+信任佐证要求（{purpose}型内容，信任佐证密度={trust_density}）
+【重要】内容目的为「{purpose}」，需按对应密度植入品牌信息和信任佐证
+
+### 品牌信息
+- 品牌/IP名：{brand_name}
+- 经验年限：{years_exp}
+- 品牌承诺：{claims_text}
+
+### 品牌锚点植入位置
+必须在以下位置植入品牌信息：{positions_text}、中间至少1处
+
+### 信任佐证要求
+- 密度：{trust_density}（转化型内容需要更多真实案例、数据、资质等信任佐证）
+{trust_types_text}
+
+### 信任佐证类型参考
+| 类型 | 示例 | 适用场景 |
+|------|------|---------|
+| 行业地位型 | 干了XX年，XX%客户都在用 | 转化型内容 |
+| 资质认证型 | XX认证、XX资质 | 信任建立 |
+| 客户案例型 | XX客户使用X年从未出问题 | 转化型内容 |
+| 过程透明型 | 每天凌晨配送，看得见的新鲜 | 人设型内容 |
+| 售后承诺型 | 不满意退换，运费我们出 | 转化型内容 |
+
+### 禁用词
+- 禁止使用"最"、"第一"、"顶级"等绝对化用语
+- 禁止虚构数据，必须基于真实经验
+"""
+        return section
 
     def _get_current_season(self) -> str:
         """获取当前季节"""
@@ -852,7 +1182,7 @@ class TopicContentGenerator:
             'title': content.get('title', default['title']),
             'subtitle': content.get('subtitle', default['subtitle']),
             'tags': content.get('tags', default['tags']),
-            'body': self._slides_to_body(slides),
+            'body': self._slides_to_body(slides, content),
             'slides': slides,
             'structure': content.get('structure', ''),
             'geo_mode': content.get('geo_mode', ''),
@@ -872,6 +1202,10 @@ class TopicContentGenerator:
             'production_specs': content.get('production_specs', ''),
             'seo_keywords': content.get('seo_keywords', {}),
             'cover_suggestion': content.get('cover_suggestion', {}),
+            # 核心内容字段（用于评分）
+            'opening': content.get('opening', ''),
+            'trust_evidence': content.get('trust_evidence', []),
+            'cta': content.get('cta', ''),
         }
 
     def _slides_to_content_plan(self, slides: list) -> str:
@@ -1057,11 +1391,21 @@ class TopicContentGenerator:
 
         return '\n'.join(suggestions)
 
-    def _slides_to_body(self, slides: list) -> str:
+    def _slides_to_body(self, slides: list, content: dict = None) -> str:
         """将 slides 转换为可读的 body 文本"""
         if not slides:
             return ''
         lines = []
+
+        # 核心内容字段（来自独立 JSON 字段）
+        opening = (content or {}).get('opening', '')
+        trust_evidence = (content or {}).get('trust_evidence', [])
+        cta = (content or {}).get('cta', '')
+
+        if opening:
+            lines.append(f"**【开篇核心句】** {opening}")
+            lines.append('')
+
         for slide in slides:
             role = slide.get('role', f'图{slide.get("index", "?")}')
             lines.append(f"**【{role}】**")
@@ -1080,6 +1424,21 @@ class TopicContentGenerator:
             if slide.get('sub_points'):
                 lines.append(f"  要点：{'；'.join(slide['sub_points'])}")
             lines.append('')
+
+        if trust_evidence:
+            lines.append('**【信任证据】**')
+            for ev in trust_evidence:
+                ev_type = ev.get('type', '')
+                ev_content = ev.get('content', '')
+                ev_source = ev.get('source', '')
+                lines.append(f"  - [{ev_type}] {ev_content}")
+                if ev_source:
+                    lines.append(f"    来源：{ev_source}")
+            lines.append('')
+
+        if cta:
+            lines.append(f"**【行动号召】** {cta}")
+
         return '\n'.join(lines)
 
     def _get_default_content(self) -> dict:

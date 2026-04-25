@@ -183,6 +183,11 @@ FIX_PROMPT_TEMPLATE = """你是GEO内容修补师，只做修补，不重写。
 【当前文章正文】
 {body}
 
+【当前已有核心内容字段（若无则说明内容中缺失）】
+开篇核心句：{opening}
+信任证据：{trust_evidence}
+行动号召：{cta}
+
 【输出格式】严格返回JSON：
 {{
   "title_modified": false,
@@ -191,6 +196,11 @@ FIX_PROMPT_TEMPLATE = """你是GEO内容修补师，只做修补，不重写。
   "new_subtitle": null,
   "body_modified": true/false,
   "new_body": "只修改不合格项相关的句子，其他内容原样保留",
+  "opening": "如果「开篇直接性」不合格，提供新的开篇核心句（≤30字，直接给结论）；否则填null",
+  "trust_evidence": [
+    {{"type": "data|case|quote", "content": "具体内容", "source": "来源"}}
+  ],
+  "cta": "如果「行动号召」不合格，提供新的唯一明确CTA（≤50字，含动作词+入口）；否则填null",
   "items_fixed": ["实际修复的项名称"],
   "fix_summary": "本轮修改的简要说明（20字内）"
 }}
@@ -205,7 +215,10 @@ def build_fix_prompt(
     subtitle: str,
     body: str,
     brand_name: str,
-    business_desc: str
+    business_desc: str,
+    opening: str = '',
+    trust_evidence: List = None,
+    cta: str = '',
 ) -> str:
     """构建修补式Prompt"""
     group_def = GEO_OPTIMIZATION_GROUPS[group_key]
@@ -222,6 +235,22 @@ def build_fix_prompt(
         for i, item in enumerate(group_items)
     )
 
+    # 信任证据格式化
+    te_text = ''
+    if trust_evidence:
+        te_lines = []
+        for ev in (trust_evidence or []):
+            ev_type = ev.get('type', '')
+            ev_content = ev.get('content', '')
+            ev_source = ev.get('source', '')
+            if ev_source:
+                te_lines.append(f"  - [{ev_type}] {ev_content}（来源：{ev_source}）")
+            else:
+                te_lines.append(f"  - [{ev_type}] {ev_content}")
+        te_text = '\n'.join(te_lines)
+    else:
+        te_text = '（无信任证据）'
+
     return FIX_PROMPT_TEMPLATE.format(
         group_scope=group_def.get('scope', ''),
         bad_items=bad_items,
@@ -231,6 +260,9 @@ def build_fix_prompt(
         title=title,
         subtitle=subtitle,
         body=body,
+        opening=opening or '（无开篇核心句）',
+        trust_evidence=te_text,
+        cta=cta or '（无行动号召）',
     )
 
 
@@ -500,6 +532,11 @@ class ProgressiveContentOptimizer:
         title = _extract_title(content)
         subtitle = _extract_subtitle(content)
 
+        # 提取核心内容字段
+        opening = content.get('opening', '') or ''
+        trust_evidence = content.get('trust_evidence', []) or []
+        cta = content.get('cta', '') or ''
+
         # 构建修补式提示词
         prompt = build_fix_prompt(
             group_key=group_key,
@@ -509,6 +546,9 @@ class ProgressiveContentOptimizer:
             body=body,
             brand_name=brand_name,
             business_desc=business_desc,
+            opening=opening,
+            trust_evidence=trust_evidence,
+            cta=cta,
         )
 
         # 调用 LLM 修补
@@ -584,7 +624,9 @@ class ProgressiveContentOptimizer:
 
         try:
             import json as _json
-            data = _json.loads(json_text)
+            # 清理控制字符（LLM 生成的 JSON 里字符串可能含未转义的换行/控制字符）
+            cleaned_json = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', json_text)
+            data = _json.loads(cleaned_json)
 
             # 只处理 body_modified=true 的情况
             if data.get('body_modified') and data.get('new_body'):
@@ -598,6 +640,22 @@ class ProgressiveContentOptimizer:
             # 处理副标题修改
             if data.get('subtitle_modified') and data.get('new_subtitle'):
                 result = _set_subtitle(result, data['new_subtitle'])
+
+            # 处理核心内容字段修改
+            if data.get('opening'):
+                result['opening'] = data['opening']
+                if '开篇直接性' in [f.name for f in group_items]:
+                    items_fixed.append('开篇直接性')
+
+            if data.get('trust_evidence'):
+                result['trust_evidence'] = data['trust_evidence']
+                if '信任证据' in [f.name for f in group_items]:
+                    items_fixed.append('信任证据')
+
+            if data.get('cta'):
+                result['cta'] = data['cta']
+                if '行动号召' in [f.name for f in group_items]:
+                    items_fixed.append('行动号召')
 
             # 处理已修复项
             if data.get('items_fixed'):

@@ -295,7 +295,15 @@ class ContentQualityScorer:
     CTA_KEYWORDS = [
         '关注', '私信', '评论', '留言', '点赞', '转发', '收藏',
         '领取', '获取', '下载', '扫码', '联系', '咨询', '预约',
-        '购买', '下单', '参与', '加入', '注册', '申请'
+        '购买', '下单', '参与', '加入', '注册', '申请', '点击',
+        '主页', '主页', '微信', '小红书'
+    ]
+
+    # CTA 具体入口关键词（需要配合动作词才有效）
+    CTA_ENTRY_KEYWORDS = [
+        '点击主页', '私信', '评论区', '评论区留言', '扫码', '添加微信',
+        '主页关注', '关注账号', '小红书账号', '回复', '发送', '输入',
+        '获取', '领取', '下载', '链接', '扫码联系'
     ]
 
     def __init__(self):
@@ -341,8 +349,8 @@ class ContentQualityScorer:
             title, full_text, body, brand_name, seo_keywords, slides
         )
 
-        # 第二阶段：LLM评分
-        llm_results = self._score_by_llm(title, body, brand_name)
+        # 第二阶段：LLM评分（传入完整 content 用于检测 opening/trust_evidence/cta 字段）
+        llm_results = self._score_by_llm(title, body, brand_name, content)
 
         # 合并结果
         all_results = {**rule_results, **llm_results}
@@ -836,19 +844,38 @@ class ContentQualityScorer:
 
     # ==================== LLM评分 ====================
 
-    def _score_by_llm(self, title: str, body: str, brand_name: str) -> Dict[int, Dict]:
+    def _score_by_llm(self, title: str, body: str, brand_name: str, content: Dict = None) -> Dict[int, Dict]:
         """LLM评分（5项）：开篇直接性、模块化完整、信任证据、行动号召、改造潜力"""
         results = {}
 
-        # 构建评估文本
-        content_for_eval = f"""标题：{title}
+        # 核心内容字段（优先使用独立字段，否则从body提取）
+        opening = (content or {}).get('opening', '')
+        trust_evidence = (content or {}).get('trust_evidence', [])
+        cta = (content or {}).get('cta', '')
 
-正文：
-{body[:3000]}  # 限制长度避免token过多
-"""
+        # 从 trust_evidence 构建可读文本
+        trust_evidence_text = ''
+        if trust_evidence:
+            trust_lines = ['信任证据：']
+            for ev in trust_evidence:
+                ev_type = ev.get('type', '')
+                ev_content = ev.get('content', '')
+                ev_source = ev.get('source', '')
+                trust_lines.append(f"  - [{ev_type}] {ev_content}（来源：{ev_source}）" if ev_source else f"  - [{ev_type}] {ev_content}")
+            trust_evidence_text = '\n'.join(trust_lines)
 
+        # 构建评估文本（增强版：包含核心内容字段）
+        eval_parts = [f"标题：{title}"]
+        if opening:
+            eval_parts.append(f"\n开篇核心句：{opening}")
+        eval_parts.append(f"\n正文：\n{body[:3000]}")
+        if trust_evidence_text:
+            eval_parts.append(f"\n{trust_evidence_text}")
+        if cta:
+            eval_parts.append(f"\n行动号召(CTA)：{cta}")
         if brand_name:
-            content_for_eval += f"\n品牌名：{brand_name}"
+            eval_parts.append(f"\n品牌名：{brand_name}")
+        content_for_eval = ''.join(eval_parts)
 
         # 并行评估4个LLM项
         try:
@@ -874,10 +901,16 @@ class ContentQualityScorer:
         prompt = f"""你是一位GEO内容优化专家。请评估以下内容的「开篇直接性」。
 
 评分标准：
-- 10分：开篇前20字内直接给出核心结论/答案，无任何铺垫
+- 10分：开篇第一句的前20字内直接给出核心结论/答案，无任何铺垫（不含"随着""近年来""大家好""今天给大家"等废话）
 - 7-9分：开篇1-3句内给出核心答案，有简短过渡
 - 4-6分：开篇4-5句才给出答案，有一定铺垫
 - 1-3分：需要读到一半才知道核心内容
+
+【特别注意】
+1. 如果内容中有「开篇核心句」字段，优先依据该字段判断
+2. 优秀的开篇示例：「医学影像学就业稳定，三甲医院缺口大，起薪8K+」
+3. 糟糕的开篇示例：「随着医疗行业的快速发展，医学影像学专业受到了越来越多考生的关注...」
+4. 即使是封面图或第一张图，如果 main_title 或 big_slogan 直接给出了核心结论，也算开篇直接
 
 请分析并给出评分和理由：
 
@@ -895,10 +928,16 @@ class ContentQualityScorer:
         prompt = f"""你是一位GEO内容优化专家。请评估以下内容的「模块化完整性」。
 
 评分标准：
-- 10分：每个段落都逻辑完整、可独立成文，AI引用任意一段都能被理解
-- 7-9分：大部分段落独立完整，少量需要上下文
-- 4-6分：部分段落需要上下文才能理解
-- 1-3分：段落高度依赖上下文，无法独立理解
+- 10分：每个 slide/段落逻辑完整、可独立成文，且有独立金句和具体要点，AI引用任意一段都能被理解
+- 7-9分：大部分 slide 独立完整，少量需要上下文；每个 slide 至少有金句+2个以上要点
+- 4-6分：部分 slide 需要上下文才能理解；slide 内容单薄
+- 1-3分：slide 高度依赖上下文，无法独立理解
+
+【特别注意】
+1. 图文内容天然是「多 slide 结构」，每个 slide 有 role（大字金句+要点）就算独立
+2. 如果每个 slide 的 role、main_title/big_slogan、sub_points 都存在且有实质内容，给 8-10 分
+3. 如果 slide 内容过于简短（只有标题没有要点），只能得 4-6 分
+4. 5张图格式的内容天然具有模块化特征，只要每张图有独立金句+要点就应得 8+ 分
 
 请分析并给出评分和理由：
 
@@ -916,10 +955,16 @@ class ContentQualityScorer:
         prompt = f"""你是一位GEO内容优化专家。请评估以下内容的「信任证据」。
 
 评分标准：
-- 10分：为每个核心观点都提供了具体数据/案例/权威引用
-- 7-9分：为大部分观点提供了信任证据
-- 4-6分：有信任证据但数量不足或质量一般
+- 10分：为每个核心观点都提供了具体数据/案例/权威引用，且来源可信
+- 7-9分：为大部分观点提供了信任证据，有数据或案例支撑
+- 4-6分：有零星信任证据但数量不足，大部分是主观陈述
 - 1-3分：几乎没有信任证据，全是主观陈述
+
+【特别注意】
+1. 如果内容中有 trust_evidence 字段（以「信任证据：」开头），优先依据该字段判断
+2. 如果 sub_points 中有「据xxx显示」「xxx医院」「xxx数据」「xxx报告」等具体来源，视为有效信任证据
+3. 只有「很多人说」「感觉很」「大家觉得」等模糊说法不算信任证据
+4. 数据需要包含：具体数字+明确来源+清晰结论才算完整
 
 请分析并给出评分和理由：
 
@@ -937,10 +982,16 @@ class ContentQualityScorer:
         prompt = f"""你是一位GEO内容优化专家。请评估以下内容的「行动号召(CTA)」。
 
 评分标准：
-- 10分：结尾有唯一、明确、低门槛的下一步行动指令
-- 7-9分：结尾有CTA，但可以更明确或更单一
-- 4-6分：有引导但不够明确，或门槛较高
-- 1-3分：完全没有CTA，或指令不清晰
+- 10分：结尾有唯一、明确、低门槛的下一步行动，包含具体动作词+联系方式/入口
+- 7-9分：有CTA，但可以更明确（需包含动作词）或更单一
+- 4-6分：有引导但不够明确，或门槛较高（如只说"联系我们"但没说怎么联系）
+- 1-3分：完全没有CTA，或指令不清晰（如"欢迎交流"）
+
+【特别注意】
+1. 如果内容中有「行动号召(CTA)」字段，优先依据该字段判断
+2. CTA必须同时包含：(1)动作词（私信/评论/关注/扫码/点击/联系）+ (2)具体入口/联系方式
+3. 「评论区留言」「欢迎交流」「有需要可以私信」等模糊说法只能得4-6分
+4. 「点击主页关注，私信『XX』获取XX」这种同时有动作+入口的才能得8分以上
 
 请分析并给出评分和理由：
 
@@ -958,10 +1009,15 @@ class ContentQualityScorer:
         prompt = f"""你是一位GEO内容优化专家。请评估以下内容的「多形式改造潜力」。
 
 评分标准：
-- 10分：核心逻辑清晰，可轻松提炼为结构图、短视频脚本、思维导图
-- 7-9分：有改造潜力，但需要一定调整
+- 10分：核心逻辑清晰，每个模块独立完整，可轻松提炼为结构图、短视频脚本、思维导图
+- 7-9分：有改造潜力，结构清晰但部分模块需要调整
 - 4-6分：改造难度较大，主要是内容本身适合图文
 - 1-3分：内容结构固化，难以改造为其他形式
+
+【特别注意】
+1. 如果每个 slide 的 role（角色）、main_title（大字金句）、sub_points（要点）都完整且独立，说明改造潜力高
+2. 如果内容有 trust_evidence 字段列出具体数据/案例，也算改造潜力高（数据可用于多形式）
+3. 图文内容改造潜力的核心：每个模块是否独立成体系
 
 请分析并给出评分和理由：
 
