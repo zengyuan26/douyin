@@ -171,6 +171,16 @@ class TopicGenerator:
             content_focus = "专业服务"
             keyword_focus = "专业词、方案词"
 
+        # Skill模式额外字段
+        skill_mode_req = ""
+        skill_fields_block = ""
+        if skill_mode:
+            skill_mode_req = '6. Skill模式：每个选题包含core_value（核心卖点）、scene_options（场景选项）、content_type（内容类型）'
+            skill_fields_block = '''
+    "core_value": "核心卖点/观点（一句话概括选题能提供的核心价值）",
+    "scene_options": [{"id": "A", "label": "场景A描述"}, {"id": "B", "label": "场景B描述"}],
+    "content_type": "图文/长文/短视频"'''
+
         prompt = f"""你是一位资深的内容策划专家。请根据以下信息，生成5个精准的短视频/图文选题。
 
 ## 业务信息
@@ -197,7 +207,7 @@ class TopicGenerator:
    - 经验分享型：真实故事
 4. 符合当前时间节点特点
 5. 每个选题说明推荐理由
-{"6. Skill模式：每个选题包含core_value（核心卖点）、scene_options（场景选项）、content_type（内容类型）" if skill_mode else ""}
+{skill_mode_req}
 
 ## 输出格式（严格JSON）
 ```json
@@ -208,15 +218,12 @@ class TopicGenerator:
     "type": "问题诊断/解决方案/经验分享/避坑指南/知识科普",
     "type_key": "pain_point/solution/emotional/pitfall/tutorial",
     "target": "目标人群描述",
-    "reason": "推荐理由（为什么选这个选题）"{"，
-    "core_value": "核心卖点/观点（一句话概括选题能提供的核心价值）" if skill_mode else ""}{",
-    "scene_options": [{{"id": "A", "label": "场景A描述"}}, {{"id": "B", "label": "场景B描述"}}]," if skill_mode else ""}{",
-    "content_type": "图文/长文/短视频" if skill_mode else ""}
+    "reason": "推荐理由（为什么选这个选题）"
+    {skill_fields_block}
   }},
   ...共5个选题
 ]
 ```
-
 请严格按照JSON格式输出，不要包含其他内容。"""
 
         return prompt
