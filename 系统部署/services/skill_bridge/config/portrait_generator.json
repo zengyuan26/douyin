@@ -1,0 +1,220 @@
+{
+  "_comment": "画像生成 Skill 配置 - 基于关键词库的人群画像生成 (来源: portrait_generator.py + geo-master skill.md)",
+
+  "skill": {
+    "name": "portrait_generator",
+    "version": "1.0",
+    "display_name": "人群画像生成",
+    "description": "基于关键词库和问题类型，生成精准用户画像，包含身份、痛点、心理、行为等维度",
+    "skill_md_path": ".cursor/skill/geo-master/skill.md",
+    "input_source": "from_keyword_library_and_market_analyzer"
+  },
+
+  "input_schema": {
+    "industry": {
+      "type": "string",
+      "required": true,
+      "description": "行业名称"
+    },
+    "business_description": {
+      "type": "string",
+      "required": true,
+      "description": "业务描述"
+    },
+    "business_type": {
+      "type": "string",
+      "enum": ["b2b", "b2c", "both"],
+      "required": true,
+      "description": "业务类型"
+    },
+    "audience_segment": {
+      "type": "object",
+      "from_step": "market_analyzer.step3_audience_segment",
+      "description": "人群细分（付费人/使用人分离）"
+    },
+    "keyword_library": {
+      "type": "object",
+      "required": true,
+      "description": "关键词库（用于提取问题类型和场景）"
+    },
+    "blue_ocean_opportunities": {
+      "type": "object",
+      "from_step": "market_analyzer.step2_blue_ocean",
+      "description": "蓝海机会"
+    },
+    "search_journey": {
+      "type": "object",
+      "from_step": "market_analyzer.step6_search_journey",
+      "description": "搜索旅程"
+    },
+    "portraits_per_type": {
+      "type": "integer",
+      "default": 3,
+      "description": "每个问题类型/场景生成的画像数量"
+    }
+  },
+
+  "steps": [
+
+    {
+      "id": "step_extract_problem_types",
+      "name": "问题类型提取",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【问题类型提取 — 从关键词库提取用户真实问题】\n\n请从以下关键词库中，提取用户最关心的具体问题类型。\n\n问题类型的提取策略：\n1. 从关键词中提取用户真实的问题症状（包含疑问词的关键词）\n2. 匹配模式：\"怎么办\"、\"好不好\"、\"多少钱\"、\"怎么选\"、\"哪个好\"、\"要不要\"等\n3. 将相似问题归类到同一问题类型下\n\n关键词库：\n<<keyword_library>>\n\n请用JSON格式输出：\n\n{\n  \"problem_types\": [\n    {\n      \"type_name\": \"问题类型名称（如：分数不够怎么办）\",\n      \"description\": \"问题类型描述\",\n      \"keywords\": [\"相关关键词1\", \"关键词2\", \"关键词3\"],\n      \"target_audience\": \"目标人群描述\"\n    }\n  ]\n}\n\n要求：至少提取6-8个问题类型，覆盖用户从决策到售后的全流程问题。",
+      "output_field": "problem_types",
+      "output_schema": {
+        "problem_types": {
+          "type": "array",
+          "minItems": 6,
+          "items": {
+            "type": "object",
+            "properties": {
+              "type_name": {"type": "string"},
+              "description": {"type": "string"},
+              "keywords": {"type": "array", "items": "string"},
+              "target_audience": {"type": "string"}
+            }
+          }
+        }
+      },
+      "data_providers": ["keyword_library"]
+    },
+
+    {
+      "id": "step_analyze_blue_ocean_scenes",
+      "name": "蓝海场景分析",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【蓝海场景分析 — 基于蓝海机会和问题类型】\n\n基于蓝海机会，生成每个问题类型的具体场景。\n场景 = 一个人群在特定情境下的问题。\n\n蓝海机会：\n<<blue_ocean_opportunities>>\n\n人群细分：\n<<audience_segment>>\n\n请用JSON格式输出：\n\n{\n  \"scenes\": [\n    {\n      \"scene_name\": \"场景名称\",\n      \"scene_description\": \"场景描述（具体情境）\",\n      \"scene_keywords\": [\"场景关键词1\", \"关键词2\"],\n      \"target_audience\": \"目标人群\",\n      \"problem_type\": \"所属问题类型\",\n      \"pain_level\": \"高/中/低（痛点强度）\",\n      \"market_type\": \"blue_ocean\"\n    }\n  ]\n}\n\n要求：每个问题类型至少生成2-3个具体场景，场景要具体到可落地（如：\"高考出分后，分数在一本线附近，不知道该冲还是保\"）",
+      "output_field": "blue_ocean_scenes",
+      "output_schema": {
+        "scenes": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "type": "object",
+            "properties": {
+              "scene_name": {"type": "string"},
+              "scene_description": {"type": "string"},
+              "scene_keywords": {"type": "array", "items": "string"},
+              "target_audience": {"type": "string"},
+              "problem_type": {"type": "string"},
+              "pain_level": {"type": "string"},
+              "market_type": {"type": "string"}
+            }
+          }
+        }
+      },
+      "data_providers": ["step_extract_problem_types"]
+    },
+
+    {
+      "id": "step_generate_portraits",
+      "name": "生成用户画像",
+      "order": 3,
+      "required": true,
+      "llm_prompt_template": "【用户画像生成 — 为每个场景生成精准画像】\n\n请基于场景信息，为每个场景生成<<portraits_per_type>>个精准用户画像。\n\n场景信息：\n<<blue_ocean_scenes>>\n\n业务信息：\n- 行业：<<industry>>\n- 业务描述：<<business_description>>\n- 业务类型：<<business_type>>\n\n搜索旅程（参考）：\n<<search_journey>>\n\n每个画像要求以下6个维度：\n\n1. **身份特征**：具体、可识别的人群描述（如\"孩子刚上高三的县城家长\"）\n2. **痛点场景**：具体的、真实的痛苦场景（如\"分数刚好卡在一本线，冲好学校怕滑档，保底又心不甘\"）\n3. **心理状态**：真实的内心独白（如\"每天晚上睡不着，反复对比往年分数线\"）\n4. **行为障碍**：阻碍用户行动的卡点（如\"不知道怎么权衡城市、学校、专业\"）\n5. **搜索关键词**：用户真实搜索词（3-5个）\n6. **内容偏好**：适合该用户的内容方向\n\n请用JSON格式输出：\n\n{\n  \"portraits\": [\n    {\n      \"portrait_id\": \"画像唯一标识\",\n      \"scene_name\": \"所属场景\",\n      \"problem_type\": \"问题类型\",\n      \"identity\": \"人群身份描述\",\n      \"identity_description\": \"人群画像详细描述\",\n      \"portrait_summary\": \"一句话总结：身份+问题+想转变+困境+深层需求\",\n      \"pain_points\": [\"痛点1\", \"痛点2\", \"痛点3\"],\n      \"pain_scenarios\": [\"具体痛苦场景1\", \"场景2\"],\n      \"psychology\": {\n        \"inner_voice\": \"内心独白\",\n        \"core_needs\": [\"核心需求1\", \"需求2\"],\n        \"purchase_motivation\": \"购买动机\",\n        \"decision_concerns\": [\"决策顾虑1\", \"顾虑2\"]\n      },\n      \"barriers\": [\"行为障碍1\", \"障碍2\"],\n      \"search_keywords\": [\"搜索词1\", \"搜索词2\", \"搜索词3\"],\n      \"content_preferences\": [\"内容偏好1\", \"内容偏好2\"],\n      \"market_type\": \"blue_ocean或red_ocean\",\n      \"differentiation\": \"差异化方向\",\n      \"scene_tags\": [\"场景标签1\", \"标签2\"],\n      \"behavior_tags\": [\"行为标签1\", \"标签2\"],\n      \"content_direction\": \"种草型/转化型/信任型\"\n    }\n  ]\n}",
+      "output_field": "portraits",
+      "output_schema": {
+        "portraits": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "properties": {
+              "portrait_id": {"type": "string"},
+              "scene_name": {"type": "string"},
+              "problem_type": {"type": "string"},
+              "identity": {"type": "string"},
+              "identity_description": {"type": "string"},
+              "portrait_summary": {"type": "string"},
+              "pain_points": {"type": "array", "items": "string"},
+              "pain_scenarios": {"type": "array", "items": "string"},
+              "psychology": {
+                "type": "object",
+                "properties": {
+                  "inner_voice": {"type": "string"},
+                  "core_needs": {"type": "array", "items": "string"},
+                  "purchase_motivation": {"type": "string"},
+                  "decision_concerns": {"type": "array", "items": "string"}
+                }
+              },
+              "barriers": {"type": "array", "items": "string"},
+              "search_keywords": {"type": "array", "items": "string", "minItems": 3},
+              "content_preferences": {"type": "array", "items": "string"},
+              "market_type": {"type": "string"},
+              "differentiation": {"type": "string"},
+              "scene_tags": {"type": "array", "items": "string"},
+              "behavior_tags": {"type": "array", "items": "string"},
+              "content_direction": {"type": "string"}
+            }
+          }
+        }
+      },
+      "data_providers": ["step_analyze_blue_ocean_scenes"]
+    },
+
+    {
+      "id": "step_portrait_summary",
+      "name": "画像汇总与分组",
+      "order": 4,
+      "required": true,
+      "llm_prompt_template": "【画像汇总与分组 — 统计和分类画像】\n\n请对已生成的画像进行汇总和分组。\n\n画像列表：\n<<step_generate_portraits>>\n\n请用JSON格式输出：\n\n{\n  \"summary\": {\n    \"total_count\": \"总画像数量\",\n    \"by_problem_type\": {\n      \"问题类型A\": \"画像数量\",\n      \"问题类型B\": \"画像数量\"\n    },\n    \"by_market_type\": {\n      \"blue_ocean\": \"蓝海画像数量\",\n      \"red_ocean\": \"红海画像数量\"\n    }\n  },\n  \"portrait_groups\": {\n    \"问题类型A\": [\n      {\n        \"portrait_id\": \"画像ID\",\n        \"portrait_summary\": \"一句话总结\"\n      }\n    ]\n  },\n  \"priority_recommendations\": [\n    {\n      \"portrait_id\": \"优先服务画像ID\",\n      \"priority\": \"高/中/低\",\n      \"reason\": \"优先原因（痛点强+蓝海+需求真实）\"\n    }\n  ]\n}",
+      "output_field": "portrait_summary",
+      "output_schema": {
+        "summary": {
+          "type": "object",
+          "properties": {
+            "total_count": {"type": "integer"},
+            "by_problem_type": {"type": "object"},
+            "by_market_type": {"type": "object"}
+          }
+        },
+        "portrait_groups": {"type": "object"},
+        "priority_recommendations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "portrait_id": {"type": "string"},
+              "priority": {"type": "string"},
+              "reason": {"type": "string"}
+            }
+          }
+        }
+      },
+      "data_providers": ["step_generate_portraits"]
+    }
+
+  ],
+
+  "constraints": {
+    "quantity_requirements": {
+      "portraits_min": 3,
+      "problem_types_min": 6,
+      "scenes_min": 5,
+      "pain_points_per_portrait_min": 2,
+      "search_keywords_per_portrait_min": 3
+    },
+    "quality_rules": {
+      "portrait_summary_required": true,
+      "psychology_required": true,
+      "pain_scenarios_required": true
+    }
+  },
+
+  "data_flow": {
+    "outputs": {
+      "step_generate_portraits": {
+        "_comment": "画像输出传递给内容生成",
+        "portraits": {"target": "content_generator", "field": "content_context.portraits"},
+        "portrait_groups": {"target": "content_generator", "field": "content_context.portrait_groups"}
+      },
+      "step_portrait_summary": {
+        "_comment": "汇总传递给内容生成",
+        "priority_recommendations": {"target": "content_generator", "field": "content_context.priority_portraits"}
+      }
+    }
+  }
+}

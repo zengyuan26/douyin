@@ -1,0 +1,510 @@
+{
+  "_comment": "选题库生成 Skill 配置 - 五段式内容框架 + P0-P3优先级 + 来源比例 (来源: topic_library_generator.py + geo-seo skill.md)",
+  "skill": {
+    "name": "topic_library_generator",
+    "version": "1.0",
+    "display_name": "选题库生成",
+    "description": "五段式内容框架 + 画像专属选题 + 公用选题 + 供需失衡分析",
+    "skill_md_path": ".cursor/skill/geo-seo/skill.md",
+    "input_source": "from_keyword_library_and_market_analyzer"
+  },
+  "input_schema": {
+    "industry": {
+      "type": "string",
+      "required": true,
+      "description": "行业名称"
+    },
+    "business_description": {
+      "type": "string",
+      "required": true,
+      "description": "业务描述"
+    },
+    "audience_segment": {
+      "type": "object",
+      "from_step": "market_analyzer.step3_audience_segment",
+      "description": "人群细分（付费人/使用人分离）"
+    },
+    "search_journey": {
+      "type": "object",
+      "from_step": "market_analyzer.step6_search_journey",
+      "description": "搜索旅程（搜前/搜中/搜后）"
+    },
+    "blue_ocean_long_tail": {
+      "type": "array",
+      "from_step": "keyword_library_generator.step_blue_ocean_matrix.L2_long_tail",
+      "description": "蓝海长尾关键词（50+条）"
+    },
+    "priority_keywords": {
+      "type": "object",
+      "from_step": "keyword_library_generator.step_final_assembly.priority_keywords",
+      "description": "优先级关键词（P0/P1/P2）"
+    },
+    "content_stage": {
+      "type": "string",
+      "enum": [
+        "起号阶段",
+        "成长阶段",
+        "成熟阶段"
+      ],
+      "default": "成长阶段",
+      "description": "账号内容阶段，决定五段式配比"
+    }
+  },
+  "steps": [
+    {
+      "id": "step_analyze_context",
+      "name": "上下文分析",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【上下文分析 — 选题库生成准备】\n\n请分析以下上下文，为选题库生成做准备。\n\n行业：<<industry>>\n业务描述：<<business_description>>\n账号阶段：<<content_stage>>\n\n人群细分（付费人vs使用人）：\n<<audience_segment>>\n\n搜索旅程（搜前/搜中/搜后关键词）：\n<<search_journey>>\n\n请输出以下JSON：\n\n{\n  \"industry_summary\": \"行业一句话概括\",\n  \"target_audience\": \"主要目标人群描述\",\n  \"core_pain_points\": [\"核心痛点1\", \"核心痛点2\", \"核心痛点3\"],\n  \"search_intent_patterns\": {\n    \"pre_search\": \"搜前关键词模式（如'XX怎么办/XX好吗'）\",\n    \"mid_search\": \"搜中关键词模式（如'XX和XX哪个好'）\",\n    \"post_search\": \"搜后关键词模式（如'XX多少钱'）\"\n  },\n  \"audience_identity_keywords\": [\"人群身份关键词1\", \"人群身份关键词2\"],\n  \"scenario_keywords\": [\"场景关键词1\", \"场景关键词2\"]\n}",
+      "output_field": "context_analysis",
+      "output_schema": {
+        "industry_summary": {
+          "type": "string"
+        },
+        "target_audience": {
+          "type": "string"
+        },
+        "core_pain_points": {
+          "type": "array",
+          "items": "string"
+        },
+        "search_intent_patterns": {
+          "type": "object",
+          "properties": {
+            "pre_search": {
+              "type": "string"
+            },
+            "mid_search": {
+              "type": "string"
+            },
+            "post_search": {
+              "type": "string"
+            }
+          }
+        },
+        "audience_identity_keywords": {
+          "type": "array",
+          "items": "string"
+        },
+        "scenario_keywords": {
+          "type": "array",
+          "items": "string"
+        }
+      },
+      "data_providers": []
+    },
+    {
+      "id": "step_five_stage_ratio",
+      "name": "五段式阶段规划",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【五段式内容框架规划 — 来源：topic_library_generator.py 第96-140行】\n\n⚠️ 五段式内容框架（账号<<content_stage>>配比）：\n\n【起号阶段】20%受众锁定 + 40%痛点放大 + 25%方案对比 + 10%愿景勾画 + 5%顾虑消除\n  → 重在拉新，先让人意识到痛点\n\n【成长阶段】15%受众锁定 + 25%痛点放大 + 30%方案对比 + 15%愿景勾画 + 15%顾虑消除\n  → 平衡发展，开始建立信任\n\n【成熟阶段】10%受众锁定 + 15%痛点放大 + 30%方案对比 + 20%愿景勾画 + 25%顾虑消除\n  → 重在转化，打消购买顾虑\n\n五段式含义：\n① 受众锁定：让用户判断\"这说的是不是我\" → 人群锁定/场景细分/地域精准\n② 痛点放大：让人意识到\"现在的做法有多糟糕\" → 原因分析/避坑指南/认知颠覆/知识教程\n③ 方案对比：突出\"我的方案为什么更好\" → 方案对比/效果验证/上游科普/行业关联\n④ 愿景勾画：期待\"用之后会变多好\" → 实操技巧/季节营销/节日营销/情感故事\n⑤ 顾虑消除：打消\"用了之后有问题怎么办\" → 痛点放大/决策安心/行情价格/工具耗材\n\n请为\"<<industry>>\"行业（<<content_stage>>）确定五段式选题数量规划：\n\n{\n  \"selected_stage\": \"<<content_stage>>\",\n  \"stage_ratio\": {\n    \"audience\": \"受众锁定比例（数字）\",\n    \"pain\": \"痛点放大比例（数字）\",\n    \"compare\": \"方案对比比例（数字）\",\n    \"vision\": \"愿景勾画比例（数字）\",\n    \"hesitation\": \"顾虑消除比例（数字）\"\n  },\n  \"topic_count_plan\": {\n    \"audience\": \"受众锁定选题数量\",\n    \"pain\": \"痛点放大选题数量\",\n    \"compare\": \"方案对比选题数量\",\n    \"vision\": \"愿景勾画选题数量\",\n    \"hesitation\": \"顾虑消除选题数量\"\n  },\n  \"total_topics\": \"总选题数量\"\n}",
+      "output_field": "five_stage_planning",
+      "output_schema": {
+        "selected_stage": {
+          "type": "string"
+        },
+        "stage_ratio": {
+          "type": "object",
+          "properties": {
+            "audience": {
+              "type": "number"
+            },
+            "pain": {
+              "type": "number"
+            },
+            "compare": {
+              "type": "number"
+            },
+            "vision": {
+              "type": "number"
+            },
+            "hesitation": {
+              "type": "number"
+            }
+          }
+        },
+        "topic_count_plan": {
+          "type": "object",
+          "properties": {
+            "audience": {
+              "type": "integer"
+            },
+            "pain": {
+              "type": "integer"
+            },
+            "compare": {
+              "type": "integer"
+            },
+            "vision": {
+              "type": "integer"
+            },
+            "hesitation": {
+              "type": "integer"
+            }
+          }
+        },
+        "total_topics": {
+          "type": "integer"
+        }
+      },
+      "data_providers": [
+        "step_analyze_context"
+      ]
+    },
+    {
+      "id": "step_public_topics",
+      "name": "公用选题生成",
+      "order": 3,
+      "required": true,
+      "llm_prompt_template": "【公用选题库生成】\n\n⚠️ 公用选题：所有画像通用，适用于跨画像的共同需求\n包括：技巧干货（怎么用/怎么做）、直接需求（哪里买/多少钱/哪家好）、顾虑消除（安全吗/坏了怎么办）\n\n请基于以下上下文，为\"<<industry>>\"生成公用选题。\n\n行业：<<industry>>\n蓝海长尾关键词：<<blue_ocean_long_tail>>\n核心痛点：<<core_pain_points>>\n\n生成格式（JSON数组，每条20字以内标题）：\n\n{\n  \"public_topics\": [\n    {\n      \"title\": \"选题标题（20字以内）\",\n      \"type\": \"tutorial（教程型）/direct（直接需求型）/concern（顾虑消除型）\",\n      \"search_intent\": \"对应用户搜索意图\",\n      \"source_keywords\": \"对应的蓝海关键词\",\n      \"severity\": \"高/中/低\",\n      \"urgency\": \"高/中/低\",\n      \"why_unsolved\": \"问题未解决原因（认知缺失/技能缺失/资源缺失/信任缺失）\",\n      \"supply_gap\": \"供给缺口（供给少/供给多但质量差）\",\n      \"entry_angle\": \"切入角度（小商家怎么切入）\",\n      \"business_range\": \"本地/全国/通用\"\n    }\n  ],\n  \"count_by_type\": {\n    \"tutorial\": \"教程型数量\",\n    \"direct\": \"直接需求型数量\",\n    \"concern\": \"顾虑消除型数量\"\n  }\n}\n\n要求：至少生成10条公用选题，涵盖<<industry>>的通用需求场景。",
+      "output_field": "public_topics",
+      "output_schema": {
+        "public_topics": {
+          "type": "array",
+          "minItems": 10,
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "type": {
+                "type": "string"
+              },
+              "search_intent": {
+                "type": "string"
+              },
+              "source_keywords": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string"
+              },
+              "urgency": {
+                "type": "string"
+              },
+              "why_unsolved": {
+                "type": "string"
+              },
+              "supply_gap": {
+                "type": "string"
+              },
+              "entry_angle": {
+                "type": "string"
+              },
+              "business_range": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "count_by_type": {
+          "type": "object",
+          "properties": {
+            "tutorial": {
+              "type": "integer"
+            },
+            "direct": {
+              "type": "integer"
+            },
+            "concern": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "data_providers": [
+        "step_five_stage_ratio"
+      ]
+    },
+    {
+      "id": "step_portrait_topics",
+      "name": "画像专属选题生成",
+      "order": 4,
+      "required": true,
+      "llm_prompt_template": "【画像专属选题库生成】\n\n⚠️ 画像专属选题：基于人群细分，每个画像独有\n\n【五段式阶段 → 选题类型映射】（来源：topic_library_generator.py 第45-74行）\n\n①受众锁定 → 人群锁定（P1）/场景细分（P2）/地域精准（P3）\n②痛点放大 → 原因分析（P1）/避坑指南（P1）/认知颠覆（P2）/知识教程（P1）\n③方案对比 → 方案对比（P0）/效果验证（P1）/上游科普（P2）/行业关联（P2）\n④愿景勾画 → 实操技巧（P1）/季节营销（P2）/节日营销（P1）/情感故事（P3）\n⑤顾虑消除 → 痛点放大（P0）/决策安心（P0）/行情价格（P2）/工具耗材（P2）\n\nP0=最高优先级，P1=高优先级，P2=中优先级，P3=低优先级\n请优先生成P0和P1选题。\n\n人群细分：<<audience_segment>>\n账号阶段：<<content_stage>>\n五段式规划：<<five_stage_planning>>\n蓝海长尾关键词：<<blue_ocean_long_tail>>\n\n请生成JSON：\n\n{\n  \"portrait_topics\": [\n    {\n      \"title\": \"选题标题（20字以内）\",\n      \"stage\": \"audience/pain/compare/vision/hesitation\",\n      \"type_key\": \"identity/scene/cause/pitfall/rethink/tutorial/compare/effect_proof/upstream/industry/skill/seasonal/festival/emotional/pain_point/decision_encourage/price/tools\",\n      \"type_name\": \"选题类型中文名\",\n      \"priority\": \"P0/P1/P2/P3\",\n      \"search_intent\": \"对应搜索意图\",\n      \"recommended_reason\": \"推荐理由（为什么这个选题有效）\",\n      \"keywords\": [\"关键词1\", \"关键词2\"],\n      \"geo_angle\": \"GEO切入角度\",\n      \"severity\": \"高/中/低\",\n      \"urgency\": \"高/中/低\",\n      \"failure_experience\": \"用户常见失败经历（用于打痛点）\"\n    }\n  ],\n  \"count_by_stage\": {\n    \"audience\": \"受众锁定数量\",\n    \"pain\": \"痛点放大数量\",\n    \"compare\": \"方案对比数量\",\n    \"vision\": \"愿景勾画数量\",\n    \"hesitation\": \"顾虑消除数量\"\n  },\n  \"count_by_priority\": {\n    \"P0\": \"P0数量\",\n    \"P1\": \"P1数量\",\n    \"P2\": \"P2数量\"\n  }\n}\n\n要求：总选题数量20条，按<<content_stage>>的配比分布。P0选题不少于3条。",
+      "output_field": "portrait_topics",
+      "output_schema": {
+        "portrait_topics": {
+          "type": "array",
+          "minItems": 20,
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "stage": {
+                "type": "string"
+              },
+              "type_key": {
+                "type": "string"
+              },
+              "type_name": {
+                "type": "string"
+              },
+              "priority": {
+                "type": "string"
+              },
+              "search_intent": {
+                "type": "string"
+              },
+              "recommended_reason": {
+                "type": "string"
+              },
+              "keywords": {
+                "type": "array",
+                "items": "string"
+              },
+              "geo_angle": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string"
+              },
+              "urgency": {
+                "type": "string"
+              },
+              "failure_experience": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "count_by_stage": {
+          "type": "object",
+          "properties": {
+            "audience": {
+              "type": "integer"
+            },
+            "pain": {
+              "type": "integer"
+            },
+            "compare": {
+              "type": "integer"
+            },
+            "vision": {
+              "type": "integer"
+            },
+            "hesitation": {
+              "type": "integer"
+            }
+          }
+        },
+        "count_by_priority": {
+          "type": "object",
+          "properties": {
+            "P0": {
+              "type": "integer"
+            },
+            "P1": {
+              "type": "integer"
+            },
+            "P2": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "data_providers": [
+        "step_five_stage_ratio",
+        "step_analyze_context"
+      ]
+    },
+    {
+      "id": "step_priority_keywords_topics",
+      "name": "高优先级关键词选题",
+      "order": 5,
+      "required": true,
+      "llm_prompt_template": "【高优先级关键词选题强化】\n\n⚠️ 基于关键词库中的P0/P1/P2优先级关键词，专门生成一批选题。\n\n优先关键词：<<priority_keywords>>\n行业：<<industry>>\n\n请为每个P0关键词生成1-2条选题，为每个P1关键词生成1条选题：\n\n{\n  \"keyword_topics\": [\n    {\n      \"keyword\": \"关键词\",\n      \"priority\": \"P0/P1/P2\",\n      \"title\": \"围绕该关键词的选题标题（20字以内）\",\n      \"stage\": \"audience/pain/compare/vision/hesitation\",\n      \"content_angle\": \"内容角度（怎么用这个关键词做内容）\",\n      \"why_this_keyword\": \"为什么这个关键词值得做（蓝海程度/转化潜力）\"\n    }\n  ]\n}",
+      "output_field": "keyword_topics",
+      "output_schema": {
+        "keyword_topics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "keyword": {
+                "type": "string"
+              },
+              "priority": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "stage": {
+                "type": "string"
+              },
+              "content_angle": {
+                "type": "string"
+              },
+              "why_this_keyword": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "data_providers": [
+        "step_portrait_topics"
+      ]
+    },
+    {
+      "id": "step_final_assembly",
+      "name": "选题库汇总",
+      "order": 6,
+      "required": true,
+      "llm_prompt_template": "【选题库汇总与标签优化】\n\n请汇总\"<<industry>>\"行业的完整选题库，并生成最终统计和标签优化建议。\n\n五段式规划（目标）：<<five_stage_planning>>\n五段式实际（结果）：\n  公用选题：<<public_topics>>\n  画像专属选题：<<portrait_topics>>\n  关键词选题：<<keyword_topics>>\n\n请生成最终汇总：\n\n{\n  \"summary\": {\n    \"total_count\": \"总选题数量\",\n    \"public_count\": \"公用选题数量\",\n    \"portrait_count\": \"画像专属选题数量\",\n    \"keyword_count\": \"关键词选题数量\",\n    \"p0_count\": \"P0优先级数量\",\n    \"p1_count\": \"P1优先级数量\",\n    \"p2_count\": \"P2优先级数量\"\n  },\n  \"stage_distribution\": {\n    \"audience\": \"受众锁定实际数量\",\n    \"pain\": \"痛点放大实际数量\",\n    \"compare\": \"方案对比实际数量\",\n    \"vision\": \"愿景勾画实际数量\",\n    \"hesitation\": \"顾虑消除实际数量\"\n  },\n  \"recommended_content_sequence\": [\n    \"第1步推荐选题标题\",\n    \"第2步推荐选题标题\",\n    \"第3步推荐选题标题\",\n    \"第4步推荐选题标题\",\n    \"第5步推荐选题标题\"\n  ],\n  \"seo_tags\": [\"SEO标签1\", \"SEO标签2\", \"SEO标签3\", \"SEO标签4\", \"SEO标签5\"],\n  \"content_calendar_suggestion\": \"内容日历建议（如'前3周先做痛点放大类，建立用户信任'）\"\n}",
+      "output_field": "topic_library_summary",
+      "output_schema": {
+        "summary": {
+          "type": "object",
+          "properties": {
+            "total_count": {
+              "type": "integer"
+            },
+            "public_count": {
+              "type": "integer"
+            },
+            "portrait_count": {
+              "type": "integer"
+            },
+            "keyword_count": {
+              "type": "integer"
+            },
+            "p0_count": {
+              "type": "integer"
+            },
+            "p1_count": {
+              "type": "integer"
+            },
+            "p2_count": {
+              "type": "integer"
+            }
+          }
+        },
+        "stage_distribution": {
+          "type": "object",
+          "properties": {
+            "audience": {
+              "type": "integer"
+            },
+            "pain": {
+              "type": "integer"
+            },
+            "compare": {
+              "type": "integer"
+            },
+            "vision": {
+              "type": "integer"
+            },
+            "hesitation": {
+              "type": "integer"
+            }
+          }
+        },
+        "recommended_content_sequence": {
+          "type": "array",
+          "items": "string"
+        },
+        "seo_tags": {
+          "type": "array",
+          "items": "string"
+        },
+        "content_calendar_suggestion": {
+          "type": "string"
+        }
+      },
+      "data_providers": [
+        "step_public_topics",
+        "step_portrait_topics",
+        "step_priority_keywords_topics"
+      ]
+    }
+  ],
+  "constraints": {
+    "quantity_requirements": {
+      "total_topics_min": 20,
+      "public_topics_min": 10,
+      "portrait_topics_min": 10,
+      "keyword_topics_min": 5,
+      "p0_topics_min": 3,
+      "p1_topics_min": 5
+    },
+    "content_rules": {
+      "title_max_length": 20,
+      "each_stage_has_topics": true,
+      "p0_p1_must_cover_all_stages": true
+    },
+    "stage_ratios": {
+      "起号阶段": {
+        "audience": 0.2,
+        "pain": 0.4,
+        "compare": 0.25,
+        "vision": 0.1,
+        "hesitation": 0.05
+      },
+      "成长阶段": {
+        "audience": 0.15,
+        "pain": 0.25,
+        "compare": 0.3,
+        "vision": 0.15,
+        "hesitation": 0.15
+      },
+      "成熟阶段": {
+        "audience": 0.1,
+        "pain": 0.15,
+        "compare": 0.3,
+        "vision": 0.2,
+        "hesitation": 0.25
+      }
+    }
+  },
+  "data_flow": {
+    "outputs": {
+      "step_portrait_topics": {
+        "_comment": "画像专属选题传递给内容生成",
+        "portrait_topics": {
+          "target": "content_generator",
+          "field": "content_context.portrait_topics"
+        },
+        "count_by_stage": {
+          "target": "content_generator",
+          "field": "content_context.topic_stage_distribution"
+        },
+        "count_by_priority": {
+          "target": "content_generator",
+          "field": "content_context.topic_priority_distribution"
+        }
+      },
+      "step_priority_keywords_topics": {
+        "_comment": "关键词选题传递给内容生成",
+        "keyword_topics": {
+          "target": "content_generator",
+          "field": "content_context.keyword_topics"
+        }
+      },
+      "step_final_assembly": {
+        "_comment": "汇总传递给内容生成",
+        "recommended_content_sequence": {
+          "target": "content_generator",
+          "field": "content_context.content_sequence"
+        },
+        "seo_tags": {
+          "target": "content_generator",
+          "field": "content_context.seo_tags"
+        },
+        "content_calendar_suggestion": {
+          "target": "content_generator",
+          "field": "content_context.content_calendar"
+        }
+      }
+    }
+  }
+}

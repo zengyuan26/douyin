@@ -1,0 +1,486 @@
+{
+  "_comment": "内容生成 Skill 配置 v3 — 融合四维图文设计方法论（情绪动线 + 视觉资产一致性 + 信息层级架构 + 高转化排版版式），升级视觉目标/画面逻辑/人物连贯性/系统执行指令等关键区块",
+  "skill": {
+    "name": "content_generator",
+    "version": "3.0",
+    "display_name": "选题内容生成",
+    "description": "基于选题、用户画像、品牌上下文，生成高收录、高权重的图文内容。融合情绪动线、视觉资产一致性、信息层级架构、四套排版版式四大设计体系，支持8种GEO模式。",
+    "skill_md_path": ".cursor/skill/geo-seo/skill.md",
+    "input_source": "from_topic_library_and_portrait_and_brand"
+  },
+  "input_schema": {
+    "topic_id": {
+      "type": "string",
+      "required": true,
+      "description": "选题ID"
+    },
+    "topic_title": {
+      "type": "string",
+      "required": true,
+      "description": "选题标题"
+    },
+    "topic_type": {
+      "type": "string",
+      "required": true,
+      "description": "选题类型名称"
+    },
+    "topic_type_key": {
+      "type": "string",
+      "description": "选题类型键（pain_point/compare/skill 等）"
+    },
+    "business_description": {
+      "type": "string",
+      "required": true,
+      "description": "业务描述"
+    },
+    "business_range": {
+      "type": "string",
+      "description": "经营范围（local/cross_region）"
+    },
+    "business_type": {
+      "type": "string",
+      "description": "业务类型（b2b/b2c/both）"
+    },
+    "portrait": {
+      "type": "object",
+      "description": "目标用户画像"
+    },
+    "brand_context": {
+      "type": "object",
+      "description": "品牌上下文（品牌名、信任佐证等）"
+    },
+    "keyword_library": {
+      "type": "object",
+      "description": "关键词库"
+    },
+    "selected_scene": {
+      "type": "object",
+      "description": "选中的场景组合"
+    },
+    "content_style": {
+      "type": "string",
+      "description": "内容风格"
+    }
+  },
+  "steps": [
+    {
+      "id": "step_generate_content",
+      "name": "生成图文内容",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【GEO图文内容生成 v3 — 四维图文设计方法论】\n\n请严格按照以下四维设计体系生成图文内容。\n\n=== 选题信息 ===\n- 选题标题：<<topic_title>>\n- 选题类型：<<topic_type>>\n- 选题ID：<<topic_id>>\n\n=== 业务信息 ===\n- 业务描述：<<business_description>>\n- 经营范围：<<business_range>>\n- 业务类型：<<business_type>>\n\n=== 目标用户画像 ===\n<<portrait>>\n\n=== 品牌上下文 ===\n<<brand_context>>\n\n=== 关键词库 ===\n<<keyword_library>>\n\n=== 【强制GEO模式要求】===\n请根据选题类型键自动匹配GEO模式：\n- pain_point/decision_encourage/compare/cause/price → 问题-答案模式\n- pitfall/rethink → 金句-论证模式\n- tutorial/upstream → 定义-解释模式\n- skill → 框架-工具模式\n- seasonal/festival → 清单体模式\n- emotional/effect_proof → 案例-故事模式\n- 标题含\"对比/比较/错误/误区\" → 对比-纠错模式\n- 标题含\"排行/榜单/推荐\" → 榜单体模式\n\n================================================================================\n【维度一：情绪动线逻辑 — 纯画面结构模型】\n\n整套7帧画面，每帧必须包含：帧编号 + 帧名称 + 视觉目标 + 画面逻辑，四者缺一不可。\n\n**镜头1【封面引流帧】（P1 — Hook · 期待）**\n- 情绪目标：引发好奇 / 制造悬念，让用户想往下看\n- 视觉目标：特写主体或大场景全景，一眼抓住注意力\n- 画面逻辑：强冲击特写 或 大场景人像/主体全景 + 重点特写叠加，文字极简\n- 画面逻辑示例：人物表情特写 + 夸张情绪；大场景烘托氛围 + 核心符号叠加\n\n**镜头2【共情痛点帧】（P2 — Empathy · 心酸）**\n- 情绪目标：挖掘最扎心的真实场景，建立\"你是懂我的\"信任感\n- 视觉目标：还原真实扎心场景，引发代入\n- 画面逻辑：还原真实扎心场景；左右分屏/上下分层双画面对比\n- 画面逻辑示例：左侧糟糕现状 + 右侧理想改善画面；上下分层展现落差\n\n**镜头3【干货拆解帧·分步演示】（P3 — Value · 坚定）**\n- 情绪目标：开始获得专业感，建立信任\n- 视觉目标：场景化分步演示，每一步清晰可见\n- 画面逻辑：场景化分步演示，分镜拆分展示方法，图标符号标注每个步骤\n- 画面逻辑示例：等分分镜、并列式场景构图；每个步骤配一个图标符号\n\n**镜头4【干货拆解帧·对比呈现】（P4 — Value · 爆发）**\n- 情绪目标：对比式画面呈现，强化认知，让用户觉得\"原来如此\"\n- 视觉目标：对比式画面呈现，直观展示前后/好坏差异\n- 画面逻辑：对比式画面呈现；前后对比、左旧右新、错误vs正确并列\n- 画面逻辑示例：❌错误做法（暗调/低饱和） vs ✅正确做法（亮调/暖色）\n\n**镜头5【干货拆解帧·总结强化】（P5 — Value · 坚定）**\n- 情绪目标：提炼精华，逻辑清晰，强化记忆\n- 视觉目标：核心要点一目了然，极简关键词 + 图标符号\n- 画面逻辑：图标符号、色块分区、边框色块；所有干货信息视觉化、场景化、符号化\n- 画面逻辑示例：大字关键词 + 图标 + 色块背景；精简到3个以内视觉区块\n\n**镜头6【升华温暖帧】（P6 — Refinement · 释然）**\n- 情绪目标：从具体技巧上升到人文关怀，温暖感溢出\n- 视觉目标：质感全景 + 氛围感远景，情感升华\n- 画面逻辑：质感全景/氛围感远景 + 温暖色调，情感性画面为主\n- 画面逻辑示例：自然光柔和光线、品牌场景环境、品牌细节植入\n\n**镜头7【收尾转化帧】（P7 — Action · 温暖行动）**\n- 情绪目标：将情绪转化为对品牌的认可和行动期待\n- 视觉目标：质感全景 + 品牌细节植入 + 明确行动入口\n- 画面逻辑：手机模型/手册样机 + 清晰引导行动按钮(CTA)；质感全景 + 氛围感远景 + 品牌细节植入\n- 画面逻辑示例：产品展示 + CTA按钮；品牌LOGO + 联系方式\n\n**【情绪动线速查表】**\nP1吸引（期待/好奇）→ P2共情（心酸/代入）→ P3-P5获得感（坚定/爆发）→ P6升华（温暖/释然）→ P7转化（信任/行动）\n\n================================================================================\n【维度二：视觉资产一致性 — 三层强制约束】\n\n【第1层：人物/主体连贯性】（全程锁定）\n- 整套7帧画面，人物形象必须统一（同一人物贯穿全部镜头）\n- 角色风格必须统一（职业装/便装/家居服等前后一致）\n- 出镜主体必须统一（人物/产品/场景主体不变）\n- 标签化场景道具，强化人群标签（职场场景用公文包、咖啡杯等道具）\n- 禁止：中途换人、风格突变、AI画面割裂\n\n【第2层：光影镜头逻辑】（全程锁定）\n- 全程锁定柔和自然光，禁止强烈人造光\n- 低饱和柔焦质感，禁止过度锐化或噪点过多\n- 干净高级、干货感拉满的画面质感\n- 镜头景别变化自然：全景→中景→特写递进，不跳跃\n- 禁止：不同镜头光影色温差异过大、背景凌乱\n\n【第3层：色彩动态递进】\n- 痛点页（封面P1/共情P2）：冷色调或低饱和度 → #4A5568灰蓝 / #E8EEF2冷灰 / #CBD5E1银灰\n- 方案页（干货P3-P5）：恢复暖色调/肤色 → #FFF5EE米色 / #FFDAB9淡橘 / #F5F0EB肤色\n- 闭环页（升华P6/转化P7）：品牌色作为强调色 → #2563EB品牌蓝 / #22C55E品牌绿\n- 每张图的 color_tone 必须与该帧情绪阶段严格对应\n\n【反例约束（必须禁止）】\n- 杜绝AI画面割裂、风格混乱\n- 杜绝同一人物不同肤色/脸型\n- 杜绝强对比色跳变（如P1冷灰→P3突然高饱和橙红）\n- 禁止：大段段落文字、模糊背景、杂乱的无关元素\n\n================================================================================\n【维度三：信息层级架构 —「1核·3区·5秒」纯视觉原则】\n\n【1核（1个核心焦点）】\n- 单帧画面只保留1个主焦点：特写主体 / 关键动作 / 核心符号\n- 画面极简不杂乱，背景干净留白\n- 大字金句（big_slogan）是视觉焦点，但不是画面主焦点；两者位置需协调\n\n【3区（3个以内视觉区块）】\n- 单张画面分割为3个以内视觉区块\n- 区块类型：场景区（主体背景）+ 符号区（图标/关键词）+ 点缀区（装饰/品牌元素）\n- 每张图的 sub_points 不超过3个，每个sub_point对应1个视觉区块\n\n【5秒视觉闭环】\n- 图标符号、色块分区、对比构图、简易图形标注、边框色块\n- 所有干货信息必须：视觉化呈现（用图标不用文字描述）、场景化表达（用画面不用抽象词）、符号化标注（用符号标注重点）\n- 视线流动：标题大字 → 图标符号 → 加粗关键词 → 引导CTA，全程≤5秒\n\n【文字限制强制规则】\n- 全程无大段文案，仅保留极简关键词、小标签、图标符号\n- 单页正文文字不超过80字\n- 大段段落文字禁用\n- 仅在 golden_quote_block 和 sub_points 中出现文字\n\n================================================================================\n【维度四：高转化排版版式 — 具名体系 + 必备元素清单】\n\n1. **封面引流版式（billboard）**\n   - 版式特征：大场景人像/主体全景 + 重点特写叠加\n   - 位置关系：中心/右侧人物大图 + 左侧/顶部超大文字块\n   - 必备视觉元素：身份标签 + 数据/背书 + 利益点 + 氛围感滤镜\n   - 文字要求：文字块占比25%+，主色块背景\n   - 执行指令：大字金句（≤15字）放在顶部或左侧醒目位置，主图人物居中偏右\n\n2. **痛点对比版式（problem_solver）**\n   - 版式特征：左右分屏/上下分层双画面\n   - 位置关系：左侧糟糕现状（暗调/冷色）/ 右侧理想改善画面（暖调/暖色）\n   - 必备视觉元素：大量❌✅符号 + 情绪对比文字标签 + 视觉落差表达\n   - 执行指令：❌和✅符号要足够大，对比一目了然，冷暖色调强化心理落差\n\n3. **干货矩阵版式（matrix）**\n   - 版式特征：等分分镜、并列式场景构图、细节分步镜头\n   - 位置关系：两栏或三栏，图标 + 短标题 + 极简描述（每块≤3行）\n   - 必备视觉元素：图标符号（每块1个）+ 短标题（≤8字）+ 极简描述 + 大留白呼吸感\n   - 执行指令：分镜拆分展示，每一步骤用图标符号标注，干净高级留白\n\n4. **收尾转化版式（trust_builder）**\n   - 版式特征：质感全景 + 氛围感远景 + 品牌细节植入\n   - 位置关系：手机模型/手册样机展示 + 清晰CTA按钮 + 品牌LOGO\n   - 必备视觉元素：产品展示 + CTA按钮 + 品牌标识 + 联系方式/二维码\n   - 执行指令：质感全景收尾，氛围感远景营造信任感，CTA按钮必须清晰可见\n\n【版式×页码分配规则】（强制执行）\n- P1封面 → billboard（中心人物+大字）\n- P2共情 → problem_solver（痛点/对比）\n- P3干货·分步 → matrix（等分分镜）\n- P4干货·对比 → problem_solver（❌✅对比）\n- P5干货·总结 → matrix（图标符号总结）\n- P6升华 → billboard 或 matrix（温暖感）\n- P7转化 → trust_builder（品牌收尾+CTA）\n\n================================================================================\n【系统通用执行指令 — 制作规范】\n\n1. 图片比例：9:16竖版（1080x1920px）\n2. 文字占比：主标题区域占画面25%+\n3. 每张图必须包含：\n   - 帧编号（镜头1~7）+ 帧名称（封面引流帧等）\n   - 1个 visual_target（视觉目标）描述\n   - 1个 scene_logic（画面逻辑）描述\n   - 1个 big_slogan（大字金句，≤15字）\n   - 1-3个 sub_points（每个对应1个视觉区块）\n   - 1个 golden_quote_block（带色块背景金句）\n   - 至少1种 visual_elements（checklist/icon/timeline/comparison/bubble）\n4. 人物/主体全程统一：同一人物形象贯穿镜头1-7\n5. 光影全程锁定：柔和自然光 + 低饱和柔焦质感\n6. 色彩全程锁定：痛点冷色→方案暖色→闭环品牌色\n7. 禁止：AI画面割裂、风格混乱、大段文案、杂背景\n\n================================================================================\n【核心内容质量要求】\n\n1. **开篇直接性**：封面图的前30字内必须直接给出核心结论/答案，禁止任何铺垫\n2. **信任证据**：必须包含至少3条具体数据、案例或权威引用，每条必须含具体数字\n3. **行动号召(CTA)**：结尾必须有一条唯一、明确、低门槛的下一步行动（≤50字）\n4. **单页字数上限**：单页正文文字不超过80字\n5. **禁止抽象词**：\n   - 空洞词：\"专业服务\"\"品质保证\"\"高效便捷\"\"优质贴心\"\"值得信赖\"\n   - 抽象词：\"很多人\"\"这个问题\"\"很严重\"\"效果不错\"\n   - 模糊词：\"质量好\"\"服务优\"\"值得推荐\"\"特别棒\"\n   - 必须用具体数字、具体场景、具体案例替代\n\n================================================================================\n【JSON输出格式 — 扩展字段说明】\n\n★ 为本次新增字段\n\n{\n  \"structure\": \"所选GEO结构名称\",\n  \"geo_mode\": \"GEO模式名称\",\n  \"slides_count\": 图片张数(5-9张),\n  \"title\": \"主标题（≤15字，戳心）\",\n  \"subtitle\": \"副标题（≤15字）\",\n  \"tags\": [\"标签1\", \"标签2\", \"标签3\", \"标签4\", \"标签5\", \"标签6\"],\n  \"slides\": [\n    {\n      \"index\": 1,\n      \"frame_id★\": \"镜头1【封面引流帧】\",\n      \"role\": \"封面/痛点/分析/总结/转化\",\n      \"layout_type\": \"billboard | problem_solver | matrix | trust_builder\",\n      \"main_title\": \"主标题（≤10字）\",\n      \"big_slogan\": \"大字金句（≤15字，口语化，突出核心结论）\",\n      \"emotion_stage\": \"期待/代入 | 心酸/共鸣 | 坚定/爆发 | 感动/释然 | 温暖/行动\",\n      \"visual_target★\": \"本帧视觉目标：描述画面需要呈现的核心视觉内容（如：特写主体、关键动作、核心符号）\",\n      \"scene_logic★\": \"画面逻辑：描述这一帧的画面执行方式（如：强冲击特写、还原真实扎心场景、分镜拆分展示、对比式画面呈现等）\",\n      \"color_tone\": \"cold（冷色）| warm（暖色）| brand（品牌色）\",\n      \"sub_content\": \"副标题/要点（口语化短句）\",\n      \"keywords\": [\"埋入的关键词\"],\n      \"visual_style\": \"画面风格描述（人物/静物/图表等）\",\n      \"character_consistency★\": \"人物形象描述（全程统一）：如\"同一女性厨师、扎马尾、穿白色厨师服\"，确保AI生成时人物连贯\",\n      \"light_shadow_logic★\": \"光影逻辑：柔和自然光、低饱和柔焦质感；或具体描述本帧光影特点\",\n      \"scene_dressing★\": \"场景道具标签：标签化场景道具，强化人群标签（如：职场场景-公文包/咖啡杯/笔记本电脑）\",\n      \"atmosphere_filter★\": \"氛围感滤镜：干净高级/温暖治愈/低饱和柔焦/高质感等画面质感描述\",\n      \"visual_elements★\": [\"checklist | icon | timeline | comparison | bubble\"],\n      \"design_specs\": \"尺寸1080x1920px（9:16竖版）\",\n      \"info_zones★\": \"3区描述：场景区（背景主体）+ 符号区（图标/关键词）+ 点缀区（装饰元素）\",\n      \"sub_points\": [\"子要点1（包含具体数据/案例）\", \"子要点2\", \"子要点3（不超过3个）\"],\n      \"data_content\": \"具体数据/案例内容（格式：据xxx数据：xxx+数字+结论）\",\n      \"golden_quote_block\": {\n        \"text\": \"金句文字（≤20字）\",\n        \"bg_color\": \"#HEX色值（如#FFF5EE）\"\n      },\n      \"text_count_limit★\": 80,\n      \"emotion_transition★\": \"本页情绪→下页情绪的过渡描述\"\n    }\n  ],\n  \"hashtags\": [\"#话题1\", \"#话题2\", \"#话题3\"],\n  \"first_comment\": \"首评引导内容（能引发互动，≤50字）\",\n  \"publish_strategy\": \"发布建议（时间+注意事项）\",\n  \"color_scheme\": {\n    \"cold_pages★\": [\"痛点/封面页主色，如#4A5568灰蓝、#E8EEF2冷灰、#CBD5E1银灰\"],\n    \"warm_pages★\": [\"方案/干货页主色，如#FFF5EE米色、#FFDAB9淡橘、#F5F0EB肤色\"],\n    \"brand_pages★\": [\"闭环/转化页强调色，如#2563EB品牌蓝、#22C55E品牌绿\"]\n  },\n  \"visual_asset_rules★\": {\n    \"character_consistency\": \"整套7帧统一人物形象、角色风格、出镜主体；禁止中途换人\",\n    \"light_shadow_logic\": \"全程锁定柔和自然光、低饱和柔焦质感；禁止强烈人造光\",\n    \"anti_examples★\": [\"杜绝AI画面割裂、风格混乱\", \"杜绝同一人物不同肤色/脸型\", \"杜绝强对比色跳变（如冷灰→高饱和橙红）\", \"禁止大段段落文字\", \"禁止杂背景\"]\n  },\n  \"production_specs\": \"制作规范（图片比例9:16、文字占比25%+、全程人物连贯、统一光影风格）\",\n  \"seo_keywords\": {\n    \"core\": [\"核心词1\"],\n    \"long_tail\": [\"长尾词1\"],\n    \"scene\": [\"场景词1\"],\n    \"problem\": [\"问题词1\"]\n  },\n  \"cover_suggestion\": {\n    \"opening_words\": \"开头词\",\n    \"emotion_words\": \"情绪词\",\n    \"action_guide\": \"行动引导\"\n  },\n  \"opening\": \"开篇核心句（≤30字，必须在第一张图的前30字内直接呈现核心结论）\",\n  \"trust_evidence\": [\n    {\n      \"type\": \"data | case | quote\",\n      \"content\": \"具体内容：据xxx数据/案例/引用+具体数字/事件+结论\",\n      \"source\": \"数据来源\"\n    }\n  ],\n  \"cta\": \"唯一明确行动号召（包含：动作词+具体入口/联系方式，≤50字）\"\n}",
+      "output_field": "content",
+      "output_schema": {
+        "structure": {
+          "type": "string"
+        },
+        "geo_mode": {
+          "type": "string"
+        },
+        "slides_count": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": "string"
+        },
+        "slides": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer"
+              },
+              "frame_id": {
+                "type": "string",
+                "description": "★帧编号+帧名称，如：镜头1【封面引流帧】"
+              },
+              "role": {
+                "type": "string"
+              },
+              "layout_type": {
+                "type": "string",
+                "enum": [
+                  "billboard",
+                  "problem_solver",
+                  "matrix",
+                  "trust_builder"
+                ]
+              },
+              "main_title": {
+                "type": "string"
+              },
+              "big_slogan": {
+                "type": "string"
+              },
+              "emotion_stage": {
+                "type": "string"
+              },
+              "visual_target": {
+                "type": "string",
+                "description": "★本帧视觉目标：特写主体/关键动作/核心符号"
+              },
+              "scene_logic": {
+                "type": "string",
+                "description": "★画面逻辑：强冲击特写/还原扎心场景/分镜拆分/对比呈现等"
+              },
+              "color_tone": {
+                "type": "string",
+                "enum": [
+                  "cold",
+                  "warm",
+                  "brand"
+                ]
+              },
+              "sub_content": {
+                "type": "string"
+              },
+              "keywords": {
+                "type": "array",
+                "items": "string"
+              },
+              "visual_style": {
+                "type": "string"
+              },
+              "character_consistency": {
+                "type": "string",
+                "description": "★人物形象描述（全程统一）"
+              },
+              "light_shadow_logic": {
+                "type": "string",
+                "description": "★光影逻辑：柔和自然光+低饱和柔焦质感"
+              },
+              "scene_dressing": {
+                "type": "string",
+                "description": "★场景道具标签：标签化场景道具，强化人群标签"
+              },
+              "atmosphere_filter": {
+                "type": "string",
+                "description": "★氛围感滤镜：干净高级/温暖治愈/低饱和柔焦等"
+              },
+              "visual_elements": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "checklist",
+                    "icon",
+                    "timeline",
+                    "comparison",
+                    "bubble"
+                  ]
+                }
+              },
+              "info_zones": {
+                "type": "string",
+                "description": "★3区描述：场景区+符号区+点缀区"
+              },
+              "design_specs": {
+                "type": "string"
+              },
+              "sub_points": {
+                "type": "array",
+                "items": "string"
+              },
+              "data_content": {
+                "type": "string"
+              },
+              "golden_quote_block": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "bg_color": {
+                    "type": "string"
+                  }
+                }
+              },
+              "text_count_limit": {
+                "type": "integer"
+              },
+              "emotion_transition": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "hashtags": {
+          "type": "array",
+          "items": "string"
+        },
+        "first_comment": {
+          "type": "string"
+        },
+        "publish_strategy": {
+          "type": "string"
+        },
+        "color_scheme": {
+          "type": "object",
+          "properties": {
+            "cold_pages": {
+              "type": "array",
+              "items": "string"
+            },
+            "warm_pages": {
+              "type": "array",
+              "items": "string"
+            },
+            "brand_pages": {
+              "type": "array",
+              "items": "string"
+            }
+          }
+        },
+        "visual_asset_rules": {
+          "type": "object",
+          "properties": {
+            "character_consistency": {
+              "type": "string"
+            },
+            "light_shadow_logic": {
+              "type": "string"
+            },
+            "anti_examples": {
+              "type": "array",
+              "items": "string"
+            }
+          },
+          "description": "★视觉资产一致性三层强制约束"
+        },
+        "production_specs": {
+          "type": "string"
+        },
+        "seo_keywords": {
+          "type": "object",
+          "properties": {
+            "core": {
+              "type": "array",
+              "items": "string"
+            },
+            "long_tail": {
+              "type": "array",
+              "items": "string"
+            },
+            "scene": {
+              "type": "array",
+              "items": "string"
+            },
+            "problem": {
+              "type": "array",
+              "items": "string"
+            }
+          }
+        },
+        "cover_suggestion": {
+          "type": "object",
+          "properties": {
+            "opening_words": {
+              "type": "string"
+            },
+            "emotion_words": {
+              "type": "string"
+            },
+            "action_guide": {
+              "type": "string"
+            }
+          }
+        },
+        "opening": {
+          "type": "string"
+        },
+        "trust_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "cta": {
+          "type": "string"
+        }
+      },
+      "data_providers": []
+    }
+  ],
+  "constraints": {
+    "content_rules": {
+      "title_max_length": 15,
+      "main_title_max_length": 10,
+      "big_slogan_max_length": 15,
+      "slides_min": 5,
+      "slides_max": 9,
+      "trust_evidence_min": 3,
+      "opening_directness": true,
+      "cta_required": true,
+      "text_per_slide_max": 80,
+      "sub_points_per_slide_max": 3,
+      "golden_quote_required": true,
+      "visual_elements_min_per_slide": 1,
+      "required_fields_per_slide★": [
+        "frame_id",
+        "visual_target",
+        "scene_logic",
+        "character_consistency★",
+        "light_shadow_logic★",
+        "scene_dressing★",
+        "atmosphere_filter★",
+        "info_zones★"
+      ]
+    },
+    "structure_rules": {
+      "must_match_geo_mode★": true,
+      "emotion_progression★": [
+        "期待/代入",
+        "心酸/共鸣",
+        "坚定/爆发",
+        "感动/释然",
+        "温暖/行动",
+        "信任/期待"
+      ],
+      "no_abstract_words★": true,
+      "layout_type_enum★": [
+        "billboard",
+        "problem_solver",
+        "matrix",
+        "trust_builder"
+      ],
+      "color_tone_progression★": {
+        "hook_pages": "cold",
+        "empathy_pages": "cold",
+        "value_pages": "warm",
+        "refinement_pages": "warm",
+        "action_pages": "brand"
+      }
+    },
+    "visual_design_rules★": {
+      "frame_structure★": {
+        "description": "每帧必须包含：帧编号+帧名称+视觉目标+画面逻辑",
+        "frame_naming★": [
+          "封面引流帧",
+          "共情痛点帧",
+          "干货拆解帧·分步演示",
+          "干货拆解帧·对比呈现",
+          "干货拆解帧·总结强化",
+          "升华温暖帧",
+          "收尾转化帧"
+        ],
+        "required_per_frame★": [
+          "frame_id",
+          "visual_target",
+          "scene_logic"
+        ]
+      },
+      "character_consistency★": {
+        "description": "人物/主体连贯性全程锁定",
+        "rule": "整套7帧统一人物形象、角色风格、出镜主体",
+        "anti_examples★": [
+          "杜绝中途换人",
+          "杜绝同一人物不同肤色/脸型",
+          "杜绝风格突变"
+        ]
+      },
+      "light_shadow_logic★": {
+        "description": "光影镜头逻辑全程锁定",
+        "rule": "全程柔和自然光 + 低饱和柔焦质感 + 干净高级干货感",
+        "anti_examples★": [
+          "禁止强烈人造光",
+          "禁止过度锐化/噪点过多",
+          "禁止光影色温跳变"
+        ]
+      },
+      "layout_distribution": {
+        "billboard": "至少1张（封面引流帧P1）",
+        "problem_solver": "至少2张（共情痛点帧P2 + 干货对比帧P4）",
+        "matrix": "至少2张（干货分步帧P3 + 干货总结帧P5）",
+        "trust_builder": "至少1张（收尾转化帧P7）"
+      },
+      "layout_page_assignment★": {
+        "P1": "billboard（封面引流）",
+        "P2": "problem_solver（共情痛点）",
+        "P3": "matrix（干货分步）",
+        "P4": "problem_solver（干货对比）",
+        "P5": "matrix（干货总结）",
+        "P6": "billboard或matrix（升华温暖）",
+        "P7": "trust_builder（收尾转化）"
+      },
+      "color_gradient★": {
+        "cold_pages★": [
+          "封面P1/共情P2",
+          "#4A5568灰蓝",
+          "#E8EEF2冷灰",
+          "#CBD5E1银灰"
+        ],
+        "warm_pages★": [
+          "干货P3-P5",
+          "#FFF5EE米色",
+          "#FFDAB9淡橘",
+          "#F5F0EB肤色"
+        ],
+        "brand_pages★": [
+          "升华P6/转化P7",
+          "#2563EB品牌蓝",
+          "#22C55E品牌绿"
+        ]
+      },
+      "info_hierarchy★": {
+        "one_core": "单帧画面只保留1个主焦点（特写主体/关键动作/核心符号）",
+        "three_zones★": "3个以内视觉区块：场景区（主体背景）+ 符号区（图标/关键词）+ 点缀区（装饰元素）",
+        "five_second_loop★": "视线流动：标题大字→图标符号→加粗关键词→引导CTA，全程≤5秒",
+        "anti_long_text★": "禁止大段文案；仅在golden_quote_block和sub_points中出现文字"
+      },
+      "visual_elements_catalog★": [
+        "checklist",
+        "icon",
+        "timeline",
+        "comparison",
+        "bubble"
+      ]
+    }
+  },
+  "data_flow": {
+    "outputs": {
+      "step_generate_content": {
+        "_comment": "内容以step_generate_content为唯一可信来源",
+        "slides": {
+          "target": "content_data",
+          "field": "slides"
+        },
+        "title": {
+          "target": "content_data",
+          "field": "title"
+        },
+        "geo_mode": {
+          "target": "content_data",
+          "field": "geo_mode"
+        },
+        "trust_evidence": {
+          "target": "content_data",
+          "field": "trust_evidence"
+        },
+        "cta": {
+          "target": "content_data",
+          "field": "cta"
+        }
+      }
+    }
+  }
+}

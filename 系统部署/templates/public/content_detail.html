@@ -43,6 +43,14 @@
         margin: 0;
     }
 
+    .content-type-badge {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: var(--apple-gray6);
+        color: var(--text-secondary);
+    }
+
     /* 内容卡片 */
     .detail-content-card {
         background: var(--bg-primary);
@@ -204,6 +212,21 @@
         gap: 12px;
     }
 
+    @media (max-width: 768px) {
+        .section-grid {
+            grid-template-columns: 1fr;
+        }
+        .section-card.full-width {
+            grid-column: 1;
+        }
+    }
+
+    @media (min-width: 1200px) {
+        .section-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
     /* 核心内容区块占满整行 */
     .section-card.full-width {
         grid-column: 1 / -1;
@@ -245,6 +268,25 @@
         background: rgba(255,59,48,0.1);
         color: var(--netease-red, #FF3B30);
     }
+    .section-card-header .slide-count-badge {
+        font-size: 0.6875rem;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: rgba(88,166,255,0.12);
+        color: #007AFF;
+        font-weight: 600;
+        margin-left: 8px;
+    }
+    .section-card-body.slides-body {
+        padding: 10px 12px;
+        overflow-x: auto;
+    }
+    .slide-card {
+        transition: box-shadow 0.2s;
+    }
+    .slide-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+    }
     .section-card-header .section-actions {
         display: flex;
         align-items: center;
@@ -277,6 +319,47 @@
 
     .section-card-body {
         padding: 10px 12px;
+    }
+
+    .content-tip {
+        font-size: 0.6875rem;
+        color: #34C759;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .content-tip i {
+        font-size: 0.75rem;
+    }
+
+    /* 制作参考区块样式 */
+    .design-reference-card {
+        opacity: 0.85;
+    }
+    .design-reference-card .section-card-header {
+        background: var(--apple-gray7);
+        border-bottom: 1px dashed var(--apple-gray4);
+    }
+    .ref-only-badge {
+        font-size: 0.5625rem;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: rgba(142, 142, 147, 0.15);
+        color: var(--apple-gray);
+        font-weight: 500;
+        margin-left: 6px;
+        border: 1px solid var(--apple-gray4);
+    }
+    .design-reference-body {
+        background: var(--apple-gray8);
+    }
+    .design-reference-content {
+        font-size: 0.8125rem;
+        line-height: 1.6;
+        color: var(--apple-gray2);
+        white-space: pre-wrap;
+        word-break: break-word;
     }
 
     .section-card-content {
@@ -1598,12 +1681,13 @@
 
 {% block content %}
 <div class="main-container">
-    {# 页面标题 #}
+    {# 页面标题区 #}
     <div class="detail-page-header">
         <a class="back-btn" href="javascript:void(0)" id="back-btn" title="返回">
             <i class="bi bi-arrow-left"></i>
         </a>
-        <h1>内容详情</h1>
+        <h1 id="page-title-text">内容详情</h1>
+        <span class="content-type-badge" id="content-type-badge" style="display:none;"></span>
     </div>
 
     {# 内容卡片 #}
@@ -1772,6 +1856,27 @@ function renderContentDetail(data) {
     document.getElementById('loading-state').style.display = 'none';
     document.getElementById('content-state').style.display = 'block';
 
+    // 更新页面标题
+    var titleEl = document.getElementById('page-title-text');
+    if (titleEl && data.titles && data.titles.length > 0) {
+        var firstTitle = data.titles[0];
+        var mainTitle = typeof firstTitle === 'object' ? firstTitle.main_title || firstTitle.title : firstTitle;
+        if (mainTitle && mainTitle.length > 0) {
+            titleEl.textContent = mainTitle.length > 30 ? mainTitle.substring(0, 30) + '...' : mainTitle;
+        }
+    }
+
+    // 更新内容类型标签
+    var typeBadge = document.getElementById('content-type-badge');
+    if (typeBadge) {
+        var typeNames = { 'graphic': '图文', 'short_video': '短视频', 'long_text': '长文' };
+        var typeName = typeNames[data.content_type] || data.content_type || '';
+        if (typeName) {
+            typeBadge.textContent = typeName;
+            typeBadge.style.display = '';
+        }
+    }
+
     // 时间
     var timeEl = document.getElementById('content-time');
     if (timeEl && data.created_at) {
@@ -1814,6 +1919,7 @@ function parseSections(contentData, configs) {
     configs.forEach(function(cfg) {
         var key = cfg.section_key;
         var content = extractSectionContent(key, contentData);
+        var hasContent = content && content.trim().length > 0;
 
         sections.push({
             section_key: key,
@@ -1823,11 +1929,17 @@ function parseSections(contentData, configs) {
             copyable: cfg.copyable,
             is_core_section: cfg.is_core_section,
             content: content,
-            has_content: content && content.trim().length > 0,
+            has_content: hasContent,
         });
     });
 
-    return sections;
+    // 过滤掉无内容的非核心区块（visible_to_client=false 永不显示）
+    return sections.filter(function(sec) {
+        if (!sec.visible_to_client) return false;
+        if (sec.has_content) return true;
+        // 无内容但 visible_to_client=true 的区块也显示（会显示"暂无内容"）
+        return true;
+    });
 }
 
 function extractSectionContent(key, contentData) {
@@ -1871,6 +1983,24 @@ function extractSectionContent(key, contentData) {
         return '';
     }
 
+    // 图文 slides 返回完整 markdown（供复制和展开判断）
+    if (key === 'slides') {
+        var slides = contentData.slides;
+        if (!slides || !Array.isArray(slides) || slides.length === 0) {
+            return '';
+        }
+        return buildSlidesMarkdown(slides);
+    }
+
+    // content_plan：必须是字符串，不是对象则转为 JSON 展示
+    if (key === 'content_plan') {
+        var cp = contentData.content_plan;
+        if (typeof cp === 'object' && cp !== null) {
+            return JSON.stringify(cp, null, 2);
+        }
+        return String(cp || '');
+    }
+
     // 根据 section_key 映射 content_data 字段
     var fieldMap = {
         'title':         'title',
@@ -1884,6 +2014,7 @@ function extractSectionContent(key, contentData) {
         'script':        'script',
         'shooting':      'shooting',
         'content':       'content',
+        'design_reference': 'design_reference',
     };
 
     var field = fieldMap[key];
@@ -1941,6 +2072,21 @@ function extractSectionContent(key, contentData) {
         return '';
     }
 
+    // 长文 body 用 --- 分隔正文和制作参考
+    if (key === 'content' || key === 'design_reference') {
+        var rawBody = contentData.body || contentData.content || contentData.content_text || '';
+        var dividerIdx = rawBody.indexOf('\n---\n');
+        if (dividerIdx !== -1) {
+            if (key === 'content') {
+                return rawBody.substring(0, dividerIdx);
+            } else {
+                return rawBody.substring(dividerIdx + 5); // skip '\n---\n'
+            }
+        }
+        // 没有分隔符：content 返回全部，design_reference 返回空
+        return key === 'content' ? rawBody : '';
+    }
+
     if (field && contentData[field] !== undefined) {
         var val = contentData[field];
         if (typeof val === 'object') {
@@ -1968,7 +2114,7 @@ function renderClientSections(sections) {
             : '';
 
         // 长内容区块默认折叠
-        var longContentKeys = ['content_plan', 'script', 'shooting', 'basic_info', 'extension', 'compliance'];
+        var longContentKeys = ['content_plan', 'script', 'shooting', 'basic_info', 'extension', 'compliance', 'slides'];
         var isLongContent = longContentKeys.indexOf(sec.section_key) !== -1;
         var hasLongContent = isLongContent && sec.content && sec.content.length > 200;
 
@@ -1991,9 +2137,15 @@ function renderClientSections(sections) {
         } else if (sec.section_key === 'shooting') {
             // 制作规范区块特殊处理
             html += buildShootingSection(sec, badgeClass, badgeText, cardClass);
+        } else if (sec.section_key === 'slides') {
+            // 图文详情区块：渲染可一键复制的 markdown
+            html += buildSlidesSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass);
         } else if (sec.section_key === 'content') {
             // 长文正文区块：去掉 markdown # 标题后展示
             html += buildContentSection(sec, badgeClass, badgeText, cardClass);
+        } else if (sec.section_key === 'design_reference') {
+            // 制作参考区块：仅供内部参考，不可复制
+            html += buildDesignReferenceSection(sec, badgeClass, badgeText, cardClass);
         } else if (hasLongContent) {
             html += buildLongContentSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass);
         } else {
@@ -2159,11 +2311,41 @@ function buildContentPlanSection(sec, badgeClass, badgeText, cardClass) {
             if (block.emotion) {
                 html += '<div class="image-meta"><span class="meta-label">情绪：</span>' + escHtml(block.emotion) + '</div>';
             }
+            if (block.emotionTransition) {
+                html += '<div class="image-meta"><span class="meta-label">情绪过渡：</span>' + escHtml(block.emotionTransition) + '</div>';
+            }
             if (block.slogan) {
                 html += '<div class="image-slogan">' + escHtml(block.slogan) + '</div>';
             }
             if (block.data) {
                 html += '<div class="image-meta"><span class="meta-label">数据：</span>' + escHtml(block.data) + '</div>';
+            }
+            // 视觉资产一致性字段
+            if (block.visualTarget) {
+                html += '<div class="image-meta"><span class="meta-label">视觉目标：</span>' + escHtml(block.visualTarget) + '</div>';
+            }
+            if (block.sceneLogic) {
+                html += '<div class="image-meta"><span class="meta-label">画面逻辑：</span>' + escHtml(block.sceneLogic) + '</div>';
+            }
+            if (block.sceneDressing) {
+                html += '<div class="image-meta"><span class="meta-label">场景道具：</span>' + escHtml(block.sceneDressing) + '</div>';
+            }
+            if (block.atmosphereFilter) {
+                html += '<div class="image-meta"><span class="meta-label">氛围感：</span>' + escHtml(block.atmosphereFilter) + '</div>';
+            }
+            if (block.characterConsistency) {
+                html += '<div class="image-meta"><span class="meta-label">人物统一：</span>' + escHtml(block.characterConsistency) + '</div>';
+            }
+            if (block.lightShadowLogic) {
+                html += '<div class="image-meta"><span class="meta-label">光影逻辑：</span>' + escHtml(block.lightShadowLogic) + '</div>';
+            }
+            if (block.infoZones) {
+                html += '<div class="image-meta"><span class="meta-label">3区结构：</span>' + escHtml(block.infoZones) + '</div>';
+            }
+            if (block.goldenText) {
+                html += '<div class="image-meta"><span class="meta-label">金句色块：</span>' + escHtml(block.goldenText);
+                if (block.goldenBg) html += ' <span class="meta-label">背景：</span>' + escHtml(block.goldenBg);
+                html += '</div>';
             }
             if (block.content) {
                 html += '<div class="image-desc">' + escHtml(block.content) + '</div>';
@@ -2241,7 +2423,7 @@ function parseImageBlocks(content) {
             currentBlock.scene += (currentBlock.scene ? '\n' : '') + sceneMatch[1];
             continue;
         }
-        
+
         // 检测【文字内容】或【文案】等字段
         var textMatch = line.match(/^[【\[](?:文字内容|文案|文字)[】\]]\s*(.*)/);
         if (textMatch && currentBlock) {
@@ -2250,7 +2432,7 @@ function parseImageBlocks(content) {
             currentBlock.text += (currentBlock.text ? '\n' : '') + textMatch[1];
             continue;
         }
-        
+
         // 检测【设计规格】等字段
         var specMatch = line.match(/^[【\[](?:设计规格|规格)[】\]]\s*(.*)/);
         if (specMatch && currentBlock) {
@@ -2259,12 +2441,46 @@ function parseImageBlocks(content) {
             currentBlock.spec += (currentBlock.spec ? '\n' : '') + specMatch[1];
             continue;
         }
-        
+
         // 检测【关键词】字段
         var keywordMatch = line.match(/^[【\[](?:关键词|关键字)[】\]]\s*(.*)/);
         if (keywordMatch && currentBlock) {
             currentField = 'keyword';
             currentBlock.keyword = keywordMatch[1];
+            continue;
+        }
+
+        // 检测【情绪过渡】字段
+        var emotionTransMatch = line.match(/^[【\[](?:情绪过渡)[】\]]\s*(.*)/);
+        if (emotionTransMatch && currentBlock) {
+            currentBlock.emotionTransition = emotionTransMatch[1];
+            continue;
+        }
+
+        // 检测新视觉资产字段（以 "- xxx：" 格式开头）
+        var newFieldMatch = line.match(/^-\s*(视觉目标|画面逻辑|场景道具|氛围感|人物统一|光影逻辑|3区结构)[：:]\s*(.+)/);
+        if (newFieldMatch && currentBlock) {
+            var fieldName = newFieldMatch[1];
+            var fieldValue = newFieldMatch[2];
+            if (fieldName === '视觉目标') currentBlock.visualTarget = fieldValue;
+            else if (fieldName === '画面逻辑') currentBlock.sceneLogic = fieldValue;
+            else if (fieldName === '场景道具') currentBlock.sceneDressing = fieldValue;
+            else if (fieldName === '氛围感') currentBlock.atmosphereFilter = fieldValue;
+            else if (fieldName === '人物统一') currentBlock.characterConsistency = fieldValue;
+            else if (fieldName === '光影逻辑') currentBlock.lightShadowLogic = fieldValue;
+            else if (fieldName === '3区结构') currentBlock.infoZones = fieldValue;
+            continue;
+        }
+
+        // 检测金句色块和背景色
+        var goldenTextMatch = line.match(/^(?:金句色块)[：:]\s*(.+)/);
+        if (goldenTextMatch && currentBlock) {
+            currentBlock.goldenText = goldenTextMatch[1];
+            continue;
+        }
+        var goldenBgMatch = line.match(/^(?:背景色)[：:]\s*(.+)/);
+        if (goldenBgMatch && currentBlock) {
+            currentBlock.goldenBg = goldenBgMatch[1];
             continue;
         }
         
@@ -2290,6 +2506,216 @@ function parseImageBlocks(content) {
     }
     
     return blocks;
+}
+
+// 图文详情区块：渲染可一键复制的 markdown（可直接喂给生图工具）
+function buildSlidesSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass) {
+    cardClass = cardClass || 'section-card';
+    var contentData = _generationData && _generationData.content_data || {};
+    var slides = contentData.slides || [];
+
+    // 构建可复制的 markdown 内容
+    var md = buildSlidesMarkdown(slides);
+    var displayContent = escHtml(md);
+    var previewContent = escHtml(md.substring(0, 300)) + (md.length > 300 ? '\n\n...（展开查看全部）' : '');
+
+    // 复用 renderClientSections 传入的复制按钮（保持布局一致）
+    var sectionKey = sec.section_key;
+    return '<div class="' + cardClass + '" id="panel-' + escHtml(sectionKey) + '">' +
+        '<div class="section-card-header">' +
+            '<div class="section-title">' +
+                escHtml(sec.client_label) +
+                (badgeText ? '<span class="section-badge ' + badgeClass + '">' + badgeText + '</span>' : '') +
+                (slides.length ? '<span class="slide-count-badge">' + slides.length + '张图</span>' : '') +
+            '</div>' +
+            '<div class="section-actions">' +
+                copyBtnHtml +
+            '</div>' +
+        '</div>' +
+        '<div class="section-card-body slides-body">' +
+            '<div class="section-card-preview" id="preview-' + escHtml(sectionKey) + '">' + previewContent + '</div>' +
+            '<div class="section-card-full" id="full-' + escHtml(sectionKey) + '" style="display:none;white-space:pre-wrap;font-size:13px;line-height:1.8;color:#333;padding:12px 0;">' + displayContent + '</div>' +
+            '<button class="btn-expand-content" onclick="toggleContentSection(\'' + escHtml(sectionKey) + '\')">' +
+                '<i class="bi bi-chevron-down" id="icon-' + escHtml(sectionKey) + '"></i>' +
+                '<span id="text-' + escHtml(sectionKey) + '">展开</span>' +
+            '</button>' +
+        '</div>' +
+    '</div>';
+}
+
+function copySlidesMarkdown(btn) {
+    var encoded = btn.getAttribute('data-md') || '';
+    var text = decodeURIComponent(encoded);
+    navigator.clipboard.writeText(text).then(function() {
+        showToast('已复制到剪贴板，可直接喂给生图工具', 'success');
+    }).catch(function() {
+        showToast('复制失败', 'error');
+    });
+}
+
+// 将 slides 数据构建为 skill 规范的 markdown 格式
+function buildSlidesMarkdown(slides) {
+    if (!slides || slides.length === 0) return '';
+
+    var lines = [];
+    lines.push('> ⚠️ **【强制规格】内容形式：图文 | 图片数量：' + slides.length + '张 | 比例：9:16竖版 1080×1920px**');
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+    lines.push('## 二、内容规划（' + slides.length + '张图片）');
+    lines.push('');
+    lines.push('> ⚠️ **强制要求：所有图片必须为9:16竖版比例 1080×1920px**');
+
+    slides.forEach(function(slide, idx) {
+        var role = slide.role || '';
+        var layoutType = slide.layout_type || '';
+        var colorTone = slide.color_tone || '';
+        var emotionStage = slide.emotion_stage || '';
+        var bigSlogan = slide.big_slogan || slide.main_title || '';
+        var mainTitle = slide.main_title || '';
+        var subContent = slide.sub_content || '';
+        var subPoints = Array.isArray(slide.sub_points) ? slide.sub_points : [];
+        var dataContent = slide.data_content || '';
+        var visualElements = Array.isArray(slide.visual_elements) ? slide.visual_elements : [];
+        var visualStyle = slide.visual_style || '';
+        var keywords = Array.isArray(slide.keywords) ? slide.keywords : [];
+        var emotionTransition = slide.emotion_transition || '';
+        var designSpecs = slide.design_specs || '';
+        var textCountLimit = slide.text_count_limit || 30;
+        // 新增视觉资产字段
+        var visualTarget = slide.visual_target || '';
+        var sceneLogic = slide.scene_logic || '';
+        var characterConsistency = slide.character_consistency || '';
+        var lightShadowLogic = slide.light_shadow_logic || '';
+        var sceneDressing = slide.scene_dressing || '';
+        var atmosphereFilter = slide.atmosphere_filter || '';
+        var infoZones = slide.info_zones || '';
+        var goldenQuote = slide.golden_quote_block || {};
+        var goldenText = goldenQuote.text || '';
+        var goldenBg = goldenQuote.bg_color || '';
+
+        // 版式中文名映射
+        var layoutMap = {
+            'billboard': '封面版式', 'problem_solver': '痛点对比版式',
+            'matrix': '干货矩阵版式', 'trust_builder': '品牌收尾版式'
+        };
+        var layoutLabel = layoutMap[layoutType] || layoutType;
+        // 色调中文名（与 Python 对齐：包含使用场景说明）
+        var toneMap = {
+            'cold': '冷色（封面/共情页）',
+            'warm': '暖色（干货/方案页）',
+            'brand': '品牌色（闭环/转化页）'
+        };
+        var toneLabel = toneMap[colorTone] || colorTone;
+        // UI组件中文名（与 Python 对齐：无 emoji）
+        var veMap = {
+            'checklist': '勾选框', 'icon': '图标组件', 'timeline': '时间轴',
+            'comparison': '对比图', 'bubble': '气泡框', 'badge': '数字徽章'
+        };
+
+        lines.push('');
+        lines.push('---');
+        lines.push('');
+        lines.push('### 图片' + (idx + 1) + '：' + (role || '内容页') + '【' + (emotionStage || '内容展示') + '】⚠️强制9:16');
+        lines.push('');
+
+        // 内容功能
+        if (bigSlogan) {
+            lines.push('**【内容功能】**');
+            lines.push(bigSlogan);
+            lines.push('');
+        }
+
+        // 画面描述（设计师参考）
+        lines.push('**【画面描述】（人类设计师参考）**');
+        if (visualTarget) lines.push('- 视觉目标：' + visualTarget);
+        if (sceneLogic) lines.push('- 画面逻辑：' + sceneLogic);
+        if (sceneDressing) lines.push('- 场景道具：' + sceneDressing);
+        if (atmosphereFilter) lines.push('- 氛围感：' + atmosphereFilter);
+        if (characterConsistency) lines.push('- 人物统一：' + characterConsistency);
+        if (lightShadowLogic) lines.push('- 光影逻辑：' + lightShadowLogic);
+        if (infoZones) lines.push('- 3区结构：' + infoZones);
+        if (visualStyle) {
+            visualStyle.split('\n').forEach(function(l) { if (l.trim()) lines.push('- ' + l.trim()); });
+        }
+        // 禁止项始终输出（与 Python 对齐）
+        lines.push('- 禁止：纯色背景、渐变背景、手机外框、手机Mockup、任何电子设备外壳');
+        lines.push('');
+
+        // 文字内容（AI生图用）
+        lines.push('**【文字内容】（AI生图用）**');
+        lines.push('');
+        lines.push('画面：' + (visualStyle ? visualStyle.split('\n')[0] : '具体场景图'));
+        lines.push('');
+
+        // 主标题 / 金句
+        if (mainTitle) {
+            lines.push('文字：');
+            if (role && role.includes('封面')) {
+                lines.push('主标题：' + mainTitle);
+                if (subContent) {
+                    subContent.split('\n').forEach(function(sc) {
+                        if (sc.trim()) lines.push('副标题：' + sc.trim());
+                    });
+                }
+            } else {
+                subPoints.forEach(function(pt) { lines.push(pt); });
+            }
+            lines.push('');
+        }
+
+        // 金句色块
+        if (goldenText) {
+            lines.push('金句色块：' + goldenText);
+            lines.push('背景色：' + goldenBg);
+            lines.push('');
+        }
+
+        if (textCountLimit) {
+            lines.push('字数限制：' + textCountLimit + '字');
+        }
+        lines.push('字体：思源黑体、微软雅黑（AI生图必须遵守）');
+        lines.push('尺寸：1080x1920px，9:16竖版');
+        // 禁止符号始终输出（与 Python 对齐）
+        lines.push('禁止：❌ ✅ 🏆 💰 等符号；┌ ═ ║ ─ │ ├ 等代码块符号');
+        lines.push('');
+
+        // 设计规格
+        var specs = [];
+        specs.push('- 尺寸：1080×1920px（9:16）');
+        if (layoutLabel) specs.push('- 版式：' + layoutLabel);
+        if (toneLabel) specs.push('- 色调：' + toneLabel);
+        if (visualElements.length > 0) {
+            var veLabels = visualElements.map(function(ve) { return veMap[ve] || ve; });
+            specs.push('- UI组件：' + veLabels.join('、'));
+        }
+        if (goldenText) specs.push('- 金句色块：' + goldenText + '（背景色：' + goldenBg + '）');
+        lines.push('**【设计规格】**');
+        specs.forEach(function(spec) { lines.push(spec); });
+        lines.push('');
+
+        // 情绪过渡
+        if (emotionTransition) {
+            lines.push('**【情绪过渡】** → ' + emotionTransition);
+            lines.push('');
+        }
+
+        // 埋入关键词
+        if (keywords.length > 0) {
+            lines.push('**【埋入关键词】**');
+            var kwTexts = keywords.map(function(kw) {
+                return typeof kw === 'object' ? (kw.keyword || kw.text || '') : kw;
+            }).filter(Boolean);
+            if (kwTexts.length > 0) {
+                lines.push(kwTexts.join('、'));
+            } else {
+                lines.push(keywords.join('、'));
+            }
+            lines.push('');
+        }
+    });
+
+    return lines.join('\n');
 }
 
 // 制作规范区块：展示设计规格、色彩方案、字体规范
@@ -2404,11 +2830,14 @@ function buildContentSection(sec, badgeClass, badgeText, cardClass) {
         }
     }
 
+    // 复制内容：去掉 --- 分隔符及其后面的制作参考部分
+    var copyContent = content.split('\n---\n')[0];
+
     var cleanContent = cleanLines.join('\n');
     var hasContent = cleanContent.trim().length > 0;
 
-    // 复制按钮存原始内容（含 markdown）
-    var copyBtn = '<button class="btn-copy-section" data-copy-content="' + escHtml(content.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
+    // 复制按钮存净化后的正文（不含制作参考）
+    var copyBtn = '<button class="btn-copy-section" data-copy-content="' + escHtml(copyContent.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)" title="一键复制正文，发布可用">' +
         '<i class="bi bi-clipboard"></i>' +
         '</button>';
 
@@ -2443,12 +2872,66 @@ function buildContentSection(sec, badgeClass, badgeText, cardClass) {
             '</div>' +
         '</div>' +
         '<div class="section-card-body">' +
+            '<div class="content-tip">' +
+                '<i class="bi bi-check-circle"></i> 可一键复制发布' +
+            '</div>' +
             '<div class="section-card-preview" id="preview-' + escHtml(sec.section_key) + '">' + previewContent + '</div>' +
             '<div class="section-card-full" id="full-' + escHtml(sec.section_key) + '" style="display:none;">' + displayContent + '</div>' +
             '<button class="btn-expand-content" onclick="toggleContentSection(\'' + escHtml(sec.section_key) + '\')">' +
                 '<i class="bi bi-chevron-down" id="icon-' + escHtml(sec.section_key) + '"></i>' +
                 '<span id="text-' + escHtml(sec.section_key) + '">展开</span>' +
             '</button>' +
+        '</div>' +
+    '</div>';
+}
+
+// 制作参考区块：仅供内部参考，不可复制，展示为只读参考样式
+function buildDesignReferenceSection(sec, badgeClass, badgeText, cardClass) {
+    cardClass = cardClass || 'section-card';
+    var content = sec.content || '';
+    var hasContent = content.trim().length > 0;
+
+    if (!hasContent) {
+        return '<div class="' + cardClass + '" id="panel-' + escHtml(sec.section_key) + '">' +
+            '<div class="section-card-header">' +
+                '<div class="section-title">' +
+                    escHtml(sec.client_label) +
+                    (badgeText ? '<span class="section-badge ' + badgeClass + '">' + badgeText + '</span>' : '') +
+                '</div>' +
+                '<div class="section-actions"></div>' +
+            '</div>' +
+            '<div class="section-card-body">' +
+                '<span style="color:var(--apple-gray);font-style:italic;">暂无内容</span>' +
+            '</div>' +
+        '</div>';
+    }
+
+    // 清理 markdown 标题后展示
+    var cleanLines = [];
+    var lines = content.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line.match(/^#{1,6}\s/)) continue;
+        if (line.match(/^[=\-]+$/)) continue;
+        line = line.replace(/\*\*(.*?)\*\*/g, '$1');
+        line = line.replace(/\*(.*?)\*/g, '$1');
+        line = line.replace(/^>\s*/, '');
+        if (line) cleanLines.push(line);
+    }
+    var cleanContent = cleanLines.join('\n');
+    var displayContent = escHtml(cleanContent).replace(/\n/g, '<br>');
+
+    return '<div class="' + cardClass + ' design-reference-card" id="panel-' + escHtml(sec.section_key) + '">' +
+        '<div class="section-card-header">' +
+            '<div class="section-title">' +
+                escHtml(sec.client_label) +
+                (badgeText ? '<span class="section-badge ' + badgeClass + '">' + badgeText + '</span>' : '') +
+                '<span class="ref-only-badge">仅供内部参考</span>' +
+            '</div>' +
+            '<div class="section-actions"></div>' +
+        '</div>' +
+        '<div class="section-card-body design-reference-body">' +
+            '<div class="design-reference-content">' + displayContent + '</div>' +
         '</div>' +
     '</div>';
 }
@@ -2595,7 +3078,16 @@ function parsePublishSchedule(content) {
 function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
     cardClass = cardClass || 'section-card';
     var content = sec.content || '';
-    
+
+    // 尝试从全局数据获取延伸建议（备用数据源）
+    var extensionFromData = '';
+    if (!content && _generationData && _generationData.content_data) {
+        var cd = _generationData.content_data;
+        if (cd.extension && typeof cd.extension === 'string') {
+            content = cd.extension;
+        }
+    }
+
     // 清理markdown格式用于复制
     var cleanContent = content
         .replace(/^#+\s*/gm, '')
@@ -2606,12 +3098,12 @@ function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
         })
         .replace(/^[-=]+\s*$/gm, '')
         .trim();
-    
+
     // 使用 data-content 属性存储内容
     var copyBtn = '<button class="btn-copy-title" data-copy-content="' + escHtml(cleanContent.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
         '<i class="bi bi-clipboard"></i>复制全部' +
         '</button>';
-    
+
     var html = '<div class="' + cardClass + '" id="panel-' + escHtml(sec.section_key) + '">' +
         '<div class="section-card-header">' +
             '<div class="section-title">' +
@@ -2623,10 +3115,10 @@ function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
             '</div>' +
         '</div>' +
         '<div class="section-card-body extension-body">';
-    
+
     // 解析延伸选题
     var extensionData = parseExtensionContent(content);
-    
+
     // 系列化选题
     if (extensionData.series.length > 0) {
         html += '<div class="extension-section">';
@@ -2640,7 +3132,7 @@ function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
         });
         html += '</div></div>';
     }
-    
+
     // 具体延伸选题
     if (extensionData.topics.length > 0) {
         html += '<div class="extension-section">';
@@ -2662,11 +3154,11 @@ function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
         });
         html += '</div></div>';
     }
-    
+
     if (extensionData.series.length === 0 && extensionData.topics.length === 0) {
         html += '<div class="content-raw">' + escHtml(content).replace(/\n/g, '<br>') + '</div>';
     }
-    
+
     html += '</div></div>';
     return html;
 }
@@ -2739,10 +3231,37 @@ function parseExtensionContent(content) {
 function buildBottomTagsSection(sec, badgeClass, badgeText, cardClass) {
     cardClass = cardClass || 'section-card';
     var content = sec.content || '';
-    
+
     // 解析标签内容
     var tagData = parseBottomTags(content);
-    
+
+    // 尝试从全局数据获取 tags 数组（兼容新旧数据格式）
+    var tagsArray = [];
+    if (_generationData && _generationData.content_data) {
+        var cd = _generationData.content_data;
+        if (Array.isArray(cd.tags) && cd.tags.length > 0) {
+            tagsArray = cd.tags;
+        } else if (Array.isArray(cd.hashtags) && cd.hashtags.length > 0) {
+            tagsArray = cd.hashtags;
+        }
+    }
+
+    // 如果 content 为空但有 tags 数组，直接用数组生成
+    var effectiveTags = tagData.tags;
+    var effectiveFullTags = tagData.fullTags;
+    if ((!content || (!tagData.fullTags && tagData.tags.length === 0)) && tagsArray.length > 0) {
+        effectiveTags = tagsArray.map(function(tag, idx) {
+            var tagText = typeof tag === 'object' ? (tag.tag || tag.name || tag.text || '') : String(tag);
+            var tagType = typeof tag === 'object' ? (tag.type || '标签') : '标签';
+            return {
+                seq: idx + 1,
+                type: tagType,
+                tag: tagText.startsWith('#') ? tagText : '#' + tagText
+            };
+        });
+        effectiveFullTags = effectiveTags.map(function(t) { return t.tag; }).join(' ');
+    }
+
     var html = '<div class="' + cardClass + '" id="panel-' + escHtml(sec.section_key) + '">' +
         '<div class="section-card-header">' +
             '<div class="section-title">' +
@@ -2750,21 +3269,21 @@ function buildBottomTagsSection(sec, badgeClass, badgeText, cardClass) {
                 (badgeText ? '<span class="section-badge ' + badgeClass + '">' + badgeText + '</span>' : '') +
             '</div>' +
             '<div class="section-actions">';
-    
+
     // 添加复制完整标签按钮
-    if (tagData.fullTags) {
-        html += '<button class="btn-copy-title" data-copy-content="' + escHtml(tagData.fullTags.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
+    if (effectiveFullTags) {
+        html += '<button class="btn-copy-title" data-copy-content="' + escHtml(effectiveFullTags.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
             '<i class="bi bi-clipboard"></i>复制全部' +
             '</button>';
     }
-    
+
     html += '</div></div>' +
         '<div class="section-card-body bottom-tags-body">';
-    
+
     // 显示标签分类表格
-    if (tagData.tags.length > 0) {
+    if (effectiveTags.length > 0) {
         html += '<div class="tags-table">';
-        tagData.tags.forEach(function(item) {
+        effectiveTags.forEach(function(item) {
             html += '<div class="tag-table-item">';
             html += '<span class="tag-seq">#' + item.seq + '</span>';
             html += '<span class="tag-type">' + escHtml(item.type) + '</span>';
@@ -2773,19 +3292,19 @@ function buildBottomTagsSection(sec, badgeClass, badgeText, cardClass) {
         });
         html += '</div>';
     }
-    
+
     // 显示完整标签格式
-    if (tagData.fullTags) {
+    if (effectiveFullTags) {
         html += '<div class="full-tags-box">';
         html += '<div class="full-tags-label">完整格式</div>';
-        html += '<div class="full-tags-content">' + escHtml(tagData.fullTags) + '</div>';
+        html += '<div class="full-tags-content">' + escHtml(effectiveFullTags) + '</div>';
         html += '</div>';
     }
-    
-    if (!tagData.fullTags && tagData.tags.length === 0) {
+
+    if (!effectiveFullTags && effectiveTags.length === 0) {
         html += '<span style="color:var(--apple-gray);font-style:italic;">暂无标签</span>';
     }
-    
+
     html += '</div></div>';
     return html;
 }
@@ -3108,6 +3627,15 @@ function showError(title, message) {
     document.getElementById('error-message').textContent = message;
 }
 
+// 返回按钮
+document.getElementById('back-btn').addEventListener('click', function() {
+    if (_portraitId) {
+        window.location.href = '/public/produce?portraitId=' + _portraitId;
+    } else {
+        window.history.back();
+    }
+});
+
 function pad(n) {
     return n < 10 ? '0' + n : '' + n;
 }
@@ -3133,15 +3661,6 @@ function regenerateContent() {
         window.location.href = '/public';
     }
 }
-
-// 返回按钮
-document.getElementById('back-btn').addEventListener('click', function() {
-    if (_portraitId) {
-        window.location.href = '/public/produce?portraitId=' + _portraitId;
-    } else {
-        window.history.back();
-    }
-});
 
 // ═══════════════════════════════════════════════════════════
 // 质量评分报告渲染
@@ -3171,6 +3690,23 @@ function renderQualityReport(report) {
     var firstScore = report.first_score || score;
     var optimizedItems = report.optimized_items || [];
     var items = report.items || [];
+
+    // 当 items 为空但有 failed_items 时，从 failed_items 重建 items
+    if (items.length === 0 && report.failed_items && report.failed_items.length > 0) {
+        items = report.failed_items.map(function(fi) {
+            return {
+                'id': fi.id,
+                'category': '质量评估',
+                'name': fi.name || '评估项',
+                'score': fi.score || 0,
+                'max_score': 10,
+                'passed': false,
+                'detail': fi.detail || '-',
+                'suggestion': fi.suggestion || '-'
+            };
+        });
+    }
+
     var summary = report.summary || '';
     var suggestions = report.suggestions || [];
 
@@ -3832,7 +4368,7 @@ function showQualityDetailModal() {
     var itemsContainer = modal.querySelector('.quality-detail-items');
     var suggestionsContainer = modal.querySelector('.quality-detail-suggestions');
 
-    // 每次打开都从全局数据获取最新评分（不依赖中间变量）
+    // 每次打开都从全局数据获取最新评分
     var report = null;
     if (_generationData && _generationData.quality_report) {
         report = _generationData.quality_report;
@@ -3841,10 +4377,15 @@ function showQualityDetailModal() {
         report = _currentReport;
     }
 
+    // 优先用实时 report.items；没有则回退到 renderQualityReport 预先生成的 HTML
     if (report && report.items && report.items.length > 0) {
         var itemsHtml = buildQualityItemsHtml(report.items);
         if (itemsContainer) itemsContainer.innerHTML = itemsHtml;
+    } else if (_qualityItemsHtml) {
+        // 有预缓存则用缓存（renderQualityReport 已生成）
+        if (itemsContainer) itemsContainer.innerHTML = _qualityItemsHtml;
     } else {
+        // 完全没有数据
         if (itemsContainer) itemsContainer.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--apple-gray);font-size:0.875rem;">暂无评分数据</div>';
     }
 

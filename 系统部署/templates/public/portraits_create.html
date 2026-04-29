@@ -204,6 +204,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        height: 320px;
     }
 
     .opp-peek-cards {
@@ -211,6 +212,7 @@
         gap: 8px;
         align-items: stretch;
         justify-content: center;
+        height: 100%;
     }
 
     .opp-peek-cards.slide-to-prev {
@@ -229,29 +231,29 @@
     }
 
     .opp-peek-card {
-        flex: 1;
-        min-width: 0;
-        min-height: 0;
-        max-height: 380px;
-        overflow: hidden;
+        width: 300px;
+        height: 100%;
+        overflow-y: auto;
         border-radius: 14px;
-        padding: 14px 16px;
+        padding: 12px 14px;
         background: var(--card-bg, white);
         border: 1.5px solid var(--card-border, #e8e8ed);
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 5px;
         cursor: pointer;
         transition: all 0.2s ease;
+        flex-shrink: 0;
+        scrollbar-width: thin;
+        scrollbar-color: #e8e8ed transparent;
     }
 
     .opp-peek-card.active {
         border-color: rgba(240, 65, 54, 0.4);
         box-shadow: 0 6px 24px rgba(240, 65, 54, 0.14);
-        transform: scale(1.025);
+        transform: scale(1.02);
         z-index: 1;
-        flex: 1.6;
     }
 
     .opp-peek-card:not(.active) {
@@ -264,8 +266,9 @@
     }
 
     .opp-peek-card-placeholder {
-        flex: 1;
-        min-width: 0;
+        width: 300px;
+        height: 100%;
+        flex-shrink: 0;
     }
 
     /* 导航按钮 - 覆盖在卡片两侧 */
@@ -333,6 +336,18 @@
         white-space: normal;
     }
 
+    .opp-peek-audience {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        padding-left: 28px;
+        margin-top: -2px;
+        margin-bottom: 2px;
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     .opp-peek-portrait-badge {
         font-size: 0.5625rem;
         padding: 1px 5px;
@@ -362,44 +377,12 @@
     .opp-peek-score:hover { opacity: 0.75; }
 
     .opp-peek-direction {
-        font-size: 0.8125rem;
+        font-size: 0.9375rem;
         color: var(--apple-blue, #007aff);
         font-weight: 500;
         overflow: hidden;
         line-height: 1.4;
-        word-break: break-all;
-    }
-
-    .opp-peek-info {
-        font-size: 0.75rem;
-        color: var(--text-secondary);
-        overflow: hidden;
-        line-height: 1.4;
-        word-break: break-all;
-    }
-
-    .opp-peek-diff {
-        font-size: 0.75rem;
-        color: #2e7d32;
-        overflow: hidden;
-        line-height: 1.4;
-        word-break: break-all;
-    }
-
-    .opp-peek-problems {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-    }
-
-    .opp-peek-problem-tag {
-        font-size: 0.625rem;
-        background: rgba(240, 65, 54, 0.08);
-        color: #c0392b;
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-weight: 500;
-        white-space: nowrap;
+        word-break: break-word;
     }
 
     .opp-peek-footer {
@@ -407,6 +390,129 @@
         padding-top: 6px;
         display: flex;
         justify-content: center;
+    }
+
+    /* 蓝海机会 - 供需详情按钮 */
+    .opp-detail-toggle {
+        font-size: 0.6875rem;
+        color: #007aff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        user-select: none;
+        padding: 3px 8px;
+        border: 1px solid rgba(0,122,255,0.2);
+        border-radius: 8px;
+        background: rgba(0,122,255,0.04);
+        transition: all 0.15s ease;
+        width: fit-content;
+        margin-top: 2px;
+    }
+    .opp-detail-toggle:hover {
+        background: rgba(0,122,255,0.1);
+        border-color: rgba(0,122,255,0.4);
+    }
+    .opp-detail-body {
+        margin-top: 5px;
+        display: none;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .opp-detail-body.open { display: flex; }
+    .opp-detail-item { display: flex; flex-direction: column; gap: 1px; }
+    .opp-detail-label {
+        font-size: 0.5625rem;
+        color: #aeaeb2;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .opp-detail-value { font-size: 0.625rem; color: #3c3c43; line-height: 1.4; }
+    .opp-detail-tag {
+        display: inline-block;
+        font-size: 0.5625rem;
+        padding: 1px 4px;
+        border-radius: 4px;
+        background: rgba(0,122,255,0.08);
+        color: #007aff;
+        margin-right: 3px;
+        margin-bottom: 2px;
+    }
+    /* 蓝海机会 - 问题类型（卡片主区域，纯文字颜色区分） */
+    .opp-pt-card {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 6px;
+        margin-top: 4px;
+    }
+    .opp-pt-tag {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        padding: 2px 8px;
+        border-radius: 20px;
+        border: 1px solid transparent;
+    }
+    .opp-pt-tag.type-user {
+        color: #007aff;
+        background: rgba(0,122,255,0.08);
+    }
+    .opp-pt-tag.type-payer {
+        color: #5856d6;
+        background: rgba(88,86,214,0.08);
+    }
+    .opp-pt-tag.type-default {
+        color: #6b7280;
+        background: #f3f4f6;
+    }
+
+    /* 蓝海机会 - 问题详情按钮 */
+    .opp-pt-detail-btn {
+        font-size: 0.625rem;
+        color: #adb5bd;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 0;
+        transition: color 0.15s;
+        margin-top: 4px;
+    }
+    .opp-pt-detail-btn:hover {
+        color: #007aff;
+    }
+
+    /* 问题类型列表（展开详情里，保留但简化） */
+    .opp-pt-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 2px;
+    }
+    .opp-pt-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .opp-pt-item .opp-pt-name {
+        font-size: 0.625rem;
+        font-weight: 600;
+        color: #374151;
+    }
+    .opp-pt-item .opp-pt-scenes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        padding-left: 6px;
+    }
+    .opp-pt-item .opp-pt-scene {
+        font-size: 0.5625rem;
+        color: #6b7280;
+        background: #f3f4f6;
+        padding: 1px 5px;
+        border-radius: 4px;
     }
 
     .opp-peek-dots {
@@ -460,16 +566,21 @@
     }
 
     @media (max-width: 768px) {
+        .opp-peek-track { height: 280px; }
+        .opp-peek-cards { gap: 6px; }
         .opp-peek-card {
+            width: 240px;
             padding: 10px 12px;
         }
-        .opp-peek-card.active { flex: 1.4; }
+        .opp-peek-card-placeholder { width: 240px; }
+        .opp-peek-card.active { transform: scale(1.01); }
         .opp-peek-num { width: 18px; height: 18px; font-size: 0.5625rem; }
         .opp-peek-name { font-size: 0.875rem; }
         .opp-peek-score { font-size: 0.625rem; padding: 1px 6px; }
-        .opp-peek-direction { font-size: 0.75rem; }
-        .opp-peek-info { font-size: 0.6875rem; }
-        .opp-peek-diff { font-size: 0.6875rem; }
+        .opp-peek-direction { font-size: 0.8125rem; }
+        .opp-detail-value { font-size: 0.6875rem; }
+        .opp-detail-label { font-size: 0.5625rem; }
+        .opp-pt-name { font-size: 0.625rem; }
         .btn-select-opp { padding: 5px 12px; font-size: 0.6875rem; }
         .opp-peek-nav { width: 30px; height: 30px; font-size: 0.75rem; }
         .opp-peek-nav.prev { left: -15px; }
@@ -3079,6 +3190,108 @@ function showBlueOceanIndexModal(idx) {
     document.body.appendChild(m);
 }
 
+// 供需分析详情弹框
+function showSupplyDemandModal(idx) {
+    const opp = (_opportunityCarouselData || [])[idx];
+    if (!opp) return;
+
+    const unmetProblem = opp.unmet_problem || '';
+    const sevCons = opp.severity_consequence || '';
+    const urgTrig = opp.urgency_trigger || '';
+    const whyUnsolved = opp.why_unsolved || {};
+    const supplyGap = opp.supply_gap || {};
+    const whyReasons = (whyUnsolved.reasons || []).join('、');
+    const whyBizType = whyUnsolved.business_type || '';
+    const whyDecCost = whyUnsolved.decision_cost || '';
+    const supQual = supplyGap.supply_quality_issue || '';
+    const supForm = supplyGap.supply_form_issue || '';
+    const whyContent = [whyBizType, whyReasons].filter(Boolean).join(' · ');
+
+    const itemBar = (label, content, color) => {
+        if (!content) return '';
+        return `<div style="margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="font-size:0.6875rem;color:#888;min-width:56px;">${label}</span>
+                <div style="flex:1;height:4px;background:#e8e8ed;border-radius:2px;overflow:hidden;">
+                    <div style="height:100%;width:100%;background:${color};border-radius:2px;opacity:0.25;"></div>
+                </div>
+            </div>
+            <div style="padding:10px 12px;background:rgba(0,0,0,0.02);border-left:3px solid ${color};border-radius:0 6px 6px 0;">
+                <div style="font-size:0.8125rem;color:#1c1c1e;line-height:1.6;">${content}</div>
+            </div>
+        </div>`;
+    };
+
+    const whyFinal = whyContent + (whyDecCost ? ` · 决策成本${whyDecCost}` : '');
+
+    const m = document.createElement('div');
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    m.onclick = (e) => { if (e.target === m) m.remove(); };
+    m.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:600px;max-height:60vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <span style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);">供需分析详情</span>
+                <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#888;font-size:1.125rem;padding:4px;line-height:1;">✕</button>
+            </div>
+            ${itemBar('未满足的问题', unmetProblem, '#007aff')}
+            ${itemBar('不解决的后果', sevCons, '#ff9500')}
+            ${itemBar('触发因素', urgTrig, '#af52de')}
+            ${itemBar('为什么没人做好', whyFinal, '#5856d6')}
+            ${itemBar('供给缺口', [supQual, supForm].filter(Boolean).join(' · '), '#34c759')}
+        </div>`;
+    document.body.appendChild(m);
+}
+
+// 问题详情弹窗
+function showProblemDetailModal(idx) {
+    const opp = (_opportunityCarouselData || [])[idx];
+    if (!opp) return;
+    const ptList = opp.problem_types || [];
+    const userPts = ptList.filter(pt => pt.category === '使用者问题');
+    const payerPts = ptList.filter(pt => pt.category === '付费者问题');
+    const otherPts = ptList.filter(pt => pt.category && pt.category !== '使用者问题' && pt.category !== '付费者问题');
+    const typeColor = (cat) => cat === '使用者问题' ? '#007aff' : cat === '付费者问题' ? '#5856d6' : '#6b7280';
+    const buildPtSection = (pts, cat) => {
+        if (!pts || pts.length === 0) return '';
+        const color = typeColor(cat);
+        const label = cat === '使用者问题' ? '使用者问题' : cat === '付费者问题' ? '付费者问题' : '其他';
+        const items = pts.map(pt => {
+            const rawName = pt.name || '';
+            const displayName = rawName.split('-')[0].trim();
+            const audience = pt.target_audience || '';
+            const scenes = (pt.scenes || []).map(s => s.name || '').filter(Boolean);
+            const sceneTags = scenes.map(s => `<span style="display:inline-block;font-size:0.6875rem;color:${color};background:${color}18;padding:2px 8px;border-radius:12px;margin:2px;">${s}</span>`).join('');
+            return `<div style="margin-bottom:14px;">
+                <div style="font-size:0.8125rem;font-weight:700;color:${color};margin-bottom:6px;">${displayName}</div>
+                ${audience ? `<div style="font-size:0.6875rem;color:#888;margin-bottom:6px;">人群：${audience}</div>` : ''}
+                ${sceneTags ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${sceneTags}</div>` : ''}
+            </div>`;
+        }).join('');
+        return `<div style="margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                <span style="font-size:0.6875rem;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:0.05em;">${label}</span>
+                <span style="flex:1;height:1px;background:${color}30;"></span>
+            </div>
+            ${items}
+        </div>`;
+    };
+    const m = document.createElement('div');
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    m.onclick = (e) => { if (e.target === m) m.remove(); };
+    m.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:380px;max-height:65vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <span style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);">问题详情</span>
+                <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#888;font-size:1.125rem;padding:4px;line-height:1;">✕</button>
+            </div>
+            ${buildPtSection(userPts, '使用者问题')}
+            ${buildPtSection(payerPts, '付费者问题')}
+            ${buildPtSection(otherPts, '其他')}
+            ${!ptList.length ? '<div style="color:#999;font-size:0.8125rem;text-align:center;padding:20px 0;">暂无问题详情</div>' : ''}
+        </div>`;
+    document.body.appendChild(m);
+}
+
 function buildCardHTML(opp, idx, total, isActive) {
     if (!opp) return '<div class="opp-peek-card-placeholder"></div>';
     const conf = Math.round((opp.confidence || 0.8) * 100);
@@ -3092,6 +3305,67 @@ function buildCardHTML(opp, idx, total, isActive) {
     const hasGenerated = oppState !== null && oppState.count > 0;
     // 只要生成过画像就强制显示已收藏
     const isCollected = hasGenerated || SnapshotManager.isCollected(oppName);
+
+    // 详情面板数据
+    const unmetProblem = opp.unmet_problem || '';
+    const sevCons = opp.severity_consequence || '';
+    const urgTrig = opp.urgency_trigger || '';
+    const supQual = (opp.supply_gap && opp.supply_gap.supply_quality_issue) ? opp.supply_gap.supply_quality_issue : '';
+    const supForm = (opp.supply_gap && opp.supply_gap.supply_form_issue) ? opp.supply_gap.supply_form_issue : '';
+    const whyReasons = (opp.why_unsolved && opp.why_unsolved.reasons) ? opp.why_unsolved.reasons.join('、') : '';
+    const whyBizType = (opp.why_unsolved && opp.why_unsolved.business_type) ? opp.why_unsolved.business_type : '';
+    const whyDecCost = (opp.why_unsolved && opp.why_unsolved.decision_cost) ? opp.why_unsolved.decision_cost : '';
+
+    const detailPanelId = `opp-detail-${idx}`;
+    const unmetRow = unmetProblem ? `<div class="opp-detail-item">
+        <span class="opp-detail-label">未满足的问题</span>
+        <span class="opp-detail-value">${unmetProblem}</span>
+    </div>` : '';
+    const sevConsRow = sevCons ? `<div class="opp-detail-item">
+        <span class="opp-detail-label">不解决的后果</span>
+        <span class="opp-detail-value">${sevCons}</span>
+    </div>` : '';
+    const urgTrigRow = urgTrig ? `<div class="opp-detail-item">
+        <span class="opp-detail-label">触发因素</span>
+        <span class="opp-detail-value">${urgTrig}</span>
+    </div>` : '';
+    const whyRow = whyReasons ? `<div class="opp-detail-item">
+        <span class="opp-detail-label">为什么没人做好</span>
+        <span class="opp-detail-value">${[whyBizType, whyReasons].filter(Boolean).join(' · ')}${whyDecCost ? ` · 决策成本${whyDecCost}` : ''}</span>
+    </div>` : '';
+    const supGapRow = (supQual || supForm) ? `<div class="opp-detail-item">
+        <span class="opp-detail-label">供给缺口详情</span>
+        <span class="opp-detail-value">${[supQual, supForm].filter(Boolean).join(' | ')}</span>
+    </div>` : '';
+
+    // 问题类型（卡片主区域：只显示名称，用颜色区分；详情放弹窗）
+    const ptList = opp.problem_types || [];
+    const userPts = ptList.filter(pt => pt.category === '使用者问题');
+    const payerPts = ptList.filter(pt => pt.category === '付费者问题');
+    const otherPts = ptList.filter(pt => pt.category && pt.category !== '使用者问题' && pt.category !== '付费者问题');
+
+    const buildTag = (pt) => {
+        const ptName = pt.name || pt.type_name || '';
+        if (!ptName) return '';
+        // 名称格式为"大类-子类"（如"肠道不适-拉肚子"），标签只显示大类
+        const displayName = ptName.split('-')[0].trim();
+        const cat = pt.category || '';
+        const typeCls = cat === '使用者问题' ? 'type-user' : cat === '付费者问题' ? 'type-payer' : 'type-default';
+        return `<span class="opp-pt-tag ${typeCls}" title="${ptName}">${displayName}</span>`;
+    };
+
+    const userTagList = userPts.map(buildTag).join('');
+    const payerTagList = payerPts.map(buildTag).join('');
+    const otherTagList = otherPts.map(buildTag).join('');
+    const hasAnyPt = userTagList || payerTagList || otherTagList;
+    const ptCardList = hasAnyPt
+        ? `<div class="opp-pt-card">${userTagList}${payerTagList}${otherTagList}</div>
+           <div class="opp-pt-detail-btn" onclick="event.stopPropagation();showProblemDetailModal(${idx})">
+               <i class="bi bi-caret-down-square"></i>问题详情
+           </div>`
+        : '';
+
+    const oppAudience = opp.target_audience || '';
 
     return `
         <div class="opp-peek-card ${isActive ? 'active' : ''}" data-idx="${idx}">
@@ -3111,11 +3385,12 @@ function buildCardHTML(opp, idx, total, isActive) {
                     <i class="bi ${isCollected ? 'bi-bookmark-star-fill' : 'bi-bookmark'}"></i>
                 </button>
             </div>
-            ${(opp.business_direction || '') ? `<div class="opp-peek-direction"><i class="bi bi-arrow-right-circle"></i> ${opp.business_direction}</div>` : ''}
-            ${(opp.target_audience || '') ? `<div class="opp-peek-info"><i class="bi bi-people"></i> ${opp.target_audience}</div>` : ''}
-            ${((opp.pain_points || []).length > 0) ? `<div class="opp-peek-info"><i class="bi bi-lightbulb"></i> ${(opp.pain_points || []).slice(0, 2).join('、')}</div>` : ''}
-            ${(opp.differentiation || '') ? `<div class="opp-peek-diff">${opp.differentiation}</div>` : ''}
-            ${((opp.problem_types || []).length > 0) ? `<div class="opp-peek-problems">${(opp.problem_types || []).slice(0, 3).map(pt => `<span class="opp-peek-problem-tag">${pt.name || ''}</span>`).join('')}</div>` : ''}
+            ${oppAudience ? `<div class="opp-peek-audience"><i class="bi bi-people" style="margin-right:4px;font-size:0.6875rem;"></i>${oppAudience}</div>` : ''}
+            ${ptCardList ? `<div class="opp-pt-card">${ptCardList}</div>` : ''}
+            ${(unmetRow || sevConsRow || urgTrigRow || whyRow || supGapRow) ? `
+            <button class="opp-detail-toggle" onclick="event.stopPropagation();showSupplyDemandModal(${idx})">
+                <i class="bi bi-bar-chart-steps"></i> 查看供需分析详情
+            </button>` : ''}
             <div class="opp-peek-footer">
                 ${hasGenerated ? `
                     <button class="btn-select-opp selected" onclick="event.stopPropagation();viewGeneratedPortraits('${escapedName}', ${idx})">
@@ -3313,7 +3588,7 @@ async function selectOpportunityInTab(index, businessDirection) {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({
-                core_business: selectedOpp.business_direction || selectedOpp.opportunity_name || '',
+                core_business: selectedOpp.opportunity_name || '',
                 original_business: _marketAnalysisCache.business_desc,
                 business_type: _marketAnalysisCache.business_type,
                 service_scenario: _marketAnalysisCache.service_scenario || '',
@@ -3426,21 +3701,20 @@ function showOpportunityModal(opportunities, originalBusiness) {
     // 构建机会卡片 HTML
     const cardsHTML = opportunities.map((opp, idx) => {
         const confidence = Math.round((opp.confidence || 0.8) * 100);
-        const businessDir = opp.business_direction || opp.opportunity_name || '';
+        const oppName = opp.opportunity_name || '';
         const differentiation = opp.differentiation || '';
         const targetAudience = opp.target_audience || '';
         const painPoints = (opp.pain_points || []).slice(0, 2).join('、');
         const keywords = (opp.keywords || []).slice(0, 3);
 
         return `
-            <div class="opp-card" data-index="${idx}" onclick="selectOpportunityInModal(${idx}, '${businessDir.replace(/'/g, "\\'")}')">
+            <div class="opp-card" data-index="${idx}" onclick="selectOpportunityInModal(${idx}, '${oppName.replace(/'/g, "\\'")}')">
                 <div class="opp-card-header">
                     <span class="opp-number">${idx + 1}</span>
                     <span class="opp-name">${opp.opportunity_name || '蓝海机会'}</span>
                     <span class="opp-confidence">置信 ${confidence}%</span>
                 </div>
-                ${businessDir ? `<div class="opp-direction"><i class="bi bi-arrow-right-circle"></i> ${businessDir}</div>` : ''}
-                ${targetAudience ? `<div class="opp-audience"><i class="bi bi-people"></i> ${targetAudience}</div>` : ''}
+            ${targetAudience ? `<div class="opp-audience"><i class="bi bi-people"></i> ${targetAudience}</div>` : ''}
                 ${painPoints ? `<div class="opp-pain"><i class="bi bi-lightbulb"></i> ${painPoints}</div>` : ''}
                 ${differentiation ? `<div class="opp-diff">${differentiation}</div>` : ''}
                 ${keywords.length > 0 ? `
@@ -3670,7 +3944,7 @@ function createOpportunityModal() {
 }
 
 // 在弹窗中选择蓝海机会
-function selectOpportunityInModal(index, businessDirection) {
+function selectOpportunityInModal(index, oppName) {
     // 移除其他选中状态
     document.querySelectorAll('.opp-card').forEach((card, i) => {
         if (i === index) {
@@ -3683,7 +3957,7 @@ function selectOpportunityInModal(index, businessDirection) {
     // 延迟关闭弹窗并开始生成
     setTimeout(() => {
         closeOpportunityModal();
-        generatePortraitsWithBusiness(businessDirection);
+        generatePortraitsWithBusiness(oppName);
     }, 300);
 }
 
@@ -6781,7 +7055,7 @@ const SnapshotManager = {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    core_business: d.business_direction || d.opportunity_name || '',
+                    core_business: d.opportunity_name || '',
                     original_business: snap.source_business_desc || '',
                     business_type: snap.source_business_type || 'product',
                     service_scenario: _marketAnalysisCache.service_scenario,

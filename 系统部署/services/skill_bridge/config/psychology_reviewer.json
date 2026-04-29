@@ -1,0 +1,322 @@
+{
+  "_comment": "心理学审核 Skill 配置 - 内容心理学审核与增强 (来源: content_generator.py + geo-seo skill.md)",
+
+  "skill": {
+    "name": "psychology_reviewer",
+    "version": "1.0",
+    "display_name": "内容心理学审核",
+    "description": "审核内容的消费心理学驱动效果，评估6大心理维度（恐惧/贪婪/从众/权威/稀缺/损失厌恶），并给出增强建议",
+    "skill_md_path": ".cursor/skill/geo-seo/skill.md",
+    "input_source": "after_content_generation"
+  },
+
+  "input_schema": {
+    "content": {
+      "type": "object",
+      "required": true,
+      "description": "待审核的图文内容"
+    },
+    "portrait": {
+      "type": "object",
+      "description": "目标用户画像（用于心理学适配性评估）"
+    },
+    "brand_context": {
+      "type": "object",
+      "description": "品牌上下文（用于品牌心理学评估）"
+    },
+    "content_purpose": {
+      "type": "string",
+      "enum": ["traffic", "conversion", "both"],
+      "default": "traffic",
+      "description": "内容目的：流量型/转化型"
+    },
+    "business_type": {
+      "type": "string",
+      "description": "业务类型（用于心理学策略选择）"
+    }
+  },
+
+  "steps": [
+
+    {
+      "id": "step_title_hvf_review",
+      "name": "标题H-V-F审核",
+      "order": 0,
+      "required": false,
+      "llm_prompt_template": "【标题H-V-F审核 — 三段论覆盖率 + 心理学风险】\n\n请审核以下标题的H-V-F三段论覆盖率和心理风险。\n\n选题：<<content.topic_title>>\n行业：<<content.industry>>\n\n已生成标题：\n<<content.generated_titles>>\n\n=== H-V-F覆盖率评分 ===\n\n每个标题评分：\n- Hook（0-10）：是否包含身份/痛点/情绪词？\n- Value（0-10）：是否包含结果/背书？\n- Format（0-10）：是否包含量化/简单化？\n- 总分（0-30）\n\n=== 心理学风险检测 ===\n\n1. 过度承诺：使用了\"100%\"\"保证\"\"绝对\"等绝对化用语？\n2. 标题党：过于夸张、耸人听闻？\n3. 无效标题：没有传递任何有用信息？\n4. 平台违规：是否可能触发平台限流？\n5. 数字陷阱：使用了无依据的夸大数字（如\"99%的人都不知道\"）？\n\n=== 输出格式 ===\n\n```json\n{{\n  \"title_reviews\": [\n    {{\n      \"pattern\": \"标题模式\",\n      \"main_title\": \"标题文本\",\n      \"hvf_coverage\": {{\n        \"hook_score\": 0-10,\n        \"value_score\": 0-10,\n        \"format_score\": 0-10,\n        \"total_score\": 0-30\n      }},\n      \"psychology_risks\": [\"风险1\", \"风险2\"],\n      \"risk_level\": \"高/中/低/无\",\n      \"pass_review\": true或false,\n      \"suggestions\": \"优化建议\"\n    }}\n  ],\n  \"best_title\": \"推荐的最佳标题\",\n  \"best_pattern\": \"最佳标题的模式\",\n  \"overall_hvf_score\": \"所有标题的平均H-V-F总分\"\n}}\n```",
+      "output_field": "title_hvf_review",
+      "output_schema": {
+        "title_reviews": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": {"type": "string"},
+              "main_title": {"type": "string"},
+              "hvf_coverage": {
+                "type": "object",
+                "properties": {
+                  "hook_score": {"type": "integer"},
+                  "value_score": {"type": "integer"},
+                  "format_score": {"type": "integer"},
+                  "total_score": {"type": "integer"}
+                }
+              },
+              "psychology_risks": {"type": "array", "items": "string"},
+              "risk_level": {"type": "string"},
+              "pass_review": {"type": "boolean"},
+              "suggestions": {"type": "string"}
+            }
+          }
+        },
+        "best_title": {"type": "string"},
+        "best_pattern": {"type": "string"},
+        "overall_hvf_score": {"type": "string"}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_psychology_dimension_analysis",
+      "name": "心理维度分析",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【消费心理维度分析 — 评估内容的心理学驱动效果】\n\n请对已生成的内容进行消费心理学分析，评估以下6大心理维度：\n\n1. **恐惧心理（Fear）**：是否利用了用户的焦虑、担忧、怕损失心理\n   - 典型句式：\"如果不XX，就会YY\"、\"XX问题，你中招了吗\"\n   - 评估：恐惧触发强度（高/中/低）、恐惧是否真实（避免夸大）\n\n2. **贪婪心理（Greed）**：是否激发了用户对收益、优惠、占便宜的心理\n   - 典型句式：\"限时优惠\"、\"错过等一年\"、\"免费领取\"\n   - 评估：贪婪激发强度（高/中/低）\n\n3. **从众心理（Conformity）**：是否利用了\"大家都在用\"、\"销量第一\"等心理\n   - 典型句式：\"10000+人都在用\"、\"客户见证\"、\"真实案例\"\n   - 评估：从众触发强度（高/中/低）\n\n4. **权威心理（Authority）**：是否建立了专业、可信的形象\n   - 典型句式：\"据XX专家研究\"、\"XX年行业经验\"、\"资质认证\"\n   - 评估：权威建立强度（高/中/低）\n\n5. **稀缺心理（Scarcity）**：是否创造了\"限量\"、\"独家\"、\"仅此一家\"的感觉\n   - 典型句式：\"名额有限\"、\"独家方法\"、\"仅剩X个\"\n   - 评估：稀缺创造强度（高/中/低）\n\n6. **损失厌恶（Loss Aversion）**：是否让用户感觉\"不行动就会损失\"\n   - 典型句式：\"再不了解就亏了\"、\"错过等于损失\"、\"时间不等人\"\n   - 评估：损失厌恶强度（高/中/低）\n\n内容标题：\n<<content.title>>\n\n内容正文（slides摘要）：\n<<content.body>>\n\nCTA：\n<<content.cta>>\n\n请输出JSON：\n\n{\n  \"psychology_dimensions\": {\n    \"fear\": {\n      \"present\": true或false,\n      \"intensity\": \"高/中/低/无\",\n      \"examples\": [\"触发恐惧的具体句式或内容片段\"],\n      \"authenticity\": \"真实/夸大/无依据\"\n    },\n    \"greed\": {\n      \"present\": true或false,\n      \"intensity\": \"高/中/低/无\",\n      \"examples\": [\"触发贪婪的具体句式\"],\n      \"authenticity\": \"真实优惠/虚假夸大\"\n    },\n    \"conformity\": {\n      \"present\": true或false,\n      \"intensity\": \"高/中/低/无\",\n      \"examples\": [\"触发从众的具体句式\"],\n      \"evidence_quality\": \"真实数据/模糊表述/无证据\"\n    },\n    \"authority\": {\n      \"present\": true或false,\n      \"intensity\": \"高/中/低/无\",\n      \"examples\": [\"建立权威的具体句式\"],\n      \"evidence_quality\": \"有据可查/主观声称/无证据\"\n    },\n    \"scarcity\": {\n      \"present\": true或false,\n      \"intensity\": \"高/中/低/无\",\n      \"examples\": [\"创造稀缺的具体句式\"],\n      \"authenticity\": \"真实稀缺/人为制造/无依据\"\n    },\n    \"loss_aversion\": {\n      \"present\": true或false,\n      \"intensity\": \"高/中/低/无\",\n      \"examples\": [\"触发损失厌恶的具体句式\"],\n      \"authenticity\": \"真实损失/恐吓夸大\"\n    }\n  },\n  \"dominant_psychology\": \"主导心理类型（如：恐惧/从众/权威等）\",\n  \"psychology_balance\": \"心理驱动是否平衡（过多单一心理会适得其反）\"\n}",
+      "output_field": "psychology_analysis",
+      "output_schema": {
+        "psychology_dimensions": {
+          "type": "object",
+          "properties": {
+            "fear": {
+              "type": "object",
+              "properties": {
+                "present": {"type": "boolean"},
+                "intensity": {"type": "string"},
+                "examples": {"type": "array", "items": "string"},
+                "authenticity": {"type": "string"}
+              }
+            },
+            "greed": {
+              "type": "object",
+              "properties": {
+                "present": {"type": "boolean"},
+                "intensity": {"type": "string"},
+                "examples": {"type": "array", "items": "string"},
+                "authenticity": {"type": "string"}
+              }
+            },
+            "conformity": {
+              "type": "object",
+              "properties": {
+                "present": {"type": "boolean"},
+                "intensity": {"type": "string"},
+                "examples": {"type": "array", "items": "string"},
+                "evidence_quality": {"type": "string"}
+              }
+            },
+            "authority": {
+              "type": "object",
+              "properties": {
+                "present": {"type": "boolean"},
+                "intensity": {"type": "string"},
+                "examples": {"type": "array", "items": "string"},
+                "evidence_quality": {"type": "string"}
+              }
+            },
+            "scarcity": {
+              "type": "object",
+              "properties": {
+                "present": {"type": "boolean"},
+                "intensity": {"type": "string"},
+                "examples": {"type": "array", "items": "string"},
+                "authenticity": {"type": "string"}
+              }
+            },
+            "loss_aversion": {
+              "type": "object",
+              "properties": {
+                "present": {"type": "boolean"},
+                "intensity": {"type": "string"},
+                "examples": {"type": "array", "items": "string"},
+                "authenticity": {"type": "string"}
+              }
+            }
+          }
+        },
+        "dominant_psychology": {"type": "string"},
+        "psychology_balance": {"type": "string"}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_portrait_fit_analysis",
+      "name": "画像适配性分析",
+      "order": 2,
+      "required": false,
+      "llm_prompt_template": "【画像适配性分析 — 评估心理学驱动与目标用户的匹配度】\n\n请评估内容的心理学驱动策略与目标用户画像的匹配程度。\n\n目标用户画像：\n<<portrait>>\n\n内容主导心理：\n<<step_psychology_dimension_analysis.dominant_psychology>>\n\n心理学维度分析：\n<<step_psychology_dimension_analysis>>\n\n请输出JSON：\n\n{\n  \"portrait_fit_score\": 0-100的匹配度分数,\n  \"fit_analysis\": {\n    \"identity_match\": {\n      \"score\": 分数,\n      \"detail\": \"内容身份定位与画像身份的匹配程度\"\n    },\n    \"pain_point_trigger\": {\n      \"score\": 分数,\n      \"detail\": \"痛点触发与画像痛点的匹配程度\"\n    },\n    \"psychology_approach\": {\n      \"score\": 分数,\n      \"detail\": \"心理学策略与用户心理特征的匹配程度\"\n    },\n    \"content_tone\": {\n      \"score\": 分数,\n      \"detail\": \"内容语气与用户偏好的匹配程度\"\n    }\n  },\n  \"misalignment_issues\": [\n    {\n      \"issue\": \"不匹配问题描述\",\n      \"location\": \"问题所在位置（封面/正文/CTA）\",\n      \"suggestion\": \"调整建议\"\n    }\n  ],\n  \"recommended_psychology_boost\": \"推荐的心理学增强方向\"\n}",
+      "output_field": "portrait_fit",
+      "output_schema": {
+        "portrait_fit_score": {"type": "integer"},
+        "fit_analysis": {
+          "type": "object",
+          "properties": {
+            "identity_match": {"type": "object"},
+            "pain_point_trigger": {"type": "object"},
+            "psychology_approach": {"type": "object"},
+            "content_tone": {"type": "object"}
+          }
+        },
+        "misalignment_issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "issue": {"type": "string"},
+              "location": {"type": "string"},
+              "suggestion": {"type": "string"}
+            }
+          }
+        },
+        "recommended_psychology_boost": {"type": "string"}
+      },
+      "data_providers": ["step_psychology_dimension_analysis"]
+    },
+
+    {
+      "id": "step_cta_psychology_audit",
+      "name": "CTA心理学审核",
+      "order": 3,
+      "required": true,
+      "llm_prompt_template": "【CTA心理学审核 — 评估行动号召的心理驱动效果】\n\n请对内容的行动号召（CTA）进行心理学审核。\n\n当前CTA：\n<<content.cta>>\n\n内容目的：<<content_purpose>>（traffic=流量型/ conversion=转化型）\n\n心理学CTA评估维度：\n\n1. **动作词强度**：CTA是否使用了具体、强有力的动作词\n   - ✅ 强：\"私信回复666获取\"、\"点击主页立即领取\"\n   - ❌ 弱：\"有兴趣可以联系我们\"、\"了解更多\"\n\n2. **入口明确性**：用户是否清楚下一步该做什么\n   - ✅ 明确：\"私信'志愿'获取\"、\"扫码添加微信\"\n   - ❌ 模糊：\"联系我们\"、\"点击了解\"\n\n3. **门槛高低**：行动门槛是否足够低\n   - ✅ 低门槛：回复关键词/私信/扫码\n   - ❌ 高门槛：填写表单/下载APP/注册账号\n\n4. **心理驱动类型**：CTA采用了哪种心理驱动\n   - 恐惧驱动：\"再不行动就来不及了\"\n   - 贪婪驱动：\"免费领取，仅限前100名\"\n   - 从众驱动：\"已有10000+人领取\"\n   - 权威驱动：\"扫码获取专业老师指导\"\n   - 损失厌恶：\"错过这次等于损失XX元\"\n\n5. **行动紧迫性**：是否创造了行动紧迫感\n   - 时间紧迫：\"仅限今天\"、\"24小时后失效\"\n   - 数量紧迫：\"名额仅剩X个\"\n\n请输出JSON：\n\n{\n  \"cta_psychology_score\": 0-100的CTA心理学评分,\n  \"action_word_strength\": \"强/中/弱\",\n  \"entry_clarity\": \"明确/模糊\",\n  \"action_barrier\": \"低/中/高\",\n  \"psychology_driver\": \"主导心理驱动类型\",\n  \"urgency_creation\": \"有/无\",\n  \"problems\": [\n    {\n      \"dimension\": \"问题维度\",\n      \"issue\": \"具体问题\",\n      \"current_text\": \"当前CTA文本\",\n      \"suggested_text\": \"建议修改后的CTA\"\n    }\n  ],\n  \"enhanced_cta\": \"优化后的完整CTA文本\",\n  \"psychology_rationale\": \"优化理由（基于哪种心理学原理）\"\n}",
+      "output_field": "cta_psychology",
+      "output_schema": {
+        "cta_psychology_score": {"type": "integer"},
+        "action_word_strength": {"type": "string"},
+        "entry_clarity": {"type": "string"},
+        "action_barrier": {"type": "string"},
+        "psychology_driver": {"type": "string"},
+        "urgency_creation": {"type": "string"},
+        "problems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "dimension": {"type": "string"},
+              "issue": {"type": "string"},
+              "current_text": {"type": "string"},
+              "suggested_text": {"type": "string"}
+            }
+          }
+        },
+        "enhanced_cta": {"type": "string"},
+        "psychology_rationale": {"type": "string"}
+      },
+      "data_providers": ["step_psychology_dimension_analysis"]
+    },
+
+    {
+      "id": "step_risk_detection",
+      "name": "心理学风险检测",
+      "order": 4,
+      "required": true,
+      "llm_prompt_template": "【心理学风险检测 — 识别过度营销和违规风险】\n\n请检测内容中的心理学风险，避免过度营销和平台违规。\n\n风险类型：\n\n1. **过度恐惧营销**：\n   - 危险信号：\"不XX就会死\"、\"后果不堪设想\"、\"后悔一辈子\"\n   - 平台政策：可能触发平台\"恐吓营销\"违规\n\n2. **虚假稀缺/紧迫**：\n   - 危险信号：\"永远限时\"、\"永远只剩几个\"、无根据的倒计时\n   - 平台政策：虚假营销违反平台规则\n\n3. **夸大效果承诺**：\n   - 危险信号：\"保证XX\"、\"100%有效\"、\"立刻见效\"\n   - 平台政策：医疗/功效类夸大违反广告法\n\n4. **过度从众/数据造假**：\n   - 危险信号：无来源的\"100000+人都在用\"、虚假用户见证\n   - 平台政策：虚假宣传违反平台规则\n\n5. **道德绑架**：\n   - 危险信号：\"不XX就不是好父母/好老板\"\n   - 平台政策：道德绑架引发用户反感\n\n6. **焦虑贩卖过度**：\n   - 危险信号：反复渲染焦虑而不给出解决方案\n   - 平台政策：可能触发平台\"贩卖焦虑\"治理\n\n内容标题：\n<<content.title>>\n\n内容正文（slides摘要）：\n<<content.body>>\n\nCTA：\n<<content.cta>>\n\n请输出JSON：\n\n{\n  \"risk_level\": \"高/中/低/无\",\n  \"risks\": [\n    {\n      \"risk_type\": \"风险类型\",\n      \"severity\": \"高/中/低\",\n      \"evidence\": \"具体证据（引用原文）\",\n      \"platform_policy\": \"触发的平台政策\",\n      \"suggestion\": \"整改建议\"\n    }\n  ],\n  \"overall_assessment\": \"整体心理学风险评估\",\n  \"pass_platform_review\": true或false\n}",
+      "output_field": "risk_detection",
+      "output_schema": {
+        "risk_level": {"type": "string"},
+        "risks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "risk_type": {"type": "string"},
+              "severity": {"type": "string"},
+              "evidence": {"type": "string"},
+              "platform_policy": {"type": "string"},
+              "suggestion": {"type": "string"}
+            }
+          }
+        },
+        "overall_assessment": {"type": "string"},
+        "pass_platform_review": {"type": "boolean"}
+      },
+      "data_providers": ["step_psychology_dimension_analysis", "step_cta_psychology_audit"]
+    },
+
+    {
+      "id": "step_psychology_enhancement",
+      "name": "心理学增强建议",
+      "order": 5,
+      "required": true,
+      "llm_prompt_template": "【心理学增强建议 — 基于分析给出优化建议】\n\n基于以上所有心理学分析，给出内容增强建议。\n\n心理维度分析：\n<<step_psychology_dimension_analysis>>\n\n画像适配分析：\n<<step_portrait_fit_analysis>>\n\nCTA心理学审核：\n<<step_cta_psychology_audit>>\n\n风险检测：\n<<step_risk_detection>>\n\n请输出JSON：\n\n{\n  \"overall_psychology_score\": 0-100的综合心理学评分,\n  \"grade\": \"A/B/C/D（80+/70+/60+/60以下）\",\n  \"strengths\": [\n    {\n      \"dimension\": \"优势维度\",\n      \"detail\": \"优势描述\",\n      \"evidence\": \"具体证据\"\n    }\n  ],\n  \"improvements\": [\n    {\n      \"priority\": \"高/中/低\",\n      \"dimension\": \"改进维度\",\n      \"current_state\": \"当前状态\",\n      \"suggestion\": \"具体改进建议\",\n      \"psychology_benefit\": \"改进后的心理学收益\"\n    }\n  ],\n  \"final_recommendation\": \"最终建议：发布/修改后发布/需重大修改\"\n}",
+      "output_field": "psychology_review",
+      "output_schema": {
+        "overall_psychology_score": {"type": "integer"},
+        "grade": {"type": "string"},
+        "strengths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "dimension": {"type": "string"},
+              "detail": {"type": "string"},
+              "evidence": {"type": "string"}
+            }
+          }
+        },
+        "improvements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "priority": {"type": "string"},
+              "dimension": {"type": "string"},
+              "current_state": {"type": "string"},
+              "suggestion": {"type": "string"},
+              "psychology_benefit": {"type": "string"}
+            }
+          }
+        },
+        "final_recommendation": {"type": "string"}
+      },
+      "data_providers": [
+        "step_psychology_dimension_analysis",
+        "step_portrait_fit_analysis",
+        "step_cta_psychology_audit",
+        "step_risk_detection"
+      ]
+    }
+
+  ],
+
+  "constraints": {
+    "psychology_rules": {
+      "max_fear_intensity": "中（高强度恐惧需有据可查）",
+      "scarcity_must_be_authentic": true,
+      "no_absolute_claims": "禁止\"100%\"\"保证\"\"绝对\"等绝对化用语",
+      "no_moral_extortion": "禁止道德绑架",
+      "cta_must_have_clear_entry": "CTA必须有明确的行动入口"
+    },
+    "platform_compliance": {
+      "prohibited": ["过度恐吓", "虚假稀缺", "绝对化承诺", "数据造假", "道德绑架"],
+      "warning": ["焦虑贩卖过度", "夸大效果"]
+    }
+  },
+
+  "data_flow": {
+    "outputs": {
+      "step_psychology_enhancement": {
+        "_comment": "心理学审核结果输出",
+        "overall_psychology_score": {"target": "content_saver", "field": "psychology_score"},
+        "grade": {"target": "content_saver", "field": "psychology_grade"},
+        "cta_psychology": {"target": "content_saver", "field": "cta_psychology"},
+        "risk_detection": {"target": "content_saver", "field": "psychology_risks"},
+        "improvements": {"target": "content_optimizer", "field": "psychology_improvements"}
+      },
+      "step_cta_psychology_audit": {
+        "_comment": "CTA审核结果可直接用于优化",
+        "enhanced_cta": {"target": "content_optimizer", "field": "cta_text"}
+      }
+    }
+  }
+}

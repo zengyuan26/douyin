@@ -407,7 +407,6 @@ class KeywordLibraryGenerator:
         barriers_str: str,
     ) -> str:
         """精简版 Prompt：付费者=使用者"""
-        cleaned_core = self._extract_core_business(keyword_core, industry)
         return f"""你是关键词库生成专家。基于「{keyword_core}」生成用户真实搜索词。
 
 === 业务 ===
@@ -418,37 +417,24 @@ class KeywordLibraryGenerator:
 场景：{pain_scenarios_str}
 顾虑：{barriers_str}
 
-=== 核心理念 ===
+=== 核心原则 ===
 关键词 = 用户脑子里真正在想的词，不是产品介绍。
 禁止：前缀拼接生硬词；禁止：流程/攻略/指南类介绍词
 必须：用户搜这个词想解决什么问题？
 
 === 分类生成（总计>=145个） ===
-
-**搜前搜（25个）**：决定前——担忧、顾虑、纠结
-规则：从pain_points和barriers出发，用户决定时最担心什么？
-
-**搜后搜（25个）**：使用后——出现了什么意外
-规则：从pain_points和pain_scenarios出发，使用后可能出现什么偏差？
-
-**信任佐证（15个）**：用户问"能不能帮我做好"
-规则：从barriers出发，用户不信任什么？
-
-**直接需求（15个）**：用户直接要买
-
-**地域关键词（10个）**：用户找附近供应商
-注：如未指定地域用"本地/附近/周边"
-
-**季节/时间（10个）**：节假日/换季影响购买
-
-**技巧/干货（10个）**：用户想学辨别知识
-
-**认知颠覆（8个）**：打破常识引发好奇
-
-**节日关键词（10个）**：节日送礼需求
+- 搜前搜（25个）：决定前——担忧、顾虑、纠结
+- 搜后搜（25个）：使用后——出现了什么意外
+- 信任佐证（15个）：用户问"能不能帮我做好"
+- 直接需求（15个）：用户直接要买
+- 地域关键词（10个）：用户找附近供应商
+- 季节/时间（10个）：节假日/换季影响购买
+- 技巧/干货（10个）：用户想学辨别知识
+- 认知颠覆（8个）：打破常识引发好奇
+- 节日关键词（10个）：节日送礼需求
 
 === 输出格式 ===
-英文key：pre_search/post_search/trust/direct_demand/region/season/skill/reverse/festival
+key：pre_search / post_search / trust / direct_demand / region / season / skill / reverse / festival
 
 ```json
 {{"keyword_library": {{
@@ -463,8 +449,6 @@ class KeywordLibraryGenerator:
     "festival_keywords": ["词1"]
 }}}}
 ```
-禁止复制示例，必须基于「{keyword_core}」真实生成。
-
 请开始生成："""
 
     def _build_separate_payer_prompt(
@@ -477,8 +461,6 @@ class KeywordLibraryGenerator:
         barriers_str: str,
     ) -> str:
         """精简版 Prompt：付费者≠使用者（如奶粉、母婴）"""
-        cleaned_core = self._extract_core_business(keyword_core, industry)
-        kw_short = cleaned_core[:4] if len(cleaned_core) >= 4 else cleaned_core
         return f"""你是关键词库生成专家。基于「{keyword_core}」生成用户真实搜索词。
 
 === 业务 ===
@@ -489,41 +471,25 @@ class KeywordLibraryGenerator:
 使用场景：{pain_scenarios_str}
 付费者顾虑：{barriers_str}
 
-=== 核心理念 ===
-本业务为"付费者≠使用者"：使用者（如宝宝）有症状，付费者（如家长）在担心。
+=== 核心原则 ===
+本业务为"付费者≠使用者"：使用者有症状，付费者在担心。
 关键词 = 付费者脑子里真正在想的词，不是产品介绍。
 禁止：前缀拼接生硬词；禁止：流程/攻略类介绍词
 
 === 分类生成（总计>=145个） ===
-
-**搜前搜（20个）**：付费者决定前——担忧、顾虑、对比
-规则：从barriers出发，家长选购时最担心什么？
-
-**搜后搜（15个）**：付费者使用后——孩子出现什么异常
-规则：从pain_points出发，使用后可能出现什么症状？
-
-**使用者问题（25个）**：使用者自身的身体/心理反应
-规则：从pain_points出发，孩子有什么具体症状？
-例："喝了{kw_short}后XX情况"
-
-**付费者顾虑（25个）**：家长的购买担忧
-覆盖：真假/信任、价格/划算、安全性/成分、选择/对比
-
-**产品推荐（15个）**：用户对比具体产品时的搜索词
-
-**地域关键词（10个）**：用户找附近供应商
-注：如未指定地域用"本地/附近/周边"
-
-**季节/时间（10个）**：节假日/换季影响购买
-
-**技巧/干货（10个）**：用户想学辨别知识
-
-**认知颠覆（8个）**：打破常识引发好奇
-
-**节日关键词（10个）**：节日送礼需求
+- 搜前搜（20个）：付费者决定前——担忧、顾虑、对比
+- 搜后搜（15个）：付费者使用后——孩子出现什么异常
+- 使用者问题（25个）：使用者自身的身体/心理反应
+- 付费者顾虑（25个）：真假/信任、价格/划算、安全性/成分、选择/对比
+- 产品推荐（15个）：用户对比具体产品时的搜索词
+- 地域关键词（10个）：用户找附近供应商
+- 季节/时间（10个）：节假日/换季影响购买
+- 技巧/干货（10个）：用户想学辨别知识
+- 认知颠覆（8个）：打破常识引发好奇
+- 节日关键词（10个）：节日送礼需求
 
 === 输出格式 ===
-英文key：pre_search/post_search/user_problem/payer_concern/product_recommend/region/season/skill/reverse/festival
+key：pre_search / post_search / user_problem / payer_concern / product_recommend / region / season / skill / reverse / festival
 
 ```json
 {{"keyword_library": {{
@@ -539,8 +505,6 @@ class KeywordLibraryGenerator:
     "festival_keywords": ["词1"]
 }}}}
 ```
-禁止复制示例，必须基于「{keyword_core}」真实生成。
-
 请开始生成："""
 
     def _parse_template_result(
@@ -1414,7 +1378,6 @@ B类画像专属词必须围绕"画像人群在{场景}中遇到的{具体问题
 
 def generate_keyword_library(
     business_info: Dict[str, Any],
-    business_direction: str,
     max_keywords: int = 100,
 ) -> KeywordLibraryResult:
     """
@@ -1425,7 +1388,6 @@ def generate_keyword_library(
 
         result = generate_keyword_library(
             business_info={'business_description': 'XX产品定制服务', 'industry': '定制服务'},
-            business_direction='XX产品定制代理',
             max_keywords=100
         )
 

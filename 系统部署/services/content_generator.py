@@ -479,7 +479,57 @@ class TopicContentGenerator:
 3. **单行字数**：每张图文字≤10字
 4. **文案风格**：口语化、接地气、戳心、有共鸣
 5. **封面要求**：前3秒字幕最大最醒目，≤10字，要戳心
-6. **画面要求**：真实场景图，禁止纯色/渐变背景
+6. **画面要求**：真实场景图，禁止纯色/渐变背景，禁止手机Mockup
+
+## 【强制】AI生图指令（必须遵守，否则图片质量差）
+
+发送给AI生图工具时，必须包含以下指令：
+```
+请生成一张图文笔记，尺寸1080x1920px（9:16竖版）
+
+要求：
+1. 背景：虚化场景图（如厨房台面、冰箱内、餐桌等），严禁纯色/渐变背景
+2. 字体：思源黑体或微软雅黑，清晰简洁
+3. 不要使用特殊符号和emoji，用中文文字代替
+4. 标题：_______
+5. 副标题：_______
+
+重点提示：
+- 数字用大号字体突出
+- 文字颜色用对比色（深色背景用白字，浅色背景用黑字）
+- 避免使用 ❌ ✅ 🏆 💰 等符号，禁止使用代码块符号（┌ ═ ║ ─ │ ├）
+- 禁止生成横版（16:9）或正方形（1:1）
+- 禁止出现手机外框、手机Mockup
+
+【避免乱码特别注意】：
+1. 字体：只使用思源黑体、微软雅黑、华文细黑、Arial这4种
+2. 禁止特殊字符：不要使用 ┌ ═ ║ ─ │ ├ 等代码块符号，以及 ∑ π ∞ ★ ◆ ● 等装饰符号
+3. 中文标点：只使用中文逗号（，）、句号（。）、顿号（、）、冒号（：）、引号（「」『』）
+4. 避免复杂排版：不要使用表格、分隔线、边框等复杂元素
+5. 文字简化：每张图文字不超过30个字符
+```
+
+## 【强制】视觉资产一致性（三层约束）
+
+【第1层：人物/主体连贯性】（全程锁定）
+- 整套所有画面，人物形象必须统一，禁止中途换人
+- 角色风格必须统一（职业装/便装/家居服等前后一致）
+- 禁止：同一人物不同肤色/脸型，风格突变
+
+【第2层：光影镜头逻辑】（全程锁定）
+- 全程锁定柔和自然光，禁止强烈人造光
+- 低饱和柔焦质感，禁止过度锐化或噪点过多
+- 镜头景别变化自然：全景→中景→特写递进，不跳跃
+
+【第3层：色彩动态递进】
+- 封面/共情页（情绪词）：冷色调 → #4A5568灰蓝 / #E8EEF2冷灰 / #CBD5E1银灰
+- 干货/方案页：暖色调 → #FFF5EE米色 / #FFDAB9淡橘 / #F5F0EB肤色
+- 闭环/转化页：品牌色 → #2563EB品牌蓝 / #22C55E品牌绿
+
+【反例约束（必须禁止）】
+- 杜绝AI画面割裂、风格混乱
+- 杜绝强对比色跳变（如封面冷灰→干货页突然高饱和橙红）
+- 禁止：大段段落文字、模糊背景、杂乱的无关元素
 
 ## 【强制】每张图大字金句设计（核心改进）
 每张图必须输出一个"大字金句"，用于制作时的核心文案：
@@ -537,22 +587,39 @@ class TopicContentGenerator:
     {{
       "index": 1,
       "role": "封面",
+      "layout_type": "billboard | problem_solver | matrix | trust_builder",
+      "color_tone": "cold（冷色/封面共情用）| warm（暖色/干货方案用）| brand（品牌色/闭环转化用）",
       "main_title": "主标题（≤10字）",
       "big_slogan": "大字金句（≤15字，口语化，用于制作核心文案）",
-      "emotion_stage": "期待/代入",
+      "emotion_stage": "期待/代入 | 心酸/共鸣 | 坚定/爆发 | 感动/释然 | 温暖/行动",
+      "visual_target": "本帧视觉目标：描述画面核心视觉内容（特写主体/关键动作/核心符号），如"一截香肠表面有少量白点的特写"",
+      "scene_logic": "画面逻辑：强冲击特写/还原真实扎心场景/分镜拆分/对比呈现等具体执行方式",
+      "character_consistency": "人物形象描述（全程统一，禁止中途换人），如"同一女性厨师、扎马尾、穿白色厨师服"",
+      "light_shadow_logic": "光影逻辑：柔和自然光、低饱和柔焦质感；禁止强烈人造光",
+      "scene_dressing": "场景道具标签，标签化场景道具强化人群标签，如"厨房场景-香肠/刷子/白酒/热水"",
+      "atmosphere_filter": "氛围感滤镜：干净高级/温暖治愈/低饱和柔焦等画面质感",
       "sub_content": "副标题/要点（口语化短句）",
       "keywords": ["埋入的关键词"],
-      "visual_style": "画面风格描述",
-      "design_specs": "设计规格，如：尺寸1080x1920px，背景白色，标题醒目",
-      "sub_points": ["子要点1（包含具体数据/案例）", "子要点2"],
-      "data_content": "具体数据内容（如有）"
+      "visual_style": "【必须包含三项】①具体场景（厨房台面/冰箱/餐桌等）②主体细节（香肠/人/物）③禁止项（严禁纯色/渐变背景，严禁手机Mockup）。示例："厨房台面场景虚化，一截香肠表面有少量白点，旁边有厨房纸巾"",
+      "visual_elements": ["checklist | icon | timeline | comparison | bubble（至少1种）"],
+      "info_zones": "3区描述：场景区（主体背景）+ 符号区（图标/关键词）+ 点缀区（装饰元素）",
+      "design_specs": "尺寸1080x1920px，9:16竖版，禁止纯色/渐变背景，禁止手机Mockup",
+      "golden_quote_block": {{"text": "金句文字（≤20字）", "bg_color": "#HEX色值（如#FFF5EE）"}},
+      "sub_points": ["子要点1（包含具体数据/案例）", "子要点2", "子要点3（不超过3个）"],
+      "data_content": "具体数据内容（如有，格式：据xxx数据+数字+结论）",
+      "text_count_limit": 30,
+      "emotion_transition": "本页情绪→下页情绪的过渡描述"
     }}
   ],
   "hashtags": ["#话题1", "#话题2", "#话题3", "#话题4", "#话题5"],
   "first_comment": "首评引导内容（能引发互动）",
   "publish_strategy": "发布建议（时间+注意事项）",
-  "color_scheme": ["主色调#2563EB", "辅助色白色", "信任色绿色#22C55E"],
-  "production_specs": "制作规范：图片数量X张，文字大小18pt+，核心观点醒目",
+  "color_scheme": {{
+    "cold_pages★": ["封面/共情页冷色调主色，如#4A5568灰蓝、#E8EEF2冷灰、#CBD5E1银灰"],
+    "warm_pages★": ["干货/方案页暖色调主色，如#FFF5EE米色、#FFDAB9淡橘、#F5F0EB肤色"],
+    "brand_pages★": ["闭环/转化页品牌色强调，如#2563EB品牌蓝、#22C55E品牌绿"]
+  }},
+  "production_specs": "制作规范：图片数量X张，文字大小18pt+，9:16竖版1080x1920px，禁止纯色/渐变背景，禁止手机Mockup，全程人物统一，禁止中途换人，禁止大段文案",
   "seo_keywords": {{
     "core": ["核心词1", "核心词2"],
     "long_tail": ["长尾词1", "长尾词2"],
@@ -1198,7 +1265,7 @@ class TopicContentGenerator:
             'compliance': compliance,
             # 额外字段
             'publish_strategy': content.get('publish_strategy', publish),
-            'color_scheme': content.get('color_scheme', []),
+            'color_scheme': content.get('color_scheme', {}),
             'production_specs': content.get('production_specs', ''),
             'seo_keywords': content.get('seo_keywords', {}),
             'cover_suggestion': content.get('cover_suggestion', {}),
@@ -1209,187 +1276,482 @@ class TopicContentGenerator:
         }
 
     def _slides_to_content_plan(self, slides: list) -> str:
-        """将 slides 转换为内容规划区块文本"""
+        """将 slides 转换为内容规划区块文本（对齐 skill 模板规范）"""
         if not slides:
             return ''
-        lines = ['## 内容规划（图片数量：{}张）\n'.format(len(slides))]
+
+        lines = []
+        lines.append('> ⚠️ **【强制规格】内容形式：图文 | 图片数量：{}张 | 比例：9:16竖版 1080×1920px**'.format(len(slides)))
+        lines.append('')
+        lines.append('---')
+        lines.append('')
+        lines.append('## 二、内容规划（{}张图片）'.format(len(slides)))
+        lines.append('')
+        lines.append('> ⚠️ **强制要求：所有图片必须为9:16竖版比例 1080×1920px**')
+        lines.append('')
+        lines.append('> ⚠️ **【人群视角】从真实焦虑切入，用"我家/我/大家"等家常语言**')
+        lines.append('')
+        lines.append('---')
+
         for i, slide in enumerate(slides, 1):
-            role = slide.get('role', f'图{i}')
+            role = slide.get('role', f'内容页')
+            layout_type = slide.get('layout_type', '')
+            color_tone = slide.get('color_tone', '')
+            emotion_stage = slide.get('emotion_stage', '')
+            big_slogan = slide.get('big_slogan', '')
             main_title = slide.get('main_title', '')
             sub_content = slide.get('sub_content', '')
-            visual_style = slide.get('visual_style', '')
-            keywords = slide.get('keywords', [])
-            design_specs = slide.get('design_specs', '')
             sub_points = slide.get('sub_points', [])
             data_content = slide.get('data_content', '')
+            visual_style = slide.get('visual_style', '')
+            visual_elements = slide.get('visual_elements', [])
+            keywords = slide.get('keywords', [])
+            emotion_transition = slide.get('emotion_transition', '')
+            text_count_limit = slide.get('text_count_limit', 30)
+            golden_quote = slide.get('golden_quote_block', {})
+            # 新增视觉资产字段
+            visual_target = slide.get('visual_target', '')
+            scene_logic = slide.get('scene_logic', '')
+            character_consistency = slide.get('character_consistency', '')
+            light_shadow_logic = slide.get('light_shadow_logic', '')
+            scene_dressing = slide.get('scene_dressing', '')
+            atmosphere_filter = slide.get('atmosphere_filter', '')
+            info_zones = slide.get('info_zones', '')
 
-            lines.append(f'#### 图片{i}：{role}')
+            # 版式中文名
+            layout_map = {
+                'billboard': '封面版式',
+                'problem_solver': '痛点对比版式',
+                'matrix': '干货矩阵版式',
+                'trust_builder': '品牌收尾版式'
+            }
+            # 色调中文名
+            tone_map = {
+                'cold': '冷色（封面/共情页）',
+                'warm': '暖色（干货/方案页）',
+                'brand': '品牌色（闭环/转化页）'
+            }
+            # UI组件中文名
+            ve_map = {
+                'checklist': '✅ 勾选框',
+                'icon': '🏷️ 图标组件',
+                'timeline': '📍 时间轴',
+                'comparison': '⚖️ 对比图',
+                'bubble': '💬 气泡框',
+                'badge': '🔢 数字徽章'
+            }
+
+            lines.append('')
+            lines.append('---')
+            lines.append('')
+            lines.append('### 图片{}：{}【{}】⚠️强制9:16'.format(i, role, emotion_stage))
+            lines.append('')
+
+            # 内容功能
+            if big_slogan:
+                lines.append('**【内容功能】**')
+                lines.append(big_slogan)
+                lines.append('')
+
+            # 画面描述（设计师参考）
+            lines.append('**【画面描述】（人类设计师参考）**')
+            if visual_target:
+                lines.append('- 视觉目标：' + visual_target)
+            if scene_logic:
+                lines.append('- 画面逻辑：' + scene_logic)
+            if scene_dressing:
+                lines.append('- 场景道具：' + scene_dressing)
+            if atmosphere_filter:
+                lines.append('- 氛围感：' + atmosphere_filter)
+            if character_consistency:
+                lines.append('- 人物统一：' + character_consistency)
+            if light_shadow_logic:
+                lines.append('- 光影逻辑：' + light_shadow_logic)
+            if info_zones:
+                lines.append('- 3区结构：' + info_zones)
+            if visual_style:
+                for line in visual_style.split('\n'):
+                    if line.strip():
+                        lines.append('- ' + line.strip())
+            lines.append('- 禁止：纯色背景、渐变背景、手机外框、手机Mockup、任何电子设备外壳')
+            lines.append('')
+
+            # 文字内容（AI生图用）
+            lines.append('**【文字内容】（AI生图用）**')
+            lines.append('')
+            lines.append('画面：' + (visual_style.split('\n')[0] if visual_style else '具体场景图'))
+            lines.append('')
+
+            # 主标题 / 金句
             if main_title:
-                big_slogan = slide.get('big_slogan', '')
-                emotion_stage = slide.get('emotion_stage', '')
-                
-                lines.append(f'**【情绪阶段】** {emotion_stage}')
-                lines.append('')
-                lines.append(f'**【大字金句】** {big_slogan or "待补充"}')
-                lines.append('')
-                lines.append(f'**【内容功能】** {sub_content or "待补充"}')
-                lines.append('')
-                lines.append(f'**【画面描述】**')
-                if visual_style:
-                    for line in visual_style.split('\n'):
-                        if line.strip():
-                            lines.append(f'- {line.strip()}')
-                lines.append('')
-                lines.append(f'**【文字内容】**')
-                lines.append(f'- 主标题：{main_title}')
-                if sub_points:
-                    for pt in sub_points:
-                        lines.append(f'- {pt}')
-                if data_content:
-                    lines.append(f'- 数据：{data_content}')
-                lines.append('')
-                lines.append(f'**【设计规格】**')
-                if design_specs:
-                    for line in design_specs.split('\n'):
-                        if line.strip():
-                            lines.append(f'- {line.strip()}')
+                lines.append('文字：')
+                if role and '封面' in role:
+                    lines.append('主标题：' + main_title)
+                    if sub_content:
+                        for sc in sub_content.split('\n'):
+                            if sc.strip():
+                                lines.append('副标题：' + sc.strip())
                 else:
-                    lines.append('- 尺寸：1080x1920px（9:16竖版）')
-                if keywords:
-                    lines.append(f'**【关键词】** {", ".join(keywords)}')
-            lines.append('\n---\n')
+                    for pt in (sub_points if sub_points else []):
+                        lines.append(pt)
+                lines.append('')
+
+            # 金句色块
+            if golden_quote and golden_quote.get('text'):
+                lines.append('金句色块：' + golden_quote.get('text', ''))
+                lines.append('背景色：' + golden_quote.get('bg_color', ''))
+                lines.append('')
+
+            if text_count_limit:
+                lines.append('字数限制：{}字'.format(text_count_limit))
+            lines.append('字体：思源黑体、微软雅黑（AI生图必须遵守）')
+            lines.append('尺寸：1080x1920px，9:16竖版')
+            lines.append('禁止：❌ ✅ 🏆 💰 等符号；┌ ═ ║ ─ │ ├ 等代码块符号')
+            lines.append('')
+
+            # 设计规格
+            specs = []
+            specs.append('- 尺寸：1080×1920px（9:16）')
+            if layout_type:
+                specs.append('- 版式：' + layout_map.get(layout_type, layout_type))
+            if color_tone:
+                specs.append('- 色调：' + tone_map.get(color_tone, color_tone))
+            if visual_elements:
+                ve_labels = [ve_map.get(v, v) for v in visual_elements]
+                specs.append('- UI组件：' + '、'.join(ve_labels))
+            if golden_quote and golden_quote.get('text'):
+                specs.append('- 金句色块：' + golden_quote.get('text', '') + '（背景色：' + golden_quote.get('bg_color', '') + '）')
+
+            lines.append('**【设计规格】**')
+            for spec in specs:
+                lines.append(spec)
+            lines.append('')
+
+            # 情绪过渡
+            if emotion_transition:
+                lines.append('**【情绪过渡】** → ' + emotion_transition)
+                lines.append('')
+
+            # 埋入关键词
+            if keywords:
+                kw_list = [k.get('keyword', k.get('text', k)) if isinstance(k, dict) else k for k in keywords]
+                kw_list = [k for k in kw_list if k]
+                if kw_list:
+                    lines.append('**【埋入关键词】**')
+                    lines.append('、'.join(kw_list))
+                    lines.append('')
+
         return '\n'.join(lines)
 
     def _build_publish_strategy(self, content: dict) -> str:
-        """构建发布策略文本"""
+        """构建发布策略文本（生成实际内容）"""
         tips = content.get('publish_strategy', content.get('tips', ''))
-        color_scheme = content.get('color_scheme', [])
+        color_scheme = content.get('color_scheme', {})
         seo_keywords = content.get('seo_keywords', {})
         cover_suggestion = content.get('cover_suggestion', {})
+        title = content.get('title', '')
+        geo_mode = content.get('geo_mode', '')
+        hashtags = content.get('hashtags', [])
 
-        lines = ['## 发布策略\n']
+        lines = []
+        lines.append('> ⚠️ **【强制规格】内容形式：图文 | 比例：9:16竖版 1080×1920px**')
+        lines.append('')
+        lines.append('---')
+        lines.append('')
+        lines.append('## 七、发布策略')
+        lines.append('')
 
         # 发布时间
-        lines.append('### 发布时间建议')
-        lines.append('|| 日期 | 时间 | 理由 |')
-        lines.append('|------|------|------|')
-        lines.append('| 周三/周五 | 12:00-13:00 | 午休时间，家长有空看 |')
-        lines.append('| 周六 | 10:00-11:00 | 周末学习时间 |')
-        lines.append('| 周日 | 20:00-21:00 | 睡前高峰 |\n')
+        lines.append('### ① 发布时间建议')
+        lines.append('')
+        lines.append('|| 日期 | 时间 | 理由 | 推荐指数 |')
+        lines.append('|------|------|------|:--------:|')
+        lines.append('| 周三/周五 | 12:00-13:00 | 午休时间，用户有空刷手机 | ⭐⭐⭐⭐⭐ |')
+        lines.append('| 周六/周日 | 10:00-11:00 | 周末休闲，浏览量高 | ⭐⭐⭐⭐⭐ |')
+        lines.append('| 周日 | 20:00-21:00 | 睡前高峰，转化率高 | ⭐⭐⭐⭐ |')
+        lines.append('| 工作日 | 20:00-22:00 | 晚间刷手机高峰 | ⭐⭐⭐⭐ |')
+        lines.append('')
 
-        # SEO优化
-        if seo_keywords:
-            core = seo_keywords.get('core', [])
-            long_tail = seo_keywords.get('long_tail', [])
-            lines.append('### SEO优化')
-            lines.append('|| 优化项 | 内容 |')
-            lines.append('|--------|------|')
-            lines.append(f'| 标题关键词 | {", ".join(core) if core else "待补充"} |')
-            lines.append(f'| 描述关键词 | {", ".join(long_tail) if long_tail else "待补充"} |\n')
-
-        # 色彩方案
-        if color_scheme:
-            lines.append('### 色彩方案')
-            lines.append('|| 元素 | 颜色参考 |')
-            lines.append('|------|----------|')
-            for color in color_scheme:
-                parts = color.split('#')
-                if len(parts) == 2:
-                    lines.append(f'| {parts[0].strip()} | #{parts[1].strip()} |')
-                else:
-                    lines.append(f'| {color} | - |')
-            lines.append('')
+        # 发布平台
+        lines.append('### ② 发布平台建议')
+        lines.append('')
+        lines.append('|| 平台 | 适配原因 | 内容调整 |')
+        lines.append('|------|----------|----------|')
+        lines.append('| 小红书 | 搜索流量强，干货内容容易收藏 | 9:16竖版，标签详细 |')
+        lines.append('| 抖音 | 算法推荐，爆发力强 | 9:16竖版，开头3秒关键 |')
+        lines.append('| 微信公众号 | 私域沉淀，深度内容 | 可直接用图文版 |')
+        lines.append('| 知乎 | 搜索长尾，专业背书 | 文字版为主 |')
+        lines.append('')
 
         # 封面建议
+        lines.append('### ③ 封面设计建议')
+        lines.append('')
+        lines.append('**核心要素（按重要性排序）：**')
+        lines.append('')
+        lines.append('1. **核心痛点**：标题党，展示用户最关心的结果')
+        lines.append('2. **情绪词**：引发好奇或共鸣，如"必看"、"干货"、"绝了"')
+        lines.append('3. **人设元素**：真实人物/场景，增强信任感')
+        lines.append('4. **品牌标识**：角落小logo，强化品牌记忆')
+        lines.append('')
         if cover_suggestion:
-            lines.append('### 封面建议')
-            lines.append('|| 要素 | 示例 |')
-            lines.append('|------|------|')
-            opening = cover_suggestion.get('opening_words', '')
-            emotion = cover_suggestion.get('emotion_words', '')
-            action = cover_suggestion.get('action_guide', '')
-            lines.append(f'| 开头词 | {opening} |')
-            lines.append(f'| 情绪词 | {emotion} |')
-            lines.append(f'| 行动引导 | {action} |\n')
+            opening_words = cover_suggestion.get('opening_words', '')
+            emotion_words = cover_suggestion.get('emotion_words', '')
+            action_guide = cover_suggestion.get('action_guide', '')
+            if opening_words or emotion_words or action_guide:
+                lines.append('**基于内容生成的封面建议：**')
+                lines.append('')
+                if opening_words:
+                    lines.append('- 开头词建议：{}'.format(opening_words))
+                if emotion_words:
+                    lines.append('- 情绪词建议：{}'.format(emotion_words))
+                if action_guide:
+                    lines.append('- 行动引导建议：{}'.format(action_guide))
+                lines.append('')
 
-        # 发布建议
-        if tips:
-            lines.append(f'### 发布建议\n{tips}\n')
+        # 话题标签
+        lines.append('### ④ 话题标签矩阵（Hashtag）')
+        lines.append('')
+        if hashtags and len(hashtags) > 0:
+            lines.append('|| 标签类型 | 标签 | 必须？ |')
+            lines.append('|----------|------|--------|')
+            for tag in hashtags[:8]:
+                lines.append('| {} | {} | ⭐ |'.format('核心标签' if len(tag) < 8 else '长尾标签', tag))
+            lines.append('')
+            lines.append('**完整标签**：' + ' '.join(hashtags[:8]))
+        else:
+            lines.append('**标签生成建议**：')
+            lines.append('- 核心标签：#{}'.format(title[:6] if title else '选题主题'))
+            lines.append('- 长尾标签：根据内容关键词生成3-5个')
+            lines.append('- 地域标签：根据目标用户地域添加')
+            lines.append('- 行业标签：根据行业属性添加')
+        lines.append('')
+
+        # 发布注意事项
+        lines.append('### ⑤ 发布注意事项')
+        lines.append('')
+        lines.append('|| 注意事项 | 说明 |')
+        lines.append('|------------|------|')
+        lines.append('| 发布时间 | 建议在12:00-13:00或20:00-22:00发布 |')
+        lines.append('| 标签数量 | 控制在5-8个，不要堆砌 |')
+        lines.append('| 首评引导 | 发布后5分钟内发首评，引导互动 |')
+        lines.append('| 评论区维护 | 前1小时回复评论，提升热度 |')
+        lines.append('| 数据监测 | 24小时后查看数据，决定是否加热 |')
+        lines.append('')
+
+        # 转化路径
+        lines.append('### ⑥ 转化路径设计')
+        lines.append('')
+        lines.append('**推荐转化路径：**')
+        lines.append('')
+        lines.append('1. 封面/标题吸引点击 → 2. 正文建立信任 → 3. 结尾引导互动 → 4. 评论区私信转化')
+        lines.append('')
+        lines.append('**评论区引导话术：**')
+        lines.append('- "还有什么问题？评论区问我，看到必回！"')
+        lines.append('- "想要[资料/方案]，评论区扣【1】！"')
+        lines.append('- "你们家是什么情况？评论区说说，帮你分析！"')
+        lines.append('')
+
+        # 自定义发布建议
+        if tips and str(tips).strip():
+            lines.append('### ⑦ 发布建议补充')
+            lines.append('')
+            lines.append(str(tips))
+            lines.append('')
 
         return '\n'.join(lines)
 
     def _build_basic_info(self, content: dict) -> str:
-        """构建基础信息区块文本"""
+        """构建基础信息区块文本（生成实际内容）"""
         seo_keywords = content.get('seo_keywords', {})
+        title = content.get('title', '')
+        geo_mode = content.get('geo_mode', '')
 
-        lines = ['## 基础信息\n']
+        lines = []
+        lines.append('> ⚠️ **【强制规格】内容形式：图文 | 比例：9:16竖版 1080×1920px**')
+        lines.append('')
+        lines.append('---')
+        lines.append('')
+        lines.append('## 基本信息')
+        lines.append('')
 
         # SEO关键词
-        if seo_keywords:
+        has_seo = any(seo_keywords.get(k) for k in ('core', 'long_tail', 'scene', 'problem'))
+        if has_seo:
+            lines.append('### ① SEO关键词矩阵')
+            lines.append('')
+            lines.append('|| 关键词类型 | 关键词 | 说明 |')
+            lines.append('|------------|--------|------|')
+
             core = seo_keywords.get('core', [])
             long_tail = seo_keywords.get('long_tail', [])
             scene = seo_keywords.get('scene', [])
             problem = seo_keywords.get('problem', [])
 
-            lines.append('### SEO关键词')
-            lines.append('|| 关键词类型 | 关键词 |')
-            lines.append('|------------|--------|')
             if core:
-                lines.append(f'| 核心词 | {", ".join(core)} |')
+                lines.append('| 核心词 | {} | 搜索量大，竞争高 |'.format('、'.join(core)))
             if long_tail:
-                lines.append(f'| 长尾词 | {", ".join(long_tail)} |')
+                lines.append('| 长尾词 | {} | 精准流量，竞争小 |'.format('、'.join(long_tail)))
             if scene:
-                lines.append(f'| 场景词 | {", ".join(scene)} |')
+                lines.append('| 场景词 | {} | 场景精准，转化高 |'.format('、'.join(scene)))
             if problem:
-                lines.append(f'| 问题词 | {", ".join(problem)} |')
+                lines.append('| 问题词 | {} | 痛点挖掘，蓝海机会 |'.format('、'.join(problem)))
             lines.append('')
+
+        # 内容结构信息
+        lines.append('### ② 内容结构信息')
+        lines.append('')
+        lines.append('|| 信息项 | 内容 |')
+        lines.append('|--------|------|')
+        lines.append('| 内容标题 | {} |'.format(title or '待补充'))
+        lines.append('| GEO模式 | {} |'.format(geo_mode or '待补充'))
+        lines.append('| 关键词密度 | 核心词3-5次/篇，长尾词2-3次/篇 |')
+        lines.append('')
+
+        # 埋词建议
+        lines.append('### ③ 关键词埋入建议')
+        lines.append('')
+        lines.append('**埋入位置（按优先级）：**')
+        lines.append('')
+        lines.append('1. **封面标题** — 必须包含核心关键词')
+        lines.append('2. **首图正文** — 自然融入核心关键词1次')
+        lines.append('3. **中间图片** — 分散埋入长尾关键词')
+        lines.append('4. **末图CTA** — 强化品牌关键词')
+        lines.append('')
 
         return '\n'.join(lines)
 
     def _build_compliance(self) -> str:
         """构建合规检查区块文本"""
-        return '''## 合规检查
-- [x] 无虚假宣传
-- [x] 无绝对化用语
-- [x] 无医疗功效承诺
-- [x] 无侵权内容
-- [x] 符合平台规范'''
+        return '''> ⚠️ **【强制规格】内容形式：图文 | 比例：9:16竖版 1080×1920px**
+
+---
+
+## 合规检查
+
+> 💡 发布前请逐一确认以下检查项
+
+### ① 内容合规检查
+
+|| 检查项 | 状态 | 说明 |
+|------|--------|------|
+| 无虚假宣传 | ✅ 通过 | 所有数据/案例均有来源 |
+| 无绝对化用语 | ✅ 通过 | 避免"最好"、"第一"等绝对词 |
+| 无医疗功效承诺 | ✅ 通过 | 不夸大产品功效 |
+| 无侵权内容 | ✅ 通过 | 图片/字体均为正版授权 |
+| 符合平台规范 | ✅ 通过 | 符合抖音/小红书社区规范 |
+
+### ② 关键词合规检查
+
+|| 检查项 | 状态 | 说明 |
+|------|--------|------|
+| 无违禁词 | ✅ 通过 | 无平台违禁词/敏感词 |
+| 无品牌负面词 | ✅ 通过 | 无竞品负面对比 |
+| 无诱导外链 | ✅ 通过 | 无微信/外链诱导 |
+
+### ③ 发布前最终确认
+
+- [ ] 封面标题是否含核心关键词？
+- [ ] 前3张图是否有强吸引力？
+- [ ] 评论区首评是否准备好？
+- [ ] 标签是否控制在8个以内？
+- [ ] 发布时间是否合适？'''
+
 
     def _slides_to_extension(self, slides: list, geo_mode: str = '') -> str:
-        """将 slides 转换为内容延伸建议"""
+        """将 slides 转换为内容延伸建议（生成实际内容）"""
         if not slides:
             return ''
-        suggestions = ['## 内容延伸建议\n']
 
-        # 从 slides 提取所有 keywords
-        all_keywords = set()
+        lines = []
+        lines.append('> ⚠️ **【强制规格】内容形式：图文 | 比例：9:16竖版 1080×1920px**')
+        lines.append('')
+        lines.append('---')
+        lines.append('')
+        lines.append('## 六、内容延伸建议')
+        lines.append('')
+        lines.append('> 💡 基于已生成内容，延伸以下选题方向')
+        lines.append('')
+
+        # 从 slides 提取关键词
+        all_keywords = []
+        topic_mentions = []
         for slide in slides:
-            keywords = slide.get('keywords', [])
-            for kw in keywords:
-                if kw and len(kw) > 1:
-                    all_keywords.add(kw)
+            kws = slide.get('keywords', [])
+            for kw in kws:
+                if isinstance(kw, dict):
+                    kw_text = kw.get('keyword', kw.get('text', ''))
+                else:
+                    kw_text = kw
+                if kw_text and len(kw_text) > 1:
+                    all_keywords.append(kw_text)
 
+        # 提取 slides 中的关键主题词
+        for slide in slides:
+            role = slide.get('role', '')
+            main_title = slide.get('main_title', '')
+            big_slogan = slide.get('big_slogan', '')
+            if main_title:
+                topic_mentions.append(main_title)
+            if big_slogan:
+                topic_mentions.append(big_slogan)
+
+        lines.append('### 🔄 延伸选题方向')
+        lines.append('')
+
+        # 延伸选题1：同类型选题
+        if topic_mentions:
+            first_topic = topic_mentions[0]
+            lines.append('**选题A：【同场景延伸】**')
+            lines.append('')
+            lines.append('基于"{}"这一核心主题，延伸以下选题：'.format(first_topic))
+            lines.append('')
+            lines.append('|| 序号 | 延伸选题 | 类型 | 目的 |')
+            lines.append('|------|----------|------|------|')
+            lines.append('| 1 | 【{}的底层逻辑】为什么{}这么多人关注？'.format(first_topic, first_topic[:6]) + ' | 知识科普 | 建立专业 |')
+            lines.append('| 2 | 【{}的常见误区】{}的3个坑，你踩过几个？'.format(first_topic, first_topic[:6]) + ' | 避坑指南 | 互动引发 |')
+            lines.append('| 3 | 【{}实操指南】手把手教你{}的正确方法'.format(first_topic[:6], first_topic[:6]) + ' | 实用攻略 | 收藏转化 |')
+            lines.append('')
+
+        # 延伸选题2：人群细分选题
+        lines.append('**选题B：【人群细分延伸】**')
+        lines.append('')
+        lines.append('|| 序号 | 延伸选题 | 人群 | 类型 |')
+        lines.append('|------|----------|------|------|')
+        lines.append('| 1 | 【新手入门版】第一次接触{}要注意什么？ | 新手用户 | 入门科普 |')
+        lines.append('| 2 | 【进阶版】{}老手都在用的进阶技巧 | 进阶用户 | 干货进阶 |')
+        lines.append('| 3 | 【避坑版】{}最常踩的5个坑，你中了几个？ | 所有用户 | 避坑指南 |')
+        lines.append('')
+
+        # 延伸选题3：关键词延伸
         if all_keywords:
-            suggestions.append(f'### 延伸话题建议\n{", ".join(list(all_keywords)[:5])}\n')
+            unique_kws = list(dict.fromkeys(all_keywords))[:5]
+            lines.append('**选题C：【关键词延伸】**')
+            lines.append('')
+            lines.append('基于已埋入关键词，延伸以下选题：')
+            for kw in unique_kws:
+                lines.append('- **{}**：{}'.format(kw, kw))
+            lines.append('')
 
-        if geo_mode:
-            suggestions.append(f'### 内容方向\n{geo_mode}\n')
+        # 系列化选题方向
+        lines.append('### 📌 系列化选题方向')
+        lines.append('')
+        lines.append('|| 系列类型 | 命名建议 | 示例选题 |')
+        lines.append('|----------|----------|------|')
+        lines.append('| 问题诊断系列 | XX诊断室 | 如何判断XX是否适合你？ |')
+        lines.append('| 实操干货系列 | XX实操手册 | XX正确操作全流程 |')
+        lines.append('| 避坑指南系列 | XX避坑指南 | XX最常见的3个误区 |')
+        lines.append('| 案例故事系列 | XX真实故事 | 一个XX案例的完整经历 |')
+        lines.append('')
 
-        suggestions.append('### 具体延伸选题')
-        suggestions.append('|| 序号 | 延伸选题 | 类型 | 目的 |')
-        suggestions.append('|------|----------|------|------|')
-        suggestions.append('| 1 | 待定 | 知识科普 | 建立专业 |')
-        suggestions.append('| 2 | 待定 | 实用攻略 | 增加互动 |')
-        suggestions.append('')
-        suggestions.append('### 系列化选题方向')
-        suggestions.append('|| 系列类型 | 命名建议 | 示例 |')
-        suggestions.append('|----------|----------|------|')
-        suggestions.append('| 问题解决系列 | XX解读系列 | 分数线/录取/竞争 |')
-        suggestions.append('| 知识科普系列 | XX必看系列 | 各批次/专项计划 |')
-        suggestions.append('| 场景应用系列 | 各分数段策略 | XX分怎么填 |')
-        suggestions.append('')
+        # 内容复用建议
+        lines.append('### 📱 内容复用建议')
+        lines.append('')
+        lines.append('**图文 → 短视频**：将每张图片的要点扩展为15-30秒口播脚本')
+        lines.append('**图文 → 直播素材**：将核心内容整理为直播话术提纲')
+        lines.append('**图文 → 私域素材**：整理为朋友圈/社群图文素材')
+        lines.append('')
 
-        return '\n'.join(suggestions)
+        return '\n'.join(lines)
 
     def _slides_to_body(self, slides: list, content: dict = None) -> str:
         """将 slides 转换为可读的 body 文本"""

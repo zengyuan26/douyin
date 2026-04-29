@@ -546,7 +546,7 @@ def get_portrait_topics(user, portrait_id):
         return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
 
     page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 10))
+    per_page = int(request.args.get('per_page', 5))
     stage_key_filter = request.args.get('stage_key', '')  # 五段式阶段筛选
 
     topic_library = portrait.get('topic_library')

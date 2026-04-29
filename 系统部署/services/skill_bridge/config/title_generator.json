@@ -1,0 +1,185 @@
+{
+  "_comment": "标题生成 Skill 配置 - H-V-F 三段论模型 (来源: title_generator.py)",
+
+  "skill": {
+    "name": "title_generator",
+    "version": "1.0",
+    "display_name": "H-V-F标题生成",
+    "description": "Hook-Value-Format三段论模型生成高点击率标题",
+    "skill_md_path": null
+  },
+
+  "input_schema": {
+    "topic_title": {
+      "type": "string",
+      "required": true,
+      "description": "选题标题"
+    },
+    "portrait": {
+      "type": "object",
+      "description": "用户画像（提取身份/痛点/情绪）"
+    },
+    "keywords": {
+      "type": "object",
+      "description": "关键词库（core/long_tail/scene/problem）"
+    },
+    "geo_mode": {
+      "type": "string",
+      "description": "GEO内容模式"
+    },
+    "industry": {
+      "type": "string",
+      "description": "行业名称（育儿/教育/健康/本地服务）"
+    },
+    "num_variants": {
+      "type": "integer",
+      "default": 4,
+      "description": "生成变体数量"
+    }
+  },
+
+  "steps": [
+
+    {
+      "id": "step_hvf_analysis",
+      "name": "H-V-F要素提取",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【H-V-F要素提取 — 为标题生成准备素材】\n\n请从以下信息中提取H-V-F三段论所需的核心要素。\n\n选题：<<topic_title>>\n行业：<<industry>>\n\n画像信息：\n<<portrait>>\n\n关键词：\n<<keywords>>\n\n请用JSON输出：\n\n```json\n{{\n  \"hook_elements\": {{\n    \"identity_tags\": [\"身份标签1\", \"身份标签2\"],\n    \"pain_triggers\": [\"痛点触发词1\", \"痛点触发词2\"],\n    \"emotion_words\": [\"情绪共鸣词1\", \"情绪词2\"]\n  }},\n  \"value_elements\": {{\n    \"specific_results\": [\"具体结果词1\", \"结果词2\"],\n    \"backing_sources\": [\"背书来源1\", \"背书来源2\"]\n  }},\n  \"format_elements\": {{\n    \"quantity_words\": [\"量化词1\", \"量化词2\"],\n    \"simple_words\": [\"简单化词1\", \"简单化词2\"]\n  }},\n  \"core_subject\": \"标题核心主体（如'早产儿喂养'）\",\n  \"core_action\": \"核心动作词（如'怎么喂/吃什么/怎么办'）\"\n}}\n```",
+      "output_field": "hvf_elements",
+      "output_schema": {
+        "hook_elements": {
+          "type": "object",
+          "properties": {
+            "identity_tags": {"type": "array", "items": "string"},
+            "pain_triggers": {"type": "array", "items": "string"},
+            "emotion_words": {"type": "array", "items": "string"}
+          }
+        },
+        "value_elements": {
+          "type": "object",
+          "properties": {
+            "specific_results": {"type": "array", "items": "string"},
+            "backing_sources": {"type": "array", "items": "string"}
+          }
+        },
+        "format_elements": {
+          "type": "object",
+          "properties": {
+            "quantity_words": {"type": "array", "items": "string"},
+            "simple_words": {"type": "array", "items": "string"}
+          }
+        },
+        "core_subject": {"type": "string"},
+        "core_action": {"type": "string"}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_title_generate",
+      "name": "多模式标题生成",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【H-V-F标题生成 — 四种模式各生成1个】\n\n请严格按H-V-F三段论，为以下选题生成4个标题（模式A/B/C/D各1个）。\n\n选题：<<topic_title>>\n行业：<<industry>>\nGEO模式：<<geo_mode>>\n\nH-V-F要素：\n<<step_hvf_analysis>>\n\n=== H-V-F三段论规则 ===\n\n**H-Hook（钩子）**：解决\"与我有关\"\n- 身份标签：{identity_tags}\n- 痛点触发：{pain_triggers}\n- 情绪共鸣：{emotion_words}\n\n**V-Value（价值）**：解决\"看完能得什么\"\n- 具体结果：{specific_results}\n- 背书力量：{backing_sources}\n\n**F-Format（形式）**：解决\"看起来累不累\"\n- 量化词：{quantity_words}\n- 简单化：{simple_words}\n\n=== 四种标题模式 ===\n\n**模式A-干货攻略型**：痛点+Hook量化+结果\n模板：[核心痛点]？[怎么办]？[量化词]！\n示例：早产儿喂养难题？拉肚子怎么办？7张图全讲清了！\n适合：知识科普、选购指南、疑问揭秘型\n\n**模式B-情绪共鸣型**：身份+情绪词+转折结果\n模板：[身份标签]必看：从[负面情绪]到[正面结果]！\n示例：新手妈妈必看：从崩溃到轻松，我只用了这一招！\n适合：经历分享、经验总结、用户证言型\n\n**模式C-权威数据型**：权威背书+核心痛点+承诺\n模板：[权威来源]：做好[核心痛点]这几点，[正面结果]！\n示例：卫健委建议：早产儿喂养做好这几点，宝宝追赶生长！\n适合：知识科普、专家建议、行业揭秘型\n\n**模式D-结果反转型**：惊人结果+认知颠覆\n模板：[正面结果]！原来一直[做错了]...\n示例：宝宝终于长肉了！原来一直喂错了...\n适合：案例分享、对比冲击、效果证明型\n\n=== 输出格式 ===\n\n```json\n{{\n  \"titles\": [\n    {{\n      \"pattern\": \"A\",\n      \"main_title\": \"主标题（≤15字，必须戳心）\",\n      \"subtitle\": \"副标题（≤15字）\",\n      \"big_slogan\": \"大字金句（≤15字，口语化）\",\n      \"hook_type\": \"identity/pain_point/emotion\",\n      \"value_type\": \"result/backing\",\n      \"format_type\": \"quantity/simple\",\n      \"hvf_score\": {{\n        \"hook\": 0-10,\n        \"value\": 0-10,\n        \"format\": 0-10\n      }},\n      \"hook_coverage\": \"覆盖的Hook元素描述\",\n      \"value_coverage\": \"覆盖的Value元素描述\",\n      \"format_coverage\": \"覆盖的Format元素描述\"\n    }}\n  ]\n}}\n```\n\n请严格JSON输出。",
+      "output_field": "titles",
+      "output_schema": {
+        "titles": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": {"type": "string"},
+              "main_title": {"type": "string", "maxLength": 15},
+              "subtitle": {"type": "string", "maxLength": 15},
+              "big_slogan": {"type": "string", "maxLength": 15},
+              "hook_type": {"type": "string"},
+              "value_type": {"type": "string"},
+              "format_type": {"type": "string"},
+              "hvf_score": {
+                "type": "object",
+                "properties": {
+                  "hook": {"type": "integer", "minimum": 0, "maximum": 10},
+                  "value": {"type": "integer", "minimum": 0, "maximum": 10},
+                  "format": {"type": "integer", "minimum": 0, "maximum": 10}
+                }
+              },
+              "hook_coverage": {"type": "string"},
+              "value_coverage": {"type": "string"},
+              "format_coverage": {"type": "string"}
+            }
+          }
+        }
+      },
+      "data_providers": ["step_hvf_analysis"]
+    },
+
+    {
+      "id": "step_title_review",
+      "name": "标题质量审核",
+      "order": 3,
+      "required": false,
+      "llm_prompt_template": "【标题质量审核 — H-V-F覆盖率 + 心理学风险检测】\n\n请审核以下标题的质量和风险。\n\n选题：<<topic_title>>\n\n已生成标题：\n<<step_title_generate>>\n\n=== 审核维度 ===\n\n**H-V-F覆盖率评分**（每项10分，总分30）：\n- Hook覆盖：标题是否包含身份/痛点/情绪？\n- Value覆盖：标题是否包含结果/背书？\n- Format覆盖：标题是否包含量化/简单化提示？\n\n**心理学风险检测**：\n1. 过度承诺：使用了\"100%\"\"保证\"\"绝对\"等绝对化用语？\n2. 标题党：过于夸张、耸人听闻？\n3. 无效标题：没有传递任何有用信息？\n4. 平台违规：是否可能触发平台限流？\n\n请输出JSON：\n\n```json\n{{\n  \"title_reviews\": [\n    {{\n      \"pattern\": \"标题模式\",\n      \"main_title\": \"标题文本\",\n      \"hvf_coverage\": {{\n        \"hook_score\": 0-10,\n        \"value_score\": 0-10,\n        \"format_score\": 0-10,\n        \"total_score\": 0-30\n      }},\n      \"psychology_risks\": [\"风险1\", \"风险2\"],\n      \"risk_level\": \"高/中/低/无\",\n      \"pass_review\": true或false,\n      \"suggestions\": \"优化建议\"\n    }}\n  ],\n  \"best_title\": \"最佳标题\",\n  \"overall_assessment\": \"整体评估\"\n}}\n```",
+      "output_field": "title_review",
+      "output_schema": {
+        "title_reviews": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": {"type": "string"},
+              "main_title": {"type": "string"},
+              "hvf_coverage": {
+                "type": "object",
+                "properties": {
+                  "hook_score": {"type": "integer"},
+                  "value_score": {"type": "integer"},
+                  "format_score": {"type": "integer"},
+                  "total_score": {"type": "integer"}
+                }
+              },
+              "psychology_risks": {"type": "array", "items": "string"},
+              "risk_level": {"type": "string"},
+              "pass_review": {"type": "boolean"},
+              "suggestions": {"type": "string"}
+            }
+          }
+        },
+        "best_title": {"type": "string"},
+        "overall_assessment": {"type": "string"}
+      },
+      "data_providers": ["step_title_generate"]
+    }
+
+  ],
+
+  "constraints": {
+    "title_rules": {
+      "main_title_max_length": 15,
+      "subtitle_max_length": 15,
+      "big_slogan_max_length": 15,
+      "min_hvf_total_score": 15,
+      "required_hook_type": "至少包含identity/pain_point/emotion之一"
+    },
+    "pattern_rules": {
+      "A": {"name": "干货攻略型", "requires_pain_point": true, "requires_format": true},
+      "B": {"name": "情绪共鸣型", "requires_identity": true, "requires_emotion": true},
+      "C": {"name": "权威数据型", "requires_backing": true, "requires_result": true},
+      "D": {"name": "结果反转型", "requires_emotion": true, "requires_result": true}
+    }
+  },
+
+  "data_flow": {
+    "outputs": {
+      "step_title_generate": {
+        "titles": {"target": "content_generator", "field": "content_context.generated_titles"},
+        "_best_title": {"target": "content_generator", "field": "content_context.best_title"}
+      },
+      "step_title_review": {
+        "best_title": {"target": "content_generator", "field": "content_context.reviewed_best_title"},
+        "title_reviews": {"target": "content_generator", "field": "content_context.title_reviews"}
+      }
+    }
+  }
+}

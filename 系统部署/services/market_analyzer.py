@@ -87,6 +87,8 @@ class ProblemType:
     description: str             # 问题类型描述
     keywords: List[str]          # 问题类型关键词
     scenes: List[Dict] = field(default_factory=list)  # 问题场景列表（每个场景生成一个画像），格式：[{name, description}]
+    target_audience: str = ""   # 该问题类型对应的细分人群（用于画像生成，粒度比 opportunity.target_audience 更细）
+    category: str = ""            # 问题大类：付费者问题（宝爸宝妈顾虑）/ 使用者问题（宝宝症状）
 
 
 @dataclass
@@ -199,6 +201,19 @@ class MarketAnalyzer:
 
             # 解析市场机会
             raw_opportunities = data.get('market_opportunities', [])
+
+            # 调试日志：打印每个机会的 problem_types 数量和 category 分布
+            for i, opp in enumerate(raw_opportunities):
+                pts = opp.get('problem_types') or []
+                cats = {}
+                for pt in pts:
+                    c = pt.get('category', '') or '(空)'
+                    cats[c] = cats.get(c, 0) + 1
+                logger.info(
+                    f"[MarketAnalyzer] 机会{i+1}「{opp.get('opportunity_name','')}」"
+                    f"problem_types={len(pts)}个 | category分布: {cats} | "
+                    f"names: {[pt.get('name','') for pt in pts]}"
+                )
 
             # Phase 2: 搜索增强验证（如果启用）
             search_verification = None
@@ -353,12 +368,15 @@ class MarketAnalyzer:
 
                 # 将搜索验证数据合并回原始 opportunities（避免 to_dict 覆盖原始字段如 logic_chain）
                 for i, opp in enumerate(opportunities):
+                    orig_pt = opp.get('problem_types', [])  # 保留原始问题类型
                     if i < len(search_candidates):
                         sv = search_candidates[i]
                         opp['confidence'] = sv.get('final_confidence', opp.get('confidence', 0.8))
                         opp['final_verdict'] = sv.get('final_verdict', '')
                         opp['search_evidence'] = sv.get('search_evidence', [])
                         opp['verification_data'] = sv.get('verification_data', {})
+                        if orig_pt:
+                            opp['problem_types'] = orig_pt  # 恢复原始 problem_types（to_dict 可能会丢失 category）
 
                 return opportunities
 
@@ -421,11 +439,11 @@ class MarketAnalyzer:
                 for pt_data in opp_data.get('problem_types', []):
                     if isinstance(pt_data, dict):
                         opp.problem_types.append(ProblemType(
-                            type_name=pt_data.get('type_name', ''),
+                            name=pt_data.get('type_name', '') or pt_data.get('name', ''),
                             description=pt_data.get('description', ''),
                             target_audience=pt_data.get('target_audience', ''),
                             keywords=pt_data.get('keywords', []),
-                            scene_keywords=pt_data.get('scene_keywords', []),
+                            category=pt_data.get('category', ''),
                         ))
                 result.market_opportunities.append(opp)
 
@@ -513,9 +531,22 @@ class MarketAnalyzer:
 4. **differentiation**：一句话差异化说明
 5. **target_audience**：细分人群描述（如"XX情况但不知怎么选的30-40岁XX"）
 6. **pain_points**：该人群的2-4个真实痛点
-7. **problem_types**：问题类型+场景，每个机会1-3个问题类型
-   - 问题类型：该人群遇到的具体问题大类（如"担心XX"、"不知道怎么选XX"）
-   - 场景：该问题下的具体症状/情境（如"XX情况但不知道怎么解决"）
+7. **problem_types**：问题类型+场景（用于生成画像）
+
+   **强制分类要求**：每个机会必须同时包含"使用者问题"和"付费者问题"，缺一不可：
+   - 使用者问题：每个机会至少 3 个（产品/服务的直接使用者遇到的问题，如症状、不适、效果不好）
+   - 付费者问题：每个机会至少 3 个（购买者/决策者的顾虑，如真假顾虑、价格顾虑、选择困难）
+   - 每个问题类型下 2-4 个场景（用户真实搜索句）
+   - 例如：使用者问题3个 + 付费者问题3个 = 该机会共6个问题类型
+
+   **name 命名规则**：
+   - 使用者问题格式：{{问题类型}}-{{具体表现}}（如"肠道问题-拉肚子"、"过敏问题-皮肤红疹"）
+   - 付费者问题格式：{{顾虑类型}}-{{顾虑内容}}（如"真假担忧-怕买到假货"、"价格担忧-怕买贵"）
+   - 禁止写抽象情绪词（如"担心"、"害怕"、"纠结"）
+
+   **target_audience**：该问题类型对应的细分人群（如"怀疑买到假货的宝爸宝妈"、"过敏体质的宝宝家长"）
+
+   **scenes**：用户会搜索的**完整搜索句**，数量2-4个，禁止多个症状合并为一条
 
 === 输出格式 ===
 ```json
@@ -530,10 +561,40 @@ class MarketAnalyzer:
             "pain_points": ["痛点1", "痛点2"],
             "problem_types": [
                 {{
-                    "name": "担心/不知/不会+具体问题",
+                    "category": "使用者问题",
+                    "name": "肠道不适-拉肚子",
+                    "target_audience": "宝宝喝奶粉后出现肠道问题的家长",
                     "scenes": [
-                        {{"name": "具体症状情境"}},
-                        {{"name": "第二个具体症状"}}
+                        {{"name": "宝宝喝奶粉拉肚子怎么办"}},
+                        {{"name": "换奶粉后拉肚子"}},
+                        {{"name": "乳糖不耐受喝什么奶粉"}}
+                    ]
+                }},
+                {{
+                    "category": "使用者问题",
+                    "name": "过敏反应-皮肤红疹",
+                    "target_audience": "对奶粉过敏的宝宝家长",
+                    "scenes": [
+                        {{"name": "奶粉过敏症状"}},
+                        {{"name": "水解奶粉推荐"}}
+                    ]
+                }},
+                {{
+                    "category": "付费者问题",
+                    "name": "真假顾虑-怕买到假货",
+                    "target_audience": "担心货源真伪的宝爸宝妈",
+                    "scenes": [
+                        {{"name": "进口奶粉真假辨别"}},
+                        {{"name": "哪里买奶粉是正品"}}
+                    ]
+                }},
+                {{
+                    "category": "付费者问题",
+                    "name": "价格顾虑-怕买贵",
+                    "target_audience": "在意性价比的宝爸宝妈",
+                    "scenes": [
+                        {{"name": "进口奶粉多少钱一罐"}},
+                        {{"name": "哪里买奶粉便宜"}}
                     ]
                 }}
             ]
@@ -541,7 +602,7 @@ class MarketAnalyzer:
     ]
 }}
 ```
-**禁止复制上述示例格式**，必须基于输入业务「{business_desc}」真实生成。
+**禁止复制上述示例格式**，必须基于输入业务「{business_desc}」真实生成。每个机会的问题类型必须同时包含"使用者问题"和"付费者问题"，不得遗漏。
 
 请开始分析："""
 
@@ -603,6 +664,8 @@ class MarketAnalyzer:
                         description=pt_data.get('description', ''),
                         keywords=pt_data.get('keywords', []),
                         scenes=scenes,
+                        target_audience=pt_data.get('target_audience', ''),
+                        category=pt_data.get('category', ''),
                     ))
 
             result.market_opportunities.append(MarketOpportunity(
@@ -618,6 +681,17 @@ class MarketAnalyzer:
                 logic_chain=opp.get('logic_chain', ''),
                 problem_types=problem_types,
             ))
+
+        # 调试日志：打印每个机会的问题类型数量和 category 分布
+        for i, o in enumerate(result.market_opportunities):
+            cats = {}
+            for pt in o.problem_types:
+                c = pt.category or '(空)'
+                cats[c] = cats.get(c, 0) + 1
+            logger.info(
+                f"[MarketAnalyzer] 机会{i+1}「{o.opportunity_name}」problem_types="
+                f"{len(o.problem_types)}个 | category分布: {cats}"
+            )
 
         # 解析关键词库
         result.keyword_library = data.get('keyword_library', {})

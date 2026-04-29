@@ -1,0 +1,282 @@
+{
+  "_comment": "长文内容生成 Skill 配置 v3 - 融合社交媒体长图文内容设计方法论（4维度：情绪动线+视觉一致性+信息层级+高转化排版）",
+
+  "skill": {
+    "name": "long_text_generator",
+    "version": "3.0",
+    "display_name": "长文内容生成",
+    "description": "基于选题、用户画像、品牌上下文，生成高收录、高阅读深度的公众号/知乎长文。融合4维度设计方法论（情绪动线+视觉一致性+信息层级架构+高转化排版模板），支持8种长文结构，每种配备完整SEO和阅读体验优化。",
+    "skill_md_path": ".cursor/skill/geo-seo/skill.md",
+    "input_source": "from_topic_library_and_portrait_and_brand"
+  },
+
+  "input_schema": {
+    "topic_id": {"type": "string", "required": true, "description": "选题ID"},
+    "topic_title": {"type": "string", "required": true, "description": "选题标题"},
+    "topic_type": {"type": "string", "required": true, "description": "选题类型名称"},
+    "topic_type_key": {"type": "string", "description": "选题类型键"},
+    "business_description": {"type": "string", "required": true, "description": "业务描述"},
+    "business_range": {"type": "string", "description": "经营范围"},
+    "business_type": {"type": "string", "description": "业务类型"},
+    "portrait": {"type": "object", "description": "目标用户画像"},
+    "brand_context": {"type": "object", "description": "品牌上下文"},
+    "keyword_library": {"type": "object", "description": "关键词库"},
+    "selected_scene": {"type": "object", "description": "选中的场景组合"},
+    "content_style": {"type": "string", "description": "内容风格"},
+    "template_id": {"type": "string", "description": "指定模板ID"}
+  },
+
+  "steps": [
+    {
+      "id": "step_geo_mode_match",
+      "name": "GEO模式匹配与模板推荐",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【GEO模式匹配 + 长文模板推荐 + 4维度方法论选择】\n\n请根据选题信息，先匹配GEO内容模式，再从8种长文模板中推荐最合适的一种，最后推荐4维度设计方法论的适用组合。\n\n选题标题：<<topic_title>>\n选题类型键：<<topic_type_key>>\n场景组合：<<selected_scene>>\n指定模板ID：<<template_id>>\n\n【GEO模式匹配规则】\n- pain_point/decision_encourage/compare/cause/price -> 问题-答案模式\n- pitfall/rethink -> 金句-论证模式\n- tutorial/upstream -> 定义-解释模式\n- skill -> 框架-工具模式\n- seasonal/festival -> 清单体模式\n- emotional/effect_proof -> 案例-故事模式\n- 标题含对比/比较/错误/误区 -> 对比-纠错模式\n- 标题含排行/榜单/推荐 -> 榜单体模式\n\n【长文模板推荐矩阵】\nGEO模式 | 推荐模板ID | 推荐模板名 | 理由\n问题-答案模式 | solution_guide | 解决方案型 | 系统化解决问题\n金句-论证模式 | buying_guide | 选购指南型 | 决策全流程指导\n定义-解释模式 | knowledge_article | 知识科普型 | 专业深度讲解\n框架-工具模式 | cause_analysis | 原因分析型 | 深度剖析原因\n清单体模式 | buying_guide | 选购指南型 | 结构化清单\n案例-故事模式 | experience_share | 经验分享型 | 个人经历复盘\n对比-纠错模式 | deep_review | 深度测评型 | 多维对比测评\n榜单体模式 | data_insight | 数据解读型 | 数据支撑榜单\n\n【8种长文模板速查】\n1. knowledge_article - 知识科普型：引言导入->核心概念->原理解释->实际应用->案例分析->总结建议（2000-3000字，5-8分钟）\n2. cause_analysis - 原因分析型：现象描述->表层原因->深层原因->影响因素->案例验证->对策建议（2500-3500字，6-9分钟）\n3. industry_reveal - 行业揭秘型：行业背景->潜规则揭秘->内幕真相->消费者误区->正确认知->选择建议（3000-4000字，8-10分钟）\n4. deep_review - 深度测评型：测评背景->测评维度->产品A分析->产品B分析->多维对比->综合结论（3000-4000字，8-10分钟）\n5. experience_share - 经验分享型：背景介绍->经历描述->踩坑分享->转折突破->经验总结->行动建议（2000-3000字，5-8分钟）\n6. data_insight - 数据解读型：数据来源->数据概览->关键发现->深度解读->趋势预测->应用建议（2500-3500字，6-9分钟）\n7. buying_guide - 选购指南型：选购背景->关键指标->常见误区->选购步骤->产品推荐->避坑清单（3000-4000字，8-10分钟）\n8. solution_guide - 解决方案型：问题描述->问题分析->方案设计->实施步骤->效果预期->持续优化（2500-3500字，6-9分钟）\n\n【4维度设计方法论推荐（社交媒体长图文专用）】\n\n本系统生成的内容需遵循以下4维度设计方法论，请根据选题自动推荐最优维度组合：\n\n维度一：情绪动线逻辑（Emotional Narrative Flow）\n- 章节级情绪曲线：开篇(P1 期待/代入) -> 痛点(P2 共情/焦虑) -> 获得感(P3-P5 专业/坚定) -> 升华(P6 温暖/安心) -> 转化(P7 信任/行动)\n- 每章节需标注 emotion_phase（期待/共情/专业/释然/温暖/行动）\n- 每章节必须有 open_hook（一句话钩子，让读者滑下去）\n\n维度二：视觉资产一致性（Visual Identity Consistency）\n- light_style: High-key lighting（柔和自然光），营造洁净安全感\n- color_gradient: 痛点页用冷色调(灰蓝/冷灰)，方案页用暖色调(米色/肤色/淡橘)，闭环页用品牌色强调\n- 必须锁定统一的视觉风格描述字段 visual_identity\n\n维度三：信息层级架构（Information Architecture）\n- 1个大字金句（≤15字，口语化，有情绪感）\n- 3个信息模块（每章节≤3块，防止认知负载）\n- 5秒阅读闭环（通过大标题+图标+加粗引导视线）\n- ui_components：必须标注每章使用的UI组件（勾选框/时间轴/对比图/气泡框/数字徽章）\n\n维度四：高转化排版模板（Conversion-Oriented Layouts）\n- billboard：封面版式（中心人物大图+左侧/顶部超大文字块，含身份标签+数据背书+利益点）\n- problem_solver：痛点对比版式（左侧展示现状/错误，右侧展示理想/正确，大量使用❌和✅）\n- matrix：干货矩阵版式（两栏或三栏，图标+短标题+极简描述，大留白呼吸感）\n- trust_builder：品牌收尾版式（产品手册/样机展示+清晰CTA按钮）\n\n【4维度推荐矩阵】\n| 选题类型 | 情绪动线重点 | 推荐排版 | 推荐色调 |\n| 痛点共鸣型 | 共情->专业 | problem_solver | 冷->暖 |\n| 疑问揭秘型 | 期待->共情->行动 | billboard | 品牌色主导 |\n| 知识科普型 | 专业->温暖 | matrix | 暖色为主 |\n| 避坑指南型 | 共情->坚定->行动 | problem_solver | 冷色(痛点)->暖色(方案) |\n| 案例故事型 | 期待->共情->温暖->行动 | trust_builder | 品牌色主导 |\n| 数据说话型 | 专业->坚定 | matrix | 中性色+品牌强调 |\n\n请输出以下JSON（不含其他内容）：\n{\n  \"geo_mode\": \"GEO模式名称\",\n  \"recommended_template_id\": \"推荐的结构ID\",\n  \"recommended_template_name\": \"推荐的结构名称\",\n  \"structure_sections\": [\"章节标题列表\"],\n  \"word_count_range\": \"预估字数范围\",\n  \"reading_time\": \"预估阅读时间\",\n  \"match_reason\": \"匹配原因\",\n  \"four_dimension_guide\": {\n    \"emotion_flow\": {\n      \"recommended_phases\": [\"期待\", \"共情\", \"专业\", \"释然\", \"温暖\", \"行动\"],\n      \"emotion_curve_description\": \"情绪曲线描述（如：期待->共情->坚定->温暖->行动）\"\n    },\n    \"visual_identity\": {\n      \"light_style\": \"High-key lighting（柔和自然光）\",\n      \"color_gradient_strategy\": \"冷色调（痛点页）->暖色调（方案页）->品牌色（闭环页）\",\n      \"primary_colors\": [\"主色如#FFF5EE至#FFDAB9\"],\n      \"accent_colors\": [\"强调色如品牌色\"]\n    },\n    \"information_architecture\": {\n      \"golden_quote_per_section\": true,\n      \"modules_per_section\": \"3个信息模块\",\n      \"ui_components_required\": [\"勾选框\", \"图标\", \"数字徽章\", \"时间轴\", \"对比图\", \"气泡框\"],\n      \"text_limit_per_section\": \"≤80字\"\n    },\n    \"recommended_layout\": \"billboard | problem_solver | matrix | trust_builder\",\n    \"layout_reason\": \"排版选择原因\"\n  }\n}",
+      "output_field": "geo_mode_match",
+      "output_schema": {
+        "geo_mode": {"type": "string"},
+        "recommended_template_id": {"type": "string"},
+        "recommended_template_name": {"type": "string"},
+        "structure_sections": {"type": "array", "items": {"type": "string"}},
+        "word_count_range": {"type": "string"},
+        "reading_time": {"type": "string"},
+        "match_reason": {"type": "string"},
+        "four_dimension_guide": {
+          "type": "object",
+          "properties": {
+            "emotion_flow": {
+              "type": "object",
+              "properties": {
+                "recommended_phases": {"type": "array", "items": {"type": "string"}},
+                "emotion_curve_description": {"type": "string"}
+              }
+            },
+            "visual_identity": {
+              "type": "object",
+              "properties": {
+                "light_style": {"type": "string"},
+                "color_gradient_strategy": {"type": "string"},
+                "primary_colors": {"type": "array", "items": {"type": "string"}},
+                "accent_colors": {"type": "array", "items": {"type": "string"}}
+              }
+            },
+            "information_architecture": {
+              "type": "object",
+              "properties": {
+                "golden_quote_per_section": {"type": "boolean"},
+                "modules_per_section": {"type": "string"},
+                "ui_components_required": {"type": "array", "items": {"type": "string"}},
+                "text_limit_per_section": {"type": "string"}
+              }
+            },
+            "recommended_layout": {"type": "string"},
+            "layout_reason": {"type": "string"}
+          }
+        }
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_generate_content",
+      "name": "生成长文内容",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【长文内容生成 v3 - 融合社交媒体4维度设计方法论】\n\n请严格按照所选模板和4维度设计方法论生成长文内容。\n\n=== 选题信息 ===\n选题标题：<<topic_title>>\n选题类型：<<topic_type>>\n选题ID：<<topic_id>>\n\n=== 业务信息 ===\n业务描述：<<business_description>>\n经营范围：<<business_range>>\n业务类型：<<business_type>>\n\n=== 目标用户画像 ===\n<<portrait>>\n\n=== 品牌上下文 ===\n<<brand_context>>\n\n=== 关键词库 ===\n<<keyword_library>>\n\n=== GEO模式 + 4维度方法论 ===\n<<geo_mode_match>>\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【重要】文章正文 vs 制作参考必须严格分离\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n本次生成的长文是\"知乎/公众号风格\"——核心是纯段落文字，配图仅供参考。\n4维度信息是\"设计师制作参考\"，不是\"读者阅读内容\"。\n\n每个章节(section)必须同时输出两组内容：\n\n1. **【article_content】纯文章正文（供读者阅读）**\n   - 纯段落文字，流畅自然，知乎/公众号风格\n   - 口语化、有深度、不含任何设计元信息（颜色标签、排版类型、金句色块等）\n   - 每章节 300-500 字\n   - 可以用引用格式（> 开头）写章节引言\n\n2. **【design_reference】制作参考（供设计师使用）**\n   - emotion_phase: 当前章节的情绪阶段（期待/共情/专业/释然/温暖/行动）\n   - layout_type: 排版类型（billboard封面/problem_solver对比/matrix矩阵/trust_builder品牌）\n   - color_tone: 色调（cold冷色/warm暖色/brand品牌色）\n   - ui_components: UI组件列表（勾选框/图标/数字徽章/时间轴/对比图/气泡框）\n   - golden_quote_block: {text, bg_color} 金句文字≤15字+背景色\n   - visual_style: 画面风格描述（柔和自然光等）\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【维度一：情绪动线逻辑】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n全文情绪必须严格遵循以下7步曲线（每章节对应一个情绪节点）：\n\n- P1 Hook（吸引）：期待/好奇，解决\"这是什么？对我有什么用？\"\n- P2 共情（Empathy）：焦虑/痛点，挖掘用户最扎心的场景，建立\"你是懂我的\"信任感\n- P3-P5 获得感（Value）：坚定/专业，拆解解决方案，逻辑清晰（A/B/C路径）\n- P6 升华（Refinement）：温暖/安心，从具体技巧上升到人文关怀\n- P7 转化（Action）：信任/期待，将前面所有情绪转化为对品牌的认可\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【维度二：视觉资产一致性】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n长文配图的视觉约束：\n\n- light_style: High-key lighting（柔和自然光），避免硬阴影，营造洁净安全感\n- color_gradient:\n  * 痛点章节：增加冷色调（灰蓝#6B7280、冷灰#9CA3AF）或降低饱和度\n  * 方案章节：恢复暖色调（米色#FFF5EE、肤色#FFE4C4、淡橘#FFDAB9）\n  * 闭环章节：使用品牌色作为强调色\n- color_tone_per_section: 每章节必须标注 cold/warm/brand\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【维度三：信息层级架构】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n每章节必须遵循\"1-3-5\"原则（用于制作参考，不写入正文）：\n- 1个大字金句（≤15字，口语化，有情绪感）\n- 3个信息模块（每章节≤3块，防止认知负载）\n- 5秒阅读闭环（通过大标题+图标+加粗引导视线）\n\nUI组件化（用于制作参考）：\n- 勾选框（Checklist）：用于清单/步骤\n- 图标（Icon）：用于分类/强调\n- 数字徽章（Badge）：用于排名/数据\n- 时间轴（Timeline）：用于流程/阶段\n- 对比图（Comparison）：用于A/B对比\n- 气泡框（Bubble）：用于引用/观点\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【维度四：高转化排版模板】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n根据选题类型选择排版（用于制作参考）：\n\n1. billboard（封面版式）：疑问揭秘型、知识科普型\n   - 结构：中心/右侧人物大图 + 左侧/顶部超大文字块\n   - 必须包含：身份标签+数据背书+利益点\n\n2. problem_solver（痛点对比版式）：痛点共鸣型、避坑指南型\n   - 结构：左侧\"现状/错误\"，右侧\"理想/正确\"\n   - 大量使用❌和✅符号\n\n3. matrix（干货矩阵版式）：知识科普型、数据说话型\n   - 结构：两栏或三栏，图标+短标题+极简描述，大留白呼吸感\n\n4. trust_builder（品牌收尾版式）：案例故事型、经验总结型\n   - 结构：产品手册/样机展示 + 清晰CTA按钮\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【核心内容质量要求】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1. 开篇直接性：前3行必须直接给出核心结论/答案，禁止任何寒暄铺垫\n2. 信任证据：必须包含至少3条具体数据、案例或权威引用\n3. 行动号召(CTA)：结尾必须有唯一、明确的下一步行动\n4. 禁止抽象词：空洞词/抽象词/模糊词禁止使用\n\n请输出以下JSON（不含其他内容）：\n{\n  \"structure\": \"模板ID\",\n  \"structure_name\": \"模板名称\",\n  \"geo_mode\": \"GEO模式名称\",\n  \"title\": \"文章标题（公众号风格，<=30字，必须含核心关键词）\",\n  \"subtitle\": \"文章副标题（<=20字，含长尾关键词）\",\n  \"reading_time\": \"预估阅读时间\",\n  \"word_count_estimate\": \"预估字数\",\n  \"opening_hooks\": \"开篇3行（必须直接给出核心价值或反常识结论，禁止寒暄）\",\n  \"trust_evidence\": [\n    {\"type\": \"data | case | quote\", \"content\": \"具体数据或案例内容\", \"source\": \"来源\"}\n  ],\n  \"cta\": \"文末唯一行动号召（<=50字）\",\n  \"sections\": [\n    {\n      \"section_index\": 1,\n      \"section_name\": \"章节名称（如：什么是XX / XX的3个真相）\",\n      \"word_count\": \"本章预估字数\",\n      \"article_content\": \"纯文章正文（300-500字，知乎/公众号风格，口语化有深度，不含任何设计元信息）\",\n      \"open_hook\": \"章节引言（1-2句，引用格式，可作为正文开头的一部分）\",\n      \"keywords\": [\"关键词1\", \"关键词2\"],\n      \"key_data\": \"本章核心数据或案例\",\n      \"design_reference\": {\n        \"emotion_phase\": \"期待 | 共情 | 专业 | 释然 | 温暖 | 行动\",\n        \"layout_type\": \"billboard | problem_solver | matrix | trust_builder\",\n        \"color_tone\": \"cold | warm | brand\",\n        \"ui_components\": [\"勾选框\", \"图标\", \"数字徽章\", \"时间轴\", \"对比图\", \"气泡框\"],\n        \"golden_quote_block\": {\n          \"text\": \"大字金句（≤15字，口语化，有情绪感）\",\n          \"bg_color\": \"背景色，如#FFE4C4（暖色）或#E5E7EB（冷色）或品牌色\"\n        },\n        \"information_modules\": [\"信息模块1\", \"信息模块2\", \"信息模块3\"],\n        \"visual_style\": \"画面风格描述（适合配图参考，如：柔和自然光、家庭厨房场景等）\"\n      },\n      \"image_prompt\": \"生图提示词（如不需要配图则为空字符串）。格式：主体描述 + 场景细节 + 光影（High-key lighting，柔和自然光）+ 色调（暖色/冷色/品牌色）+ 不要出现的元素。如：一张温馨的厨房场景，中年女性正在蒸香肠，蒸汽袅袅，自然柔和的光线，暖色调，背景是整洁的灶台，不要出现文字、水印、变形的人脸。\"\n    }\n  ],\n  \"summary\": \"全文核心要点总结（100字内，关键词高密度）\",\n  \"seo_keywords\": {\n    \"core\": [\"核心关键词\"],\n    \"long_tail\": [\"长尾关键词\"],\n    \"scene\": [\"场景词\"],\n    \"problem\": [\"问题词\"]\n  },\n  \"hashtags\": [\"#话题1\", \"#话题2\"],\n  \"first_comment\": \"首评引导内容（能引发互动）\",\n  \"publish_strategy\": \"发布建议（时间+平台适配+注意事项）\",\n  \"visual_identity\": {\n    \"light_style\": \"High-key lighting（柔和自然光）\",\n    \"color_gradient_strategy\": \"冷色调（痛点章节）->暖色调（方案章节）->品牌色（闭环章节）\",\n    \"primary_colors\": [\"主色调，如#FFF5EE至#FFDAB9\"],\n    \"accent_colors\": [\"强调色，如品牌色\"]\n  },\n  \"four_dimension_summary\": {\n    \"emotion_flow\": \"情绪曲线描述，如：P1期待->P2共情->P3-P5专业->P6温暖->P7行动\",\n    \"layout_usage\": \"排版使用情况，如：封面用billboard，痛点章节用problem_solver，干货章节用matrix，闭环章节用trust_builder\"\n  }\n}",
+      "output_field": "content",
+      "output_schema": {
+        "structure": {"type": "string"},
+        "structure_name": {"type": "string"},
+        "geo_mode": {"type": "string"},
+        "title": {"type": "string"},
+        "subtitle": {"type": "string"},
+        "reading_time": {"type": "string"},
+        "word_count_estimate": {"type": "string"},
+        "opening_hooks": {"type": "string"},
+        "trust_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {"type": "string"},
+              "content": {"type": "string"},
+              "source": {"type": "string"}
+            }
+          }
+        },
+        "cta": {"type": "string"},
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "section_index": {"type": "integer"},
+              "section_name": {"type": "string"},
+              "word_count": {"type": "string"},
+              "article_content": {"type": "string", "description": "纯文章正文（知乎/公众号风格，不含设计元信息）"},
+              "open_hook": {"type": "string"},
+              "keywords": {"type": "array", "items": {"type": "string"}},
+              "key_data": {"type": "string"},
+              "design_reference": {
+                "type": "object",
+                "properties": {
+                  "emotion_phase": {"type": "string"},
+                  "layout_type": {"type": "string"},
+                  "color_tone": {"type": "string"},
+                  "ui_components": {"type": "array", "items": {"type": "string"}},
+                  "golden_quote_block": {
+                    "type": "object",
+                    "properties": {
+                      "text": {"type": "string"},
+                      "bg_color": {"type": "string"}
+                    }
+                  },
+                  "information_modules": {"type": "array", "items": {"type": "string"}},
+                  "visual_style": {"type": "string"}
+                }
+              },
+              "image_prompt": {"type": "string", "description": "生图提示词（如不需要配图则为空字符串）"}
+            }
+          }
+        },
+        "summary": {"type": "string"},
+        "seo_keywords": {
+          "type": "object",
+          "properties": {
+            "core": {"type": "array", "items": {"type": "string"}},
+            "long_tail": {"type": "array", "items": {"type": "string"}},
+            "scene": {"type": "array", "items": {"type": "string"}},
+            "problem": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "hashtags": {"type": "array", "items": {"type": "string"}},
+        "first_comment": {"type": "string"},
+        "publish_strategy": {"type": "string"},
+        "visual_identity": {
+          "type": "object",
+          "properties": {
+            "light_style": {"type": "string"},
+            "color_gradient_strategy": {"type": "string"},
+            "primary_colors": {"type": "array", "items": {"type": "string"}},
+            "accent_colors": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "four_dimension_summary": {
+          "type": "object",
+          "properties": {
+            "emotion_flow": {"type": "string"},
+            "layout_usage": {"type": "string"}
+          }
+        }
+      },
+      "data_providers": ["step_geo_mode_match"]
+    },
+
+    {
+      "id": "step_quality_validate",
+      "name": "长文质量自检",
+      "order": 3,
+      "required": false,
+      "llm_prompt_template": "【长文内容质量自检 v3 - 19维度评分（10项内容质量+5项阅读体验+4项4维度方法论）】\n\n请对已生成的长文进行质量自检，按以下19个维度评分（每项10分，总分190分，折算100分输出）。\n\n【内容质量维度（10项 x 10分）】\n1. 开篇钩子（10分）：开篇前3行是否直接给出核心价值或反常识结论？禁止寒暄铺垫\n2. 信任证据密度（10分）：是否包含至少3条具体数据/案例/权威引用，每条必须有具体数字\n3. CTA明确性（10分）：文末是否有唯一、明确的下一步行动\n4. GEO模式契合度（10分）：是否严格按所选模板结构生成\n5. 标题吸引力（10分）：标题是否戳心、<=30字、包含核心关键词\n6. SEO关键词埋入（10分）：核心关键词是否出现在标题、章节首段、结尾总结中\n7. 情绪递进（10分）：情绪是否按期待->共情->专业->温暖->行动的曲线自然过渡\n8. 结构完整性（10分）：所选模板的每个章节是否完整\n9. 口语化程度（10分）：文案是否口语化但有深度\n10. 禁止词合规（10分）：是否出现禁止抽象词\n\n【阅读体验维度（5项 x 10分）】\n11. 章节节奏（10分）：每章节是否控制在400-600字？章节之间是否有open_hook钩子？\n12. 滑动深度优化（10分）：每个章节开头是否有引导句让读者滑下去？\n13. 数据可视化（10分）：核心数据是否加粗或使用引用格式？是否有key_data字段？\n14. 关键词密度（10分）：核心关键词在各章节中自然分布，不堆砌也不遗漏\n15. SEO首段优化（10分）：每个章节首段前100字是否包含关键词？\n\n【4维度方法论契合度（4项 x 10分）】\n16. 情绪动线（10分）：全文是否严格遵循7步情绪曲线（P1吸引/P2共情/P3-P5获得感/P6升华/P7转化）？每个章节是否标注了emotion_phase？\n17. 视觉一致性（10分）：是否锁定了light_style（High-key lighting）？color_tone是否在痛点页用冷色、方案页用暖色、闭环页用品牌色？\n18. 信息层级（10分）：每章节是否包含golden_quote_block（大字金句≤15字+背景色块）？是否标注了ui_components？是否遵循\"1-3-5\"原则（1个金句+3个模块+5秒闭环）？\n19. 高转化排版（10分）：排版类型（layout_type）是否与选题类型匹配？是否正确使用4种排版模板（billboard/problem_solver/matrix/trust_builder）？\n\n已生成长文：\n<<step_generate_content>>\n\n请输出以下JSON（不含其他内容）：\n{\n  \"quality_score\": 折算总分（满分100，实际=19项总分/1.9向下取整），\n  \"raw_total\": 原始19项总分，\n  \"dimension_scores\": {\n    \"opening_hook\": {\"score\": 分数, \"passed\": true或false},\n    \"trust_evidence\": {\"score\": 分数, \"passed\": true或false},\n    \"cta_clarity\": {\"score\": 分数, \"passed\": true或false},\n    \"geo_fit\": {\"score\": 分数, \"passed\": true或false},\n    \"title_attraction\": {\"score\": 分数, \"passed\": true或false},\n    \"seo_keyword_embedding\": {\"score\": 分数, \"passed\": true或false},\n    \"emotion_progression\": {\"score\": 分数, \"passed\": true或false},\n    \"structure_completeness\": {\"score\": 分数, \"passed\": true或false},\n    \"spoken_style\": {\"score\": 分数, \"passed\": true或false},\n    \"prohibited_words\": {\"score\": 分数, \"passed\": true或false},\n    \"reading_pacing\": {\"score\": 分数, \"passed\": true或false},\n    \"scroll_depth\": {\"score\": 分数, \"passed\": true或false},\n    \"data_visualization\": {\"score\": 分数, \"passed\": true或false},\n    \"keyword_density\": {\"score\": 分数, \"passed\": true或false},\n    \"seo_first_paragraph\": {\"score\": 分数, \"passed\": true或false},\n    \"emotion_flow\": {\"score\": 分数, \"passed\": true或false},\n    \"visual_consistency\": {\"score\": 分数, \"passed\": true或false},\n    \"information_hierarchy\": {\"score\": 分数, \"passed\": true或false},\n    \"conversion_layout\": {\"score\": 分数, \"passed\": true或false}\n  },\n  \"failed_dimensions\": [\"未通过维度1\", \"未通过维度2\"],\n  \"improvement_suggestions\": [\"改进建议1\", \"建议2\"]\n}",
+      "output_field": "quality_validation",
+      "output_schema": {
+        "quality_score": {"type": "integer"},
+        "raw_total": {"type": "integer"},
+        "dimension_scores": {"type": "object"},
+        "failed_dimensions": {"type": "array", "items": {"type": "string"}},
+        "improvement_suggestions": {"type": "array", "items": {"type": "string"}}
+      },
+      "data_providers": ["step_generate_content"]
+    },
+
+    {
+      "id": "step_final_output",
+      "name": "最终长文输出",
+      "order": 4,
+      "required": false,
+      "llm_prompt_template": "【最终长文内容输出 - 整合所有区块】（此步骤可跳过，内容以step_generate_content为准）\n\n请整合已生成的长文，输出最终完整内容包。\n\nGEO+模板+4维度方法论推荐：\n<<step_geo_mode_match>>\n\n已生成长文（包含4维度设计）：\n<<step_generate_content>>\n\n质量自检（参考）：\n<<step_quality_validate>>\n\n请输出以下JSON（不含其他内容）：\n{\n  \"content_id\": \"内容ID（topic_id + timestamp）\",\n  \"topic_id\": \"<<topic_id>>\",\n  \"topic_title\": \"<<topic_title>>\",\n  \"topic_type\": \"<<topic_type>>\",\n  \"geo_mode\": \"GEO模式名称\",\n  \"structure\": \"模板ID\",\n  \"structure_name\": \"模板名称\",\n  \"basic\": {\n    \"title\": \"文章标题\",\n    \"subtitle\": \"文章副标题\",\n    \"reading_time\": \"预估阅读时间\",\n    \"word_count_estimate\": \"预估字数\",\n    \"opening_hooks\": \"开篇钩子\",\n    \"cta\": \"唯一行动号召\"\n  },\n  \"sections\": [\"完整sections数组（每章节含emotion_phase/layout_type/color_tone/ui_components/golden_quote_block/information_modules）\"],\n  \"reading_report\": {\n    \"emotion_flow\": \"情绪曲线描述（如：P1期待->P2共情->P3-P5专业->P6温暖->P7行动）\",\n    \"word_count_distribution\": \"各章节字数分布统计\",\n    \"keyword_coverage\": \"关键词覆盖率统计\",\n    \"layout_usage\": \"排版使用情况（如：封面billboard，痛点problem_solver，干货matrix，闭环trust_builder）\",\n    \"color_gradient\": \"色调递进（如：冷色->暖色->品牌色）\"\n  },\n  \"trust_evidence\": [\"信任证据列表\"],\n  \"summary\": \"全文核心要点总结\",\n  \"seo_keywords\": {\"core\": [], \"long_tail\": [], \"scene\": [], \"problem\": []},\n  \"hashtags\": [\"话题标签列表\"],\n  \"first_comment\": \"首评引导内容\",\n  \"publish_strategy\": \"发布策略（时间+平台适配）\",\n  \"quality_score\": \"质量自检总分\",\n  \"grade\": \"A/B/C/D（90+/80+/70+/60+）\",\n  \"visual_identity\": {\n    \"light_style\": \"High-key lighting（柔和自然光）\",\n    \"color_gradient_strategy\": \"冷色调（痛点章节）->暖色调（方案章节）->品牌色（闭环章节）\",\n    \"primary_colors\": [\"主色调如#FFF5EE至#FFDAB9\"],\n    \"accent_colors\": [\"强调色如品牌色\"]\n  },\n  \"four_dimension_summary\": {\n    \"emotion_flow\": \"情绪曲线描述\",\n    \"layout_usage\": \"排版使用情况\"\n  }\n}",
+      "output_field": "final_output",
+      "output_schema": {
+        "content_id": {"type": "string"},
+        "topic_id": {"type": "string"},
+        "topic_title": {"type": "string"},
+        "topic_type": {"type": "string"},
+        "geo_mode": {"type": "string"},
+        "structure": {"type": "string"},
+        "structure_name": {"type": "string"},
+        "basic": {"type": "object"},
+        "sections": {"type": "array"},
+        "reading_report": {"type": "object"},
+        "trust_evidence": {"type": "array"},
+        "summary": {"type": "string"},
+        "seo_keywords": {"type": "object"},
+        "hashtags": {"type": "array"},
+        "first_comment": {"type": "string"},
+        "publish_strategy": {"type": "string"},
+        "quality_score": {"type": "integer"},
+        "grade": {"type": "string"}
+      },
+      "data_providers": ["step_geo_mode_match", "step_generate_content", "step_quality_validate"]
+    }
+  ],
+
+  "constraints": {
+    "content_rules": {
+      "title_max_length": 30,
+      "subtitle_max_length": 20,
+      "trust_evidence_min": 3,
+      "opening_directness": true,
+      "cta_required": true,
+      "sections_min": 4,
+      "sections_max": 8,
+      "section_word_count_range": "400-600字",
+      "open_hook_required_per_section": true,
+      "key_data_required_per_section": true
+    },
+    "structure_rules": {
+      "must_match_template": true,
+      "emotion_progression": ["期待/代入", "心酸/共鸣", "坚定/专业", "感动/释然", "温暖/行动"],
+      "no_abstract_words": true,
+      "template_enum": [
+        "knowledge_article", "cause_analysis", "industry_reveal",
+        "deep_review", "experience_share", "data_insight",
+        "buying_guide", "solution_guide"
+      ]
+    },
+    "reading_experience_rules": {
+      "chapter_length": "每章节400-600字，防止阅读疲劳",
+      "scroll_depth_optimization": {
+        "open_hook": "每章节开头必须有引导句",
+        "data_visualization": "核心数据必须加粗或引用格式",
+        "keyword_placement": "核心关键词在各章节首段前100字内出现",
+        "reading_rhythm": "每800字插入视觉分隔"
+      },
+      "platform_adaptations": {
+        "公众号": "可嵌入更多排版元素",
+        "知乎": "侧重知识深度，引用块和加粗更关键",
+        "头条": "侧重前3屏吸引力，开篇钩子更重要",
+        "小红书": "侧重情感共鸣和视觉引导"
+      }
+    }
+  },
+
+  "data_flow": {
+    "outputs": {
+      "step_generate_content": {
+        "_comment": "内容以step_generate_content为唯一可信来源",
+        "sections": {"target": "content_data", "field": "sections"},
+        "title": {"target": "content_data", "field": "title"},
+        "structure_name": {"target": "content_data", "field": "structure_name"},
+        "trust_evidence": {"target": "content_data", "field": "trust_evidence"},
+        "cta": {"target": "content_data", "field": "cta"}
+      },
+      "step_quality_validate": {
+        "_comment": "评分以step_quality_validate为唯一可信来源",
+        "quality_score": {"target": "quality_report", "field": "total_score"},
+        "dimension_scores": {"target": "quality_report", "field": "items"},
+        "failed_dimensions": {"target": "quality_report", "field": "failed_items"}
+      }
+    }
+  }
+}

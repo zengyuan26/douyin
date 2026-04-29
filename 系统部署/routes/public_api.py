@@ -2288,8 +2288,10 @@ def api_generate_content_from_topic():
         # ══ 场景自动轮换：同选题同内容类型时自动换场景（所有内容类型共用）══
         topic_id_str = params.get('topic_id', '') or ''
         content_type = params.get('content_type', 'graphic')
+        content_style = params.get('content_style', '')
         raw_scene = params.get('selected_scene')  # 前端传来的第一个场景
         effective_scene = raw_scene  # 默认用前端指定的场景
+        portrait_id_val = params.get('portrait_id')
 
         if topic_id_str and user:
             # 查询该选题 + 内容类型的历史生成记录
@@ -2311,7 +2313,6 @@ def api_generate_content_from_topic():
 
                 if used_scene_keys:
                     # 从选题库获取完整 scene_options
-                    portrait_id_val = params.get('portrait_id')
                     scene_options = []
                     if portrait_id_val:
                         portrait = _SavedPortrait.query.filter_by(
@@ -2340,92 +2341,253 @@ def api_generate_content_from_topic():
                     logger.info(f"[SceneRotation] topic={topic_id_str} type={content_type} "
                                 f"used={used_scene_keys} next={effective_scene}")
 
-        # 获取内容类型和风格参数
-        content_style = params.get('content_style', '')
+            qs_int = 0
+            bridge_data = {}
+            keyword_library = params.get('keyword_library', {}) or {}
 
-        # 根据内容类型调用不同的生成器
-        if content_type == 'short_video':
-            # 短视频脚本生成
-            from services.video_script_generator import VideoScriptGenerator
-            video_gen = VideoScriptGenerator()
-            result = video_gen.generate_content(
-                topic_title=params.get('topic_title', ''),
-                topic_type=params.get('topic_type', ''),
-                business_description=params.get('business_description', ''),
-                portrait=params.get('portrait', {}),
-                content_style=content_style,
-            )
-            result_type = 'short_video'
-        elif content_type == 'long_text':
-            # 长文生成
-            from services.long_text_generator import LongTextGenerator
-            longtext_gen = LongTextGenerator()
-            result = longtext_gen.generate_content(
-                topic_title=params.get('topic_title', ''),
-                topic_type=params.get('topic_type', ''),
-                business_description=params.get('business_description', ''),
-                portrait=params.get('portrait', {}),
-                content_style=content_style,
-            )
-            result_type = 'long_text'
-        else:
-            # 图文生成（默认）
-            generator = TopicContentGenerator()
-            logger.info(f"[GEO调试] selected_scene: {effective_scene}")
-            result = generator.generate_content(
-                topic_id=params.get('topic_id', ''),
-                topic_title=params.get('topic_title', ''),
-                topic_type=params.get('topic_type', ''),
-                topic_type_key=params.get('topic_type_key', ''),
-                business_description=params.get('business_description', ''),
-                business_range=params.get('business_range', ''),
-                business_type=params.get('business_type', ''),
-                portrait=params.get('portrait', {}),
-                is_premium=is_premium,
-                premium_plan=user.premium_plan if user else 'free',
-                content_style=content_style,
-                selected_scene=effective_scene,
-            )
-            result_type = 'graphic'
-
-        if result.get('success'):
-            # ═══════════════════════════════════════════════════════════════
-            # 内容质量评分（首次评分，不优化）
-            # ═══════════════════════════════════════════════════════════════
-            content = result.get('content', '')
-            brand_name = params.get('portrait', {}).get('brand_name', '') or params.get('business_description', '')[:10]
-            business_desc = params.get('business_description', '')
-
-            # 首次评分（content 可能是 str 或 dict）
-            from services.content_quality_scorer import content_scorer
-            if isinstance(content, str):
-                score_result = content_scorer.score_text(
-                    content, brand_name,
-                    content_type=result_type,
-                    business_type=params.get('business_type', 'local_service')
+            # 根据内容类型调用不同的生成器
+            if content_type == 'short_video':
+                # 短视频脚本生成 —— SkillBridge v2
+                from services.skill_bridge import SkillBridge
+                bridge = SkillBridge()
+                bridge_result = bridge.execute_video_script_generator(
+                    topic_id=params.get('topic_id', ''),
+                    topic_title=params.get('topic_title', ''),
+                    topic_type=params.get('topic_type', ''),
+                    topic_type_key=params.get('topic_type_key', ''),
+                    business_description=params.get('business_description', ''),
+                    business_range=params.get('business_range', ''),
+                    business_type=params.get('business_type', ''),
+                    portrait=params.get('portrait', {}),
+                    keyword_library=keyword_library,
+                    selected_scene=effective_scene,
+                    content_style=content_style,
+                    brand_context=params.get('brand_context'),
                 )
-            else:
-                score_result = content_scorer.score(content, brand_name)
-            first_score = score_result.total_score
 
-            quality_report = {
-                'total_score': first_score,
-                'grade': score_result.grade,
-                'grade_label': score_result.grade_label,
-                'passed': score_result.passed,
-                'optimized': False,
-                'first_score': first_score,
-                'final_score': first_score,
-                'optimized_items': [],
-                'items': content_scorer.to_dict(score_result)['items'],
-                'summary': score_result.summary,
-                'suggestions': score_result.suggestions,
-                'failed_items': [item.name for item in score_result.failed_items] if hasattr(score_result, 'failed_items') else [],
-                'need_optimize': not score_result.passed,
+                if not bridge_result.success:
+                    return jsonify({
+                        'success': False,
+                        'message': f"短视频脚本生成失败: {bridge_result.errors[0] if bridge_result.errors else '未知错误'}"
+                    }), 500
+
+                fo = bridge_result.full_output
+                bridge_data = _build_video_script_data_from_bridge(fo)
+
+                # H-V-F 标题生成 + 金字塔标签
+                (
+                    extracted_title,
+                    extracted_tags,
+                    extracted_geo,
+                    hvf_titles_output,
+                    pyramid_tags_output,
+                    hvf_report,
+                    pyramid_tags_report,
+                ) = _apply_hvf_and_tags(
+                    result={'success': True, 'content': bridge_data['content_data']},
+                    params=params,
+                    result_type='short_video',
+                    content_result=bridge_data['content_data'],
+                )
+
+                if extracted_title:
+                    bridge_data['content_data']['title'] = extracted_title
+                if extracted_tags:
+                    bridge_data['content_data']['tags'] = extracted_tags
+
+                qs_int = bridge_data['quality_score']
+                quality_report = bridge_data['quality_report']
+                content = _build_video_script_text(bridge_data['content_data'])
+                result_type = 'short_video'
+
+            elif content_type == 'long_text':
+                # 长文生成 —— SkillBridge v2
+                from services.skill_bridge import SkillBridge
+                bridge = SkillBridge()
+                bridge_result = bridge.execute_long_text_generator(
+                    topic_id=params.get('topic_id', ''),
+                    topic_title=params.get('topic_title', ''),
+                    topic_type=params.get('topic_type', ''),
+                    topic_type_key=params.get('topic_type_key', ''),
+                    business_description=params.get('business_description', ''),
+                    business_range=params.get('business_range', ''),
+                    business_type=params.get('business_type', ''),
+                    portrait=params.get('portrait', {}),
+                    keyword_library=keyword_library,
+                    selected_scene=effective_scene,
+                    content_style=content_style,
+                    brand_context=params.get('brand_context'),
+                )
+
+                if not bridge_result.success:
+                    return jsonify({
+                        'success': False,
+                        'message': f"长文生成失败: {bridge_result.errors[0] if bridge_result.errors else '未知错误'}"
+                    }), 500
+
+                fo = bridge_result.full_output
+                bridge_data = _build_long_text_data_from_bridge(fo)
+
+                # H-V-F 标题生成 + 金字塔标签
+                (
+                    extracted_title,
+                    extracted_tags,
+                    extracted_geo,
+                    hvf_titles_output,
+                    pyramid_tags_output,
+                    hvf_report,
+                    pyramid_tags_report,
+                ) = _apply_hvf_and_tags(
+                    result={'success': True, 'content': bridge_data['content_data']},
+                    params=params,
+                    result_type='long_text',
+                    content_result=bridge_data['content_data'],
+                )
+
+                if extracted_title:
+                    bridge_data['content_data']['title'] = extracted_title
+                if extracted_tags:
+                    bridge_data['content_data']['tags'] = extracted_tags
+
+                qs_int = bridge_data['quality_score']
+                quality_report = bridge_data['quality_report']
+                content = _build_long_text_text(bridge_data['content_data'])
+                result_type = 'long_text'
+
+            else:
+                # 图文生成（默认）—— SkillBridge v2
+                from services.skill_bridge import SkillBridge
+                bridge = SkillBridge()
+                logger.info(f"[GEO调试] selected_scene: {effective_scene}")
+
+                bridge_result = bridge.execute_content_generator(
+                    topic_id=params.get('topic_id', ''),
+                    topic_title=params.get('topic_title', ''),
+                    topic_type=params.get('topic_type', ''),
+                    topic_type_key=params.get('topic_type_key', ''),
+                    business_description=params.get('business_description', ''),
+                    business_range=params.get('business_range', ''),
+                    business_type=params.get('business_type', ''),
+                    portrait=params.get('portrait', {}),
+                    keyword_library=keyword_library,
+                    selected_scene=effective_scene,
+                    content_style=content_style,
+                    brand_context=params.get('brand_context'),
+                )
+
+                if not bridge_result.success:
+                    return jsonify({
+                        'success': False,
+                        'message': f"内容生成失败: {bridge_result.errors[0] if bridge_result.errors else '未知错误'}"
+                    }), 500
+
+                fo = bridge_result.full_output
+                bridge_data = _build_content_data_from_bridge(fo)
+
+                # 图文分支：H-V-F 标题 + 金字塔标签并行调用（复用 bridge 实例）
+                from concurrent.futures import ThreadPoolExecutor
+                raw_content = bridge_data['content_data']
+                seo_kws = raw_content.get('seo_keywords', {}) if isinstance(raw_content, dict) else {}
+                keywords = {
+                    'core': seo_kws.get('core', []),
+                    'long_tail': seo_kws.get('long_tail', []),
+                    'scene': seo_kws.get('scene', []),
+                    'problem': seo_kws.get('problem', []),
+                }
+                portrait = params.get('portrait', {})
+                if not keywords.get('core') and portrait:
+                    portrait_kws = portrait.get('keywords', [])
+                    if isinstance(portrait_kws, list):
+                        keywords['core'] = portrait_kws[:5]
+                # 从 selected_scene 提取 geo_mode 兜底
+                selected_scene = params.get('selected_scene', {})
+                geo_from_scene = ''
+                if selected_scene and isinstance(selected_scene, dict):
+                    geo_from_scene = selected_scene.get('dim_value', '') or selected_scene.get('label', '') or ''
+                    if geo_from_scene and ' - ' in geo_from_scene:
+                        geo_from_scene = geo_from_scene.split(' - ', 1)[0].strip()
+                geo_mode = raw_content.get('geo_mode', '') or params.get('geo_mode', '') or geo_from_scene
+                industry = params.get('industry', '') or params.get('business_type', '')
+
+                def call_title():
+                    return bridge.execute_title_generator(
+                        topic_title=params.get('topic_title', ''),
+                        portrait=portrait,
+                        keywords=keywords,
+                        geo_mode=geo_mode,
+                        industry=industry,
+                        num_variants=4,
+                    )
+
+                def call_tag():
+                    return bridge.execute_tag_generator(
+                        topic_title=params.get('topic_title', ''),
+                        industry=industry,
+                        keywords=keywords,
+                        portrait=portrait,
+                        geo_mode=geo_mode,
+                        max_tags=8,
+                    )
+
+                hvf_titles_output = {}
+                pyramid_tags_output = {}
+                try:
+                    with ThreadPoolExecutor(max_workers=2) as executor:
+                        f_title = executor.submit(call_title)
+                        f_tag = executor.submit(call_tag)
+                        hvf_res = f_title.result(timeout=60)
+                        if hvf_res.success:
+                            hvf_titles_output = hvf_res.full_output
+                        tag_res = f_tag.result(timeout=60)
+                        if tag_res.success:
+                            pyramid_tags_output = tag_res.full_output
+                except Exception as e:
+                    logger.warning(f"[H-V-F] 图文标题/标签生成异常: {e}")
+
+                # 标题以 H-V-F 评分最高者覆盖
+                extracted_title = raw_content.get('title', '') or ''
+                extracted_tags = raw_content.get('tags', []) or []
+                extracted_geo = raw_content.get('geo_mode', '') or ''
+                if hvf_titles_output:
+                    titles_data = hvf_titles_output.get('titles', []) or hvf_titles_output.get('step_title_generate', {}).get('titles', [])
+                    def _title_score(t):
+                        s = t.get('hvf_score', {})
+                        total = s.get('total', 0)
+                        if total:
+                            return total
+                        if isinstance(s, dict):
+                            return s.get('hook', 0) + s.get('value', 0) + s.get('format', 0)
+                        return 0
+                    best_title_obj = max(titles_data, key=_title_score, default=None)
+                    if best_title_obj and best_title_obj.get('main_title'):
+                        extracted_title = best_title_obj['main_title']
+                if pyramid_tags_output:
+                    tags_data = pyramid_tags_output.get('hashtags', []) or pyramid_tags_output.get('step_tag_generate', {}).get('hashtags', [])
+                    if tags_data:
+                        extracted_tags = tags_data[:8]
+
+                bridge_data['content_data']['title'] = extracted_title
+                bridge_data['content_data']['tags'] = extracted_tags
+
+                qs_int = bridge_data['quality_score']
+                quality_report = bridge_data['quality_report']
+                content = _build_content_text(bridge_data['content_data'])
+                result_type = 'graphic'
+                hvf_report = _build_hvf_report(hvf_titles_output) if hvf_titles_output else {}
+                pyramid_tags_report = _build_pyramid_tags(pyramid_tags_output) if pyramid_tags_output else {}
+
+            result = {
+                'success': True,
+                'content': content,
+                'geo_report': bridge_data['geo_report'],
+                'geo_score': qs_int,
+                '_skill_bridge_output': fo,
+                '_hvf_titles': hvf_titles_output,
+                '_pyramid_tags': pyramid_tags_output,
             }
 
             # ═══════════════════════════════════════════════════════════════
-            # 后续逻辑保持不变...
+            # 内容质量评分（由 SkillBridge 内部 step_quality_validate 完成）
             # ═══════════════════════════════════════════════════════════════
             topic_id_str = params.get('topic_id', '') or None
             portrait_id_val = params.get('portrait_id')
@@ -2476,19 +2638,8 @@ def api_generate_content_from_topic():
                 except Exception as e:
                     logger.warning('创建/查找 link 失败: %s', e)
 
-            # ── 从 content 中提取标题（兼容图文和长文两种结构）──
-            # 图文内容：title 在 content 顶层
-            # 长文内容：title 在 content.article 中，body 为 markdown 文本
-            raw_content = result.get('content') if isinstance(result.get('content'), dict) else {}
-            if isinstance(raw_content, dict):
-                extracted_title = raw_content.get('title', '') or (raw_content.get('article', {}) or {}).get('title', '') or ''
-                # 长文的标签在 article.hashtags
-                extracted_tags = raw_content.get('tags', []) or (raw_content.get('article', {}) or {}).get('hashtags', []) or []
-                extracted_geo = raw_content.get('geo_mode', '')
-            else:
-                extracted_title = ''
-                extracted_tags = []
-                extracted_geo = ''
+            # ── raw_content 统一从 bridge_data 提取 ──
+            raw_content = bridge_data['content_data']
 
             # ── 保存 generation 记录 ──
             generation = PublicGeneration(
@@ -2498,7 +2649,13 @@ def api_generate_content_from_topic():
                 content_type=result_type,
                 titles=[extracted_title],
                 tags=extracted_tags,
-                content_data=raw_content,
+                content_data={
+                    **(raw_content or {}),
+                    '_hvf_report': _build_hvf_report(hvf_titles_output) if hvf_titles_output else {},
+                    '_pyramid_tags_report': _build_pyramid_tags(pyramid_tags_output) if pyramid_tags_output else {},
+                    '_hvf_titles': hvf_titles_output or {},
+                    '_pyramid_tags': pyramid_tags_output or {},
+                },
                 used_tokens=result.get('tokens_used', 0),
                 topic_id=topic_id_str,
                 portrait_id=portrait_id_val,
@@ -2509,7 +2666,7 @@ def api_generate_content_from_topic():
                 parent_version_id=parent_version_id,
                 geo_mode_used=extracted_geo,
                 content_style=content_style,
-                quality_score=quality_report.get('final_score', 0) if quality_report else 0,
+                quality_score=qs_int,
                 quality_report=quality_report if quality_report else None,
             )
             db.session.add(generation)
@@ -2556,6 +2713,14 @@ def api_generate_content_from_topic():
                 'version_number': result_version,
                 'quality_report': quality_report,
                 'content': content,
+                # H-V-F 标题报告
+                'hvf_report': _build_hvf_report(hvf_titles_output) if hvf_titles_output else {},
+                # 金字塔标签报告
+                'pyramid_tags': _build_pyramid_tags(pyramid_tags_output) if pyramid_tags_output else {},
+                # 提取的最佳标题（来自 H-V-F）
+                'title': extracted_title,
+                # 提取的标签（来自金字塔）
+                'tags': extracted_tags,
             })
         else:
             return jsonify({
@@ -2623,9 +2788,10 @@ def api_content_detail(generation_id):
         return jsonify({'success': False, 'message': '无权访问'}), 403
 
     # 调试日志：对比 raw SQL 和已知数据
+    raw_cd = raw_result.get('content_data') or {}
     logger.info(f"[ContentDetail] generation_id={generation_id}, raw quality_score={raw_result.get('quality_score')}, "
                 f"raw quality_report type={type(raw_result.get('quality_report')).__name__ if raw_result.get('quality_report') else None}, "
-                f"raw content_data keys={list((raw_result.get('content_data') or {}).keys()) if raw_result.get('content_data') else None}")
+                f"raw content_data keys={list(raw_cd.keys())}")
 
     # link 信息（使用 raw SQL 结果）
     link_info = None
@@ -3616,7 +3782,6 @@ def api_super_position_analyze():
         for o in analysis_result.market_opportunities:
             opp_dict = {
                 'opportunity_name': o.opportunity_name,
-                'business_direction': getattr(o, 'business_direction', ''),
                 'target_audience': o.target_audience,
                 'pain_points': o.pain_points,
                 'keywords': o.keywords,
@@ -3635,21 +3800,40 @@ def api_super_position_analyze():
                     'description': pt.description,
                     'keywords': pt.keywords,
                     'scenes': pt.scenes,  # 已是 List[Dict]
+                    'target_audience': getattr(pt, 'target_audience', ''),
+                    'category': getattr(pt, 'category', ''),
                 }
                 problem_types_for_opp.append(pt_dict)
 
             opp_dict['problem_types'] = problem_types_for_opp
             market_opportunities.append(opp_dict)
 
-        # 构建画像生成上下文
-        # 一键分析：使用 market_opportunities 中第一个机会生成画像
-        selected = market_opportunities[0] if market_opportunities else {}
+        # ── 合并所有蓝海机会的问题类型并去重 ────────────────────────
+        # 修复：之前只用第一个机会，现在用所有机会
+        all_problem_types = []   # 全量（含重复，用于画像生成）
+        unique_problem_types = []  # 去重（用于前端展示）
+        seen_pt_keys = set()  # (name, category) 去重键
+
+        for opp_dict in market_opportunities:
+            for pt in opp_dict.get('problem_types', []):
+                all_problem_types.append(pt)
+                key = (pt.get('name', ''), pt.get('category', ''))
+                if key not in seen_pt_keys:
+                    seen_pt_keys.add(key)
+                    unique_problem_types.append(pt)
+
+        # 构建画像生成上下文 — 使用所有机会的问题类型
         context = PortraitGenerationContext(
             keyword_library=keyword_library,
             problem_types=[],  # 已合并到 selected_opportunity 中
             business_info=business_info,
             market_opportunities=market_opportunities,
-            selected_opportunity=selected,  # 使用第一个机会
+            selected_opportunity={},  # 清空，使用 all_problem_types
+            problem_scenes=[
+                {'scene_name': scene['name'], '_problem_type_name': pt['name'], '_category': pt.get('category', '')}
+                for pt in all_problem_types
+                for scene in pt.get('scenes', [])
+            ],  # 所有机会的所有场景
             portraits_per_type=portraits_per_type,
         )
 
@@ -3689,7 +3873,8 @@ def api_super_position_analyze():
 
         logger.info(
             f"[api_super_position_analyze] 分析完成: "
-            f"问题类型={len(problem_types)}, 画像={len(portraits_data)}, "
+            f"蓝海机会={len(market_opportunities)}, 唯一问题类型={len(unique_problem_types)}, "
+            f"全量问题类型(含重复)={len(all_problem_types)}, 画像={len(portraits_data)}, "
             f"蓝海词={blue_ocean_count}, 红海词={red_ocean_count}"
         )
 
@@ -3707,7 +3892,7 @@ def api_super_position_analyze():
                     },
                 },
                 'keyword_library': keyword_library,
-                'problem_types': problem_types,
+                'problem_types': unique_problem_types,  # 修复：返回从所有蓝海机会提取并去重的问题类型
                 'portraits': portraits_data,
                 'portraits_by_type': portraits_by_type,
             }
@@ -3719,6 +3904,1380 @@ def api_super_position_analyze():
             'success': False,
             'message': f'分析异常: {str(e)}'
         }), 500
+
+
+# =============================================================================
+# Skill Bridge 结果适配器
+# 将 SkillBridge 的 JSON 配置驱动输出，适配成旧 Service 的返回格式，
+# 确保前端拿到的是完全一致的数据结构，实现无感知切换。
+# =============================================================================
+
+def _adapt_market_analyzer_result(bridge_result) -> dict:
+    """
+    将 SkillBridge execute_market_analyzer 的结果适配成旧 MarketAnalyzer.analyze() 的格式。
+    SkillBridge 输出：{step1_industry_overview, step2_blue_ocean, step3_audience_segment, ...}
+    旧 API 期望：{market_opportunities, subdivision_insights, keyword_stats}
+    """
+    fo = bridge_result.full_output
+    opportunities = []
+    keyword_stats = {}
+
+    # step2_blue_ocean → market_opportunities
+    step2 = fo.get('step2_blue_ocean', {})
+    blue_opps = step2.get('blue_ocean_opportunities', [])
+    for i, opp in enumerate(blue_opps):
+        opportunities.append({
+            'opportunity_name': opp.get('direction', f'蓝海机会{i+1}'),
+            'target_audience': opp.get('direction', ''),
+            'pain_points': [],
+            'keywords': [],
+            'content_direction': '',
+            'market_type': 'blue_ocean',
+            'confidence': 0.8,
+            'differentiation': opp.get('why_blue_ocean', ''),
+            'logic_chain': '',
+            'problem_types': [],
+        })
+
+    # step3_audience_segment → subdivision_insights
+    step3 = fo.get('step3_audience_segment', {})
+    subdivision_insights = {
+        'paying_user': step3.get('paying_user', {}),
+        'using_user': step3.get('using_user', {}),
+        'paying_equals_using': step3.get('paying_equals_using', True),
+        'audience_priority': step3.get('audience_priority', []),
+        'separation_point': step3.get('separation_point', ''),
+    }
+
+    # step1_industry_overview → keyword_stats
+    step1 = fo.get('step1_industry_overview', {})
+    keyword_stats = {
+        'market_size': step1.get('market_size', ''),
+        'growth_rate': step1.get('growth_rate', ''),
+        'market_structure': step1.get('market_structure', ''),
+        'key_players': step1.get('key_players', []),
+        'seasonal_features': step1.get('seasonal_features', ''),
+        'product_type': step1.get('product_type', ''),
+        'barriers_to_entry': step1.get('barriers_to_entry', ''),
+    }
+
+    return {
+        'market_opportunities': opportunities,
+        'subdivision_insights': subdivision_insights,
+        'keyword_stats': keyword_stats,
+    }
+
+
+def _adapt_keyword_library_result(bridge_result) -> dict:
+    """
+    将 SkillBridge execute_keyword_library 的结果适配成旧 KeywordLibraryGenerator 的格式。
+    SkillBridge 输出：{bc_separation_analysis, b2b_keywords, b2c_keywords, blue_ocean_matrix, ...}
+    旧 API 期望：{keyword_library, problem_types, portrait_keywords, keyword_stats}
+    """
+    fo = bridge_result.full_output
+
+    # 收集所有关键词
+    all_kw = []
+    for step_key in ['bc_separation_analysis', 'b2b_keywords', 'b2c_keywords',
+                     'blue_ocean_matrix', 'upstream_downstream_keywords', 'keyword_library_summary']:
+        step_data = fo.get(step_key, {})
+        if isinstance(step_data, dict):
+            for v in step_data.values():
+                if isinstance(v, list):
+                    all_kw.extend(v)
+        elif isinstance(step_data, list):
+            all_kw.extend(step_data)
+
+    # 适配 keyword_library 格式
+    kw_lib = {
+        'problem_type_keywords': [],
+        'pain_point_keywords': [],
+        'scene_keywords': [],
+        'concern_keywords': [],
+        'direct_demand_keywords': [],
+    }
+
+    blue_matrix = fo.get('blue_ocean_matrix', {})
+    if isinstance(blue_matrix, dict):
+        for layer, kws in blue_matrix.items():
+            if isinstance(kws, list):
+                if layer == 'L1_core':
+                    kw_lib['problem_type_keywords'].extend(kws)
+                elif layer == 'L2_long_tail':
+                    kw_lib['pain_point_keywords'].extend(kws)
+                elif layer == 'L3_regional':
+                    kw_lib['scene_keywords'].extend(kws)
+                elif layer == 'L4_seasonal':
+                    kw_lib['direct_demand_keywords'].extend(kws)
+
+    b2c = fo.get('b2c_keywords', {})
+    if isinstance(b2c, dict):
+        for kws in b2c.values():
+            if isinstance(kws, list):
+                kw_lib['concern_keywords'].extend(kws)
+
+    # keyword_stats
+    summary = fo.get('keyword_library_summary', {})
+    if isinstance(summary, dict):
+        kw_stats = summary.get('summary', {}) if isinstance(summary.get('summary'), dict) else summary
+    else:
+        kw_stats = {}
+
+    keyword_stats = {
+        'total': kw_stats.get('total_count', len(all_kw)),
+        'common': kw_stats.get('b2c_count', 0),
+        'portrait': kw_stats.get('b2b_count', 0),
+        'blue_ocean': len(kw_lib.get('pain_point_keywords', [])),
+        'red_ocean': len(kw_lib.get('problem_type_keywords', [])),
+    }
+
+    return {
+        'keyword_library': kw_lib,
+        'problem_types': [],
+        'portrait_keywords': [],
+        'keyword_stats': keyword_stats,
+    }
+
+
+def _build_geo_report(bridge_full_output: dict) -> dict:
+    """
+    将 SkillBridge content_generator 的输出适配成旧 quality_report 格式。
+    注意：full_output 的 key 是 step_id（如 step_final_output），不是字段名。
+    根据日志，quality_score 和 grade 在 step_final_output 中。
+    """
+    # quality_score 和 grade 来自 step_final_output
+    step_final = bridge_full_output.get('step_final_output', {})
+    # 处理 LLM 有时多包一层 {"final_output": {...}}，或降级返回 list
+    if isinstance(step_final, list):
+        step_final = {}
+    elif isinstance(step_final, dict) and 'final_output' in step_final and len(step_final) == 1:
+        step_final = step_final['final_output']
+    if not isinstance(step_final, dict):
+        step_final = {}
+    quality_score_raw = step_final.get('quality_score', 0)
+    try:
+        quality_score = int(float(quality_score_raw)) if quality_score_raw else 0
+    except (ValueError, TypeError):
+        quality_score = 0
+
+    grade = step_final.get('grade', 'D')
+    if quality_score >= 90:
+        grade = 'A'
+    elif quality_score >= 80:
+        grade = 'B'
+    elif quality_score >= 70:
+        grade = 'C'
+    elif quality_score >= 60:
+        grade = 'D'
+    else:
+        grade = 'F'
+
+    # 维度评分项：来自 step_quality_validate
+    items = []
+    failed_items = []
+    qv_wrapper = bridge_full_output.get('step_quality_validate', {})
+    qv = qv_wrapper.get('quality_validation', qv_wrapper) if isinstance(qv_wrapper, dict) else {}
+    ds = qv.get('dimension_scores', {}) if isinstance(qv, dict) else {}
+    for dim, score_info in ds.items():
+        if isinstance(score_info, dict):
+            score_raw = score_info.get('score', 10)
+            try:
+                score_val = int(float(score_raw)) if score_raw else 0
+            except (ValueError, TypeError):
+                score_val = 0
+            passed_raw = score_info.get('passed')
+            if passed_raw is None:
+                passed = score_val >= 8
+            else:
+                passed = bool(passed_raw)
+            items.append({
+                'dimension': dim,
+                'score': score_val,
+                'passed': passed,
+            })
+            if not passed:
+                failed_items.append(dim)
+
+    return {
+        'total_score': quality_score,
+        'grade': grade,
+        'items': items,
+        'failed_items': failed_items,
+        'summary': '',
+    }
+
+
+def _safe_get(data: dict, key: str, default=None):
+    """安全获取嵌套字段，支持 key.key2.key3 格式"""
+    if not isinstance(data, dict):
+        return default
+    parts = key.split('.')
+    val = data
+    for p in parts:
+        if not isinstance(val, dict):
+            return default
+        val = val.get(p)
+    return val if val is not None else default
+
+
+def _build_extension_from_slides(slides: list, geo_mode: str = '') -> str:
+    """
+    根据 slides 数据生成内容延伸建议区块文本。
+    参考 content_generator.py 的 _slides_to_extension 实现。
+    """
+    if not slides:
+        return ''
+
+    lines = []
+    lines.append('## 内容延伸建议')
+    lines.append('')
+    lines.append('### 系列化选题')
+    lines.append('')
+    lines.append('> 可围绕同一主题，从不同角度或不同受众切入，形成系列化内容')
+    lines.append('')
+    lines.append('| 系列名称 | 说明 |')
+    lines.append('| --- | --- |')
+    lines.append('| 入门指南 | 从零开始的基础教程 |')
+    lines.append('| 进阶技巧 | 深入讲解核心知识点 |')
+    lines.append('| 避坑指南 | 常见误区和解决方案 |')
+    lines.append('')
+
+    # 生成延伸选题
+    lines.append('### 延伸选题')
+    lines.append('')
+    lines.append('| 序号 | 类型 | 选题方向 | 目的 |')
+    lines.append('| --- | --- | --- | --- |')
+
+    topics = [
+        (1, '对比型', 'XX vs XX：哪个更适合你？', '帮助选择'),
+        (2, '实操型', '手把手教你XX（详细步骤）', '提升实用性'),
+        (3, '案例型', '真实案例：XX是如何做到的', '增强信任'),
+        (4, '科普型', '关于XX，你可能不知道的事', '拓展认知'),
+    ]
+
+    for seq, t_type, t_title, t_purpose in topics:
+        lines.append(f'| {seq} | {t_type} | {t_title} | {t_purpose} |')
+
+    return '\n'.join(lines)
+
+
+def _build_content_data_from_bridge(fo: dict) -> dict:
+    """
+    重构版内容数据构建器 —— 单一可信来源。
+
+    数据源优先级：
+    1. step_generate_content：核心图文内容（slides, title, tags 等）
+    2. step_quality_validate：质量评分
+    3. step_geo_mode_match：GEO模式信息
+
+    字段名统一映射：
+      - content_plan   ← publish_strategy（来自 step_generate_content）
+      - comment        ← first_comment
+      - publish        ← publish_strategy
+      - first_comment ← first_comment
+
+    不再依赖 step_final_output，因为它的 LLM 输出格式不稳定。
+    """
+    gen = fo.get('step_generate_content', {}) or {}
+    qv = fo.get('step_quality_validate', {}) or {}
+    geo = fo.get('step_geo_mode_match', {}) or {}
+
+    # 质量评分（来自 step_quality_validate）
+    qv_inner = qv.get('quality_validation', {}) if isinstance(qv, dict) else {}
+    if isinstance(qv, dict) and 'quality_validation' not in qv and isinstance(qv, dict):
+        qv_inner = qv  # 直接就是评分对象（降级情况）
+    qs_raw = _safe_get(qv_inner, 'quality_score', 0)
+    try:
+        quality_score = int(float(qs_raw)) if qs_raw else 0
+    except (ValueError, TypeError):
+        quality_score = 0
+
+    # 维度评分项
+    items = []
+    failed_items = []
+    ds = _safe_get(qv_inner, 'dimension_scores', {}) or {}
+    for dim, score_info in (ds.items() if isinstance(ds, dict) else []):
+        if isinstance(score_info, dict):
+            sr = score_info.get('score', 10)
+            try:
+                sv = int(float(sr)) if sr else 0
+            except (ValueError, TypeError):
+                sv = 0
+            pr = score_info.get('passed')
+            passed = bool(pr) if pr is not None else sv >= 8
+            items.append({'dimension': dim, 'score': sv, 'passed': passed})
+            if not passed:
+                failed_items.append(dim)
+
+    # 评分等级
+    grade = 'F'
+    if quality_score >= 90:
+        grade = 'A'
+    elif quality_score >= 80:
+        grade = 'B'
+    elif quality_score >= 70:
+        grade = 'C'
+    elif quality_score >= 60:
+        grade = 'D'
+
+    # 断言：检查数据完整性
+    if not gen:
+        logger.error(f"[ContentData] step_generate_content 输出为空! "
+                     f"full_output keys={list(fo.keys())}, "
+                     f"raw_preview={str(fo)[:300]}")
+    missing = [f for f in ['slides', 'title'] if not gen.get(f)]
+    if missing:
+        logger.warning(f"[ContentData] 数据丢失: {missing}, gen_keys={list(gen.keys())}, "
+                       f"raw_output_preview={str(fo.get('step_generate_content', {}))[:200]}")
+
+    # 副标题（从 gen 取，兼容 subtitle/subtitle_text）
+    subtitle = _safe_get(gen, 'subtitle') or _safe_get(gen, 'subtitle_text') or ''
+
+    # 兜底：字段名变体兼容
+    # LLM 可能返回 main_title / tag_list / content 等变体
+    # 兼容两种格式：1) content 是 dict 列表  2) content 是 JSON 字符串列表
+    content_val = gen.get('content')
+    if not gen.get('slides') and content_val and isinstance(content_val, list):
+        # 尝试解析 content 中的每一项（可能是 JSON 字符串）
+        parsed_slides = []
+        any_parsed = False
+        for item in content_val:
+            if isinstance(item, dict):
+                parsed_slides.append(item)
+                any_parsed = True
+            elif isinstance(item, str):
+                # 尝试将字符串解析为 JSON
+                try:
+                    import json as _json
+                    parsed = _json.loads(item)
+                    if isinstance(parsed, dict):
+                        parsed_slides.append(parsed)
+                        any_parsed = True
+                    else:
+                        # 字符串是有效 JSON 但不是对象，保留原值
+                        parsed_slides.append(item)
+                except Exception:
+                    # 字符串不是 JSON，保留原值
+                    parsed_slides.append(item)
+        # 只要有任何一个成功解析为 dict，就使用解析结果
+        if any_parsed:
+            gen['slides'] = parsed_slides
+
+    # 标题（优先从 gen 取，兜底变体）
+    title = gen.get('title') or ''
+    if not title:
+        title = _safe_get(gen, 'main_title') or _safe_get(gen, 'basic.title') or ''
+
+    # 标签
+    tags = _safe_get(gen, 'tags') or _safe_get(gen, 'tag_list') or []
+
+    # 话题标签
+    hashtags = _safe_get(gen, 'hashtags') or []
+
+    # 发布策略相关字段（统一映射到 section_key 名称）
+    _publish_strategy = _safe_get(gen, 'publish_strategy') or ''
+    _first_comment = _safe_get(gen, 'first_comment') or ''
+    content_plan = _safe_get(gen, 'content_plan') or _publish_strategy
+    comment = _safe_get(gen, 'comment') or _first_comment
+    publish = _safe_get(gen, 'publish') or _publish_strategy
+
+    # slides：使用 gen['slides']（已包含 content 解析结果）
+    # 如果 slides 是 dict 列表，直接使用；否则降级
+    gen_slides = gen.get('slides', [])
+    if isinstance(gen_slides, list) and gen_slides:
+        # 检查是否有任何 dict 项（优先使用 dict）
+        dict_items = [s for s in gen_slides if isinstance(s, dict)]
+        str_items = [s for s in gen_slides if isinstance(s, str)]
+        if dict_items:
+            slides = dict_items
+            if str_items:
+                logger.warning(f"[ContentData] slides 混有 {len(str_items)} 个非 dict 项，已过滤")
+        else:
+            # 全是字符串，降级为空并记录
+            slides = []
+            logger.warning(
+                f"[ContentData] slides 不是 dict 列表（是字符串列表，长度={len(str_items)}），"
+                f"无法解析，slides 置空"
+            )
+    else:
+        slides = []
+
+    # trust_evidence
+    trust_evidence = _safe_get(gen, 'trust_evidence') or []
+
+    # cta
+    cta = _safe_get(gen, 'cta') or ''
+
+    # GEO 模式
+    geo_mode = _safe_get(gen, 'geo_mode') or _safe_get(geo, 'geo_mode') or ''
+
+    # [DEBUG] 验证 subtitle 字段状态
+    slides_type = 'dict_list' if slides else 'empty'
+    logger.info(f"[ContentData] subtitle={subtitle!r}, title={title!r}, hashtags_count={len(hashtags)}, slides_count={len(slides)}, slides_type={slides_type}")
+
+    return {
+        # 内容数据（保存到 content_data 字段）
+        'content_data': {
+            'structure': _safe_get(gen, 'structure') or '',
+            'geo_mode': geo_mode,
+            'slides_count': len(slides),
+            'title': title,
+            'subtitle': subtitle,
+            'tags': tags,
+            'slides': slides,
+            'hashtags': hashtags,
+            'first_comment': _first_comment,
+            'publish_strategy': _publish_strategy,
+            'content_plan': content_plan,
+            'comment': comment,
+            'publish': publish,
+            'color_scheme': _safe_get(gen, 'color_scheme') or [],
+            'production_specs': _safe_get(gen, 'production_specs') or '',
+            'seo_keywords': _safe_get(gen, 'seo_keywords') or {},
+            'cover_suggestion': _safe_get(gen, 'cover_suggestion') or {},
+            'opening': _safe_get(gen, 'opening') or '',
+            'trust_evidence': trust_evidence,
+            'cta': cta,
+            # 区块内容（从前端区块服务获取）
+            'extension': _safe_get(gen, 'extension') or _build_extension_from_slides(slides, geo_mode),
+            'basic_info': _safe_get(gen, 'basic_info') or '',
+            'compliance': _safe_get(gen, 'compliance') or '',
+        },
+        # 质量报告
+        'quality_score': quality_score,
+        'quality_report': {
+            'total_score': quality_score,
+            'grade': grade,
+            'grade_label': '',
+            'passed': quality_score >= 80,
+            'optimized': False,
+            'first_score': quality_score,
+            'final_score': quality_score,
+            'optimized_items': [],
+            'items': items,
+            'summary': '',
+            'suggestions': [],
+            'failed_items': failed_items,
+            'need_optimize': quality_score < 80,
+        },
+        # GEO 评分报告（兼容旧代码）
+        'geo_report': {
+            'total_score': quality_score,
+            'grade': grade,
+            'items': items,
+            'failed_items': failed_items,
+            'summary': '',
+        },
+        # 提取的字段（用于保存到 generation 表）
+        'extracted_title': title,
+        'extracted_tags': tags or hashtags,
+        'extracted_geo': geo_mode,
+        'slides_count': len(slides),
+    }
+
+
+def _build_video_script_data_from_bridge(fo: dict) -> dict:
+    """
+    从 SkillBridge video_script_generator 的输出构建内容数据。
+
+    数据源优先级：
+    1. step_generate_content：核心脚本内容（scenes, title, structure_name 等）
+    2. step_quality_validate：质量评分
+    3. step_geo_mode_match：GEO模式和结构信息
+    """
+    gen = fo.get('step_generate_content', {}) or {}
+    qv = fo.get('step_quality_validate', {}) or {}
+    geo = fo.get('step_geo_mode_match', {}) or {}
+
+    # 质量评分
+    qv_inner = qv.get('quality_validation', {}) if isinstance(qv, dict) else {}
+    if isinstance(qv, dict) and 'quality_validation' not in qv:
+        qv_inner = qv
+    qs_raw = _safe_get(qv_inner, 'quality_score', 0)
+    try:
+        quality_score = int(float(qs_raw)) if qs_raw else 0
+    except (ValueError, TypeError):
+        quality_score = 0
+
+    # 维度评分项
+    items = []
+    failed_items = []
+    ds = _safe_get(qv_inner, 'dimension_scores', {}) or {}
+    for dim, score_info in (ds.items() if isinstance(ds, dict) else []):
+        if isinstance(score_info, dict):
+            sr = score_info.get('score', 10)
+            try:
+                sv = int(float(sr)) if sr else 0
+            except (ValueError, TypeError):
+                sv = 0
+            pr = score_info.get('passed')
+            passed = bool(pr) if pr is not None else sv >= 8
+            items.append({'dimension': dim, 'score': sv, 'passed': passed})
+            if not passed:
+                failed_items.append(dim)
+
+    # 评分等级
+    grade = 'F'
+    if quality_score >= 90:
+        grade = 'A'
+    elif quality_score >= 80:
+        grade = 'B'
+    elif quality_score >= 70:
+        grade = 'C'
+    elif quality_score >= 60:
+        grade = 'D'
+
+    # 标题
+    title = _safe_get(gen, 'title') or ''
+    # 标签
+    tags = _safe_get(gen, 'tags') or []
+    hashtags = _safe_get(gen, 'hashtags') or []
+    # scenes
+    scenes = _safe_get(gen, 'scenes') or []
+    # 结构
+    structure_name = _safe_get(gen, 'structure_name') or _safe_get(gen, 'structure') or ''
+    # trust_evidence
+    trust_evidence = _safe_get(gen, 'trust_evidence') or []
+    # cta
+    cta = _safe_get(gen, 'cta') or ''
+    # GEO 模式
+    geo_mode = _safe_get(gen, 'geo_mode') or _safe_get(geo, 'geo_mode') or ''
+
+    return {
+        'content_data': {
+            'structure': _safe_get(gen, 'structure') or '',
+            'structure_name': structure_name,
+            'geo_mode': geo_mode,
+            'scenes_count': len(scenes),
+            'title': title,
+            'subtitle': '',
+            'tags': tags,
+            'scenes': scenes,
+            'hashtags': hashtags,
+            'duration': _safe_get(gen, 'duration') or '',
+            'aspect_ratio': _safe_get(gen, 'aspect_ratio') or '9:16',
+            'opening': _safe_get(gen, 'opening') or '',
+            'first_comment': _safe_get(gen, 'first_comment') or '',
+            'publish_strategy': _safe_get(gen, 'publish_strategy') or '',
+            'bgm_suggestion': _safe_get(gen, 'bgm_suggestion') or '',
+            'shooting_tips': _safe_get(gen, 'shooting_tips') or '',
+            'visual_report': _safe_get(gen, 'visual_report') or {},
+            'trust_evidence': trust_evidence,
+            'cta': cta,
+        },
+        'quality_score': quality_score,
+        'quality_report': {
+            'total_score': quality_score,
+            'grade': grade,
+            'grade_label': '',
+            'passed': quality_score >= 80,
+            'optimized': False,
+            'first_score': quality_score,
+            'final_score': quality_score,
+            'optimized_items': [],
+            'items': items,
+            'summary': '',
+            'suggestions': [],
+            'failed_items': failed_items,
+            'need_optimize': quality_score < 80,
+        },
+        'geo_report': {
+            'total_score': quality_score,
+            'grade': grade,
+            'items': items,
+            'failed_items': failed_items,
+            'summary': '',
+        },
+        'extracted_title': title,
+        'extracted_tags': tags or hashtags,
+        'extracted_geo': geo_mode,
+        'scenes_count': len(scenes),
+    }
+
+
+def _build_long_text_data_from_bridge(fo: dict) -> dict:
+    """
+    从 SkillBridge long_text_generator 的输出构建内容数据。
+
+    数据源优先级：
+    1. step_generate_content：核心长文内容（sections, title, structure_name 等）
+    2. step_quality_validate：质量评分
+    3. step_geo_mode_match：GEO模式和模板信息
+    """
+    gen = fo.get('step_generate_content', {}) or {}
+    qv = fo.get('step_quality_validate', {}) or {}
+    geo = fo.get('step_geo_mode_match', {}) or {}
+
+    # 质量评分
+    qv_inner = qv.get('quality_validation', {}) if isinstance(qv, dict) else {}
+    if isinstance(qv, dict) and 'quality_validation' not in qv:
+        qv_inner = qv
+    qs_raw = _safe_get(qv_inner, 'quality_score', 0)
+    try:
+        quality_score = int(float(qs_raw)) if qs_raw else 0
+    except (ValueError, TypeError):
+        quality_score = 0
+
+    # 维度评分项
+    items = []
+    failed_items = []
+    ds = _safe_get(qv_inner, 'dimension_scores', {}) or {}
+    for dim, score_info in (ds.items() if isinstance(ds, dict) else []):
+        if isinstance(score_info, dict):
+            sr = score_info.get('score', 10)
+            try:
+                sv = int(float(sr)) if sr else 0
+            except (ValueError, TypeError):
+                sv = 0
+            pr = score_info.get('passed')
+            passed = bool(pr) if pr is not None else sv >= 8
+            items.append({'dimension': dim, 'score': sv, 'passed': passed})
+            if not passed:
+                failed_items.append(dim)
+
+    # 评分等级
+    grade = 'F'
+    if quality_score >= 90:
+        grade = 'A'
+    elif quality_score >= 80:
+        grade = 'B'
+    elif quality_score >= 70:
+        grade = 'C'
+    elif quality_score >= 60:
+        grade = 'D'
+
+    # 标题
+    title = _safe_get(gen, 'title') or ''
+    subtitle = _safe_get(gen, 'subtitle') or ''
+    # 标签
+    tags = _safe_get(gen, 'tags') or []
+    hashtags = _safe_get(gen, 'hashtags') or []
+    # sections
+    sections = _safe_get(gen, 'sections') or []
+    # 结构
+    structure_name = _safe_get(gen, 'structure_name') or _safe_get(gen, 'structure') or ''
+    # trust_evidence
+    trust_evidence = _safe_get(gen, 'trust_evidence') or []
+    # cta
+    cta = _safe_get(gen, 'cta') or ''
+    # opening_hooks
+    opening_hooks = _safe_get(gen, 'opening_hooks') or ''
+    # summary
+    summary = _safe_get(gen, 'summary') or ''
+    # reading_report
+    reading_report = _safe_get(gen, 'reading_report') or {}
+    # GEO 模式
+    geo_mode = _safe_get(gen, 'geo_mode') or _safe_get(geo, 'geo_mode') or ''
+
+    # ── 4维度方法论字段 ──
+    visual_identity = _safe_get(gen, 'visual_identity') or {}
+    four_dimension_summary = _safe_get(gen, 'four_dimension_summary') or {}
+    # 4维度推荐（来自GEO步骤）
+    four_dimension_guide = _safe_get(geo, 'four_dimension_guide') or {}
+
+    # 每个章节的4维度信息（从sections中提取用于汇总）
+    section_4d_summary = []
+    for sec in sections:
+        # 新格式：design_reference 嵌套对象
+        dr = sec.get('design_reference', {}) or {}
+        gq = dr.get('golden_quote_block', {}) or {}
+        section_4d_summary.append({
+            'section_index': sec.get('section_index', 0),
+            'section_name': sec.get('section_name', ''),
+            'article_content': sec.get('article_content') or sec.get('content') or '',
+            'open_hook': sec.get('open_hook', ''),
+            'emotion_phase': dr.get('emotion_phase', ''),
+            'layout_type': dr.get('layout_type', ''),
+            'color_tone': dr.get('color_tone', ''),
+            'ui_components': dr.get('ui_components', []),
+            'golden_quote_block': gq,
+            'information_modules': dr.get('information_modules', []),
+            'visual_style': dr.get('visual_style', ''),
+            'image_prompt': sec.get('image_prompt', ''),
+        })
+
+    return {
+        'content_data': {
+            'structure': _safe_get(gen, 'structure') or '',
+            'structure_name': structure_name,
+            'geo_mode': geo_mode,
+            'sections_count': len(sections),
+            'title': title,
+            'subtitle': subtitle,
+            'tags': tags,
+            'sections': sections,
+            'hashtags': hashtags,
+            'reading_time': _safe_get(gen, 'reading_time') or '',
+            'word_count_estimate': _safe_get(gen, 'word_count_estimate') or '',
+            'opening_hooks': opening_hooks,
+            'summary': summary,
+            'reading_report': reading_report,
+            'first_comment': _safe_get(gen, 'first_comment') or '',
+            'publish_strategy': _safe_get(gen, 'publish_strategy') or '',
+            'trust_evidence': trust_evidence,
+            'cta': cta,
+            # ── 4维度方法论字段 ──
+            'visual_identity': visual_identity,
+            'four_dimension_summary': four_dimension_summary,
+            'four_dimension_guide': four_dimension_guide,
+            'section_4d_summary': section_4d_summary,
+        },
+        'quality_score': quality_score,
+        'quality_report': {
+            'total_score': quality_score,
+            'grade': grade,
+            'grade_label': '',
+            'passed': quality_score >= 80,
+            'optimized': False,
+            'first_score': quality_score,
+            'final_score': quality_score,
+            'optimized_items': [],
+            'items': items,
+            'summary': '',
+            'suggestions': [],
+            'failed_items': failed_items,
+            'need_optimize': quality_score < 80,
+        },
+        'geo_report': {
+            'total_score': quality_score,
+            'grade': grade,
+            'items': items,
+            'failed_items': failed_items,
+            'summary': '',
+        },
+        'extracted_title': title,
+        'extracted_tags': tags or hashtags,
+        'extracted_geo': geo_mode,
+        'sections_count': len(sections),
+    }
+
+
+def _build_video_script_text(content_result: dict) -> str:
+    """
+    将 SkillBridge 输出的短视频脚本渲染成文本内容。
+    """
+    scenes = content_result.get('scenes', [])
+    if not scenes:
+        return content_result.get('title', '')
+
+    lines = []
+    basic = content_result.get('basic', {})
+    title = content_result.get('title', basic.get('title', ''))
+    if title:
+        lines.append(f"【{title}】")
+    structure_name = content_result.get('structure_name', '')
+    if structure_name:
+        lines.append(f"结构：{structure_name}")
+    duration = content_result.get('duration', '')
+    if duration:
+        lines.append(f"时长：{duration}")
+    opening = content_result.get('opening', '')
+    if opening:
+        lines.append(f"\n前3秒钩子：{opening}")
+    lines.append("")
+
+    for scene in scenes:
+        idx = scene.get('scene_index', 0)
+        name = scene.get('scene_name', '')
+        time_range = scene.get('time_range', '')
+        emotion = scene.get('emotion_stage', '')
+        color_tone = scene.get('color_tone', '')
+        narration = scene.get('narration', scene.get('narrration', ''))
+        subtitle_text = scene.get('subtitle_text', '')
+        visual_dir = scene.get('visual_direction', {})
+        shot_type = _safe_get(visual_dir, 'shot_type', '')
+        camera = _safe_get(visual_dir, 'camera_movement', '')
+        lighting = _safe_get(visual_dir, 'lighting', '')
+        broll = _safe_get(visual_dir, 'broll_suggestion', '')
+        key_point = scene.get('key_point', '')
+
+        header = f"第{idx}场 | {name}"
+        if time_range:
+            header += f" ({time_range})"
+        lines.append(header)
+        if emotion:
+            lines.append(f"  情绪：{emotion} | 色调：{color_tone}")
+        if subtitle_text:
+            lines.append(f"  字幕：{subtitle_text}")
+        if narration:
+            lines.append(f"  口播：{narration}")
+        if shot_type or camera:
+            lines.append(f"  镜头：{shot_type} / {camera} | 光：{lighting}")
+        if broll:
+            lines.append(f"  B-roll：{broll}")
+        if key_point:
+            lines.append(f"  要点：{key_point}")
+        lines.append("")
+
+    cta = content_result.get('cta', '')
+    if cta:
+        lines.append(f"CTA：{cta}")
+    hashtags = content_result.get('hashtags', [])
+    if hashtags:
+        lines.append(" ".join(hashtags))
+
+    return "\n".join(lines)
+
+
+def _build_long_text_text(content_result: dict) -> str:
+    """
+    将 SkillBridge 输出的长文渲染成 Markdown 文本。
+    """
+    sections = content_result.get('sections', [])
+    if not sections:
+        return content_result.get('title', '')
+
+    lines = []
+    title = content_result.get('title', '')
+    subtitle = content_result.get('subtitle', '')
+    if title:
+        lines.append(f"# {title}")
+    if subtitle:
+        lines.append(f"## {subtitle}")
+    lines.append("")
+
+    reading_time = content_result.get('reading_time', '')
+    word_count = content_result.get('word_count_estimate', '')
+    if reading_time or word_count:
+        meta = []
+        if reading_time:
+            meta.append(f"阅读时间：{reading_time}")
+        if word_count:
+            meta.append(f"预估字数：{word_count}")
+        lines.append(f"**{' | '.join(meta)}**")
+        lines.append("")
+
+    opening_hooks = content_result.get('opening_hooks', '')
+    if opening_hooks:
+        lines.append(f"> {opening_hooks}")
+        lines.append("")
+
+    for section in sections:
+        idx = section.get('section_index', 0)
+        name = section.get('section_name', '')
+        # 纯正文字段（可复制发布）
+        article_content = section.get('article_content') or section.get('content') or ''
+        open_hook = section.get('open_hook', '')
+
+        # 制作参考字段
+        design_ref = section.get('design_reference', {}) or {}
+        if isinstance(design_ref, dict):
+            emotion_phase = design_ref.get('emotion_phase', '')
+            layout_type = design_ref.get('layout_type', '')
+            color_tone = design_ref.get('color_tone', '')
+            ui_components = design_ref.get('ui_components', [])
+            golden_quote = design_ref.get('golden_quote_block', {})
+            info_modules = design_ref.get('information_modules', [])
+            visual_style = design_ref.get('visual_style', '')
+        else:
+            emotion_phase = layout_type = color_tone = visual_style = ''
+            ui_components = info_modules = []
+            golden_quote = {}
+
+        image_prompt = section.get('image_prompt', '')
+
+        # ── 正文部分（可一键复制发布）──
+        lines.append(f"## {idx}. {name}")
+        if open_hook:
+            lines.append(f"> {open_hook}")
+        if article_content:
+            lines.append("")
+            lines.append(article_content)
+        lines.append("")
+
+    # ── 制作参考区块（末尾，供设计师参考，不影响正文复制）──
+    visual_identity = content_result.get('visual_identity', {})
+    four_dim_summary = content_result.get('four_dimension_summary', {})
+    vi_light = visual_identity.get('light_style', '') if isinstance(visual_identity, dict) else ''
+    vi_color = visual_identity.get('color_gradient_strategy', '') if isinstance(visual_identity, dict) else ''
+    vi_primary = visual_identity.get('primary_colors', []) if isinstance(visual_identity, dict) else []
+    vi_accent = visual_identity.get('accent_colors', []) if isinstance(visual_identity, dict) else []
+    ef_summary = four_dim_summary.get('emotion_flow', '') if isinstance(four_dim_summary, dict) else ''
+    lu_summary = four_dim_summary.get('layout_usage', '') if isinstance(four_dim_summary, dict) else ''
+
+    # 只有在有制作参考内容时才追加区块
+    has_design_ref = any(
+        (section.get('design_reference') or section.get('image_prompt'))
+        for section in sections
+    ) or vi_light or ef_summary
+
+    if has_design_ref:
+        lines.append("---")
+        lines.append("## 制作参考")
+        lines.append("")
+        if ef_summary:
+            lines.append(f"**情绪动线**：{ef_summary}")
+        if lu_summary:
+            lines.append(f"**排版总览**：{lu_summary}")
+        if vi_light:
+            lines.append(f"**光影风格**：{vi_light}")
+        if vi_color:
+            lines.append(f"**色彩递进**：{vi_color}")
+        if vi_primary:
+            lines.append(f"**主色调**：{' / '.join(vi_primary)}")
+        if vi_accent:
+            lines.append(f"**强调色**：{' / '.join(vi_accent)}")
+        lines.append("")
+
+        for section in sections:
+            s_idx = section.get('section_index', 0)
+            s_name = section.get('section_name', '')
+            dr = section.get('design_reference', {}) or {}
+            if isinstance(dr, dict):
+                ep = dr.get('emotion_phase', '')
+                lt = dr.get('layout_type', '')
+                ct = dr.get('color_tone', '')
+                uic = dr.get('ui_components', [])
+                gq = dr.get('golden_quote_block', {})
+                vs = dr.get('visual_style', '')
+                ims = dr.get('information_modules', [])
+            else:
+                ep = lt = ct = vs = ''
+                uic = ims = []
+                gq = {}
+            ip = section.get('image_prompt', '')
+
+            gq_text = gq.get('text') if isinstance(gq, dict) else ''
+            gq_color = gq.get('bg_color') if isinstance(gq, dict) else ''
+            tone_map = {'cold': '冷色', 'warm': '暖色', 'brand': '品牌色'}
+            layout_map = {'billboard': '封面版式', 'problem_solver': '痛点对比版式', 'matrix': '干货矩阵版式', 'trust_builder': '品牌收尾版式'}
+
+            sec_lines = [f"### {s_idx}. {s_name}"]
+            if ep:
+                sec_lines.append(f"- 情绪阶段：{ep}")
+            if lt:
+                sec_lines.append(f"- 排版类型：{layout_map.get(lt, lt)}")
+            if ct:
+                sec_lines.append(f"- 色调：{tone_map.get(ct, ct)}")
+            if gq_text:
+                sec_lines.append(f"- 金句：{gq_text}" + (f"（背景:{gq_color}）" if gq_color else ""))
+            if uic:
+                sec_lines.append(f"- UI组件：{'、'.join(uic)}")
+            if ims:
+                sec_lines.append(f"- 信息模块：{'、'.join(ims)}")
+            if vs:
+                sec_lines.append(f"- 视觉风格：{vs}")
+            if ip:
+                sec_lines.append(f"- **生图提示词**：{ip}")
+            lines.extend(sec_lines)
+        lines.append("")
+
+    summary = content_result.get('summary', '')
+    if summary:
+        lines.append("---")
+        lines.append("## 核心要点")
+        lines.append(summary)
+        lines.append("")
+
+    cta = content_result.get('cta', '')
+    if cta:
+        lines.append(f"**行动号召：{cta}**")
+        lines.append("")
+
+    hashtags = content_result.get('hashtags', [])
+    if hashtags:
+        lines.append(" ".join(hashtags))
+
+    return "\n".join(lines)
+
+
+def _build_content_text(content_result: dict) -> str:
+    """
+    将 SkillBridge 输出的 slides 数组渲染成文本内容。
+    """
+    slides = content_result.get('slides', [])
+    if not slides:
+        return content_result.get('title', '')
+
+    lines = []
+    basic = content_result.get('basic', {})
+    if basic:
+        title = basic.get('title', '')
+        subtitle = basic.get('subtitle', '')
+        if title:
+            lines.append(f"【{title}】")
+        if subtitle:
+            lines.append(subtitle)
+        lines.append("")
+
+    for i, slide in enumerate(slides):
+        if not isinstance(slide, dict):
+            lines.append(f"第{i+1}页：{slide}")
+            continue
+        role = slide.get('role', '')
+        main_title = slide.get('main_title', '')
+        big_slogan = slide.get('big_slogan', '')
+        sub_points = slide.get('sub_points', [])
+
+        if main_title or big_slogan:
+            lines.append(f"第{i+1}页{'【' + role + '】' if role else ''}")
+            if big_slogan:
+                lines.append(f"  {big_slogan}")
+            if main_title:
+                lines.append(f"  {main_title}")
+        if sub_points:
+            for sp in sub_points:
+                lines.append(f"  · {sp}")
+        lines.append("")
+
+    basic_blocks = content_result.get('blocks', {})
+    if isinstance(basic_blocks, dict):
+        comment = basic_blocks.get('comment', '') or basic_blocks.get('first_comment', '')
+        if comment:
+            lines.append(f"首评：{comment}")
+        ext = basic_blocks.get('extension', '') or basic_blocks.get('content_plan', '')
+        if ext:
+            lines.append(ext)
+
+    hashtags = content_result.get('hashtags', [])
+    if hashtags:
+        lines.append(" ".join(hashtags))
+
+    return "\n".join(lines)
+
+
+def _build_hvf_report(hvf_output: dict) -> dict:
+    """
+    将 SkillBridge title_generator 的输出适配成审核报告格式。
+    """
+    # 取标题列表（可能在 step_title_generate 或顶层）
+    titles_data = hvf_output.get('titles', [])
+    if not titles_data:
+        titles_data = hvf_output.get('step_title_generate', {}).get('titles', [])
+    if not titles_data:
+        titles_data = hvf_output.get('step_title_review', {}).get('title_reviews', [])
+
+    # 取审核结果
+    review_data = hvf_output.get('step_title_review', {}) or hvf_output.get('title_review', {})
+
+    best = review_data.get('best_title', '')
+    best_pattern = review_data.get('best_pattern', '')
+
+    # 找评分最高的标题
+    if not best and titles_data:
+        best_score = -1
+        for t in titles_data:
+            hvf = t.get('hvf_score', {})
+            total = hvf.get('total', hvf.get('hook', 0) + hvf.get('value', 0) + hvf.get('format', 0))
+            if isinstance(total, str):
+                total = 0
+            if total > best_score:
+                best_score = total
+                best = t.get('main_title', '')
+                best_pattern = t.get('pattern', '')
+
+    return {
+        'titles': titles_data,
+        'best_title': best,
+        'best_pattern': best_pattern,
+        'review': review_data,
+        'total_generated': len(titles_data),
+    }
+
+
+def _build_pyramid_tags(pyramid_output: dict) -> dict:
+    """
+    将 SkillBridge tag_generator 的输出适配成标签报告格式。
+    """
+    # 取标签数据（可能在 step_tag_generate 或顶层）
+    tags_data = pyramid_output.get('hashtags', [])
+    if not tags_data:
+        tags_data = pyramid_output.get('step_tag_generate', {}).get('hashtags', [])
+
+    # 取审核结果
+    review_data = pyramid_output.get('step_tag_review', {}) or pyramid_output.get('tag_review', {})
+
+    # 优先使用审核后的最终标签
+    final_tags = review_data.get('final_hashtags', tags_data)
+    if not final_tags:
+        final_tags = tags_data
+
+    return {
+        'hashtags': final_tags,
+        'tier1': pyramid_output.get('tier1_common', pyramid_output.get('step_tag_generate', {}).get('tier1_common', [])),
+        'tier2': pyramid_output.get('tier2_vertical', pyramid_output.get('step_tag_generate', {}).get('tier2_vertical', [])),
+        'tier3': pyramid_output.get('tier3_longtail', pyramid_output.get('step_tag_generate', {}).get('tier3_longtail', [])),
+        'search_keywords': pyramid_output.get('search_keywords', pyramid_output.get('step_tag_generate', {}).get('search_keywords', [])),
+        'review': review_data,
+    }
+
+
+def _apply_hvf_and_tags(
+    result: dict,
+    params: dict,
+    result_type: str,
+    content_result: dict = None,
+) -> tuple:
+    """
+    公共函数：为所有内容类型（图文/长文/短视频）生成 H-V-F 标题和金字塔标签。
+
+    标题和标签生成并行执行，减少等待时间。
+
+    Args:
+        result: 原始内容生成结果 dict
+        params: 请求参数 dict
+        result_type: 内容类型 'graphic' / 'long_text' / 'short_video'
+        content_result: 可选，预解析的 content dict
+
+    Returns:
+        (extracted_title, extracted_tags, extracted_geo,
+         hvf_titles_output, pyramid_tags_output, hvf_report, pyramid_tags_report)
+    """
+    import logging
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    logger = logging.getLogger(__name__)
+
+    # ── 提取原始标题/标签/GEO ──────────────────────────────────
+    raw_content = content_result if content_result else (result.get('content') if isinstance(result.get('content'), dict) else {})
+    if not raw_content:
+        raw_content = {}
+
+    if result_type == 'graphic':
+        extracted_title = raw_content.get('title', '') or ''
+        extracted_tags = raw_content.get('tags', []) or []
+        extracted_geo = raw_content.get('geo_mode', '')
+    elif result_type == 'long_text':
+        article = raw_content.get('article', {})
+        extracted_title = article.get('title', '') or ''
+        extracted_tags = article.get('hashtags', []) or []
+        extracted_geo = ''
+    elif result_type == 'short_video':
+        extracted_title = raw_content.get('title', '') or ''
+        extracted_tags = raw_content.get('tags', []) or []
+        extracted_geo = raw_content.get('geo_mode', '')
+    else:
+        extracted_title = ''
+        extracted_tags = []
+        extracted_geo = ''
+
+    # ── 调用 SkillBridge 生成 H-V-F 标题 + 金字塔标签（并行） ─
+    hvf_titles_output = {}
+    pyramid_tags_output = {}
+
+    try:
+        from services.skill_bridge import SkillBridge
+        bridge = SkillBridge()
+
+        seo_kws = raw_content.get('seo_keywords', {}) if isinstance(raw_content, dict) else {}
+        keywords = {
+            'core': seo_kws.get('core', []),
+            'long_tail': seo_kws.get('long_tail', []),
+            'scene': seo_kws.get('scene', []),
+            'problem': seo_kws.get('problem', []),
+        }
+
+        portrait = params.get('portrait', {})
+        if not keywords.get('core') and portrait:
+            portrait_kws = portrait.get('keywords', [])
+            if isinstance(portrait_kws, list):
+                keywords['core'] = portrait_kws[:5]
+
+        # ── 从 selected_scene 提取 geo_mode兜底 ──
+        selected_scene = params.get('selected_scene', {})
+        geo_from_scene = ''
+        if selected_scene and isinstance(selected_scene, dict):
+            geo_from_scene = selected_scene.get('dim_value', '') or selected_scene.get('label', '') or ''
+            if geo_from_scene and ' - ' in geo_from_scene:
+                geo_from_scene = geo_from_scene.split(' - ', 1)[0].strip()
+
+        geo_mode = extracted_geo or params.get('geo_mode', '') or geo_from_scene
+        industry = params.get('industry', '') or params.get('business_type', '')
+
+        logger.info(f"[H-V-F] {result_type} 并行生成标题和标签: topic={params.get('topic_title', '')[:20]}")
+
+        def call_title():
+            return bridge.execute_title_generator(
+                topic_title=params.get('topic_title', ''),
+                portrait=portrait,
+                keywords=keywords,
+                geo_mode=geo_mode,
+                industry=industry,
+                num_variants=4,
+            )
+
+        def call_tag():
+            return bridge.execute_tag_generator(
+                topic_title=params.get('topic_title', ''),
+                industry=industry,
+                keywords=keywords,
+                portrait=portrait,
+                geo_mode=geo_mode,
+                max_tags=8,
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            title_future = executor.submit(call_title)
+            tag_future = executor.submit(call_tag)
+
+            try:
+                hvf_res = title_future.result(timeout=60)
+                if hvf_res.success:
+                    hvf_titles_output = hvf_res.full_output
+            except Exception as e:
+                logger.warning(f"[H-V-F] 标题生成异常: {e}")
+
+            try:
+                tag_res = tag_future.result(timeout=60)
+                if tag_res.success:
+                    pyramid_tags_output = tag_res.full_output
+            except Exception as e:
+                logger.warning(f"[H-V-F] 标签生成异常: {e}")
+
+        logger.info(f"[H-V-F] 标题: {'成功' if hvf_titles_output else '失败'} | 标签: {'成功' if pyramid_tags_output else '失败'}")
+
+    except Exception as e:
+        logger.warning(f"[H-V-F] 生成异常: {e}，不影响内容返回")
+
+    # ── H-V-F 标题覆盖（取评分最高的）───────────────────────────
+    if hvf_titles_output:
+        titles_data = hvf_titles_output.get('titles', [])
+        if not titles_data:
+            titles_data = hvf_titles_output.get('step_title_generate', {}).get('titles', [])
+
+        if titles_data:
+            best_title_obj = None
+            best_score = -1
+            for t in titles_data:
+                score = t.get('hvf_score', {})
+                total = score.get('total', 0)
+                if isinstance(total, str):
+                    total = 0
+                if total <= 0:
+                    total = score.get('hook', 0) + score.get('value', 0) + score.get('format', 0)
+                if total > best_score:
+                    best_score = total
+                    best_title_obj = t
+            if best_title_obj and best_title_obj.get('main_title'):
+                extracted_title = best_title_obj['main_title']
+
+    # ── 金字塔标签覆盖 ─────────────────────────────────────────
+    if pyramid_tags_output:
+        tags_data = pyramid_tags_output.get('hashtags', [])
+        if not tags_data:
+            tags_data = pyramid_tags_output.get('step_tag_generate', {}).get('hashtags', [])
+        if tags_data:
+            extracted_tags = tags_data[:8]
+
+    # ── 构建报告 ───────────────────────────────────────────────
+    hvf_report = _build_hvf_report(hvf_titles_output) if hvf_titles_output else {}
+    pyramid_tags_report = _build_pyramid_tags(pyramid_tags_output) if pyramid_tags_output else {}
+
+    return (
+        extracted_title,
+        extracted_tags,
+        extracted_geo,
+        hvf_titles_output,
+        pyramid_tags_output,
+        hvf_report,
+        pyramid_tags_report,
+    )
+
+
+def _adapt_topic_library_result(bridge_result) -> dict:
+    """
+    将 SkillBridge execute_topic_library 的结果适配成旧 TopicLibraryGenerator 的格式。
+    """
+    fo = bridge_result.full_output
+
+    # 合并所有步骤的选题
+    all_topics = []
+    for step_key in ['context_analysis', 'public_topics', 'portrait_topics',
+                     'keyword_topics', 'topic_library_summary']:
+        step_data = fo.get(step_key, {})
+        if isinstance(step_data, dict):
+            for k, v in step_data.items():
+                if isinstance(v, list):
+                    all_topics.extend(v)
+
+    # 按五段式分类
+    audience = []
+    pain = []
+    compare = []
+    vision = []
+    hesitation = []
+
+    for step_key in ['portrait_topics', 'public_topics', 'keyword_topics']:
+        step_data = fo.get(step_key, {})
+        if isinstance(step_data, dict):
+            topics = step_data.get('portrait_topics') or step_data.get('public_topics') or step_data.get('keyword_topics', [])
+            if isinstance(topics, list):
+                for t in topics:
+                    stage = t.get('stage', '') if isinstance(t, dict) else ''
+                    item = t if isinstance(t, dict) else {}
+                    if stage == 'audience':
+                        audience.append(item)
+                    elif stage == 'pain':
+                        pain.append(item)
+                    elif stage == 'compare':
+                        compare.append(item)
+                    elif stage == 'vision':
+                        vision.append(item)
+                    elif stage == 'hesitation':
+                        hesitation.append(item)
+
+    summary = fo.get('topic_library_summary', {})
+    if isinstance(summary, dict):
+        s = summary.get('summary', {}) if isinstance(summary.get('summary'), dict) else summary
+    else:
+        s = {}
+
+    return {
+        'topics': all_topics,
+        'audience_lock_topics': audience,
+        'pain_amplify_topics': pain,
+        'solution_compare_topics': compare,
+        'vision_topics': vision,
+        'barrier_remove_topics': hesitation,
+        'summary': s,
+    }
+
+
+def _adapt_portrait_generator_result(bridge_result) -> dict:
+    """
+    将 SkillBridge execute_portrait_generator 的结果适配成旧 PortraitGenerator 的格式。
+
+    注意：full_output 的 key 是 step_id（如 step_extract_problem_types），
+    不是字段名。字段数据在 step_output['output'] 中。
+    """
+    fo = bridge_result.full_output
+    portraits = []
+    problem_types = []
+
+    # step_extract_problem_types → output.problem_types
+    step_prob = fo.get('step_extract_problem_types', {})
+    if isinstance(step_prob, dict):
+        step_output = step_prob.get('output', step_prob)  # 兼容两种格式
+        pts = step_output.get('problem_types', [])
+        for pt in pts:
+            if isinstance(pt, dict):
+                problem_types.append({
+                    'type_name': pt.get('type_name', ''),
+                    'description': pt.get('description', ''),
+                    'target_audience': pt.get('target_audience', ''),
+                    'keywords': pt.get('keywords', []),
+                })
+
+    # step_generate_portraits → output.portraits
+    step_port = fo.get('step_generate_portraits', {})
+    if isinstance(step_port, dict):
+        step_output = step_port.get('output', step_port)
+        pts_list = step_output.get('portraits', [])
+        for p in pts_list:
+            if isinstance(p, dict):
+                portraits.append({
+                    'portrait_id': p.get('portrait_id', ''),
+                    'problem_type': p.get('problem_type', ''),
+                    'identity': p.get('identity', ''),
+                    'pain_points': p.get('pain_points', []),
+                    'psychology': p.get('psychology', {}),
+                    'portrait_summary': p.get('portrait_summary', ''),
+                    'content_direction': p.get('content_direction', '种草型'),
+                })
+
+    return {
+        'portraits': portraits,
+        'problem_types': problem_types,
+    }
 
 
 # =============================================================================
@@ -3776,76 +5335,41 @@ def api_market_analyze():
     logger.info(f"[api_market_analyze] 开始市场分析: {business_description[:50]}，经营范围={business_range}，服务场景={service_scenario}")
 
     try:
-        analyzer = MarketAnalyzer()
-        result = analyzer.analyze(
-            business_info=business_info,
-            max_opportunities=5,
-            max_keywords=200,
+        # 切换到 SkillBridge
+        from services.skill_bridge import SkillBridge
+        bridge = SkillBridge()
+        result = bridge.execute_market_analyzer(
+            business_description=business_description,
+            industry=industry,
+            business_type=business_type,
+            service_scenario=service_scenario,
         )
 
         if not result.success:
             return jsonify({
                 'success': False,
-                'message': f"市场分析失败: {result.error_message}"
+                'message': f"市场分析失败: {result.errors[0] if result.errors else '未知错误'}"
             }), 500
 
-        # 转换蓝海机会格式
-        market_opportunities = []
-        for o in result.market_opportunities:
-            # 转换 ProblemType 对象 → dict（scenes 已是 List[Dict]）
-            problem_types_for_opp = []
-            for pt in o.problem_types:
-                problem_types_for_opp.append({
-                    'name': pt.name,
-                    'description': pt.description,
-                    'keywords': pt.keywords,
-                    'scenes': pt.scenes,
-                })
-            market_opportunities.append({
-                'opportunity_name': o.opportunity_name,
-                'business_direction': getattr(o, 'business_direction', ''),
-                'target_audience': o.target_audience,
-                'pain_points': o.pain_points,
-                'keywords': o.keywords,
-                'content_direction': o.content_direction,
-                'market_type': o.market_type,
-                'confidence': o.confidence,
-                'differentiation': getattr(o, 'differentiation', ''),
-                'logic_chain': getattr(o, 'logic_chain', ''),
-                'problem_types': problem_types_for_opp,
-            })
+        adapted = _adapt_market_analyzer_result(result)
 
-        # 关键词统计
-        blue_count = result.blue_ocean_keywords
-        red_count = result.red_ocean_keywords
-        total = result.total_keywords
-        blue_ratio = (blue_count / total * 100) if total > 0 else 0
-
-        logger.info(f"[api_market_analyze] 分析完成: 发现 {len(market_opportunities)} 个蓝海机会")
+        logger.info(f"[api_market_analyze] SkillBridge 分析完成: {len(adapted['market_opportunities'])} 个蓝海机会")
 
         return jsonify({
             'success': True,
             'data': {
-                'opportunities': market_opportunities,
-                'subdivision_insights': result.subdivision_insights,
-                'keyword_stats': {
-                    'total': total,
-                    'blue_ocean': blue_count,
-                    'red_ocean': red_count,
-                    'blue_ratio': round(blue_ratio, 1),
-                },
-                # 保存分析结果用于后续画像生成
+                'opportunities': adapted['market_opportunities'],
+                'subdivision_insights': adapted['subdivision_insights'],
+                'keyword_stats': adapted['keyword_stats'],
+                # 兼容旧字段名
                 '_analysis_result': {
-                    'keyword_library': result.keyword_library,
-                    'problem_types': [
-                        {
-                            'type_name': p.type_name,
-                            'description': p.description,
-                            'target_audience': p.target_audience,
-                            'keywords': p.keywords,
-                        }
-                        for p in result.problem_types
-                    ],
+                    'step1_industry_overview': result.full_output.get('step1_industry_overview', {}),
+                    'step2_blue_ocean': result.full_output.get('step2_blue_ocean', {}),
+                    'step3_audience_segment': result.full_output.get('step3_audience_segment', {}),
+                    'step4_long_tail_needs': result.full_output.get('step4_long_tail_needs', {}),
+                    'step6_search_journey': result.full_output.get('step6_search_journey', {}),
+                    'step7_upstream_downstream': result.full_output.get('step7_upstream_downstream', {}),
+                    'step8_trust_and_advantage': result.full_output.get('step8_trust_and_advantage', {}),
                 }
             }
         })
@@ -4150,7 +5674,7 @@ def api_generate_keyword_library():
         }
     }
     """
-    from services.keyword_library_generator import KeywordLibraryGenerator
+    from services.skill_bridge import SkillBridge
 
     logger = logging.getLogger(__name__)
 
@@ -4160,8 +5684,8 @@ def api_generate_keyword_library():
     business_type = data.get('business_type', 'product')
     core_business = data.get('core_business', '').strip()
     blue_ocean_opportunity = data.get('blue_ocean_opportunity', '').strip()
-    portraits = data.get('portraits', [])  # 新增：画像列表
-    portrait_data = data.get('portrait_data', {})  # 画像痛点数据（pain_points/pain_scenarios/barriers）
+    portraits = data.get('portraits', [])
+    portrait_data = data.get('portrait_data', {})
 
     if not business_description:
         return jsonify({
@@ -4178,38 +5702,39 @@ def api_generate_keyword_library():
     logger.info(f"[api_generate_keyword_library] Step 2: 生成关键词库 (蓝海机会={blue_ocean_opportunity}, 画像数={len(portraits)})")
 
     try:
-        generator = KeywordLibraryGenerator()
+        # 切换到 SkillBridge
+        bridge = SkillBridge()
+        market_output = data.get('market_analyzer_output', {})
+        if not market_output:
+            market_output = data.get('analysis_result', {})
 
-        result = generator.generate(
-            business_info=business_info,
-            core_business=core_business or None,
-            max_keywords=200,
-            blue_ocean_opportunity=blue_ocean_opportunity or None,
-            portraits=portraits or None,
-            portrait_data=portrait_data or None,
+        result = bridge.execute_keyword_library(
+            business_description=business_description,
+            industry=industry,
+            business_type=business_type,
+            market_analyzer_output=market_output,
         )
 
         if not result.success:
             return jsonify({
                 'success': False,
-                'message': f"生成失败: {result.error_message or '未知错误'}"
+                'message': f"生成失败: {result.errors[0] if result.errors else '未知错误'}"
             }), 500
 
-        logger.info(f"[api_generate_keyword_library] Step 2 完成: 关键词={result.total_keywords} (公用={result.common_keywords_count}, 个性化={result.portrait_keywords_count})")
+        adapted = _adapt_keyword_library_result(result)
+        total_kw = adapted['keyword_stats'].get('total', 0)
+
+        logger.info(f"[api_generate_keyword_library] Step 2 完成: 关键词={total_kw}")
 
         return jsonify({
             'success': True,
             'data': {
-                'keyword_library': result.keyword_library or {},
-                'problem_types': result.to_dict().get('problem_types', []),
-                'portrait_keywords': result.to_dict().get('portrait_keywords', []),
-                'keyword_stats': {
-                    'total': result.total_keywords or 0,
-                    'common': result.common_keywords_count or 0,  # 公用关键词
-                    'portrait': result.portrait_keywords_count or 0,  # 个性化关键词
-                    'blue_ocean': result.blue_ocean_keywords or 0,
-                    'red_ocean': result.red_ocean_keywords or 0,
-                }
+                'keyword_library': adapted['keyword_library'],
+                'problem_types': adapted.get('problem_types', []),
+                'portrait_keywords': adapted.get('portrait_keywords', []),
+                'keyword_stats': adapted['keyword_stats'],
+                # 附加 SkillBridge 原始输出供调试
+                '_skill_bridge_output': result.full_output,
             }
         })
 
@@ -4243,11 +5768,7 @@ def api_portraits_generate():
         selected_opportunity: {}        # 用户选中的蓝海机会（含 problem_types → scenes）
     }
     """
-    from services.portrait_generator import (
-        PortraitGenerator,
-        PortraitGenerationContext,
-        group_portraits_by_problem_type,
-    )
+    from services.skill_bridge import SkillBridge
 
     logger = logging.getLogger(__name__)
 
@@ -4267,9 +5788,8 @@ def api_portraits_generate():
             'message': '请选择或输入核心业务'
         }), 400
 
-    # 构建业务信息
     business_info = {
-        'business_description': core_business,  # 使用用户选择的蓝海方向
+        'business_description': core_business,
         'industry': industry,
         'business_type': business_type,
         'service_scenario': service_scenario,
@@ -4278,56 +5798,59 @@ def api_portraits_generate():
     logger.info(f"[api_portraits_generate] 开始生成画像: {core_business}")
 
     try:
-        generator = PortraitGenerator()
+        # 切换到 SkillBridge
+        bridge = SkillBridge()
 
-        # 获取分析结果数据
+        # 从 analysis_result 中提取数据
+        # 前端传来的 analysis_result = { problem_types, market_opportunities }
+        # 构造 market_analyzer_output 供 portrait_generator 使用
+        market_output = {
+            'step2_blue_ocean': {
+                'opportunities': analysis_result.get('market_opportunities', []),
+            },
+            'step_extract_problem_types': {
+                'problem_types': analysis_result.get('problem_types', []),
+            },
+        }
+
+        # keyword_library 可能为空，从 analysis_result 中尝试提取
         keyword_library = analysis_result.get('keyword_library', {})
-        problem_types = analysis_result.get('problem_types', [])
-        market_opportunities = analysis_result.get('market_opportunities', [])
+        if not keyword_library:
+            keyword_library = analysis_result.get('keywords', {})
 
-        # 如果没有传入 market_opportunities，从 analysis_result 的顶层获取
-        if not market_opportunities:
-            internal_result = analysis_result.get('_analysis_result', {})
-            market_opportunities = internal_result.get('market_opportunities', market_opportunities)
-
-        context = PortraitGenerationContext(
+        result = bridge.execute_portrait_generator(
+            industry=industry,
+            business_description=core_business,
+            business_type=business_type,
             keyword_library=keyword_library,
-            problem_types=problem_types,
-            business_info=business_info,
-            market_opportunities=market_opportunities,
-            selected_opportunity=selected_opportunity,
+            market_analyzer_output=market_output,
             portraits_per_type=portraits_per_type,
         )
 
-        # 生成画像
-        portraits = generator.generate_portraits(context)
+        if not result.success:
+            return jsonify({
+                'success': False,
+                'message': f"画像生成失败: {result.errors[0] if result.errors else '未知错误'}"
+            }), 500
 
-        # 转换画像格式
-        portraits_data = [
-            {
-                'portrait_id': p.portrait_id,
-                'problem_type': p.problem_type,
-                'problem_type_description': p.problem_type_description,
-                'identity': p.identity,
-                'identity_description': p.identity_description,
-                'portrait_summary': p.portrait_summary,
-                'pain_points': p.pain_points,
-                'pain_scenarios': p.pain_scenarios,
-                'psychology': p.psychology,
-                'barriers': p.barriers,
-                'search_keywords': p.search_keywords,
-                'content_preferences': p.content_preferences,
-                'market_type': p.market_type,
-                'differentiation': p.differentiation,
-                'scene_tags': p.scene_tags,
-                'behavior_tags': p.behavior_tags,
-                'content_direction': p.content_direction,
+        adapted = _adapt_portrait_generator_result(result)
+        portraits_data = adapted['portraits']
+
+        # 兼容旧字段名，复制一份 portrait_data
+        for p in portraits_data:
+            p['portrait_data'] = {
+                'pain_points': p.get('pain_points', []),
+                'pain_scenarios': p.get('pain_scenarios', []),
+                'barriers': p.get('barriers', []),
             }
-            for p in portraits
-        ]
 
-        # 按问题类型分组
-        portraits_by_type = group_portraits_by_problem_type(portraits_data)
+        # 按问题类型分组（简单实现）
+        portraits_by_type = {}
+        for p in portraits_data:
+            pt = p.get('problem_type', '其他')
+            if pt not in portraits_by_type:
+                portraits_by_type[pt] = []
+            portraits_by_type[pt].append(p)
 
         logger.info(f"[api_portraits_generate] 生成完成: {len(portraits_data)} 个画像")
 
@@ -4386,8 +5909,7 @@ def api_portrait_keywords_topics_generate():
         }
     }
     """
-    from services.keyword_topic_generator import KeywordTopicGenerator
-    from services.keyword_library_generator import KeywordLibraryGenerator
+    from services.skill_bridge import SkillBridge
 
     logger = logging.getLogger(__name__)
 
@@ -4395,6 +5917,8 @@ def api_portrait_keywords_topics_generate():
     core_business = data.get('core_business', '').strip()
     industry = data.get('industry', '').strip()
     portrait = data.get('portrait', {})
+    business_type = data.get('business_type', 'product')
+    content_stage = data.get('content_stage', '成长阶段')
 
     if not core_business:
         return jsonify({
@@ -4410,57 +5934,35 @@ def api_portrait_keywords_topics_generate():
 
     logger.info(f"[api_portrait_keywords_topics_generate] 生成关键词选题: 画像={portrait.get('portrait_id', 'N/A')}, 业务={core_business}")
 
-    # 从 portrait 提取 portrait_data（pain_points/pain_scenarios/barriers）
-    portrait_data_dict = portrait.get('portrait_data', {}) or {}
-
     try:
-        # 先生成市场关键词库（100+）
-        market_kw_lib = {}
-        try:
-            kl_gen = KeywordLibraryGenerator()
-            kl_result = kl_gen.generate(
-                business_info={
-                    'business_description': core_business,
-                    'industry': industry,
-                    'business_type': data.get('business_type', 'product'),
-                },
-                core_business=None,
-                max_keywords=200,
-                blue_ocean_opportunity=None,
-                portraits=None,
-                portrait_data=portrait_data_dict,
-            )
-            if kl_result.success:
-                market_kw_lib = kl_result.keyword_library or {}
-                logger.info(f"[api_portrait_keywords_topics_generate] 市场关键词库生成完成: {kl_result.total_keywords} 个")
-            else:
-                logger.warning(f"[api_portrait_keywords_topics_generate] 市场关键词库生成失败: {kl_result.error_message}")
-        except Exception as e:
-            logger.warning(f"[api_portrait_keywords_topics_generate] 市场关键词库生成异常: {e}")
+        bridge = SkillBridge()
 
-        generator = KeywordTopicGenerator()
-        result = generator.generate_for_portrait(
-            core_business=core_business,
-            portrait=portrait,
-            portrait_id=portrait.get('portrait_id', ''),
+        # Step 1: 关键词库
+        kw_result = bridge.execute_keyword_library(
+            business_description=core_business,
+            industry=industry,
+            business_type=business_type,
         )
 
-        if not result.success:
-            return jsonify({
-                'success': False,
-                'message': f"生成失败: {result.error_message}"
-            }), 500
+        # Step 2: 选题库
+        topic_result = bridge.execute_topic_library(
+            industry=industry,
+            business_description=core_business,
+            content_stage=content_stage,
+        )
+
+        kw_adapted = _adapt_keyword_library_result(kw_result) if kw_result.success else {'keyword_library': {}, 'keyword_stats': {}}
+        topic_adapted = _adapt_topic_library_result(topic_result) if topic_result.success else {}
 
         logger.info(f"[api_portrait_keywords_topics_generate] 生成完成: 画像={portrait.get('portrait_id', 'N/A')}")
 
-        # 合并 market_keywords 到 keyword_library
-        rd = result.to_dict()
-        if 'keyword_library' in rd:
-            rd['keyword_library'] = {**market_kw_lib, **rd['keyword_library']}
-
         return jsonify({
             'success': True,
-            'data': rd
+            'data': {
+                'portrait_id': portrait.get('portrait_id', ''),
+                'keyword_library': kw_adapted.get('keyword_library', {}),
+                'topic_library': topic_adapted,
+            }
         })
 
     except Exception as e:
@@ -4972,3 +6474,400 @@ def api_upload_avatar():
         logger.error(f"[UploadAvatar] 上传头像失败: {e}")
         return jsonify({'success': False, 'message': '头像上传失败，请重试'}), 500
 
+
+# =============================================================================
+# Skill Bridge API（测试接口）
+# =============================================================================
+
+@public_bp.route('/api/skill-bridge/info', methods=['GET'])
+def skill_bridge_info():
+    """列出所有已加载的 Skill"""
+    try:
+        from services.skill_bridge import SkillBridge
+        bridge = SkillBridge()
+        skills = bridge.list_skills()
+        info = {}
+        for s in skills:
+            info[s] = bridge.get_skill_info(s)
+        return jsonify({'success': True, 'data': {'skills': info}})
+    except Exception as e:
+        logger.error(f"[SkillBridge] info 失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@public_bp.route('/api/skill-bridge/steps/<skill_name>', methods=['GET'])
+def skill_bridge_steps(skill_name):
+    """查看某个 Skill 的步骤列表"""
+    try:
+        from services.skill_bridge import SkillBridge
+        bridge = SkillBridge()
+        steps = bridge.get_skill_steps(skill_name)
+        return jsonify({
+            'success': True,
+            'data': {
+                'skill_name': skill_name,
+                'steps': [{'id': s['id'], 'name': s['name'], 'order': s.get('order')} for s in steps]
+            }
+        })
+    except Exception as e:
+        logger.error(f"[SkillBridge] steps 失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@public_bp.route('/api/skill-bridge/execute/market-analyzer', methods=['POST'])
+def skill_bridge_market_analyzer():
+    """执行市场分析 Skill（行业7步诊断法）"""
+    try:
+        from services.skill_bridge import SkillBridge
+
+        data = request.get_json() or {}
+        business_description = data.get('business_description', '')
+        industry = data.get('industry', '')
+        business_type = data.get('business_type', 'b2c')
+        service_scenario = data.get('service_scenario')
+        max_steps = data.get('max_steps')
+        skip_steps = data.get('skip_steps', [])
+
+        if not industry:
+            return jsonify({'success': False, 'message': 'industry 参数必填'}), 400
+
+        def _execute():
+            bridge = SkillBridge()
+            return bridge.execute_market_analyzer(
+                business_description=business_description,
+                industry=industry,
+                business_type=business_type,
+                service_scenario=service_scenario,
+                max_steps=max_steps,
+                skip_steps=skip_steps,
+            )
+
+        result, timed_out = run_with_timeout(_execute, (), {}, timeout_seconds=120)
+
+        if timed_out:
+            return jsonify({'success': False, 'message': '处理超时，请减少步骤或稍后重试'}), 504
+
+        return jsonify({
+            'success': result.success,
+            'data': {
+                'skill_name': result.skill_name,
+                'full_output': result.full_output,
+                'steps': [
+                    {
+                        'step_id': s.step_id,
+                        'success': s.success,
+                        'duration_ms': s.duration_ms,
+                        'warnings': s.validation_warnings,
+                    }
+                    for s in result.step_results
+                ],
+                'errors': result.errors,
+                'total_duration_ms': result.total_duration_ms,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[SkillBridge] market_analyzer 失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@public_bp.route('/api/skill-bridge/execute/keyword-library', methods=['POST'])
+def skill_bridge_keyword_library():
+    """执行关键词库生成 Skill"""
+    try:
+        from services.skill_bridge import SkillBridge
+
+        data = request.get_json() or {}
+        business_description = data.get('business_description', '')
+        industry = data.get('industry', '')
+        business_type = data.get('business_type', 'b2c')
+        market_analyzer_output = data.get('market_analyzer_output', {})
+
+        if not industry:
+            return jsonify({'success': False, 'message': 'industry 参数必填'}), 400
+
+        def _execute():
+            bridge = SkillBridge()
+            return bridge.execute_keyword_library(
+                business_description=business_description,
+                industry=industry,
+                business_type=business_type,
+                market_analyzer_output=market_analyzer_output if market_analyzer_output else None,
+            )
+
+        result, timed_out = run_with_timeout(_execute, (), {}, timeout_seconds=120)
+
+        if timed_out:
+            return jsonify({'success': False, 'message': '处理超时，请稍后重试'}), 504
+
+        return jsonify({
+            'success': result.success,
+            'data': {
+                'skill_name': result.skill_name,
+                'full_output': result.full_output,
+                'steps': [
+                    {
+                        'step_id': s.step_id,
+                        'success': s.success,
+                        'duration_ms': s.duration_ms,
+                    }
+                    for s in result.step_results
+                ],
+                'errors': result.errors,
+                'total_duration_ms': result.total_duration_ms,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[SkillBridge] keyword_library 失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@public_bp.route('/api/skill-bridge/reload', methods=['POST'])
+def skill_bridge_reload():
+    """热重载 Skill 配置"""
+    try:
+        from services.skill_bridge import SkillBridge
+
+        data = request.get_json() or {}
+        skill_name = data.get('skill_name')
+
+        bridge = SkillBridge()
+        bridge.reload(skill_name)
+
+        return jsonify({
+            'success': True,
+            'message': f'配置已重载: {skill_name or "全部"}'
+        })
+    except Exception as e:
+        logger.error(f"[SkillBridge] reload 失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@public_bp.route('/api/skill-bridge/content-quality-optimize', methods=['POST'])
+def skill_bridge_content_quality_optimize():
+    """
+    手动触发图文内容质量评估与优化。
+
+    请求格式：
+    {
+        "generation_id": 123,   // 可选，有则更新已有记录
+        "content_data": {...}   // 图文内容数据（来自 step_generate_content 的 content）
+    }
+
+    触发 SkillBridge 的 step_quality_validate 进行质量评分，
+    返回评分结果和优化建议。
+    """
+    from services.skill_bridge import SkillBridge
+    from models.public_models import PublicGeneration
+
+    params = request.get_json() or {}
+    content_data = params.get('content_data', {})
+    generation_id = params.get('generation_id')
+
+    if not content_data:
+        return jsonify({'success': False, 'message': '缺少 content_data'}), 400
+
+    try:
+        bridge = SkillBridge()
+
+        # 手动触发 quality_validate：
+        # 1. 把 content_data 伪装成 step_generate_content 的输出（跳过内容生成）
+        # 2. 只跑 step_quality_validate
+        fo_fake = {'step_generate_content': content_data}
+        result = bridge._executor.execute_skill(
+            'content_generator',
+            manual_inputs={},
+            skip_steps=['step_generate_content'],
+            _full_output_preset=fo_fake,
+        )
+
+        if not result.success:
+            return jsonify({
+                'success': False,
+                'message': f'质量评估失败: {result.errors[0] if result.errors else "未知错误"}'
+            }), 500
+
+        qv_output = result.full_output.get('step_quality_validate', {})
+        qv_inner = qv_output.get('quality_validation', qv_output)
+
+        quality_score = qv_inner.get('quality_score', 0)
+        dimension_scores = qv_inner.get('dimension_scores', {})
+        failed_dims = qv_inner.get('failed_dimensions', [])
+        suggestions = qv_inner.get('improvement_suggestions', [])
+
+        # 构建报告
+        items = []
+        failed_items = []
+        for dim, score_info in (dimension_scores.items() if isinstance(dimension_scores, dict) else []):
+            if isinstance(score_info, dict):
+                sr = score_info.get('score', 10)
+                sv = int(float(sr)) if sr else 0
+                pr = score_info.get('passed')
+                passed = bool(pr) if pr is not None else sv >= 8
+                items.append({'dimension': dim, 'score': sv, 'passed': passed})
+                if not passed:
+                    failed_items.append(dim)
+
+        grade = 'F'
+        if quality_score >= 90:
+            grade = 'A'
+        elif quality_score >= 80:
+            grade = 'B'
+        elif quality_score >= 70:
+            grade = 'C'
+        elif quality_score >= 60:
+            grade = 'D'
+
+        quality_report = {
+            'total_score': quality_score,
+            'grade': grade,
+            'grade_label': '',
+            'passed': quality_score >= 80,
+            'optimized': True,
+            'first_score': quality_score,
+            'final_score': quality_score,
+            'optimized_items': [],
+            'items': items,
+            'summary': '',
+            'suggestions': suggestions,
+            'failed_items': failed_items,
+            'need_optimize': quality_score < 80,
+        }
+
+        # 如果有 generation_id，更新数据库记录
+        if generation_id:
+            try:
+                gen = PublicGeneration.query.get(generation_id)
+                if gen:
+                    gen.quality_score = quality_score
+                    gen.quality_report = quality_report
+                    db.session.commit()
+            except Exception as db_err:
+                logger.warning(f"[QualityOptimize] 更新记录失败: {db_err}")
+
+        return jsonify({
+            'success': True,
+            'quality_report': quality_report,
+            'quality_score': quality_score,
+            'grade': grade,
+            'failed_items': failed_items,
+            'suggestions': suggestions,
+            'items': items,
+        })
+
+    except Exception as e:
+        logger.error(f"[SkillBridge] content_quality_optimize 失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+
+@public_bp.route('/api/skill-bridge/execute/topic-library', methods=['POST'])
+def skill_bridge_topic_library():
+    """执行选题库生成 Skill"""
+    try:
+        from services.skill_bridge import SkillBridge
+
+        data = request.get_json() or {}
+        industry = data.get('industry', '')
+        business_description = data.get('business_description', '')
+        content_stage = data.get('content_stage', '成长阶段')
+        keyword_library_output = data.get('keyword_library_output', {})
+        market_analyzer_output = data.get('market_analyzer_output', {})
+
+        if not industry:
+            return jsonify({'success': False, 'message': 'industry 参数必填'}), 400
+
+        def _execute():
+            bridge = SkillBridge()
+            return bridge.execute_topic_library(
+                industry=industry,
+                business_description=business_description,
+                keyword_library_output=keyword_library_output if keyword_library_output else None,
+                market_analyzer_output=market_analyzer_output if market_analyzer_output else None,
+                content_stage=content_stage,
+            )
+
+        result, timed_out = run_with_timeout(_execute, (), {}, timeout_seconds=180)
+
+        if timed_out:
+            return jsonify({'success': False, 'message': '处理超时，请减少步骤或稍后重试'}), 504
+
+        return jsonify({
+            'success': result.success,
+            'data': {
+                'skill_name': result.skill_name,
+                'full_output': result.full_output,
+                'steps': [
+                    {
+                        'step_id': s.step_id,
+                        'success': s.success,
+                        'duration_ms': s.duration_ms,
+                    }
+                    for s in result.step_results
+                ],
+                'errors': result.errors,
+                'total_duration_ms': result.total_duration_ms,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[SkillBridge] topic_library 失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@public_bp.route('/api/skill-bridge/execute/full-pipeline', methods=['POST'])
+def skill_bridge_full_pipeline():
+    """执行完整流水线：市场分析 → 关键词库 → 选题库"""
+    try:
+        from services.skill_bridge import SkillBridge
+
+        data = request.get_json() or {}
+        industry = data.get('industry', '')
+        business_description = data.get('business_description', '')
+        business_type = data.get('business_type', 'b2c')
+        service_scenario = data.get('service_scenario')
+        content_stage = data.get('content_stage', '成长阶段')
+
+        if not industry:
+            return jsonify({'success': False, 'message': 'industry 参数必填'}), 400
+
+        def _execute():
+            bridge = SkillBridge()
+            return bridge.execute_full_pipeline(
+                industry=industry,
+                business_description=business_description,
+                business_type=business_type,
+                service_scenario=service_scenario,
+                content_stage=content_stage,
+            )
+
+        result, timed_out = run_with_timeout(_execute, (), {}, timeout_seconds=300)
+
+        if timed_out:
+            return jsonify({'success': False, 'message': '流水线执行超时，请减少步骤或分步执行'}), 504
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'market_analyzer': {
+                    'success': result['market_analyzer'].success,
+                    'full_output': result['market_analyzer'].full_output,
+                    'errors': result['market_analyzer'].errors,
+                },
+                'keyword_library': {
+                    'success': result['keyword_library'].success,
+                    'full_output': result['keyword_library'].full_output,
+                    'errors': result['keyword_library'].errors,
+                },
+                'topic_library': {
+                    'success': result['topic_library'].success,
+                    'full_output': result['topic_library'].full_output,
+                    'errors': result['topic_library'].errors,
+                },
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"[SkillBridge] full_pipeline 失败: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500

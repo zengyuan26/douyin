@@ -76,10 +76,26 @@ TASK_MAX_TOKENS: Dict[str, Dict] = {
     'bio_analysis': {'max_tokens': 1500, 'temperature': 0.5, 'description': '简介分析'},
 
     # 复杂任务（用 Premium 模型效果更好）
-    'persona_generate': {'max_tokens': 2000, 'temperature': 0.8, 'description': '人群画像生成'},
-    'content_create': {'max_tokens': 2000, 'temperature': 0.8, 'description': '内容创作'},
+    'persona_generate': {'max_tokens': 2500, 'temperature': 0.8, 'description': '人群画像生成'},
+    'content_create': {'max_tokens': 4000, 'temperature': 0.8, 'description': '图文内容创作（7帧slides）'},
     'market_analysis': {'max_tokens': 2500, 'temperature': 0.7, 'description': '市场分析'},
     'deep_analysis': {'max_tokens': 2500, 'temperature': 0.6, 'description': '深度分析'},
+
+    # SkillBridge 各 skill 专用任务类型
+    'title_generate': {'max_tokens': 1500, 'temperature': 0.8, 'description': 'H-V-F标题生成'},
+    'tag_generate': {'max_tokens': 1000, 'temperature': 0.7, 'description': '金字塔标签生成'},
+    'quality_validate': {'max_tokens': 2000, 'temperature': 0.3, 'description': '内容质量评分'},
+    # SkillBridge skill 名称映射（executor 传入 task_type=skill_name）
+    'content_generator': {'max_tokens': 4000, 'temperature': 0.8, 'description': '图文内容生成（7帧slides）'},
+    'market_analyzer': {'max_tokens': 3000, 'temperature': 0.7, 'description': '市场分析'},
+    'keyword_library_generator': {'max_tokens': 3000, 'temperature': 0.7, 'description': '关键词库生成'},
+    'topic_library_generator': {'max_tokens': 3000, 'temperature': 0.7, 'description': '选题库生成'},
+    'portrait_generator': {'max_tokens': 3000, 'temperature': 0.8, 'description': '画像生成'},
+    'video_script_generator': {'max_tokens': 4000, 'temperature': 0.8, 'description': '短视频脚本生成'},
+    'long_text_generator': {'max_tokens': 4000, 'temperature': 0.8, 'description': '长文内容生成'},
+    'psychology_reviewer': {'max_tokens': 2000, 'temperature': 0.3, 'description': '心理学审核'},
+    'title_generator': {'max_tokens': 1500, 'temperature': 0.8, 'description': 'H-V-F标题生成'},
+    'tag_generator': {'max_tokens': 1000, 'temperature': 0.7, 'description': '金字塔标签生成'},
 
     # 超长任务（需要 Premium 模型）
     'full_report': {'max_tokens': 4000, 'temperature': 0.7, 'description': '完整报告'},
@@ -103,7 +119,7 @@ class LLMService:
         self.base_url = os.environ.get('LLM_BASE_URL', 'https://api.siliconflow.cn/v1')
         self.api_key = os.environ.get('LLM_API_KEY', '')
         
-    def chat(self, messages, temperature=0.7, max_tokens=2000):
+    def chat(self, messages, temperature=0.7, max_tokens=None, task_type=None):
         """
         发送聊天请求
 
@@ -111,7 +127,9 @@ class LLMService:
             messages: 消息列表 [{"role": "user/assistant/system", "content": "..."}]，
                       也支持直接传字符串（自动包装成 user 消息）
             temperature: 温度参数
-            max_tokens: 最大令牌数
+            max_tokens: 最大令牌数（未指定时根据 task_type 自动查表）
+            task_type: 任务类型，可选 ('content_create', 'market_analysis', 'title_generate', 'tag_generate', ...)
+                        用于自动选择合适的 max_tokens
 
         Returns:
             回复文本或 None
@@ -119,6 +137,14 @@ class LLMService:
         # 兼容直接传字符串的场景
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
+
+        # 自动根据 task_type 查表 max_tokens
+        if max_tokens is None:
+            if task_type:
+                cfg = get_task_config(task_type)
+                max_tokens = cfg.get('max_tokens', 2000)
+            else:
+                max_tokens = 2000
 
         try:
             if self.provider == 'ollama':

@@ -607,7 +607,19 @@ class TemplateConfigService:
             # 返回默认配置
             return cls._get_default_section_config(content_type)
 
-        return [cls._section_to_dict(c) for c in configs]
+        result = [cls._section_to_dict(c) for c in configs]
+
+        # 补充策略：DB 配置缺少 slides 时自动从默认值补入
+        if content_type == 'graphic':
+            existing_keys = {c['section_key'] for c in result}
+            defaults = cls._get_default_section_config(content_type)
+            for d in defaults:
+                if d['section_key'] not in existing_keys:
+                    result.append(d)
+            # 按 sort_order 重排
+            result.sort(key=lambda x: x.get('sort_order', 99))
+
+        return result
 
     @classmethod
     def _get_default_section_config(cls, content_type: str) -> List[Dict]:
@@ -615,13 +627,14 @@ class TemplateConfigService:
         defaults = {
             'graphic': [
                 {'section_key': 'title', 'section_label': '标题设计', 'client_label': '一、标题', 'visible_to_client': True, 'copyable': True, 'sort_order': 1, 'is_core_section': True},
-                {'section_key': 'content_plan', 'section_label': '内容规划', 'client_label': '二、内容规划+制作规范', 'visible_to_client': True, 'copyable': True, 'sort_order': 2, 'is_core_section': True},
-                {'section_key': 'comment', 'section_label': '评论区运营', 'client_label': '三、评论区运营', 'visible_to_client': True, 'copyable': True, 'sort_order': 3, 'is_core_section': True},
-                {'section_key': 'tags', 'section_label': '底部标签', 'client_label': '四、底部标签', 'visible_to_client': True, 'copyable': True, 'sort_order': 4, 'is_core_section': True},
-                {'section_key': 'extension', 'section_label': '内容延伸建议', 'client_label': '五、内容延伸建议', 'visible_to_client': True, 'copyable': False, 'sort_order': 5, 'is_core_section': False},
-                {'section_key': 'publish', 'section_label': '发布策略', 'client_label': '六、发布策略', 'visible_to_client': True, 'copyable': False, 'sort_order': 6, 'is_core_section': False},
-                {'section_key': 'basic_info', 'section_label': '基本信息', 'client_label': '基本信息', 'visible_to_client': False, 'copyable': False, 'sort_order': 7, 'is_core_section': False},
-                {'section_key': 'compliance', 'section_label': '合规检查', 'client_label': '合规检查', 'visible_to_client': False, 'copyable': False, 'sort_order': 8, 'is_core_section': False},
+                {'section_key': 'slides', 'section_label': '图文详情', 'client_label': '二、图文详情', 'visible_to_client': True, 'copyable': False, 'sort_order': 2, 'is_core_section': True},
+                {'section_key': 'content_plan', 'section_label': '内容详情', 'client_label': '三、内容详情', 'visible_to_client': True, 'copyable': True, 'sort_order': 3, 'is_core_section': True},
+                {'section_key': 'comment', 'section_label': '评论区运营', 'client_label': '四、评论区运营', 'visible_to_client': True, 'copyable': True, 'sort_order': 4, 'is_core_section': True},
+                {'section_key': 'tags', 'section_label': '底部标签', 'client_label': '五、底部标签', 'visible_to_client': True, 'copyable': True, 'sort_order': 5, 'is_core_section': True},
+                {'section_key': 'extension', 'section_label': '内容延伸建议', 'client_label': '六、内容延伸建议', 'visible_to_client': True, 'copyable': False, 'sort_order': 6, 'is_core_section': False},
+                {'section_key': 'publish', 'section_label': '发布策略', 'client_label': '七、发布策略', 'visible_to_client': True, 'copyable': False, 'sort_order': 7, 'is_core_section': False},
+                {'section_key': 'basic_info', 'section_label': '基本信息', 'client_label': '基本信息', 'visible_to_client': False, 'copyable': False, 'sort_order': 8, 'is_core_section': False},
+                {'section_key': 'compliance', 'section_label': '合规检查', 'client_label': '合规检查', 'visible_to_client': False, 'copyable': False, 'sort_order': 9, 'is_core_section': False},
             ],
             'short_video': [
                 {'section_key': 'title', 'section_label': '标题', 'client_label': '一、标题', 'visible_to_client': True, 'copyable': True, 'sort_order': 1, 'is_core_section': True},
@@ -633,10 +646,11 @@ class TemplateConfigService:
             ],
             'long_text': [
                 {'section_key': 'title', 'section_label': '标题', 'client_label': '一、标题', 'visible_to_client': True, 'copyable': True, 'sort_order': 1, 'is_core_section': True},
-                {'section_key': 'content', 'section_label': '正文内容', 'client_label': '二、正文内容', 'visible_to_client': True, 'copyable': True, 'sort_order': 2, 'is_core_section': True},
-                {'section_key': 'comment', 'section_label': '评论区运营', 'client_label': '三、评论区运营', 'visible_to_client': True, 'copyable': True, 'sort_order': 3, 'is_core_section': True},
-                {'section_key': 'tags', 'section_label': '标签', 'client_label': '四、标签', 'visible_to_client': True, 'copyable': True, 'sort_order': 4, 'is_core_section': True},
-                {'section_key': 'publish', 'section_label': '发布策略', 'client_label': '五、发布策略', 'visible_to_client': True, 'copyable': False, 'sort_order': 5, 'is_core_section': False},
+                {'section_key': 'content', 'section_label': '正文内容（可复制发布）', 'client_label': '二、正文内容', 'visible_to_client': True, 'copyable': True, 'sort_order': 2, 'is_core_section': True},
+                {'section_key': 'design_reference', 'section_label': '制作参考', 'client_label': '三、制作参考', 'visible_to_client': True, 'copyable': False, 'sort_order': 3, 'is_core_section': False},
+                {'section_key': 'comment', 'section_label': '评论区运营', 'client_label': '四、评论区运营', 'visible_to_client': True, 'copyable': True, 'sort_order': 4, 'is_core_section': True},
+                {'section_key': 'tags', 'section_label': '标签', 'client_label': '五、标签', 'visible_to_client': True, 'copyable': True, 'sort_order': 5, 'is_core_section': True},
+                {'section_key': 'publish', 'section_label': '发布策略', 'client_label': '六、发布策略', 'visible_to_client': True, 'copyable': False, 'sort_order': 6, 'is_core_section': False},
             ],
         }
         return defaults.get(content_type, defaults['graphic'])

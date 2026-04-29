@@ -67,7 +67,7 @@ class VerificationData:
 class CandidateDirection:
     """LLM 提出的候选方向"""
     opportunity_name: str
-    business_direction: str
+    business_direction: str = ""   # 业务方向（内容选题方向）
     target_audience: str = ""
     pain_points: List[str] = field(default_factory=list)
     keywords: List[str] = field(default_factory=list)
@@ -242,16 +242,15 @@ class BlueOceanSearchVerifier:
                 error_message="候选方向列表为空"
             )
 
+        # 先创建结果对象（搜索不可用时也需要能返回）
+        result = VerificationResult(candidates=candidates)
+
         # 检测搜索功能是否可用
         if not self._check_search_available():
             logger.info("[BlueOceanSearchVerifier] 搜索功能不可用，跳过验证")
             result.success = True
             result.summary = "搜索验证已跳过（网络/代理不可用），使用默认置信度"
             return result
-
-        logger.info(f"[BlueOceanSearchVerifier] 开始验证 {len(candidates)} 个候选方向")
-
-        result = VerificationResult(candidates=candidates)
 
         try:
             # Phase 2: 并行搜索验证（timeout 已内置于各引擎）
@@ -390,7 +389,7 @@ class BlueOceanSearchVerifier:
         business_desc: str,
     ) -> Dict[str, str]:
         """自动生成搜索假设（当 LLM 未提供时）"""
-        direction = candidate.business_direction
+        direction = candidate.opportunity_name
         audience = candidate.target_audience
 
         return {
@@ -835,7 +834,7 @@ class BlueOceanSearchVerifier:
 
         for i, c in enumerate(candidates):
             lines.append(f"## 方向 {i+1}: {c.opportunity_name}")
-            lines.append(f"- 业务方向：{c.business_direction}")
+            lines.append(f"- 机会名称：{c.opportunity_name}")
             lines.append(f"- 目标人群：{c.target_audience}")
             lines.append(f"- 痛点：{', '.join(c.pain_points[:3])}")
 
@@ -955,7 +954,6 @@ class BlueOceanSearchVerifier:
             'candidates': [
                 {
                     'opportunity_name': c.opportunity_name,
-                    'business_direction': c.business_direction,
                     'target_audience': c.target_audience,
                     'pain_points': c.pain_points,
                     'keywords': c.keywords,

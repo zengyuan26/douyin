@@ -1,0 +1,206 @@
+{
+  "_comment": "关键词库生成 Skill 配置 - B/C分离 + 搜前/搜中/搜后分层 + L1-L4蓝海矩阵 (来源: .cursor/skill/geo-seo/skill.md)",
+
+  "skill": {
+    "name": "keyword_library_generator",
+    "version": "1.0",
+    "display_name": "关键词库生成",
+    "description": "B/C分离 + 搜前搜中搜后分层 + L1-L4蓝海矩阵 + 上下游关联词",
+    "skill_md_path": ".cursor/skill/geo-seo/skill.md",
+    "input_source": "from_market_analyzer"
+  },
+
+  "input_schema": {
+    "business_description": {
+      "type": "string",
+      "required": true,
+      "description": "业务描述"
+    },
+    "industry": {
+      "type": "string",
+      "required": true,
+      "description": "行业名称"
+    },
+    "business_type": {
+      "type": "string",
+      "enum": ["b2b", "b2c", "both"],
+      "required": true,
+      "description": "业务类型：B端/B端+C端"
+    },
+    "paying_equals_using": {
+      "type": "boolean",
+      "from_step": "market_analyzer.step3_audience_segment.paying_equals_using",
+      "description": "是否付费人=使用人，决定关键词库分类逻辑"
+    },
+    "search_journey": {
+      "type": "object",
+      "from_step": "market_analyzer.step6_search_journey",
+      "description": "搜索旅程，包含搜前/搜中/搜后三层"
+    },
+    "upstream_downstream": {
+      "type": "object",
+      "from_step": "market_analyzer.step7_upstream_downstream",
+      "description": "行业上下游关联"
+    },
+    "audience_segment": {
+      "type": "object",
+      "from_step": "market_analyzer.step3_audience_segment",
+      "description": "人群细分"
+    }
+  },
+
+  "steps": [
+
+    {
+      "id": "step_analyze_bc_separation",
+      "name": "B/C分离分析",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【B端/C端分离分析】\n\n请判断\"<<industry>>\"行业的付费人与使用人关系，并确定关键词库分类策略。\n\n判断标准：\n- 付费人=使用人：灌香肠加工、建材销售、本地服务 → 传统分类\n- 付费人≠使用人：奶粉、童装、礼品、养老服务 → 分离分类\n\n业务类型：<<business_type>>\n业务描述：<<business_description>>\n\n```json\n{{\n  \"paying_equals_using\": true或false,\n  \"b2b_keywords_needed\": true或false,\n  \"b2c_keywords_needed\": true或false,\n  \"strategy\": \"关键词库分类策略说明\",\n  \"b2b_core_characteristics\": \"B端核心特征（购买动机/决策人/核心需求）\",\n  \"b2c_core_characteristics\": \"C端核心特征（购买动机/决策人/核心需求）\"\n}}\n```",
+      "output_field": "bc_separation_analysis",
+      "output_schema": {
+        "paying_equals_using": {"type": "boolean"},
+        "b2b_keywords_needed": {"type": "boolean"},
+        "b2c_keywords_needed": {"type": "boolean"},
+        "strategy": {"type": "string"},
+        "b2b_core_characteristics": {"type": "string"},
+        "b2c_core_characteristics": {"type": "string"}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_b2b_keywords",
+      "name": "B端关键词库",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【B端关键词库生成】\n\n⚠️ B端特征（来源：geo-seo skill.md）\n- 购买动机=经营用\n- 决策人=老板/行政/采购\n- 核心需求=性价比/可报销/门槛低/服务好\n\n请为\"<<industry>>\"生成B端关键词库。\n\n```json\n{{\n  \"pre_search\": [\n    \"B端搜前关键词1（问题导向）\",\n    \"B端搜前关键词2\",\n    \"B端搜前关键词3\",\n    \"B端搜前关键词4\",\n    \"B端搜前关键词5\",\n    \"B端搜前关键词6\",\n    \"B端搜前关键词7\",\n    \"B端搜前关键词8\",\n    \"B端搜前关键词9\",\n    \"B端搜前关键词10\",\n    \"B端搜前关键词11\",\n    \"B端搜前关键词12\",\n    \"B端搜前关键词13\",\n    \"B端搜前关键词14\",\n    \"B端搜前关键词15\"\n  ],\n  \"mid_search\": [\n    \"B端搜中关键词1（对比导向）\",\n    \"B端搜中关键词2\",\n    \"B端搜中关键词3\",\n    \"B端搜中关键词4\",\n    \"B端搜中关键词5\",\n    \"B端搜中关键词6\",\n    \"B端搜中关键词7\",\n    \"B端搜中关键词8\"\n  ],\n  \"post_search\": [\n    \"B端搜后关键词1（决策导向）\",\n    \"B端搜后关键词2\",\n    \"B端搜后关键词3\",\n    \"B端搜后关键词4\",\n    \"B端搜后关键词5\",\n    \"B端搜后关键词6\",\n    \"B端搜后关键词7\",\n    \"B端搜后关键词8\"\n  ]\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>",
+      "output_field": "b2b_keywords",
+      "output_schema": {
+        "pre_search": {"type": "array", "items": "string", "minItems": 15},
+        "mid_search": {"type": "array", "items": "string", "minItems": 8},
+        "post_search": {"type": "array", "items": "string", "minItems": 8}
+      },
+      "data_providers": ["step_analyze_bc_separation"]
+    },
+
+    {
+      "id": "step_b2c_keywords",
+      "name": "C端关键词库",
+      "order": 3,
+      "required": true,
+      "llm_prompt_template": "【C端关键词库生成】\n\n⚠️ C端特征（来源：geo-seo skill.md）\n- 购买动机=日常使用\n- 决策人=家庭主妇/上班族\n- 核心需求=品质保障/价格实惠/方便配送\n\n请为\"<<industry>>\"生成C端关键词库。\n\n```json\n{{\n  \"pre_search\": [\n    \"C端搜前关键词1（问题导向）\",\n    \"C端搜前关键词2\",\n    \"C端搜前关键词3\",\n    \"C端搜前关键词4\",\n    \"C端搜前关键词5\",\n    \"C端搜前关键词6\",\n    \"C端搜前关键词7\",\n    \"C端搜前关键词8\",\n    \"C端搜前关键词9\",\n    \"C端搜前关键词10\",\n    \"C端搜前关键词11\",\n    \"C端搜前关键词12\",\n    \"C端搜前关键词13\",\n    \"C端搜前关键词14\",\n    \"C端搜前关键词15\"\n  ],\n  \"mid_search\": [\n    \"C端搜中关键词1（对比导向）\",\n    \"C端搜中关键词2\",\n    \"C端搜中关键词3\",\n    \"C端搜中关键词4\",\n    \"C端搜中关键词5\",\n    \"C端搜中关键词6\",\n    \"C端搜中关键词7\",\n    \"C端搜中关键词8\"\n  ],\n  \"post_search\": [\n    \"C端搜后关键词1（决策导向）\",\n    \"C端搜后关键词2\",\n    \"C端搜后关键词3\",\n    \"C端搜后关键词4\",\n    \"C端搜后关键词5\",\n    \"C端搜后关键词6\",\n    \"C端搜后关键词7\",\n    \"C端搜后关键词8\"\n  ]\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>",
+      "output_field": "b2c_keywords",
+      "output_schema": {
+        "pre_search": {"type": "array", "items": "string", "minItems": 15},
+        "mid_search": {"type": "array", "items": "string", "minItems": 8},
+        "post_search": {"type": "array", "items": "string", "minItems": 8}
+      },
+      "data_providers": ["step_analyze_bc_separation"]
+    },
+
+    {
+      "id": "step_blue_ocean_matrix",
+      "name": "L1-L4蓝海词矩阵",
+      "order": 4,
+      "required": true,
+      "llm_prompt_template": "【L1-L4蓝海词四层矩阵】\n\n关键词配比原则（来源：geo-seo skill.md）：\n- L1核心词（≤15%）：品牌/品类大词，起步阶段少量，用于做账号权重\n- L2长尾词（≥50%）：问题导向，竞争小，精准流量，核心策略词\n- L3地域词（适量）：本地服务用\n- L4季节词（适量）：季节性需求\n\n请为\"<<industry>>\"生成蓝海词矩阵。\n\n```json\n{{\n  \"L1_core\": [\n    \"L1核心词1（行业大词/品牌词）\",\n    \"L1核心词2\",\n    \"L1核心词3\"\n  ],\n  \"L2_long_tail\": [\n    \"L2长尾词1（问题导向，如'XX怎么办/XX好吗'）\",\n    \"L2长尾词2\",\n    \"L2长尾词3\",\n    \"L2长尾词4\",\n    \"L2长尾词5\",\n    \"L2长尾词6\",\n    \"L2长尾词7\",\n    \"L2长尾词8\",\n    \"L2长尾词9\",\n    \"L2长尾词10\",\n    \"L2长尾词11\",\n    \"L2长尾词12\",\n    \"L2长尾词13\",\n    \"L2长尾词14\",\n    \"L2长尾词15\",\n    \"L2长尾词16\",\n    \"L2长尾词17\",\n    \"L2长尾词18\",\n    \"L2长尾词19\",\n    \"L2长尾词20\",\n    \"L2长尾词21\",\n    \"L2长尾词22\",\n    \"L2长尾词23\",\n    \"L2长尾词24\",\n    \"L2长尾词25\",\n    \"L2长尾词26\",\n    \"L2长尾词27\",\n    \"L2长尾词28\",\n    \"L2长尾词29\",\n    \"L2长尾词30\",\n    \"L2长尾词31\",\n    \"L2长尾词32\",\n    \"L2长尾词33\",\n    \"L2长尾词34\",\n    \"L2长尾词35\",\n    \"L2长尾词36\",\n    \"L2长尾词37\",\n    \"L2长尾词38\",\n    \"L2长尾词39\",\n    \"L2长尾词40\",\n    \"L2长尾词41\",\n    \"L2长尾词42\",\n    \"L2长尾词43\",\n    \"L2长尾词44\",\n    \"L2长尾词45\",\n    \"L2长尾词46\",\n    \"L2长尾词47\",\n    \"L2长尾词48\",\n    \"L2长尾词49\",\n    \"L2长尾词50\"\n  ],\n  \"L3_regional\": [\n    \"L3地域词1（XX+地域）\",\n    \"L3地域词2\",\n    \"L3地域词3\",\n    \"L3地域词4\",\n    \"L3地域词5\"\n  ],\n  \"L4_seasonal\": [\n    \"L4季节词1\",\n    \"L4季节词2\",\n    \"L4季节词3\",\n    \"L4季节词4\",\n    \"L4季节词5\"\n  ],\n  \"blue_ocean_ratio\": \"长尾词占比估算（如'60%'）\"\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>",
+      "output_field": "blue_ocean_matrix",
+      "output_schema": {
+        "L1_core": {"type": "array", "items": "string"},
+        "L2_long_tail": {"type": "array", "items": "string", "minItems": 50},
+        "L3_regional": {"type": "array", "items": "string"},
+        "L4_seasonal": {"type": "array", "items": "string"},
+        "blue_ocean_ratio": {"type": "string"}
+      },
+      "data_providers": ["step_analyze_bc_separation"]
+    },
+
+    {
+      "id": "step_upstream_downstream_keywords",
+      "name": "上下游关联词",
+      "order": 5,
+      "required": false,
+      "llm_prompt_template": "【上下游关联关键词】\n\n⚠️ 核心洞察：客户不一定直接搜索本行业，而是从关联需求中找过来。\n\n请为\"<<industry>>\"生成上下游关联关键词。\n\n```json\n{{\n  \"upstream_keywords\": [\n    \"上游关联关键词1\",\n    \"上游关联关键词2\",\n    \"上游关联关键词3\",\n    \"上游关联关键词4\",\n    \"上游关联关键词5\"\n  ],\n  \"downstream_keywords\": [\n    \"下游关联关键词1\",\n    \"下游关联关键词2\",\n    \"下游关联关键词3\",\n    \"下游关联关键词4\",\n    \"下游关联关键词5\"\n  ],\n  \"industry_keywords\": [\n    \"行业关联关键词1\",\n    \"行业关联关键词2\",\n    \"行业关联关键词3\",\n    \"行业关联关键词4\",\n    \"行业关联关键词5\"\n  ]\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>",
+      "output_field": "upstream_downstream_keywords",
+      "output_schema": {
+        "upstream_keywords": {"type": "array", "items": "string", "minItems": 5},
+        "downstream_keywords": {"type": "array", "items": "string", "minItems": 5},
+        "industry_keywords": {"type": "array", "items": "string", "minItems": 5}
+      },
+      "data_providers": ["step_analyze_bc_separation"]
+    },
+
+    {
+      "id": "step_final_assembly",
+      "name": "关键词库汇总",
+      "order": 6,
+      "required": true,
+      "llm_prompt_template": "【关键词库汇总与统计】\n\n请汇总\"<<industry>>\"的完整关键词库，并进行统计。\n\n```json\n{{\n  \"summary\": {{\n    \"total_count\": 整数，总关键词数量,\n    \"b2b_count\": B端关键词总数,\n    \"b2c_count\": C端关键词总数,\n    \"long_tail_count\": 长尾关键词数量,\n    \"blue_ocean_ratio\": \"长尾词占比\"\n  }},\n  \"top_20_blue_ocean\": [\n    \"最优质的20个蓝海关键词（按搜索量低+竞争小+转化高排序）\",\n    \"关键词1\",\n    \"关键词2\",\n    \"关键词3\",\n    \"关键词4\",\n    \"关键词5\",\n    \"关键词6\",\n    \"关键词7\",\n    \"关键词8\",\n    \"关键词9\",\n    \"关键词10\",\n    \"关键词11\",\n    \"关键词12\",\n    \"关键词13\",\n    \"关键词14\",\n    \"关键词15\",\n    \"关键词16\",\n    \"关键词17\",\n    \"关键词18\",\n    \"关键词19\",\n    \"关键词20\"\n  ],\n  \"priority_keywords\": {{\n    \"P0\": [\"最高优先级关键词1\", \"关键词2\"],\n    \"P1\": [\"高优先级关键词1\", \"关键词2\", \"关键词3\"],\n    \"P2\": [\"中优先级关键词1\", \"关键词2\"]\n  }}\n}}\n```",
+      "output_field": "keyword_library_summary",
+      "output_schema": {
+        "summary": {
+          "type": "object",
+          "properties": {
+            "total_count": {"type": "integer"},
+            "b2b_count": {"type": "integer"},
+            "b2c_count": {"type": "integer"},
+            "long_tail_count": {"type": "integer"},
+            "blue_ocean_ratio": {"type": "string"}
+          }
+        },
+        "top_20_blue_ocean": {"type": "array", "items": "string", "minItems": 20},
+        "priority_keywords": {
+          "type": "object",
+          "properties": {
+            "P0": {"type": "array", "items": "string"},
+            "P1": {"type": "array", "items": "string"},
+            "P2": {"type": "array", "items": "string"}
+          }
+        }
+      },
+      "data_providers": ["step_b2b_keywords", "step_b2c_keywords", "step_blue_ocean_matrix"]
+    }
+
+  ],
+
+  "constraints": {
+    "quantity_requirements": {
+      "total_minimum": 100,
+      "b2b_keywords_min": 30,
+      "b2c_keywords_min": 30,
+      "long_tail_keywords_min": 50,
+      "upstream_downstream_keywords_min": 15
+    },
+    "ratio_requirements": {
+      "long_tail_ratio": 0.5,
+      "pre_search_ratio": 0.4,
+      "mid_search_ratio": 0.3,
+      "post_search_ratio": 0.3
+    }
+  },
+
+  "data_flow": {
+    "outputs": {
+      "step_blue_ocean_matrix": {
+        "_comment": "蓝海矩阵传递给选题库",
+        "L2_long_tail": {"target": "topic_library_generator", "field": "topics.source.blue_ocean_long_tail"},
+        "top_20_blue_ocean": {"target": "topic_library_generator", "field": "topics.priority_sources.p0_keywords"}
+      },
+      "step_final_assembly": {
+        "_comment": "关键词库汇总传递给选题库",
+        "priority_keywords": {"target": "topic_library_generator", "field": "topics.priority_sources.priority_keywords"}
+      },
+      "step_b2b_keywords": {
+        "_comment": "B端关键词传递给选题库",
+        "pre_search": {"target": "topic_library_generator", "field": "topics.source.b2b_pre_search"},
+        "mid_search": {"target": "topic_library_generator", "field": "topics.source.b2b_mid_search"}
+      },
+      "step_b2c_keywords": {
+        "_comment": "C端关键词传递给选题库",
+        "pre_search": {"target": "topic_library_generator", "field": "topics.source.b2c_pre_search"},
+        "mid_search": {"target": "topic_library_generator", "field": "topics.source.b2c_mid_search"}
+      }
+    }
+  }
+}

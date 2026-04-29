@@ -1,0 +1,166 @@
+{
+  "_comment": "标签生成 Skill 配置 - 金字塔三层覆盖法 (来源: tag_generator.py)",
+
+  "skill": {
+    "name": "tag_generator",
+    "version": "1.0",
+    "display_name": "金字塔标签生成",
+    "description": "三层金字塔标签：公域流量+垂直细分+长尾场景，精准覆盖搜索和推荐算法",
+    "skill_md_path": null
+  },
+
+  "input_schema": {
+    "topic_title": {
+      "type": "string",
+      "required": true,
+      "description": "选题标题"
+    },
+    "industry": {
+      "type": "string",
+      "description": "行业名称"
+    },
+    "keywords": {
+      "type": "object",
+      "description": "关键词库（core/long_tail/scene/problem）"
+    },
+    "portrait": {
+      "type": "object",
+      "description": "用户画像"
+    },
+    "geo_mode": {
+      "type": "string",
+      "description": "GEO内容模式"
+    },
+    "max_tags": {
+      "type": "integer",
+      "default": 8,
+      "description": "最终标签数量上限"
+    }
+  },
+
+  "steps": [
+
+    {
+      "id": "step_tier_analysis",
+      "name": "三层标签素材分析",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【标签素材分析 — 为金字塔三层标签准备素材】\n\n请从以下信息中提取三层标签生成所需的素材。\n\n选题：<<topic_title>>\n行业：<<industry>>\n\n关键词：\n<<keywords>>\n\n画像：\n<<portrait>>\n\n请用JSON输出：\n\n```json\n{{\n  \"tier1_materials\": {{\n    \"industry_keywords\": [\"行业大类词1\", \"行业大类词2\"],\n    \"broad_tags\": [\"宽泛标签1\", \"宽泛标签2\"]\n  }},\n  \"tier2_materials\": {{\n    \"core_subject\": \"核心主体词（如'早产儿'）\",\n    \"pain_keywords\": [\"痛点关键词1\", \"痛点关键词2\"],\n    \"action_keywords\": [\"动作词1\", \"动作词2\"],\n    \"vertical_combinations\": [\"垂直组合词1（如'早产儿喂养'）\", \"垂直组合词2\"]\n  }},\n  \"tier3_materials\": {{\n    \"scene_keywords\": [\"场景关键词1\", \"场景关键词2\"],\n    \"qa_patterns\": [\"问题句型1（如'XX怎么办'）\", \"问题句型2\"],\n    \"longtail_keywords\": [\"长尾关键词1\", \"长尾关键词2\"]\n  }},\n  \"identity_for_tags\": \"用于标签的身份描述\"\n}}\n```",
+      "output_field": "tag_materials",
+      "output_schema": {
+        "tier1_materials": {
+          "type": "object",
+          "properties": {
+            "industry_keywords": {"type": "array", "items": "string"},
+            "broad_tags": {"type": "array", "items": "string"}
+          }
+        },
+        "tier2_materials": {
+          "type": "object",
+          "properties": {
+            "core_subject": {"type": "string"},
+            "pain_keywords": {"type": "array", "items": "string"},
+            "action_keywords": {"type": "array", "items": "string"},
+            "vertical_combinations": {"type": "array", "items": "string"}
+          }
+        },
+        "tier3_materials": {
+          "type": "object",
+          "properties": {
+            "scene_keywords": {"type": "array", "items": "string"},
+            "qa_patterns": {"type": "array", "items": "string"},
+            "longtail_keywords": {"type": "array", "items": "string"}
+          }
+        },
+        "identity_for_tags": {"type": "string"}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_tag_generate",
+      "name": "金字塔标签生成",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【金字塔三层标签生成】\n\n请严格按三层金字塔结构，为以下选题生成标签。\n\n选题：<<topic_title>>\n行业：<<industry>>\nGEO模式：<<geo_mode>>\n最大标签数：<<max_tags>>\n\n标签素材：\n<<step_tier_analysis>>\n\n=== 三层标签生成规则 ===\n\n**第一层：公域流量标签（1-2个）**\n目的：进入大流量池\n规则：从 tier1_materials 中选取最宽泛的2个\n示例：#科学育儿 #育儿干货\n禁止：过于细分或长尾的词\n\n**第二层：垂直细分标签（2-3个）**\n目的：锁定高转化精准用户\n规则：从 tier2_materials 的 vertical_combinations 和 痛点词组合\n组合方式：核心词+痛点词 / 核心词+动作词\n示例：#早产儿喂养 #早产儿追重攻略 #宝宝肠胃虚弱\n禁止：纯大类目词（如#育儿 #母婴）\n\n**第三层：长尾场景标签（2-3个）**\n目的：命中用户真实搜索句\n规则：使用模板组合或从 tier3_materials 提取\n模板：核心词+场景/问题词+怎么办/指南/攻略\n示例：#早产儿消化不良怎么办 #新手妈妈避雷 #早产儿转奶攻略\n禁止：太泛（如#怎么办）、超过15字、纯情绪词\n\n**标签数量约束**：\n- 第1层：1-2个\n- 第2层：2-3个\n- 第3层：2-3个\n- 总计 ≤ max_tags 个（去重）\n\n=== 输出格式 ===\n\n```json\n{{\n  \"tier1_common\": [\"#公域标签1\", \"#公域标签2\"],\n  \"tier2_vertical\": [\"#垂直标签1\", \"#垂直标签2\", \"#垂直标签3\"],\n  \"tier3_longtail\": [\"#长尾标签1\", \"#长尾标签2\", \"#长尾标签3\"],\n  \"hashtags\": [\"最终标签列表（按优先级排序，最多<<max_tags>>个）\"],\n  \"search_keywords\": [\"能命中搜索的关键词（3-5个）\"]\n}}\n```\n\n请严格JSON输出，不要包含其他内容。",
+      "output_field": "tags",
+      "output_schema": {
+        "tier1_common": {"type": "array", "items": "string"},
+        "tier2_vertical": {"type": "array", "items": "string"},
+        "tier3_longtail": {"type": "array", "items": "string"},
+        "hashtags": {"type": "array", "items": "string", "maxItems": 12},
+        "search_keywords": {"type": "array", "items": "string", "minItems": 3}
+      },
+      "data_providers": ["step_tier_analysis"]
+    },
+
+    {
+      "id": "step_tag_review",
+      "name": "标签质量审核",
+      "order": 3,
+      "required": false,
+      "llm_prompt_template": "【标签质量审核 — 金字塔三层覆盖率 + 算法友好度】\n\n请审核以下标签的质量。\n\n选题：<<topic_title>>\n行业：<<industry>>\n\n已生成标签：\n<<step_tag_generate>>\n\n=== 审核维度 ===\n\n**金字塔覆盖率**（每层5分）：\n- 第1层覆盖：是否有公域大流量标签？\n- 第2层覆盖：是否有垂直细分标签？\n- 第3层覆盖：是否有长尾场景标签？\n\n**算法友好度**（每项5分）：\n- 标签是否包含核心业务词？\n- 标签是否有搜索量（不过于冷门）？\n- 标签组合是否覆盖搜索和推荐两个场景？\n\n**合规性检测**：\n- 是否包含平台禁止词？\n- 是否有违规营销词？\n- 标签数量是否合适（5-10个为佳）？\n\n请输出JSON：\n\n```json\n{{\n  \"pyramid_coverage\": {{\n    \"tier1_score\": 0-5,\n    \"tier2_score\": 0-5,\n    \"tier3_score\": 0-5,\n    \"total_score\": 0-15\n  }},\n  \"algorithm_friendliness\": {{\n    \"core_keyword_coverage\": 0-5,\n    \"search_volume\": 0-5,\n    \"dual_scene_coverage\": 0-5,\n    \"total\": 0-15\n  }},\n  \"compliance\": {{\n    \"prohibited_words\": [\"禁止词1\", \"禁止词2\"],\n    \"pass\": true或false\n  }},\n  \"recommendations\": [\"优化建议1\", \"优化建议2\"],\n  \"final_hashtags\": [\"最终标签列表（优化后）\"]\n}}\n```",
+      "output_field": "tag_review",
+      "output_schema": {
+        "pyramid_coverage": {
+          "type": "object",
+          "properties": {
+            "tier1_score": {"type": "integer"},
+            "tier2_score": {"type": "integer"},
+            "tier3_score": {"type": "integer"},
+            "total_score": {"type": "integer"}
+          }
+        },
+        "algorithm_friendliness": {
+          "type": "object",
+          "properties": {
+            "core_keyword_coverage": {"type": "integer"},
+            "search_volume": {"type": "integer"},
+            "dual_scene_coverage": {"type": "integer"},
+            "total": {"type": "integer"}
+          }
+        },
+        "compliance": {
+          "type": "object",
+          "properties": {
+            "prohibited_words": {"type": "array", "items": "string"},
+            "pass": {"type": "boolean"}
+          }
+        },
+        "recommendations": {"type": "array", "items": "string"},
+        "final_hashtags": {"type": "array", "items": "string"}
+      },
+      "data_providers": ["step_tag_generate"]
+    }
+
+  ],
+
+  "constraints": {
+    "tag_rules": {
+      "max_tags": 12,
+      "min_tags": 5,
+      "tier1_min": 1,
+      "tier1_max": 2,
+      "tier2_min": 2,
+      "tier2_max": 3,
+      "tier3_min": 2,
+      "tier3_max": 3,
+      "max_tag_length": 15
+    }
+  },
+
+  "data_flow": {
+    "outputs": {
+      "step_tag_generate": {
+        "hashtags": {"target": "content_generator", "field": "content_context.generated_hashtags"},
+        "tier1_common": {"target": "content_generator", "field": "content_context.tier1_tags"},
+        "tier2_vertical": {"target": "content_generator", "field": "content_context.tier2_tags"},
+        "tier3_longtail": {"target": "content_generator", "field": "content_context.tier3_tags"},
+        "search_keywords": {"target": "content_generator", "field": "content_context.search_keywords"}
+      },
+      "step_tag_review": {
+        "final_hashtags": {"target": "content_generator", "field": "content_context.reviewed_hashtags"}
+      }
+    }
+  }
+}

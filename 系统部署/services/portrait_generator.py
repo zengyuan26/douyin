@@ -572,16 +572,14 @@ class PortraitGenerator:
             for opp in market_opportunities[:3]:
                 if isinstance(opp, dict):
                     opp_name = opp.get('opportunity_name', '')
-                    business_dir = opp.get('business_direction', '')
                     opp_audience = opp.get('target_audience', '')
                     opp_diff = opp.get('differentiation', '')
                 else:
                     opp_name = getattr(opp, 'opportunity_name', '')
-                    business_dir = getattr(opp, 'business_direction', '')
                     opp_audience = getattr(opp, 'target_audience', '')
                     opp_diff = getattr(opp, 'differentiation', '')
 
-                dir_text = f"（核心业务：{business_dir}）" if business_dir else ""
+                dir_text = ""
                 diff_text = f"差异化：{opp_diff}" if opp_diff else ""
                 opp_list.append(
                     f"- {opp_name}{dir_text}\n  人群：{opp_audience}\n  {diff_text}"
@@ -881,7 +879,6 @@ def generate_portraits_from_analysis(
         market_opportunities = [
             {
                 'opportunity_name': o.opportunity_name,
-                'business_direction': getattr(o, 'business_direction', ''),
                 'target_audience': o.target_audience,
                 'pain_points': o.pain_points,
                 'keywords': o.keywords,

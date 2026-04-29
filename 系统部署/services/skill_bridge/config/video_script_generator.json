@@ -1,0 +1,225 @@
+{
+  "_comment": "短视频脚本生成 Skill 配置 v2 — 融合情绪动线+视觉叙事设计+GEO模式匹配+15维度质量评分 (来源: video_script_generator.py + geo-seo skill.md + 图文视觉设计方法论)",
+
+  "skill": {
+    "name": "video_script_generator",
+    "version": "2.0",
+    "display_name": "短视频脚本生成",
+    "description": "基于选题、用户画像、品牌上下文，生成高完播、高互动的短视频脚本。融合情绪动线、视觉叙事设计、GEO模式匹配，支持10种脚本结构，每种结构配备完整视觉分镜指导。",
+    "skill_md_path": ".cursor/skill/geo-seo/skill.md",
+    "input_source": "from_topic_library_and_portrait_and_brand"
+  },
+
+  "input_schema": {
+    "topic_id": {"type": "string", "required": true, "description": "选题ID"},
+    "topic_title": {"type": "string", "required": true, "description": "选题标题"},
+    "topic_type": {"type": "string", "required": true, "description": "选题类型名称"},
+    "topic_type_key": {"type": "string", "description": "选题类型键（pain_point/compare/skill 等）"},
+    "business_description": {"type": "string", "required": true, "description": "业务描述"},
+    "business_range": {"type": "string", "description": "经营范围（local/cross_region）"},
+    "business_type": {"type": "string", "description": "业务类型（b2b/b2c/both）"},
+    "portrait": {"type": "object", "description": "目标用户画像"},
+    "brand_context": {"type": "object", "description": "品牌上下文"},
+    "keyword_library": {"type": "object", "description": "关键词库"},
+    "selected_scene": {"type": "object", "description": "选中的场景组合"},
+    "content_style": {"type": "string", "description": "内容风格"},
+    "structure_id": {"type": "string", "description": "指定脚本结构ID（可选，默认GEO推荐）"}
+  },
+
+  "steps": [
+
+    {
+      "id": "step_geo_mode_match",
+      "name": "GEO模式匹配与结构推荐",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【GEO模式匹配 + 脚本结构推荐 — 短视频】\n\n请根据选题信息，先匹配GEO内容模式，再从10种脚本结构中推荐最合适的一种。\n\n选题标题：<<topic_title>>\n选题类型键：<<topic_type_key>>\n场景组合：<<selected_scene>>\n指定结构ID：<<structure_id>>\n\n【GEO模式匹配规则】\n- pain_point/decision_encourage/compare/cause/price → 问题-答案模式\n- pitfall/rethink → 金句-论证模式\n- tutorial/upstream → 定义-解释模式\n- skill → 框架-工具模式\n- seasonal/festival → 清单体模式\n- emotional/effect_proof → 案例-故事模式\n- 标题含\"对比/比较/错误/误区\" → 对比-纠错模式\n- 标题含\"排行/榜单/推荐\" → 榜单体模式\n\n【脚本结构推荐矩阵】\n| GEO模式 | 推荐结构ID | 推荐结构名 | 理由 |\n|---------|-----------|-----------|------|\n| 问题-答案模式 | pain_resonance | 痛点共鸣型 | 最通用，高互动 |\n| 金句-论证模式 | comparison_shock | 对比冲击型 | 反常识冲击强 |\n| 定义-解释模式 | question_reveal | 疑问揭秘型 | 揭秘感强 |\n| 框架-工具模式 | number_list | 数字清单型 | 结构化记忆强 |\n| 清单体模式 | number_list | 数字清单型 | 清单清晰 |\n| 案例-故事模式 | story_narrative | 故事叙述型 | 代入感强 |\n| 对比-纠错模式 | comparison_shock | 对比冲击型 | 对比震撼 |\n| 榜单体模式 | number_list | 数字清单型 | 榜单感强 |\n\n【10种脚本结构速查】\n1. pain_resonance — 痛点共鸣型：开场戳痛点→痛点描述→原因分析→解决方案→CTA（30-60秒）\n2. question_reveal — 疑问揭秘型：抛出疑问→制造悬念→逐步揭秘→深入分析→总结收尾（45-90秒）\n3. story_narrative — 故事叙述型：背景铺垫→冲突升级→转折点→解决方案→感悟总结（60-120秒）\n4. comparison_shock — 对比冲击型：错误展示→后果展示→正确做法→效果对比→推荐引导（30-60秒）\n5. knowledge_popularize — 知识科普型：冷知识引入→原理讲解→实际应用→误区提醒→总结收藏（45-90秒）\n6. scene_demo — 场景演示型：场景还原→问题痛点→解决方案→效果展示（30-90秒）\n7. effect_showcase — 效果展示型：Before展示→问题严重→After展示→对比震撼→推荐（30-60秒）\n8. number_list — 数字清单型：数字抓眼球→逐条讲解→总结升华→行动引导（45-90秒）\n9. emotional_resonance — 情感共鸣型：情感触发→场景共鸣→情绪释放→温暖收尾（45-120秒）\n10. hot_topic — 时效热点型：热点切入→观点输出→专业分析→价值提供（30-60秒）\n\n请输出：\n\n{\n  \"geo_mode\": \"GEO模式名称\",\n  \"recommended_structure_id\": \"推荐的结构ID（如已指定structure_id则返回该结构）\",\n  \"recommended_structure_name\": \"推荐的结构名称\",\n  \"structure_template\": \"该结构的完整template文本（从10种结构模板中提取）\",\n  \"match_reason\": \"匹配原因\"\n}",
+      "output_field": "geo_mode_match",
+      "output_schema": {
+        "geo_mode": {"type": "string"},
+        "recommended_structure_id": {"type": "string"},
+        "recommended_structure_name": {"type": "string"},
+        "structure_template": {"type": "string"},
+        "match_reason": {"type": "string"}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_generate_content",
+      "name": "生成短视频脚本",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【短视频脚本生成 v2 — 融合情绪动线+视觉分镜+GEO叙事】\n\n请严格按照所选脚本结构和以下设计体系生成短视频脚本。\n\n=== 选题信息 ===\n- 选题标题：<<topic_title>>\n- 选题类型：<<topic_type>>\n- 选题ID：<<topic_id>>\n\n=== 业务信息 ===\n- 业务描述：<<business_description>>\n- 经营范围：<<business_range>>\n- 业务类型：<<business_type>>\n\n=== 目标用户画像 ===\n<<portrait>>\n\n=== 品牌上下文 ===\n<<brand_context>>\n\n=== 关键词库 ===\n<<keyword_library>>\n\n=== 【强制GEO模式】===\n<<geo_mode_match>>\n\n=== 【维度一：情绪动线逻辑】（必须执行）===\n\n脚本的情绪曲线必须遵循：\n- 前3秒(Hook)：必须直接给出核心钩子，禁止铺垫。情绪：期待/好奇\n- 3-15秒(Empathy)：挖掘最扎心的场景，建立共鸣。情绪：焦虑/痛点\n- 15-45秒(Value)：拆解解决方案，逻辑清晰。情绪：坚定/专业\n- 结尾15秒(Refinement+Action)：升华到人文关怀，转化为行动。情绪：温暖/信任\n\n=== 【维度二：视觉分镜设计】（必须执行）===\n\n每个场景(scenes)必须包含以下视觉分镜字段：\n- shot_type：镜头类型（特写/全景/中景/航拍/主观镜头/过肩镜头）\n- camera_movement：运镜（固定/推/拉/摇/移/跟/手持/环绕）\n- lighting：光影（自然光/伦勃朗光/High-key柔光/低饱和冷光）\n- visual_elements：视觉元素（数据图表/产品特写/情景再现/资料画面/绿幕素材）\n- broll_suggestion：B-roll建议（画面描述，用于后期剪辑参考）\n\n色彩递进规则：\n- 痛点/开场部分 → 冷色调或低饱和度（#4A5568灰蓝、#E8EEF2冷灰）\n- 方案/干货部分 → 暖色调（#FFF5EE米色、#FFDAB9淡橘）\n- 转化/结尾部分 → 品牌色作为强调色（#2563EB品牌蓝）\n\n=== 【维度三：信息层级架构】===\n\n- 1个大字字幕：每个场景必须有1个视觉化的核心字幕（≤15字）\n- BGM建议：必须给出音乐风格和情绪参考\n- 字幕节奏：口播停顿处必须有对应字幕（口播=字幕100%同步）\n\n=== 【核心内容质量要求】===\n\n1. **前3秒必须抓眼球**：禁止铺垫，必须在第1句话就给出核心结论或反常识钩子\n2. **信任证据**：必须包含至少3条具体数据、案例或权威引用（嵌入到口播中）\n3. **行动号召(CTA)**：结尾必须有一条唯一、明确、低门槛的下一步行动\n4. **禁止抽象词**：空洞词/抽象词/模糊词（见下方）\n\n=== 【禁止抽象词】===\n空洞词：\"专业服务\"\"品质保证\"\"高效便捷\"\"优质贴心\"\"值得信赖\"\n抽象词：\"很多人\"\"这个问题\"\"很严重\"\"效果不错\"\n模糊词：\"质量好\"\"服务优\"\"值得推荐\"\"特别棒\"\n\n=== 【JSON输出格式】===\n\n{\n  \"structure\": \"结构ID\",\n  \"structure_name\": \"结构名称\",\n  \"geo_mode\": \"GEO模式名称\",\n  \"title\": \"短视频标题（≤20字，戳心）\",\n  \"duration\": \"建议时长（如30-60秒）\",\n  \"aspect_ratio\": \"9:16（1080×1920px）\",\n\n  \"opening\": \"前3秒核心钩子（必须直接给出结论或反常识）\",\n\n  \"trust_evidence\": [\n    {\"type\": \"data | case | quote\", \"content\": \"具体数据/案例内容\", \"source\": \"来源\"}\n  ],\n\n  \"cta\": \"唯一明确行动号召（≤50字）\",\n\n  \"scenes\": [\n    {\n      \"scene_index\": 1,\n      \"scene_name\": \"场景名称（如：开场痛点钩子）\",\n      \"time_range\": \"0-3秒\",\n      \"emotion_stage\": \"期待/代入 | 心酸/共鸣 | 坚定/爆发 | 感动/释然 | 温暖/行动\",\n      \"color_tone\": \"cold | warm | brand\",\n\n      \"narrration\": \"口播台词（口语化，有感染力）\",\n      \"subtitle_text\": \"字幕文字（≤15字，视觉化大字）\",\n      \"narrration_subtitle_sync\": true,\n\n      \"visual_direction\": {\n        \"shot_type\": \"特写 | 全景 | 中景 | 航拍 | 主观镜头 | 过肩镜头\",\n        \"camera_movement\": \"固定 | 推 | 拉 | 摇 | 移 | 跟 | 手持 | 环绕\",\n        \"lighting\": \"自然光 | 伦勃朗光 | High-key柔光 | 低饱和冷光\",\n        \"visual_elements\": [\"数据图表 | 产品特写 | 情景再现 | 资料画面 | 绿幕素材 | 评论区截图 | 热搜截图\"],\n        \"broll_suggestion\": \"B-roll画面描述（后期剪辑参考）\",\n        \"background_music_mood\": \"轻快 | 紧张 | 温暖 | 悬疑 | 励志 | 感人\"\n      },\n\n      \"keywords\": [\"埋入的关键词\"],\n      \"key_point\": \"本场景核心信息点\"\n    }\n  ],\n\n  \"shooting_tips\": \"拍摄/剪辑注意事项\",\n  \"bgm_suggestion\": \"背景音乐风格建议（温柔励志/悬疑紧张/温暖治愈等）\",\n  \"hashtags\": [\"#话题1\", \"#话题2\", \"#话题3\"],\n  \"first_comment\": \"首评引导内容（能引发互动）\",\n  \"publish_strategy\": \"发布建议（时间+平台适配）\"\n}",
+      "output_field": "content",
+      "output_schema": {
+        "structure": {"type": "string"},
+        "structure_name": {"type": "string"},
+        "geo_mode": {"type": "string"},
+        "title": {"type": "string"},
+        "duration": {"type": "string"},
+        "aspect_ratio": {"type": "string"},
+        "opening": {"type": "string"},
+        "trust_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {"type": "string"},
+              "content": {"type": "string"},
+              "source": {"type": "string"}
+            }
+          }
+        },
+        "cta": {"type": "string"},
+        "scenes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scene_index": {"type": "integer"},
+              "scene_name": {"type": "string"},
+              "time_range": {"type": "string"},
+              "emotion_stage": {"type": "string"},
+              "color_tone": {"type": "string"},
+              "narrration": {"type": "string"},
+              "subtitle_text": {"type": "string"},
+              "narrration_subtitle_sync": {"type": "boolean"},
+              "visual_direction": {
+                "type": "object",
+                "properties": {
+                  "shot_type": {"type": "string"},
+                  "camera_movement": {"type": "string"},
+                  "lighting": {"type": "string"},
+                  "visual_elements": {"type": "array", "items": {"type": "string"}},
+                  "broll_suggestion": {"type": "string"},
+                  "background_music_mood": {"type": "string"}
+                }
+              },
+              "keywords": {"type": "array", "items": {"type": "string"}},
+              "key_point": {"type": "string"}
+            }
+          }
+        },
+        "shooting_tips": {"type": "string"},
+        "bgm_suggestion": {"type": "string"},
+        "hashtags": {"type": "array", "items": {"type": "string"}},
+        "first_comment": {"type": "string"},
+        "publish_strategy": {"type": "string"}
+      },
+      "data_providers": ["step_geo_mode_match"]
+    },
+
+    {
+      "id": "step_quality_validate",
+      "name": "脚本质量自检",
+      "order": 3,
+      "required": false,
+      "llm_prompt_template": "【短视频脚本质量自检 v2 — 15维度评分】\n\n请对已生成的脚本进行质量自检，按以下15个维度评分（每项10分，总分150分，折算100分输出）。\n\n【内容质量维度（10项×10分）】\n1. 前3秒钩子（10分）：是否在第1句话就直接给出核心结论或反常识钩子？禁止任何铺垫\n2. 信任证据密度（10分）：是否包含至少3条具体数据/案例/权威引用\n3. CTA明确性（10分）：是否有唯一、明确、低门槛的行动号召\n4. GEO模式契合度（10分）：是否严格按所选脚本结构生成\n5. 标题吸引力（10分）：标题是否戳心、≤20字、引发好奇或共鸣\n6. 关键词埋入（10分）：是否在口播中自然嵌入关键词\n7. 情绪递进（10分）：情绪是否按期待→心酸→爆发→释然→温暖→行动递进\n8. 结构完整性（10分）：脚本结构的每个环节是否完整\n9. 口语化程度（10分）：口播文案是否口语化、接地气\n10. 禁止词合规（10分）：是否出现禁止抽象词\n\n【视觉分镜维度（5项×10分）★新增】\n11. 分镜丰富度（10分）：10种shot_type和camera_movement是否多样化使用（不能全用固定镜头）\n12. 光影一致性（10分）：是否遵循色彩递进规则（痛点冷色→方案暖色→结尾品牌色）\n13. 字幕可视化（10分）：每个场景是否都有≤15字的视觉化字幕\n14. 音画同步（10分）：口播与字幕是否100%同步（narrration_subtitle_sync=true）\n15. B-roll完整性（10分）：每个场景是否都有broll_suggestion参考\n\n已生成脚本：\n<<step_generate_content>>\n\n请输出：\n\n{\n  \"quality_score\": 折算总分（满分100，实际=15项总分/1.5向下取整）,\n  \"raw_total\": 原始15项总分,\n  \"dimension_scores\": {\n    \"hook_3s\": {\"score\": 分数, \"passed\": true/false},\n    \"trust_evidence\": {\"score\": 分数, \"passed\": true/false},\n    \"cta_clarity\": {\"score\": 分数, \"passed\": true/false},\n    \"geo_fit\": {\"score\": 分数, \"passed\": true/false},\n    \"title_attraction\": {\"score\": 分数, \"passed\": true/false},\n    \"keyword_embedding\": {\"score\": 分数, \"passed\": true/false},\n    \"emotion_progression\": {\"score\": 分数, \"passed\": true/false},\n    \"structure_completeness\": {\"score\": 分数, \"passed\": true/false},\n    \"spoken_style\": {\"score\": 分数, \"passed\": true/false},\n    \"prohibited_words\": {\"score\": 分数, \"passed\": true/false},\n    \"storyboard_diversity★\": {\"score\": 分数, \"passed\": true/false},\n    \"lighting_consistency★\": {\"score\": 分数, \"passed\": true/false},\n    \"subtitle_visualization★\": {\"score\": 分数, \"passed\": true/false},\n    \"sync_accuracy★\": {\"score\": 分数, \"passed\": true/false},\n    \"broll_completeness★\": {\"score\": 分数, \"passed\": true/false}\n  },\n  \"failed_dimensions\": [\"未通过维度1\", \"未通过维度2\"],\n  \"improvement_suggestions\": [\"改进建议1\", \"建议2\"]\n}",
+      "output_field": "quality_validation",
+      "output_schema": {
+        "quality_score": {"type": "integer"},
+        "raw_total": {"type": "integer"},
+        "dimension_scores": {"type": "object"},
+        "failed_dimensions": {"type": "array", "items": {"type": "string"}},
+        "improvement_suggestions": {"type": "array", "items": {"type": "string"}}
+      },
+      "data_providers": ["step_generate_content"]
+    },
+
+    {
+      "id": "step_final_output",
+      "name": "最终脚本输出",
+      "order": 4,
+      "required": false,
+      "llm_prompt_template": "【最终短视频脚本输出 — 整合所有区块】（此步骤可跳过，内容以step_generate_content为准）\n\n请整合已生成的脚本，输出最终完整内容包。\n\nGEO+结构推荐：\n<<step_geo_mode_match>>\n\n已生成脚本：\n<<step_generate_content>>\n\n质量自检（参考）：\n<<step_quality_validate>>\n\n请输出以下JSON：\n\n{\n  \"content_id\": \"内容ID（topic_id + timestamp）\",\n  \"topic_id\": \"<<topic_id>>\",\n  \"topic_title\": \"<<topic_title>>\",\n  \"topic_type\": \"<<topic_type>>\",\n  \"geo_mode\": \"GEO模式名称\",\n  \"structure\": \"脚本结构ID\",\n  \"structure_name\": \"脚本结构名称\",\n\n  \"basic\": {\n    \"title\": \"短视频标题\",\n    \"duration\": \"建议时长\",\n    \"aspect_ratio\": \"9:16（1080×1920px）\",\n    \"opening\": \"前3秒核心钩子\",\n    \"cta\": \"唯一行动号召\"\n  },\n\n  \"scenes\": [\"完整scenes数组（含visual_direction分镜字段）\"],\n\n  \"visual_report\": {\n    \"emotion_flow\": \"情绪曲线描述\",\n    \"color_gradient\": \"色彩递进描述\",\n    \"shot_type_distribution\": \"镜头类型分布统计\"\n  },\n\n  \"trust_evidence\": [\"信任证据列表\"],\n  \"hashtags\": [\"话题标签列表\"],\n  \"first_comment\": \"首评引导内容\",\n  \"bgm_suggestion\": \"背景音乐建议\",\n  \"shooting_tips\": \"拍摄注意事项\",\n  \"publish_strategy\": \"发布策略\",\n  \"quality_score\": \"质量自检总分\",\n  \"grade\": \"A/B/C/D（90+/80+/70+/60+）\"\n}",
+      "output_field": "final_output",
+      "output_schema": {
+        "content_id": {"type": "string"},
+        "topic_id": {"type": "string"},
+        "topic_title": {"type": "string"},
+        "topic_type": {"type": "string"},
+        "geo_mode": {"type": "string"},
+        "structure": {"type": "string"},
+        "structure_name": {"type": "string"},
+        "basic": {"type": "object"},
+        "scenes": {"type": "array"},
+        "visual_report": {"type": "object"},
+        "trust_evidence": {"type": "array"},
+        "hashtags": {"type": "array"},
+        "first_comment": {"type": "string"},
+        "bgm_suggestion": {"type": "string"},
+        "shooting_tips": {"type": "string"},
+        "publish_strategy": {"type": "string"},
+        "quality_score": {"type": "integer"},
+        "grade": {"type": "string"}
+      },
+      "data_providers": ["step_geo_mode_match", "step_generate_content", "step_quality_validate"]
+    }
+
+  ],
+
+  "constraints": {
+    "content_rules": {
+      "title_max_length": 20,
+      "subtitle_max_length": 15,
+      "trust_evidence_min": 3,
+      "opening_directness": true,
+      "cta_required": true,
+      "scenes_min": 4,
+      "scenes_max★": 8,
+      "narrration_subtitle_sync_required★": true,
+      "broll_required_per_scene★": true
+    },
+    "structure_rules": {
+      "must_match_structure★": true,
+      "emotion_progression★": ["期待/代入", "心酸/共鸣", "坚定/爆发", "感动/释然", "温暖/行动", "信任/期待"],
+      "no_abstract_words★": true,
+      "structure_enum★": [
+        "pain_resonance", "question_reveal", "story_narrative",
+        "comparison_shock", "knowledge_popularize", "scene_demo",
+        "effect_showcase", "number_list", "emotional_resonance", "hot_topic"
+      ],
+      "color_tone_progression★": {
+        "hook_pages": "cold",
+        "empathy_pages": "cold",
+        "value_pages": "warm",
+        "refinement_pages": "warm",
+        "action_pages": "brand"
+      }
+    },
+    "visual_design_rules★": {
+      "shot_types★": ["特写", "全景", "中景", "航拍", "主观镜头", "过肩镜头"],
+      "camera_movements★": ["固定", "推", "拉", "摇", "移", "跟", "手持", "环绕"],
+      "lighting_styles★": ["自然光", "伦勃朗光", "High-key柔光", "低饱和冷光"],
+      "color_gradient": {
+        "cold_examples★": ["#4A5568", "#E8EEF2", "#CBD5E1"],
+        "warm_examples★": ["#FFF5EE", "#FFDAB9", "#F5F0EB"],
+        "brand_examples★": ["#2563EB", "#22C55E"]
+      },
+      "visual_elements_catalog★": [
+        "数据图表", "产品特写", "情景再现", "资料画面",
+        "绿幕素材", "评论区截图", "热搜截图", "数据动效"
+      ]
+    }
+  },
+
+  "data_flow": {
+    "outputs": {
+      "step_generate_content": {
+        "_comment": "内容以step_generate_content为唯一可信来源",
+        "scenes": {"target": "content_data", "field": "scenes"},
+        "title": {"target": "content_data", "field": "title"},
+        "structure_name": {"target": "content_data", "field": "structure_name"},
+        "trust_evidence": {"target": "content_data", "field": "trust_evidence"},
+        "cta": {"target": "content_data", "field": "cta"}
+      },
+      "step_quality_validate": {
+        "_comment": "评分以step_quality_validate为唯一可信来源",
+        "quality_score": {"target": "quality_report", "field": "total_score"},
+        "dimension_scores": {"target": "quality_report", "field": "items"},
+        "failed_dimensions": {"target": "quality_report", "field": "failed_items"}
+      }
+    }
+  }
+}

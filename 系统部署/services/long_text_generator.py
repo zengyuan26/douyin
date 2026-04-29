@@ -594,6 +594,17 @@ class LongTextGenerator:
             '- 平台适配：公众号、知乎、抖音长文、百度、小红书',
         ])
 
+        # 制作参考区块（用 --- 分隔，前半部分为纯净正文，后半部分为制作参考，不参与一键复制）
+        design_ref_title = article.get('design_reference_title', '制作参考')
+        design_ref_content = article.get('design_reference_content', '')
+        if design_ref_content:
+            lines.extend([
+                '',
+                '---',
+                f'## {design_ref_title}',
+                design_ref_content,
+            ])
+
         return '\n'.join(lines)
 
     def _select_best_template(self, topic_type: str, content_direction: str) -> Dict:
@@ -683,7 +694,9 @@ class LongTextGenerator:
   "hashtags": ["#话题1", "#话题2", "#话题3", "#话题4", "#话题5"],
   "cta": "文末行动号召（引导关注/评论）",
   "reading_time": "{template['reading_time']}",
-  "word_count_estimate": {template['word_count']}
+  "word_count_estimate": "{template['word_count']}",
+  "design_reference_title": "制作参考",
+  "design_reference_content": "制作参考内容（用于内部参考，不对外展示）"
 }}
 ```
 
@@ -955,7 +968,9 @@ class LongTextGenerator:
             'hashtags': article.get('hashtags', default['hashtags']),
             'cta': article.get('cta', '感谢阅读，欢迎评论区交流！'),
             'reading_time': article.get('reading_time', '5分钟'),
-            'word_count_estimate': article.get('word_count_estimate', '2000字')
+            'word_count_estimate': article.get('word_count_estimate', '2000字'),
+            'design_reference_title': article.get('design_reference_title', '制作参考'),
+            'design_reference_content': article.get('design_reference_content', ''),
         }
 
     def _get_default_article(self) -> dict:
@@ -968,7 +983,9 @@ class LongTextGenerator:
             'hashtags': ['#文章', '#干货', '#分享', '#知识', '#建议'],
             'cta': '感谢阅读，欢迎评论区交流！',
             'reading_time': '5分钟',
-            'word_count_estimate': '2000字'
+            'word_count_estimate': '2000字',
+            'design_reference_title': '制作参考',
+            'design_reference_content': '',
         }
 
     def get_templates(self) -> List[Dict]:

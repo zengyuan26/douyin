@@ -1,0 +1,351 @@
+{
+  "_comment": "市场分析 Skill 配置 - 行业7步诊断法 (来源: .cursor/skill/geo-master/skill.md)",
+
+  "skill": {
+    "name": "market_analyzer",
+    "version": "1.0",
+    "display_name": "行业7步分析",
+    "description": "专科医生7步诊断法，从行业全貌到上下游关联，输出人群细分和搜索旅程",
+    "skill_md_path": ".cursor/skill/geo-master/skill.md",
+    "input_source": "manual"
+  },
+
+  "input_schema": {
+    "business_description": {
+      "type": "string",
+      "required": true,
+      "description": "业务描述，如'卖奶粉'、'灌香肠加工'"
+    },
+    "industry": {
+      "type": "string",
+      "required": true,
+      "description": "行业名称，如'奶粉'、'香肠加工'"
+    },
+    "business_type": {
+      "type": "string",
+      "enum": ["b2b", "b2c", "both"],
+      "required": true,
+      "description": "业务类型：B端/B端+C端"
+    },
+    "service_scenario": {
+      "type": "string",
+      "required": false,
+      "description": "服务场景描述"
+    }
+  },
+
+  "steps": [
+
+    {
+      "id": "step1_industry_overview",
+      "name": "行业全貌",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【行业全貌分析】\n\n请分析\"<<industry>>\"行业的市场概况，按照以下结构输出（JSON格式）：\n\n```json\n{{\n  \"market_size\": \"市场规模描述，如'年销售额X亿'或'年增长率X%'\",\n  \"growth_rate\": \"增速描述，如'年增速X%'或'趋于稳定/快速增长'\",\n  \"market_structure\": \"市场格局描述，如'品牌分散/高度集中/区域性强'\",\n  \"key_players\": [\"主要玩家1\", \"主要玩家2\", \"主要玩家3\"],\n  \"seasonal_features\": \"季节性特征，如'中秋国庆旺季/无明显季节性'\",\n  \"product_type\": \"标品或非标品或混合\",\n  \"barriers_to_entry\": \"进入门槛，如'资金门槛/技术门槛/渠道门槛'\"\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>",
+      "output_field": "step1_industry_overview",
+      "output_schema": {
+        "market_size": {"type": "string"},
+        "growth_rate": {"type": "string"},
+        "market_structure": {"type": "string"},
+        "key_players": {"type": "array", "items": "string"},
+        "seasonal_features": {"type": "string"},
+        "product_type": {"type": "enum", "options": ["标品", "非标品", "混合"]},
+        "barriers_to_entry": {"type": "string"}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step2_blue_ocean",
+      "name": "找蓝海",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【蓝海机会分析】\n\n基于以下行业概况，分析\"<<industry>>\"行业的蓝海机会。\n\n要求：\n1. 找出竞争度低但需求真实的细分市场\n2. 区分红海（竞争激烈）和蓝海（竞争小）\n3. 每个蓝海方向说明为什么竞争小\n\n```json\n{{\n  \"red_ocean_analysis\": \"红海市场特征描述\",\n  \"blue_ocean_opportunities\": [\n    {{\n      \"direction\": \"蓝海方向名称\",\n      \"why_blue_ocean\": \"为什么是蓝海（竞争小/需求未被满足/门槛高对手少）\",\n      \"potential\": \"市场规模预估\",\n      \"difficulty\": \"进入难度（低/中/高）\"\n    }}\n  ],\n  \"recommended_blue_ocean\": \"推荐的蓝海方向（从上述列表中选1-2个）\"\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>\n市场概况：<<step1_industry_overview>>",
+      "output_field": "step2_blue_ocean",
+      "output_schema": {
+        "red_ocean_analysis": {"type": "string"},
+        "blue_ocean_opportunities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "direction": {"type": "string"},
+              "why_blue_ocean": {"type": "string"},
+              "potential": {"type": "string"},
+              "difficulty": {"type": "string"}
+            }
+          }
+        },
+        "recommended_blue_ocean": {"type": "string"}
+      },
+      "data_providers": ["step1_industry_overview"]
+    },
+
+    {
+      "id": "step3_audience_segment",
+      "name": "人群细分",
+      "order": 3,
+      "required": true,
+      "llm_prompt_template": "【Skill强制规则 — 付费人/使用人分离】\n（来源：geo-master skill.md 第94-140行）\n\n⚠️ 重要判断规则：\n当付费者和使用者不是同一人时，选题必须同时考虑两方。\n典型场景：奶粉（付费者=父母，使用者=宝宝）、礼品（付费者=送礼人，使用者=收礼人）。\n\n请分析\"<<industry>>\"行业的人群细分：\n\n```json\n{{\n  \"paying_equals_using\": true或false,\n  \"paying_user\": {{\n    \"identity\": \"付费人身份描述，如'宝爸宝妈/企业老板/家庭主妇'\",\n    \"motivation\": \"购买动机，如'解决孩子健康问题/企业采购需求'\",\n    \"core_needs\": [\"核心需求1\", \"核心需求2\", \"核心需求3\"],\n    \"search_behavior\": \"搜索行为描述，如'先搜症状再搜产品'\",\n    \"concerns\": [\"主要顾虑1\", \"主要顾虑2\"]\n  }},\n  \"using_user\": {{\n    \"identity\": \"使用人身份描述（与付费人相同时可简写）\",\n    \"motivation\": \"使用动机\",\n    \"core_needs\": [\"核心需求1\", \"核心需求2\"],\n    \"search_behavior\": \"搜索行为描述\",\n    \"concerns\": [\"主要顾虑1\", \"主要顾虑2\"]\n  }},\n  \"separation_point\": \"付费人与使用人分离的关键点描述\",\n  \"audience_priority\": [\n    {{\n      \"segment_name\": \"人群细分名称\",\n      \"priority\": \"高/中/低\",\n      \"characteristics\": \"人群特征描述\",\n      \"core_pain_point\": \"最痛的点\"\n    }}\n  ]\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>\n业务类型：<<business_type>>",
+      "output_field": "step3_audience_segment",
+      "output_schema": {
+        "paying_equals_using": {"type": "boolean"},
+        "paying_user": {
+          "type": "object",
+          "properties": {
+            "identity": {"type": "string"},
+            "motivation": {"type": "string"},
+            "core_needs": {"type": "array", "items": "string"},
+            "search_behavior": {"type": "string"},
+            "concerns": {"type": "array", "items": "string"}
+          }
+        },
+        "using_user": {
+          "type": "object",
+          "properties": {
+            "identity": {"type": "string"},
+            "motivation": {"type": "string"},
+            "core_needs": {"type": "array", "items": "string"},
+            "search_behavior": {"type": "string"},
+            "concerns": {"type": "array", "items": "string"}
+          }
+        },
+        "separation_point": {"type": "string"},
+        "audience_priority": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "segment_name": {"type": "string"},
+              "priority": {"type": "string"},
+              "characteristics": {"type": "string"},
+              "core_pain_point": {"type": "string"}
+            }
+          }
+        }
+      },
+      "data_providers": ["step1_industry_overview", "step2_blue_ocean"]
+    },
+
+    {
+      "id": "step4_long_tail_needs",
+      "name": "长尾需求",
+      "order": 4,
+      "required": true,
+      "llm_prompt_template": "【长尾需求挖掘】\n\n基于人群细分，挖掘\"<<industry>>\"行业各细分人群的独特长尾需求。\n\n要求：\n1. 找出细分人群的独特需求（不是大众需求）\n2. 识别场景型需求（特定场景下的需求）\n3. 区分高频需求和低频但高价值需求\n\n```json\n{{\n  \"long_tail_needs\": [\n    {{\n      \"segment\": \"对应人群\",\n      \"need_type\": \"长尾/场景/潜在\",\n      \"need_description\": \"需求描述\",\n      \"search_keywords\": [\"可能搜索的关键词1\", \"关键词2\"],\n      \"content_opportunity\": \"内容机会（可以做哪类内容满足这个需求）\"\n    }}\n  ],\n  \"high_value_low_freq\": [\n    {{\n      \"need\": \"低频但高价值的需求\",\n      \"why_valuable\": \"为什么有价值\",\n      \"target_audience\": \"目标人群\"\n    }}\n  ]\n}}\n```\n\n人群细分：<<step3_audience_segment>>",
+      "output_field": "step4_long_tail_needs",
+      "output_schema": {
+        "long_tail_needs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "segment": {"type": "string"},
+              "need_type": {"type": "string"},
+              "need_description": {"type": "string"},
+              "search_keywords": {"type": "array", "items": "string"},
+              "content_opportunity": {"type": "string"}
+            }
+          }
+        },
+        "high_value_low_freq": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "need": {"type": "string"},
+              "why_valuable": {"type": "string"},
+              "target_audience": {"type": "string"}
+            }
+          }
+        }
+      },
+      "data_providers": ["step3_audience_segment"]
+    },
+
+    {
+      "id": "step5_solution_capability",
+      "name": "知识技能解决",
+      "order": 5,
+      "required": false,
+      "llm_prompt_template": "【知识技能解决方案】\n\n分析\"<<industry>>\"行业的专业知识技能如何满足细分需求。\n\n要求：\n1. 列出核心专业知识/技能\n2. 说明这些技能如何解决客户的长尾需求\n3. 识别差异化技能壁垒\n\n```json\n{{\n  \"core_knowledge_skills\": [\n    {{\n      \"skill_name\": \"技能/知识名称\",\n      \"description\": \"技能描述\",\n      \"solves_problem\": \"能解决什么问题\",\n      \"differentiation\": \"差异化程度（高/中/低）\"\n    }}\n  ],\n  \"solution_matrix\": [\n    {{\n      \"problem\": \"客户问题\",\n      \"skill_solution\": \"对应的技能/知识解决方案\",\n      \"content_angle\": \"内容角度（如何用内容展示这个解决方案）\"\n    }}\n  ],\n  \"barrier_advantages\": \"技能壁垒说明\"\n}}\n```\n\n长尾需求：<<step4_long_tail_needs>>\n业务描述：<<business_description>>",
+      "output_field": "step5_solution_capability",
+      "output_schema": {
+        "core_knowledge_skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "skill_name": {"type": "string"},
+              "description": {"type": "string"},
+              "solves_problem": {"type": "string"},
+              "differentiation": {"type": "string"}
+            }
+          }
+        },
+        "solution_matrix": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "problem": {"type": "string"},
+              "skill_solution": {"type": "string"},
+              "content_angle": {"type": "string"}
+            }
+          }
+        },
+        "barrier_advantages": {"type": "string"}
+      },
+      "data_providers": ["step4_long_tail_needs"]
+    },
+
+    {
+      "id": "step6_search_journey",
+      "name": "搜前搜后分析",
+      "order": 6,
+      "required": true,
+      "llm_prompt_template": "【Skill强制规则 — 搜前搜后分层】\n（来源：geo-seo skill.md 第144-262行）\n\n⚠️ 核心原则：\n- 搜前搜：用户在确定需求前搜什么（问题导向）\n- 搜后搜：用户在确定方案后搜什么（行为导向）\n- 覆盖完整搜索路径才能获得更多流量入口\n\n请分析\"<<industry>>\"行业的搜索旅程：\n\n```json\n{{\n  \"pre_search\": {{\n    \"stage\": \"需求探索阶段\",\n    \"description\": \"这个阶段客户在做什么\",\n    \"keywords\": [\"关键词1\", \"关键词2\", \"关键词3\", \"关键词4\", \"关键词5\", \"关键词6\", \"关键词7\", \"关键词8\", \"关键词9\", \"关键词10\"],\n    \"content_directions\": [\"内容方向1\", \"内容方向2\"],\n    \"psychology\": \"客户心理状态\"\n  }},\n  \"mid_search\": {{\n    \"stage\": \"方案对比阶段\",\n    \"description\": \"这个阶段客户在做什么\",\n    \"keywords\": [\"关键词1\", \"关键词2\", \"关键词3\", \"关键词4\", \"关键词5\", \"关键词6\", \"关键词7\", \"关键词8\"],\n    \"content_directions\": [\"内容方向1\", \"内容方向2\"],\n    \"psychology\": \"客户心理状态\"\n  }},\n  \"post_search\": {{\n    \"stage\": \"购买决策阶段\",\n    \"description\": \"这个阶段客户在做什么\",\n    \"keywords\": [\"关键词1\", \"关键词2\", \"关键词3\", \"关键词4\", \"关键词5\", \"关键词6\", \"关键词7\", \"关键词8\"],\n    \"content_directions\": [\"内容方向1\", \"内容方向2\"],\n    \"psychology\": \"客户心理状态\"\n  }}\n}}\n```\n\n人群细分：<<step3_audience_segment>>\n蓝海机会：<<step2_blue_ocean>>",
+      "output_field": "step6_search_journey",
+      "output_schema": {
+        "pre_search": {
+          "type": "object",
+          "properties": {
+            "stage": {"type": "string"},
+            "description": {"type": "string"},
+            "keywords": {"type": "array", "items": "string", "minItems": 10},
+            "content_directions": {"type": "array", "items": "string"},
+            "psychology": {"type": "string"}
+          }
+        },
+        "mid_search": {
+          "type": "object",
+          "properties": {
+            "stage": {"type": "string"},
+            "description": {"type": "string"},
+            "keywords": {"type": "array", "items": "string", "minItems": 8},
+            "content_directions": {"type": "array", "items": "string"},
+            "psychology": {"type": "string"}
+          }
+        },
+        "post_search": {
+          "type": "object",
+          "properties": {
+            "stage": {"type": "string"},
+            "description": {"type": "string"},
+            "keywords": {"type": "array", "items": "string", "minItems": 8},
+            "content_directions": {"type": "array", "items": "string"},
+            "psychology": {"type": "string"}
+          }
+        }
+      },
+      "data_providers": ["step3_audience_segment", "step2_blue_ocean"],
+      "constraints": {
+        "pre_search_keywords_min": 10,
+        "mid_search_keywords_min": 8,
+        "post_search_keywords_min": 8
+      }
+    },
+
+    {
+      "id": "step7_upstream_downstream",
+      "name": "行业上下游关联",
+      "order": 7,
+      "required": false,
+      "llm_prompt_template": "【行业上下游联动分析】\n（来源：geo-master skill.md 第144-262行）\n\n⚠️ 核心洞察：\n客户不一定直接搜索本行业，而是从关联需求中找过来。\n例如：灌香肠的客户可能先搜\"腊肉熏制\"。\n\n```json\n{{\n  \"upstream\": {{\n    \"description\": \"上游关联描述（客户从哪来）\",\n    \"upstream_businesses\": [\"上游业务1\", \"上游业务2\"],\n    \"upstream_keywords\": [\"上游关键词1\", \"关键词2\"],\n    \"entry_points\": \"进入本行业的切入点\"\n  }},\n  \"downstream\": {{\n    \"description\": \"下游关联描述（客户到哪去）\",\n    \"downstream_needs\": [\"下游需求1\", \"下游需求2\"],\n    \"cross_sell_opportunities\": [\"交叉销售机会1\", \"机会2\"]\n  }},\n  \"industry_matrix\": {{\n    \"direct\": {{\"description\": \"直接关联\", \"keywords\": []}},\n    \"indirect\": {{\"description\": \"间接关联\", \"keywords\": []}},\n    \"scenario\": {{\"description\": \"场景关联\", \"keywords\": []}}\n  }}\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>",
+      "output_field": "step7_upstream_downstream",
+      "output_schema": {
+        "upstream": {
+          "type": "object",
+          "properties": {
+            "description": {"type": "string"},
+            "upstream_businesses": {"type": "array", "items": "string"},
+            "upstream_keywords": {"type": "array", "items": "string"},
+            "entry_points": {"type": "string"}
+          }
+        },
+        "downstream": {
+          "type": "object",
+          "properties": {
+            "description": {"type": "string"},
+            "downstream_needs": {"type": "array", "items": "string"},
+            "cross_sell_opportunities": {"type": "array", "items": "string"}
+          }
+        },
+        "industry_matrix": {
+          "type": "object",
+          "properties": {
+            "direct": {"type": "object", "properties": {"description": {"type": "string"}, "keywords": {"type": "array", "items": "string"}}},
+            "indirect": {"type": "object", "properties": {"description": {"type": "string"}, "keywords": {"type": "array", "items": "string"}}},
+            "scenario": {"type": "object", "properties": {"description": {"type": "string"}, "keywords": {"type": "array", "items": "string"}}}
+          }
+        }
+      },
+      "data_providers": ["step1_industry_overview", "step3_audience_segment"]
+    },
+
+    {
+      "id": "step8_trust_and_advantage",
+      "name": "信任佐证与竞争优势",
+      "order": 8,
+      "required": false,
+      "llm_prompt_template": "【第二步：信任佐证与竞争优势】\n\n⚠️ 完成第一步7步后，进入第二步。\n\n基于前面的分析，输出信任佐证和竞争优势：\n\n```json\n{{\n  \"trust_evidence\": {{\n    \"professional_skills\": {{\"evidence\": \"专业技能佐证\", \"content_angle\": \"内容角度\"}},\n    \"environment\": {{\"evidence\": \"环境佐证\", \"content_angle\": \"内容角度\"}},\n    \"process\": {{\"evidence\": \"过程佐证\", \"content_angle\": \"内容角度\"}},\n    \"case_study\": {{\"evidence\": \"案例佐证\", \"content_angle\": \"内容角度\"}}\n  }},\n  \"competitive_advantage\": {{\n    \"vs_rivals\": {{\"advantage\": \"vs同行的优势\", \"evidence\": \"证据\"}},\n    \"vs_diy\": {{\"advantage\": \"vs自己动手的优势\", \"evidence\": \"证据\"}}\n  }},\n  \"key_messages\": [\"核心传播信息1\", \"核心传播信息2\"]\n}}\n```\n\n行业全貌：<<step1_industry_overview>>\n蓝海机会：<<step2_blue_ocean>>\n人群细分：<<step3_audience_segment>>\n业务描述：<<business_description>>",
+      "output_field": "step8_trust_and_advantage",
+      "output_schema": {
+        "trust_evidence": {
+          "type": "object",
+          "properties": {
+            "professional_skills": {"type": "object", "properties": {"evidence": {"type": "string"}, "content_angle": {"type": "string"}}},
+            "environment": {"type": "object", "properties": {"evidence": {"type": "string"}, "content_angle": {"type": "string"}}},
+            "process": {"type": "object", "properties": {"evidence": {"type": "string"}, "content_angle": {"type": "string"}}},
+            "case_study": {"type": "object", "properties": {"evidence": {"type": "string"}, "content_angle": {"type": "string"}}}
+          }
+        },
+        "competitive_advantage": {
+          "type": "object",
+          "properties": {
+            "vs_rivals": {"type": "object", "properties": {"advantage": {"type": "string"}, "evidence": {"type": "string"}}},
+            "vs_diy": {"type": "object", "properties": {"advantage": {"type": "string"}, "evidence": {"type": "string"}}}
+          }
+        },
+        "key_messages": {"type": "array", "items": "string"}
+      },
+      "data_providers": ["step1_industry_overview", "step2_blue_ocean", "step3_audience_segment"]
+    }
+
+  ],
+
+  "constraints": {
+    "quantity_requirements": {},
+    "required_step_sequence": ["step1", "step2", "step3", "step4", "step6"],
+    "optional_steps": ["step5_solution_capability", "step7_upstream_downstream", "step8_trust_and_advantage"]
+  },
+
+  "data_flow": {
+    "outputs": {
+      "step3_audience_segment": {
+        "_comment": "人群细分传递给关键词库和画像生成",
+        "paying_equals_using": {"target": "keyword_library_generator", "field": "input.paying_equals_using"},
+        "paying_user": {"target": "portrait_generator", "field": "portrait_data.audience_segment.paying_user"},
+        "using_user": {"target": "portrait_generator", "field": "portrait_data.audience_segment.using_user"},
+        "audience_priority": {"target": "topic_library_generator", "field": "topics.source.audience_segment"}
+      },
+      "step6_search_journey": {
+        "_comment": "搜索旅程传递给关键词库",
+        "pre_search.keywords": {"target": "keyword_library_generator", "field": "keyword_library.pre_search_keywords"},
+        "mid_search.keywords": {"target": "keyword_library_generator", "field": "keyword_library.mid_search_keywords"},
+        "post_search.keywords": {"target": "keyword_library_generator", "field": "keyword_library.post_search_keywords"}
+      },
+      "step7_upstream_downstream": {
+        "_comment": "上下游关联传递给关键词库",
+        "upstream.upstream_keywords": {"target": "keyword_library_generator", "field": "keyword_library.upstream_keywords"},
+        "downstream.downstream_needs": {"target": "keyword_library_generator", "field": "keyword_library.downstream_keywords"},
+        "industry_matrix": {"target": "keyword_library_generator", "field": "keyword_library.industry_matrix_keywords"}
+      },
+      "step8_trust_and_advantage": {
+        "_comment": "信任佐证传递给内容生成",
+        "trust_evidence": {"target": "content_generator", "field": "content_context.trust_evidence"},
+        "competitive_advantage": {"target": "content_generator", "field": "content_context.competitive_advantage"}
+      }
+    }
+  }
+}
