@@ -36,7 +36,8 @@ class TopicGenerator:
         business_type: str,
         portraits: list,
         problem_keywords: list,
-        is_premium: bool = False
+        is_premium: bool = False,
+        skill_mode: bool = False
     ) -> dict:
         """
         生成选题
@@ -48,6 +49,7 @@ class TopicGenerator:
             portraits: 用户画像列表
             problem_keywords: 问题关键词列表
             is_premium: 是否付费用户
+            skill_mode: 是否使用Skill模式（输出增强字段）
 
         Returns:
             dict: {
@@ -76,7 +78,8 @@ class TopicGenerator:
                 keyword_text=keyword_text,
                 current_season=current_season,
                 current_month=current_month,
-                is_premium=is_premium
+                is_premium=is_premium,
+                skill_mode=skill_mode
             )
 
             # 调用LLM生成
@@ -152,7 +155,8 @@ class TopicGenerator:
         keyword_text: str,
         current_season: str,
         current_month: int,
-        is_premium: bool
+        is_premium: bool,
+        skill_mode: bool = False
     ) -> str:
         """构建选题生成Prompt"""
 
@@ -193,6 +197,7 @@ class TopicGenerator:
    - 经验分享型：真实故事
 4. 符合当前时间节点特点
 5. 每个选题说明推荐理由
+{"6. Skill模式：每个选题包含core_value（核心卖点）、scene_options（场景选项）、content_type（内容类型）" if skill_mode else ""}
 
 ## 输出格式（严格JSON）
 ```json
@@ -201,8 +206,12 @@ class TopicGenerator:
     "id": "1",
     "title": "选题标题（20字以内）",
     "type": "问题诊断/解决方案/经验分享/避坑指南/知识科普",
+    "type_key": "pain_point/solution/emotional/pitfall/tutorial",
     "target": "目标人群描述",
-    "reason": "推荐理由（为什么选这个选题）"
+    "reason": "推荐理由（为什么选这个选题）"{"，
+    "core_value": "核心卖点/观点（一句话概括选题能提供的核心价值）" if skill_mode else ""}{",
+    "scene_options": [{{"id": "A", "label": "场景A描述"}}, {{"id": "B", "label": "场景B描述"}}]," if skill_mode else ""}{",
+    "content_type": "图文/长文/短视频" if skill_mode else ""}
   }},
   ...共5个选题
 ]

@@ -1,0 +1,74 @@
+{
+  "_comment": "Skill模板索引 - 用于内容生成时的模板选择",
+  "version": "1.0",
+  "templates": [
+    {
+      "id": "graphic",
+      "name": "图文内容模板",
+      "description": "基于四维图文设计方法论（情绪动线+视觉一致性+信息层级+高转化排版），生成9:16竖版图文内容",
+      "category": "graphic",
+      "skill_config_path": "config/content_generator.json",
+      "frame_count": 7,
+      "layout_types": ["billboard", "problem_solver", "matrix", "trust_builder"],
+      "color_scheme": {
+        "cold_pages": ["#4A5568", "#E8EEF2", "#CBD5E1"],
+        "warm_pages": ["#FFF5EE", "#FFDAB9", "#F5F0EB"],
+        "brand_pages": ["#2563EB", "#22C55E"]
+      },
+      "emotion_curve": ["期待/代入", "心酸/共鸣", "坚定/爆发", "感动/释然", "温暖/行动"]
+    },
+    {
+      "id": "long_text",
+      "name": "长文内容模板",
+      "description": "融合社交媒体4维度设计方法论，生成知乎/公众号风格长文，支持8种结构模板",
+      "category": "long_text",
+      "skill_config_path": "config/long_text_generator.json",
+      "structures": [
+        {"id": "knowledge_article", "name": "知识科普型", "word_count": "2000-3000字"},
+        {"id": "cause_analysis", "name": "原因分析型", "word_count": "2500-3500字"},
+        {"id": "industry_reveal", "name": "行业揭秘型", "word_count": "3000-4000字"},
+        {"id": "deep_review", "name": "深度测评型", "word_count": "3000-4000字"},
+        {"id": "experience_share", "name": "经验分享型", "word_count": "2000-3000字"},
+        {"id": "data_insight", "name": "数据解读型", "word_count": "2500-3500字"},
+        {"id": "buying_guide", "name": "选购指南型", "word_count": "3000-4000字"},
+        {"id": "solution_guide", "name": "解决方案型", "word_count": "2500-3500字"}
+      ]
+    },
+    {
+      "id": "video_script",
+      "name": "短视频脚本模板",
+      "description": "基于选题和用户画像，生成短视频脚本，支持10种脚本类型",
+      "category": "video",
+      "skill_config_path": "config/video_script_generator.json",
+      "script_types": [
+        {"id": "knowledge_teach", "name": "知识讲解型", "duration": "30-60秒"},
+        {"id": "story_share", "name": "故事分享型", "duration": "60-120秒"},
+        {"id": "comparison", "name": "对比测评型", "duration": "45-90秒"},
+        {"id": "tutorial", "name": "教程演示型", "duration": "60-180秒"},
+        {"id": "qa_answer", "name": "问答解答型", "duration": "30-60秒"},
+        {"id": "list_rank", "name": "榜单排行型", "duration": "45-90秒"},
+        {"id": "behind_scene", "name": "幕后揭秘型", "duration": "30-60秒"},
+        {"id": "emotional_resonance", "name": "情感共鸣型", "duration": "30-60秒"},
+        {"id": "product_showcase", "name": "产品展示型", "duration": "15-30秒"},
+        {"id": "challenge_trend", "name": "挑战热点型", "duration": "15-60秒"}
+      ]
+    }
+  ],
+  "geo_modes": {
+    "problem_solution": "问题-答案模式",
+    "quote_argument": "金句-论证模式",
+    "definition_explain": "定义-解释模式",
+    "framework_tool": "框架-工具模式",
+    "checklist": "清单体模式",
+    "case_story": "案例-故事模式",
+    "compare_correct": "对比-纠错模式",
+    "rank_list": "榜单体模式"
+  },
+  "emotion_phases": {
+    "P1_Hook": {"name": "封面吸引", "emotion": "期待/好奇"},
+    "P2_Empathy": {"name": "共情痛点", "emotion": "心酸/代入"},
+    "P3_Value": {"name": "干货获得", "emotion": "坚定/爆发"},
+    "P6_Refinement": {"name": "升华温暖", "emotion": "释然/感动"},
+    "P7_Action": {"name": "收尾转化", "emotion": "温暖/行动"}
+  }
+}
