@@ -607,6 +607,18 @@
         accent-color: var(--netease-red);
     }
 
+    /* 已计划标签 */
+    .topic-plan-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        background: linear-gradient(135deg, #34d399, #10b981);
+        color: white;
+        margin-left: 4px;
+    }
+
     /* 选中行序号变红 */
     .playlist-row.selected .row-index {
         color: var(--netease-red);
@@ -1560,6 +1572,21 @@
                         内容日历
                     </div>
                 </div>
+                <!-- 内容计划生成按钮（移到 Tab 旁边） -->
+                <div id="content-plan-section" style="display:none;margin-left:auto;">
+                    <button class="btn-generate" id="btn-gen-content-plan" onclick="genContentPlan()" style="padding:6px 14px;font-size:0.75rem;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+                        <i class="bi bi-magic"></i>
+                        <span id="btn-gen-content-plan-text">生成内容计划</span>
+                    </button>
+                </div>
+            </div>
+
+            {# 列表头部进度条 #}
+            <div id="content-plan-progress" style="display:none;padding:0 16px 8px;">
+                <div class="small text-muted mb-1" id="content-plan-status">准备中...</div>
+                <div class="progress" style="height: 4px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="content-plan-progress-bar" style="width: 0%"></div>
+                </div>
             </div>
 
             {# ── 选题列表 Tab ── #}
@@ -1747,6 +1774,7 @@ var _topicVersionsCache = {};  // ── 选题版本缓存 { topicId: versionsD
 var _currentPage = 1;
 var _perPage = 5;
 var _totalPages = 0;
+var _userId = null;  // 当前用户ID（用于API认证）
 var _contentTypeRecommendation = null;  // 内容类型推荐结果
 // ── 弹窗相关变量 ──
 var _modalSceneOptions = [];  // 弹窗内场景选项
@@ -1854,6 +1882,7 @@ async function loadPortraitData() {
     }
 
     _portraitId = parseInt(portraitId);
+    _userId = null;  // 用户ID
 
     try {
         const resp = await fetch('/public/api/portraits/' + _portraitId, {
@@ -1867,6 +1896,8 @@ async function loadPortraitData() {
         }
 
         _portrait = data.data;
+        // 从画像数据获取用户ID
+        _userId = _portrait.user_id || _portrait.created_by || null;
         renderPortraitInfo();
         await loadTopics();
     } catch (e) {
@@ -1921,6 +1952,13 @@ async function loadTopics(page) {
         const total = result.total || 0;
         _totalPages = result.pages || 1;
 
+        // 调试：检查是否有 content_plan
+        const hasPlan = _topics.some(t => t.content_plan && Object.keys(t.content_plan).length > 0);
+        console.log('[loadTopics] 加载选题:', _topics.length, '个, 有 content_plan:', hasPlan);
+        if (_topics.length > 0) {
+            console.log('[loadTopics] 第一个选题:', JSON.stringify(_topics[0]).substring(0, 500));
+        }
+
         loadingEl.style.display = 'none';
 
         if (_topics.length === 0) {
@@ -1934,6 +1972,7 @@ async function loadTopics(page) {
         }
 
         updateGenerateButton();
+        updateContentPlanButton();
     } catch (e) {
         showToast('加载选题失败', 'error');
         loadingEl.style.display = 'none';
@@ -1966,9 +2005,13 @@ function renderTopicRows(topics) {
         const hasVersionsBadge = hasVersions
             ? '<span class="topic-direction-badge" style="background:rgba(0,122,255,0.1);color:var(--apple-blue);">' + usageCount + 'v</span>'
             : '';
+        // ── 内容计划标签 ──
+        const hasContentPlan = topic.content_plan && Object.keys(topic.content_plan).length > 0;
+        const contentPlanBadge = hasContentPlan
+            ? '<span class="topic-plan-badge" title="已生成内容计划">已计划</span>'
+            : '';
         // ── 业务名称（核心业务词，取自画像数据）──
         const businessName = topic._business_name || '';
-        console.log('[renderTopicRows] topic._business_name:', businessName, 'topic.id:', topic.id);
         const businessNameHtml = businessName
             ? '<span class="business-name-tag" title="业务名称">' + escHtml(businessName) + '</span>'
             : '<span class="business-name-tag empty">--</span>';
@@ -1984,6 +2027,7 @@ function renderTopicRows(topics) {
                         '<span class="topic-type-badge ' + priorityClass + '">' + escHtml(topic.type_name || topic.type_key || '') + '</span>' +
                         '<span class="topic-direction-badge ' + directionBadgeClass + '">' + directionLabel + '</span>' +
                         hasVersionsBadge +
+                        contentPlanBadge +
                     '</div>' +
                 '</div>' +
                 '<div class="row-business">' + businessNameHtml + '</div>' +
@@ -2151,6 +2195,230 @@ function updateGenerateButton() {
         btn.disabled = true;
         btnText.textContent = '请先选择选题';
     }
+}
+
+// ── 内容计划生成 ──────────────────────────────────────
+var _contentPlanTaskId = null;
+var _contentPlanEventSource = null;
+
+function updateContentPlanButton() {
+    const section = document.getElementById('content-plan-section');
+    if (section) {
+        section.style.display = _topics && _topics.length > 0 ? 'block' : 'none';
+    }
+}
+
+async function genContentPlan() {
+    const btn = document.getElementById('btn-gen-content-plan');
+    const progressDiv = document.getElementById('content-plan-progress');
+    const progressBar = document.getElementById('content-plan-progress-bar');
+    const statusDiv = document.getElementById('content-plan-status');
+    const btnText = document.getElementById('btn-gen-content-plan-text');
+
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.textContent = '生成中...';
+    if (progressDiv) progressDiv.style.display = 'block';
+    if (progressBar) {
+        progressBar.style.width = '0%';
+        progressBar.classList.remove('bg-danger');
+    }
+
+    // 只生成当前选中的选题
+    if (!_selectedTopicId) {
+        if (statusDiv) statusDiv.textContent = '请先选择一个选题';
+        if (btnText) btnText.textContent = '请先选择选题';
+        if (btn) btn.disabled = false;
+        setTimeout(() => {
+            if (progressDiv) progressDiv.style.display = 'none';
+            if (btnText) btnText.textContent = '生成内容计划';
+        }, 2000);
+        return;
+    }
+
+    const selectedTopic = _topics.find(t => t.id === _selectedTopicId);
+    if (!selectedTopic) {
+        if (statusDiv) statusDiv.textContent = '选题不存在';
+        if (btn) btn.disabled = false;
+        return;
+    }
+
+    if (statusDiv) statusDiv.textContent = '正在生成: ' + selectedTopic.title?.slice(0, 15) + '...';
+
+    try {
+        // 获取选题库数据（用于获取行业信息）
+        const libResp = await fetch('/public/api/portraits/' + _portraitId + '/library', { credentials: 'include' });
+        const libData = await libResp.json();
+        const lib = libData.data || {};
+
+        // 获取用户ID用于认证
+        const userId = _userId || '';
+
+        // 创建任务（只传单个选题）
+        const createResp = await fetch('/api/v1/topics/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': userId
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                portrait_id: _portraitId,
+                industry: lib.industry || '',
+                business_description: lib.business_description || '',
+                topics: [selectedTopic],
+                content_types: ['graphic']
+            })
+        });
+
+        const createData = await createResp.json();
+        if (!createData.task_id) {
+            throw new Error(createData.error || '创建任务失败');
+        }
+
+        // 轮询等待完成
+        const result = await waitForTaskComplete(createData.task_id);
+
+        if (progressBar) progressBar.style.width = '100%';
+        if (statusDiv) statusDiv.textContent = '生成完成！';
+        if (btnText) btnText.textContent = '生成内容计划';
+        if (btn) btn.disabled = false;
+
+        showToast('内容计划生成完成！', 'success');
+
+        // 刷新选题列表，显示"已计划"标签
+        loadTopics(_currentPage);
+
+        setTimeout(() => {
+            if (progressDiv) progressDiv.style.display = 'none';
+        }, 2000);
+
+    } catch (error) {
+        console.error('生成内容计划失败:', error);
+        if (statusDiv) statusDiv.textContent = '生成失败: ' + error.message;
+        if (progressBar) progressBar.classList.add('bg-danger');
+        if (btnText) btnText.textContent = '生成内容计划';
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function waitForTaskComplete(taskId) {
+    return new Promise((resolve, reject) => {
+        // 自适应轮询间隔：开始快，后续逐渐减慢
+        const getInterval = (elapsed) => {
+            if (elapsed < 5000) return 500;      // 0-5秒：每500ms
+            if (elapsed < 30000) return 1000;    // 5-30秒：每秒
+            if (elapsed < 120000) return 2000;   // 30秒-2分钟：每2秒
+            return 3000;                          // 2分钟后：每3秒
+        };
+        const maxWait = 300000; // 5分钟超时
+        const startTime = Date.now();
+
+        const poll = async () => {
+            const elapsed = Date.now() - startTime;
+            if (elapsed > maxWait) {
+                resolve(null);
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/v1/tasks/' + taskId, { credentials: 'include' });
+                const data = await resp.json();
+
+                // API 返回格式: { task: { status, ... }, steps: [...] }
+                const taskStatus = data.task?.status || data.status;
+
+                if (taskStatus === 'completed') {
+                    resolve(data);
+                } else if (taskStatus === 'failed') {
+                    resolve(null);
+                } else {
+                    setTimeout(poll, getInterval(elapsed));
+                }
+            } catch (e) {
+                reject(e);
+            }
+        };
+
+        poll();
+    });
+}
+
+function startContentPlanSSE(taskId) {
+    // 关闭旧的连接
+    if (_contentPlanEventSource) {
+        _contentPlanEventSource.close();
+    }
+
+    const progressBar = document.getElementById('content-plan-progress-bar');
+    const statusDiv = document.getElementById('content-plan-status');
+    const btn = document.getElementById('btn-gen-content-plan');
+    const btnText = document.getElementById('btn-gen-content-plan-text');
+
+    const eventSource = new EventSource('/api/v1/tasks/' + taskId + '/stream');
+    _contentPlanEventSource = eventSource;
+
+    eventSource.onmessage = function(e) {
+        try {
+            const data = JSON.parse(e.data);
+
+            if (data.type === 'progress') {
+                const percent = Math.round(data.progress || 0);
+                if (progressBar) progressBar.style.width = percent + '%';
+                if (statusDiv) statusDiv.textContent = data.current_step || '处理中...';
+
+                if (percent >= 100) {
+                    eventSource.close();
+                    _contentPlanEventSource = null;
+                    if (statusDiv) statusDiv.textContent = '生成完成！';
+                    if (progressBar) progressBar.classList.remove('progress-bar-animated');
+                    if (btn) btn.disabled = false;
+                    if (btnText) btnText.textContent = '生成内容计划';
+                    showToast('内容计划生成完成！', 'success');
+                }
+            } else if (data.type === 'error') {
+                if (statusDiv) statusDiv.textContent = '错误: ' + (data.message || '未知错误');
+                if (progressBar) {
+                    progressBar.classList.remove('progress-bar-animated');
+                    progressBar.classList.add('bg-danger');
+                }
+                eventSource.close();
+                if (btn) btn.disabled = false;
+                if (btnText) btnText.textContent = '生成内容计划';
+            }
+        } catch (err) {
+            console.error('[SSE] 解析失败:', err);
+        }
+    };
+
+    eventSource.onerror = function() {
+        console.log('[SSE] 连接关闭');
+        eventSource.close();
+        _contentPlanEventSource = null;
+        // 如果进度还没到100%，说明是连接中断
+        if (progressBar && progressBar.style.width !== '100%') {
+            if (statusDiv) statusDiv.textContent = '连接中断，请重试';
+            if (btn) btn.disabled = false;
+            if (btnText) btnText.textContent = '生成内容计划';
+        }
+    };
+}
+
+// 辅助函数：获取选题列表（兼容新旧格式）
+function getTopicsAsObjects(lib) {
+    if (!lib) return [];
+    // 兼容新旧格式：统一转为对象数组
+    if (Array.isArray(lib)) return lib;
+    if (Array.isArray(lib.topics)) return lib.topics;
+
+    const result = [];
+    if (lib.audience_lock_topics) result.push(...(lib.audience_lock_topics || []));
+    if (lib.pain_amplify_topics) result.push(...(lib.pain_amplify_topics || []));
+    if (lib.solution_compare_topics) result.push(...(lib.solution_compare_topics || []));
+    if (lib.vision_topics) result.push(...(lib.vision_topics || []));
+    if (lib.barrier_remove_topics) result.push(...(lib.barrier_remove_topics || []));
+    if (lib.direct_need_topics) result.push(...(lib.direct_need_topics || []));
+    if (lib.skill_tutorial_topics) result.push(...(lib.skill_tutorial_topics || []));
+    return result;
 }
 
 // ── 生成内容（弹窗触发）──────────────────────────────

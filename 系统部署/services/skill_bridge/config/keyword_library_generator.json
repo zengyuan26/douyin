@@ -1,11 +1,11 @@
 {
-  "_comment": "关键词库生成 Skill 配置 - B/C分离 + 搜前/搜中/搜后分层 + L1-L4蓝海矩阵 (来源: .cursor/skill/geo-seo/skill.md)",
+  "_comment": "关键词库生成 Skill 配置 - B/C分离 + 搜前/搜中/搜后分层 + L1-L4蓝海矩阵 + 上下游关联词 + 失败经历关键词 + 非标品实操 + 标签优化 (来源: .cursor/skill/geo-seo/skill.md)",
 
   "skill": {
     "name": "keyword_library_generator",
-    "version": "1.0",
+    "version": "2.0",
     "display_name": "关键词库生成",
-    "description": "B/C分离 + 搜前搜中搜后分层 + L1-L4蓝海矩阵 + 上下游关联词",
+    "description": "B/C分离 + 搜前搜中搜后分层 + L1-L4蓝海矩阵 + 上下游关联词 + 失败经历关键词 + 非标品实操关键词 + 标签优化",
     "skill_md_path": ".cursor/skill/geo-seo/skill.md",
     "input_source": "from_market_analyzer"
   },
@@ -41,6 +41,16 @@
       "type": "object",
       "from_step": "market_analyzer.step7_upstream_downstream",
       "description": "行业上下游关联"
+    },
+    "blue_ocean_matrix": {
+      "type": "object",
+      "from_step": "market_analyzer.step2_blue_ocean.blue_ocean_matrix",
+      "description": "L1-L4蓝海词矩阵"
+    },
+    "failure_keywords": {
+      "type": "object",
+      "from_step": "market_analyzer.step4_failure_experience.failure_keywords_by_type",
+      "description": "失败经历关键词（按类型分类）"
     },
     "audience_segment": {
       "type": "object",
@@ -132,11 +142,80 @@
     },
 
     {
-      "id": "step_final_assembly",
-      "name": "关键词库汇总",
+      "id": "step_failure_keywords",
+      "name": "失败经历关键词",
       "order": 6,
       "required": true,
-      "llm_prompt_template": "【关键词库汇总与统计】\n\n请汇总\"<<industry>>\"的完整关键词库，并进行统计。\n\n```json\n{{\n  \"summary\": {{\n    \"total_count\": 整数，总关键词数量,\n    \"b2b_count\": B端关键词总数,\n    \"b2c_count\": C端关键词总数,\n    \"long_tail_count\": 长尾关键词数量,\n    \"blue_ocean_ratio\": \"长尾词占比\"\n  }},\n  \"top_20_blue_ocean\": [\n    \"最优质的20个蓝海关键词（按搜索量低+竞争小+转化高排序）\",\n    \"关键词1\",\n    \"关键词2\",\n    \"关键词3\",\n    \"关键词4\",\n    \"关键词5\",\n    \"关键词6\",\n    \"关键词7\",\n    \"关键词8\",\n    \"关键词9\",\n    \"关键词10\",\n    \"关键词11\",\n    \"关键词12\",\n    \"关键词13\",\n    \"关键词14\",\n    \"关键词15\",\n    \"关键词16\",\n    \"关键词17\",\n    \"关键词18\",\n    \"关键词19\",\n    \"关键词20\"\n  ],\n  \"priority_keywords\": {{\n    \"P0\": [\"最高优先级关键词1\", \"关键词2\"],\n    \"P1\": [\"高优先级关键词1\", \"关键词2\", \"关键词3\"],\n    \"P2\": [\"中优先级关键词1\", \"关键词2\"]\n  }}\n}}\n```",
+      "llm_prompt_template": "【失败经历关键词整合】\n\n⚠️ 核心洞察（来源：insights-analyst）：用户失败经历是爆款选题的重要来源！\n\n请整合以下失败经历关键词，生成适合内容创作的关键词库。\n\n失败经历关键词（按类型分类）：\n<<failure_keywords>>\n\n蓝海词矩阵（用于补充和验证）：\n<<blue_ocean_matrix>>\n\n```json\n{{\n  \"failure_keywords_by_journey\": {{\n    \"pre_search\": [\n      \"失败搜前关键词1（如'XX坏了怎么办'）\",\n      \"失败搜前关键词2\",\n      \"失败搜前关键词3\",\n      \"失败搜前关键词4\",\n      \"失败搜前关键词5\",\n      \"失败搜前关键词6\",\n      \"失败搜前关键词7\",\n      \"失败搜前关键词8\"\n    ],\n    \"mid_search\": [\n      \"失败搜中关键词1（如'XX怎么补救'）\",\n      \"失败搜中关键词2\",\n      \"失败搜中关键词3\",\n      \"失败搜中关键词4\",\n      \"失败搜中关键词5\",\n      \"失败搜中关键词6\"\n    ],\n    \"post_search\": [\n      \"失败搜后关键词1（如'XX坏了能退吗'）\",\n      \"失败搜后关键词2\",\n      \"失败搜后关键词3\",\n      \"失败搜后关键词4\",\n      \"失败搜后关键词5\",\n      \"失败搜后关键词6\"\n    ]\n  }},\n  \"avoid_pitfall_keywords\": [\n    \"避坑型关键词1（如'XX怎么选不踩雷'）\",\n    \"避坑型关键词2\",\n    \"避坑型关键词3\",\n    \"避坑型关键词4\",\n    \"避坑型关键词5\",\n    \"避坑型关键词6\"\n  ],\n  \"diagnosis_keywords\": [\n    \"问题诊断型关键词1（如'XX坏了是什么问题'）\",\n    \"问题诊断型关键词2\",\n    \"问题诊断型关键词3\",\n    \"问题诊断型关键词4\",\n    \"问题诊断型关键词5\"\n  ]\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>",
+      "output_field": "failure_keywords_integrated",
+      "output_schema": {
+        "failure_keywords_by_journey": {
+          "type": "object",
+          "properties": {
+            "pre_search": {"type": "array", "items": {"type": "string"}, "minItems": 8},
+            "mid_search": {"type": "array", "items": {"type": "string"}, "minItems": 6},
+            "post_search": {"type": "array", "items": {"type": "string"}, "minItems": 6}
+          }
+        },
+        "avoid_pitfall_keywords": {"type": "array", "items": {"type": "string"}, "minItems": 6},
+        "diagnosis_keywords": {"type": "array", "items": {"type": "string"}, "minItems": 5}
+      },
+      "data_providers": ["failure_keywords", "blue_ocean_matrix"]
+    },
+
+    {
+      "id": "step_practical_keywords",
+      "name": "非标品实操关键词",
+      "order": 7,
+      "required": false,
+      "llm_prompt_template": "【非标品实操细节关键词】\n\n⚠️ 核心洞察（来源：geo-seo skill.md）：\n对于非标品（如灌香肠、加工服务、维修服务等）和服务类业务，用户会有大量关于实际操作细节的问题需要了解。\n\n实操细节关键词分类：\n\n| 阶段   | 问题示例                | 关键词示例                   |\n|--------|----------------------|-----------------------------|\n| 操作前  | 需要准备什么？流程是什么？ | 需要什么材料、流程是什么        |\n| 操作中  | 放多少合适？比例是多少？  | 放多少盐、放多少油              |\n| 操作后  | 怎么保存？能放多久？     | 怎么保存、能放多久              |\n| 问题类  | 为什么坏了？怎么办？     | 为什么一切就散、皮肉分离         |\n\n请判断\"<<industry>>\"是否为非标品/服务类业务，并生成实操细节关键词。\n\n判断标准：\n- 非标品：灌香肠、加工服务、维修服务、定制服务等\n- 服务类：家政、搬家、维修、咨询等服务\n- 标品：标准化产品（如电器、日用品等）→ 跳过此步骤\n\n```json\n{{\n  \"is_non_standard\": true或false,\n  \"practical_keywords\": {{\n    \"pre_operation\": [\n      \"操作前关键词1（如'需要什么材料'）\",\n      \"操作前关键词2\",\n      \"操作前关键词3\",\n      \"操作前关键词4\",\n      \"操作前关键词5\"\n    ],\n    \"during_operation\": [\n      \"操作中关键词1（如'放多少盐合适'）\",\n      \"操作中关键词2\",\n      \"操作中关键词3\",\n      \"操作中关键词4\",\n      \"操作中关键词5\"\n    ],\n    \"post_operation\": [\n      \"操作后关键词1（如'怎么保存'）\",\n      \"操作后关键词2\",\n      \"操作后关键词3\",\n      \"操作后关键词4\",\n      \"操作后关键词5\"\n    ],\n    \"problem_diagnosis\": [\n      \"问题诊断关键词1（如'为什么坏了'）\",\n      \"问题诊断关键词2\",\n      \"问题诊断关键词3\",\n      \"问题诊断关键词4\",\n      \"问题诊断关键词5\"\n    ]\n  }},\n  \"practical_ratio\": \"实操关键词占总关键词比例（如'20%'）\",\n  \"reason\": \"判断理由\"\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>",
+      "output_field": "practical_keywords",
+      "output_schema": {
+        "is_non_standard": {"type": "boolean"},
+        "practical_keywords": {
+          "type": "object",
+          "properties": {
+            "pre_operation": {"type": "array", "items": {"type": "string"}, "minItems": 5},
+            "during_operation": {"type": "array", "items": {"type": "string"}, "minItems": 5},
+            "post_operation": {"type": "array", "items": {"type": "string"}, "minItems": 5},
+            "problem_diagnosis": {"type": "array", "items": {"type": "string"}, "minItems": 5}
+          }
+        },
+        "practical_ratio": {"type": "string"},
+        "reason": {"type": "string"}
+      },
+      "data_providers": ["business_description", "industry"]
+    },
+
+    {
+      "id": "step_tag_optimization",
+      "name": "标签优化",
+      "order": 8,
+      "required": true,
+      "llm_prompt_template": "【标签优化 — 从关键词库提取精准标签】\n\n⚠️ 核心原则（来源：geo-seo skill.md）：\n- 标签 = 用户搜索习惯\n- 标签 = 内容分类\n- 标签 ≠ 关键词堆砌\n\n请基于关键词库，提取适合内容标签的关键词。\n\n标签提取原则：\n1. 从高频关键词中提取核心词\n2. 选择用户搜索习惯词\n3. 选择能代表内容分类的词\n4. 标签数量：5-10个为宜\n\n```json\n{{\n  \"recommended_tags\": [\n    \"标签1（核心词，如'灌香肠'）\",\n    \"标签2（场景词，如'上门服务'）\",\n    \"标签3（痛点词，如'避坑'）\",\n    \"标签4（地域词，如'云南'）\",\n    \"标签5（人群词，如'高考'）\",\n    \"标签6（问题词，如'怎么办'）\",\n    \"标签7（需求词，如'培训'）\"\n  ],\n  \"tag_sources\": {{\n    \"from_b2b\": [\"B端关键词来源的标签\"],\n    \"from_b2c\": [\"C端关键词来源的标签\"],\n    \"from_blue_ocean\": [\"蓝海词来源的标签\"],\n    \"from_failure\": [\"失败经历词来源的标签\"]\n  }},\n  \"tag_usage_guide\": \"标签使用建议（如：标题用1个，内容用2-3个）\"\n}}\n```\n\n行业：<<industry>>",
+      "output_field": "tag_optimization",
+      "output_schema": {
+        "recommended_tags": {"type": "array", "items": {"type": "string"}, "minItems": 5, "maxItems": 10},
+        "tag_sources": {
+          "type": "object",
+          "properties": {
+            "from_b2b": {"type": "array", "items": {"type": "string"}},
+            "from_b2c": {"type": "array", "items": {"type": "string"}},
+            "from_blue_ocean": {"type": "array", "items": {"type": "string"}},
+            "from_failure": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "tag_usage_guide": {"type": "string"}
+      },
+      "data_providers": ["step_b2b_keywords", "step_b2c_keywords", "step_blue_ocean_matrix", "step_failure_keywords"]
+    },
+
+    {
+      "id": "step_final_assembly",
+      "name": "关键词库汇总",
+      "order": 9,
+      "required": true,
+      "llm_prompt_template": "【关键词库汇总与统计】\n\n请汇总\"<<industry>>\"的完整关键词库，并进行统计。\n\n⚠️ 关键词分类矩阵（来源：geo-seo skill.md）：\n\n| 关键词类型     | 特征           | 搜索量    | 竞争度        | 使用策略                    |\n|--------------|----------------|-----------|---------------|----------------------------|\n| 核心大词(红海) | 产品词、行业词   | 10000+   | 极高(头部垄断) | ⚠️ 起步阶段≤15%，做账号权重 |\n| 场景词        | 使用场景+需求    | 1000-10000 | 中等          | ✅ 30% - 主力流量           |\n| 问题词(蓝海)  | 问题导向、痛点   | 100-5000  | 低(蓝海)      | ✅ 50%+ - 核心策略          |\n| 长尾标签      | 细分人群+场景    | 1-1000   | 极低          | ✅ 精准转化                 |\n\n```json\n{{\n  \"summary\": {{\n    \"total_count\": 整数，总关键词数量,\n    \"b2b_count\": B端关键词总数,\n    \"b2c_count\": C端关键词总数,\n    \"long_tail_count\": 长尾关键词数量,\n    \"blue_ocean_ratio\": \"长尾词占比\",\n    \"red_ocean_ratio\": \"红海大词占比（必须≤15%）\",\n    \"practical_ratio\": \"实操关键词占比\"\n  }},\n  \"keyword_ratio_check\": {{\n    \"red_ocean_compliant\": true或false,\n    \"blue_ocean_compliant\": true或false,\n    \"notes\": \"配比检查说明\"\n  }},\n  \"top_20_blue_ocean\": [\n    \"最优质的20个蓝海关键词（按搜索量低+竞争小+转化高排序）\",\n    \"关键词1\",\n    \"关键词2\",\n    \"关键词3\",\n    \"关键词4\",\n    \"关键词5\",\n    \"关键词6\",\n    \"关键词7\",\n    \"关键词8\",\n    \"关键词9\",\n    \"关键词10\",\n    \"关键词11\",\n    \"关键词12\",\n    \"关键词13\",\n    \"关键词14\",\n    \"关键词15\",\n    \"关键词16\",\n    \"关键词17\",\n    \"关键词18\",\n    \"关键词19\",\n    \"关键词20\"\n  ],\n  \"priority_keywords\": {{\n    \"P0\": [\"最高优先级关键词1\", \"关键词2\"],\n    \"P1\": [\"高优先级关键词1\", \"关键词2\", \"关键词3\"],\n    \"P2\": [\"中优先级关键词1\", \"关键词2\"]\n  }}\n}}\n```",
       "output_field": "keyword_library_summary",
       "output_schema": {
         "summary": {
@@ -146,20 +225,30 @@
             "b2b_count": {"type": "integer"},
             "b2c_count": {"type": "integer"},
             "long_tail_count": {"type": "integer"},
-            "blue_ocean_ratio": {"type": "string"}
+            "blue_ocean_ratio": {"type": "string"},
+            "red_ocean_ratio": {"type": "string"},
+            "practical_ratio": {"type": "string"}
           }
         },
-        "top_20_blue_ocean": {"type": "array", "items": "string", "minItems": 20},
+        "keyword_ratio_check": {
+          "type": "object",
+          "properties": {
+            "red_ocean_compliant": {"type": "boolean"},
+            "blue_ocean_compliant": {"type": "boolean"},
+            "notes": {"type": "string"}
+          }
+        },
+        "top_20_blue_ocean": {"type": "array", "items": {"type": "string"}, "minItems": 20},
         "priority_keywords": {
           "type": "object",
           "properties": {
-            "P0": {"type": "array", "items": "string"},
-            "P1": {"type": "array", "items": "string"},
-            "P2": {"type": "array", "items": "string"}
+            "P0": {"type": "array", "items": {"type": "string"}},
+            "P1": {"type": "array", "items": {"type": "string"}},
+            "P2": {"type": "array", "items": {"type": "string"}}
           }
         }
       },
-      "data_providers": ["step_b2b_keywords", "step_b2c_keywords", "step_blue_ocean_matrix"]
+      "data_providers": ["step_b2b_keywords", "step_b2c_keywords", "step_blue_ocean_matrix", "step_failure_keywords", "step_practical_keywords"]
     }
 
   ],
@@ -170,13 +259,18 @@
       "b2b_keywords_min": 30,
       "b2c_keywords_min": 30,
       "long_tail_keywords_min": 50,
-      "upstream_downstream_keywords_min": 15
+      "failure_keywords_min": 20,
+      "upstream_downstream_keywords_min": 15,
+      "practical_keywords_min": 20,
+      "tags_min": 5
     },
     "ratio_requirements": {
       "long_tail_ratio": 0.5,
       "pre_search_ratio": 0.4,
       "mid_search_ratio": 0.3,
-      "post_search_ratio": 0.3
+      "post_search_ratio": 0.3,
+      "red_ocean_max_ratio": 0.15,
+      "practical_ratio": 0.2
     }
   },
 
@@ -186,6 +280,21 @@
         "_comment": "蓝海矩阵传递给选题库",
         "L2_long_tail": {"target": "topic_library_generator", "field": "topics.source.blue_ocean_long_tail"},
         "top_20_blue_ocean": {"target": "topic_library_generator", "field": "topics.priority_sources.p0_keywords"}
+      },
+      "step_failure_keywords": {
+        "_comment": "失败经历关键词传递给选题库",
+        "failure_keywords_by_journey": {"target": "topic_library_generator", "field": "topics.source.failure_keywords"},
+        "avoid_pitfall_keywords": {"target": "topic_library_generator", "field": "topics.source.avoid_pitfall_keywords"},
+        "diagnosis_keywords": {"target": "topic_library_generator", "field": "topics.source.diagnosis_keywords"}
+      },
+      "step_practical_keywords": {
+        "_comment": "非标品实操关键词传递给选题库（仅非标品）",
+        "practical_keywords": {"target": "topic_library_generator", "field": "topics.source.practical_keywords"},
+        "is_non_standard": {"target": "topic_library_generator", "field": "topics.metadata.is_non_standard"}
+      },
+      "step_tag_optimization": {
+        "_comment": "标签传递给内容生成",
+        "recommended_tags": {"target": "content_generator", "field": "content_metadata.tags"}
       },
       "step_final_assembly": {
         "_comment": "关键词库汇总传递给选题库",

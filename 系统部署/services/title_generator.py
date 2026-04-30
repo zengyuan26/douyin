@@ -713,3 +713,85 @@ GEO模式：{geo_mode}
             if p['id'] == pattern_id:
                 return p
         return None
+
+
+# =============================================================================
+# 便捷导出函数（任务5.3新增）
+# 确保 title_generator.py 是唯一的标题生成入口
+# =============================================================================
+
+def generate_titles(
+    topic_title: str,
+    portrait: Dict = None,
+    keywords: Dict = None,
+    geo_mode: str = "问题-答案模式",
+    industry: str = None,
+    title_count: int = 4,
+) -> Dict[str, Any]:
+    """
+    便捷函数：生成标题
+
+    使用方法：
+        from services.title_generator import generate_titles
+
+        result = generate_titles(
+            topic_title="早产儿怎么喂养更健康",
+            portrait={"identity": "早产儿家长"},
+            keywords={"core": ["早产儿"]},
+        )
+        for title in result.get("titles", []):
+            print(title.main_title)
+    """
+    gen = TitleGenerator()
+    result = gen.generate(
+        topic_title=topic_title,
+        portrait=portrait,
+        keywords=keywords,
+        geo_mode=geo_mode,
+        industry=industry,
+        title_count=title_count,
+    )
+    return result.to_dict() if hasattr(result, 'to_dict') else result
+
+
+def get_best_title(
+    topic_title: str,
+    portrait: Dict = None,
+    keywords: Dict = None,
+    geo_mode: str = "问题-答案模式",
+    industry: str = None,
+    prefer_pattern: str = "A",
+) -> Optional[Dict]:
+    """
+    便捷函数：生成并选择最佳标题
+
+    使用方法：
+        from services.title_generator import get_best_title
+
+        title = get_best_title(
+            topic_title="早产儿怎么喂养更健康",
+            portrait={"identity": "早产儿家长"},
+        )
+        print(title.get("main_title"))
+    """
+    gen = TitleGenerator()
+    result = gen.generate(
+        topic_title=topic_title,
+        portrait=portrait,
+        keywords=keywords,
+        geo_mode=geo_mode,
+        industry=industry,
+    )
+    best = gen.get_best_title(result, prefer_pattern)
+    return best.to_dict() if best else None
+
+
+# 导出到 __all__
+__all__ = [
+    "TitleGenerator",
+    "TitleGeneratorResult",
+    "GeneratedTitle",
+    "HVFScore",
+    "generate_titles",
+    "get_best_title",
+]

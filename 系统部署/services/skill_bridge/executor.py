@@ -208,7 +208,48 @@ class SkillExecutor:
         step: dict,
         context: dict,
     ) -> StepResult:
-        """执行单个步骤"""
+        """执行单个步骤（关键步骤解析失败时自动重试）"""
+        step_id = step["id"]
+        step_name = step.get("name", step_id)
+
+        # 关键步骤列表（必须成功，失败时自动重试）
+        critical_steps = ['step_generate_content']
+        max_retries = 1  # 最多重试1次
+
+        last_result = None
+        for attempt in range(max_retries + 1):
+            result = self._execute_step_once(
+                skill_name, step, context, attempt
+            )
+            last_result = result
+
+            # 如果成功，直接返回
+            if result.success:
+                if attempt > 0:
+                    logger.info(f"[SkillExecutor] step={step_id} 重试 {attempt} 次后成功")
+                return result
+
+            # 如果是关键步骤且还有重试机会，记录并重试
+            if step_id in critical_steps and attempt < max_retries:
+                logger.warning(
+                    f"[SkillExecutor] step={step_id} 失败: {result.error}, "
+                    f"自动重试 ({attempt + 1}/{max_retries})"
+                )
+                continue
+
+            # 非关键步骤或无重试机会，直接返回失败结果
+            break
+
+        return last_result
+
+    def _execute_step_once(
+        self,
+        skill_name: str,
+        step: dict,
+        context: dict,
+        attempt: int = 0,
+    ) -> StepResult:
+        """执行单个步骤（单次尝试）"""
         step_id = step["id"]
         step_name = step.get("name", step_id)
         start_time = time.time()

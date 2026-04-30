@@ -2883,6 +2883,9 @@ def api_content_detail(generation_id):
                     topic_library_data = t
                     break
 
+    # 内容数据（解析失败时的自动重试已在 executor.py 中实现）
+    content_data = raw_content_data or {}
+
     return jsonify({
         'success': True,
         'data': {
@@ -4359,8 +4362,10 @@ def _build_content_data_from_bridge(fo: dict) -> dict:
     publish = _safe_get(gen, 'publish') or _publish_strategy
 
     # slides：使用 gen['slides']（已包含 content 解析结果）
-    # 如果 slides 是 dict 列表，直接使用；否则降级
+    # 注意：解析失败时的自动重试已在 executor.py 中实现，这里只做数据验证
     gen_slides = gen.get('slides', [])
+
+    # 数据验证：确保 slides 是有效的 dict 列表
     if isinstance(gen_slides, list) and gen_slides:
         # 检查是否有任何 dict 项（优先使用 dict）
         dict_items = [s for s in gen_slides if isinstance(s, dict)]

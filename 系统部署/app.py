@@ -105,6 +105,22 @@ def create_app(config_name='default'):
     except Exception as e:
         logging.warning(f"画像管理 API 注册失败: {e}")
 
+    # 注册内容计划 API（选题库 + 内容计划 + 异步任务）
+    try:
+        from routes.content_plan_api import content_plan_api as content_plan_api_blueprint
+        app.register_blueprint(content_plan_api_blueprint)
+        logging.info("内容计划 API 已注册")
+    except Exception as e:
+        logging.warning(f"内容计划 API 注册失败: {e}")
+
+    # 初始化内容计划任务服务（后台执行器）
+    try:
+        from services.content_plan_task_service import init_app as init_content_plan_service
+        init_content_plan_service(app)
+        logging.info("内容计划任务服务已启动")
+    except Exception as e:
+        logging.warning(f"内容计划任务服务启动失败: {e}")
+
     # 初始化画像词库后台任务服务（注入 Flask app，支持后台线程 app context）
     try:
         from services.portrait_library_task_service import init_app as init_task_service

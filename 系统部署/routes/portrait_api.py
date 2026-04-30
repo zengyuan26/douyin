@@ -196,6 +196,9 @@ def get_portrait_detail(user, portrait_id):
             return jsonify({'success': False, 'message': '画像不存在'}), 404
         return jsonify({'success': False, 'message': '无权访问该画像'}), 403
 
+    # 添加 user_id 到返回数据
+    portrait['user_id'] = user.id
+
     return jsonify({'success': True, 'data': portrait})
 
 
@@ -647,7 +650,8 @@ def get_portrait_topics(user, portrait_id):
         portrait_id, len(page_topics), total)
     if page_topics:
         for t in page_topics[:3]:
-            logger.info("[get_portrait_topics]   topic: id=%r, title=%r", t.get('id'), t.get('title')[:30] if t.get('title') else None)
+            logger.info("[get_portrait_topics]   topic: id=%r, title=%r",
+                t.get('id'), t.get('title')[:30] if t.get('title') else None)
 
     for t in page_topics:
         if isinstance(t, dict):

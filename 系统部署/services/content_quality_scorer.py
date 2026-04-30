@@ -1235,3 +1235,58 @@ class ContentQualityScorer:
 
 # 全局实例
 content_scorer = ContentQualityScorer()
+
+
+# =============================================================================
+# 便捷导出函数（任务5.4新增）
+# 确保 content_quality_scorer.py 是唯一的内容评分入口
+# =============================================================================
+
+def score_content(
+    content: str,
+    business_type: str = "local_service",
+    portrait: Dict = None,
+) -> Dict[str, Any]:
+    """
+    便捷函数：评分内容
+
+    使用方法：
+        from services.content_quality_scorer import score_content
+
+        result = score_content(
+            content="图文内容...",
+            business_type="local_service",
+        )
+        if result.get("passed"):
+            print("内容通过评分")
+    """
+    scorer = ContentQualityScorer()
+    result = scorer.score(content, business_type)
+    return scorer.to_dict(result)
+
+
+def quick_score(content: str) -> int:
+    """
+    快速评分函数
+
+    使用方法：
+        from services.content_quality_scorer import quick_score
+
+        score = quick_score("图文内容...")
+        print(f"内容得分: {score}")
+    """
+    scorer = ContentQualityScorer()
+    result = scorer.score(content, "local_service")
+    return result.total_score
+
+
+# 导出到 __all__
+__all__ = [
+    "ContentQualityScorer",
+    "ScoreResult",
+    "ScoreItem",
+    "GEO_SELF_CHECK_WEIGHTS",
+    "content_scorer",
+    "score_content",
+    "quick_score",
+]

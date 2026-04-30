@@ -340,7 +340,8 @@ class LLMService:
             return None
 
         try:
-            return result["choices"][0]["message"]["content"]
+            content = result["choices"][0]["message"]["content"]
+            return content
         except (KeyError, TypeError, IndexError) as e:
             logger.error(f"[LLM] SiliconFlow 响应格式异常: {e}, result={str(result)[:300]}")
             return None

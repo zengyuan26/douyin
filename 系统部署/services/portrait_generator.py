@@ -66,6 +66,13 @@ class Portrait:
     behavior_tags: List[str] = field(default_factory=list)  # 行为标签
     content_direction: str = "种草型"                        # 内容方向
 
+    # ===== 增强字段（任务1.1新增）=====
+    language_style: str = ""                    # 人群语言风格：口语化/专业术语/情绪化/温情型
+    crowd_perspective: str = ""                 # 人群视角：第一人称/第三人称/对话式
+    age_range: str = ""                         # 年龄范围：如"18-25岁"、"26-35岁"、"35-45岁"
+    pain_point_level: str = "medium"             # 痛点强度：high(高)/medium(中)/low(低)
+    decision_stage: str = "consideration"        # 决策阶段：awareness(认知)/consideration(考量)/decision(决策)
+
 
 @dataclass
 class PortraitGenerationContext:
@@ -632,7 +639,12 @@ class PortraitGenerator:
             "psychology": "内心独白",
             "barriers": ["障碍1", "障碍2"],
             "search_keywords": ["搜索词1", "搜索词2"],
-            "content_preferences": ["内容方向1", "内容方向2"]
+            "content_preferences": ["内容方向1", "内容方向2"],
+            "language_style": "口语化/专业术语/情绪化/温情型",
+            "crowd_perspective": "第一人称/第三人称/对话式",
+            "age_range": "26-35岁",
+            "pain_point_level": "high/medium/low",
+            "decision_stage": "awareness/consideration/decision"
         }}
     ]
 }}"""
@@ -679,6 +691,12 @@ class PortraitGenerator:
                 content_preferences=p.get('content_preferences') or [],
                 market_type=p.get('market_type', 'blue_ocean'),
                 differentiation=p.get('differentiation', ''),
+                # 增强字段（任务1.1新增）
+                language_style=p.get('language_style', ''),
+                crowd_perspective=p.get('crowd_perspective', ''),
+                age_range=p.get('age_range', ''),
+                pain_point_level=p.get('pain_point_level', 'medium'),
+                decision_stage=p.get('decision_stage', 'consideration'),
             )
 
         def _try_parse(text: str) -> List[Portrait]:
@@ -921,6 +939,12 @@ def generate_portraits_from_analysis(
             'scene_tags': p.scene_tags,
             'behavior_tags': p.behavior_tags,
             'content_direction': p.content_direction,
+            # 增强字段（任务1.1新增）
+            'language_style': p.language_style,
+            'crowd_perspective': p.crowd_perspective,
+            'age_range': p.age_range,
+            'pain_point_level': p.pain_point_level,
+            'decision_stage': p.decision_stage,
         }
         for p in portraits
     ]

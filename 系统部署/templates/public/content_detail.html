@@ -469,6 +469,99 @@
         color: var(--apple-gray);
         margin-left: 4px;
     }
+    /* H-V-F 标题候选样式 */
+    .hvf-titles-section {
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .hvf-titles-title {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--apple-blue);
+        margin-bottom: 6px;
+    }
+    .hvf-titles-list {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .hvf-title-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        background: var(--bg-secondary);
+        border-radius: 6px;
+        position: relative;
+        font-size: 0.6875rem;
+        min-height: auto;
+        width: calc(50% - 3px);
+        box-sizing: border-box;
+    }
+    .hvf-title-item.selected {
+        background: rgba(0, 122, 255, 0.08);
+        border: 1px solid var(--apple-blue);
+    }
+    .hvf-title-num {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--apple-blue);
+        min-width: 16px;
+        flex-shrink: 0;
+    }
+    .hvf-title-content {
+        flex: 1;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 4px;
+        overflow: hidden;
+    }
+    .hvf-title-text {
+        font-size: 0.75rem;
+        color: var(--text-primary);
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-shrink: 1;
+    }
+    .hvf-subtitle-text {
+        font-size: 0.625rem;
+        color: var(--apple-gray);
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 120px;
+    }
+    .hvf-title-meta {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        font-size: 0.5625rem;
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+    .hvf-pattern {
+        color: var(--apple-gray);
+        background: var(--bg-primary);
+        padding: 1px 4px;
+        border-radius: 3px;
+    }
+    .hvf-stars {
+        color: #ffc107;
+    }
+    .hvf-selected-badge {
+        position: absolute;
+        top: 2px;
+        right: 6px;
+        font-size: 0.625rem;
+        color: var(--apple-blue);
+        font-weight: 600;
+    }
     .btn-copy-title {
         display: inline-flex;
         align-items: center;
@@ -1959,11 +2052,17 @@ function extractSectionContent(key, contentData) {
         return '';
     }
 
-    // 长文结构：article.title 作为标题
+    // 长文结构：article.title 作为标题（图文同时返回 title + subtitle）
     if (key === 'title') {
-        // 优先取顶层 title
+        // 优先取顶层 title 和 subtitle（图文结构）
         if (contentData.title) {
-            return contentData.title;
+            var titleText = contentData.title;
+            var subtitleText = contentData.subtitle || '';
+            // 如果有 subtitle，拼接成两行
+            if (subtitleText) {
+                return titleText + '\n' + subtitleText;
+            }
+            return titleText;
         }
         // 长文结构：article.title
         if (contentData.article && contentData.article.title) {
@@ -2114,7 +2213,7 @@ function renderClientSections(sections) {
             : '';
 
         // 长内容区块默认折叠
-        var longContentKeys = ['content_plan', 'script', 'shooting', 'basic_info', 'extension', 'compliance', 'slides'];
+        var longContentKeys = ['script', 'shooting', 'basic_info', 'extension', 'compliance', 'slides'];
         var isLongContent = longContentKeys.indexOf(sec.section_key) !== -1;
         var hasLongContent = isLongContent && sec.content && sec.content.length > 200;
 
@@ -2161,10 +2260,7 @@ function renderClientSections(sections) {
 function buildTitleSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass) {
     cardClass = cardClass || 'section-card';
     var content = sec.content || '';
-    
-    // 解析标题内容
-    var lines = content.split('\n').filter(function(l) { return l.trim(); });
-    
+
     // 清理标题中的格式符号和注释
     var cleanTitle = function(raw) {
         return raw
@@ -2175,11 +2271,14 @@ function buildTitleSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass) {
             })
             .trim();
     };
-    
+
+    // 解析标题内容
+    var lines = content.split('\n').filter(function(l) { return l.trim(); });
+
     // 分离主标题和副标题
     var mainTitle = '';
     var subTitle = '';
-    
+
     if (lines.length === 1) {
         // 只有一行，作为主标题
         mainTitle = cleanTitle(lines[0]);
@@ -2188,17 +2287,17 @@ function buildTitleSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass) {
         mainTitle = cleanTitle(lines[0]);
         subTitle = cleanTitle(lines[1]);
     }
-    
+
     // 用于复制的内容（不含括号内的说明）
     var copyMainTitle = lines[0] ? lines[0].replace(/^>\s*/, '').replace(/\*\*/g, '').replace(/\（[^）]*\）/g, '').trim() : '';
     var copySubTitle = lines[1] ? lines[1].replace(/^>\s*/, '').replace(/\*\*/g, '').replace(/\（[^）]*\）/g, '').trim() : '';
     var copyContent = copyMainTitle + (copySubTitle ? '\n' + copySubTitle : '');
-    
+
     // 使用 data 属性存储内容
     var copyBtn = '<button class="btn-copy-title" data-copy-content="' + escHtml(copyContent.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
         '<i class="bi bi-clipboard"></i>复制标题' +
         '</button>';
-    
+
     var html = '<div class="' + cardClass + '" id="panel-' + escHtml(sec.section_key) + '">' +
         '<div class="section-card-header">' +
             '<div class="section-title">' +
@@ -2210,25 +2309,90 @@ function buildTitleSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass) {
             '</div>' +
         '</div>' +
         '<div class="section-card-body title-content-body">';
+
+    // 尝试从全局数据获取 H-V-F 标题候选
+    var hvfData = null;
     
+    // 优先使用选题库数据（包含完整的标题设计信息）
+    if (_generationData && _generationData.topic_library_data) {
+        var tl = _generationData.topic_library_data;
+        // 选题库格式：hvf_titles 或 hvf_report
+        if (tl.hvf_titles) {
+            hvfData = tl.hvf_titles;
+        } else if (tl.hvf_report && tl.hvf_report.titles) {
+            hvfData = tl.hvf_report;
+        }
+    }
+    // 兜底：使用 content_data 中的 H-V-F 数据
+    // 注意：_hvf_titles 结构是 {step_title_generate: {titles: [...]}, step_title_review: {...}}
+    if (!hvfData && _generationData && _generationData.content_data) {
+        var cd = _generationData.content_data;
+        if (cd._hvf_titles) {
+            // 直接是 titles 数组
+            if (Array.isArray(cd._hvf_titles.titles)) {
+                hvfData = cd._hvf_titles;
+            }
+            // 嵌套在 step_title_generate 中
+            else if (cd._hvf_titles.step_title_generate && Array.isArray(cd._hvf_titles.step_title_generate.titles)) {
+                hvfData = cd._hvf_titles.step_title_generate;
+            }
+        }
+        // 备选：_hvf_report
+        else if (cd._hvf_report) {
+            if (Array.isArray(cd._hvf_report.titles)) {
+                hvfData = cd._hvf_report;
+            }
+        }
+    }
+
+    // 如果有 H-V-F 数据，显示标题候选列表
+    if (hvfData && hvfData.titles && hvfData.titles.length > 0) {
+        html += '<div class="hvf-titles-section">';
+        html += '<div class="hvf-titles-title">主标题候选（' + hvfData.titles.length + '个）</div>';
+        html += '<div class="hvf-titles-list">';
+        hvfData.titles.forEach(function(t, idx) {
+            var isSelected = (t.main_title === mainTitle || t.main_title === copyMainTitle);
+            var selectedClass = isSelected ? 'selected' : '';
+            var starRating = t.hvf_score && t.hvf_score.total ? Math.round(t.hvf_score.total / 20) : 0;
+            var stars = '⭐'.repeat(Math.min(starRating, 5));
+            var patternLabel = t.pattern || '';
+            var subTitleOption = t.subtitle || '';
+            html += '<div class="hvf-title-item ' + selectedClass + '">';
+            html += '<span class="hvf-title-num">' + (['①','②','③','④','⑤'])[idx] || (idx + 1) + '</span>';
+            html += '<div class="hvf-title-content">';
+            html += '<div class="hvf-title-text">' + escHtml(t.main_title || '') + '</div>';
+            if (subTitleOption) {
+                html += '<div class="hvf-subtitle-text">' + escHtml(subTitleOption) + '</div>';
+            }
+            html += '<div class="hvf-title-meta">';
+            if (patternLabel) html += '<span class="hvf-pattern">' + escHtml(patternLabel) + '</span>';
+            if (stars) html += '<span class="hvf-stars">' + stars + '</span>';
+            html += '</div></div>';
+            if (isSelected) html += '<span class="hvf-selected-badge">✓已选</span>';
+            html += '</div>';
+        });
+        html += '</div></div>';
+    }
+
+    // 显示确认的主标题和副标题
     if (mainTitle) {
         html += '<div class="title-item main-title">' +
-            '<div class="title-label">主标题</div>' +
+            '<div class="title-label">主标题确认</div>' +
             '<div class="title-text">' + mainTitle + '</div>' +
             '</div>';
     }
-    
+
     if (subTitle) {
         html += '<div class="title-item sub-title">' +
-            '<div class="title-label">副标题</div>' +
+            '<div class="title-label">副标题确认</div>' +
             '<div class="title-text">' + subTitle + '</div>' +
             '</div>';
     }
-    
-    if (!mainTitle && !subTitle) {
+
+    if (!mainTitle && !subTitle && !hvfData) {
         html += '<span style="color:var(--apple-gray);font-style:italic;">暂无标题</span>';
     }
-    
+
     html += '</div></div>';
     return html;
 }
@@ -3186,14 +3350,18 @@ function parseExtensionContent(content) {
             continue;
         }
         
-        // 检测系列化选题标题
-        if (line.match(/系列化选题/) && !line.match(/^\|/)) {
+        // 检测系列化选题标题（兼容新旧格式）
+        // 旧格式：系列化选题
+        // 新格式：延伸选题方向（同一标记区块开始）
+        if (line.match(/系列化选题/) || (line.match(/延伸选题方向/) && !inTopicTable)) {
             inTopicTable = false;
             continue;
         }
         
-        // 检测具体延伸选题标题
-        if (line.match(/具体延伸选题/)) {
+        // 检测具体延伸选题标题（兼容新旧格式）
+        // 旧格式：具体延伸选题
+        // 新格式：延伸选题方向 或 延伸选题
+        if (line.match(/延伸选题/) || line.match(/具体延伸/)) {
             inTopicTable = true;
             continue;
         }
@@ -3280,20 +3448,7 @@ function buildBottomTagsSection(sec, badgeClass, badgeText, cardClass) {
     html += '</div></div>' +
         '<div class="section-card-body bottom-tags-body">';
 
-    // 显示标签分类表格
-    if (effectiveTags.length > 0) {
-        html += '<div class="tags-table">';
-        effectiveTags.forEach(function(item) {
-            html += '<div class="tag-table-item">';
-            html += '<span class="tag-seq">#' + item.seq + '</span>';
-            html += '<span class="tag-type">' + escHtml(item.type) + '</span>';
-            html += '<span class="tag-content">' + escHtml(item.tag) + '</span>';
-            html += '</div>';
-        });
-        html += '</div>';
-    }
-
-    // 显示完整标签格式
+    // 只显示完整标签格式，隐藏分类表格
     if (effectiveFullTags) {
         html += '<div class="full-tags-box">';
         html += '<div class="full-tags-label">完整格式</div>';

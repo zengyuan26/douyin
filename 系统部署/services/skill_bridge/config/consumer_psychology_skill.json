@@ -1,0 +1,210 @@
+{
+  "_comment": "消费心理学 Skill 配置 - 整合 consumer-psychology-expert 核心能力",
+
+  "skill": {
+    "name": "consumer_psychology",
+    "version": "1.0",
+    "display_name": "消费心理学审核",
+    "description": "基于影响力六原则（Cialdini）、损失厌恶原理和冲突点设计，对内容进行消费心理学审核和优化建议。整合自 consumer-psychology-expert。",
+    "skill_md_path": null,
+    "input_source": "after_content_generation"
+  },
+
+  "input_schema": {
+    "content": {
+      "type": "object",
+      "required": true,
+      "description": "待审核的图文内容"
+    },
+    "portrait": {
+      "type": "object",
+      "description": "目标用户画像（用于心理学适配性评估）"
+    },
+    "brand_context": {
+      "type": "object",
+      "description": "品牌上下文（用于心理学策略选择）"
+    },
+    "content_purpose": {
+      "type": "string",
+      "enum": ["traffic", "conversion", "both"],
+      "default": "traffic",
+      "description": "内容目的：流量型/转化型"
+    },
+    "language_style": {
+      "type": "string",
+      "description": "语言风格：口语化/专业术语/情绪化/温情型"
+    },
+    "region": {
+      "type": "string",
+      "description": "地域信息（用于方言建议）"
+    }
+  },
+
+  "steps": [
+
+    {
+      "id": "step_influence_principles",
+      "name": "影响力六原则评估",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【影响力六原则评估 — Cialdini 原则检测】\n\n请评估以下内容对 Cialdini 影响力六原则的应用情况：\n\n=== Cialdini 影响力六原则 ===\n1. 互惠：给用户价值，期望回报（免费知识→关注/信任）\n2. 承诺与一致：一旦承诺，更可能行动（小承诺→大转化）\n3. 社会认同：参考他人行为做决策（案例、数据、销量）\n4. 权威：服从专家/权威（身份背书，专业知识）\n5. 喜好：更易被喜欢的人影响（人设、故事、共鸣）\n6. 稀缺：越少越想要（限时、限量、专属）\n\n=== 内容信息 ===\n内容标题：<<content.title>>\n内容正文：<<content.body>>\nCTA：<<content.cta>>\n内容目的：<<content_purpose>>\n\n=== 评估要求 ===\n请检测内容中使用了哪些原则，以及应用是否得当：\n\n```json\n{{\n  \"influence_principles\": {{\n    \"reciprocity\": {{\n      \"present\": true或false,\n      \"examples\": [\"互惠原则的具体应用示例\"],\n      \"effectiveness\": \"有效/一般/无效\",\n      \"suggestion\": \"优化建议\"\n    }},\n    \"commitment\": {{\n      \"present\": true或false,\n      \"examples\": [\"承诺与一致的具体应用示例\"],\n      \"effectiveness\": \"有效/一般/无效\",\n      \"suggestion\": \"优化建议\"\n    }},\n    \"social_proof\": {{\n      \"present\": true或false,\n      \"examples\": [\"社会认同的具体应用示例\"],\n      \"evidence_quality\": \"有据可查/模糊表述/无证据\",\n      \"suggestion\": \"优化建议\"\n    }},\n    \"authority\": {{\n      \"present\": true或false,\n      \"examples\": [\"权威原则的具体应用示例\"],\n      \"evidence_quality\": \"有据可查/主观声称/无证据\",\n      \"suggestion\": \"优化建议\"\n    }},\n    \"liking\": {{\n      \"present\": true或false,\n      \"examples\": [\"喜好原则的具体应用示例\"],\n      \"effectiveness\": \"有效/一般/无效\",\n      \"suggestion\": \"优化建议\"\n    }},\n    \"scarcity\": {{\n      \"present\": true或false,\n      \"examples\": [\"稀缺原则的具体应用示例\"],\n      \"authenticity\": \"真实稀缺/人为制造/无依据\",\n      \"suggestion\": \"优化建议\"\n    }}\n  }},\n  \"dominant_principle\": \"主导使用的影响力原则\",\n  \"principle_balance\": \"六原则应用是否平衡（过多单一原则会适得其反）\",\n  \"overall_score\": 0-100的综合评分\n}}```",
+      "output_field": "influence_principles",
+      "output_schema": {
+        "influence_principles": {
+          "type": "object",
+          "properties": {
+            "reciprocity": {"type": "object"},
+            "commitment": {"type": "object"},
+            "social_proof": {"type": "object"},
+            "authority": {"type": "object"},
+            "liking": {"type": "object"},
+            "scarcity": {"type": "object"}
+          }
+        },
+        "dominant_principle": {"type": "string"},
+        "principle_balance": {"type": "string"},
+        "overall_score": {"type": "integer"}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_conflict_design",
+      "name": "冲突点设计审核",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【冲突点设计审核 — 内容戏剧性检测】\n\n请评估以下内容的冲突点设计，冲突点能够打破用户预期、激发好奇心、增强戏剧性。\n\n=== 冲突点类型 ===\n1. 认知冲突：打破固有认知（好奇→想看）\n2. 情感冲突：激发情感对立（共鸣→讨论）\n3. 场景冲突：理想vs现实（同情→行动）\n4. 身份冲突：角色对立（好奇→想看）\n5. 争议冲突：引发站队（讨论→互动）\n\n=== 内容信息 ===\n内容标题：<<content.title>>\n内容正文：<<content.body>>\n\n=== 冲突点设计公式 ===\n冲突点 = 预期打破 + 情感对立 + 讨论空间\n\n请评估：\n\n```json\n{{\n  \"conflict_design\": {{\n    \"has_conflict_point\": true或false,\n    \"conflict_type\": \"认知冲突/情感冲突/场景冲突/身份冲突/争议冲突/无\",\n    \"conflict_examples\": [\"具体冲突点示例\"],\n    \"expectation_break\": {{\n      \"present\": true或false,\n      \"before\": \"用户原本怎么想\",\n      \"after\": \"实际情况是\",\n      \"effectiveness\": \"有效/一般/无效\"\n    }},\n    \"emotion_opposition\": {{\n      \"present\": true或false,\n      \"roles\": \"对立的角色（如父母vs孩子）\",\n      \"effectiveness\": \"有效/一般/无效\"\n    }},\n    \"discussion_space\": {{\n      \"present\": true或false,\n      \"open_question\": \"开放式问题\",\n      \"engagement_potential\": \"高/中/低\"\n    }}\n  }},\n  \"conflict_strength\": \"强/中/弱/无\",\n  \"conflict_effectiveness\": \"对完播率/互动率/转化率的影响评估\",\n  \"suggestions\": [\"冲突点优化建议\"]\n}}```",
+      "output_field": "conflict_design",
+      "output_schema": {
+        "conflict_design": {
+          "type": "object",
+          "properties": {
+            "has_conflict_point": {"type": "boolean"},
+            "conflict_type": {"type": "string"},
+            "conflict_examples": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "conflict_strength": {"type": "string"},
+        "conflict_effectiveness": {"type": "string"},
+        "suggestions": {"type": "array", "items": {"type": "string"}}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_loss_aversion",
+      "name": "损失厌恶检测",
+      "order": 3,
+      "required": true,
+      "llm_prompt_template": "【损失厌恶检测 — 心理学风险评估】\n\n请检测内容中对损失厌恶心理的运用，损失厌恶感受是获得感受的2.5倍。\n\n=== 内容信息 ===\n内容标题：<<content.title>>\n内容正文：<<content.body>>\nCTA：<<content.cta>>\n\n=== 检测要点 ===\n1. 是否强调\"不做的后果\"而非\"做了的好处\"\n2. 损失描述是否真实可信\n3. 是否有恐吓过度的问题\n4. 是否符合平台规范\n\n```json\n{{\n  \"loss_aversion\": {{\n    \"present\": true或false,\n    \"examples\": [\"损失厌恶的具体应用示例\"],\n    \"loss_framing\": {{\n      \"present\": true或false,\n      \"description\": \"损失描述\",\n      \"authenticity\": \"真实损失/恐吓夸大/无依据\"\n    }},\n    \"gain_framing\": {{\n      \"present\": true或false,\n      \"description\": \"收益描述\",\n      \"effectiveness\": \"有效/一般/无效\"\n    }},\n    \"balance\": \"损失vs收益 framing 是否平衡\"\n  }},\n  \"risk_level\": \"高/中/低/无\",\n  \"risks\": [\n    {{\n      \"type\": \"风险类型\",\n      \"evidence\": \"具体证据\",\n      \"platform_policy\": \"触发的平台政策\",\n      \"suggestion\": \"整改建议\"\n    }}\n  ],\n  \"suggestions\": [\"损失厌恶优化建议\"]\n}}```",
+      "output_field": "loss_aversion",
+      "output_schema": {
+        "loss_aversion": {
+          "type": "object",
+          "properties": {
+            "present": {"type": "boolean"},
+            "examples": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "risk_level": {"type": "string"},
+        "risks": {"type": "array"},
+        "suggestions": {"type": "array", "items": {"type": "string"}}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_language_style",
+      "name": "方言与语音风格建议",
+      "order": 4,
+      "required": false,
+      "llm_prompt_template": "【方言与语音风格建议 — 地域与人群适配】\n\n基于目标人群和地域信息，提供方言和语音风格建议。\n\n=== 地域信息 ===\n地域：<<region>>\n语言风格：<<language_style>>\n\n=== 目标人群 ===\n<<portrait>>\n\n=== 方言心理学效应 ===\n1. 地域认同：方言激活用户的地域身份，亲切感↑ 信任感↑\n2. 社会认同：\"本地人服务本地人\"，亲和力↑ 转化率↑\n3. 真实性：方言更接地气，可信度↑ 距离感↓\n4. 情感共鸣：乡音触发情感记忆，共鸣感↑ 互动率↑\n\n=== 语音风格心理学 ===\n1. 温柔治愈型：适合母婴、健康、情感内容\n2. 专业严谨型：适合金融、法律、医疗内容\n3. 幽默搞笑型：适合娱乐、美食、生活内容\n4. 激情澎湃型：适合促销、活动、电商内容\n\n```json\n{{\n  \"language_style\": {{\n    \"recommended_dialect\": \"推荐方言类型\",\n    \"dialect_ratio\": \"方言比例建议（如70%）\",\n    \"dialect_benefits\": [\"方言的心理收益\"],\n    \"key_phrases\": [\"推荐的开头/结尾方言表达\"]\n  }},\n  \"voice_style\": {{\n    \"recommended_style\": \"推荐语音风格\",\n    \"psychology_benefits\": \"心理学依据\",\n    \"content_alignment\": \"与内容类型的匹配度\",\n    \"tempo_recommendation\": \"语速建议（快/中/慢）\"\n  }},\n  \"adaptation_notes\": [\"适配注意事项\"]\n}}```",
+      "output_field": "language_style",
+      "output_schema": {
+        "language_style": {
+          "type": "object",
+          "properties": {
+            "recommended_dialect": {"type": "string"},
+            "dialect_ratio": {"type": "string"},
+            "dialect_benefits": {"type": "array", "items": {"type": "string"}},
+            "key_phrases": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "voice_style": {
+          "type": "object",
+          "properties": {
+            "recommended_style": {"type": "string"},
+            "psychology_benefits": {"type": "string"},
+            "content_alignment": {"type": "string"},
+            "tempo_recommendation": {"type": "string"}
+          }
+        },
+        "adaptation_notes": {"type": "array", "items": {"type": "string"}}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_psychology_summary",
+      "name": "心理学综合评估",
+      "order": 5,
+      "required": true,
+      "llm_prompt_template": "【消费心理学综合评估】\n\n基于以上所有心理学分析，给出综合评估和建议。\n\n=== 影响力原则评估 ===\n<<step_influence_principles>>\n\n=== 冲突点设计 ===\n<<step_conflict_design>>\n\n=== 损失厌恶 ===\n<<step_loss_aversion>>\n\n=== 方言与语音 ===\n<<step_language_style>>\n\n```json\n{{\n  \"overall_psychology_score\": 0-100的综合心理学评分,\n  \"grade\": \"A/B/C/D（80+/70+/60+/60以下）\",\n  \"strengths\": [\n    {{\n      \"dimension\": \"优势维度\",\n      \"detail\": \"优势描述\",\n      \"evidence\": \"具体证据\"\n    }}\n  ],\n  \"improvements\": [\n    {{\n      \"priority\": \"高/中/低\",\n      \"dimension\": \"改进维度\",\n      \"current_state\": \"当前状态\",\n      \"suggestion\": \"具体改进建议\"\n    }}\n  ],\n  \"psychology_risks\": [\n    {{\n      \"type\": \"风险类型\",\n      \"severity\": \"高/中/低\",\n      \"suggestion\": \"整改建议\"\n    }}\n  ],\n  \"final_recommendation\": \"最终建议：发布/修改后发布/需重大修改\"\n}}```",
+      "output_field": "psychology_summary",
+      "output_schema": {
+        "overall_psychology_score": {"type": "integer"},
+        "grade": {"type": "string"},
+        "strengths": {"type": "array"},
+        "improvements": {"type": "array"},
+        "psychology_risks": {"type": "array"},
+        "final_recommendation": {"type": "string"}
+      },
+      "data_providers": [
+        "step_influence_principles",
+        "step_conflict_design",
+        "step_loss_aversion",
+        "step_language_style"
+      ]
+    }
+
+  ],
+
+  "constraints": {
+    "psychology_rules": {
+      "max_fear_intensity": "中（高强度恐惧需有据可查）",
+      "scarcity_must_be_authentic": true,
+      "no_absolute_claims": "禁止100%/保证/绝对等绝对化用语",
+      "no_moral_extortion": "禁止道德绑架",
+      "loss_aversion_balance": "损失描述与收益描述应平衡"
+    },
+    "platform_compliance": {
+      "prohibited": ["过度恐吓", "虚假稀缺", "绝对化承诺", "道德绑架"],
+      "warning": ["焦虑贩卖过度", "夸大效果"]
+    }
+  },
+
+  "data_flow": {
+    "inputs": {
+      "_comment": "接收内容生成后的输出",
+      "content.title": {"source": "content_generator"},
+      "content.body": {"source": "content_generator"},
+      "content.cta": {"source": "content_generator"},
+      "portrait": {"source": "portrait_generator"},
+      "brand_context": {"source": "content_generator"}
+    },
+    "outputs": {
+      "step_psychology_summary": {
+        "_comment": "心理学评估结果输出",
+        "overall_psychology_score": {"target": "content_saver", "field": "psychology_score"},
+        "grade": {"target": "content_saver", "field": "psychology_grade"},
+        "psychology_risks": {"target": "content_optimizer", "field": "psychology_risks"},
+        "improvements": {"target": "content_optimizer", "field": "psychology_improvements"}
+      },
+      "step_language_style": {
+        "_comment": "语言风格建议输出",
+        "language_style": {"target": "content_generator", "field": "language_style_guide"},
+        "voice_style": {"target": "content_generator", "field": "voice_style_guide"}
+      }
+    }
+  }
+}

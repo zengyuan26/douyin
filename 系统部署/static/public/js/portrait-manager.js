@@ -1785,6 +1785,12 @@ var PortraitManager = {
             // 有数据时绑定更新按钮
             const regenBtn = document.getElementById('btn-regen-topic');
             if (regenBtn) regenBtn.onclick = () => this.generateLibrary(portraitId);
+
+            // 绑定内容计划生成按钮
+            const planBtn = document.getElementById('btn-gen-content-plan');
+            if (planBtn) {
+                planBtn.onclick = () => this.generateContentPlan(portraitId);
+            }
         }
     },
 
@@ -1867,6 +1873,144 @@ var PortraitManager = {
         } catch (e) {
             console.error(`[generateLibrary] ${typeLabel}生成异常:`, e);
         }
+    },
+
+    // 内容计划生成
+    _contentPlanTaskId: null,
+    _contentPlanEventSource: null,
+
+    async generateContentPlan(portraitId) {
+        const btn = document.getElementById('btn-gen-content-plan');
+        const progressDiv = document.getElementById('content-plan-progress');
+        const progressBar = document.getElementById('content-plan-progress-bar');
+        const statusDiv = document.getElementById('content-plan-status');
+
+        if (btn) btn.disabled = true;
+        progressDiv.style.display = 'block';
+        progressBar.style.width = '0%';
+        statusDiv.textContent = '准备选题数据...';
+
+        try {
+            // 获取选题库数据
+            const libResp = await fetch(`/public/api/portraits/${portraitId}/library`, { credentials: 'include' });
+            const libData = await libResp.json();
+            if (!libData.success || !libData.data) {
+                throw new Error('获取选题库失败');
+            }
+
+            const lib = libData.data;
+            // 兼容新旧格式：统一转为对象数组
+            const topics = this._getTopicsAsObjects(lib.topic_library || lib);
+            if (!topics || topics.length === 0) {
+                throw new Error('选题库为空，请先生成选题库');
+            }
+
+            statusDiv.textContent = `正在处理 ${topics.length} 个选题...`;
+
+            // 调用内容计划生成API
+            const createResp = await fetch('/api/v1/topics/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    portrait_id: portraitId,
+                    industry: lib.industry || '',
+                    business_description: lib.business_description || '',
+                    topics: topics.slice(0, 50), // 限制50个
+                    content_types: ['graphic']
+                })
+            });
+
+            const createData = await createResp.json();
+            if (!createData.task_id) {
+                throw new Error(createData.error || '创建任务失败');
+            }
+
+            this._contentPlanTaskId = createData.task_id;
+
+            // 显示进度
+            statusDiv.textContent = '任务已创建，等待执行...';
+
+            // 启动SSE监听
+            this._startContentPlanSSE(createData.task_id);
+
+        } catch (e) {
+            console.error('[generateContentPlan] 失败:', e);
+            statusDiv.textContent = '生成失败: ' + e.message;
+            progressBar.style.width = '0%';
+            progressBar.classList.remove('progress-bar-animated');
+            progressBar.classList.add('bg-danger');
+            if (btn) btn.disabled = false;
+        }
+    },
+
+    _startContentPlanSSE(taskId) {
+        // 关闭旧的连接
+        if (this._contentPlanEventSource) {
+            this._contentPlanEventSource.close();
+        }
+
+        const progressBar = document.getElementById('content-plan-progress-bar');
+        const statusDiv = document.getElementById('content-plan-status');
+        const btn = document.getElementById('btn-gen-content-plan');
+        const cancelBtn = document.getElementById('btn-cancel-content-plan');
+
+        const eventSource = new EventSource(`/api/v1/tasks/${taskId}/stream`);
+        this._contentPlanEventSource = eventSource;
+
+        eventSource.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+
+                if (data.type === 'progress') {
+                    const percent = Math.round(data.progress || 0);
+                    progressBar.style.width = percent + '%';
+                    statusDiv.textContent = data.current_step || '处理中...';
+
+                    if (percent >= 100) {
+                        eventSource.close();
+                        this._contentPlanEventSource = null;
+                        statusDiv.textContent = '生成完成！';
+                        progressBar.classList.remove('progress-bar-animated');
+                        if (btn) btn.disabled = false;
+
+                        // 刷新选题库显示
+                        if (this._currentLibraryPortraitId) {
+                            this.loadLibraryData(this._currentLibraryPortraitId, 'topic');
+                        }
+                    }
+                } else if (data.type === 'error') {
+                    statusDiv.textContent = '错误: ' + (data.message || '未知错误');
+                    progressBar.classList.remove('progress-bar-animated');
+                    progressBar.classList.add('bg-danger');
+                    eventSource.close();
+                    if (btn) btn.disabled = false;
+                }
+            } catch (e) {
+                console.error('[SSE] 解析失败:', e);
+            }
+        };
+
+        eventSource.onerror = () => {
+            console.log('[SSE] 连接关闭');
+            eventSource.close();
+            this._contentPlanEventSource = null;
+            // 如果进度还没到100%，说明是连接中断
+            if (progressBar.style.width !== '100%') {
+                statusDiv.textContent = '连接中断，请重试';
+                if (btn) btn.disabled = false;
+            }
+        };
+
+        // 取消按钮
+        cancelBtn.onclick = () => {
+            fetch(`/api/v1/tasks/${taskId}/cancel`, { method: 'POST', credentials: 'include' });
+            eventSource.close();
+            this._contentPlanEventSource = null;
+            statusDiv.textContent = '已取消';
+            progressBar.style.width = '0%';
+            if (btn) btn.disabled = false;
+        };
     },
 
     async generateTopicsForPortrait(portraitId) {

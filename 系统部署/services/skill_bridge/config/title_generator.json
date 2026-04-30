@@ -120,7 +120,7 @@
       "name": "标题质量审核",
       "order": 3,
       "required": false,
-      "llm_prompt_template": "【标题质量审核 — H-V-F覆盖率 + 心理学风险检测】\n\n请审核以下标题的质量和风险。\n\n选题：<<topic_title>>\n\n已生成标题：\n<<step_title_generate>>\n\n=== 审核维度 ===\n\n**H-V-F覆盖率评分**（每项10分，总分30）：\n- Hook覆盖：标题是否包含身份/痛点/情绪？\n- Value覆盖：标题是否包含结果/背书？\n- Format覆盖：标题是否包含量化/简单化提示？\n\n**心理学风险检测**：\n1. 过度承诺：使用了\"100%\"\"保证\"\"绝对\"等绝对化用语？\n2. 标题党：过于夸张、耸人听闻？\n3. 无效标题：没有传递任何有用信息？\n4. 平台违规：是否可能触发平台限流？\n\n请输出JSON：\n\n```json\n{{\n  \"title_reviews\": [\n    {{\n      \"pattern\": \"标题模式\",\n      \"main_title\": \"标题文本\",\n      \"hvf_coverage\": {{\n        \"hook_score\": 0-10,\n        \"value_score\": 0-10,\n        \"format_score\": 0-10,\n        \"total_score\": 0-30\n      }},\n      \"psychology_risks\": [\"风险1\", \"风险2\"],\n      \"risk_level\": \"高/中/低/无\",\n      \"pass_review\": true或false,\n      \"suggestions\": \"优化建议\"\n    }}\n  ],\n  \"best_title\": \"最佳标题\",\n  \"overall_assessment\": \"整体评估\"\n}}\n```",
+      "llm_prompt_template": "【标题质量审核 — H-V-F覆盖率 + 心理学风险检测】\n\n请审核以下标题的质量和风险。\n\n选题：<<topic_title>>\n\n已生成标题：\n<<step_title_generate>>\n\n=== 审核维度 ===\n\n**H-V-F覆盖率评分**（每项10分，总分30）：\n- Hook覆盖：标题是否包含身份/痛点/情绪？\n- Value覆盖：标题是否包含结果/背书？\n- Format覆盖：标题是否包含量化/简单化提示？\n\n**心理学风险检测**：\n1. 过度承诺：使用了\"100%\"\"保证\"\"绝对\"等绝对化用语？\n2. 标题党：过于夸张、耸人听闻？\n3. 无效标题：没有传递任何有用信息？\n4. 平台违规：是否可能触发平台限流？\n\n请输出JSON：\n\n```json\n{{\n  \"title_reviews\": [\n    {{\n      \"pattern\": \"标题模式\",\n      \"main_title\": \"主标题文本\",\n      \"subtitle\": \"副标题文本（没有副标题则不填）\",\n      \"hvf_coverage\": {{\n        \"hook_score\": 0-10,\n        \"value_score\": 0-10,\n        \"format_score\": 0-10,\n        \"total_score\": 0-30\n      }},\n      \"psychology_risks\": [\"风险1\", \"风险2\"],\n      \"risk_level\": \"高/中/低/无\",\n      \"pass_review\": true或false,\n      \"suggestions\": \"优化建议\"\n    }}\n  ],\n  \"best_title\": {{\n    \"main_title\": \"最佳主标题\",\n    \"subtitle\": \"最佳副标题（没有副标题则填null）\"\n  }},\n  \"overall_assessment\": \"整体评估\"\n}}\n```",
       "output_field": "title_review",
       "output_schema": {
         "title_reviews": {
@@ -130,6 +130,7 @@
             "properties": {
               "pattern": {"type": "string"},
               "main_title": {"type": "string"},
+              "subtitle": {"type": "string"},
               "hvf_coverage": {
                 "type": "object",
                 "properties": {
@@ -146,7 +147,13 @@
             }
           }
         },
-        "best_title": {"type": "string"},
+        "best_title": {
+          "type": "object",
+          "properties": {
+            "main_title": {"type": "string"},
+            "subtitle": {"type": "string"}
+          }
+        },
         "overall_assessment": {"type": "string"}
       },
       "data_providers": ["step_title_generate"]

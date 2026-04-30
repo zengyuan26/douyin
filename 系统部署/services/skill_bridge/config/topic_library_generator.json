@@ -1,10 +1,10 @@
 {
-  "_comment": "选题库生成 Skill 配置 - 五段式内容框架 + P0-P3优先级 + 来源比例 (来源: topic_library_generator.py + geo-seo skill.md)",
+  "_comment": "选题库生成 Skill 配置 - 五段式内容框架 + P0-P3优先级 + 来源比例 + 失败经历选题 + 非标品实操选题 (来源: topic_library_generator.py + geo-seo skill.md)",
   "skill": {
     "name": "topic_library_generator",
-    "version": "1.0",
+    "version": "2.0",
     "display_name": "选题库生成",
-    "description": "五段式内容框架 + 画像专属选题 + 公用选题 + 供需失衡分析",
+    "description": "五段式内容框架 + 画像专属选题 + 公用选题 + 供需失衡分析 + 失败经历选题 + 非标品实操选题",
     "skill_md_path": ".cursor/skill/geo-seo/skill.md",
     "input_source": "from_keyword_library_and_market_analyzer"
   },
@@ -38,6 +38,36 @@
       "type": "object",
       "from_step": "keyword_library_generator.step_final_assembly.priority_keywords",
       "description": "优先级关键词（P0/P1/P2）"
+    },
+    "failure_driven_topics": {
+      "type": "object",
+      "from_step": "market_analyzer.step4_failure_experience.failure_driven_topics",
+      "description": "失败经历驱动的选题"
+    },
+    "failure_topic_examples": {
+      "type": "array",
+      "from_step": "market_analyzer.step4_failure_experience.topic_examples",
+      "description": "失败经历选题示例"
+    },
+    "keyword_ratio_by_stage": {
+      "type": "object",
+      "from_step": "market_analyzer.step2_blue_ocean.keyword_ratio_by_stage",
+      "description": "账号阶段关键词配比"
+    },
+    "practical_keywords": {
+      "type": "object",
+      "from_step": "keyword_library_generator.step_practical_keywords.practical_keywords",
+      "description": "非标品实操关键词（操作前/中/后/问题诊断）"
+    },
+    "is_non_standard": {
+      "type": "boolean",
+      "from_step": "keyword_library_generator.step_practical_keywords.is_non_standard",
+      "description": "是否非标品/服务类业务"
+    },
+    "recommended_tags": {
+      "type": "array",
+      "from_step": "keyword_library_generator.step_tag_optimization.recommended_tags",
+      "description": "内容标签推荐"
     },
     "content_stage": {
       "type": "string",

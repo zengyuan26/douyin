@@ -80,6 +80,11 @@ class KeywordLibraryResult:
     common_keywords_count: int = 0  # 公用关键词数量
     portrait_keywords_count: int = 0  # 个性化关键词数量
 
+    # ===== 增强字段（任务1.3新增）=====
+    geo_score: Dict[str, Any] = field(default_factory=dict)  # 地理评分：{"region": "...", "score": 85, "reason": "..."}
+    trust_keywords: List[str] = field(default_factory=list)    # 信任关键词列表
+    data_sources: List[str] = field(default_factory=list)     # 数据来源：["行业报告", "用户调研"]
+
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
         return {
@@ -107,6 +112,10 @@ class KeywordLibraryResult:
             'total_keywords': self.total_keywords,
             'blue_ocean_keywords': self.blue_ocean_keywords,
             'red_ocean_keywords': self.red_ocean_keywords,
+            # 增强字段（任务1.3新增）
+            'geo_score': self.geo_score,
+            'trust_keywords': self.trust_keywords,
+            'data_sources': self.data_sources,
         }
 
 
@@ -250,6 +259,9 @@ class KeywordLibraryGenerator:
                 result.blue_ocean_keywords = sum(1 for kw in all_kw if get_level(kw) == 'low')
                 result.red_ocean_keywords = sum(1 for kw in all_kw if get_level(kw) == 'high')
 
+            # 增强字段提取（任务1.3新增）
+            self._extract_enhanced_fields(result, kw_lib, business_info)
+
             result.success = True
             logger.info(
                 "[KeywordLibraryGenerator] 生成完成: 问题类型=%d, 关键词=%d (蓝海=%d, 红海=%d), 问句=%d",
@@ -345,7 +357,7 @@ class KeywordLibraryGenerator:
                 result.error_message = "LLM调用返回为空"
                 return result
 
-            result = self._parse_template_result(response, result, keyword_core)
+            result = self._parse_template_result(response, result, keyword_core, business_info)
 
             if result.success:
                 total = result.total_keywords
@@ -512,6 +524,7 @@ key：pre_search / post_search / user_problem / payer_concern / product_recommen
         response: str,
         result: KeywordLibraryResult,
         keyword_core: str,
+        business_info: Dict[str, Any],
     ) -> KeywordLibraryResult:
         """解析模板格式LLM返回结果"""
 
@@ -759,6 +772,8 @@ key：pre_search / post_search / user_problem / payer_concern / product_recommen
             'product_recommend_keywords': flat_fields.get('product_recommend_keywords', []),
         }
         result.total_keywords = total_count
+        # 增强字段提取（任务1.3新增）
+        self._extract_enhanced_fields(result, kl_data, business_info)
         result.success = True
 
         return result
@@ -1370,6 +1385,127 @@ B类画像专属词必须围绕"画像人群在{场景}中遇到的{具体问题
                 pass
 
         return None
+
+    # ===========================================================================
+    # 增强字段提取（任务1.3新增）
+    # ===========================================================================
+
+    def _extract_enhanced_fields(
+        self,
+        result: KeywordLibraryResult,
+        kw_lib: Dict[str, Any],
+        business_info: Dict[str, Any],
+    ):
+        """
+        提取和计算增强字段：geo_score, trust_keywords, data_sources
+
+        Args:
+            result: 关键词库结果对象
+            kw_lib: 关键词库数据
+            business_info: 业务信息
+        """
+        # ── 1. 提取信任关键词 ──
+        trust_kws = []
+
+        # 从 trust_keywords 字段提取
+        if 'trust_keywords' in kw_lib:
+            trust_raw = kw_lib['trust_keywords']
+            if isinstance(trust_raw, list):
+                for kw in trust_raw:
+                    if isinstance(kw, str):
+                        trust_kws.append(kw)
+                    elif isinstance(kw, dict):
+                        trust_kws.append(kw.get('keyword', ''))
+
+        # 从 concern_keywords 提取
+        if 'concern_keywords' in kw_lib:
+            concern_raw = kw_lib['concern_keywords']
+            if isinstance(concern_raw, list):
+                for kw in concern_raw:
+                    if isinstance(kw, str):
+                        trust_kws.append(kw)
+                    elif isinstance(kw, dict):
+                        trust_kws.append(kw.get('keyword', ''))
+
+        # 从 common_keywords.信任佐证 提取
+        common = kw_lib.get('common_keywords', {})
+        if isinstance(common, dict):
+            trust_from_common = common.get('信任佐证', [])
+            for kw in trust_from_common:
+                if isinstance(kw, str):
+                    trust_kws.append(kw)
+                elif isinstance(kw, dict):
+                    trust_kws.append(kw.get('keyword', ''))
+
+        # 去重
+        result.trust_keywords = list(dict.fromkeys([k for k in trust_kws if k]))
+
+        # ── 2. 计算地理评分 ──
+        region = business_info.get('region', '')
+        keyword_core = kw_lib.get('keyword_core', '')
+
+        # 提取地域关键词计算评分
+        region_keywords = []
+        if 'region_keywords' in kw_lib:
+            region_raw = kw_lib['region_keywords']
+            if isinstance(region_raw, list):
+                for kw in region_raw:
+                    if isinstance(kw, str):
+                        region_keywords.append(kw)
+                    elif isinstance(kw, dict):
+                        region_keywords.append(kw.get('keyword', ''))
+
+        # 评分逻辑
+        geo_score = 50  # 基础分
+        if region:
+            geo_score += 10  # 有地域信息
+        if region_keywords:
+            geo_score += min(20, len(region_keywords) * 2)  # 地域关键词越多分越高
+        if keyword_core and any(kw in region for kw in region_keywords):
+            geo_score += 10  # 核心业务与地域匹配
+        geo_score = min(100, geo_score)
+
+        reason_parts = []
+        if region:
+            reason_parts.append(f"地域：{region}")
+        if region_keywords:
+            reason_parts.append(f"地域关键词：{len(region_keywords)}个")
+        if geo_score >= 70:
+            reason_parts.append("地域覆盖度高")
+        elif geo_score >= 50:
+            reason_parts.append("地域覆盖度中等")
+
+        result.geo_score = {
+            'region': region or keyword_core[:4] if keyword_core else '通用',
+            'score': geo_score,
+            'reason': '，'.join(reason_parts) if reason_parts else '基于关键词库分析',
+            'region_keywords': [k for k in region_keywords if k][:10],
+        }
+
+        # ── 3. 数据来源 ──
+        data_sources = []
+
+        # 通用来源
+        if result.total_keywords > 0:
+            data_sources.append('关键词库生成')
+
+        # 画像关键词来源
+        if result.portrait_keywords_count > 0:
+            data_sources.append('画像专属关键词')
+
+        # 蓝海/红海分类来源
+        if result.blue_ocean_keywords > 0 or result.red_ocean_keywords > 0:
+            data_sources.append('竞争度分析')
+
+        # 地域评分来源
+        if region_keywords:
+            data_sources.append('地域分析')
+
+        # 问题类型来源
+        if result.problem_types:
+            data_sources.append('问题类型提取')
+
+        result.data_sources = data_sources if data_sources else ['系统生成']
 
 
 # ============================================================

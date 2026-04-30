@@ -895,6 +895,20 @@ class TopicLibraryGenerator:
             topic['created_at'] = datetime.utcnow().isoformat()
             topic['title'] = self._clean_title(topic.get('title', ''))
 
+            # ── ④ 补全增强字段（任务1.2新增）──
+            # scene_details: 场景细分
+            if not topic.get('scene_details'):
+                topic['scene_details'] = self._generate_scene_details(topic)
+            # core_value: 核心卖点
+            if not topic.get('core_value'):
+                topic['core_value'] = self._generate_core_value(topic)
+            # content_format: 内容形式
+            if not topic.get('content_format'):
+                topic['content_format'] = self._determine_content_format(topic)
+            # emotion_curve: 情绪曲线
+            if not topic.get('emotion_curve'):
+                topic['emotion_curve'] = self._generate_emotion_curve(topic)
+
             result.append(topic)
             # 更新阶段计数（仅当本地分配时计入）
             stage = topic.get('stage_key')
@@ -928,6 +942,207 @@ class TopicLibraryGenerator:
             'tools':              '顾虑消除',
         }
         return stage_map.get(type_key, '选题推荐')
+
+    # ===========================================================================
+    # 增强字段生成（任务1.2新增）
+    # ===========================================================================
+
+    def _generate_scene_details(self, topic: Dict) -> List[Dict]:
+        """
+        生成场景细分详情
+
+        Returns:
+            List[Dict]: 场景列表，每个包含 scene, trigger, emotion
+        """
+        type_key = topic.get('type_key', '')
+        title = topic.get('title', '')
+        stage_key = topic.get('stage_key', '')
+
+        # 根据类型决定场景模式
+        scene_templates = {
+            'identity': [
+                {'scene': '刷到视频的瞬间', 'trigger': '人群标签命中', 'emotion': '好奇'},
+                {'scene': '继续看下去', 'trigger': '问题戳中痛点', 'emotion': '认同'},
+            ],
+            'cause': [
+                {'scene': '回忆自己的经历', 'trigger': '原因分析共鸣', 'emotion': '恍然大悟'},
+                {'scene': '想到后果严重性', 'trigger': '后果展示', 'emotion': '焦虑'},
+            ],
+            'pitfall': [
+                {'scene': '回想自己踩过的坑', 'trigger': '避坑话题', 'emotion': '后怕'},
+                {'scene': '庆幸自己看到了', 'trigger': '解决方法', 'emotion': '庆幸'},
+            ],
+            'compare': [
+                {'scene': '对比不同方案', 'trigger': '方案对比', 'emotion': '纠结'},
+                {'scene': '做出选择', 'trigger': '推荐方案', 'emotion': '释然'},
+            ],
+            'skill': [
+                {'scene': '学习实操方法', 'trigger': '技巧讲解', 'emotion': '期待'},
+                {'scene': '准备尝试', 'trigger': '效果展示', 'emotion': '信心'},
+            ],
+            'decision_encourage': [
+                {'scene': '犹豫不决', 'trigger': '决策障碍', 'emotion': '焦虑'},
+                {'scene': '获得信心', 'trigger': '鼓励话语', 'emotion': '坚定'},
+            ],
+        }
+
+        # 根据阶段调整情绪
+        stage_emotions = {
+            'audience': ['好奇', '认同', '期待'],
+            'pain': ['焦虑', '恍然大悟', '后怕'],
+            'compare': ['纠结', '理性', '释然'],
+            'vision': ['期待', '信心', '满足'],
+            'hesitation': ['焦虑', '放心', '坚定'],
+        }
+
+        default_scene = [
+            {'scene': '引发关注', 'trigger': '开头吸引', 'emotion': '好奇'},
+            {'scene': '建立共鸣', 'trigger': '痛点共情', 'emotion': '认同'},
+        ]
+
+        scenes = scene_templates.get(type_key, default_scene)
+
+        # 补充阶段情绪
+        stage_emos = stage_emotions.get(stage_key, ['好奇', '认同'])
+        for i, scene in enumerate(scenes):
+            if i < len(stage_emos):
+                scene['emotion'] = stage_emos[i]
+
+        return scenes
+
+    def _generate_core_value(self, topic: Dict) -> str:
+        """
+        生成核心卖点
+
+        Args:
+            topic: 选题数据
+
+        Returns:
+            str: 核心卖点一句话说明
+        """
+        type_key = topic.get('type_key', '')
+        type_name = topic.get('type_name', '')
+        stage_key = topic.get('stage_key', '')
+
+        # 核心卖点模板
+        value_templates = {
+            'identity': '帮助目标人群快速判断这是不是为他们准备的',
+            'cause': '深入分析问题根源，让用户明白为什么会这样',
+            'pitfall': '列举常见误区，帮助用户避坑',
+            'rethink': '打破认知误区，建立正确理解',
+            'tutorial': '提供系统化的操作指南，一看就会',
+            'compare': '客观对比方案优劣，帮你做出明智选择',
+            'effect_proof': '展示真实效果，增强购买信心',
+            'upstream': '揭秘行业内幕，了解产品本质',
+            'industry': '解读行业趋势，把握市场动态',
+            'skill': '传授实用技巧，少走弯路',
+            'seasonal': '针对季节特点，提供应季建议',
+            'festival': '节日专属攻略，把握营销时机',
+            'emotional': '讲述真实故事，引发情感共鸣',
+            'pain_point': '放大痛苦场景，激发改变动力',
+            'decision_encourage': '消除决策障碍，促进立即行动',
+            'price': '透明价格信息，减少选择困难',
+            'tools': '推荐实用工具，提升工作效率',
+            'scene': '针对具体场景，提供精准建议',
+            'region': '结合地域特点，更具参考价值',
+        }
+
+        core_value = value_templates.get(type_key, f'提供{type_name}相关的专业内容')
+
+        # 根据阶段调整
+        stage_prefixes = {
+            'audience': '精准触达：',
+            'pain': '深度洞察：',
+            'compare': '客观评估：',
+            'vision': '实用干货：',
+            'hesitation': '消除顾虑：',
+        }
+
+        prefix = stage_prefixes.get(stage_key, '')
+        return f'{prefix}{core_value}'
+
+    def _determine_content_format(self, topic: Dict) -> str:
+        """
+        确定内容形式
+
+        Args:
+            topic: 选题数据
+
+        Returns:
+            str: 内容形式
+        """
+        type_key = topic.get('type_key', '')
+        stage_key = topic.get('stage_key', '')
+
+        # 类型到形式的映射
+        format_map = {
+            'identity': '种草',
+            'scene': '种草',
+            'region': '种草',
+            'cause': '测评',
+            'pitfall': '避坑指南',
+            'rethink': '知识科普',
+            'tutorial': '教程',
+            'compare': '对比测评',
+            'effect_proof': '效果展示',
+            'upstream': '知识科普',
+            'industry': '行业分析',
+            'skill': '实操教程',
+            'seasonal': '应季指南',
+            'festival': '节日攻略',
+            'emotional': '故事分享',
+            'pain_point': '痛点分析',
+            'decision_encourage': '决策引导',
+            'price': '价格分析',
+            'tools': '工具推荐',
+        }
+
+        content_format = format_map.get(type_key, '种草')
+
+        # 阶段微调
+        if stage_key == 'hesitation':
+            content_format = f'转化型{content_format}'
+        elif stage_key == 'audience':
+            content_format = f'引流型{content_format}'
+
+        return content_format
+
+    def _generate_emotion_curve(self, topic: Dict) -> str:
+        """
+        生成情绪曲线
+
+        Args:
+            topic: 选题数据
+
+        Returns:
+            str: 情绪曲线描述
+        """
+        type_key = topic.get('type_key', '')
+        stage_key = topic.get('stage_key', '')
+        stage_name = topic.get('stage_name', '')
+
+        # 情绪曲线模板（按五段式阶段）
+        emotion_curves = {
+            'audience': '引流→共情→认同→期待',
+            'pain': '好奇→痛点→焦虑→释然',
+            'compare': '好奇→对比→纠结→理性',
+            'vision': '期待→学习→信心→满足',
+            'hesitation': '顾虑→焦虑→信任→坚定',
+        }
+
+        default_curve = '好奇→共情→干货→转化'
+
+        # 根据类型做微调
+        type_curves = {
+            'pitfall': '好奇→后怕→庆幸→学方法',
+            'rethink': '好奇→颠覆→恍然大悟→接受',
+            'emotional': '好奇→共情→感动→信任',
+            'decision_encourage': '犹豫→焦虑→鼓励→坚定',
+        }
+
+        curve = type_curves.get(type_key) or emotion_curves.get(stage_key) or default_curve
+
+        return curve
 
     # ===========================================================================
     # 7层降级 JSON 解析
