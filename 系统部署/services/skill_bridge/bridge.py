@@ -217,6 +217,8 @@ class SkillBridge:
         business_range: str = "",
         business_type: str = "",
         skip_steps: Optional[List[str]] = None,
+        _hvf_titles: Optional[List[dict]] = None,
+        _pyramid_tags: Optional[List[str]] = None,
     ) -> SkillExecutionResult:
         """
         执行内容生成 skill。
@@ -224,6 +226,7 @@ class SkillBridge:
         自动映射上游输出：
           topic_library 输出 → 选题信息和五段式规划
           portrait_generator 输出 → 画像信息
+          预生成的标题/标签 → H-V-F标题候选、金字塔标签
         """
         manual_inputs = {
             "topic_id": topic_id,
@@ -250,6 +253,12 @@ class SkillBridge:
             manual_inputs["business_range"] = business_range
         if business_type:
             manual_inputs["business_type"] = business_type
+
+        # 传递预生成的H-V-F标题候选和金字塔标签
+        if _hvf_titles:
+            manual_inputs["_hvf_titles"] = _hvf_titles
+        if _pyramid_tags:
+            manual_inputs["_pyramid_tags"] = _pyramid_tags
 
         return self._executor.execute_skill(
             "content_generator",

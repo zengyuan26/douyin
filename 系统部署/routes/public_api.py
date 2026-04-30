@@ -2460,54 +2460,22 @@ def api_generate_content_from_topic():
                 bridge = SkillBridge()
                 logger.info(f"[GEO调试] selected_scene: {effective_scene}")
 
-                bridge_result = bridge.execute_content_generator(
-                    topic_id=params.get('topic_id', ''),
-                    topic_title=params.get('topic_title', ''),
-                    topic_type=params.get('topic_type', ''),
-                    topic_type_key=params.get('topic_type_key', ''),
-                    business_description=params.get('business_description', ''),
-                    business_range=params.get('business_range', ''),
-                    business_type=params.get('business_type', ''),
-                    portrait=params.get('portrait', {}),
-                    keyword_library=keyword_library,
-                    selected_scene=effective_scene,
-                    content_style=content_style,
-                    brand_context=params.get('brand_context'),
-                )
-
-                if not bridge_result.success:
-                    return jsonify({
-                        'success': False,
-                        'message': f"内容生成失败: {bridge_result.errors[0] if bridge_result.errors else '未知错误'}"
-                    }), 500
-
-                fo = bridge_result.full_output
-                bridge_data = _build_content_data_from_bridge(fo)
-
-                # 图文分支：H-V-F 标题 + 金字塔标签并行调用（复用 bridge 实例）
+                # ── Step 1: 先执行 H-V-F 标题生成 ──
                 from concurrent.futures import ThreadPoolExecutor
-                raw_content = bridge_data['content_data']
-                seo_kws = raw_content.get('seo_keywords', {}) if isinstance(raw_content, dict) else {}
-                keywords = {
-                    'core': seo_kws.get('core', []),
-                    'long_tail': seo_kws.get('long_tail', []),
-                    'scene': seo_kws.get('scene', []),
-                    'problem': seo_kws.get('problem', []),
-                }
                 portrait = params.get('portrait', {})
-                if not keywords.get('core') and portrait:
-                    portrait_kws = portrait.get('keywords', [])
-                    if isinstance(portrait_kws, list):
-                        keywords['core'] = portrait_kws[:5]
-                # 从 selected_scene 提取 geo_mode 兜底
                 selected_scene = params.get('selected_scene', {})
                 geo_from_scene = ''
                 if selected_scene and isinstance(selected_scene, dict):
                     geo_from_scene = selected_scene.get('dim_value', '') or selected_scene.get('label', '') or ''
                     if geo_from_scene and ' - ' in geo_from_scene:
                         geo_from_scene = geo_from_scene.split(' - ', 1)[0].strip()
-                geo_mode = raw_content.get('geo_mode', '') or params.get('geo_mode', '') or geo_from_scene
+                geo_mode = params.get('geo_mode', '') or geo_from_scene
                 industry = params.get('industry', '') or params.get('business_type', '')
+                keywords = keyword_library.get('seo_keywords', {}) if keyword_library else {}
+                if not keywords.get('core') and portrait:
+                    portrait_kws = portrait.get('keywords', [])
+                    if isinstance(portrait_kws, list):
+                        keywords['core'] = portrait_kws[:5]
 
                 def call_title():
                     return bridge.execute_title_generator(
@@ -2529,6 +2497,7 @@ def api_generate_content_from_topic():
                         max_tags=8,
                     )
 
+                # 并行执行标题和标签生成
                 hvf_titles_output = {}
                 pyramid_tags_output = {}
                 try:
@@ -2544,12 +2513,53 @@ def api_generate_content_from_topic():
                 except Exception as e:
                     logger.warning(f"[H-V-F] 图文标题/标签生成异常: {e}")
 
-                # 标题以 H-V-F 评分最高者覆盖
-                extracted_title = raw_content.get('title', '') or ''
-                extracted_tags = raw_content.get('tags', []) or []
-                extracted_geo = raw_content.get('geo_mode', '') or ''
+                # ── Step 2: 将标题和标签传递给内容生成 ──
+                # 提取标题和标签数据
+                hvf_titles = []
                 if hvf_titles_output:
                     titles_data = hvf_titles_output.get('titles', []) or hvf_titles_output.get('step_title_generate', {}).get('titles', [])
+                    hvf_titles = titles_data or []
+
+                pyramid_tags = []
+                if pyramid_tags_output:
+                    tags_data = pyramid_tags_output.get('hashtags', []) or pyramid_tags_output.get('step_tag_generate', {}).get('hashtags', [])
+                    pyramid_tags = tags_data or []
+
+                bridge_result = bridge.execute_content_generator(
+                    topic_id=params.get('topic_id', ''),
+                    topic_title=params.get('topic_title', ''),
+                    topic_type=params.get('topic_type', ''),
+                    topic_type_key=params.get('topic_type_key', ''),
+                    business_description=params.get('business_description', ''),
+                    business_range=params.get('business_range', ''),
+                    business_type=params.get('business_type', ''),
+                    portrait=portrait,
+                    keyword_library=keyword_library,
+                    selected_scene=effective_scene,
+                    content_style=content_style,
+                    brand_context=params.get('brand_context'),
+                    # 传递预生成的标题和标签
+                    _hvf_titles=hvf_titles,
+                    _pyramid_tags=pyramid_tags,
+                )
+
+                if not bridge_result.success:
+                    return jsonify({
+                        'success': False,
+                        'message': f"内容生成失败: {bridge_result.errors[0] if bridge_result.errors else '未知错误'}"
+                    }), 500
+
+                fo = bridge_result.full_output
+                bridge_data = _build_content_data_from_bridge(fo)
+                raw_content = bridge_data['content_data']
+
+                # 使用预生成的H-V-F标题和金字塔标签
+                extracted_title = ''
+                extracted_tags = []
+                extracted_geo = raw_content.get('geo_mode', '') or ''
+
+                # 从预生成的数据中选择最佳标题
+                if hvf_titles:
                     def _title_score(t):
                         s = t.get('hvf_score', {})
                         total = s.get('total', 0)
@@ -2558,13 +2568,19 @@ def api_generate_content_from_topic():
                         if isinstance(s, dict):
                             return s.get('hook', 0) + s.get('value', 0) + s.get('format', 0)
                         return 0
-                    best_title_obj = max(titles_data, key=_title_score, default=None)
+                    best_title_obj = max(hvf_titles, key=_title_score, default=None)
                     if best_title_obj and best_title_obj.get('main_title'):
                         extracted_title = best_title_obj['main_title']
-                if pyramid_tags_output:
-                    tags_data = pyramid_tags_output.get('hashtags', []) or pyramid_tags_output.get('step_tag_generate', {}).get('hashtags', [])
-                    if tags_data:
-                        extracted_tags = tags_data[:8]
+
+                # 使用预生成的金字塔标签
+                if pyramid_tags:
+                    extracted_tags = pyramid_tags[:8]
+
+                # 如果内容生成自己的标题/标签更好，保留
+                if not extracted_title:
+                    extracted_title = raw_content.get('title', '') or ''
+                if not extracted_tags:
+                    extracted_tags = raw_content.get('tags', []) or []
 
                 bridge_data['content_data']['title'] = extracted_title
                 bridge_data['content_data']['tags'] = extracted_tags
@@ -2573,8 +2589,13 @@ def api_generate_content_from_topic():
                 quality_report = bridge_data['quality_report']
                 content = _build_content_text(bridge_data['content_data'])
                 result_type = 'graphic'
-                hvf_report = _build_hvf_report(hvf_titles_output) if hvf_titles_output else {}
-                pyramid_tags_report = _build_pyramid_tags(pyramid_tags_output) if pyramid_tags_output else {}
+                # 构建H-V-F报告（从预生成的数据）
+                hvf_report = {}
+                if hvf_titles:
+                    hvf_report = _build_hvf_report({'step_title_generate': {'titles': hvf_titles}}) if hvf_titles else {}
+                pyramid_tags_report = {}
+                if pyramid_tags:
+                    pyramid_tags_report = _build_pyramid_tags({'step_tag_generate': {'hashtags': pyramid_tags}}) if pyramid_tags else {}
 
             result = {
                 'success': True,
@@ -2582,8 +2603,8 @@ def api_generate_content_from_topic():
                 'geo_report': bridge_data['geo_report'],
                 'geo_score': qs_int,
                 '_skill_bridge_output': fo,
-                '_hvf_titles': hvf_titles_output,
-                '_pyramid_tags': pyramid_tags_output,
+                '_hvf_titles': {'step_title_generate': {'titles': hvf_titles}} if hvf_titles else {},
+                '_pyramid_tags': {'step_tag_generate': {'hashtags': pyramid_tags}} if pyramid_tags else {},
             }
 
             # ═══════════════════════════════════════════════════════════════
@@ -2847,6 +2868,21 @@ def api_content_detail(generation_id):
     else:
         created_at_str = ''
 
+    # 获取选题库的标题设计数据（H-V-F 标题候选）
+    topic_library_data = None
+    portrait_id = raw_result.get('portrait_id')
+    topic_id = raw_result.get('topic_id')
+    if portrait_id and topic_id:
+        from models.public_models import SavedPortrait
+        portrait = SavedPortrait.query.filter_by(id=portrait_id).first()
+        if portrait and portrait.topic_library:
+            topics = portrait.topic_library.get('topics', [])
+            for t in topics:
+                t_id = t.get('id')
+                if t_id is not None and str(t_id) == str(topic_id):
+                    topic_library_data = t
+                    break
+
     return jsonify({
         'success': True,
         'data': {
@@ -2858,8 +2894,8 @@ def api_content_detail(generation_id):
             'geo_mode': raw_result.get('geo_mode_used') or '',
             'industry': raw_result.get('industry') or '',
             'target_customer': raw_result.get('target_customer') or '',
-            'portrait_id': raw_result.get('portrait_id'),
-            'topic_id': raw_result.get('topic_id'),
+            'portrait_id': portrait_id,
+            'topic_id': topic_id,
             'selected_scenes': raw_result.get('selected_scenes'),
             'titles': raw_result.get('titles') or [],
             'tags': raw_result.get('tags') or [],
@@ -2871,6 +2907,7 @@ def api_content_detail(generation_id):
             'quality_report': quality_report,
             'link': link_info,
             'section_display_config': section_display_config,
+            'topic_library_data': topic_library_data,
         }
     })
 
@@ -4129,34 +4166,73 @@ def _build_extension_from_slides(slides: list, geo_mode: str = '') -> str:
         return ''
 
     lines = []
+    lines.append('> ⚠️ **【强制规格】内容形式：图文 | 比例：9:16竖版 1080×1920px**')
+    lines.append('')
+    lines.append('---')
+    lines.append('')
     lines.append('## 内容延伸建议')
     lines.append('')
-    lines.append('### 系列化选题')
-    lines.append('')
-    lines.append('> 可围绕同一主题，从不同角度或不同受众切入，形成系列化内容')
-    lines.append('')
-    lines.append('| 系列名称 | 说明 |')
-    lines.append('| --- | --- |')
-    lines.append('| 入门指南 | 从零开始的基础教程 |')
-    lines.append('| 进阶技巧 | 深入讲解核心知识点 |')
-    lines.append('| 避坑指南 | 常见误区和解决方案 |')
+    lines.append('> 💡 基于已生成内容，延伸以下选题方向')
     lines.append('')
 
-    # 生成延伸选题
-    lines.append('### 延伸选题')
+    # 从 slides 提取关键词和主题词
+    all_keywords = []
+    topic_mentions = []
+    for slide in slides:
+        kws = slide.get('keywords', [])
+        for kw in kws:
+            if isinstance(kw, dict):
+                kw_text = kw.get('keyword', kw.get('text', ''))
+            else:
+                kw_text = kw
+            if kw_text and len(kw_text) > 1:
+                all_keywords.append(kw_text)
+
+        role = slide.get('role', '')
+        main_title = slide.get('main_title', '')
+        big_slogan = slide.get('big_slogan', '')
+        if main_title:
+            topic_mentions.append(main_title)
+        if big_slogan:
+            topic_mentions.append(big_slogan)
+
+    first_topic = topic_mentions[0] if topic_mentions else '本话题'
+    first_short = first_topic[:6] if len(first_topic) >= 6 else first_topic
+
+    lines.append('### 🔄 延伸选题方向')
     lines.append('')
-    lines.append('| 序号 | 类型 | 选题方向 | 目的 |')
-    lines.append('| --- | --- | --- | --- |')
 
-    topics = [
-        (1, '对比型', 'XX vs XX：哪个更适合你？', '帮助选择'),
-        (2, '实操型', '手把手教你XX（详细步骤）', '提升实用性'),
-        (3, '案例型', '真实案例：XX是如何做到的', '增强信任'),
-        (4, '科普型', '关于XX，你可能不知道的事', '拓展认知'),
-    ]
+    # 延伸选题1：同类型选题
+    lines.append('**选题A：【同场景延伸】**')
+    lines.append('')
+    lines.append('基于"{}"这一核心主题，延伸以下选题：'.format(first_topic))
+    lines.append('')
+    lines.append('| 序号 | 延伸选题 | 类型 | 目的 |')
+    lines.append('|------|----------|------|------|')
+    lines.append('| 1 | 【{}的底层逻辑】为什么{}这么多人关注？'.format(first_topic, first_short) + ' | 知识科普 | 建立专业 |')
+    lines.append('| 2 | 【{}的常见误区】{}的3个坑，你踩过几个？'.format(first_topic, first_short) + ' | 避坑指南 | 互动引发 |')
+    lines.append('| 3 | 【{}实操指南】手把手教你{}的正确方法'.format(first_short, first_short) + ' | 实用攻略 | 收藏转化 |')
+    lines.append('')
 
-    for seq, t_type, t_title, t_purpose in topics:
-        lines.append(f'| {seq} | {t_type} | {t_title} | {t_purpose} |')
+    # 人群细分选题
+    lines.append('**选题B：【人群细分延伸】**')
+    lines.append('')
+    lines.append('| 序号 | 延伸选题 | 人群 | 类型 |')
+    lines.append('|------|----------|------|------|')
+    lines.append('| 1 | 【新手入门版】第一次接触{}要注意什么？ | 新手用户 | 入门科普 |'.format(first_short))
+    lines.append('| 2 | 【进阶版】{}老手都在用的进阶技巧 | 进阶用户 | 干货进阶 |'.format(first_short))
+    lines.append('| 3 | 【避坑版】{}最常踩的5个坑，你中了几个？ | 所有用户 | 避坑指南 |'.format(first_short))
+    lines.append('')
+
+    # 关键词延伸
+    if all_keywords:
+        unique_kws = list(dict.fromkeys(all_keywords))[:5]
+        lines.append('**选题C：【关键词延伸】**')
+        lines.append('')
+        lines.append('基于已埋入关键词，延伸以下选题：')
+        for kw in unique_kws:
+            lines.append('- **{}**：{}'.format(kw, kw))
+        lines.append('')
 
     return '\n'.join(lines)
 
@@ -4228,7 +4304,8 @@ def _build_content_data_from_bridge(fo: dict) -> dict:
     missing = [f for f in ['slides', 'title'] if not gen.get(f)]
     if missing:
         logger.warning(f"[ContentData] 数据丢失: {missing}, gen_keys={list(gen.keys())}, "
-                       f"raw_output_preview={str(fo.get('step_generate_content', {}))[:200]}")
+                       f"gen_full={json.dumps(gen, ensure_ascii=False, default=str)[:500]}")
+        logger.warning(f"[ContentData] raw LLM output: {str(fo.get('step_generate_content', {}))[:800]}")
 
     # 副标题（从 gen 取，兼容 subtitle/subtitle_text）
     subtitle = _safe_get(gen, 'subtitle') or _safe_get(gen, 'subtitle_text') or ''
