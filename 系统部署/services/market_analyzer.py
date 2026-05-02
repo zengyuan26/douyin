@@ -570,7 +570,7 @@ class MarketAnalyzer:
     "market_opportunities": [
         {{
             "opportunity_name": "具体人群+具体需求的市场",
-            "business_direction": "{business_desc}+细分形式",
+            "business_direction": "{{{business_desc}}}+细分形式",
             "logic_chain": "输入业务是X，目标人群是Y，因为Z，所以提供W",
             "differentiation": "一句话说明好在哪",
             "target_audience": "细分人群描述",
