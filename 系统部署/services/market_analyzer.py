@@ -76,7 +76,7 @@ class MarketOpportunity:
     market_type: str                # blue_ocean / red_ocean
     confidence: float = 0.8        # 置信度
     differentiation: str = ""       # 差异化说明（告诉客户机会在哪）
-    logic_chain: str = ""           # 逻辑链自证
+    logic_chain: str = ""          # 逻辑链自证
     problem_types: List[ProblemType] = field(default_factory=list)  # 问题类型列表
     decision_cost: Dict = field(default_factory=dict)  # 决策成本分析 {money_score, time_score, mental_score, risk_score, knowledge_score, total_score, judgment}
 
@@ -89,7 +89,7 @@ class ProblemType:
     keywords: List[str]          # 问题类型关键词
     scenes: List[Dict] = field(default_factory=list)  # 问题场景列表（每个场景生成一个画像），格式：[{name, description}]
     target_audience: str = ""   # 该问题类型对应的细分人群（用于画像生成，粒度比 opportunity.target_audience 更细）
-    category: str = ""            # 问题大类：付费者问题（宝爸宝妈顾虑）/ 使用者问题（宝宝症状）
+    category: str = ""           # 问题大类：付费者问题（宝爸宝妈顾虑）/ 使用者问题（宝宝症状）
 
 
 @dataclass
@@ -262,9 +262,8 @@ class MarketAnalyzer:
             logger.info(f"[MarketAnalyzer] Step 1 完成: 发现 {len(result['market_opportunities'])} 个蓝海机会")
 
         except Exception as e:
-            # 诊断：记录异常类型和详情（避免 % 格式化冲突，改用 f-string）
-            import traceback as _tb
-            logger.error(f"[MarketAnalyzer] Step 1 异常: type={type(e).__name__}, msg={str(e)}, tb={_tb.format_exc()}")
+            import traceback
+            logger.error(f"[MarketAnalyzer] Step 1 异常: type={type(e).__name__}, msg={str(e)}, tb={traceback.format_exc()}")
             result['error_message'] = f"异常: {str(e)}"
 
         return result
@@ -486,7 +485,11 @@ class MarketAnalyzer:
         service_scenario: str = '',
         max_opportunities: int = 5,
     ) -> str:
-        """构建蓝海机会挖掘Prompt（精简版）"""
+        """构建蓝海机会挖掘Prompt（精简版）
+
+        注意：此方法使用字符串拼接而非 f-string 来构建返回的 prompt，
+        以避免 f-string 中嵌套 JSON 格式导致的解析问题。
+        """
 
         # ── 业务类型适配 ──
         business_type_map = {
@@ -494,88 +497,43 @@ class MarketAnalyzer:
             'local_service': '本地服务：重点关注服务场景、时效顾虑、信任问题',
             'enterprise': '企业服务：重点关注决策流程、ROI顾虑、供应商选择',
         }
-        business_type_hint = business_type_map.get(business_type, f'业务类型：{business_type}')
+        business_type_hint = business_type_map.get(business_type, '业务类型：{}'.format(business_type))
 
         # ── 经营范围适配 ──
         if business_range == 'local':
-            range_hint = f'本地服务（{local_city or "未指定城市"}），聚焦同城差异化'
+            range_hint = '本地服务（{}），聚焦同城差异化'.format(local_city or '未指定城市')
         elif business_range == 'cross_region':
             range_hint = '全国/跨区域，可聚焦全国性需求'
         else:
             range_hint = ''
 
         # ── 服务场景 ──
-        scenario_hint = f'服务场景：{service_scenario}' if service_scenario else ''
+        scenario_hint = '服务场景：{}'.format(service_scenario) if service_scenario else ''
 
-        # ── 通用红线约束（提炼到prompt顶部，避免LLM套模板） ──
-        redlines = f"""
+        # ── 通用红线约束 ──
+        redlines = """
 **红线（违反则输出作废）**
 1. 细分方向必须与「{business_desc}」有直接逻辑关联，禁止凭空创造无关产品/服务
 2. 目标人群禁止虚构，必须基于业务自然延伸（如买主→使用者、用户→决策者）
 3. 问题类型必须是真实痛点，禁止填业务流程步骤（如"付款方式"、"取车手续"）
-4. 输出内容必须基于输入业务，禁止复制示例格式套用"""
+4. 输出内容必须基于输入业务，禁止复制示例格式套用""".format(business_desc=business_desc)
 
-        return f"""你是蓝海市场分析专家。请为以下业务识别 {max_opportunities} 个蓝海机会。
+        # ── 占位符（用于 JSON 示例中的 business_desc） ──
+        _BD_ = '__BUSINESS_DESC__'
 
-=== 业务信息 ===
-{business_desc}
-行业：{industry or '从业务描述推断'}
-类型：{business_type_hint}
-{range_hint}
-{scenario_hint}
-{redlines}
-
-=== 任务 ===
-识别 {max_opportunities} 个蓝海市场机会，每个机会输出：
-
-1. **opportunity_name**：机会名称，直接命中细分人群/需求
-2. **business_direction**：细分方向，直接填入"核心业务"输入框
-   - 格式：「{business_desc} + 服务形式」或「{business_desc} + 人群细分」
-   - 不得替换核心关键词
-3. **logic_chain**：逻辑链自证，格式：输入业务是X，目标人群是Y，因为Z（真实原因），所以提供W
-4. **differentiation**：一句话差异化说明
-5. **target_audience**：细分人群描述（如"XX情况但不知怎么选的30-40岁XX"）
-6. **pain_points**：该人群的2-4个真实痛点
-7. **decision_cost**：决策成本分析（用户做购买决策时的成本感知）
-8. **problem_types**：问题类型+场景（用于生成画像）
-
-   **强制分类要求**：每个机会必须同时包含"使用者问题"和"付费者问题"，缺一不可：
-   - 使用者问题：每个机会至少 3 个（产品/服务的直接使用者遇到的问题，如症状、不适、效果不好）
-   - 付费者问题：每个机会至少 3 个（购买者/决策者的顾虑，如真假顾虑、价格顾虑、选择困难）
-   - 每个问题类型下 2-4 个场景（用户真实搜索句）
-   - 例如：使用者问题3个 + 付费者问题3个 = 该机会共6个问题类型
-
-   **name 命名规则**：
-   - 使用者问题格式：{{问题类型}}-{{具体表现}}（如"肠道问题-拉肚子"、"过敏问题-皮肤红疹"）
-   - 付费者问题格式：{{顾虑类型}}-{{顾虑内容}}（如"真假担忧-怕买到假货"、"价格担忧-怕买贵"）
-   - 禁止写抽象情绪词（如"担心"、"害怕"、"纠结"）
-
-   **target_audience**：该问题类型对应的细分人群（如"怀疑买到假货的宝爸宝妈"、"过敏体质的宝宝家长"）
-
-   **scenes**：用户会搜索的**完整搜索句**，数量2-4个，禁止多个症状合并为一条
-
-   **decision_cost（决策成本分析）**：分析目标用户在购买这个细分赛道产品/服务时的决策成本
-   - money_score：金钱成本（1-10分，10分=非常贵，一分钱一分货感知强）
-   - time_score：时间成本（1-10分，10分=需要投入大量时间研究/比较）
-   - mental_score：心理成本（1-10分，10分=选错后果严重，焦虑感强）
-   - risk_score：风险成本（1-10分，10分=试错代价高，不可逆）
-   - knowledge_score：知识门槛（1-10分，10分=普通人难以判断好坏）
-   - total_score：综合评分（5项平均，保留1位小数）
-   - judgment：简短判断（5字以内，如"高价值"、"中价值"、"低价值"）
-   - 分析原则：决策成本越高，用户越需要专业内容来帮助决策，内容价值越大
-
-=== 输出格式 ===
+        # ── 输出格式模板（使用 .format() 而非 f-string） ──
+        output_format = """=== 输出格式 ===
 ```json
 {{
     "market_opportunities": [
         {{
             "opportunity_name": "具体人群+具体需求的市场",
-            "business_direction": "{{{business_desc}}}+细分形式",
+            "business_direction": "{{{bd}}}+细分形式",
             "logic_chain": "输入业务是X，目标人群是Y，因为Z，所以提供W",
             "differentiation": "一句话说明好在哪",
             "target_audience": "细分人群描述",
             "pain_points": ["痛点1", "痛点2"],
-            "decision_cost": {
+            "decision_cost": {{
                 "money_score": 7,
                 "time_score": 6,
                 "mental_score": 9,
@@ -583,7 +541,7 @@ class MarketAnalyzer:
                 "knowledge_score": 8,
                 "total_score": 7.4,
                 "judgment": "高价值"
-            },
+            }},
             "problem_types": [
                 {{
                     "category": "使用者问题",
@@ -627,9 +585,65 @@ class MarketAnalyzer:
     ]
 }}
 ```
-**禁止复制上述示例格式**，必须基于输入业务「{business_desc}」真实生成。每个机会的问题类型必须同时包含"使用者问题"和"付费者问题"，不得遗漏。
+**禁止复制上述示例格式**，必须基于输入业务「{bd}」真实生成。每个机会的问题类型必须同时包含"使用者问题"和"付费者问题"，不得遗漏。""".format(bd=_BD_)
 
-请开始分析："""
+        # ── 组装最终 prompt（使用字符串拼接） ──
+        lines = [
+            "你是蓝海市场分析专家。请为以下业务识别 {} 个蓝海机会。".format(max_opportunities),
+            "",
+            "=== 业务信息 ===",
+            business_desc,
+            "行业：{}".format(industry or '从业务描述推断'),
+            "类型：{}".format(business_type_hint),
+            range_hint,
+            scenario_hint,
+            redlines,
+            "",
+            "=== 任务 ===",
+            "识别 {} 个蓝海市场机会，每个机会输出：".format(max_opportunities),
+            "",
+            "1. **opportunity_name**：机会名称，直接命中细分人群/需求",
+            "2. **business_direction**：细分方向，直接填入\"核心业务\"输入框",
+            "   - 格式：「{} + 服务形式」或「{} + 人群细分」".format(business_desc, business_desc),
+            "   - 不得替换核心关键词",
+            "3. **logic_chain**：逻辑链自证，格式：输入业务是X，目标人群是Y，因为Z（真实原因），所以提供W",
+            "4. **differentiation**：一句话差异化说明",
+            "5. **target_audience**：细分人群描述（如\"XX情况但不知怎么选的30-40岁XX\"）",
+            "6. **pain_points**：该人群的2-4个真实痛点",
+            "7. **decision_cost**：决策成本分析（用户做购买决策时的成本感知）",
+            "8. **problem_types**：问题类型+场景（用于生成画像）",
+            "",
+            "   **强制分类要求**：每个机会必须同时包含\"使用者问题\"和\"付费者问题\"，缺一不可：",
+            "   - 使用者问题：每个机会至少 3 个（产品/服务的直接使用者遇到的问题，如症状、不适、效果不好）",
+            "   - 付费者问题：每个机会至少 3 个（购买者/决策者的顾虑，如真假顾虑、价格顾虑、选择困难）",
+            "   - 每个问题类型下 2-4 个场景（用户真实搜索句）",
+            "   - 例如：使用者问题3个 + 付费者问题3个 = 该机会共6个问题类型",
+            "",
+            "   **name 命名规则**：",
+            "   - 使用者问题格式：{问题类型}-{具体表现}（如\"肠道问题-拉肚子\"、\"过敏问题-皮肤红疹\"）",
+            "   - 付费者问题格式：{顾虑类型}-{顾虑内容}（如\"真假担忧-怕买到假货\"、\"价格担忧-怕买贵\"）",
+            "   - 禁止写抽象情绪词（如\"担心\"、\"害怕\"、\"纠结\"）",
+            "",
+            "   **target_audience**：该问题类型对应的细分人群（如\"怀疑买到假货的宝爸宝妈\"、\"过敏体质的宝宝家长\"）",
+            "",
+            "   **scenes**：用户会搜索的**完整搜索句**，数量2-4个，禁止多个症状合并为一条",
+            "",
+            "   **decision_cost（决策成本分析）**：分析目标用户在购买这个细分赛道产品/服务时的决策成本",
+            "   - money_score：金钱成本（1-10分，10分=非常贵，一分钱一分货感知强）",
+            "   - time_score：时间成本（1-10分，10分=需要投入大量时间研究/比较）",
+            "   - mental_score：心理成本（1-10分，10分=选错后果严重，焦虑感强）",
+            "   - risk_score：风险成本（1-10分，10分=试错代价高，不可逆）",
+            "   - knowledge_score：知识门槛（1-10分，10分=普通人难以判断好坏）",
+            "   - total_score：综合评分（5项平均，保留1位小数）",
+            "   - judgment：简短判断（5字以内，如\"高价值\"、\"中价值\"、\"低价值\"）",
+            "   - 分析原则：决策成本越高，用户越需要专业内容来帮助决策，内容价值越大",
+            "",
+            output_format.replace(_BD_, business_desc),
+            "",
+            "请开始分析：",
+        ]
+
+        return "\n".join(lines)
 
     def _parse_analysis_result(
         self,
