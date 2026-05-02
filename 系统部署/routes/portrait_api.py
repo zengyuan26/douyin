@@ -1085,6 +1085,73 @@ def get_library_quota(user):
 # 运营规划 API
 # =============================================================================
 
+@portrait_bp.route('/<int:portrait_id>/client-profile', methods=['GET'])
+@login_required
+def get_client_profile(user, portrait_id):
+    """
+    获取画像的客户自定义信息
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 403
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'client_profile': portrait.get('client_profile'),
+            'has_client_profile': bool(portrait.get('client_profile')),
+        }
+    })
+
+
+@portrait_bp.route('/<int:portrait_id>/client-profile', methods=['POST'])
+@login_required
+def save_client_profile(user, portrait_id):
+    """
+    保存画像的客户自定义信息
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 403
+
+    data = request.get_json() or {}
+    client_profile = data.get('client_profile', {})
+
+    # 验证必填字段
+    if not client_profile.get('brand_name'):
+        return jsonify({
+            'success': False,
+            'message': '请填写品牌名称'
+        }), 400
+
+    success = portrait_save_service.save_client_profile(portrait_id, client_profile)
+    if not success:
+        return jsonify({
+            'success': False,
+            'message': '保存失败'
+        }), 500
+
+    return jsonify({
+        'success': True,
+        'message': '客户信息保存成功',
+        'data': {
+            'client_profile': client_profile
+        }
+    })
+
+
 @portrait_bp.route('/<int:portrait_id>/operation-plan', methods=['GET'])
 @login_required
 def get_operation_plan(user, portrait_id):
@@ -1145,10 +1212,6 @@ def generate_operation_plan(user, portrait_id):
         else:
             business_type = 'both'
 
-        # 获取市场分析数据（如果有）
-        market_analyzer_output = None
-        keyword_library = portrait.get('keyword_library')
-
         # 获取前端传来的客户资料（运营规划补充信息）
         request_data = request.get_json() or {}
         client_info = {
@@ -1159,9 +1222,13 @@ def generate_operation_plan(user, portrait_id):
             'target_audience': request_data.get('target_audience', ''),
             'competitors': request_data.get('competitors', ''),
             'blue_ocean': request_data.get('blue_ocean', ''),
+            'contact_info': request_data.get('contact_info', ''),
+            'credentials': request_data.get('credentials', ''),
+            'service_guarantee': request_data.get('service_guarantee', ''),
+            'case_data': request_data.get('case_data', ''),
         }
 
-        # 调用运营规划 skill，传入客户补充信息
+        # 调用运营规划 skill，传入完整上下文
         result = bridge.execute(
             skill_name='operations_expert',
             manual_inputs={
@@ -1169,14 +1236,15 @@ def generate_operation_plan(user, portrait_id):
                 'industry': industry,
                 'business_type': business_type,
                 'market_analyzer_output': market_analyzer_output,
-                # 新增：客户补充信息
-                'client_name': client_info['brand_name'],
-                'brand_type': client_info['brand_type'],
-                'operating_years': client_info['operating_years'],
-                'core_advantages': client_info['core_advantages'],
-                'target_audience': client_info['target_audience'],
-                'competitors': client_info['competitors'],
-                'blue_ocean_opportunity': client_info['blue_ocean'],
+                # 画像数据
+                'portrait_data': portrait.get('portrait_data'),
+                # 选定的蓝海机会
+                'selected_opportunity': portrait.get('selected_opportunity'),
+                # 客户补充信息
+                'client_profile': portrait.get('client_profile') or client_info,
+                # 关键词库和选题库
+                'keyword_library': keyword_library,
+                'topic_library': portrait.get('topic_library'),
             },
         )
 

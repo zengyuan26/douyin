@@ -155,6 +155,15 @@ class PortraitSaveService:
         if not result:
             return None
 
+        # 检查字段数量，确保兼容性
+        # 字段顺序: id(0), user_id(1), portrait_name(2), portrait_data(3), business_description(4),
+        #           industry(5), target_customer(6), is_default(7), used_count(8), last_used_at(9),
+        #           created_at(10), keyword_library(11), topic_library(12), keyword_updated_at(13),
+        #           keyword_update_count(14), keyword_cache_expires_at(15), topic_updated_at(16),
+        #           topic_update_count(17), topic_cache_expires_at(18), generation_status(19),
+        #           generation_error(20), extra_data(21), operation_plan(22), operation_plan_updated_at(23),
+        #           selected_opportunity(24), client_profile(25)
+
         def parse_json(val):
             if val is None:
                 return None
@@ -202,6 +211,10 @@ class PortraitSaveService:
             # 运营规划
             'operation_plan': parse_json(result[22]) if len(result) > 22 else None,
             'operation_plan_updated_at': fmt_datetime(result[23]) if len(result) > 23 else None,
+            # 选定的蓝海机会
+            'selected_opportunity': parse_json(result[24]) if len(result) > 24 else None,
+            # 客户自定义信息
+            'client_profile': parse_json(result[25]) if len(result) > 25 else None,
         }
     
     @classmethod
@@ -473,6 +486,82 @@ class PortraitSaveService:
     def get_portrait_stats(cls, user_id: int) -> Dict:
         """获取画像统计"""
         return portrait_frequency_controller.get_portrait_usage_stats(user_id)
+
+    @classmethod
+    def save_client_profile(cls, portrait_id: int, client_profile: Dict) -> bool:
+        """
+        保存客户自定义信息
+
+        Args:
+            portrait_id: 画像ID
+            client_profile: 客户信息字典，包含:
+                - brand_name: 品牌名称
+                - brand_type: 品牌类型 (personal/franchise/enterprise)
+                - operating_years: 经营年限
+                - core_advantages: 核心优势
+                - contact_info: 联系方式
+                - credentials: 资质证书
+                - service_guarantee: 服务保障
+                - case_data: 成功案例
+                - target_audience: 目标客户描述
+                - competitors: 竞争对手
+
+        Returns:
+            bool: 是否保存成功
+        """
+        try:
+            db.session.execute(
+                text("""
+                    UPDATE saved_portraits
+                    SET client_profile = :profile,
+                        updated_at = NOW()
+                    WHERE id = :id
+                """),
+                {
+                    'id': portrait_id,
+                    'profile': json.dumps(client_profile, ensure_ascii=False) if client_profile else None,
+                }
+            )
+            db.session.commit()
+            logger.info("[save_client_profile] 保存成功 portrait_id=%s", portrait_id)
+            return True
+        except Exception as e:
+            db.session.rollback()
+            logger.error("[save_client_profile] 保存失败 portrait_id=%s, error=%s", portrait_id, str(e))
+            return False
+
+    @classmethod
+    def save_selected_opportunity(cls, portrait_id: int, opportunity: Dict) -> bool:
+        """
+        保存用户选定的蓝海机会
+
+        Args:
+            portrait_id: 画像ID
+            opportunity: 选定的 market_opportunity 字典
+
+        Returns:
+            bool: 是否保存成功
+        """
+        try:
+            db.session.execute(
+                text("""
+                    UPDATE saved_portraits
+                    SET selected_opportunity = :opp,
+                        updated_at = NOW()
+                    WHERE id = :id
+                """),
+                {
+                    'id': portrait_id,
+                    'opp': json.dumps(opportunity, ensure_ascii=False) if opportunity else None,
+                }
+            )
+            db.session.commit()
+            logger.info("[save_selected_opportunity] 保存成功 portrait_id=%s", portrait_id)
+            return True
+        except Exception as e:
+            db.session.rollback()
+            logger.error("[save_selected_opportunity] 保存失败 portrait_id=%s, error=%s", portrait_id, str(e))
+            return False
 
 
 # 全局实例

@@ -1771,7 +1771,7 @@
 {% block layout_extra_js %}
 <!-- 运营规划查看弹窗 -->
 <div class="modal fade" id="operationsPlanModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg" role="document" style="max-width:900px;">
+    <div class="modal-dialog modal-lg" role="document" style="max-width:960px;">
         <div class="modal-content" style="border-radius:16px;overflow:hidden;">
             <div class="modal-header" style="background:linear-gradient(135deg,#34d399 0%,#059669 100%);color:white;padding:16px 20px;">
                 <h5 class="modal-title" style="margin:0;font-size:1.125rem;font-weight:600;">
@@ -1781,9 +1781,134 @@
                     <span>&times;</span>
                 </button>
             </div>
-            <div class="modal-body" id="operationsPlanModalBody" style="padding:20px;max-height:70vh;overflow-y:auto;">
-                <!-- 动态内容 -->
+
+            <!-- Tab 导航 -->
+            <div style="display:flex;border-bottom:1px solid #eee;background:#f8f9fa;">
+                <button class="tab-btn active" data-tab="client-info" onclick="switchOperationsTab('client-info')" style="flex:1;padding:12px 16px;border:none;background:transparent;color:#666;font-size:0.875rem;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;">
+                    <i class="bi bi-person-badge" style="margin-right:6px;"></i>客户信息
+                </button>
+                <button class="tab-btn" data-tab="ai-plan" onclick="switchOperationsTab('ai-plan')" style="flex:1;padding:12px 16px;border:none;background:transparent;color:#666;font-size:0.875rem;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;">
+                    <i class="bi bi-robot" style="margin-right:6px;"></i>AI生成
+                </button>
+                <button class="tab-btn" data-tab="topic-list" onclick="switchOperationsTab('topic-list')" style="flex:1;padding:12px 16px;border:none;background:transparent;color:#666;font-size:0.875rem;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;">
+                    <i class="bi bi-list-ul" style="margin-right:6px;"></i>选题列表
+                </button>
             </div>
+
+            <!-- Tab 内容区 -->
+            <div class="modal-body" style="padding:20px;max-height:65vh;overflow-y:auto;">
+                <!-- Tab1: 客户信息 -->
+                <div id="tab-client-info" class="tab-content active">
+                    <div style="max-width:600px;margin:0 auto;">
+                        <p style="font-size:0.8125rem;color:#666;margin-bottom:20px;">
+                            <i class="bi bi-info-circle" style="margin-right:4px;"></i>
+                            填写以下信息用于运营规划和内容生成中的信任佐证展示
+                        </p>
+
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                                品牌名称 <span style="color:#dc3545;">*</span>
+                            </label>
+                            <input type="text" id="client-brand-name" placeholder="如：昆明高考志愿填报辅导小赵" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                                品牌类型
+                            </label>
+                            <div style="display:flex;gap:20px;">
+                                <label style="display:flex;align-items:center;cursor:pointer;">
+                                    <input type="radio" name="client-brand-type" value="personal" checked style="margin-right:6px;">
+                                    <span style="font-size:0.875rem;">个人</span>
+                                </label>
+                                <label style="display:flex;align-items:center;cursor:pointer;">
+                                    <input type="radio" name="client-brand-type" value="franchise" style="margin-right:6px;">
+                                    <span style="font-size:0.875rem;">连锁店</span>
+                                </label>
+                                <label style="display:flex;align-items:center;cursor:pointer;">
+                                    <input type="radio" name="client-brand-type" value="enterprise" style="margin-right:6px;">
+                                    <span style="font-size:0.875rem;">企业</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                            <div>
+                                <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                                    经营年限
+                                </label>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <input type="number" id="client-operating-years" min="0" placeholder="如：8" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;">
+                                    <span style="font-size:0.875rem;color:#666;">年</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                                    目标客户
+                                </label>
+                                <input type="text" id="client-target-audience" placeholder="如：云南专科批次考生" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                                核心优势 <span style="color:#dc3545;">*</span>
+                            </label>
+                            <textarea id="client-core-advantages" rows="2" placeholder="如：专注云南高考志愿填报8年，熟悉各批次录取规则" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;resize:vertical;box-sizing:border-box;"></textarea>
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                                联系方式
+                            </label>
+                            <input type="text" id="client-contact-info" placeholder="如：电话 138xxxx / 微信 xxx" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                                资质证书
+                            </label>
+                            <input type="text" id="client-credentials" placeholder="如：国家职业规划师 / 云南省高考志愿填报指导师" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                                成功案例数据
+                            </label>
+                            <input type="text" id="client-case-data" placeholder="如：累计服务2000+考生 / 录取率98%" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                                服务保障
+                            </label>
+                            <input type="text" id="client-service-guarantee" placeholder="如：不满意可重填 / 录取前无限次修改" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                        </div>
+
+                        <div style="margin-top:24px;text-align:center;">
+                            <button onclick="saveClientProfile()" style="padding:10px 32px;background:linear-gradient(135deg,#34d399,#059669);color:#fff;border:none;border-radius:8px;font-size:0.875rem;font-weight:600;cursor:pointer;">
+                                <i class="bi bi-check-lg" style="margin-right:6px;"></i>保存客户信息
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab2: AI生成 -->
+                <div id="tab-ai-plan" class="tab-content" style="display:none;">
+                    <div id="operationsPlanContentArea">
+                        <!-- 动态内容 -->
+                    </div>
+                </div>
+
+                <!-- Tab3: 选题列表 -->
+                <div id="tab-topic-list" class="tab-content" style="display:none;">
+                    <div style="text-align:center;padding:40px;color:#666;">
+                        <i class="bi bi-list-ul" style="font-size:2rem;opacity:0.5;"></i>
+                        <p style="margin-top:12px;">选题列表可在上方选题区域查看</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="modal-footer" style="padding:12px 20px;border-top:1px solid #eee;">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal" style="border-radius:8px;padding:6px 16px;">关闭</button>
                 <button type="button" class="btn btn-primary" id="btn-regenerate-operations" onclick="regenerateOperationsPlan()" style="border-radius:8px;padding:6px 16px;background:#34d399;border-color:#34d399;">
@@ -1793,6 +1918,22 @@
         </div>
     </div>
 </div>
+
+<!-- Tab 样式 -->
+<style>
+.tab-btn.active {
+    color: #34d399;
+    border-bottom-color: #34d399 !important;
+    background: #fff !important;
+}
+.tab-content {
+    animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+</style>
 
 <script>
 var _portraitId = null;
@@ -1955,47 +2096,163 @@ async function loadOperationPlan() {
 }
 
 // ── 运营规划弹窗相关 ────────────────────────────────
+let _currentOperationsTab = 'client-info';
+
+// 切换 Tab
+function switchOperationsTab(tabName) {
+    _currentOperationsTab = tabName;
+
+    // 更新 Tab 按钮状态
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tabName) {
+            btn.classList.add('active');
+        }
+    });
+
+    // 切换 Tab 内容
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    const targetContent = document.getElementById('tab-' + tabName);
+    if (targetContent) {
+        targetContent.style.display = 'block';
+    }
+
+    // 如果切换到 AI 生成 Tab，加载运营规划数据
+    if (tabName === 'ai-plan') {
+        loadOperationPlanForTab();
+    }
+}
+
+// 加载客户信息
+async function loadClientProfile() {
+    if (!_portraitId) return;
+    try {
+        const resp = await fetch('/public/api/portraits/' + _portraitId + '/client-profile', {
+            credentials: 'include'
+        });
+        const data = await resp.json();
+        if (data.success && data.data.client_profile) {
+            const profile = data.data.client_profile;
+            document.getElementById('client-brand-name').value = profile.brand_name || '';
+            document.querySelector('input[name="client-brand-type"][value="' + (profile.brand_type || 'personal') + '"]').checked = true;
+            document.getElementById('client-operating-years').value = profile.operating_years || '';
+            document.getElementById('client-target-audience').value = profile.target_audience || '';
+            document.getElementById('client-core-advantages').value = profile.core_advantages || '';
+            document.getElementById('client-contact-info').value = profile.contact_info || '';
+            document.getElementById('client-credentials').value = profile.credentials || '';
+            document.getElementById('client-case-data').value = profile.case_data || '';
+            document.getElementById('client-service-guarantee').value = profile.service_guarantee || '';
+        }
+    } catch (e) {
+        console.error('[loadClientProfile] 加载客户信息失败:', e);
+    }
+}
+
+// 保存客户信息
+async function saveClientProfile() {
+    if (!_portraitId) {
+        showToast('缺少画像ID', 'error');
+        return;
+    }
+
+    const brandName = document.getElementById('client-brand-name').value.trim();
+    const coreAdvantages = document.getElementById('client-core-advantages').value.trim();
+
+    if (!brandName) {
+        showToast('请填写品牌名称', 'error');
+        return;
+    }
+    if (!coreAdvantages) {
+        showToast('请填写核心优势', 'error');
+        return;
+    }
+
+    const clientProfile = {
+        brand_name: brandName,
+        brand_type: document.querySelector('input[name="client-brand-type"]:checked').value,
+        operating_years: document.getElementById('client-operating-years').value,
+        target_audience: document.getElementById('client-target-audience').value.trim(),
+        core_advantages: coreAdvantages,
+        contact_info: document.getElementById('client-contact-info').value.trim(),
+        credentials: document.getElementById('client-credentials').value.trim(),
+        case_data: document.getElementById('client-case-data').value.trim(),
+        service_guarantee: document.getElementById('client-service-guarantee').value.trim(),
+    };
+
+    try {
+        const resp = await fetch('/public/api/portraits/' + _portraitId + '/client-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ client_profile: clientProfile })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast('客户信息保存成功', 'success');
+        } else {
+            showToast(data.message || '保存失败', 'error');
+        }
+    } catch (e) {
+        console.error('[saveClientProfile] 保存客户信息失败:', e);
+        showToast('保存失败', 'error');
+    }
+}
+
+// 加载运营规划数据到 Tab
+async function loadOperationPlanForTab() {
+    const contentArea = document.getElementById('operationsPlanContentArea');
+    if (!_portraitId) {
+        contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#666;"><p>缺少画像ID</p></div>';
+        return;
+    }
+
+    contentArea.innerHTML = '<div style="text-align:center;padding:40px;"><div class="apple-spinner mx-auto" style="width:32px;height:32px;border-width:3px;"></div><p style="margin-top:12px;color:#666;font-size:0.875rem;">加载运营规划中...</p></div>';
+
+    try {
+        const resp = await fetch('/public/api/portraits/' + _portraitId + '/operation-plan', {
+            credentials: 'include'
+        });
+        const data = await resp.json();
+        if (data.success && data.data.operation_plan) {
+            renderOperationsPlanForTab(data.data.operation_plan);
+        } else {
+            contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#666;"><i class="bi bi-inbox" style="font-size:3rem;opacity:0.3;"></i><p style="margin-top:12px;">暂无运营规划</p><p style="font-size:0.875rem;">请先在"客户信息"标签页填写信息，然后点击"重新生成"</p></div>';
+        }
+    } catch (e) {
+        contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:8px;">加载失败</p></div>';
+    }
+}
+
 function showOperationsPlanModal() {
     if (!_portraitId) {
         showToast('缺少画像ID', 'error');
         return;
     }
 
-    const body = document.getElementById('operationsPlanModalBody');
     const regenerateBtn = document.getElementById('btn-regenerate-operations');
 
-    // 显示加载中
-    body.innerHTML = '<div style="text-align:center;padding:40px;"><div class="apple-spinner mx-auto" style="width:32px;height:32px;border-width:3px;"></div><p style="margin-top:12px;color:var(--apple-gray);font-size:0.875rem;">加载运营规划中...</p></div>';
+    // 重置到客户信息 Tab
+    switchOperationsTab('client-info');
     regenerateBtn.disabled = true;
+
+    // 加载客户信息
+    loadClientProfile();
 
     // 使用 Bootstrap 原生 API 显示弹窗
     const modalEl = document.getElementById('operationsPlanModal');
     const modal = new bootstrap.Modal(modalEl);
     modal.show();
 
-    // 加载运营规划数据
-    fetch('/public/api/portraits/' + _portraitId + '/operation-plan', { credentials: 'include' })
-        .then(r => r.json())
-        .then(data => {
-            console.log('[showOperationsPlanModal] API返回数据:', JSON.stringify(data).substring(0, 1000));
-            if (data.success && data.data.operation_plan) {
-                renderOperationsPlanContent(data.data.operation_plan);
-                regenerateBtn.disabled = false;
-            } else {
-                body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--apple-gray);"><i class="bi bi-inbox" style="font-size:3rem;opacity:0.3;"></i><p style="margin-top:12px;">暂无运营规划</p><p style="font-size:0.875rem;">画像保存后将自动生成运营规划</p></div>';
-                regenerateBtn.disabled = false;
-            }
-        })
-        .catch(e => {
-            body.innerHTML = '<div style="text-align:center;padding:40px;color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:8px;">加载失败</p></div>';
-            regenerateBtn.disabled = false;
-        });
+    regenerateBtn.disabled = false;
 }
 
-function renderOperationsPlanContent(plan) {
-    const body = document.getElementById('operationsPlanModalBody');
+// 为 Tab 内容渲染运营规划
+function renderOperationsPlanForTab(plan) {
+    const contentArea = document.getElementById('operationsPlanContentArea');
     if (!plan) {
-        body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--apple-gray);"><p>暂无运营规划数据</p></div>';
+        contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#666;"><p>暂无运营规划数据</p></div>';
         return;
     }
 
@@ -2003,7 +2260,6 @@ function renderOperationsPlanContent(plan) {
 
     // 检测是否为 operations_expert 格式
     if (plan.step_blue_ocean_opportunity || plan.step_account_design) {
-        // ===== 新版格式：运营规划专家 =====
         html += renderOperationsPlanNew(plan);
     } else if (!plan.summary && !plan.total_topics && !plan.phase_distribution && !plan.strategy_summary) {
         // 未知格式，显示原始 JSON
@@ -2012,11 +2268,10 @@ function renderOperationsPlanContent(plan) {
         html += '<pre style="font-size:0.75rem;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow:auto;background:#fff;border:1px solid #eee;border-radius:8px;padding:12px;">' + JSON.stringify(plan, null, 2) + '</pre>';
         html += '</div>';
     } else {
-        // ===== 旧版格式：选题式运营规划 =====
         html += renderOperationsPlanOld(plan);
     }
 
-    body.innerHTML = html;
+    contentArea.innerHTML = html;
 }
 
 function renderOperationsPlanNew(plan) {
@@ -2444,11 +2699,14 @@ async function regenerateOperationsPlan() {
     }
 
     const btn = document.getElementById('btn-regenerate-operations');
-    const body = document.getElementById('operationsPlanModalBody');
+    const contentArea = document.getElementById('operationsPlanContentArea');
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="bi bi-hourglass-split" style="margin-right:4px;"></span>生成中...';
-    body.innerHTML = '<div style="text-align:center;padding:40px;"><div class="apple-spinner mx-auto" style="width:32px;height:32px;border-width:3px;"></div><p style="margin-top:12px;color:var(--apple-gray);font-size:0.875rem;">正在重新生成运营规划...</p></div>';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="margin-right:4px;"></span>生成中...';
+    contentArea.innerHTML = '<div style="text-align:center;padding:40px;"><div class="apple-spinner mx-auto" style="width:32px;height:32px;border-width:3px;"></div><p style="margin-top:12px;color:#666;font-size:0.875rem;">正在重新生成运营规划...</p></div>';
+
+    // 切换到 AI 生成 Tab
+    switchOperationsTab('ai-plan');
 
     try {
         const resp = await fetch('/public/api/portraits/' + _portraitId + '/operation-plan/generate', {
@@ -2460,14 +2718,14 @@ async function regenerateOperationsPlan() {
         const data = await resp.json();
         if (data.success) {
             showToast('运营规划重新生成完成', 'success');
-            renderOperationsPlanContent(data.data.operation_plan || data.data);
+            renderOperationsPlanForTab(data.data.operation_plan || data.data);
         } else {
             showToast(data.message || '生成失败', 'error');
-            body.innerHTML = '<div style="text-align:center;padding:40px;color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:8px;">' + (data.message || '生成失败') + '</p></div>';
+            contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:8px;">' + (data.message || '生成失败') + '</p></div>';
         }
     } catch (e) {
         showToast('生成失败: ' + e.message, 'error');
-        body.innerHTML = '<div style="text-align:center;padding:40px;color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:8px;">生成失败</p></div>';
+        contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:8px;">生成失败</p></div>';
     }
 
     btn.disabled = false;

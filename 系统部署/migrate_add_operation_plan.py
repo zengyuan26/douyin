@@ -1,50 +1,66 @@
+#!/usr/bin/env python3
 """
-迁移脚本：为 saved_portraits 表添加运营规划字段
-
-执行方式：python migrate_add_operation_plan.py
+数据库迁移脚本：为 saved_portraits 表添加 selected_opportunity 和 client_profile 字段
+运行方式：python migrate_add_operation_plan.py
 """
 
-from models.models import db
-from sqlalchemy import text
-import logging
+import sys
+import os
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 添加系统部署目录到 Python 路径
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from app import app, db
 
 
-def migrate():
-    """添加运营规划相关字段"""
-    conn = db.session.connection()
-    
-    # 检查字段是否已存在
-    result = conn.execute(text("PRAGMA table_info(saved_portraits)"))
-    columns = [row[1] for row in result.fetchall()]
-    
-    if 'operation_plan' in columns:
-        logger.info("字段 operation_plan 已存在，跳过")
-        return True
-    
-    try:
-        # 添加 operation_plan 字段
-        conn.execute(text("ALTER TABLE saved_portraits ADD COLUMN operation_plan JSON"))
-        logger.info("已添加 operation_plan 字段")
-        
-        # 添加 operation_plan_updated_at 字段
-        conn.execute(text("ALTER TABLE saved_portraits ADD COLUMN operation_plan_updated_at DATETIME"))
-        logger.info("已添加 operation_plan_updated_at 字段")
-        
-        db.session.commit()
-        logger.info("迁移完成")
-        return True
-        
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"迁移失败: {e}")
-        return False
+def run_migration():
+    """执行迁移"""
+    with app.app_context():
+        # 检查表是否存在
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+
+        # 获取 saved_portraits 表的现有列
+        columns = [col['name'] for col in inspector.get_columns('saved_portraits')]
+        print(f"当前 saved_portraits 表的列: {columns}")
+
+        # 需要添加的新列
+        new_columns = {
+            'selected_opportunity': 'JSON',
+            'client_profile': 'JSON'
+        }
+
+        with db.engine.connect() as conn:
+            for column_name, column_type in new_columns.items():
+                if column_name not in columns:
+                    print(f"添加列: {column_name} ({column_type})...")
+                    try:
+                        # SQLite 语法
+                        sql = f"ALTER TABLE saved_portraits ADD COLUMN {column_name} {column_type}"
+                        conn.execute(db.text(sql))
+                        conn.commit()
+                        print(f"✓ 成功添加列: {column_name}")
+                    except Exception as e:
+                        print(f"✗ 添加列失败 {column_name}: {e}")
+                else:
+                    print(f"列已存在: {column_name}")
+
+        # 验证迁移结果
+        print("\n迁移后检查:")
+        inspector = inspect(db.engine)
+        new_columns_check = [col['name'] for col in inspector.get_columns('saved_portraits')]
+        print(f"更新后的列: {new_columns_check}")
+
+        for col in ['selected_opportunity', 'client_profile']:
+            if col in new_columns_check:
+                print(f"✓ {col} 列已存在")
+            else:
+                print(f"✗ {col} 列仍然缺失")
 
 
 if __name__ == '__main__':
-    from app import create_app
-    app = create_app()
-    with app.app_context():
-        migrate()
+    print("=" * 50)
+    print("数据库迁移：添加 selected_opportunity 和 client_profile 字段")
+    print("=" * 50)
+    run_migration()
+    print("\n迁移完成!")

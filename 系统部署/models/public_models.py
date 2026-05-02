@@ -284,6 +284,17 @@ class SavedPortrait(db.Model):
     # 运营规划更新时间
     operation_plan_updated_at = db.Column(db.DateTime)
 
+    # 选定的蓝海机会（来自超级定位）
+    selected_opportunity = db.Column(db.JSON)
+
+    # 客户自定义信息（用于运营规划和内容生成）
+    # 包含: brand_name, brand_type, operating_years, core_advantages,
+    #       contact_info, credentials, service_guarantee, case_data, target_audience
+    client_profile = db.Column(db.JSON)
+
+    # 扩展数据（存储其他杂项数据）
+    extra_data = db.Column(db.JSON)
+
     # 时间戳
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
