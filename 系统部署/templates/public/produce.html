@@ -1573,12 +1573,18 @@
                         内容日历
                     </div>
                 </div>
-                <!-- 内容计划生成按钮（移到 Tab 旁边） -->
-                <div id="content-plan-section" style="display:none;margin-left:auto;">
-                    <button class="btn-generate" id="btn-gen-content-plan" onclick="genContentPlan()" style="padding:6px 14px;font-size:0.75rem;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
-                        <i class="bi bi-magic"></i>
-                        <span id="btn-gen-content-plan-text">生成内容计划</span>
+                <!-- 内容计划生成按钮 + 运营规划查看按钮 -->
+                <div style="display:flex;gap:8px;margin-left:auto;">
+                    <button class="btn-generate" id="btn-view-operations-plan" onclick="showOperationsPlanModal()" style="padding:6px 14px;font-size:0.75rem;background:linear-gradient(135deg,#34d399 0%,#059669 100%);">
+                        <i class="bi bi-graph-up"></i>
+                        <span>查看运营规划</span>
                     </button>
+                    <div id="content-plan-section" style="display:none;">
+                        <button class="btn-generate" id="btn-gen-content-plan" onclick="genContentPlan()" style="padding:6px 14px;font-size:0.75rem;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+                            <i class="bi bi-magic"></i>
+                            <span id="btn-gen-content-plan-text">生成内容计划</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1763,6 +1769,31 @@
 {% endblock %}
 
 {% block layout_extra_js %}
+<!-- 运营规划查看弹窗 -->
+<div class="modal fade" id="operationsPlanModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document" style="max-width:900px;">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+            <div class="modal-header" style="background:linear-gradient(135deg,#34d399 0%,#059669 100%);color:white;padding:16px 20px;">
+                <h5 class="modal-title" style="margin:0;font-size:1.125rem;font-weight:600;">
+                    <i class="bi bi-graph-up" style="margin-right:8px;"></i>运营规划方案
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" style="color:white;opacity:0.8;">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="operationsPlanModalBody" style="padding:20px;max-height:70vh;overflow-y:auto;">
+                <!-- 动态内容 -->
+            </div>
+            <div class="modal-footer" style="padding:12px 20px;border-top:1px solid #eee;">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" style="border-radius:8px;padding:6px 16px;">关闭</button>
+                <button type="button" class="btn btn-primary" id="btn-regenerate-operations" onclick="regenerateOperationsPlan()" style="border-radius:8px;padding:6px 16px;background:#34d399;border-color:#34d399;">
+                    <i class="bi bi-arrow-clockwise"></i> 重新生成
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 var _portraitId = null;
 var _portrait = null;
@@ -1921,6 +1952,526 @@ async function loadOperationPlan() {
     } catch (e) {
         // ignore
     }
+}
+
+// ── 运营规划弹窗相关 ────────────────────────────────
+function showOperationsPlanModal() {
+    if (!_portraitId) {
+        showToast('缺少画像ID', 'error');
+        return;
+    }
+
+    const body = document.getElementById('operationsPlanModalBody');
+    const regenerateBtn = document.getElementById('btn-regenerate-operations');
+
+    // 显示加载中
+    body.innerHTML = '<div style="text-align:center;padding:40px;"><div class="apple-spinner mx-auto" style="width:32px;height:32px;border-width:3px;"></div><p style="margin-top:12px;color:var(--apple-gray);font-size:0.875rem;">加载运营规划中...</p></div>';
+    regenerateBtn.disabled = true;
+
+    // 使用 Bootstrap 原生 API 显示弹窗
+    const modalEl = document.getElementById('operationsPlanModal');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    // 加载运营规划数据
+    fetch('/public/api/portraits/' + _portraitId + '/operation-plan', { credentials: 'include' })
+        .then(r => r.json())
+        .then(data => {
+            console.log('[showOperationsPlanModal] API返回数据:', JSON.stringify(data).substring(0, 1000));
+            if (data.success && data.data.operation_plan) {
+                renderOperationsPlanContent(data.data.operation_plan);
+                regenerateBtn.disabled = false;
+            } else {
+                body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--apple-gray);"><i class="bi bi-inbox" style="font-size:3rem;opacity:0.3;"></i><p style="margin-top:12px;">暂无运营规划</p><p style="font-size:0.875rem;">画像保存后将自动生成运营规划</p></div>';
+                regenerateBtn.disabled = false;
+            }
+        })
+        .catch(e => {
+            body.innerHTML = '<div style="text-align:center;padding:40px;color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:8px;">加载失败</p></div>';
+            regenerateBtn.disabled = false;
+        });
+}
+
+function renderOperationsPlanContent(plan) {
+    const body = document.getElementById('operationsPlanModalBody');
+    if (!plan) {
+        body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--apple-gray);"><p>暂无运营规划数据</p></div>';
+        return;
+    }
+
+    let html = '';
+
+    // 检测是否为 operations_expert 格式
+    if (plan.step_blue_ocean_opportunity || plan.step_account_design) {
+        // ===== 新版格式：运营规划专家 =====
+        html += renderOperationsPlanNew(plan);
+    } else if (!plan.summary && !plan.total_topics && !plan.phase_distribution && !plan.strategy_summary) {
+        // 未知格式，显示原始 JSON
+        html += '<div style="background:#f8f9fa;border-radius:10px;padding:16px;margin-bottom:20px;">';
+        html += '<h6 style="font-size:0.875rem;font-weight:600;color:#333;margin-bottom:12px;"><i class="bi bi-code-slash" style="margin-right:6px;"></i>运营规划原始数据</h6>';
+        html += '<pre style="font-size:0.75rem;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow:auto;background:#fff;border:1px solid #eee;border-radius:8px;padding:12px;">' + JSON.stringify(plan, null, 2) + '</pre>';
+        html += '</div>';
+    } else {
+        // ===== 旧版格式：选题式运营规划 =====
+        html += renderOperationsPlanOld(plan);
+    }
+
+    body.innerHTML = html;
+}
+
+function renderOperationsPlanNew(plan) {
+    let html = '';
+
+    // 1. 蓝海机会分析
+    const blueOcean = plan.step_blue_ocean_opportunity;
+    if (blueOcean) {
+        html += '<div style="margin-bottom:24px;">';
+        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
+        html += '<div style="width:32px;height:32px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.875rem;">1</div>';
+        html += '<h5 style="margin:0;font-size:1rem;font-weight:600;color:#1a1a2e;">蓝海机会分析</h5>';
+        html += '</div>';
+        html += '<div style="background:#f8f9fa;border-radius:12px;padding:16px;">';
+
+        if (blueOcean.core_problem) {
+            html += '<div style="margin-bottom:12px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">核心问题</div>';
+            html += '<div style="font-size:0.875rem;color:#333;line-height:1.5;">' + blueOcean.core_problem + '</div>';
+            html += '</div>';
+        }
+
+        if (blueOcean.recommended_blue_ocean) {
+            html += '<div style="margin-bottom:12px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#34d399;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">推荐蓝海方向</div>';
+            html += '<div style="display:inline-block;background:linear-gradient(135deg,#34d399,#059669);color:#fff;padding:6px 14px;border-radius:20px;font-size:0.8125rem;font-weight:500;">' + blueOcean.recommended_blue_ocean + '</div>';
+            html += '</div>';
+        }
+
+        if (blueOcean.blue_ocean_opportunities && blueOcean.blue_ocean_opportunities.length > 0) {
+            html += '<div style="margin-top:12px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">细分方向</div>';
+            blueOcean.blue_ocean_opportunities.forEach((item, idx) => {
+                html += '<div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:8px;border:1px solid #e9ecef;">';
+                html += '<div style="font-weight:600;color:#333;font-size:0.8125rem;margin-bottom:4px;">' + (item.direction || '方向' + (idx + 1)) + '</div>';
+                if (item.problem) html += '<div style="font-size:0.75rem;color:#6c757d;margin-bottom:4px;"><span style="color:#667eea;">问题：</span>' + item.problem + '</div>';
+                if (item.target_audience) html += '<div style="font-size:0.75rem;color:#6c757d;"><span style="color:#34d399;">人群：</span>' + item.target_audience + '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+
+        html += '</div></div>';
+    }
+
+    // 2. 账号设计
+    const accountDesign = plan.step_account_design;
+    if (accountDesign && accountDesign.account_design) {
+        const acc = accountDesign.account_design;
+        html += '<div style="margin-bottom:24px;">';
+        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
+        html += '<div style="width:32px;height:32px;background:linear-gradient(135deg,#f093fb,#f5576c);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.875rem;">2</div>';
+        html += '<h5 style="margin:0;font-size:1rem;font-weight:600;color:#1a1a2e;">账号设计</h5>';
+        html += '</div>';
+        html += '<div style="background:#f8f9fa;border-radius:12px;padding:16px;">';
+
+        // 昵称选项
+        if (acc.nickname_options && acc.nickname_options.length > 0) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#f5576c;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">昵称方案</div>';
+            acc.nickname_options.forEach(opt => {
+                const styleClass = opt.style === '爆款型' ? '#667eea' : opt.style === '品牌型' ? '#34d399' : '#f59e0b';
+                html += '<div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:8px;border:1px solid #e9ecef;">';
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
+                html += '<span style="font-weight:600;color:#333;font-size:0.9375rem;">' + opt.nickname + '</span>';
+                html += '<span style="background:' + styleClass + ';color:#fff;padding:2px 8px;border-radius:10px;font-size:0.6875rem;">' + opt.style + '</span>';
+                html += '</div>';
+                if (opt.reason) html += '<div style="font-size:0.75rem;color:#6c757d;line-height:1.4;">' + opt.reason + '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+
+        // 简介
+        if (acc.bio) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">账号简介</div>';
+            html += '<div style="background:#fff;border-radius:8px;padding:12px;font-size:0.8125rem;color:#333;line-height:1.6;border:1px solid #e9ecef;">' + acc.bio.replace(/\n/g, '<br>') + '</div>';
+            html += '</div>';
+        }
+
+        // 内容标签
+        if (acc.content_tags && acc.content_tags.length > 0) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">内容标签</div>';
+            html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+            acc.content_tags.forEach(tag => {
+                html += '<span style="background:rgba(102,126,234,0.1);color:#667eea;padding:4px 10px;border-radius:14px;font-size:0.75rem;">' + tag + '</span>';
+            });
+            html += '</div></div>';
+        }
+
+        // 头像建议
+        if (acc.avatar_suggestion) {
+            html += '<div>';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">头像建议</div>';
+            html += '<div style="font-size:0.8125rem;color:#495057;line-height:1.5;">' + acc.avatar_suggestion + '</div>';
+            html += '</div>';
+        }
+
+        // 差异化策略
+        if (accountDesign.differentiation_strategy) {
+            html += '<div style="margin-top:14px;padding-top:14px;border-top:1px solid #e9ecef;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">差异化策略</div>';
+            html += '<div style="font-size:0.8125rem;color:#495057;line-height:1.5;">' + accountDesign.differentiation_strategy + '</div>';
+            html += '</div>';
+        }
+
+        html += '</div></div>';
+    }
+
+    // 3. 信任佐证
+    const trustEvidence = plan.step_trust_evidence;
+    if (trustEvidence) {
+        html += '<div style="margin-bottom:24px;">';
+        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
+        html += '<div style="width:32px;height:32px;background:linear-gradient(135deg,#4facfe,#00f2fe);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.875rem;">3</div>';
+        html += '<h5 style="margin:0;font-size:1rem;font-weight:600;color:#1a1a2e;">信任佐证与竞争优势</h5>';
+        html += '</div>';
+        html += '<div style="background:#f8f9fa;border-radius:12px;padding:16px;">';
+
+        // 核心优势
+        if (trustEvidence.trust_evidence && trustEvidence.trust_evidence.core_advantages) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#4facfe;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">核心优势</div>';
+            trustEvidence.trust_evidence.core_advantages.forEach(adv => {
+                html += '<div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:8px;border:1px solid #e9ecef;">';
+                html += '<div style="font-weight:600;color:#333;font-size:0.8125rem;margin-bottom:4px;">' + adv.advantage + '</div>';
+                if (adv.evidence) html += '<div style="font-size:0.75rem;color:#34d399;margin-bottom:4px;"><i class="bi bi-patch-check" style="margin-right:4px;"></i>' + adv.evidence + '</div>';
+                if (adv.content_angle) html += '<div style="font-size:0.75rem;color:#6c757d;">' + adv.content_angle + '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+
+        // 案例数据
+        if (trustEvidence.trust_evidence && trustEvidence.trust_evidence.case_data) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">案例数据</div>';
+            html += '<div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #e9ecef;"><span style="color:#34d399;font-weight:600;">' + trustEvidence.trust_evidence.case_data + '</span></div>';
+            html += '</div>';
+        }
+
+        // 资质证书
+        if (trustEvidence.trust_evidence && trustEvidence.trust_evidence.credentials && trustEvidence.trust_evidence.credentials.length > 0) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">资质证书</div>';
+            html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+            trustEvidence.trust_evidence.credentials.forEach(cert => {
+                html += '<span style="background:#fff;border:1px solid #e9ecef;color:#495057;padding:4px 10px;border-radius:14px;font-size:0.75rem;"><i class="bi bi-award" style="margin-right:4px;color:#f59e0b;"></i>' + cert + '</span>';
+            });
+            html += '</div></div>';
+        }
+
+        // 服务保障
+        if (trustEvidence.trust_evidence && trustEvidence.trust_evidence.service_guarantee) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">服务保障</div>';
+            html += '<div style="font-size:0.8125rem;color:#495057;line-height:1.5;">' + trustEvidence.trust_evidence.service_guarantee + '</div>';
+            html += '</div>';
+        }
+
+        // 竞争优势
+        if (trustEvidence.competitive_advantage) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">竞争优势</div>';
+            if (trustEvidence.competitive_advantage.vs_rivals) {
+                const vs = trustEvidence.competitive_advantage.vs_rivals;
+                html += '<div style="background:#fff;border-radius:8px;padding:10px;margin-bottom:6px;border:1px solid #e9ecef;font-size:0.8125rem;">';
+                html += '<span style="color:#667eea;font-weight:600;">vs同行：</span>' + vs.advantage;
+                if (vs.evidence) html += '<span style="color:#6c757d;"> - ' + vs.evidence + '</span>';
+                html += '</div>';
+            }
+            if (trustEvidence.competitive_advantage.vs_diy) {
+                const diy = trustEvidence.competitive_advantage.vs_diy;
+                html += '<div style="background:#fff;border-radius:8px;padding:10px;border:1px solid #e9ecef;font-size:0.8125rem;">';
+                html += '<span style="color:#34d399;font-weight:600;">vs自己解决：</span>' + diy.advantage;
+                if (diy.evidence) html += '<span style="color:#6c757d;"> - ' + diy.evidence + '</span>';
+                html += '</div>';
+            }
+            html += '</div>';
+        }
+
+        // 核心传播信息
+        if (trustEvidence.key_messages && trustEvidence.key_messages.length > 0) {
+            html += '<div>';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">核心传播信息</div>';
+            trustEvidence.key_messages.forEach(msg => {
+                html += '<div style="background:#fff7ed;border-left:3px solid #f59e0b;padding:8px 12px;margin-bottom:6px;border-radius:0 8px 8px 0;font-size:0.8125rem;color:#92400e;">' + msg + '</div>';
+            });
+            html += '</div>';
+        }
+
+        html += '</div></div>';
+    }
+
+    // 4. 风格定位与内容配比
+    const styleGuide = plan.step_style_guide;
+    if (styleGuide) {
+        // 解析 step_style_guide 数组（里面包含 JSON 字符串）
+        let parsedStyle = styleGuide;
+        if (Array.isArray(styleGuide.step_style_guide)) {
+            try {
+                const jsonStr = styleGuide.step_style_guide.join('').replace(/```json\n?|"style_guide":\s*|\n```/g, '');
+                parsedStyle = JSON.parse(jsonStr);
+            } catch (e) {
+                console.warn('[renderOperationsPlanNew] 解析 style_guide 失败:', e);
+            }
+        }
+
+        html += '<div style="margin-bottom:24px;">';
+        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">';
+        html += '<div style="width:32px;height:32px;background:linear-gradient(135deg,#fa709a,#fee140);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.875rem;">4</div>';
+        html += '<h5 style="margin:0;font-size:1rem;font-weight:600;color:#1a1a2e;">风格定位与内容配比</h5>';
+        html += '</div>';
+        html += '<div style="background:#f8f9fa;border-radius:12px;padding:16px;">';
+
+        const styleData = parsedStyle.style_guide || parsedStyle;
+        const ratioData = parsedStyle.content_ratio || {};
+        const calendarData = parsedStyle.content_calendar || {};
+
+        // 风格语气
+        if (styleData.tone) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#fa709a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">风格语气</div>';
+            html += '<div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #e9ecef;font-size:0.875rem;color:#333;font-weight:500;">' + styleData.tone + '</div>';
+            html += '</div>';
+        }
+
+        // 语言风格
+        if (styleData.language_style) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">语言风格</div>';
+            html += '<div style="font-size:0.8125rem;color:#495057;line-height:1.5;">' + styleData.language_style + '</div>';
+            html += '</div>';
+        }
+
+        // 内容配比
+        if (Object.keys(ratioData).length > 0) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">内容配比</div>';
+            html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">';
+            const ratioItems = [
+                { key: 'trust_content', label: '信任内容', color: '#667eea' },
+                { key: 'knowledge_content', label: '行业知识', color: '#34d399' },
+                { key: 'scenario_content', label: '场景方案', color: '#4facfe' },
+                { key: 'search_content', label: '搜索内容', color: '#f59e0b' },
+                { key: 'conversion_content', label: '转化内容', color: '#f5576c' }
+            ];
+            ratioItems.forEach(item => {
+                const pct = ratioData[item.key] || '0%';
+                html += '<div style="background:#fff;border-radius:8px;padding:10px;text-align:center;border:1px solid #e9ecef;">';
+                html += '<div style="font-size:1.125rem;font-weight:700;color:' + item.color + ';">' + pct + '</div>';
+                html += '<div style="font-size:0.625rem;color:#6c757d;margin-top:2px;">' + item.label + '</div>';
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+
+        // 内容原则
+        if (styleData.principles && styleData.principles.length > 0) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">内容原则</div>';
+            styleData.principles.forEach((p, i) => {
+                html += '<div style="display:flex;gap:8px;margin-bottom:6px;font-size:0.8125rem;">';
+                html += '<span style="color:#34d399;font-weight:600;flex-shrink:0;">' + (i + 1) + '.</span>';
+                html += '<span style="color:#495057;line-height:1.4;">' + p.replace(/^内容原则\d*：/, '') + '</span>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+
+        // 禁忌
+        if (styleData.taboo && styleData.taboo.length > 0) {
+            html += '<div style="margin-bottom:14px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#dc3545;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">禁忌内容</div>';
+            styleData.taboo.forEach(t => {
+                html += '<div style="background:#fff;border-radius:6px;padding:8px 12px;margin-bottom:6px;border-left:3px solid #dc3545;font-size:0.8125rem;color:#6c757d;">' + t + '</div>';
+            });
+            html += '</div>';
+        }
+
+        // 4周内容日历
+        if (Object.keys(calendarData).length > 0) {
+            html += '<div>';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">4周内容日历</div>';
+            const weekColors = ['#667eea', '#34d399', '#4facfe', '#f59e0b'];
+            let weekIdx = 0;
+            for (const [week, info] of Object.entries(calendarData)) {
+                const color = weekColors[weekIdx % weekColors.length];
+                html += '<div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:8px;border:1px solid #e9ecef;">';
+                html += '<div style="font-weight:600;color:' + color + ';font-size:0.8125rem;margin-bottom:6px;">' + week.replace('week', '第') + '周：' + (info.focus || '') + '</div>';
+                if (info.topics && info.topics.length > 0) {
+                    html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+                    info.topics.forEach(topic => {
+                        html += '<span style="background:#f8f9fa;color:#495057;padding:2px 8px;border-radius:10px;font-size:0.6875rem;">' + topic + '</span>';
+                    });
+                    html += '</div>';
+                }
+                html += '</div>';
+                weekIdx++;
+            }
+            html += '</div>';
+        }
+
+        html += '</div></div>';
+    }
+
+    return html;
+}
+
+function renderOperationsPlanOld(plan) {
+    let html = '';
+
+    // 基础信息卡片
+    if (plan.summary || plan.total_topics) {
+        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">';
+        if (plan.total_topics) {
+            html += '<div style="background:#f8f9fa;border-radius:10px;padding:14px;text-align:center;"><div style="font-size:1.5rem;font-weight:700;color:#34d399;">' + plan.total_topics + '</div><div style="font-size:0.75rem;color:#6c757d;margin-top:4px;">选题总数</div></div>';
+        }
+        if (plan.phase_distribution) {
+            const phases = Object.entries(plan.phase_distribution);
+            if (phases.length > 0) {
+                html += '<div style="background:#f8f9fa;border-radius:10px;padding:14px;text-align:center;"><div style="font-size:1.5rem;font-weight:700;color:#667eea;">' + phases.length + '</div><div style="font-size:0.75rem;color:#6c757d;margin-top:4px;">运营阶段</div></div>';
+            }
+        }
+        if (plan.content_ratio) {
+            const ratio = plan.content_ratio;
+            html += '<div style="background:#f8f9fa;border-radius:10px;padding:14px;text-align:center;"><div style="font-size:1.25rem;font-weight:700;color:#764ba2;">' + (ratio.seed || '50') + '/' + (ratio.grass || '50') + '</div><div style="font-size:0.75rem;color:#6c757d;margin-top:4px;">种草/转化比例</div></div>';
+        }
+        html += '</div>';
+    }
+
+    // 阶段分布
+    if (plan.phase_distribution) {
+        html += '<div style="margin-bottom:20px;">';
+        html += '<h6 style="font-size:0.875rem;font-weight:600;color:#333;margin-bottom:10px;"><i class="bi bi-bar-chart" style="margin-right:6px;color:#34d399;"></i>运营阶段分布</h6>';
+        html += '<div style="background:#f8f9fa;border-radius:10px;padding:14px;">';
+        for (const [phase, info] of Object.entries(plan.phase_distribution)) {
+            const count = typeof info === 'object' ? (info.count || 0) : info;
+            const pct = plan.total_topics ? Math.round(count / plan.total_topics * 100) : 0;
+            html += '<div style="display:flex;align-items:center;margin-bottom:8px;">';
+            html += '<div style="width:80px;font-size:0.8125rem;color:#495057;">' + phase + '</div>';
+            html += '<div style="flex:1;background:#e9ecef;border-radius:4px;height:8px;margin:0 8px;overflow:hidden;">';
+            html += '<div style="background:linear-gradient(90deg,#34d399,#059669);height:100%;width:' + pct + '%;border-radius:4px;"></div>';
+            html += '</div>';
+            html += '<div style="width:50px;text-align:right;font-size:0.8125rem;color:#495057;">' + count + ' (' + pct + '%)</div>';
+            html += '</div>';
+        }
+        html += '</div></div>';
+    }
+
+    // GEO模式匹配
+    if (plan.geo_pattern && Object.keys(plan.geo_pattern).length > 0) {
+        html += '<div style="margin-bottom:20px;">';
+        html += '<h6 style="font-size:0.875rem;font-weight:600;color:#333;margin-bottom:10px;"><i class="bi bi-geo-alt" style="margin-right:6px;color:#667eea;"></i>GEO模式匹配</h6>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+        for (const [geoType, matched] of Object.entries(plan.geo_pattern)) {
+            if (matched && matched.length > 0) {
+                matched.forEach(item => {
+                    const label = typeof item === 'string' ? item : (item.keyword || item.name || '');
+                    if (label) {
+                        html += '<span style="background:rgba(102,126,234,0.1);color:#667eea;padding:4px 10px;border-radius:16px;font-size:0.75rem;">' + geoType + ': ' + label + '</span>';
+                    }
+                });
+            }
+        }
+        html += '</div></div>';
+    }
+
+    // 五段式配比
+    if (plan.five_stage_ratio) {
+        const ratio = plan.five_stage_ratio;
+        html += '<div style="margin-bottom:20px;">';
+        html += '<h6 style="font-size:0.875rem;font-weight:600;color:#333;margin-bottom:10px;"><i class="bi bi-pie-chart" style="margin-right:6px;color:#764ba2;"></i>五段式内容配比</h6>';
+        html += '<div style="background:#f8f9fa;border-radius:10px;padding:14px;display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center;">';
+        const stages = ['认知', '需求', '比较', '决策', '购买'];
+        stages.forEach((name, i) => {
+            const pct = ratio['stage_' + (i + 1)] || ratio['stage' + (i + 1)] || 0;
+            html += '<div><div style="font-size:1.25rem;font-weight:700;color:#764ba2;">' + pct + '%</div><div style="font-size:0.6875rem;color:#6c757d;margin-top:2px;">' + name + '</div></div>';
+        });
+        html += '</div></div>';
+    }
+
+    // 内容类型分布
+    if (plan.content_type_distribution) {
+        html += '<div style="margin-bottom:20px;">';
+        html += '<h6 style="font-size:0.875rem;font-weight:600;color:#333;margin-bottom:10px;"><i class="bi bi-layout-text-window" style="margin-right:6px;color:#f59e0b;"></i>内容类型分布</h6>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+        for (const [type, info] of Object.entries(plan.content_type_distribution)) {
+            const count = typeof info === 'object' ? (info.count || 0) : info;
+            const pct = plan.total_topics ? Math.round(count / plan.total_topics * 100) : 0;
+            html += '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;">';
+            html += '<span style="font-size:0.8125rem;font-weight:600;color:#f59e0b;">' + type + '</span>';
+            html += '<span style="font-size:0.75rem;color:#92400e;">' + count + '篇 (' + pct + '%)</span>';
+            html += '</div>';
+        }
+        html += '</div></div>';
+    }
+
+    // 运营策略摘要
+    if (plan.strategy_summary || plan.summary) {
+        html += '<div style="margin-bottom:20px;">';
+        html += '<h6 style="font-size:0.875rem;font-weight:600;color:#333;margin-bottom:10px;"><i class="bi bi-lightbulb" style="margin-right:6px;color:#f59e0b;"></i>运营策略摘要</h6>';
+        html += '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:14px;font-size:0.8125rem;color:#92400e;line-height:1.6;">';
+        html += (plan.strategy_summary || plan.summary || '').replace(/\n/g, '<br>');
+        html += '</div></div>';
+    }
+
+    // 生成时间
+    if (plan.created_at || plan.generated_at) {
+        const time = plan.created_at || plan.generated_at;
+        html += '<div style="text-align:center;margin-top:20px;padding-top:16px;border-top:1px solid #eee;">';
+        html += '<span style="font-size:0.75rem;color:#adb5bd;">生成时间：' + time + '</span>';
+        html += '</div>';
+    }
+
+    return html || '<div style="text-align:center;padding:40px;color:var(--apple-gray);"><p>暂无运营规划详情</p></div>';
+}
+
+async function regenerateOperationsPlan() {
+    if (!_portraitId) {
+        showToast('缺少画像ID', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-regenerate-operations');
+    const body = document.getElementById('operationsPlanModalBody');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="bi bi-hourglass-split" style="margin-right:4px;"></span>生成中...';
+    body.innerHTML = '<div style="text-align:center;padding:40px;"><div class="apple-spinner mx-auto" style="width:32px;height:32px;border-width:3px;"></div><p style="margin-top:12px;color:var(--apple-gray);font-size:0.875rem;">正在重新生成运营规划...</p></div>';
+
+    try {
+        const resp = await fetch('/public/api/portraits/' + _portraitId + '/operation-plan/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({})
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast('运营规划重新生成完成', 'success');
+            renderOperationsPlanContent(data.data.operation_plan || data.data);
+        } else {
+            showToast(data.message || '生成失败', 'error');
+            body.innerHTML = '<div style="text-align:center;padding:40px;color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:8px;">' + (data.message || '生成失败') + '</p></div>';
+        }
+    } catch (e) {
+        showToast('生成失败: ' + e.message, 'error');
+        body.innerHTML = '<div style="text-align:center;padding:40px;color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:8px;">生成失败</p></div>';
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> 重新生成';
 }
 
 function renderPortraitInfo() {

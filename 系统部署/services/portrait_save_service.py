@@ -144,7 +144,8 @@ class PortraitSaveService:
                        keyword_library, topic_library,
                        keyword_updated_at, keyword_update_count, keyword_cache_expires_at,
                        topic_updated_at, topic_update_count, topic_cache_expires_at,
-                       generation_status, generation_error, extra_data
+                       generation_status, generation_error, extra_data,
+                       operation_plan, operation_plan_updated_at
                 FROM saved_portraits
                 WHERE id = :id
             """),
@@ -198,6 +199,9 @@ class PortraitSaveService:
             'generation_error': result[20],
             # extra_data（包含运营规划等）
             'extra_data': parse_json(result[21]) if len(result) > 21 else None,
+            # 运营规划
+            'operation_plan': parse_json(result[22]) if len(result) > 22 else None,
+            'operation_plan_updated_at': fmt_datetime(result[23]) if len(result) > 23 else None,
         }
     
     @classmethod
