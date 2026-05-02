@@ -1340,11 +1340,59 @@ class TopicContentGenerator:
                 'bubble': '💬 气泡框',
                 'badge': '🔢 数字徽章'
             }
+            # P1-P7 阶段名称映射（对齐 Skill 命名体系）
+            slide_phase_map = {
+                1: '封面',
+                2: '问题引入/痛点揭示',
+                3: '深度分析/原因解析',
+                4: '解决方案/核心要点',
+                5: '逻辑落地/实操细节',
+                6: '升华/人文关怀',
+                7: '转化引导/行动号召',
+            }
+            # P1-P7 视觉约束映射
+            slide_visual_map = {
+                1: {'layout': 'billboard', 'tone': 'warm', 'ui': ['badge', 'bubble']},
+                2: {'layout': 'problem_solver', 'tone': 'cold', 'ui': ['icon', 'comparison']},
+                3: {'layout': 'matrix', 'tone': 'warm', 'ui': ['icon', 'checklist', 'bubble']},
+                4: {'layout': 'matrix', 'tone': 'warm', 'ui': ['badge', 'checklist', 'bubble']},
+                5: {'layout': 'matrix', 'tone': 'warm', 'ui': ['timeline', 'comparison', 'bubble']},
+                6: {'layout': 'trust_builder', 'tone': 'warm', 'ui': ['bubble']},
+                7: {'layout': 'trust_builder', 'tone': 'brand', 'ui': ['badge', 'bubble']},
+            }
+            # P1-P7 人物连贯性描述
+            slide_char_map = {
+                1: '建立核心人物形象，与P2-P7保持一致',
+                2: '[同P1，保持人物连贯性]',
+                3: '[同P1-P2，保持人物连贯性]',
+                4: '[同P1-P3，保持人物连贯性]',
+                5: '[同P1-P4，保持人物连贯性]',
+                6: '[同P1-P5，保持人物连贯性]',
+                7: '[同P1-P6，保持人物连贯性]',
+            }
+            # P1-P7 色调规范
+            slide_tone_color_map = {
+                1: '暖调 [#FFF5EE - #FFDAB9]',
+                2: '冷色调 [#708090 - #A9A9A9]',
+                3: '暖色起步 [#F5F5DC - #FFE4C4]',
+                4: '暖色升温 [#FFE4C4 - #FFDAB9]',
+                5: '暖色饱和 [#FFF8DC - #FFEFD5]',
+                6: '浅杏/暖白 [#FFEFD5 / #FFF8DC]',
+                7: '品牌主色（如蓝色#2B7FD6）',
+            }
 
             lines.append('')
             lines.append('---')
             lines.append('')
-            lines.append('### 图片{}：{}【{}】⚠️强制9:16'.format(i, role, emotion_stage))
+            # 使用 P1-P7 格式输出（对齐 Skill 命名体系）
+            phase_name = slide_phase_map.get(i, role)
+            lines.append('### P{}：{}【情绪：{} | 版式：{} | 色调：{}】⚠️强制9:16'.format(
+                i,
+                phase_name,
+                emotion_stage,
+                layout_map.get(layout_type, layout_type),
+                tone_map.get(color_tone, color_tone)
+            ))
             lines.append('')
 
             # 内容功能
@@ -1407,6 +1455,25 @@ class TopicContentGenerator:
             lines.append('字体：思源黑体、微软雅黑（AI生图必须遵守）')
             lines.append('尺寸：1080x1920px，9:16竖版')
             lines.append('禁止：❌ ✅ 🏆 💰 等符号；┌ ═ ║ ─ │ ├ 等代码块符号')
+            lines.append('')
+
+            # AI 生图约束（对齐 Skill 格式）
+            lines.append('**【AI生图约束】**')
+            lines.append('```')
+            lines.append('光线：柔和自然光，High-key lighting')
+            lines.append('人物：' + slide_char_map.get(i, '[保持人物连贯性]'))
+            if color_tone == 'cold':
+                lines.append('色调：冷色调 [#708090 - #A9A9A9]')
+            elif color_tone == 'warm':
+                lines.append('色调：' + slide_tone_color_map.get(i, '暖色'))
+            else:
+                lines.append('色调：' + slide_tone_color_map.get(i, '品牌主色'))
+            lines.append('背景：虚化' + (scene_dressing.split('场景')[1] if '场景' in scene_dressing else '场景') + '（非纯色）')
+            if visual_elements:
+                ve_labels = [ve_map.get(v, v) for v in visual_elements]
+                lines.append('UI组件：' + '、'.join(ve_labels))
+            lines.append('禁止：纯色背景、手机Mockup、emoji')
+            lines.append('```')
             lines.append('')
 
             # 设计规格

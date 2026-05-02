@@ -78,6 +78,7 @@ class MarketOpportunity:
     differentiation: str = ""       # 差异化说明（告诉客户机会在哪）
     logic_chain: str = ""           # 逻辑链自证
     problem_types: List[ProblemType] = field(default_factory=list)  # 问题类型列表
+    decision_cost: Dict = field(default_factory=dict)  # 决策成本分析 {money_score, time_score, mental_score, risk_score, knowledge_score, total_score, judgment}
 
 
 @dataclass
@@ -232,7 +233,8 @@ class MarketAnalyzer:
                     'market_type': opp.get('market_type', 'blue_ocean'),
                     'differentiation': opp.get('differentiation', ''),
                     'logic_chain': opp.get('logic_chain', ''),
-                    'problem_types': opp.get('problem_types', []),  # 修复：漏掉了问题类型
+                    'problem_types': opp.get('problem_types', []),
+                    'decision_cost': opp.get('decision_cost', {}),
                 }
 
                 # 如果有搜索验证数据，合并进去
@@ -260,7 +262,9 @@ class MarketAnalyzer:
             logger.info(f"[MarketAnalyzer] Step 1 完成: 发现 {len(result['market_opportunities'])} 个蓝海机会")
 
         except Exception as e:
-            logger.error("[MarketAnalyzer] Step 1 异常: %s", str(e))
+            # 诊断：记录异常类型和详情（避免 % 格式化冲突，改用 f-string）
+            import traceback as _tb
+            logger.error(f"[MarketAnalyzer] Step 1 异常: type={type(e).__name__}, msg={str(e)}, tb={_tb.format_exc()}")
             result['error_message'] = f"异常: {str(e)}"
 
         return result
@@ -434,6 +438,7 @@ class MarketAnalyzer:
                     content_direction=opp_data.get('content_direction', ''),
                     market_type=opp_data.get('market_type', 'blue_ocean'),
                     confidence=opp_data.get('confidence', 0.5),
+                    decision_cost=opp_data.get('decision_cost', {}),
                 )
                 # 解析问题类型
                 for pt_data in opp_data.get('problem_types', []):
@@ -531,7 +536,8 @@ class MarketAnalyzer:
 4. **differentiation**：一句话差异化说明
 5. **target_audience**：细分人群描述（如"XX情况但不知怎么选的30-40岁XX"）
 6. **pain_points**：该人群的2-4个真实痛点
-7. **problem_types**：问题类型+场景（用于生成画像）
+7. **decision_cost**：决策成本分析（用户做购买决策时的成本感知）
+8. **problem_types**：问题类型+场景（用于生成画像）
 
    **强制分类要求**：每个机会必须同时包含"使用者问题"和"付费者问题"，缺一不可：
    - 使用者问题：每个机会至少 3 个（产品/服务的直接使用者遇到的问题，如症状、不适、效果不好）
@@ -548,6 +554,16 @@ class MarketAnalyzer:
 
    **scenes**：用户会搜索的**完整搜索句**，数量2-4个，禁止多个症状合并为一条
 
+   **decision_cost（决策成本分析）**：分析目标用户在购买这个细分赛道产品/服务时的决策成本
+   - money_score：金钱成本（1-10分，10分=非常贵，一分钱一分货感知强）
+   - time_score：时间成本（1-10分，10分=需要投入大量时间研究/比较）
+   - mental_score：心理成本（1-10分，10分=选错后果严重，焦虑感强）
+   - risk_score：风险成本（1-10分，10分=试错代价高，不可逆）
+   - knowledge_score：知识门槛（1-10分，10分=普通人难以判断好坏）
+   - total_score：综合评分（5项平均，保留1位小数）
+   - judgment：简短判断（5字以内，如"高价值"、"中价值"、"低价值"）
+   - 分析原则：决策成本越高，用户越需要专业内容来帮助决策，内容价值越大
+
 === 输出格式 ===
 ```json
 {{
@@ -559,6 +575,15 @@ class MarketAnalyzer:
             "differentiation": "一句话说明好在哪",
             "target_audience": "细分人群描述",
             "pain_points": ["痛点1", "痛点2"],
+            "decision_cost": {
+                "money_score": 7,
+                "time_score": 6,
+                "mental_score": 9,
+                "risk_score": 7,
+                "knowledge_score": 8,
+                "total_score": 7.4,
+                "judgment": "高价值"
+            },
             "problem_types": [
                 {{
                     "category": "使用者问题",
@@ -680,6 +705,7 @@ class MarketAnalyzer:
                 differentiation=opp.get('differentiation', ''),
                 logic_chain=opp.get('logic_chain', ''),
                 problem_types=problem_types,
+                decision_cost=opp.get('decision_cost', {}),
             ))
 
         # 调试日志：打印每个机会的问题类型数量和 category 分布

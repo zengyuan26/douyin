@@ -376,6 +376,17 @@
     }
     .opp-peek-score:hover { opacity: 0.75; }
 
+    .opp-peek-dc {
+        font-size: 0.6875rem;
+        padding: 2px 8px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        transition: opacity 0.15s;
+    }
+    .opp-peek-dc:hover { opacity: 0.75; }
+
     .opp-peek-direction {
         font-size: 0.9375rem;
         color: var(--apple-blue, #007aff);
@@ -2177,13 +2188,22 @@
                                     <label class="form-label">请描述具体场景</label>
                                     <input type="text" class="form-control" id="other-scenario-input" placeholder="请输入">
                                 </div>
-                                <div class="col-12" style="margin-top: 10px;">
+                                <div class="col-12" style="margin-top: 10px; display: flex; gap: 10px;">
+                                    <button type="button" class="btn btn-outline-secondary" id="btn-decision-cost-analyze"
+                                            onclick="showDecisionCostAnalyzeModal()"
+                                            style="flex: 1; padding: 10px; font-size: 0.875rem;">
+                                        <i class="bi bi-shield-check" style="margin-right: 4px;"></i>
+                                        决策成本
+                                    </button>
                                     <button type="button" class="btn-apple btn-primary-apple" id="btn-one-key-analyze"
                                             onclick="portraitMineAndGenerate()"
-                                            style="width: 100%; padding: 12px; font-size: 0.9375rem;">
-                                        <i class="bi bi-lightning-charge-fill" style="margin-right: 6px;"></i>
+                                            style="flex: 1; padding: 10px; font-size: 0.875rem;">
+                                        <i class="bi bi-lightning-charge-fill" style="margin-right: 4px;"></i>
                                         一键分析
                                     </button>
+                                </div>
+                                <div class="form-text text-muted" style="text-align: center; margin-top: 6px;">
+                                    决策成本：评估内容价值 | 一键分析：智能生成画像
                                 </div>
                             </div>
                         </div>
@@ -2966,6 +2986,122 @@ function handleServiceScenarioChange() {
     }
 }
 
+// 行业级决策成本分析
+let _decisionCostCache = null;
+
+function showDecisionCostAnalyzeModal() {
+    const businessDesc = document.getElementById('business-desc').value.trim();
+    if (!businessDesc) {
+        showToast('请先输入核心业务描述', 'warning');
+        return;
+    }
+
+    // 如果已有分析结果，直接显示
+    if (_decisionCostCache && _decisionCostCache.business_desc === businessDesc) {
+        renderDecisionCostResult(_decisionCostCache);
+        return;
+    }
+
+    // 显示加载状态
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    modal.id = 'decision-cost-loading-modal';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+            <div class="apple-spinner mx-auto" style="width:40px;height:40px;border-width:3px;margin-bottom:16px;"></div>
+            <div style="font-size:0.9375rem;color:#333;margin-bottom:8px;">正在分析行业决策成本...</div>
+            <div style="font-size:0.8125rem;color:#888;">基于核心业务：${businessDesc}</div>
+        </div>`;
+    document.body.appendChild(modal);
+
+    // 调用 API
+    fetch('/public/api/market/decision-cost-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ business_description: businessDesc })
+    })
+    .then(resp => resp.json())
+    .then(result => {
+        modal.remove();
+        if (result.success && result.data) {
+            _decisionCostCache = { ...result.data, business_desc: businessDesc };
+            renderDecisionCostResult(_decisionCostCache);
+        } else {
+            showToast(result.message || '分析失败', 'error');
+        }
+    })
+    .catch(err => {
+        modal.remove();
+        console.error('[决策成本分析] 异常:', err);
+        showToast('分析失败，请稍后重试', 'error');
+    });
+}
+
+function renderDecisionCostResult(data) {
+    const dcData = data.decision_cost || {};
+    const dcTotal = dcData.total_score || 0;
+    const dcJudgment = dcData.judgment || '';
+    const dcAnalysis = dcData.analysis || {};
+    const dcColor = dcTotal >= 7 ? '#34c759' : dcTotal >= 5 ? '#ff9500' : '#ff3b30';
+    const dcBgColor = dcTotal >= 7 ? 'rgba(52,199,89,0.12)' : dcTotal >= 5 ? 'rgba(255,149,0,0.12)' : 'rgba(255,59,48,0.12)';
+
+    const bars = [
+        { label: '💰 金钱成本', score: dcData.money_score || 0, desc: dcAnalysis.money || '' },
+        { label: '⏰ 时间成本', score: dcData.time_score || 0, desc: dcAnalysis.time || '' },
+        { label: '😰 心理成本', score: dcData.mental_score || 0, desc: dcAnalysis.mental || '' },
+        { label: '⚠️ 风险成本', score: dcData.risk_score || 0, desc: dcAnalysis.risk || '' },
+        { label: '📚 知识门槛', score: dcData.knowledge_score || 0, desc: dcAnalysis.knowledge || '' },
+    ];
+
+    const barItems = bars.map(b => {
+        const pct = (b.score / 10) * 100;
+        const barColor = b.score >= 7 ? '#34c759' : b.score >= 5 ? '#ff9500' : '#ff3b30';
+        return `<div style="margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="font-size:0.875rem;color:#333;font-weight:500;">${b.label}</span>
+                <span style="font-size:0.875rem;font-weight:700;color:${barColor};">${b.score}分</span>
+            </div>
+            <div style="height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width 0.3s;"></div>
+            </div>
+            ${b.desc ? `<div style="font-size:0.75rem;color:#666;margin-top:4px;line-height:1.4;">${b.desc}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    const insight = data.insight || '';
+
+    const m = document.createElement('div');
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    m.onclick = (e) => { if (e.target === m) m.remove(); };
+    m.innerHTML = `
+        <div style="background:white;border-radius:16px;width:100%;max-width:600px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #eee;flex-shrink:0;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:32px;height:32px;background:#5856d6;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-shield-check" style="color:white;font-size:1rem;"></i>
+                    </div>
+                    <span style="font-size:1rem;font-weight:600;color:#1c1c1e;">行业决策成本分析</span>
+                </div>
+                <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#888;font-size:1.25rem;padding:4px;">✕</button>
+            </div>
+            <div style="padding:24px;overflow-y:auto;flex:1;">
+            <div style="text-align:center;margin-bottom:20px;padding:20px;background:${dcBgColor};border-radius:12px;">
+                <div style="font-size:3rem;font-weight:800;color:${dcColor};line-height:1;">${dcTotal.toFixed(1)}</div>
+                <div style="font-size:0.8125rem;color:${dcColor};margin-top:6px;font-weight:500;">综合决策成本评分</div>
+                ${dcJudgment ? `<div style="font-size:0.9375rem;font-weight:600;color:${dcColor};margin-top:6px;">${dcJudgment}</div>` : ''}
+            </div>
+            <div style="margin-bottom:16px;">
+                <div style="font-size:0.8125rem;color:#888;margin-bottom:12px;">5维度深度分析（分数越高=用户决策越难=内容价值越大）</div>
+                ${barItems}
+            </div>
+            ${insight ? `<div style="padding:12px;background:#f8f9fa;border-radius:8px;font-size:0.8125rem;color:#666;line-height:1.5;">${insight}</div>` : ''}
+            </div>
+        </div>`;
+    document.body.appendChild(m);
+}
+
+// 验证核心业务描述
 function validateCoreBusiness(businessDesc) {
     if (!businessDesc) {
         return { valid: false, message: '请输入核心业务描述' };
@@ -3055,13 +3191,18 @@ async function portraitMineAndGenerate() {
 
         if (result.success && result.data) {
             const data = result.data;
-            const opportunities = data.opportunities || [];
+            // 兼容新旧 API 结构：新结构将数据放在 market_analysis 字段下
+            const marketAnalysis = data.market_analysis || {};
+            const opportunities = marketAnalysis.opportunities || data.opportunities || [];
+            const subdivisionInsights = marketAnalysis.subdivision_insights || data.subdivision_insights || {};
+            const problemTypes = data.problem_types || marketAnalysis.problem_types || [];
 
             // 调试日志
             console.log('[portraitMineAndGenerate] API返回:', {
                 opportunitiesCount: opportunities.length,
                 opportunities: opportunities,
-                dataKeys: Object.keys(data)
+                dataKeys: Object.keys(data),
+                hasMarketAnalysis: !!marketAnalysis
             });
 
             // 缓存市场分析结果（蓝海机会）
@@ -3071,9 +3212,9 @@ async function portraitMineAndGenerate() {
                 business_range: businessRange,
                 service_scenario: serviceScenario,
                 opportunities: opportunities,
-                subdivision_insights: data.subdivision_insights || {},
+                subdivision_insights: subdivisionInsights,
                 analysis_result: {
-                    problem_types: data.problem_types || [],
+                    problem_types: problemTypes,
                 },
             };
 
@@ -3186,6 +3327,63 @@ function showBlueOceanIndexModal(idx) {
             ${logicChain ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(0,122,255,0.05);border-left:3px solid #007aff;border-radius:0 8px 8px 0;">
                 <div style="font-size:0.75rem;color:#666;line-height:1.5;">${logicChain}</div>
             </div>` : ''}
+        </div>`;
+    document.body.appendChild(m);
+}
+
+// 决策成本详情弹框
+function showDecisionCostModal(idx) {
+    const opp = (_opportunityCarouselData || [])[idx];
+    if (!opp) return;
+
+    const dcData = opp.decision_cost || {};
+    const dcTotal = dcData.total_score || 0;
+    const dcJudgment = dcData.judgment || '';
+    const dcAnalysis = dcData.analysis || {};
+    const dcColor = dcTotal >= 7 ? '#34c759' : dcTotal >= 5 ? '#ff9500' : '#ff3b30';
+    const dcBgColor = dcTotal >= 7 ? 'rgba(52,199,89,0.12)' : dcTotal >= 5 ? 'rgba(255,149,0,0.12)' : 'rgba(255,59,48,0.12)';
+
+    const bars = [
+        { label: '💰 金钱', score: dcData.money_score || 0, desc: dcAnalysis.money || '' },
+        { label: '⏰ 时间', score: dcData.time_score || 0, desc: dcAnalysis.time || '' },
+        { label: '😰 心理', score: dcData.mental_score || 0, desc: dcAnalysis.mental || '' },
+        { label: '⚠️ 风险', score: dcData.risk_score || 0, desc: dcAnalysis.risk || '' },
+        { label: '📚 知识', score: dcData.knowledge_score || 0, desc: dcAnalysis.knowledge || '' },
+    ];
+
+    const barItems = bars.map(b => {
+        const pct = (b.score / 10) * 100;
+        const barColor = b.score >= 7 ? '#34c759' : b.score >= 5 ? '#ff9500' : '#ff3b30';
+        return `<div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span style="font-size:0.8125rem;color:#333;">${b.label}</span>
+                <span style="font-size:0.75rem;font-weight:700;color:${barColor};">${b.score}分</span>
+            </div>
+            <div style="height:6px;background:#e8e8ed;border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width 0.3s;"></div>
+            </div>
+            ${b.desc ? `<div style="font-size:0.6875rem;color:#888;margin-top:3px;">${b.desc}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    const m = document.createElement('div');
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    m.onclick = (e) => { if (e.target === m) m.remove(); };
+    m.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:70vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <span style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);">决策成本分析</span>
+                <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#888;font-size:1.125rem;padding:4px;line-height:1;">✕</button>
+            </div>
+            <div style="text-align:center;margin-bottom:16px;padding:12px;background:${dcBgColor};border-radius:12px;">
+                <div style="font-size:2.5rem;font-weight:800;color:${dcColor};line-height:1;">${dcTotal.toFixed(1)}</div>
+                <div style="font-size:0.75rem;color:${dcColor};margin-top:4px;">决策成本评分</div>
+                ${dcJudgment ? `<div style="font-size:0.8125rem;font-weight:600;color:${dcColor};margin-top:4px;">${dcJudgment}</div>` : ''}
+            </div>
+            <div style="margin-bottom:8px;">
+                <div style="font-size:0.75rem;color:#888;margin-bottom:8px;">5维度分析（分数越高=用户决策越难=内容价值越大）</div>
+                ${barItems}
+            </div>
         </div>`;
     document.body.appendChild(m);
 }
@@ -3306,6 +3504,20 @@ function buildCardHTML(opp, idx, total, isActive) {
     // 只要生成过画像就强制显示已收藏
     const isCollected = hasGenerated || SnapshotManager.isCollected(oppName);
 
+    // 决策成本数据
+    const dcData = opp.decision_cost || {};
+    const dcTotal = dcData.total_score || 0;
+    const dcJudgment = dcData.judgment || '';
+    const dcMoney = dcData.money_score || 0;
+    const dcTime = dcData.time_score || 0;
+    const dcMental = dcData.mental_score || 0;
+    const dcRisk = dcData.risk_score || 0;
+    const dcKnowledge = dcData.knowledge_score || 0;
+    const hasDecisionCost = dcTotal > 0;
+    // 决策成本颜色：7+高价值=绿色，5-7中价值=橙色，<5低价值=红色
+    const dcColor = dcTotal >= 7 ? '#34c759' : dcTotal >= 5 ? '#ff9500' : '#ff3b30';
+    const dcBgColor = dcTotal >= 7 ? 'rgba(52,199,89,0.12)' : dcTotal >= 5 ? 'rgba(255,149,0,0.12)' : 'rgba(255,59,48,0.12)';
+
     // 详情面板数据
     const unmetProblem = opp.unmet_problem || '';
     const sevCons = opp.severity_consequence || '';
@@ -3379,6 +3591,11 @@ function buildCardHTML(opp, idx, total, isActive) {
                       style="background:${overallScore >= 60 ? 'rgba(52,199,89,0.12)' : overallScore >= 40 ? 'rgba(255,149,0,0.12)' : 'rgba(255,59,48,0.12)'};color:${scoreColor};">
                     <i class="bi bi-bar-chart-fill" style="font-size:0.5625rem;"></i>${overallScore}
                 </span>
+                ${hasDecisionCost ? `
+                <span class="opp-peek-dc" onclick="event.stopPropagation();showDecisionCostModal(${idx})"
+                      style="background:${dcBgColor};color:${dcColor};" title="决策成本">
+                    <i class="bi bi-shield-check" style="font-size:0.5625rem;"></i>${dcTotal.toFixed(1)}
+                </span>` : ''}
                 <button class="opp-collect-btn ${isCollected ? 'collected' : ''}"
                         onclick="event.stopPropagation();SnapshotManager.toggleCollectByName('${escapedName}')"
                         title="${isCollected ? '已收藏' : '收藏'}">
@@ -7130,6 +7347,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     await initSnapshotRestore();
     bindSnapshotAutoSave();
     bindBusinessRangeToggle();
+    initLanguageStyleToggle();  // 初始化语言风格切换
     const userId = document.body.dataset.userId;
     if (userId) {
         await SnapshotManager.init();

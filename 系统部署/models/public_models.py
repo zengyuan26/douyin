@@ -279,6 +279,11 @@ class SavedPortrait(db.Model):
     # 淡旺季配置（JSON）：has_seasonality, peak_months, off_season_note
     seasonal_config = db.Column(db.JSON)
 
+    # 运营规划方案（JSON）
+    operation_plan = db.Column(db.JSON)
+    # 运营规划更新时间
+    operation_plan_updated_at = db.Column(db.DateTime)
+
     # 时间戳
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -316,6 +321,11 @@ class SavedPortrait(db.Model):
         if not self.topic_cache_expires_at:
             return True
         return self.topic_cache_expires_at < datetime.utcnow()
+
+    @property
+    def has_operation_plan(self):
+        """是否有运营规划"""
+        return bool(self.operation_plan)
 
 
 class OpportunitySnapshot(db.Model):

@@ -1438,6 +1438,7 @@
             padding: 1px 4px;
         }
     }
+
 </style>
 {% endblock %}
 
@@ -1900,8 +1901,25 @@ async function loadPortraitData() {
         _userId = _portrait.user_id || _portrait.created_by || null;
         renderPortraitInfo();
         await loadTopics();
+        // 加载运营规划
+        loadOperationPlan();
     } catch (e) {
         showToast('加载画像失败', 'error');
+    }
+}
+
+async function loadOperationPlan() {
+    if (!_portraitId) return;
+    try {
+        const resp = await fetch('/public/api/portraits/' + _portraitId + '/operation-plan', {
+            credentials: 'include'
+        });
+        const data = await resp.json();
+        if (data.success && data.data.operation_plan) {
+            updateOperationPlanCard(data.data.operation_plan);
+        }
+    } catch (e) {
+        // ignore
     }
 }
 
@@ -2786,6 +2804,37 @@ function escHtml(s) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+function showMarkdownModal(title, markdown) {
+    // 简单渲染 Markdown 为 HTML
+    var html = markdown
+        .replace(/^# (.*$)/gm, '<h1 style="font-size:1.25rem;font-weight:600;margin-bottom:12px;">$1</h1>')
+        .replace(/^## (.*$)/gm, '<h2 style="font-size:1.1rem;font-weight:600;margin-bottom:10px;margin-top:16px;">$1</h2>')
+        .replace(/^### (.*$)/gm, '<h3 style="font-size:1rem;font-weight:600;margin-bottom:8px;margin-top:12px;">$1</h3>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/^- (.*$)/gm, '<li style="margin-bottom:4px;">$1</li>')
+        .replace(/^(\d+)\. (.*$)/gm, '<li style="margin-bottom:4px;">$2</li>')
+        .replace(/\n\n/g, '</p><p style="margin-bottom:8px;">')
+        .replace(/```([\s\S]*?)```/g, '<pre style="background:#f5f5f5;padding:12px;border-radius:6px;overflow-x:auto;font-size:0.8125rem;margin-bottom:12px;">$1</pre>');
+
+    var modal = document.createElement('div');
+    modal.id = 'md-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = '<div style="background:#fff;border-radius:16px;width:90%;max-width:600px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #eee;">' +
+        '<div style="font-weight:600;font-size:1rem;">' + escHtml(title) + '</div>' +
+        '<button onclick="this.closest(\'#md-modal\').remove()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;padding:4px 8px;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:20px;overflow-y:auto;flex:1;font-size:0.875rem;line-height:1.6;">' +
+        '<p style="margin-bottom:8px;">' + html + '</p>' +
+        '</div>' +
+        '</div>';
+    modal.onclick = function(e) {
+        if (e.target === modal) modal.remove();
+    };
+    document.body.appendChild(modal);
 }
 
 function pad(n) {

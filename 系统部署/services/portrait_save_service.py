@@ -144,7 +144,7 @@ class PortraitSaveService:
                        keyword_library, topic_library,
                        keyword_updated_at, keyword_update_count, keyword_cache_expires_at,
                        topic_updated_at, topic_update_count, topic_cache_expires_at,
-                       generation_status, generation_error
+                       generation_status, generation_error, extra_data
                 FROM saved_portraits
                 WHERE id = :id
             """),
@@ -196,6 +196,8 @@ class PortraitSaveService:
             # 生成状态
             'generation_status': result[19] or 'pending',
             'generation_error': result[20],
+            # extra_data（包含运营规划等）
+            'extra_data': parse_json(result[21]) if len(result) > 21 else None,
         }
     
     @classmethod
@@ -207,7 +209,7 @@ class PortraitSaveService:
                    keyword_library, topic_library,
                    keyword_updated_at, keyword_update_count, keyword_cache_expires_at,
                    topic_updated_at, topic_update_count, topic_cache_expires_at,
-                   generation_status, generation_error
+                   generation_status, generation_error, extra_data
             FROM saved_portraits
             WHERE user_id = :user_id
             ORDER BY is_default DESC, last_used_at DESC, created_at DESC
@@ -227,13 +229,6 @@ class PortraitSaveService:
 
         portraits = []
         for r in results:
-            # 调试日志
-            # 索引: 0=id, 1=portrait_name, 2=portrait_data, 3=industry, 4=target_customer,
-            #       5=is_default, 6=used_count, 7=last_used_at, 8=created_at,
-            #       9=keyword_library, 10=topic_library,
-            #       11=keyword_updated_at, 12=keyword_update_count, 13=keyword_cache_expires_at,
-            #       14=topic_updated_at, 15=topic_update_count, 16=topic_cache_expires_at,
-            #       17=generation_status, 18=generation_error
             portrait = {
                 'id': r[0],
                 'portrait_name': r[1],
@@ -255,6 +250,8 @@ class PortraitSaveService:
                 # 生成状态
                 'generation_status': r[17] or 'pending',
                 'generation_error': r[18],
+                # extra_data（包含运营规划等）
+                'extra_data': parse_json(r[19]) if len(r) > 19 else None,
             }
             if include_data:
                 portrait['portrait_data'] = parse_json(r[2])

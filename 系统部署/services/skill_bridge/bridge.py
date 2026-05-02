@@ -216,6 +216,8 @@ class SkillBridge:
         content_style: str = "",
         business_range: str = "",
         business_type: str = "",
+        operation_plan: Optional[dict] = None,  # 运营规划数据
+        five_stage_info: Optional[dict] = None,  # 【新增】五段式信息
         skip_steps: Optional[List[str]] = None,
         _hvf_titles: Optional[List[dict]] = None,
         _pyramid_tags: Optional[List[str]] = None,
@@ -227,6 +229,8 @@ class SkillBridge:
           topic_library 输出 → 选题信息和五段式规划
           portrait_generator 输出 → 画像信息
           预生成的标题/标签 → H-V-F标题候选、金字塔标签
+          operation_plan → 运营规划（蓝海机会、人设、信任证据、风格定位）
+          five_stage_info → 五段式信息（阶段配比、GEO模式匹配）
         """
         manual_inputs = {
             "topic_id": topic_id,
@@ -253,12 +257,19 @@ class SkillBridge:
             manual_inputs["business_range"] = business_range
         if business_type:
             manual_inputs["business_type"] = business_type
+        # 新增：传递运营规划数据
+        # 【修复】始终传递 operation_plan，确保占位符被填充
+        manual_inputs["operation_plan"] = operation_plan if operation_plan else {}
+        # 【修复】始终传递 five_stage_info，确保占位符被填充
+        manual_inputs["five_stage_info"] = five_stage_info if five_stage_info else {}
 
         # 传递预生成的H-V-F标题候选和金字塔标签
         if _hvf_titles:
             manual_inputs["_hvf_titles"] = _hvf_titles
         if _pyramid_tags:
             manual_inputs["_pyramid_tags"] = _pyramid_tags
+        # 【修复】始终传递 operation_plan，确保占位符被填充
+        manual_inputs["operation_plan"] = operation_plan if operation_plan else {}
 
         return self._executor.execute_skill(
             "content_generator",
@@ -315,6 +326,9 @@ class SkillBridge:
             manual_inputs["business_type"] = business_type
         if structure_id:
             manual_inputs["structure_id"] = structure_id
+        # 【修复】始终传递可选参数，确保占位符被填充
+        manual_inputs["brand_context"] = brand_context if brand_context else {}
+        manual_inputs["keyword_library"] = keyword_library if keyword_library else {}
 
         return self._executor.execute_skill(
             "video_script_generator",
@@ -371,6 +385,9 @@ class SkillBridge:
             manual_inputs["business_type"] = business_type
         if template_id:
             manual_inputs["template_id"] = template_id
+        # 【修复】始终传递可选参数，确保占位符被填充
+        manual_inputs["brand_context"] = brand_context if brand_context else {}
+        manual_inputs["keyword_library"] = keyword_library if keyword_library else {}
 
         return self._executor.execute_skill(
             "long_text_generator",
@@ -410,6 +427,44 @@ class SkillBridge:
             skip_steps=skip_steps,
         )
 
+    def execute_operations_expert(
+        self,
+        business_description: str,
+        industry: str,
+        business_type: str = "b2c",
+        market_analyzer_output: Optional[dict] = None,
+        skip_steps: Optional[List[str]] = None,
+    ) -> SkillExecutionResult:
+        """
+        执行运营规划 skill。
+
+        基于市场洞察分析结果，发现蓝海细分市场机会、打造差异化定位、
+        设计账号体系、制定运营方案。
+
+        Args:
+            business_description: 业务描述，如"卖奶粉"
+            industry: 行业，如"奶粉"
+            business_type: 业务类型，"b2b" | "b2c" | "both"
+            market_analyzer_output: 市场分析输出（可选，包含人群细分、蓝海机会等）
+            skip_steps: 跳过的步骤
+
+        Returns:
+            SkillExecutionResult
+        """
+        manual_inputs = {
+            "business_description": business_description,
+            "industry": industry,
+            "business_type": business_type,
+        }
+        if market_analyzer_output:
+            manual_inputs["market_analyzer_output"] = market_analyzer_output
+
+        return self._executor.execute_skill(
+            "operations_expert",
+            manual_inputs=manual_inputs,
+            skip_steps=skip_steps,
+        )
+
     def execute_title_generator(
         self,
         topic_title: str,
@@ -442,6 +497,49 @@ class SkillBridge:
             "title_generator",
             manual_inputs=manual_inputs,
             skip_steps=skip_steps,
+        )
+
+    def execute_title_review(
+        self,
+        topic_title: str,
+        generated_titles: List[Dict],
+        portrait: Optional[dict] = None,
+        keywords: Optional[dict] = None,
+        geo_mode: str = "",
+        industry: str = "",
+    ) -> SkillExecutionResult:
+        """
+        执行标题审核（基于已生成的标题）。
+
+        使用方式：
+            result = bridge.execute_title_generator(...)
+            if result.success:
+                review_result = bridge.execute_title_review(
+                    topic_title="...",
+                    generated_titles=result.full_output.get('step_title_generate', {}).get('titles', []),
+                    ...
+                )
+        """
+        manual_inputs = {
+            "topic_title": topic_title,
+            "step_title_generate": {
+                "titles": generated_titles,
+            },
+        }
+        if portrait:
+            manual_inputs["portrait"] = portrait
+        if keywords:
+            manual_inputs["keywords"] = keywords
+        if geo_mode:
+            manual_inputs["geo_mode"] = geo_mode
+        if industry:
+            manual_inputs["industry"] = industry
+
+        # 跳过前两个步骤，只执行 step_title_review
+        return self._executor.execute_skill(
+            "title_generator",
+            manual_inputs=manual_inputs,
+            skip_steps=["step_hvf_analysis", "step_title_generate"],
         )
 
     def execute_tag_generator(

@@ -161,7 +161,8 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str = 'free'
     1. 更新状态 = 'generating'
     2. 使用 KeywordLibraryGenerator.generate_template() 按模板生成关键词库（9分类，100+个）
     3. 使用 TopicLibraryGenerator.generate() 生成选题库（五段式）
-    4. 保存结果，更新状态 = 'completed' / 'failed'
+    4. 【新增】使用 OperationsPlanner 生成运营规划（五段式配比 + GEO模式匹配）
+    5. 保存结果，更新状态 = 'completed' / 'failed'
     """
     from models.public_models import SavedPortrait, db
     from services.portrait_save_service import portrait_save_service
@@ -187,6 +188,7 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str = 'free'
         portrait_data_dict = portrait.get('portrait_data', {}) or {}
         business_description = portrait.get('business_description', '') or ''
         target_customer = portrait.get('target_customer', '') or ''
+        industry = portrait.get('industry', '') or ''
         region = portrait.get('region', '') or ''
 
         def _to_list(val):
@@ -215,7 +217,7 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str = 'free'
         kw_result = keyword_generator.generate_template(
             business_info={
                 'business_description': business_description,
-                'industry': portrait.get('industry', ''),
+                'industry': industry,
             },
             core_business=business_description,
             region=region,
@@ -238,7 +240,7 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str = 'free'
             portrait_data=portrait_data_dict,
             business_info={
                 'business_description': business_description,
-                'industry': portrait.get('industry', ''),
+                'industry': industry,
                 'products': [],
                 'region': region,
                 'target_customer': target_customer,
@@ -259,16 +261,70 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str = 'free'
             portrait_id, len(tl.get('topics', [])),
         )
 
-        # ── ③ 保存两个库，更新状态 ──────────────────────────────
+        # ── ③ 生成运营规划（五段式配比 + GEO模式匹配）【新增】─────
+        from services.operations_planner import generate_operations_plan
+        from datetime import datetime
+
+        # 构建业务信息
+        business_info_for_plan = {
+            'business_description': business_description,
+            'business_name': portrait.get('portrait_name', '') or industry,
+            'industry': industry,
+            'target_customer': target_customer,
+        }
+
+        # 获取画像列表
+        portraits_list = portrait.get('portraits', []) if isinstance(portrait.get('portraits'), list) else []
+
+        # 如果画像数据中没有portraits，尝试从portrait_data中提取
+        if not portraits_list:
+            # 兼容旧格式：portrait_data可能是单个画像
+            if portrait_data_dict and isinstance(portrait_data_dict, dict):
+                portraits_list = [portrait_data_dict]
+
+        operations_plan = {}
+        try:
+            if portraits_list:
+                operations_plan = generate_operations_plan(
+                    portraits=portraits_list,
+                    business_info=business_info_for_plan,
+                    content_stage='起号阶段',
+                    target_topic_count=len(tl.get('topics', [])) or 30,
+                )
+                logger.info(
+                    "[PortraitLibraryTask] 运营规划生成完成 portrait_id=%d: plan_id=%s",
+                    portrait_id, operations_plan.get('plan_id', 'N/A')
+                )
+            else:
+                logger.warning(
+                    "[PortraitLibraryTask] 无画像数据，跳过运营规划生成 portrait_id=%d",
+                    portrait_id
+                )
+        except Exception as e:
+            logger.warning(
+                "[PortraitLibraryTask] 运营规划生成失败 portrait_id=%d: %s",
+                portrait_id, str(e)
+            )
+            # 运营规划失败不影响整体流程，继续保存其他数据
+
+        # ── ④ 保存三个库，更新状态 ──────────────────────────────
         portrait_row = SavedPortrait.query.get(portrait_id)
         if portrait_row:
             portrait_row.keyword_library = kl
             portrait_row.topic_library = tl
             portrait_row.generation_status = 'completed'
+
+            # 保存运营规划到 extra_data
+            if operations_plan:
+                extra_data = portrait_row.extra_data or {}
+                extra_data['operations_plan'] = operations_plan
+                extra_data['operations_plan_updated_at'] = datetime.utcnow().isoformat()
+                portrait_row.extra_data = extra_data
+
             db.session.commit()
 
             logger.info(
-                "[PortraitLibraryTask] 关键词库+选题库全部生成完成 portrait_id=%d",
+                "[PortraitLibraryTask] 关键词库+选题库+运营规划全部生成完成 portrait_id=%d",
                 portrait_id
             )
         else:

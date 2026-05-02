@@ -1081,6 +1081,299 @@ def get_library_quota(user):
     })
 
 
+# =============================================================================
+# 运营规划 API
+# =============================================================================
+
+@portrait_bp.route('/<int:portrait_id>/operation-plan', methods=['GET'])
+@login_required
+def get_operation_plan(user, portrait_id):
+    """
+    获取画像的运营规划方案
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'operation_plan': portrait.get('operation_plan'),
+            'operation_plan_updated_at': portrait.get('operation_plan_updated_at'),
+            'has_operation_plan': bool(portrait.get('operation_plan')),
+        }
+    })
+
+
+@portrait_bp.route('/<int:portrait_id>/operation-plan/generate', methods=['POST'])
+@login_required
+def generate_operation_plan(user, portrait_id):
+    """
+    生成/更新画像的运营规划方案
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    try:
+        from services.skill_bridge import SkillBridge
+        bridge = SkillBridge()
+
+        # 获取画像数据
+        business_description = portrait.get('business_description', '')
+        industry = portrait.get('industry', '')
+
+        # 判断业务类型（简化：从业务描述推断）
+        business_type = 'b2c'
+        if any(kw in business_description.lower() for kw in ['企业', '批发', '代理', '加盟', 'B端', 'B2B']):
+            business_type = 'b2b'
+        elif any(kw in business_description.lower() for kw in ['零售', 'to c', 'toc', '个人', '家庭']):
+            business_type = 'b2c'
+        else:
+            business_type = 'both'
+
+        # 获取市场分析数据（如果有）
+        market_analyzer_output = None
+        keyword_library = portrait.get('keyword_library')
+
+        # 获取前端传来的客户资料（运营规划补充信息）
+        request_data = request.get_json() or {}
+        client_info = {
+            'brand_name': request_data.get('brand_name', portrait.get('client_name', '')),
+            'brand_type': request_data.get('brand_type', 'personal'),
+            'operating_years': request_data.get('operating_years', ''),
+            'core_advantages': request_data.get('core_advantages', ''),
+            'target_audience': request_data.get('target_audience', ''),
+            'competitors': request_data.get('competitors', ''),
+            'blue_ocean': request_data.get('blue_ocean', ''),
+        }
+
+        # 调用运营规划 skill，传入客户补充信息
+        result = bridge.execute(
+            skill_name='operations_expert',
+            manual_inputs={
+                'business_description': business_description,
+                'industry': industry,
+                'business_type': business_type,
+                'market_analyzer_output': market_analyzer_output,
+                # 新增：客户补充信息
+                'client_name': client_info['brand_name'],
+                'brand_type': client_info['brand_type'],
+                'operating_years': client_info['operating_years'],
+                'core_advantages': client_info['core_advantages'],
+                'target_audience': client_info['target_audience'],
+                'competitors': client_info['competitors'],
+                'blue_ocean_opportunity': client_info['blue_ocean'],
+            },
+        )
+
+        if not result.success:
+            return jsonify({
+                'success': False,
+                'message': f"运营规划生成失败: {result.errors[0] if result.errors else '未知错误'}"
+            }), 500
+
+        operation_plan = result.full_output
+
+        # 保存到画像
+        portrait_model = SavedPortrait.query.get(portrait_id)
+        if portrait_model:
+            portrait_model.operation_plan = operation_plan
+            portrait_model.operation_plan_updated_at = datetime.utcnow()
+            db.session.commit()
+
+        logger.info("[generate_operation_plan] portrait_id=%s, 生成成功", portrait_id)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'operation_plan': operation_plan,
+                'operation_plan_updated_at': datetime.utcnow().isoformat(),
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        logger.error("[generate_operation_plan] 异常: %s", e)
+        logger.debug("[generate_operation_plan] 堆栈: %s", traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'生成失败: {str(e)}'
+        }), 500
+
+
+@portrait_bp.route('/<int:portrait_id>/operation-plan/markdown', methods=['GET'])
+@login_required
+def get_operation_plan_markdown(user, portrait_id):
+    """
+    获取运营规划方案的 Markdown 格式（用于预览）
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '无权访问'}), 403
+
+    plan = portrait.get('operation_plan')
+    if not plan:
+        return jsonify({'success': False, 'message': '运营规划为空，请先生成'}), 404
+
+    portrait_name = portrait.get('portrait_name', '未命名')
+    updated_at = portrait.get('operation_plan_updated_at')
+    updated_str = updated_at.strftime('%Y-%m-%d %H:%M') if hasattr(updated_at, 'strftime') else str(updated_at or '未知')
+
+    md = _build_operation_plan_markdown(plan, portrait_name, updated_str)
+    return jsonify({'success': True, 'data': {'markdown': md}})
+
+
+def _build_operation_plan_markdown(plan: dict, portrait_name: str, updated_at: str) -> str:
+    """将运营规划字典渲染为 Markdown 文本"""
+    lines = [
+        f"# 📊 {portrait_name} - 运营规划方案",
+        "",
+        f"| 项目 | 内容 |",
+        f"|------|------|",
+        f"| 画像名称 | {portrait_name} |",
+        f"| 生成时间 | {updated_at} |",
+        "",
+    ]
+
+    # 蓝海机会
+    blue_ocean = plan.get('step_blue_ocean_opportunity', {})
+    if blue_ocean:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 🎯 蓝海机会")
+        lines.append("")
+        rec = blue_ocean.get('recommended_blue_ocean', '')
+        if rec:
+            lines.append(f"**推荐方向**：{rec}")
+            lines.append("")
+        core_problem = blue_ocean.get('core_problem', '')
+        if core_problem:
+            lines.append(f"**核心问题**：{core_problem}")
+            lines.append("")
+
+        opportunities = blue_ocean.get('blue_ocean_opportunities', [])
+        if opportunities:
+            lines.append("### 备选蓝海方向")
+            for i, opp in enumerate(opportunities, 1):
+                lines.append(f"**{i}. {opp.get('direction', '')}**")
+                lines.append(f"- 问题：{opp.get('problem', '')}")
+                lines.append(f"- 人群：{opp.get('target_audience', '')}")
+                lines.append(f"- 原因：{opp.get('why_blue_ocean', '')}")
+                lines.append("")
+
+    # 账号设计
+    account_design = plan.get('step_account_design', {})
+    if account_design:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 👤 账号设计")
+        lines.append("")
+
+        nicknames = account_design.get('nickname_options', [])
+        if nicknames:
+            lines.append("### 昵称方案")
+            for i, nick in enumerate(nicknames, 1):
+                lines.append(f"{i}. **{nick.get('nickname', '')}** ({nick.get('style', '')})")
+                lines.append(f"   - {nick.get('reason', '')}")
+            lines.append("")
+
+        bio = account_design.get('bio', '')
+        if bio:
+            lines.append("### 简介")
+            lines.append("```")
+            lines.append(bio)
+            lines.append("```")
+            lines.append("")
+
+        tags = account_design.get('content_tags', [])
+        if tags:
+            lines.append(f"**内容标签**：{' '.join(f'#{t}' for t in tags)}")
+            lines.append("")
+
+    # 信任佐证
+    trust_evidence = plan.get('step_trust_evidence', {})
+    if trust_evidence:
+        lines.append("---")
+        lines.append("")
+        lines.append("## ✅ 信任佐证与竞争优势")
+        lines.append("")
+
+        advantages = trust_evidence.get('core_advantages', [])
+        if advantages:
+            lines.append("### 核心优势")
+            for adv in advantages:
+                lines.append(f"- **{adv.get('advantage', '')}**：{adv.get('evidence', '')}")
+            lines.append("")
+
+        case_data = trust_evidence.get('case_data', '')
+        if case_data:
+            lines.append(f"**案例数据**：{case_data}")
+            lines.append("")
+
+        key_messages = trust_evidence.get('key_messages', [])
+        if key_messages:
+            lines.append("**核心传播信息**：")
+            for msg in key_messages:
+                lines.append(f"- {msg}")
+            lines.append("")
+
+    # 风格定位
+    style_guide = plan.get('step_style_guide', {})
+    if style_guide:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 🎨 风格定位")
+        lines.append("")
+
+        tone = style_guide.get('tone', '')
+        if tone:
+            lines.append(f"**整体风格**：{tone}")
+            lines.append("")
+
+        principles = style_guide.get('principles', [])
+        if principles:
+            lines.append("**内容原则**：")
+            for p in principles:
+                lines.append(f"- {p}")
+            lines.append("")
+
+        taboo = style_guide.get('taboo', [])
+        if taboo:
+            lines.append("**禁忌内容**：")
+            for t in taboo:
+                lines.append(f"- ~~{t}~~")
+            lines.append("")
+
+        content_ratio = style_guide.get('content_ratio', {})
+        if content_ratio:
+            lines.append("### 内容配比")
+            for ratio_type, ratio_val in content_ratio.items():
+                lines.append(f"- {ratio_type}：{ratio_val}")
+            lines.append("")
+
+    return "\n".join(lines)
+
+
 def _is_expired(expires_at) -> bool:
     """判断是否过期"""
     if not expires_at:

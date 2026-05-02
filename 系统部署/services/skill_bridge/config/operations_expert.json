@@ -1,0 +1,206 @@
+{
+  "_comment": "运营规划 Skill 配置 - 基于 operations-expert 简化版 (来源: .cursor/skill/operations-expert/skill.md)",
+
+  "skill": {
+    "name": "operations_expert",
+    "version": "1.0",
+    "display_name": "运营规划生成",
+    "description": "账号运营规划专家，基于市场洞察分析结果，发现蓝海细分市场机会、打造差异化定位、设计账号体系、制定运营方案。核心思维：问题在先、人群在后；产品服务化。",
+    "skill_md_path": ".cursor/skill/operations-expert/skill.md",
+    "input_source": "manual"
+  },
+
+  "input_schema": {
+    "business_description": {
+      "type": "string",
+      "required": true,
+      "description": "业务描述，如'卖奶粉'、'灌香肠加工'"
+    },
+    "industry": {
+      "type": "string",
+      "required": true,
+      "description": "行业名称，如'奶粉'、'香肠加工'"
+    },
+    "business_type": {
+      "type": "string",
+      "enum": ["b2b", "b2c", "both"],
+      "required": true,
+      "description": "业务类型：B端/B端+C端"
+    },
+    "market_analyzer_output": {
+      "type": "object",
+      "required": false,
+      "description": "市场分析输出（包含人群细分、蓝海机会等）"
+    }
+  },
+
+  "steps": [
+    {
+      "id": "step_blue_ocean_opportunity",
+      "name": "蓝海机会分析",
+      "order": 1,
+      "required": true,
+      "llm_prompt_template": "【蓝海机会分析】\n\n基于市场洞察分析，找出\"<<industry>>\"行业的蓝海机会。\n\n核心思维：问题在先，人群在后！\n- ❌ 错误：先定义人群（如新手妈妈），再找需求\n- ✅ 正确：先发现问题（如孩子乳糖不耐受），人群自动出现\n\n请分析并输出（JSON格式）：\n\n```json\n{{\n  \"blue_ocean_opportunities\": [\n    {{\n      \"direction\": \"蓝海方向名称\",\n      \"problem\": \"核心问题（如：宝宝喝奶粉过敏怎么办）\",\n      \"target_audience\": \"目标人群（如：有过敏宝宝的妈妈）\",\n      \"why_blue_ocean\": \"为什么是蓝海（竞争小/需求未被满足）\",\n      \"potential\": \"市场规模预估\",\n      \"difficulty\": \"进入难度（低/中/高）\",\n      \"content_direction\": \"内容方向建议\"\n    }}\n  ],\n  \"recommended_blue_ocean\": \"推荐的蓝海方向\",\n  \"core_problem\": \"最核心要解决的问题\"\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>\n业务类型：<<business_type>>\n市场分析参考：<<market_analyzer_output>>",
+      "output_field": "step_blue_ocean_opportunity",
+      "output_schema": {
+        "blue_ocean_opportunities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "direction": {"type": "string"},
+              "problem": {"type": "string"},
+              "target_audience": {"type": "string"},
+              "why_blue_ocean": {"type": "string"},
+              "potential": {"type": "string"},
+              "difficulty": {"type": "string"},
+              "content_direction": {"type": "string"}
+            }
+          }
+        },
+        "recommended_blue_ocean": {"type": "string"},
+        "core_problem": {"type": "string"}
+      },
+      "data_providers": []
+    },
+
+    {
+      "id": "step_account_design",
+      "name": "账号设计",
+      "order": 2,
+      "required": true,
+      "llm_prompt_template": "【账号设计】\n\n基于蓝海机会，为\"<<industry>>\"行业设计账号方案。\n\n核心原则：\n1. 昵称围绕问题，不围绕产品\n2. 简介强调能解决什么问题\n3. 内容标签使用问题关键词\n\n请输出（JSON格式）：\n\n```json\n{{\n  \"account_design\": {{\n    \"nickname_options\": [\n      {{\n        \"nickname\": \"昵称方案\",\n        \"reason\": \"为什么推荐这个昵称\",\n        \"style\": \"爆款型/品牌型/流量型\"\n      }}\n    ],\n    \"bio\": \"账号简介文案（2-3行，突出专业性和能解决的问题）\",\n    \"bio_template\": \"简介模板参考：\\n🔍 [X]年经验，专治[问题]\\n🌟 [核心服务描述]\\n💬 私信留言免费分析\",\n    \"content_tags\": [\"内容标签1\", \"标签2\", \"标签3\"],\n    \"avatar_suggestion\": \"头像建议\"\n  }},\n  \"differentiation_strategy\": \"差异化策略说明\"\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>\n蓝海机会：<<step_blue_ocean_opportunity>>",
+      "output_field": "step_account_design",
+      "output_schema": {
+        "account_design": {
+          "type": "object",
+          "properties": {
+            "nickname_options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "nickname": {"type": "string"},
+                  "reason": {"type": "string"},
+                  "style": {"type": "string"}
+                }
+              }
+            },
+            "bio": {"type": "string"},
+            "bio_template": {"type": "string"},
+            "content_tags": {"type": "array", "items": {"type": "string"}},
+            "avatar_suggestion": {"type": "string"}
+          }
+        },
+        "differentiation_strategy": {"type": "string"}
+      },
+      "data_providers": ["step_blue_ocean_opportunity"]
+    },
+
+    {
+      "id": "step_trust_evidence",
+      "name": "信任佐证与竞争优势",
+      "order": 3,
+      "required": true,
+      "llm_prompt_template": "【信任佐证与竞争优势】\n\n为\"<<industry>>\"行业提炼信任佐证和竞争优势。\n\n核心思维：卖服务化\n- ❌ 错误：我是卖XX产品的\n- ✅ 正确：我是提供XX解决方案的/XX问题解决专家\n\n请输出（JSON格式）：\n\n```json\n{{\n  \"trust_evidence\": {{\n    \"core_advantages\": [\n      {{\n        \"advantage\": \"核心优势名称（如：货源正宗）\",\n        \"evidence\": \"佐证（如：11年进口奶粉从业经验）\",\n        \"content_angle\": \"如何用内容展示这个优势\"\n      }}\n    ],\n    \"case_data\": \"案例数据描述（如：已帮助10000+宝宝找到适合的方案）\",\n    \"credentials\": [\"资质/证书1\", \"资质/证书2\"],\n    \"service_guarantee\": \"服务保障说明\"\n  }},\n  \"competitive_advantage\": {{\n    \"vs_rivals\": {{\n      \"advantage\": \"vs同行的优势\",\n      \"evidence\": \"证据\"\n    }},\n    \"vs_diy\": {{\n      \"advantage\": \"vs自己解决的优势\",\n      \"evidence\": \"证据\"\n    }}\n  }},\n  \"key_messages\": [\"核心传播信息1\", \"核心传播信息2\"]\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>\n蓝海机会：<<step_blue_ocean_opportunity>>",
+      "output_field": "step_trust_evidence",
+      "output_schema": {
+        "trust_evidence": {
+          "type": "object",
+          "properties": {
+            "core_advantages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "advantage": {"type": "string"},
+                  "evidence": {"type": "string"},
+                  "content_angle": {"type": "string"}
+                }
+              }
+            },
+            "case_data": {"type": "string"},
+            "credentials": {"type": "array", "items": {"type": "string"}},
+            "service_guarantee": {"type": "string"}
+          }
+        },
+        "competitive_advantage": {
+          "type": "object",
+          "properties": {
+            "vs_rivals": {"type": "object", "properties": {"advantage": {"type": "string"}, "evidence": {"type": "string"}}},
+            "vs_diy": {"type": "object", "properties": {"advantage": {"type": "string"}, "evidence": {"type": "string"}}}
+          }
+        },
+        "key_messages": {"type": "array", "items": {"type": "string"}}
+      },
+      "data_providers": ["step_blue_ocean_opportunity", "step_account_design"]
+    },
+
+    {
+      "id": "step_style_guide",
+      "name": "风格定位与内容配比",
+      "order": 4,
+      "required": true,
+      "llm_prompt_template": "【风格定位与内容配比】\n\n为\"<<industry>>\"行业制定风格定位和内容配比策略。\n\n核心原则：\n- 信任佐证+竞争优势占比：15%\n- 其他内容（行业知识、场景方案、搜前搜后等）占比：85%\n\n请输出（JSON格式）：\n\n```json\n{{\n  \"style_guide\": {{\n    \"tone\": \"整体风格（如：亲切可信·问题导向·专业靠谱）\",\n    \"language_style\": \"语言风格描述\",\n    \"principles\": [\n      \"内容原则1（如：不直接推产品，先建立信任）\",\n      \"内容原则2（如：问题导向，让用户感受到被理解）\",\n      \"内容原则3\"\n    ],\n    \"taboo\": [\"禁忌内容1\", \"禁忌内容2\"]\n  }},\n  \"content_ratio\": {{\n    \"trust_content\": \"15%\",\n    \"knowledge_content\": \"30%\",\n    \"scenario_content\": \"25%\",\n    \"search_content\": \"20%\",\n    \"conversion_content\": \"10%\"\n  }},\n  \"content_calendar\": {{\n    \"week1\": {{\"focus\": \"本周重点\", \"topics\": [\"选题1\", \"选题2\"]}},\n    \"week2\": {{\"focus\": \"本周重点\", \"topics\": [\"选题1\", \"选题2\"]}},\n    \"week3\": {{\"focus\": \"本周重点\", \"topics\": [\"选题1\", \"选题2\"]}},\n    \"week4\": {{\"focus\": \"本周重点\", \"topics\": [\"选题1\", \"选题2\"]}}\n  }}\n}}\n```\n\n行业：<<industry>>\n业务描述：<<business_description>>\n信任佐证：<<step_trust_evidence>>\n蓝海机会：<<step_blue_ocean_opportunity>>",
+      "output_field": "step_style_guide",
+      "output_schema": {
+        "style_guide": {
+          "type": "object",
+          "properties": {
+            "tone": {"type": "string"},
+            "language_style": {"type": "string"},
+            "principles": {"type": "array", "items": {"type": "string"}},
+            "taboo": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "content_ratio": {
+          "type": "object",
+          "properties": {
+            "trust_content": {"type": "string"},
+            "knowledge_content": {"type": "string"},
+            "scenario_content": {"type": "string"},
+            "search_content": {"type": "string"},
+            "conversion_content": {"type": "string"}
+          }
+        },
+        "content_calendar": {
+          "type": "object"
+        }
+      },
+      "data_providers": ["step_blue_ocean_opportunity", "step_trust_evidence"]
+    }
+  ],
+
+  "constraints": {
+    "quantity_requirements": {
+      "nickname_options": 3,
+      "core_advantages": 3,
+      "content_tags": 5
+    },
+    "required_step_sequence": ["step_blue_ocean_opportunity", "step_account_design", "step_trust_evidence", "step_style_guide"]
+  },
+
+  "data_flow": {
+    "outputs": {
+      "step_blue_ocean_opportunity": {
+        "_comment": "蓝海机会传递给内容生成",
+        "recommended_blue_ocean": {"target": "content_generator", "field": "operation_plan.blue_ocean_opportunity"},
+        "core_problem": {"target": "content_generator", "field": "operation_plan.core_problem"}
+      },
+      "step_account_design": {
+        "_comment": "账号设计传递给内容生成",
+        "account_design": {"target": "content_generator", "field": "operation_plan.account_design"}
+      },
+      "step_trust_evidence": {
+        "_comment": "信任佐证传递给内容生成（最重要！）",
+        "trust_evidence": {"target": "content_generator", "field": "operation_plan.trust_evidence"},
+        "key_messages": {"target": "content_generator", "field": "operation_plan.key_messages"}
+      },
+      "step_style_guide": {
+        "_comment": "风格定位传递给内容生成",
+        "style_guide": {"target": "content_generator", "field": "operation_plan.style_guide"},
+        "content_ratio": {"target": "content_generator", "field": "operation_plan.content_ratio"}
+      }
+    }
+  }
+}

@@ -113,6 +113,22 @@ def create_app(config_name='default'):
     except Exception as e:
         logging.warning(f"内容计划 API 注册失败: {e}")
 
+    # 注册运营规划 API（五段式 + GEO模式匹配）
+    try:
+        from routes.operations_api import operations_bp as operations_api_blueprint
+        app.register_blueprint(operations_api_blueprint)
+        logging.info("运营规划 API 已注册")
+    except Exception as e:
+        logging.warning(f"运营规划 API 注册失败: {e}")
+
+    # 初始化运营规划任务服务（后台执行器）
+    try:
+        from services.operations_plan_task_service import init_app as init_operations_plan_service
+        init_operations_plan_service(app)
+        logging.info("运营规划任务服务已启动")
+    except Exception as e:
+        logging.warning(f"运营规划任务服务启动失败: {e}")
+
     # 初始化内容计划任务服务（后台执行器）
     try:
         from services.content_plan_task_service import init_app as init_content_plan_service

@@ -27,6 +27,75 @@ from services.rate_limiter import (
 
 logger = logging.getLogger(__name__)
 
+
+# =============================================================================
+# 运营规划数据辅助函数
+# =============================================================================
+
+def get_operations_plan_from_portrait(portrait_id: int) -> dict:
+    """
+    从画像获取运营规划数据
+
+    Args:
+        portrait_id: 画像ID
+
+    Returns:
+        运营规划字典，如果不存在则返回空字典
+    """
+    try:
+        portrait = SavedPortrait.query.get(portrait_id)
+        if portrait:
+            # 优先使用 operation_plan 字段（旧字段）
+            if hasattr(portrait, 'operation_plan') and portrait.operation_plan:
+                return portrait.operation_plan
+            # 兼容 extra_data（新字段，如TopicLibrary使用）
+            if hasattr(portrait, 'extra_data') and portrait.extra_data:
+                return portrait.extra_data.get('operations_plan', {}) or {}
+            # 兼容 portrait_data 中的 operations_plan
+            if hasattr(portrait, 'portrait_data') and portrait.portrait_data:
+                return portrait.portrait_data.get('operations_plan', {}) or {}
+    except Exception as e:
+        logger.warning(f"[OperationsPlan] 获取运营规划失败 portrait_id={portrait_id}: {e}")
+    return {}
+
+
+def get_five_stage_info(operations_plan: dict, stage_key: str = None) -> dict:
+    """
+    从运营规划中获取五段式信息
+
+    Args:
+        operations_plan: 运营规划字典
+        stage_key: 五段式阶段key（如 'pain'），如果为None则返回全部阶段
+
+    Returns:
+        五段式信息字典
+    """
+    if not operations_plan:
+        return {}
+
+    five_stage_plan = operations_plan.get('five_stage_plan', [])
+    if not five_stage_plan:
+        return {}
+
+    if stage_key:
+        for stage in five_stage_plan:
+            if stage.get('stage_key') == stage_key:
+                return {
+                    'stage_name': stage.get('stage_name', ''),
+                    'ratio': stage.get('ratio', 0),
+                    'topic_count': stage.get('topic_count', 0),
+                    'content_types': stage.get('content_types', []),
+                    'geo_modes': stage.get('geo_modes', []),
+                }
+        return {}
+    else:
+        return {
+            'stages': five_stage_plan,
+            'geo_mode_mapping': operations_plan.get('geo_mode_mapping', {}),
+            'content_ratio': operations_plan.get('content_ratio', {}),
+        }
+
+
 # =============================================================================
 # 请求超时装饰器
 # =============================================================================
@@ -2345,6 +2414,14 @@ def api_generate_content_from_topic():
             bridge_data = {}
             keyword_library = params.get('keyword_library', {}) or {}
 
+            # ── 从运营规划中获取五段式和GEO信息 ──
+            operations_plan = get_operations_plan_from_portrait(portrait_id_val)
+            five_stage_info = get_five_stage_info(operations_plan)
+
+            # 将五段式信息添加到params，传递给生成器
+            params['_five_stage_info'] = five_stage_info
+            params['_operations_plan'] = operations_plan
+
             # 根据内容类型调用不同的生成器
             if content_type == 'short_video':
                 # 短视频脚本生成 —— SkillBridge v2
@@ -2460,6 +2537,19 @@ def api_generate_content_from_topic():
                 bridge = SkillBridge()
                 logger.info(f"[GEO调试] selected_scene: {effective_scene}")
 
+                # 获取画像数据（包括运营规划）【已整合到公共函数】
+                portrait = params.get('portrait', {})
+                portrait_id_for_plan = params.get('portrait_id')
+
+                # 使用统一的辅助函数获取运营规划
+                operations_plan = get_operations_plan_from_portrait(portrait_id_for_plan)
+                if operations_plan:
+                    logger.info(f"[运营规划] 找到运营规划: plan_id={operations_plan.get('plan_id', 'N/A')}")
+                    logger.info(f"[运营规划] 五段式: {[s.get('stage_name', '') for s in operations_plan.get('five_stage_plan', [])]}")
+
+                # 从运营规划获取五段式信息
+                five_stage_info = get_five_stage_info(operations_plan)
+
                 # ── Step 1: 先执行 H-V-F 标题生成 ──
                 from concurrent.futures import ThreadPoolExecutor
                 portrait = params.get('portrait', {})
@@ -2538,6 +2628,8 @@ def api_generate_content_from_topic():
                     selected_scene=effective_scene,
                     content_style=content_style,
                     brand_context=params.get('brand_context'),
+                    operation_plan=operations_plan,  # 使用新的统一函数获取的运营规划
+                    five_stage_info=five_stage_info,  # 【新增】传递五段式信息
                     # 传递预生成的标题和标签
                     _hvf_titles=hvf_titles,
                     _pyramid_tags=pyramid_tags,
@@ -3829,6 +3921,7 @@ def api_super_position_analyze():
                 'market_type': o.market_type,
                 'confidence': o.confidence,
                 'differentiation': getattr(o, 'differentiation', ''),
+                'decision_cost': getattr(o, 'decision_cost', {}),
                 'problem_types': [],
             }
 
@@ -5032,7 +5125,12 @@ def _build_hvf_report(hvf_output: dict) -> dict:
     # 取审核结果
     review_data = hvf_output.get('step_title_review', {}) or hvf_output.get('title_review', {})
 
-    best = review_data.get('best_title', '')
+    # best_title 可能是嵌套对象或字符串
+    best_raw = review_data.get('best_title', '')
+    if isinstance(best_raw, dict):
+        best = best_raw.get('main_title', '')
+    else:
+        best = best_raw or ''
     best_pattern = review_data.get('best_pattern', '')
 
     # 找评分最高的标题
@@ -5207,30 +5305,74 @@ def _apply_hvf_and_tags(
 
         logger.info(f"[H-V-F] 标题: {'成功' if hvf_titles_output else '失败'} | 标签: {'成功' if pyramid_tags_output else '失败'}")
 
+        # ── 标题审核（H-V-F 覆盖率 + 心理学风险检测）─────────────────
+        hvf_review_output = {}
+        if hvf_titles_output:
+            try:
+                generated_titles = hvf_titles_output.get('titles', [])
+                if not generated_titles:
+                    generated_titles = hvf_titles_output.get('step_title_generate', {}).get('titles', [])
+                
+                if generated_titles:
+                    topic_title = params.get('topic_title', '')
+                    logger.info(f"[H-V-F审核] 开始审核 {len(generated_titles)} 个标题")
+                    
+                    review_result = bridge.execute_title_review(
+                        topic_title=topic_title,
+                        generated_titles=generated_titles,
+                        portrait=portrait,
+                        keywords=keywords,
+                        geo_mode=geo_mode,
+                        industry=industry,
+                    )
+                    
+                    if review_result.success:
+                        hvf_review_output = review_result.full_output
+                        logger.info(f"[H-V-F审核] 审核完成")
+                    else:
+                        logger.warning(f"[H-V-F审核] 审核失败: {review_result.errors}")
+            except Exception as e:
+                logger.warning(f"[H-V-F审核] 审核异常: {e}")
+
+        # ── 将审核结果合并到 hvf_titles_output ────────────────────────────
+        if hvf_review_output:
+            hvf_titles_output = {
+                **hvf_titles_output,
+                **hvf_review_output,
+            }
+            logger.info(f"[H-V-F] 合并审核结果到输出")
+
     except Exception as e:
         logger.warning(f"[H-V-F] 生成异常: {e}，不影响内容返回")
 
-    # ── H-V-F 标题覆盖（取评分最高的）───────────────────────────
+    # ── H-V-F 标题覆盖（优先使用审核推荐的标题）───────────────────
     if hvf_titles_output:
-        titles_data = hvf_titles_output.get('titles', [])
-        if not titles_data:
-            titles_data = hvf_titles_output.get('step_title_generate', {}).get('titles', [])
-
-        if titles_data:
-            best_title_obj = None
-            best_score = -1
-            for t in titles_data:
-                score = t.get('hvf_score', {})
-                total = score.get('total', 0)
-                if isinstance(total, str):
-                    total = 0
-                if total <= 0:
-                    total = score.get('hook', 0) + score.get('value', 0) + score.get('format', 0)
-                if total > best_score:
-                    best_score = total
-                    best_title_obj = t
-            if best_title_obj and best_title_obj.get('main_title'):
-                extracted_title = best_title_obj['main_title']
+        # 优先使用审核结果推荐的标题
+        review_data = hvf_output.get('step_title_review', {}) if hvf_titles_output else {}
+        best_title_from_review = review_data.get('best_title', {})
+        if isinstance(best_title_from_review, dict):
+            extracted_title = best_title_from_review.get('main_title', '')
+        
+        # 如果审核没有推荐，使用评分最高的
+        if not extracted_title:
+            titles_data = hvf_titles_output.get('titles', [])
+            if not titles_data:
+                titles_data = hvf_titles_output.get('step_title_generate', {}).get('titles', [])
+            if titles_data:
+                best_title_obj = None
+                best_score = -1
+                for t in titles_data:
+                    score = t.get('hvf_score', {})
+                    total = score.get('total', 0)
+                    if isinstance(total, str):
+                        total = 0
+                    if total <= 0:
+                        total = score.get('hook', 0) + score.get('value', 0) + score.get('format', 0)
+                    if total > best_score:
+                        best_score = total
+                        best_title_obj = t
+                if best_title_obj and best_title_obj.get('main_title'):
+                    extracted_title = best_title_obj['main_title']
 
     # ── 金字塔标签覆盖 ─────────────────────────────────────────
     if pyramid_tags_output:
@@ -5535,16 +5677,174 @@ def api_market_analyze_opportunities():
 
         logger.info(f"[api_market_analyze_opportunities] Step 1 完成: 发现 {len(result['market_opportunities'])} 个蓝海机会")
 
+        # 调试/修复：确保 opportunities 数据可序列化
+        import traceback as _tb_module
+        _opportunities = result['market_opportunities']
+        try:
+            import json as _json
+            _json.dumps(_opportunities)
+            logger.info("[api_market_analyze_opportunities] JSON序列化检查通过")
+        except Exception as _e:
+            logger.error(f"[api_market_analyze_opportunities] JSON序列化失败，尝试修复: {_e}")
+            # 修复不可序列化的值
+            _fixed_opportunities = []
+            for _i, _opp in enumerate(_opportunities):
+                _fixed_opp = {}
+                for _k, _v in _opp.items():
+                    try:
+                        _json.dumps(_v)
+                        _fixed_opp[_k] = _v
+                    except Exception:
+                        logger.warning(f"[api_market_analyze_opportunities] 修复字段: opp[{_i}].{_k} = {type(_v)}")
+                        _fixed_opp[_k] = str(_v) if _v is not None else ''
+                _fixed_opportunities.append(_fixed_opp)
+            _opportunities = _fixed_opportunities
+            logger.info(f"[api_market_analyze_opportunities] 修复完成，{len(_opportunities)} 个机会")
+
         return jsonify({
             'success': True,
             'data': {
-                'opportunities': result['market_opportunities'],
+                'opportunities': _opportunities,
                 'subdivision_insights': result.get('subdivision_insights', {}),
             }
         })
 
     except Exception as e:
         logger.error(f"[api_market_analyze_opportunities] 异常: {e}\n{tb_module.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'分析异常: {str(e)}'
+        }), 500
+
+
+# =============================================================================
+# 行业级决策成本分析 API
+# =============================================================================
+
+@public_bp.route('/api/market/decision-cost-analyze', methods=['POST'])
+def api_market_decision_cost_analyze():
+    """
+    行业级决策成本分析
+
+    分析特定行业的用户决策成本，帮助评估内容价值潜力。
+
+    POST /public/api/market/decision-cost-analyze
+    Body: {
+        business_description: str,   # 业务描述
+    }
+
+    Response: {
+        success: True,
+        data: {
+            decision_cost: {
+                money_score: 7,        # 金钱成本 1-10
+                time_score: 6,          # 时间成本 1-10
+                mental_score: 9,        # 心理成本 1-10
+                risk_score: 7,          # 风险成本 1-10
+                knowledge_score: 8,     # 知识门槛 1-10
+                total_score: 7.4,      # 综合评分
+                judgment: "高价值",     # 判断
+                analysis: {             # 各维度分析
+                    money: "...",
+                    time: "...",
+                    mental: "...",
+                    risk: "...",
+                    knowledge: "..."
+                }
+            },
+            insight: "..."              # 总结洞察
+        }
+    }
+    """
+    logger = logging.getLogger(__name__)
+
+    data = request.get_json() or {}
+    business_description = data.get('business_description', '').strip()
+
+    if not business_description:
+        return jsonify({
+            'success': False,
+            'message': '请输入业务描述'
+        }), 400
+
+    logger.info(f"[api_market_decision_cost_analyze] 分析: {business_description}")
+
+    try:
+        # 构建 prompt
+        prompt = f"""你是消费者心理与决策分析专家。请分析以下业务/行业的用户决策成本。
+
+业务描述：{business_description}
+
+请从以下5个维度分析目标用户在该业务领域的购买决策成本：
+
+1. **金钱成本**：该产品/服务的价格是多少？用户是否需要大量比较价格？是否存在"一分钱一分货"的强感知？
+
+2. **时间成本**：用户需要花多少时间研究、比较、决策？是否需要多方咨询才能决定？
+
+3. **心理成本**：选错产品/服务会有什么后果？用户焦虑感强不强？是否害怕做出错误决定？
+
+4. **风险成本**：试错代价高不高？是否可以退货/售后？是否存在不可逆的风险？
+
+5. **知识门槛**：普通用户能否判断产品/服务质量？是否需要专业知识才能做出正确选择？
+
+请给出1-10的评分（10分=成本极高），并简要说明分析理由。
+
+输出格式（JSON）：
+{{
+    "decision_cost": {{
+        "money_score": 7,
+        "time_score": 6,
+        "mental_score": 9,
+        "risk_score": 7,
+        "knowledge_score": 8,
+        "total_score": 7.4,
+        "judgment": "高价值",
+        "analysis": {{
+            "money": "该行业产品价格较高，用户需要仔细比较...",
+            "time": "用户需要投入大量时间研究产品...",
+            "mental": "选错产品后果严重，用户焦虑感强...",
+            "risk": "试错成本高，部分产品不可逆...",
+            "knowledge": "普通用户难以判断产品质量..."
+        }}
+    }},
+    "insight": "总结：内容创作者应重点解决用户在决策过程中的信息不对称问题..."
+}}"""
+
+        from services.llm import get_llm_service
+        llm = get_llm_service()
+        response = llm.chat([{"role": "user", "content": prompt}], temperature=0.3, max_tokens=2000)
+
+        if not response:
+            return jsonify({
+                'success': False,
+                'message': '分析失败，请稍后重试'
+            }), 500
+
+        # 解析 JSON
+        import json
+        try:
+            result_data = json.loads(response)
+        except json.JSONDecodeError:
+            # 尝试提取 JSON
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', response)
+            if json_match:
+                result_data = json.loads(json_match.group())
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': '解析结果失败'
+                }), 500
+
+        logger.info(f"[api_market_decision_cost_analyze] 分析完成: total_score={result_data.get('decision_cost', {}).get('total_score', 0)}")
+
+        return jsonify({
+            'success': True,
+            'data': result_data
+        })
+
+    except Exception as e:
+        logger.error(f"[api_market_decision_cost_analyze] 异常: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'message': f'分析异常: {str(e)}'
