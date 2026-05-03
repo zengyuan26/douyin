@@ -305,6 +305,13 @@
 
     .opp-peek-header {
         display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .opp-peek-header-row {
+        display: flex;
         align-items: center;
         gap: 6px;
         min-width: 0;
@@ -1043,21 +1050,23 @@
     .portrait-card-compact .card-header {
         background: linear-gradient(135deg, var(--apple-red, #FF3B30) 0%, #ff6b6b 100%);
         color: white;
-        padding: 10px 14px;
+        padding: 12px 14px;
         display: flex;
-        justify-content: space-between;
-        align-items: center;
+        flex-direction: column;
+        gap: 6px;
     }
 
     .portrait-card-compact .card-title {
-        font-size: 0.9375rem;
+        font-size: 1rem;
         font-weight: 600;
         color: white;
+        line-height: 1.3;
     }
 
     .portrait-card-compact .card-badges {
         display: flex;
-        gap: 6px;
+        flex-wrap: wrap;
+        gap: 4px;
     }
 
     .portrait-card-compact .card-badge {
@@ -1106,9 +1115,10 @@
         align-items: center;
         gap: 3px;
         padding: 3px 8px;
-        border-radius: 6px;
+        border-radius: 12px;
         font-size: 0.6875rem;
         font-weight: 500;
+        margin: 2px;
     }
 
     .portrait-card-compact .card-tag.buyer {
@@ -3047,25 +3057,27 @@ function renderDecisionCostResult(data) {
     const dcBgColor = dcTotal >= 7 ? 'rgba(52,199,89,0.12)' : dcTotal >= 5 ? 'rgba(255,149,0,0.12)' : 'rgba(255,59,48,0.12)';
 
     const bars = [
-        { label: '💰 金钱成本', score: dcData.money_score || 0, desc: dcAnalysis.money || '' },
-        { label: '⏰ 时间成本', score: dcData.time_score || 0, desc: dcAnalysis.time || '' },
-        { label: '😰 心理成本', score: dcData.mental_score || 0, desc: dcAnalysis.mental || '' },
-        { label: '⚠️ 风险成本', score: dcData.risk_score || 0, desc: dcAnalysis.risk || '' },
-        { label: '📚 知识门槛', score: dcData.knowledge_score || 0, desc: dcAnalysis.knowledge || '' },
+        { label: '💰 金钱', score: dcData.money_score || 0, desc: dcAnalysis.money || '' },
+        { label: '⏰ 时间', score: dcData.time_score || 0, desc: dcAnalysis.time || '' },
+        { label: '🔍 获取', score: dcData.info_access_score || 0, desc: dcAnalysis.info_access || '' },
+        { label: '🎭 辨识', score: dcData.info_judge_score || 0, desc: dcAnalysis.info_judge || '' },
+        { label: '🤝 信任', score: dcData.trust_build_score || 0, desc: dcAnalysis.trust_build || '' },
+        { label: '⚠️ 风险', score: dcData.risk_score || 0, desc: dcAnalysis.risk || '' },
+        { label: '😰 心理', score: dcData.mental_score || 0, desc: dcAnalysis.mental || '' },
     ];
 
     const barItems = bars.map(b => {
         const pct = (b.score / 10) * 100;
         const barColor = b.score >= 7 ? '#34c759' : b.score >= 5 ? '#ff9500' : '#ff3b30';
-        return `<div style="margin-bottom:16px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <span style="font-size:0.875rem;color:#333;font-weight:500;">${b.label}</span>
+        return `<div style="background:#f8f9fa;border-radius:10px;padding:16px;flex:1;min-width:180px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:0.875rem;color:#333;font-weight:600;">${b.label}</span>
                 <span style="font-size:0.875rem;font-weight:700;color:${barColor};">${b.score}分</span>
             </div>
-            <div style="height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden;">
-                <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width 0.3s;"></div>
+            <div style="height:6px;background:#e5e5ea;border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;"></div>
             </div>
-            ${b.desc ? `<div style="font-size:0.75rem;color:#666;margin-top:4px;line-height:1.4;">${b.desc}</div>` : ''}
+            ${b.desc ? `<div style="font-size:0.8125rem;color:#444;margin-top:10px;line-height:1.6;max-height:6em;overflow-y:auto;word-break:break-all;">${b.desc}</div>` : ''}
         </div>`;
     }).join('');
 
@@ -3075,27 +3087,31 @@ function renderDecisionCostResult(data) {
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
     m.onclick = (e) => { if (e.target === m) m.remove(); };
     m.innerHTML = `
-        <div style="background:white;border-radius:16px;width:100%;max-width:600px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid #eee;flex-shrink:0;">
+        <div style="background:white;border-radius:16px;width:100%;max-width:1100px;max-height:96vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #eee;flex-shrink:0;">
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:32px;height:32px;background:#5856d6;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-                        <i class="bi bi-shield-check" style="color:white;font-size:1rem;"></i>
+                    <div style="width:26px;height:26px;background:#5856d6;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-shield-check" style="color:white;font-size:0.8125rem;"></i>
                     </div>
-                    <span style="font-size:1rem;font-weight:600;color:#1c1c1e;">行业决策成本分析</span>
+                    <span style="font-size:0.875rem;font-weight:600;color:#1c1c1e;">行业决策成本分析（7维度）</span>
                 </div>
-                <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#888;font-size:1.25rem;padding:4px;">✕</button>
+                <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#888;font-size:1.125rem;padding:4px;">✕</button>
             </div>
-            <div style="padding:24px;overflow-y:auto;flex:1;">
-            <div style="text-align:center;margin-bottom:20px;padding:20px;background:${dcBgColor};border-radius:12px;">
-                <div style="font-size:3rem;font-weight:800;color:${dcColor};line-height:1;">${dcTotal.toFixed(1)}</div>
-                <div style="font-size:0.8125rem;color:${dcColor};margin-top:6px;font-weight:500;">综合决策成本评分</div>
-                ${dcJudgment ? `<div style="font-size:0.9375rem;font-weight:600;color:${dcColor};margin-top:6px;">${dcJudgment}</div>` : ''}
+            <div style="padding:16px;overflow-y:auto;flex:1;">
+            <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px;padding:16px;background:${dcBgColor};border-radius:12px;">
+                <div style="text-align:center;min-width:90px;">
+                    <div style="font-size:2.25rem;font-weight:800;color:${dcColor};line-height:1;">${dcTotal.toFixed(1)}</div>
+                    <div style="font-size:0.6875rem;color:${dcColor};margin-top:4px;font-weight:500;">综合评分</div>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:0.8125rem;font-weight:600;color:${dcColor};margin-bottom:4px;">${dcJudgment}</div>
+                    <div style="font-size:0.6875rem;color:#666;">分高=用户决策越难=内容价值越大</div>
+                </div>
             </div>
-            <div style="margin-bottom:16px;">
-                <div style="font-size:0.8125rem;color:#888;margin-bottom:12px;">5维度深度分析（分数越高=用户决策越难=内容价值越大）</div>
+            <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
                 ${barItems}
             </div>
-            ${insight ? `<div style="padding:12px;background:#f8f9fa;border-radius:8px;font-size:0.8125rem;color:#666;line-height:1.5;">${insight}</div>` : ''}
+            ${insight ? `<div style="padding:12px;background:#f8f9fa;border-radius:8px;font-size:0.75rem;color:#666;line-height:1.5;">${insight}</div>` : ''}
             </div>
         </div>`;
     document.body.appendChild(m);
@@ -3346,43 +3362,59 @@ function showDecisionCostModal(idx) {
     const bars = [
         { label: '💰 金钱', score: dcData.money_score || 0, desc: dcAnalysis.money || '' },
         { label: '⏰ 时间', score: dcData.time_score || 0, desc: dcAnalysis.time || '' },
-        { label: '😰 心理', score: dcData.mental_score || 0, desc: dcAnalysis.mental || '' },
+        { label: '🔍 获取', score: dcData.info_access_score || 0, desc: dcAnalysis.info_access || '' },
+        { label: '🎭 辨识', score: dcData.info_judge_score || 0, desc: dcAnalysis.info_judge || '' },
+        { label: '🤝 信任', score: dcData.trust_build_score || 0, desc: dcAnalysis.trust_build || '' },
         { label: '⚠️ 风险', score: dcData.risk_score || 0, desc: dcAnalysis.risk || '' },
-        { label: '📚 知识', score: dcData.knowledge_score || 0, desc: dcAnalysis.knowledge || '' },
+        { label: '😰 心理', score: dcData.mental_score || 0, desc: dcAnalysis.mental || '' },
     ];
 
     const barItems = bars.map(b => {
         const pct = (b.score / 10) * 100;
         const barColor = b.score >= 7 ? '#34c759' : b.score >= 5 ? '#ff9500' : '#ff3b30';
-        return `<div style="margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="font-size:0.8125rem;color:#333;">${b.label}</span>
-                <span style="font-size:0.75rem;font-weight:700;color:${barColor};">${b.score}分</span>
+        return `<div style="background:#f8f9fa;border-radius:10px;padding:14px;flex:1;min-width:180px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:0.8125rem;color:#333;font-weight:600;">${b.label}</span>
+                <span style="font-size:0.8125rem;font-weight:700;color:${barColor};">${b.score}分</span>
             </div>
-            <div style="height:6px;background:#e8e8ed;border-radius:3px;overflow:hidden;">
-                <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width 0.3s;"></div>
+            <div style="height:6px;background:#e5e5ea;border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;"></div>
             </div>
-            ${b.desc ? `<div style="font-size:0.6875rem;color:#888;margin-top:3px;">${b.desc}</div>` : ''}
+            ${b.desc ? `<div style="font-size:0.75rem;color:#444;margin-top:10px;line-height:1.6;max-height:6em;overflow-y:auto;word-break:break-all;">${b.desc}</div>` : ''}
         </div>`;
     }).join('');
+
+    const insight = opp.decision_cost?.insight || '';
 
     const m = document.createElement('div');
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
     m.onclick = (e) => { if (e.target === m) m.remove(); };
     m.innerHTML = `
-        <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:70vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                <span style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);">决策成本分析</span>
-                <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#888;font-size:1.125rem;padding:4px;line-height:1;">✕</button>
+        <div style="background:white;border-radius:16px;width:100%;max-width:800px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #eee;flex-shrink:0;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:24px;height:24px;background:#5856d6;border-radius:5px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-shield-check" style="color:white;font-size:0.75rem;"></i>
+                    </div>
+                    <span style="font-size:0.8125rem;font-weight:600;color:#1c1c1e;">决策成本分析（7维度）</span>
+                </div>
+                <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#888;font-size:1.125rem;padding:4px;">✕</button>
             </div>
-            <div style="text-align:center;margin-bottom:16px;padding:12px;background:${dcBgColor};border-radius:12px;">
-                <div style="font-size:2.5rem;font-weight:800;color:${dcColor};line-height:1;">${dcTotal.toFixed(1)}</div>
-                <div style="font-size:0.75rem;color:${dcColor};margin-top:4px;">决策成本评分</div>
-                ${dcJudgment ? `<div style="font-size:0.8125rem;font-weight:600;color:${dcColor};margin-top:4px;">${dcJudgment}</div>` : ''}
+            <div style="padding:14px;overflow-y:auto;flex:1;">
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;padding:14px;background:${dcBgColor};border-radius:10px;">
+                <div style="text-align:center;min-width:80px;">
+                    <div style="font-size:2rem;font-weight:800;color:${dcColor};line-height:1;">${dcTotal.toFixed(1)}</div>
+                    <div style="font-size:0.625rem;color:${dcColor};margin-top:4px;font-weight:500;">综合评分</div>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:0.75rem;font-weight:600;color:${dcColor};margin-bottom:4px;">${dcJudgment}</div>
+                    <div style="font-size:0.625rem;color:#666;">分高=用户决策越难=内容价值越大</div>
+                </div>
             </div>
-            <div style="margin-bottom:8px;">
-                <div style="font-size:0.75rem;color:#888;margin-bottom:8px;">5维度分析（分数越高=用户决策越难=内容价值越大）</div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
                 ${barItems}
+            </div>
+            ${insight ? `<div style="padding:10px;background:#f8f9fa;border-radius:8px;font-size:0.6875rem;color:#666;line-height:1.5;">${insight}</div>` : ''}
             </div>
         </div>`;
     document.body.appendChild(m);
@@ -3508,11 +3540,6 @@ function buildCardHTML(opp, idx, total, isActive) {
     const dcData = opp.decision_cost || {};
     const dcTotal = dcData.total_score || 0;
     const dcJudgment = dcData.judgment || '';
-    const dcMoney = dcData.money_score || 0;
-    const dcTime = dcData.time_score || 0;
-    const dcMental = dcData.mental_score || 0;
-    const dcRisk = dcData.risk_score || 0;
-    const dcKnowledge = dcData.knowledge_score || 0;
     const hasDecisionCost = dcTotal > 0;
     // 决策成本颜色：7+高价值=绿色，5-7中价值=橙色，<5低价值=红色
     const dcColor = dcTotal >= 7 ? '#34c759' : dcTotal >= 5 ? '#ff9500' : '#ff3b30';
@@ -3582,25 +3609,29 @@ function buildCardHTML(opp, idx, total, isActive) {
     return `
         <div class="opp-peek-card ${isActive ? 'active' : ''}" data-idx="${idx}">
             <div class="opp-peek-header">
-                <span class="opp-peek-num">${idx + 1}</span>
-                <span class="opp-peek-name">${oppName || '蓝海机会'}</span>
-                ${hasGenerated ? `<span class="opp-peek-portrait-badge" title="已生成画像">
-                    <i class="bi bi-person-badge" style="font-size:0.5625rem;"></i>${oppState.count}张
-                </span>` : ''}
-                <span class="opp-peek-score" onclick="showBlueOceanIndexModal(${idx})"
-                      style="background:${overallScore >= 60 ? 'rgba(52,199,89,0.12)' : overallScore >= 40 ? 'rgba(255,149,0,0.12)' : 'rgba(255,59,48,0.12)'};color:${scoreColor};">
-                    <i class="bi bi-bar-chart-fill" style="font-size:0.5625rem;"></i>${overallScore}
-                </span>
-                ${hasDecisionCost ? `
-                <span class="opp-peek-dc" onclick="event.stopPropagation();showDecisionCostModal(${idx})"
-                      style="background:${dcBgColor};color:${dcColor};" title="决策成本">
-                    <i class="bi bi-shield-check" style="font-size:0.5625rem;"></i>${dcTotal.toFixed(1)}
-                </span>` : ''}
-                <button class="opp-collect-btn ${isCollected ? 'collected' : ''}"
-                        onclick="event.stopPropagation();SnapshotManager.toggleCollectByName('${escapedName}')"
-                        title="${isCollected ? '已收藏' : '收藏'}">
-                    <i class="bi ${isCollected ? 'bi-bookmark-star-fill' : 'bi-bookmark'}"></i>
-                </button>
+                <div class="opp-peek-header-row">
+                    <span class="opp-peek-num">${idx + 1}</span>
+                    <span class="opp-peek-name">${oppName || '蓝海机会'}</span>
+                </div>
+                <div class="opp-peek-header-row" style="flex-wrap:wrap;gap:4px;">
+                    ${hasGenerated ? `<span class="opp-peek-portrait-badge" title="已生成画像">
+                        <i class="bi bi-person-badge" style="font-size:0.5625rem;"></i>${oppState.count}张
+                    </span>` : ''}
+                    <span class="opp-peek-score" onclick="showBlueOceanIndexModal(${idx})"
+                          style="background:${overallScore >= 60 ? 'rgba(52,199,89,0.12)' : overallScore >= 40 ? 'rgba(255,149,0,0.12)' : 'rgba(255,59,48,0.12)'};color:${scoreColor};">
+                        <i class="bi bi-bar-chart-fill" style="font-size:0.5625rem;"></i>${overallScore}
+                    </span>
+                    ${hasDecisionCost ? `
+                    <span class="opp-peek-dc" onclick="event.stopPropagation();showDecisionCostModal(${idx})"
+                          style="background:${dcBgColor};color:${dcColor};" title="决策成本">
+                        <i class="bi bi-shield-check" style="font-size:0.5625rem;"></i>${dcTotal.toFixed(1)}
+                    </span>` : ''}
+                    <button class="opp-collect-btn ${isCollected ? 'collected' : ''}"
+                            onclick="event.stopPropagation();SnapshotManager.toggleCollectByName('${escapedName}')"
+                            title="${isCollected ? '已收藏' : '收藏'}">
+                        <i class="bi ${isCollected ? 'bi-bookmark-star-fill' : 'bi-bookmark'}"></i>
+                    </button>
+                </div>
             </div>
             ${oppAudience ? `<div class="opp-peek-audience"><i class="bi bi-people" style="margin-right:4px;font-size:0.6875rem;"></i>${oppAudience}</div>` : ''}
             ${ptCardList ? `<div class="opp-pt-card">${ptCardList}</div>` : ''}
@@ -4350,64 +4381,86 @@ function convertProblemTypesToProblems(problemTypes) {
  * 将新的画像格式转换为旧的画像格式
  */
 function convertNewPortraitToOldFormat(portrait) {
-    // 将新格式转换为旧格式（兼容卡片渲染）
+    // 将新格式转换为旧格式（兼容卡片渲染和详情展示）
     const identity = portrait.identity || '';
 
     // 构建pain_points列表
     const painPoints = portrait.pain_points || [];
     const painScenarios = portrait.pain_scenarios || [];
     const searchKeywords = portrait.search_keywords || [];
+    const barriers = portrait.barriers || [];
+    const contentPreferences = portrait.content_preferences || [];
 
-    // 构建画像摘要（取前3个痛点）
-    const summaryParts = [];
-    if (painPoints.length > 0) {
-        summaryParts.push('痛点: ' + painPoints.slice(0, 2).join('、'));
+    // 构建画像摘要（优先使用原始摘要，否则从数据构建）
+    let portraitSummary = portrait.portrait_summary || '';
+    if (!portraitSummary) {
+        const summaryParts = [];
+        if (painPoints.length > 0) {
+            summaryParts.push('痛点: ' + painPoints.slice(0, 2).join('、'));
+        }
+        if (painScenarios.length > 0) {
+            summaryParts.push('场景: ' + painScenarios[0]);
+        }
+        portraitSummary = summaryParts.join(' | ') || identity;
     }
-    if (painScenarios.length > 0) {
-        summaryParts.push('场景: ' + painScenarios[0]);
-    }
-    const portraitSummary = summaryParts.join(' | ') || identity;
 
-    // 构建用户阶段标签（基于content_direction）
-    const contentDirection = portrait.content_direction || '';
-    const 用户阶段标签 = contentDirection.includes('种草') ? '种草阶段' :
-                         contentDirection.includes('测评') ? '决策阶段' :
-                         contentDirection.includes('知识') ? '认知阶段' : '通用';
+    // 构建用户阶段标签（基于增强字段 decision_stage）
+    let 用户阶段标签 = portrait.decision_stage || portrait.用户阶段标签 || '';
+    if (!用户阶段标签) {
+        const decisionStage = portrait.decision_stage || '';
+        用户阶段标签 = decisionStage === 'awareness' ? '认知阶段' :
+                       decisionStage === 'consideration' ? '考虑阶段' :
+                       decisionStage === 'decision' ? '决策阶段' : '';
+    }
 
     // 使用场景（取pain_scenarios的第一个）
-    const 使用场景 = painScenarios.length > 0 ? painScenarios[0] : '';
+    const 使用场景 = portrait.使用场景 || (painScenarios.length > 0 ? painScenarios[0] : '');
 
     // 行业场景（取scene_tags的第一个）
     const sceneTags = portrait.scene_tags || [];
-    const industry_scene = sceneTags.length > 0 ? sceneTags[0] : '';
+    const industry_scene = portrait.industry_scene || (sceneTags.length > 0 ? sceneTags[0] : '');
 
     // 搜索行为预判
-    const 搜索行为预判 = searchKeywords;
+    const 搜索行为预判 = portrait.搜索行为预判 || searchKeywords;
 
     // 身份标签
-    const identity_tags = {
+    const identity_tags = portrait.identity_tags || {
         buyer: identity,
         user: portrait.differentiation || ''
     };
 
-    // 深层心理
-    const psychology = portrait.psychology || {};
-    const buyerPerspective = {
-        psychology: typeof psychology === 'string' ? psychology : (psychology.driving_force || ''),
-        goal: psychology.goal || '',
-        obstacles: psychology.barriers || ''
+    // 深层心理（处理各种格式）
+    let psychology = portrait.psychology || {};
+    if (typeof psychology === 'string') {
+        psychology = { driving_force: psychology };
+    }
+
+    // 构建信任诉求（从barriers和psychology构建）
+    const trust_demand = portrait.trust_demand || {
+        dimension: barriers.length > 0 ? '信任构建' : '',
+        description: barriers.length > 0 ? '需要' + barriers[0] + '等才能建立信任' : ''
     };
 
-    // 用户视角（基于pain_scenarios构建）
-    const userPerspective = {
+    // 购买者视角
+    const buyerPerspective = portrait.buyer_perspective || {
+        psychology: psychology.driving_force || psychology.psychology || '',
+        goal: psychology.goal || '',
+        obstacles: barriers.length > 0 ? barriers.join('、') : ''
+    };
+
+    // 用户视角（基于pain_points和pain_scenarios构建）
+    const userPerspective = portrait.user_perspective || {
         problem: painPoints.length > 0 ? painPoints[0] : '',
         current_state: painScenarios.length > 0 ? painScenarios[0] : '',
         impact: psychology.driving_force || ''
     };
 
+    // 内容方向
+    const contentDirection = portrait.content_direction || '种草型';
+
     return {
         portrait_id: portrait.portrait_id || '',
-        name: identity || '目标客户',
+        name: portrait.name || identity || '目标客户',
         portrait_summary: portraitSummary,
         identity: identity,
         identity_description: portrait.identity_description || '',
@@ -4423,15 +4476,23 @@ function convertNewPortraitToOldFormat(portrait) {
         psychology: psychology,
         buyer_perspective: buyerPerspective,
         user_perspective: userPerspective,
-        barriers: portrait.barriers || [],
+        barriers: barriers,
         search_keywords: searchKeywords,
-        content_preferences: portrait.content_preferences || [],
+        content_preferences: contentPreferences,
         market_type: portrait.market_type || 'blue_ocean',
         differentiation: portrait.differentiation || '',
         content_direction: contentDirection,
         scene_tags: sceneTags,
         behavior_tags: portrait.behavior_tags || [],
         symptom_tags: portrait.symptom_tags || [],
+        // 增强字段（确保详情展示完整）
+        language_style: portrait.language_style || '',
+        crowd_perspective: portrait.crowd_perspective || '',
+        age_range: portrait.age_range || '',
+        pain_point_level: portrait.pain_point_level || 'medium',
+        decision_stage: portrait.decision_stage || '',
+        // 信任诉求
+        trust_demand: trust_demand,
     };
 }
 
@@ -5680,23 +5741,45 @@ function renderTargetCustomerCards(focusKey) {
 
 // 构建紧凑型画像卡片（可带问题溯源）
 function buildCompactPortraitCard(portrait, key, index, problemInfo, totalCount, isFocused) {
-    const name = portrait.name || '目标客户' + (index + 1);
+    // 画像名称（优先使用identity，否则使用name）
+    const name = portrait.name || portrait.identity || '目标客户' + (index + 1);
     const portraitSummary = portrait.portrait_summary || '';
     const userStage = portrait.用户阶段标签 || '';
     const usageScene = portrait.使用场景 || '';
 
     // 身份标签
     const identityTags = portrait.identity_tags || {};
-    const buyerTag = identityTags.buyer || '';
-    const userTag = identityTags.user || '';
+    const buyerTag = identityTags.buyer || portrait.identity || '';
+    const userTag = identityTags.user || portrait.differentiation || '';
 
     // 搜索关键词（取前3个）
-    const searchKeywords = formatSearchKeywords(portrait.搜索行为预判 || portrait.search_behavior || []).slice(0, 3);
+    const searchKeywords = formatSearchKeywords(portrait.搜索行为预判 || portrait.search_behavior || portrait.search_keywords || []).slice(0, 3);
+
+    // 痛点标签（取前2个）
+    const painPoints = portrait.pain_points || [];
+    const painPointTags = painPoints.slice(0, 2);
+
+    // 增强字段
+    const ageRange = portrait.age_range || '';
+    const painPointLevel = portrait.pain_point_level || '';
+    const decisionStage = portrait.decision_stage || '';
+    const languageStyle = portrait.language_style || '';
 
     // 问题溯源标签
     const problemSourceTag = problemInfo.identity
         ? `<span class="card-badge problem-source-badge" title="来自问题：${escHtml(problemInfo.description || '')}"><i class="bi bi-link-45deg"></i>${escHtml(problemInfo.identity)}</span>`
         : '';
+    
+    // 使用场景（与问题溯源关联，展示在第二行）
+    const usageSceneTag = usageScene
+        ? `<span class="card-badge" style="font-size: 0.6875rem; background: rgba(255,255,255,0.9); color: #374151; border: 1px solid rgba(255,255,255,0.3);"><i class="bi bi-geo-alt" style="margin-right:2px;"></i>${escHtml(usageScene)}</span>`
+        : '';
+
+    // 标签展示（合并多个来源）
+    const tags = [];
+    if (userStage) tags.push(`<span class="card-tag"><i class="bi bi-clock"></i>${escHtml(userStage)}</span>`);
+    if (decisionStage) tags.push(`<span class="card-tag"><i class="bi bi-compass"></i>${escHtml(decisionStage)}</span>`);
+    if (painPointLevel) tags.push(`<span class="card-tag"><i class="bi bi-lightning-charge"></i>痛点${escHtml(painPointLevel)}</span>`);
 
     return `
         <div class="portrait-card-compact ${isFocused ? 'is-focused' : ''} ${index === 0 ? 'selected' : ''}"
@@ -5704,20 +5787,18 @@ function buildCompactPortraitCard(portrait, key, index, problemInfo, totalCount,
              data-index="${index}"
              onclick="selectPortraitCard(this, '${escHtml(key)}', ${index})">
             <div class="card-header">
-                <div>
-                    <div class="card-title">${escHtml(name)}</div>
-                    ${problemSourceTag}
-                </div>
+                <div class="card-title">${escHtml(name)}</div>
                 <div class="card-badges">
-                    ${userStage ? `<span class="card-badge"><i class="bi bi-clock"></i>${escHtml(userStage)}</span>` : ''}
-                    ${usageScene ? `<span class="card-badge"><i class="bi bi-geo-alt"></i>${escHtml(usageScene)}</span>` : ''}
+                    ${problemSourceTag}${usageSceneTag ? `<br>` : ''}${usageSceneTag}
+                </div>
+                <div class="card-badges" style="margin-top:4px;">
+                    ${tags.join('')}
                 </div>
             </div>
             <div class="card-body">
                 ${portraitSummary ? `<div class="card-summary">${escHtml(portraitSummary)}</div>` : ''}
                 <div class="card-tags">
-                    ${buyerTag ? `<span class="card-tag buyer"><i class="bi bi-person-fill"></i>${escHtml(buyerTag)}</span>` : ''}
-                    ${userTag ? `<span class="card-tag user"><i class="bi bi-person"></i>${escHtml(userTag)}</span>` : ''}
+                    ${painPointTags.map(p => `<span class="card-tag" style="background: rgba(255,59,48,0.1); color: #ff3b30;"><i class="bi bi-lightning-charge"></i>${escHtml(p)}</span>`).join('')}
                     ${searchKeywords.slice(0, 2).map(kw => `<span class="card-tag keyword"><i class="bi bi-search"></i>${escHtml(kw)}</span>`).join('')}
                 </div>
             </div>
@@ -5781,10 +5862,23 @@ function openPortraitDetail(key, index) {
     const sceneTags = portrait.scene_tags || [];
     const symptomTags = portrait.symptom_tags || [];
 
+    // 增强字段
+    const painPoints = portrait.pain_points || [];
+    const painScenarios = portrait.pain_scenarios || [];
+    const barriers = portrait.barriers || [];
+    const contentPreferences = portrait.content_preferences || [];
+    const languageStyle = portrait.language_style || '';
+    const crowdPerspective = portrait.crowd_perspective || '';
+    const ageRange = portrait.age_range || '';
+    const painPointLevel = portrait.pain_point_level || '';
+    const decisionStage = portrait.decision_stage || '';
+    const differentiation = portrait.differentiation || '';
+    const identityDesc = portrait.identity_description || '';
+
     // 构建详情HTML
     let html = '';
 
-    // 问题来源 - 格式: 问题类型-场景（description是问题描述，如"宝宝喝奶粉拉肚子/宝宝喝奶粉腹胀..."）
+    // 问题来源
     const problemType = portrait.problem_type || '';
     const problemDesc = portrait.problem_type_description || portrait.description || '';
     if (problemType || problemDesc) {
@@ -5797,18 +5891,6 @@ function openPortraitDetail(key, index) {
         `;
     }
 
-    // 基本信息
-    html += `
-        <div class="portrait-detail-section">
-            <div class="portrait-detail-label"><i class="bi bi-info-circle"></i> 基本信息</div>
-            <div class="portrait-detail-tags">
-                ${userStage ? `<span class="portrait-detail-tag" style="background: rgba(255,59,48,0.08); color: var(--apple-red);">${escHtml(userStage)}</span>` : ''}
-                ${usageScene ? `<span class="portrait-detail-tag" style="background: rgba(52,199,189,0.1); color: #34c759;">${escHtml(usageScene)}</span>` : ''}
-                ${industryScene ? `<span class="portrait-detail-tag" style="background: rgba(99,102,241,0.1); color: #5856d6;">${escHtml(industryScene)}</span>` : ''}
-            </div>
-        </div>
-    `;
-
     // 画像摘要
     if (portraitSummary) {
         html += `
@@ -5819,14 +5901,58 @@ function openPortraitDetail(key, index) {
         `;
     }
 
-    // 身份标签
-    if (buyerTag || userTag) {
+    // 身份信息
+    if (buyerTag || identityDesc || differentiation || ageRange) {
         html += `
             <div class="portrait-detail-section">
-                <div class="portrait-detail-label"><i class="bi bi-person-badge"></i> 身份标签</div>
+                <div class="portrait-detail-label"><i class="bi bi-person-badge"></i> 身份信息</div>
+                <div class="portrait-detail-content">
+                    ${buyerTag ? `<div class="mb-2"><strong>人群：</strong>${escHtml(buyerTag)}</div>` : ''}
+                    ${identityDesc ? `<div class="mb-2">${escHtml(identityDesc)}</div>` : ''}
+                    ${ageRange ? `<div class="mb-1"><strong>年龄：</strong>${escHtml(ageRange)}</div>` : ''}
+                    ${differentiation ? `<div class="mb-1"><strong>差异化：</strong>${escHtml(differentiation)}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // 基本信息标签
+    if (userStage || usageScene || industryScene || languageStyle || crowdPerspective || painPointLevel || decisionStage) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-info-circle"></i> 基本标签</div>
                 <div class="portrait-detail-tags">
-                    ${buyerTag ? `<span class="portrait-detail-tag buyer"><i class="bi bi-person-fill"></i>付费者：${escHtml(buyerTag)}</span>` : ''}
-                    ${userTag ? `<span class="portrait-detail-tag user"><i class="bi bi-person"></i>使用者：${escHtml(userTag)}</span>` : ''}
+                    ${userStage ? `<span class="portrait-detail-tag" style="background: rgba(255,59,48,0.08); color: var(--apple-red);">${escHtml(userStage)}</span>` : ''}
+                    ${decisionStage ? `<span class="portrait-detail-tag" style="background: rgba(255,149,0,0.1); color: #ff9500;">${escHtml(decisionStage)}</span>` : ''}
+                    ${painPointLevel ? `<span class="portrait-detail-tag" style="background: rgba(52,199,189,0.1); color: #34c759;">痛点${escHtml(painPointLevel)}</span>` : ''}
+                    ${usageScene ? `<span class="portrait-detail-tag" style="background: rgba(0,122,255,0.1); color: #007aff;">${escHtml(usageScene)}</span>` : ''}
+                    ${industryScene ? `<span class="portrait-detail-tag" style="background: rgba(88,86,214,0.1); color: #5856d6;">${escHtml(industryScene)}</span>` : ''}
+                    ${languageStyle ? `<span class="portrait-detail-tag" style="background: rgba(255,59,48,0.06); color: #ff3b30;">${escHtml(languageStyle)}</span>` : ''}
+                    ${crowdPerspective ? `<span class="portrait-detail-tag" style="background: rgba(48,199,190,0.1); color: #30c7be;">${escHtml(crowdPerspective)}</span>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // 核心痛点
+    if (painPoints.length > 0) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-lightning-charge"></i> 核心痛点</div>
+                <div class="portrait-detail-tags">
+                    ${painPoints.map(p => `<span class="portrait-detail-tag" style="background: rgba(255,59,48,0.1); color: #ff3b30;">${escHtml(p)}</span>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // 痛点场景
+    if (painScenarios.length > 0) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-geo-alt"></i> 痛点场景</div>
+                <div class="portrait-detail-content">
+                    ${painScenarios.map(s => `<div class="mb-2">${escHtml(s)}</div>`).join('')}
                 </div>
             </div>
         `;
@@ -5856,13 +5982,37 @@ function openPortraitDetail(key, index) {
         `;
     }
 
+    // 购买顾虑
+    if (barriers.length > 0) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-question-circle"></i> 购买顾虑</div>
+                <div class="portrait-detail-tags">
+                    ${barriers.map(b => `<span class="portrait-detail-tag" style="background: rgba(255,149,0,0.1); color: #ff9500;">${escHtml(b)}</span>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     // 搜索行为
     if (searchKeywords.length > 0) {
         html += `
             <div class="portrait-detail-section">
-                <div class="portrait-detail-label"><i class="bi bi-search"></i> 搜索行为预判</div>
+                <div class="portrait-detail-label"><i class="bi bi-search"></i> 搜索关键词</div>
                 <div class="portrait-detail-tags">
                     ${searchKeywords.map(kw => `<span class="portrait-detail-tag keyword">${escHtml(kw)}</span>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // 内容偏好
+    if (contentPreferences.length > 0) {
+        html += `
+            <div class="portrait-detail-section">
+                <div class="portrait-detail-label"><i class="bi bi-cast"></i> 内容偏好</div>
+                <div class="portrait-detail-tags">
+                    ${contentPreferences.map(p => `<span class="portrait-detail-tag" style="background: rgba(0,122,255,0.1); color: #007aff;">${escHtml(p)}</span>`).join('')}
                 </div>
             </div>
         `;
