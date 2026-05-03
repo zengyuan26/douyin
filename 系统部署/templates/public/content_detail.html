@@ -2006,6 +2006,11 @@ function renderContentDetail(data) {
     }
 
     // 渲染质量报告（如果API返回了质量数据）
+    console.log('[renderContentDetail] quality_report 调试:', {
+        hasQualityReport: !!data.quality_report,
+        qualityReportKeys: data.quality_report ? Object.keys(data.quality_report) : [],
+        qualityReportItemsLength: data.quality_report?.items?.length
+    });
     if (data.quality_report) {
         renderQualityReport(data.quality_report);
     }
@@ -3894,7 +3899,13 @@ function renderQualityReport(report) {
         return;
     }
 
-    console.log('[renderQualityReport] 开始渲染，report.final_score:', report.final_score, 'report.total_score:', report.total_score);
+    console.log('[renderQualityReport] 开始渲染，report:', {
+        final_score: report.final_score,
+        total_score: report.total_score,
+        grade: report.grade,
+        itemsLength: report.items?.length,
+        items: report.items
+    });
 
     container.style.display = '';  // 确保容器可见
 
@@ -4606,8 +4617,12 @@ function showQualityDetailModal() {
         // 有预缓存则用缓存（renderQualityReport 已生成）
         if (itemsContainer) itemsContainer.innerHTML = _qualityItemsHtml;
     } else {
-        // 完全没有数据
-        if (itemsContainer) itemsContainer.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--apple-gray);font-size:0.875rem;">暂无评分数据</div>';
+        // 完全没有数据，显示提示
+        var noDataHtml = '<div style="padding:1.5rem;text-align:center;">' +
+            '<div style="color:var(--apple-gray);font-size:0.875rem;margin-bottom:1rem;">暂无详细评分数据</div>' +
+            '<div style="color:#666;font-size:0.8125rem;">该内容尚未完成质量评估</div>' +
+            '</div>';
+        if (itemsContainer) itemsContainer.innerHTML = noDataHtml;
     }
 
     if (suggestionsContainer) suggestionsContainer.innerHTML = _qualitySuggestionsHtml || '';
