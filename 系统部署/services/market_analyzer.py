@@ -78,7 +78,7 @@ class MarketOpportunity:
     differentiation: str = ""       # 差异化说明（告诉客户机会在哪）
     logic_chain: str = ""          # 逻辑链自证
     problem_types: List[ProblemType] = field(default_factory=list)  # 问题类型列表
-    decision_cost: Dict = field(default_factory=dict)  # 决策成本分析 {money_score, time_score, mental_score, risk_score, knowledge_score, total_score, judgment}
+    decision_cost: Dict = field(default_factory=dict)  # 决策成本分析 {money_score, time_score, info_access_score, info_judge_score, trust_build_score, risk_score, mental_score, total_score, judgment}
 
 
 @dataclass
@@ -536,11 +536,22 @@ class MarketAnalyzer:
             "decision_cost": {{
                 "money_score": 7,
                 "time_score": 6,
-                "mental_score": 9,
+                "info_access_score": 5,
+                "info_judge_score": 8,
+                "trust_build_score": 7,
                 "risk_score": 7,
-                "knowledge_score": 8,
-                "total_score": 7.4,
-                "judgment": "高价值"
+                "mental_score": 9,
+                "total_score": 7.0,
+                "judgment": "高价值",
+                "analysis": {{
+                    "money": "进口奶粉价格较高，一罐200-400元，用户需要仔细比较...",
+                    "time": "用户需要投入大量时间研究品牌、配方、奶源...",
+                    "info_access": "奶粉配方知识专业，普通用户难以获取核心信息...",
+                    "info_judge": "假货泛滥，代购渠道真假难辨，用户容易被坑...",
+                    "trust_build": "需要查看品牌资质、用户评价、真实案例来判断...",
+                    "risk": "奶粉质量直接影响宝宝健康，试错成本极高...",
+                    "mental": "妈妈们普遍焦虑，生怕选错产品伤害宝宝..."
+                }}
             }},
             "problem_types": [
                 {{
@@ -619,23 +630,34 @@ class MarketAnalyzer:
             "   - 每个问题类型下 2-4 个场景（用户真实搜索句）",
             "   - 例如：使用者问题3个 + 付费者问题3个 = 该机会共6个问题类型",
             "",
-            "   **name 命名规则**：",
-            "   - 使用者问题格式：{问题类型}-{具体表现}（如\"肠道问题-拉肚子\"、\"过敏问题-皮肤红疹\"）",
-            "   - 付费者问题格式：{顾虑类型}-{顾虑内容}（如\"真假担忧-怕买到假货\"、\"价格担忧-怕买贵\"）",
-            "   - 禁止写抽象情绪词（如\"担心\"、\"害怕\"、\"纠结\"）",
+            "   **name 命名规则（最重要）**：",
+            "   【使用者问题】格式：{症状类型}-{具体症状}",
+            "   - 具体症状必须是用户能直接搜索的**身体反应词**，如：",
+            "     消化类：拉肚子、便秘、腹胀、厌奶、吐奶、食欲差",
+            "     皮肤类：红疹、瘙痒、湿疹、干燥、脱皮",
+            "     呼吸类：咳嗽、流涕、鼻塞、喘息、打喷嚏",
+            "     睡眠类：夜醒、哭闹、睡不安稳、入睡困难",
+            "     发育类：体重增长慢、身高不达标、语言迟缓、运动落后",
+            "   - 禁止写抽象词！如：【不适应、不合适、不好、困难、不舒服】都是错的",
+            "   - 正确示例：✅ 消化问题-拉肚子  ✅ 皮肤问题-湿疹  ✅ 发育问题-体重增长慢",
+            "   - 错误示例：❌ 消化不适-不适应  ❌ 皮肤问题-不舒服  ❌ 喂养困难",
             "",
-            "   **target_audience**：该问题类型对应的细分人群（如\"怀疑买到假货的宝爸宝妈\"、\"过敏体质的宝宝家长\"）",
+            "   【付费者问题】格式：{顾虑类型}-{顾虑内容}",
+            "   - 如：真假担忧-怕买到假货、价格担忧-怕买贵、选择困难-不知道选哪个",
             "",
-            "   **scenes**：用户会搜索的**完整搜索句**，数量2-4个，禁止多个症状合并为一条",
+            "   **scenes**：每条必须是用户会搜索的**完整搜索句**，数量2-4个，禁止多个症状合并为一条",
             "",
             "   **decision_cost（决策成本分析）**：分析目标用户在购买这个细分赛道产品/服务时的决策成本",
             "   - money_score：金钱成本（1-10分，10分=非常贵，一分钱一分货感知强）",
             "   - time_score：时间成本（1-10分，10分=需要投入大量时间研究/比较）",
-            "   - mental_score：心理成本（1-10分，10分=选错后果严重，焦虑感强）",
+            "   - mental_score：心理成本（1-10分，10分=由以上五项综合导致，问题紧迫但暂时无法解决，用户陷入决策瘫痪）",
             "   - risk_score：风险成本（1-10分，10分=试错代价高，不可逆）",
-            "   - knowledge_score：知识门槛（1-10分，10分=普通人难以判断好坏）",
-            "   - total_score：综合评分（5项平均，保留1位小数）",
-            "   - judgment：简短判断（5字以内，如\"高价值\"、\"中价值\"、\"低价值\"）",
+            "   - info_access_score：信息获取难度（1-10分，10分=知识壁垒高，普通用户难以获取真实信息）",
+            "   - info_judge_score：信息辨识难度（1-10分，10分=假信息多，套路深，普通人难以辨别）",
+            "   - trust_build_score：信任构建难度（1-10分，10分=需要看专业性/权威性/案例才能判断服务商是否靠谱）",
+            "   - total_score：综合评分（七项平均，保留1位小数）",
+            "   - judgment：简短判断（5字以内，如'高价值'、'中价值'、'低价值'）",
+            "   - analysis：各维度的简要分析说明",
             "   - 分析原则：决策成本越高，用户越需要专业内容来帮助决策，内容价值越大",
             "",
             output_format.replace(_BD_, business_desc),

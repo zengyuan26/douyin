@@ -27,11 +27,6 @@
       "required": true,
       "description": "业务类型"
     },
-    "audience_segment": {
-      "type": "object",
-      "from_step": "market_analyzer.step3_audience_segment",
-      "description": "人群细分（付费人/使用人分离）"
-    },
     "keyword_library": {
       "type": "object",
       "required": true,
@@ -39,13 +34,18 @@
     },
     "blue_ocean_opportunities": {
       "type": "object",
-      "from_step": "market_analyzer.step2_blue_ocean",
-      "description": "蓝海机会"
+      "required": false,
+      "description": "蓝海机会（可选，用于补充场景信息）"
+    },
+    "audience_segment": {
+      "type": "object",
+      "required": false,
+      "description": "人群细分（可选，用于补充画像信息）"
     },
     "search_journey": {
       "type": "object",
-      "from_step": "market_analyzer.step6_search_journey",
-      "description": "搜索旅程"
+      "required": false,
+      "description": "搜索旅程（可选，用于补充画像信息）"
     },
     "portraits_per_type": {
       "type": "integer",
@@ -61,12 +61,12 @@
       "name": "问题类型提取",
       "order": 1,
       "required": true,
-      "llm_prompt_template": "【问题类型提取 — 从关键词库提取用户真实问题】\n\n请从以下关键词库中，提取用户最关心的具体问题类型。\n\n问题类型的提取策略：\n1. 从关键词中提取用户真实的问题症状（包含疑问词的关键词）\n2. 匹配模式：\"怎么办\"、\"好不好\"、\"多少钱\"、\"怎么选\"、\"哪个好\"、\"要不要\"等\n3. 将相似问题归类到同一问题类型下\n\n关键词库：\n<<keyword_library>>\n\n请用JSON格式输出：\n\n{\n  \"problem_types\": [\n    {\n      \"type_name\": \"问题类型名称（如：分数不够怎么办）\",\n      \"description\": \"问题类型描述\",\n      \"keywords\": [\"相关关键词1\", \"关键词2\", \"关键词3\"],\n      \"target_audience\": \"目标人群描述\"\n    }\n  ]\n}\n\n要求：至少提取6-8个问题类型，覆盖用户从决策到售后的全流程问题。",
+      "llm_prompt_template": "【问题类型整理 — 整理和补充问题类型】\n\n前端已提取了以下问题类型，请根据行业信息进行整理和补充。\n\n已有问题类型：\n<<problem_types>>\n\n行业信息：\n- 行业：<<industry>>\n- 业务描述：<<business_description>>\n\n请用JSON格式输出：\n\n{\n  \"problem_types\": [\n    {\n      \"type_name\": \"问题类型名称\",\n      \"description\": \"问题类型描述\",\n      \"keywords\": [\"相关关键词1\", \"关键词2\", \"关键词3\"],\n      \"target_audience\": \"目标人群描述\"\n    }\n  ]\n}\n\n【type_name 命名规则（最重要）】：\n1. 【使用者问题】格式：{症状类型}-{具体症状}\n   - 具体症状必须是用户能直接搜索的**身体反应词**，如：\n     消化类：拉肚子、便秘、腹胀、厌奶、吐奶、食欲差\n     皮肤类：红疹、瘙痒、湿疹、干燥、脱皮\n     呼吸类：咳嗽、流涕、鼻塞、喘息、打喷嚏\n     睡眠类：夜醒、哭闹、睡不安稳、入睡困难\n     发育类：体重增长慢、身高不达标、语言迟缓\n   - 禁止写抽象词！如：【不适应、不合适、不好、困难、不舒服】都是错的\n   - 正确示例：✅ 消化问题-拉肚子  ✅ 皮肤问题-湿疹  ✅ 发育问题-体重增长慢\n   - 错误示例：❌ 消化问题-不适应  ❌ 皮肤问题-不舒服\n\n2. 【付费者问题】格式：{顾虑类型}-{顾虑内容}\n   - 如：真假担忧-怕买到假货、价格担忧-怕买贵、选择困难-不知道怎么选\n\n要求：\n1. 保留前端传递的问题类型的 description 和 keywords\n2. 根据行业信息补充和完善\n3. 确保覆盖使用者问题和付费者问题两类",
       "output_field": "problem_types",
       "output_schema": {
         "problem_types": {
           "type": "array",
-          "minItems": 6,
+          "minItems": 1,
           "items": {
             "type": "object",
             "properties": {
@@ -78,7 +78,7 @@
           }
         }
       },
-      "data_providers": ["keyword_library"]
+      "data_providers": []
     },
 
     {
@@ -86,10 +86,10 @@
       "name": "蓝海场景分析",
       "order": 2,
       "required": true,
-      "llm_prompt_template": "【蓝海场景分析 — 基于蓝海机会和问题类型】\n\n基于蓝海机会，生成每个问题类型的具体场景。\n场景 = 一个人群在特定情境下的问题。\n\n蓝海机会：\n<<blue_ocean_opportunities>>\n\n人群细分：\n<<audience_segment>>\n\n请用JSON格式输出：\n\n{\n  \"scenes\": [\n    {\n      \"scene_name\": \"场景名称\",\n      \"scene_description\": \"场景描述（具体情境）\",\n      \"scene_keywords\": [\"场景关键词1\", \"关键词2\"],\n      \"target_audience\": \"目标人群\",\n      \"problem_type\": \"所属问题类型\",\n      \"pain_level\": \"高/中/低（痛点强度）\",\n      \"market_type\": \"blue_ocean\"\n    }\n  ]\n}\n\n要求：每个问题类型至少生成2-3个具体场景，场景要具体到可落地（如：\"高考出分后，分数在一本线附近，不知道该冲还是保\"）",
+      "llm_prompt_template": "【蓝海场景分析 — 基于关键词库和问题类型生成场景】\n\n场景 = 一个人群在特定情境下的问题。\n基于关键词库中的问题类型和关键词，生成每个问题类型的具体场景。\n\n问题类型列表：\n<<step_extract_problem_types>>\n\n关键词库（用于提取场景关键词）：\n<<keyword_library>>\n\n请用JSON格式输出：\n\n{\n  \"scenes\": [\n    {\n      \"scene_name\": \"场景名称（如：宝宝喝奶粉后出现腹泻怎么办）\",\n      \"scene_description\": \"场景描述（具体情境，包括人群、时间、地点、行为）\",\n      \"scene_keywords\": [\"场景关键词1\", \"关键词2\", \"关键词3\"],\n      \"target_audience\": \"目标人群（如：宝宝喝普通奶粉出现腹泻的0-1岁宝宝家长）\",\n      \"problem_type\": \"所属问题类型（如：肠道问题-拉肚子）\",\n      \"pain_level\": \"高/中/低（痛点强度）\",\n      \"market_type\": \"blue_ocean\"\n    }\n  ]\n}\n\n要求：\n1. 每个问题类型至少生成2-3个具体场景\n2. 场景要具体到可落地，包含完整搜索句\n3. 从关键词库中提取相关关键词作为 scene_keywords\n4. 场景示例：\"宝宝喝奶粉拉肚子怎么办\"、\"换奶粉后拉肚子\"、\"乳糖不耐受喝什么奶粉\"\n5. 总场景数不少于10个",
       "output_field": "blue_ocean_scenes",
       "output_schema": {
-        "scenes": {
+        "blue_ocean_scenes": {
           "type": "array",
           "minItems": 5,
           "items": {
@@ -114,7 +114,7 @@
       "name": "生成用户画像",
       "order": 3,
       "required": true,
-      "llm_prompt_template": "【用户画像生成 — 为每个场景生成精准画像】\n\n请基于场景信息，为每个场景生成<<portraits_per_type>>个精准用户画像。\n\n场景信息：\n<<blue_ocean_scenes>>\n\n业务信息：\n- 行业：<<industry>>\n- 业务描述：<<business_description>>\n- 业务类型：<<business_type>>\n\n搜索旅程（参考）：\n<<search_journey>>\n\n每个画像要求以下6个维度：\n\n1. **身份特征**：具体、可识别的人群描述（如\"孩子刚上高三的县城家长\"）\n2. **痛点场景**：具体的、真实的痛苦场景（如\"分数刚好卡在一本线，冲好学校怕滑档，保底又心不甘\"）\n3. **心理状态**：真实的内心独白（如\"每天晚上睡不着，反复对比往年分数线\"）\n4. **行为障碍**：阻碍用户行动的卡点（如\"不知道怎么权衡城市、学校、专业\"）\n5. **搜索关键词**：用户真实搜索词（3-5个）\n6. **内容偏好**：适合该用户的内容方向\n\n请用JSON格式输出：\n\n{\n  \"portraits\": [\n    {\n      \"portrait_id\": \"画像唯一标识\",\n      \"scene_name\": \"所属场景\",\n      \"problem_type\": \"问题类型\",\n      \"identity\": \"人群身份描述\",\n      \"identity_description\": \"人群画像详细描述\",\n      \"portrait_summary\": \"一句话总结：身份+问题+想转变+困境+深层需求\",\n      \"pain_points\": [\"痛点1\", \"痛点2\", \"痛点3\"],\n      \"pain_scenarios\": [\"具体痛苦场景1\", \"场景2\"],\n      \"psychology\": {\n        \"inner_voice\": \"内心独白\",\n        \"core_needs\": [\"核心需求1\", \"需求2\"],\n        \"purchase_motivation\": \"购买动机\",\n        \"decision_concerns\": [\"决策顾虑1\", \"顾虑2\"]\n      },\n      \"barriers\": [\"行为障碍1\", \"障碍2\"],\n      \"search_keywords\": [\"搜索词1\", \"搜索词2\", \"搜索词3\"],\n      \"content_preferences\": [\"内容偏好1\", \"内容偏好2\"],\n      \"market_type\": \"blue_ocean或red_ocean\",\n      \"differentiation\": \"差异化方向\",\n      \"scene_tags\": [\"场景标签1\", \"标签2\"],\n      \"behavior_tags\": [\"行为标签1\", \"标签2\"],\n      \"content_direction\": \"种草型/转化型/信任型\"\n    }\n  ]\n}",
+      "llm_prompt_template": "【用户画像生成 — 为每个场景生成精准画像】\n\n请基于场景信息，为每个场景生成<<portraits_per_type>>个精准用户画像。\n\n场景信息：\n<<blue_ocean_scenes>>\n\n业务信息：\n- 行业：<<industry>>\n- 业务描述：<<business_description>>\n- 业务类型：<<business_type>>\n\n搜索旅程（参考）：\n<<search_journey>>\n\n每个画像要求以下6个维度：\n\n1. **身份特征**：具体、可识别的人群描述（如\"孩子刚上高三的县城家长\"）\n2. **痛点场景**：具体的、真实的痛苦场景（如\"分数刚好卡在一本线，冲好学校怕滑档，保底又心不甘\"）\n3. **心理状态**：真实的内心独白（如\"每天晚上睡不着，反复对比往年分数线\"）\n4. **行为障碍**：阻碍用户行动的卡点（如\"不知道怎么权衡城市、学校、专业\"）\n5. **搜索关键词**：用户真实搜索词（3-5个）\n6. **内容偏好**：适合该用户的内容方向\n\n请用JSON格式输出，输出必须是一个完整的JSON对象，外层键为 portraits，值是包含所有画像的数组。不要用markdown代码块分开输出每个画像！禁止输出任何说明文字！\n\n{\n  \"portraits\": [\n    {\n      \"portrait_id\": \"画像唯一标识\",\n      \"scene_name\": \"所属场景\",\n      \"problem_type\": \"问题类型\",\n      \"identity\": \"人群身份描述\",\n      \"identity_description\": \"人群画像详细描述\",\n      \"portrait_summary\": \"一句话总结：身份+问题+想转变+困境+深层需求\",\n      \"pain_points\": [\"痛点1\", \"痛点2\", \"痛点3\"],\n      \"pain_scenarios\": [\"具体痛苦场景1\", \"场景2\"],\n      \"psychology\": {\n        \"inner_voice\": \"内心独白\",\n        \"core_needs\": [\"核心需求1\", \"需求2\"],\n        \"purchase_motivation\": \"购买动机\",\n        \"decision_concerns\": [\"决策顾虑1\", \"顾虑2\"]\n      },\n      \"barriers\": [\"行为障碍1\", \"障碍2\"],\n      \"search_keywords\": [\"搜索词1\", \"搜索词2\", \"搜索词3\"],\n      \"content_preferences\": [\"内容偏好1\", \"内容偏好2\"],\n      \"market_type\": \"blue_ocean或red_ocean\",\n      \"differentiation\": \"差异化方向\",\n      \"scene_tags\": [\"场景标签1\", \"标签2\"],\n      \"behavior_tags\": [\"行为标签1\", \"标签2\"],\n      \"content_direction\": \"种草型/转化型/信任型\"\n    }\n  ]\n}",
       "output_field": "portraits",
       "output_schema": {
         "portraits": {
