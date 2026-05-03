@@ -2182,16 +2182,13 @@
                                     </div>
                                 </div>
                                 <div class="col-12">
-                                    <label class="form-label">你的主要服务场景</label>
+                                    <label class="form-label">你的客户是谁</label>
                                     <select class="form-select" id="service-scenario" onchange="handleServiceScenarioChange()">
-                                        <option value="">请选择你的核心服务场景</option>
-                                        <option value="hotel_restaurant">🏨 酒店 / 餐饮 / 茶楼 / 高端会所（正餐、民宿、婚宴、茶室、私人会所、餐饮后厨配套）</option>
-                                        <option value="residential">🏠 家用 / 住宅 / 小区业主（家庭自住、二手房翻新、家装配套、个人自用）</option>
-                                        <option value="office_enterprise">🏢 写字楼 / 企业 / 工厂 / 园区（公司办公、厂区后勤、园区物业、企业采购）</option>
-                                        <option value="institutional">🏫 学校 / 医院 / 食堂 / 政企单位（公立单位、食堂后勤、总务物资配套）</option>
-                                        <option value="retail_chain">🛒 实体店 / 连锁门店 / 加盟品牌（门店经营、连锁供应链、加盟店配套）</option>
-                                        <option value="renovation">🔨 装修 / 工装 / 工程定制（装修施工、工地配套、工程接单）</option>
-                                        <option value="other">📝 其他小众场景（以上没有，简单写自己专属场景）</option>
+                                        <option value="">请选择你的目标客户</option>
+                                        <option value="to_personal">👤 个人/家庭（家长、个人消费者、家庭用户）</option>
+                                        <option value="to_business">🏪 企业/商家（企业主、店主、加盟商）</option>
+                                        <option value="to_government">🏛️ 政府/机构（学校、医院、政企单位）</option>
+                                        <option value="mixed">🔄 混合型（个人+企业客户都有）</option>
                                     </select>
                                 </div>
                                 <div class="col-12" id="other-scenario-wrapper" style="display: none;">
@@ -3535,7 +3532,6 @@ function showProblemDetailModal(idx) {
 
 function buildCardHTML(opp, idx, total, isActive) {
     if (!opp) return '<div class="opp-peek-card-placeholder"></div>';
-    const conf = Math.round((opp.confidence || 0.8) * 100);
     const vData = opp.verification_data || {};
     const overallScore = Math.round((vData.overall_score || 0) * 100);
     const scoreColor = overallScore >= 60 ? '#34c759' : overallScore >= 40 ? '#ff9500' : '#ff3b30';
@@ -3644,7 +3640,6 @@ function buildCardHTML(opp, idx, total, isActive) {
                     </button>
                 </div>
             </div>
-            ${oppAudience ? `<div class="opp-peek-audience"><i class="bi bi-people" style="margin-right:4px;font-size:0.6875rem;"></i>${oppAudience}</div>` : ''}
             ${ptCardList ? `<div class="opp-pt-card">${ptCardList}</div>` : ''}
             ${(unmetRow || sevConsRow || urgTrigRow || whyRow || supGapRow) ? `
             <button class="opp-detail-toggle" onclick="event.stopPropagation();showSupplyDemandModal(${idx})">
@@ -3959,10 +3954,9 @@ function showOpportunityModal(opportunities, originalBusiness) {
 
     // 构建机会卡片 HTML
     const cardsHTML = opportunities.map((opp, idx) => {
-        const confidence = Math.round((opp.confidence || 0.8) * 100);
+        const vData = opp.verification_data || {};
+        const overallScore = Math.round((vData.overall_score || 0) * 100);
         const oppName = opp.opportunity_name || '';
-        const differentiation = opp.differentiation || '';
-        const targetAudience = opp.target_audience || '';
         const painPoints = (opp.pain_points || []).slice(0, 2).join('、');
         const keywords = (opp.keywords || []).slice(0, 3);
 
@@ -3971,11 +3965,9 @@ function showOpportunityModal(opportunities, originalBusiness) {
                 <div class="opp-card-header">
                     <span class="opp-number">${idx + 1}</span>
                     <span class="opp-name">${opp.opportunity_name || '蓝海机会'}</span>
-                    <span class="opp-confidence">置信 ${confidence}%</span>
+                    <span class="opp-confidence">蓝海 ${overallScore}</span>
                 </div>
-            ${targetAudience ? `<div class="opp-audience"><i class="bi bi-people"></i> ${targetAudience}</div>` : ''}
-                ${painPoints ? `<div class="opp-pain"><i class="bi bi-lightbulb"></i> ${painPoints}</div>` : ''}
-                ${differentiation ? `<div class="opp-diff">${differentiation}</div>` : ''}
+            ${painPoints ? `<div class="opp-pain"><i class="bi bi-lightbulb"></i> ${painPoints}</div>` : ''}
                 ${keywords.length > 0 ? `
                     <div class="opp-keywords">
                         ${keywords.map(k => `<span class="opp-kw">${k}</span>`).join('')}
@@ -7304,14 +7296,15 @@ const SnapshotManager = {
         body.innerHTML = this._snapshots.map(s => {
             const d = s.snapshot_data || {};
             const name = d.opportunity_name || '蓝海机会';
-            const conf = Math.round((d.confidence || 0.8) * 100);
-            const confBg = conf >= 80 ? '#e8f5e9' : '#fff3e0';
-            const confColor = conf >= 80 ? '#2e7d32' : '#e65100';
+            const vData = d.verification_data || {};
+            const overallScore = Math.round((vData.overall_score || 0) * 100);
+            const scoreBg = overallScore >= 60 ? '#e8f5e9' : overallScore >= 40 ? '#fff3e0' : '#ffebee';
+            const scoreColor = overallScore >= 60 ? '#2e7d32' : overallScore >= 40 ? '#e65100' : '#c62828';
             const createdAt = s.created_at ? this._fmt(s.created_at) : '';
             return `<div class="snapshot-card" data-id="${s.id}">
                 <div class="snapshot-card-header">
                     <div class="snapshot-card-name">${this._esc(name)}</div>
-                    <span class="snapshot-card-confidence" style="background:${confBg};color:${confColor};">置信 ${conf}%</span>
+                    <span class="snapshot-card-confidence" style="background:${scoreBg};color:${scoreColor};">蓝海 ${overallScore}</span>
                     <button class="opp-collect-btn collected" onclick="SnapshotManager.uncollect(${s.id})" title="取消收藏">
                         <i class="bi bi-bookmark-star-fill"></i>
                     </button>

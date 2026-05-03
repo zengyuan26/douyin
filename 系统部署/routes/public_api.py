@@ -3919,7 +3919,6 @@ def api_super_position_analyze():
                 'keywords': o.keywords,
                 'content_direction': o.content_direction,
                 'market_type': o.market_type,
-                'confidence': o.confidence,
                 'differentiation': getattr(o, 'differentiation', ''),
                 'decision_cost': getattr(o, 'decision_cost', {}),
                 'problem_types': [],
@@ -4121,7 +4120,6 @@ def _adapt_market_analyzer_result(bridge_result) -> dict:
             'keywords': [],
             'content_direction': '',
             'market_type': 'blue_ocean',
-            'confidence': 0.8,
             'differentiation': opp.get('why_blue_ocean', ''),
             'logic_chain': '',
             'problem_types': all_problem_types,  # 为每个蓝海机会添加从人群细分和失败经历提取的问题类型
@@ -5782,6 +5780,20 @@ def api_market_analyze_opportunities():
             _opportunities = _fixed_opportunities
             logger.info(f"[api_market_analyze_opportunities] 修复完成，{len(_opportunities)} 个机会")
 
+        # 打印蓝海机会详情（供调试）
+        import json as _debug_json
+        logger.info(f"[api_market_analyze_opportunities] ========== 蓝海机会数据 ==========")
+        for _i, _opp in enumerate(_opportunities):
+            logger.info(f"[api_market_analyze_opportunities] 【机会{_i+1}】{_opp.get('opportunity_name','')}")
+            logger.info(f"[api_market_analyze_opportunities] - verification_data: {_opp.get('verification_data')}")
+            logger.info(f"[api_market_analyze_opportunities] - decision_cost: {_opp.get('decision_cost')}")
+            logger.info(f"[api_market_analyze_opportunities] - problem_types: {_debug_json.dumps(_opp.get('problem_types', []), ensure_ascii=False)[:200]}")
+            logger.info(f"[api_market_analyze_opportunities] - target_audience: {_opp.get('target_audience','')[:100]}")
+            logger.info(f"[api_market_analyze_opportunities] - unmet_problem: {_opp.get('unmet_problem','')[:100]}")
+            logger.info(f"[api_market_analyze_opportunities] - supply_gap: {_debug_json.dumps(_opp.get('supply_gap', {}), ensure_ascii=False)[:200]}")
+            logger.info(f"[api_market_analyze_opportunities] - why_unsolved: {_debug_json.dumps(_opp.get('why_unsolved', {}), ensure_ascii=False)[:200]}")
+        logger.info(f"[api_market_analyze_opportunities] ========== 数据结束 ==========")
+
         return jsonify({
             'success': True,
             'data': {
@@ -5923,12 +5935,25 @@ def api_market_decision_cost_analyze():
         try:
             result_data = json.loads(response)
         except json.JSONDecodeError:
-            # 尝试提取 JSON
+            # 尝试提取 JSON（处理 markdown 代码块格式）
             import re
-            json_match = re.search(r'\{[\s\S]*\}', response)
+            # 移除 markdown 代码块标记
+            cleaned = re.sub(r'^```(?:json)?\s*', '', response.strip(), flags=re.MULTILINE)
+            cleaned = re.sub(r'\s*```$', '', cleaned.strip())
+            
+            # 尝试提取 JSON 对象
+            json_match = re.search(r'\{[\s\S]*\}', cleaned)
             if json_match:
-                result_data = json.loads(json_match.group())
+                try:
+                    result_data = json.loads(json_match.group())
+                except json.JSONDecodeError as e:
+                    logger.error(f"[api_market_decision_cost_analyze] JSON解析失败: {e}\n原始响应: {response[:500]}")
+                    return jsonify({
+                        'success': False,
+                        'message': f'解析结果失败: {str(e)}'
+                    }), 500
             else:
+                logger.error(f"[api_market_decision_cost_analyze] 无法提取JSON: {response[:500]}")
                 return jsonify({
                     'success': False,
                     'message': '解析结果失败'

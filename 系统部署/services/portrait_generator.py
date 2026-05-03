@@ -902,7 +902,6 @@ def generate_portraits_from_analysis(
                 'keywords': o.keywords,
                 'content_direction': o.content_direction,
                 'market_type': o.market_type,
-                'confidence': o.confidence,
                 'differentiation': getattr(o, 'differentiation', ''),
                 'problem_types': getattr(o, 'problem_types', []),
             }

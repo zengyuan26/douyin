@@ -74,7 +74,6 @@ class MarketOpportunity:
     keywords: List[str]             # 关键词
     content_direction: str          # 内容方向
     market_type: str                # blue_ocean / red_ocean
-    confidence: float = 0.8        # 置信度
     differentiation: str = ""       # 差异化说明（告诉客户机会在哪）
     logic_chain: str = ""          # 逻辑链自证
     problem_types: List[ProblemType] = field(default_factory=list)  # 问题类型列表
@@ -240,12 +239,9 @@ class MarketAnalyzer:
                 # 如果有搜索验证数据，合并进去
                 if search_verification and i < len(search_verification):
                     sv = search_verification[i]
-                    opp_data['confidence'] = sv.get('final_confidence', opp.get('confidence', 0.8))
                     opp_data['final_verdict'] = sv.get('final_verdict', '')
                     opp_data['search_evidence'] = sv.get('search_evidence', [])
                     opp_data['verification_data'] = sv.get('verification_data', {})
-                else:
-                    opp_data['confidence'] = opp.get('confidence', 0.8)
 
                 result['market_opportunities'].append(opp_data)
 
@@ -352,7 +348,6 @@ class MarketAnalyzer:
                     pain_points=opp.get('pain_points', []),
                     keywords=opp.get('keywords', []),
                     content_direction=opp.get('content_direction', ''),
-                    confidence=opp.get('confidence', 0.8),
                 )
 
                 # 从 opportunity 提取搜索假设（如果有）
@@ -374,7 +369,6 @@ class MarketAnalyzer:
                     orig_pt = opp.get('problem_types', [])  # 保留原始问题类型
                     if i < len(search_candidates):
                         sv = search_candidates[i]
-                        opp['confidence'] = sv.get('final_confidence', opp.get('confidence', 0.8))
                         opp['final_verdict'] = sv.get('final_verdict', '')
                         opp['search_evidence'] = sv.get('search_evidence', [])
                         opp['verification_data'] = sv.get('verification_data', {})
@@ -436,7 +430,6 @@ class MarketAnalyzer:
                     keywords=opp_data.get('keywords', []),
                     content_direction=opp_data.get('content_direction', ''),
                     market_type=opp_data.get('market_type', 'blue_ocean'),
-                    confidence=opp_data.get('confidence', 0.5),
                     decision_cost=opp_data.get('decision_cost', {}),
                 )
                 # 解析问题类型
@@ -507,8 +500,18 @@ class MarketAnalyzer:
         else:
             range_hint = ''
 
-        # ── 服务场景 ──
-        scenario_hint = '服务场景：{}'.format(service_scenario) if service_scenario else ''
+        # ── 服务场景（强制约束：谁是我的客户） ──
+        scenario_hint = ''
+        scenario_constraints = {
+            'to_personal': '【强制】目标客户=个人/家庭消费者（如家长、个人、散户），禁止生成企业/机构客户',
+            'to_business': '【强制】目标客户=企业/商家（如企业主、店主、加盟商），禁止生成个人/家庭消费者',
+            'to_government': '【强制】目标客户=政府/机构（如学校、医院、政企单位），禁止生成个人/家庭消费者',
+            'mixed': '目标客户=混合型，个人消费者和企业客户都可以，按业务自然延伸生成',
+        }
+        if service_scenario and service_scenario in scenario_constraints:
+            scenario_hint = scenario_constraints[service_scenario]
+        elif service_scenario:
+            scenario_hint = f'【参考】服务场景={service_scenario}，按业务自然延伸生成人群'
 
         # ── 通用红线约束 ──
         redlines = """
@@ -516,7 +519,8 @@ class MarketAnalyzer:
 1. 细分方向必须与「{business_desc}」有直接逻辑关联，禁止凭空创造无关产品/服务
 2. 目标人群禁止虚构，必须基于业务自然延伸（如买主→使用者、用户→决策者）
 3. 问题类型必须是真实痛点，禁止填业务流程步骤（如"付款方式"、"取车手续"）
-4. 输出内容必须基于输入业务，禁止复制示例格式套用""".format(business_desc=business_desc)
+4. 输出内容必须基于输入业务，禁止复制示例格式套用
+{service_constraint}""".format(business_desc=business_desc, service_constraint=scenario_hint)
 
         # ── 占位符（用于 JSON 示例中的 business_desc） ──
         _BD_ = '__BUSINESS_DESC__'
@@ -527,11 +531,9 @@ class MarketAnalyzer:
 {{
     "market_opportunities": [
         {{
-            "opportunity_name": "具体人群+具体需求的市场",
+            "opportunity_name": "担心孩子喝奶出问题的焦虑宝妈",
             "business_direction": "{{{bd}}}+细分形式",
             "logic_chain": "输入业务是X，目标人群是Y，因为Z，所以提供W",
-            "differentiation": "一句话说明好在哪",
-            "target_audience": "细分人群描述",
             "pain_points": ["痛点1", "痛点2"],
             "decision_cost": {{
                 "money_score": 7,
@@ -613,16 +615,17 @@ class MarketAnalyzer:
             "=== 任务 ===",
             "识别 {} 个蓝海市场机会，每个机会输出：".format(max_opportunities),
             "",
-            "1. **opportunity_name**：机会名称，直接命中细分人群/需求",
+            "1. **opportunity_name**：机会名称，必须包含具体问题/痛点词，格式：「被XX问题困扰的XX人群」",
+            "   - 必须包含问题词（如：担心、困扰、害怕、不懂、不会、纠结）",
+            "   - 禁止仅写产品/服务名称（如「高考志愿填报」✗）",
+            "   - 示例：「担心孩子高考落榜的云南家长」✓",
             "2. **business_direction**：细分方向，直接填入\"核心业务\"输入框",
             "   - 格式：「{} + 服务形式」或「{} + 人群细分」".format(business_desc, business_desc),
             "   - 不得替换核心关键词",
             "3. **logic_chain**：逻辑链自证，格式：输入业务是X，目标人群是Y，因为Z（真实原因），所以提供W",
-            "4. **differentiation**：一句话差异化说明",
-            "5. **target_audience**：细分人群描述（如\"XX情况但不知怎么选的30-40岁XX\"）",
-            "6. **pain_points**：该人群的2-4个真实痛点",
-            "7. **decision_cost**：决策成本分析（用户做购买决策时的成本感知）",
-            "8. **problem_types**：问题类型+场景（用于生成画像）",
+            "4. **pain_points**：该人群的2-4个真实痛点",
+            "5. **decision_cost**：决策成本分析（用户做购买决策时的成本感知）",
+            "6. **problem_types**：问题类型+场景（用于生成画像）",
             "",
             "   **强制分类要求**：每个机会必须同时包含\"使用者问题\"和\"付费者问题\"，缺一不可：",
             "   - 使用者问题：每个机会至少 3 个（产品/服务的直接使用者遇到的问题，如症状、不适、效果不好）",
@@ -729,7 +732,6 @@ class MarketAnalyzer:
                 keywords=opp.get('keywords', []),
                 content_direction=opp.get('content_direction', ''),
                 market_type=opp.get('market_type', 'blue_ocean'),
-                confidence=opp.get('confidence', 0.8),
                 differentiation=opp.get('differentiation', ''),
                 logic_chain=opp.get('logic_chain', ''),
                 problem_types=problem_types,
@@ -752,6 +754,24 @@ class MarketAnalyzer:
 
         # 解析细分洞察
         result.subdivision_insights = data.get('subdivision_insights', {})
+
+        # 调试：确保 result 可以 JSON 序列化
+        import json as _json_debug
+        try:
+            _test = {
+                'success': result.get('success'),
+                'market_opportunities': [
+                    {
+                        'opportunity_name': o.opportunity_name if hasattr(o, 'opportunity_name') else str(o),
+                        'problem_types': [{'name': p.name} for p in (o.problem_types if hasattr(o, 'problem_types') else [])]
+                    }
+                    for o in result.market_opportunities
+                ]
+            }
+            _json_debug.dumps(_test)
+            logger.info("[MarketAnalyzer] 返回数据 JSON 序列化检查通过")
+        except Exception as _e2:
+            logger.error(f"[MarketAnalyzer] 返回数据序列化失败: {_e2}", exc_info=True)
 
         return result
 

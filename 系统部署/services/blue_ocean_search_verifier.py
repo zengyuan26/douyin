@@ -72,7 +72,6 @@ class CandidateDirection:
     pain_points: List[str] = field(default_factory=list)
     keywords: List[str] = field(default_factory=list)
     content_direction: str = ""
-    confidence: float = 0.8
 
     # LLM 提出的搜索假设句
     search_hypotheses: Dict[str, str] = field(default_factory=dict)
@@ -82,7 +81,6 @@ class CandidateDirection:
 
     # 最终综合判断（Phase 3 填充）
     final_verdict: str = ""        # 综合判断结论
-    final_confidence: float = 0.0  # 最终置信度
     search_evidence: List[str] = field(default_factory=list)  # 搜索证据摘要
 
 
@@ -897,7 +895,6 @@ class BlueOceanSearchVerifier:
                 idx = verdict.get('direction_index', -1)
                 if 0 <= idx < len(candidates):
                     candidates[idx].final_verdict = verdict.get('final_verdict', '')
-                    candidates[idx].final_confidence = verdict.get('final_confidence', candidates[idx].verification.overall_score if candidates[idx].verification else 0.5)
                     candidates[idx].search_evidence = verdict.get('search_evidence', [])
 
             # 处理未覆盖的方向
@@ -905,7 +902,6 @@ class BlueOceanSearchVerifier:
             for i, c in enumerate(candidates):
                 if i not in covered_indices:
                     if c.verification:
-                        c.final_confidence = c.verification.overall_score
                         c.final_verdict = "搜索数据不足以给出精确判断"
                         c.search_evidence = []
 
@@ -917,7 +913,6 @@ class BlueOceanSearchVerifier:
         """应用默认结论（当 LLM 判断失败时）"""
         for c in candidates:
             if c.verification:
-                c.final_confidence = c.verification.overall_score
                 c.final_verdict = f"基于搜索数据综合判断，蓝海指数 {c.verification.overall_score:.2f}"
                 c.search_evidence = (
                     c.verification.demand_evidence[:2] +
@@ -929,17 +924,17 @@ class BlueOceanSearchVerifier:
         if not candidates:
             return "无候选方向"
 
-        # 按置信度排序
+        # 按蓝海指数排序
         sorted_candidates = sorted(
             candidates,
-            key=lambda c: c.final_confidence if c.final_confidence else (c.verification.overall_score if c.verification else 0),
+            key=lambda c: c.verification.overall_score if c.verification else 0,
             reverse=True
         )
 
         top = sorted_candidates[0]
-        top_score = top.final_confidence if top.final_confidence else (top.verification.overall_score if top.verification else 0)
+        top_score = top.verification.overall_score if top.verification else 0
 
-        return f"验证了 {len(candidates)} 个候选方向，最优方向为「{top.opportunity_name}」（蓝海指数 {top_score:.2f}），建议优先考虑置信度 > 0.5 的方向。"
+        return f"验证了 {len(candidates)} 个候选方向，最优方向为「{top.opportunity_name}」（蓝海指数 {top_score:.2f}），建议优先考虑蓝海指数 > 0.5 的方向。"
 
     # =========================================================================
     # 工具方法
@@ -958,7 +953,6 @@ class BlueOceanSearchVerifier:
                     'pain_points': c.pain_points,
                     'keywords': c.keywords,
                     'content_direction': c.content_direction,
-                    'confidence': c.final_confidence if c.final_confidence else (c.verification.overall_score if c.verification else c.confidence),
                     'final_verdict': c.final_verdict,
                     'search_evidence': c.search_evidence,
                     'verification_data': {
