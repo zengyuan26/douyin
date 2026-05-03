@@ -117,12 +117,11 @@ const PortraitManager = {
         container.innerHTML = this._savedPortraits.map(p => {
             const pd = p.portrait_data || {};
             const problemBase = pd.problem_base || pd.problem_base || '';
-            const userStage = pd['用户阶段标签'] || pd.user_stage || '';
             const consumeType = pd.consume_type || '';
             const demandAttr = pd.demand_attr || '';
 
             let tagBadges = '';
-            if (problemBase || userStage || consumeType || demandAttr) {
+            if (problemBase || consumeType || demandAttr) {
                 const badges = [];
                 if (problemBase) {
                     let style = 'font-size:10px; padding:1px 5px; border-radius:999px; font-weight:600;';
@@ -134,9 +133,6 @@ const PortraitManager = {
                         style += 'background:#dcfce7; color:#166534;';
                     }
                     badges.push(`<span style="${style}">${this.escapeHtml(problemBase)}</span>`);
-                }
-                if (userStage) {
-                    badges.push(`<span style="font-size:10px; padding:1px 5px; border-radius:999px; font-weight:600; background:#e0e7ff; color:#3730a3;">📍${this.escapeHtml(userStage)}</span>`);
                 }
                 if (consumeType) {
                     let style = 'font-size:10px; padding:1px 5px; border-radius:999px; font-weight:600;';

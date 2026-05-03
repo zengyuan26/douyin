@@ -4048,12 +4048,67 @@ def api_super_position_analyze():
 def _adapt_market_analyzer_result(bridge_result) -> dict:
     """
     将 SkillBridge execute_market_analyzer 的结果适配成旧 MarketAnalyzer.analyze() 的格式。
+
     SkillBridge 输出：{step1_industry_overview, step2_blue_ocean, step3_audience_segment, ...}
     旧 API 期望：{market_opportunities, subdivision_insights, keyword_stats}
+
+    问题类型来源：
+    1. step3_audience_segment.audience_priority - 人群细分
+    2. step4_failure_experience.failure_experiences - 失败经历
     """
     fo = bridge_result.full_output
     opportunities = []
     keyword_stats = {}
+
+    # 从 step3_audience_segment 提取问题类型
+    step3 = fo.get('step3_audience_segment', {})
+    audience_priority = step3.get('audience_priority', [])
+    problem_types_from_audience = []
+    for seg in audience_priority:
+        if isinstance(seg, dict):
+            problem_types_from_audience.append({
+                'type_name': seg.get('segment_name', ''),  # 前端期望 type_name
+                'name': seg.get('segment_name', ''),
+                'description': seg.get('core_pain_point', ''),
+                'keywords': [],
+                'scenes': [],
+                'scene_keywords': [],  # 前端期望 scene_keywords
+                'target_audience': seg.get('characteristics', ''),
+                'category': '人群细分',
+                'source': 'audience_segment',
+            })
+
+    # 从 step4_failure_experience 提取问题类型
+    step4_failure = fo.get('step4_failure_experience', {})
+    failure_experiences = step4_failure.get('failure_experiences', [])
+    problem_types_from_failure = []
+    for failure in failure_experiences:
+        if isinstance(failure, dict):
+            # 合并多个失败场景为一个描述
+            failure_scenarios = failure.get('failure_scenarios', [])
+            failure_type = failure.get('failure_type', '')
+            common_mistakes = failure.get('common_mistakes', [])
+            desc_parts = []
+            if failure_type:
+                desc_parts.append(failure_type)
+            if failure_scenarios:
+                desc_parts.append('; '.join(failure_scenarios[:2]))
+            if common_mistakes:
+                desc_parts.append('常见错误: ' + '; '.join(common_mistakes[:2]))
+            problem_types_from_failure.append({
+                'type_name': f"失败经历-{failure.get('segment', '未知人群')}",  # 前端期望 type_name
+                'name': f"失败经历-{failure.get('segment', '未知人群')}",
+                'description': ' | '.join(desc_parts) if desc_parts else failure_type,
+                'keywords': failure.get('failure_keywords', []),
+                'scenes': failure.get('failure_scenarios', []),
+                'scene_keywords': failure.get('failure_keywords', []),  # 前端期望 scene_keywords
+                'target_audience': failure.get('segment', ''),
+                'category': failure_type,
+                'source': 'failure_experience',
+            })
+
+    # 合并所有问题类型
+    all_problem_types = problem_types_from_audience + problem_types_from_failure
 
     # step2_blue_ocean → market_opportunities
     step2 = fo.get('step2_blue_ocean', {})
@@ -4069,16 +4124,15 @@ def _adapt_market_analyzer_result(bridge_result) -> dict:
             'confidence': 0.8,
             'differentiation': opp.get('why_blue_ocean', ''),
             'logic_chain': '',
-            'problem_types': [],
+            'problem_types': all_problem_types,  # 为每个蓝海机会添加从人群细分和失败经历提取的问题类型
         })
 
     # step3_audience_segment → subdivision_insights
-    step3 = fo.get('step3_audience_segment', {})
     subdivision_insights = {
         'paying_user': step3.get('paying_user', {}),
         'using_user': step3.get('using_user', {}),
         'paying_equals_using': step3.get('paying_equals_using', True),
-        'audience_priority': step3.get('audience_priority', []),
+        'audience_priority': audience_priority,
         'separation_point': step3.get('separation_point', ''),
     }
 
@@ -5488,15 +5542,42 @@ def _adapt_portrait_generator_result(bridge_result) -> dict:
         pts_list = step_output.get('portraits', [])
         for p in pts_list:
             if isinstance(p, dict):
-                portraits.append({
+                # 保留所有字段，确保前端转换和展示完整
+                portrait_data = {
+                    # 基础信息
                     'portrait_id': p.get('portrait_id', ''),
                     'problem_type': p.get('problem_type', ''),
+                    'problem_type_description': p.get('problem_type_description', ''),
+                    # 身份信息
                     'identity': p.get('identity', ''),
+                    'identity_description': p.get('identity_description', ''),
+                    # 核心维度
                     'pain_points': p.get('pain_points', []),
+                    'pain_scenarios': p.get('pain_scenarios', []),
+                    # 心理相关
                     'psychology': p.get('psychology', {}),
+                    'barriers': p.get('barriers', []),
+                    # 行为相关
+                    'search_keywords': p.get('search_keywords', []),
+                    'content_preferences': p.get('content_preferences', []),
+                    # 市场定位
+                    'market_type': p.get('market_type', 'blue_ocean'),
+                    'differentiation': p.get('differentiation', ''),
+                    # 摘要
                     'portrait_summary': p.get('portrait_summary', ''),
+                    # 内容方向
                     'content_direction': p.get('content_direction', '种草型'),
-                })
+                    # 标签
+                    'scene_tags': p.get('scene_tags', []),
+                    'behavior_tags': p.get('behavior_tags', []),
+                    # 增强字段
+                    'language_style': p.get('language_style', ''),
+                    'crowd_perspective': p.get('crowd_perspective', ''),
+                    'age_range': p.get('age_range', ''),
+                    'pain_point_level': p.get('pain_point_level', 'medium'),
+                    'decision_stage': p.get('decision_stage', 'consideration'),
+                }
+                portraits.append(portrait_data)
 
     return {
         'portraits': portraits,
@@ -5739,17 +5820,21 @@ def api_market_decision_cost_analyze():
             decision_cost: {
                 money_score: 7,        # 金钱成本 1-10
                 time_score: 6,          # 时间成本 1-10
-                mental_score: 9,        # 心理成本 1-10
+                info_access_score: 5,   # 信息获取难度 1-10
+                info_judge_score: 8,    # 信息辨识难度 1-10
+                trust_build_score: 7,   # 信任构建难度 1-10
                 risk_score: 7,          # 风险成本 1-10
-                knowledge_score: 8,     # 知识门槛 1-10
-                total_score: 7.4,      # 综合评分
+                mental_score: 9,        # 心理成本 1-10（由以上五项综合导致）
+                total_score: 7.0,      # 综合评分（七项平均）
                 judgment: "高价值",     # 判断
                 analysis: {             # 各维度分析
                     money: "...",
                     time: "...",
-                    mental: "...",
+                    info_access: "...",
+                    info_judge: "...",
+                    trust_build: "...",
                     risk: "...",
-                    knowledge: "..."
+                    mental: "..."
                 }
             },
             insight: "..."              # 总结洞察
@@ -5775,17 +5860,26 @@ def api_market_decision_cost_analyze():
 
 业务描述：{business_description}
 
-请从以下5个维度分析目标用户在该业务领域的购买决策成本：
+请从以下7个维度分析目标用户在该业务领域的购买决策成本：
 
-1. **金钱成本**：该产品/服务的价格是多少？用户是否需要大量比较价格？是否存在"一分钱一分货"的强感知？
+1. **金钱成本**：该产品/服务的价格是多少？用户是否需要大量比较价格？是否存在"一分钱一分货"的强感知？隐藏费用多不多？
 
 2. **时间成本**：用户需要花多少时间研究、比较、决策？是否需要多方咨询才能决定？
 
-3. **心理成本**：选错产品/服务会有什么后果？用户焦虑感强不强？是否害怕做出错误决定？
+3. **信息获取**：普通用户能接触到真实、专业的信息吗？行业知识壁垒高不高？内幕是否公开？
+   - 10分：信息高度封闭，普通用户根本接触不到核心知识
 
-4. **风险成本**：试错代价高不高？是否可以退货/售后？是否存在不可逆的风险？
+4. **信息辨识**：用户能辨别真假、识别套路吗？虚假信息多不多？行业水深不深？
+   - 10分：套路多、假信息泛滥，普通人极易被坑
 
-5. **知识门槛**：普通用户能否判断产品/服务质量？是否需要专业知识才能做出正确选择？
+5. **信任构建**：用户建立对服务商的信任容易吗？需要看专业性、权威性、过往案例吗？这些信息容易核实吗？
+   - 10分：难以核实、需深度背调才能判断是否靠谱
+
+6. **风险成本**：试错代价高不高？是否可以退货/售后？结果是否可逆？
+   - 10分：结果不可逆，一旦选错代价极高
+
+7. **心理成本**：由以上六项综合导致。问题是否紧急严重但暂时无法解决？用户是否陷入"想解决但不知道怎么解决"的困境？是否焦虑到决策瘫痪？
+   - 10分：多项成本叠加 + 问题紧迫 + 解决方案不明确
 
 请给出1-10的评分（10分=成本极高），并简要说明分析理由。
 
@@ -5794,17 +5888,21 @@ def api_market_decision_cost_analyze():
     "decision_cost": {{
         "money_score": 7,
         "time_score": 6,
-        "mental_score": 9,
+        "info_access_score": 5,
+        "info_judge_score": 7,
+        "trust_build_score": 8,
         "risk_score": 7,
-        "knowledge_score": 8,
-        "total_score": 7.4,
+        "mental_score": 9,
+        "total_score": 7.0,
         "judgment": "高价值",
         "analysis": {{
             "money": "该行业产品价格较高，用户需要仔细比较...",
             "time": "用户需要投入大量时间研究产品...",
-            "mental": "选错产品后果严重，用户焦虑感强...",
-            "risk": "试错成本高，部分产品不可逆...",
-            "knowledge": "普通用户难以判断产品质量..."
+            "info_access": "行业知识壁垒高，普通人难以获取...",
+            "info_judge": "套路多，假信息泛滥，用户极易被坑...",
+            "trust_build": "靠谱的服务商难以识别，需要深度背调...",
+            "risk": "试错成本高，部分决策不可逆...",
+            "mental": "多项成本叠加，用户陷入决策瘫痪..."
         }}
     }},
     "insight": "总结：内容创作者应重点解决用户在决策过程中的信息不对称问题..."
@@ -6183,22 +6281,98 @@ def api_portraits_generate():
         # 切换到 SkillBridge
         bridge = SkillBridge()
 
-        # 从 analysis_result 中提取数据
-        # 前端传来的 analysis_result = { problem_types, market_opportunities }
-        # 构造 market_analyzer_output 供 portrait_generator 使用
-        market_output = {
-            'step2_blue_ocean': {
-                'opportunities': analysis_result.get('market_opportunities', []),
-            },
-            'step_extract_problem_types': {
-                'problem_types': analysis_result.get('problem_types', []),
-            },
-        }
+        # 从 analysis_result 中提取数据并适配为 SkillBridge 期望的格式
+        # 前端传来的 analysis_result 可能包含两种格式：
+        # 1. 新格式：包含 _analysis_result（SkillBridge 原始输出）
+        # 2. 旧格式：只有 market_opportunities 和 subdivision_insights
+        #
+        # portrait_generator 的 input_schema 期望的字段名：
+        #   - blue_ocean_opportunities（来自 step2_blue_ocean.blue_ocean_opportunities）
+        #   - audience_segment（来自 step3_audience_segment.audience_segment）
+        #   - search_journey（来自 step6_search_journey.search_journey）
+        #
+        # 首先检查是否有 SkillBridge 原始输出
+        _analysis_result = analysis_result.get('_analysis_result', {})
+        logger.info(f"[api_portraits_generate] analysis_result keys: {list(analysis_result.keys())}, _analysis_result keys: {list(_analysis_result.keys()) if _analysis_result else 'EMPTY'}")
+
+        if _analysis_result:
+            # 使用 SkillBridge 原始输出，直接传递
+            market_output = _analysis_result.copy()
+            logger.info(f"[api_portraits_generate] 使用 _analysis_result, step2_blue_ocean keys: {list(market_output.get('step2_blue_ocean', {}).keys())}")
+            # 确保 step2_blue_ocean 有正确的字段名
+            if 'step2_blue_ocean' in market_output:
+                step2 = market_output['step2_blue_ocean']
+                # 如果蓝海机会在 opportunities 字段而不是 blue_ocean_opportunities，进行转换
+                if 'opportunities' in step2 and 'blue_ocean_opportunities' not in step2:
+                    step2['blue_ocean_opportunities'] = step2.pop('opportunities')
+                    logger.info("[api_portraits_generate] 已转换 opportunities -> blue_ocean_opportunities")
+        else:
+            # 使用旧格式，需要适配字段名
+            # 从 market_opportunities 构造 blue_ocean_opportunities
+            market_opportunities = analysis_result.get('market_opportunities', [])
+            problem_types = analysis_result.get('problem_types', [])
+            subdivision_insights = analysis_result.get('subdivision_insights', {})
+
+            logger.info(f"[api_portraits_generate] 使用旧格式: market_opportunities={len(market_opportunities)}, problem_types={len(problem_types)}")
+
+            # 构造 blue_ocean_opportunities（包含 problem_types 和 scenes）
+            # 格式要求：每个蓝海机会的 problem_types 中，每个问题类型的 scenes 字段要有内容
+            blue_ocean_opportunities = []
+            for opp in market_opportunities:
+                opp_problem_types = opp.get('problem_types', [])
+                # 如果 problem_types 中有 scenes，直接使用
+                if opp_problem_types:
+                    blue_ocean_opportunities.append(opp)
+                else:
+                    # 如果没有 problem_types，从全局 problem_types 中获取
+                    # 尝试从 selected_opportunity 获取（如果前端传递了）
+                    selected_pt = selected_opportunity.get('problem_types', []) if selected_opportunity else []
+                    if selected_pt:
+                        opp_copy = opp.copy()
+                        opp_copy['problem_types'] = selected_pt
+                        blue_ocean_opportunities.append(opp_copy)
+                    else:
+                        # 使用全局 problem_types
+                        opp_copy = opp.copy()
+                        opp_copy['problem_types'] = problem_types
+                        blue_ocean_opportunities.append(opp_copy)
+
+            market_output = {
+                'step2_blue_ocean': {
+                    'blue_ocean_opportunities': blue_ocean_opportunities,
+                },
+                'step_extract_problem_types': {
+                    'problem_types': problem_types,
+                },
+            }
+
+            # 适配 step3_audience_segment
+            if subdivision_insights:
+                market_output['step3_audience_segment'] = {
+                    'audience_segment': {
+                        'paying_user': subdivision_insights.get('paying_user', {}),
+                        'using_user': subdivision_insights.get('using_user', {}),
+                        'paying_equals_using': subdivision_insights.get('paying_equals_using', True),
+                        'audience_priority': subdivision_insights.get('audience_priority', []),
+                    }
+                }
+                logger.info(f"[api_portraits_generate] step3_audience_segment 已添加, keys: {list(market_output['step3_audience_segment']['audience_segment'].keys())}")
 
         # keyword_library 可能为空，从 analysis_result 中尝试提取
         keyword_library = analysis_result.get('keyword_library', {})
         if not keyword_library:
             keyword_library = analysis_result.get('keywords', {})
+
+        # 调试：确认 market_output 的结构
+        logger.info(f"[api_portraits_generate] market_output keys: {list(market_output.keys())}")
+        if 'step2_blue_ocean' in market_output:
+            step2 = market_output['step2_blue_ocean']
+            if 'blue_ocean_opportunities' in step2:
+                opps = step2['blue_ocean_opportunities']
+                logger.info(f"[api_portraits_generate] blue_ocean_opportunities: {len(opps) if isinstance(opps, list) else type(opps)}")
+
+        # 提取 problem_types 用于直接传入 skill
+        problem_types_for_skill = analysis_result.get('problem_types', [])
 
         result = bridge.execute_portrait_generator(
             industry=industry,
@@ -6207,6 +6381,7 @@ def api_portraits_generate():
             keyword_library=keyword_library,
             market_analyzer_output=market_output,
             portraits_per_type=portraits_per_type,
+            problem_types=problem_types_for_skill,
         )
 
         if not result.success:

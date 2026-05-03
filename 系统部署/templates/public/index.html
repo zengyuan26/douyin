@@ -6508,15 +6508,14 @@
                     cardContent += `<div style="font-size: 13px; color: #555; line-height: 1.6; padding-top: 0.5rem; border-top: 1px dashed #ddd;">${escHtml(description)}</div>`;
                 }
 
-                // ── 新增画像字段：需求底盘 + 用户阶段 + 搜索行为预判 ──────────────────
+                // ── 新增画像字段：需求底盘 + 搜索行为预判 ──────────────────
                 const problemBase = target.problem_base || target.problem_base || '';
-                const userStage = target['用户阶段标签'] || target.user_stage || '';
                 const searchBehaviors = target['搜索行为预判'] || target.search_behaviors || [];
                 const consumeType = target.consume_type || '';
                 const demandAttr = target.demand_attr || '';
 
-                // 需求底盘 + 用户阶段标签行
-                if (problemBase || userStage) {
+                // 需求底盘标签行
+                if (problemBase) {
                     cardContent += `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:0.75rem; padding-top:0.75rem; border-top:1px dashed #eee;">`;
                     if (problemBase) {
                         let baseStyle = 'font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600;';
@@ -6528,10 +6527,6 @@
                             baseStyle += 'background:#dcfce7; color:#166534;';
                         }
                         cardContent += `<span style="${baseStyle}">${escHtml(problemBase)}</span>`;
-                    }
-                    if (userStage) {
-                        let stageStyle = 'font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; background:#e0e7ff; color:#3730a3;';
-                        cardContent += `<span style="${stageStyle}" title="用户阶段">📍${escHtml(userStage)}</span>`;
                     }
                     if (consumeType) {
                         let ctStyle = 'font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600;';

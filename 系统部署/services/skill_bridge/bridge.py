@@ -174,20 +174,17 @@ class SkillBridge:
         keyword_library: Optional[dict] = None,
         market_analyzer_output: Optional[dict] = None,
         portraits_per_type: int = 3,
+        problem_types: Optional[List[dict]] = None,
         skip_steps: Optional[List[str]] = None,
     ) -> SkillExecutionResult:
         """
         执行画像生成 skill。
 
-        自动映射上游输出：
-          market_analyzer.step3_audience_segment  → input.audience_segment
-          market_analyzer.step2_blue_ocean        → input.blue_ocean_opportunities
-          market_analyzer.step6_search_journey    → input.search_journey
+        数据来源：
+        - keyword_library: 关键词库（可选）
+        - problem_types: 前端提取的问题类型列表（优先使用）
+        - market_analyzer_output: 可选，包含蓝海机会、人群细分、搜索旅程等信息
         """
-        outputs = {}
-        if market_analyzer_output:
-            outputs["market_analyzer"] = market_analyzer_output
-
         manual_inputs = {
             "industry": industry,
             "business_description": business_description,
@@ -195,6 +192,27 @@ class SkillBridge:
             "keyword_library": keyword_library or {},
             "portraits_per_type": portraits_per_type,
         }
+
+        # 优先使用前端传递的 problem_types
+        if problem_types:
+            manual_inputs['problem_types'] = problem_types
+
+        # 从 market_analyzer_output 中提取可选数据
+        if market_analyzer_output:
+            # 蓝海机会
+            step2 = market_analyzer_output.get('step2_blue_ocean', {})
+            if step2:
+                manual_inputs['blue_ocean_opportunities'] = step2.get('blue_ocean_opportunities') or step2.get('opportunities', [])
+
+            # 人群细分
+            step3 = market_analyzer_output.get('step3_audience_segment', {})
+            if step3:
+                manual_inputs['audience_segment'] = step3.get('audience_segment', step3)
+
+            # 搜索旅程
+            step6 = market_analyzer_output.get('step6_search_journey', {})
+            if step6:
+                manual_inputs['search_journey'] = step6.get('search_journey', step6)
 
         return self._executor.execute_skill(
             "portrait_generator",

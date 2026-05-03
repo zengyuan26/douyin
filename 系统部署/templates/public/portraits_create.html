@@ -3386,6 +3386,14 @@ function showDecisionCostModal(idx) {
 
     const insight = opp.decision_cost?.insight || '';
 
+    // 基于分数生成自动总结
+    const top3Bars = bars.sort((a, b) => b.score - a.score).slice(0, 3);
+    const top3Labels = top3Bars.filter(b => b.score >= 5).map(b => b.label.replace(/[💰⏰🔍🎭🤝⚠️😰\s]/g, '')).slice(0, 2);
+    const autoSummary = top3Labels.length > 0
+        ? `建议内容方向：重点解决用户在<span style="color:${dcColor};font-weight:600;">${top3Labels.join('和')}</span>维度的顾虑，降低决策门槛。`
+        : '各维度分数均衡，暂无突出障碍点。';
+    const summaryText = insight || autoSummary;
+
     const m = document.createElement('div');
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
     m.onclick = (e) => { if (e.target === m) m.remove(); };
@@ -3414,7 +3422,10 @@ function showDecisionCostModal(idx) {
             <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
                 ${barItems}
             </div>
-            ${insight ? `<div style="padding:10px;background:#f8f9fa;border-radius:8px;font-size:0.6875rem;color:#666;line-height:1.5;">${insight}</div>` : ''}
+            <div style="padding:12px;background:linear-gradient(135deg, #f8f9fa 0%, #e8e8ed 100%);border-radius:10px;font-size:0.75rem;color:#333;line-height:1.6;">
+                <div style="font-weight:600;margin-bottom:6px;color:#1c1c1e;"><i class="bi bi-lightbulb" style="color:#ff9500;margin-right:4px;"></i>内容创作建议</div>
+                <div>${summaryText}</div>
+            </div>
             </div>
         </div>`;
     document.body.appendChild(m);
@@ -4404,15 +4415,6 @@ function convertNewPortraitToOldFormat(portrait) {
         portraitSummary = summaryParts.join(' | ') || identity;
     }
 
-    // 构建用户阶段标签（基于增强字段 decision_stage）
-    let 用户阶段标签 = portrait.decision_stage || portrait.用户阶段标签 || '';
-    if (!用户阶段标签) {
-        const decisionStage = portrait.decision_stage || '';
-        用户阶段标签 = decisionStage === 'awareness' ? '认知阶段' :
-                       decisionStage === 'consideration' ? '考虑阶段' :
-                       decisionStage === 'decision' ? '决策阶段' : '';
-    }
-
     // 使用场景（取pain_scenarios的第一个）
     const 使用场景 = portrait.使用场景 || (painScenarios.length > 0 ? painScenarios[0] : '');
 
@@ -4465,7 +4467,6 @@ function convertNewPortraitToOldFormat(portrait) {
         identity: identity,
         identity_description: portrait.identity_description || '',
         identity_tags: identity_tags,
-        用户阶段标签: 用户阶段标签,
         使用场景: 使用场景,
         industry_scene: industry_scene,
         搜索行为预判: 搜索行为预判,
@@ -5744,8 +5745,7 @@ function buildCompactPortraitCard(portrait, key, index, problemInfo, totalCount,
     // 画像名称（优先使用identity，否则使用name）
     const name = portrait.name || portrait.identity || '目标客户' + (index + 1);
     const portraitSummary = portrait.portrait_summary || '';
-    const userStage = portrait.用户阶段标签 || '';
-    const usageScene = portrait.使用场景 || '';
+    const usageScene = portrait.使用场景 || portrait.usage_scene || '';
 
     // 身份标签
     const identityTags = portrait.identity_tags || {};
@@ -5765,6 +5765,16 @@ function buildCompactPortraitCard(portrait, key, index, problemInfo, totalCount,
     const decisionStage = portrait.decision_stage || '';
     const languageStyle = portrait.language_style || '';
 
+    // 转换决策阶段为中文
+    const decisionStageLabel = decisionStage === 'awareness' ? '认知阶段' :
+                               decisionStage === 'consideration' ? '考虑阶段' :
+                               decisionStage === 'decision' ? '决策阶段' : decisionStage;
+
+    // 转换痛点级别为中文
+    const painPointLevelLabel = painPointLevel === 'high' ? '高' :
+                                painPointLevel === 'medium' ? '中' :
+                                painPointLevel === 'low' ? '低' : painPointLevel;
+
     // 问题溯源标签
     const problemSourceTag = problemInfo.identity
         ? `<span class="card-badge problem-source-badge" title="来自问题：${escHtml(problemInfo.description || '')}"><i class="bi bi-link-45deg"></i>${escHtml(problemInfo.identity)}</span>`
@@ -5775,11 +5785,9 @@ function buildCompactPortraitCard(portrait, key, index, problemInfo, totalCount,
         ? `<span class="card-badge" style="font-size: 0.6875rem; background: rgba(255,255,255,0.9); color: #374151; border: 1px solid rgba(255,255,255,0.3);"><i class="bi bi-geo-alt" style="margin-right:2px;"></i>${escHtml(usageScene)}</span>`
         : '';
 
-    // 标签展示（合并多个来源）
+    // 标签展示（已隐藏：决策阶段、痛点级别）
     const tags = [];
-    if (userStage) tags.push(`<span class="card-tag"><i class="bi bi-clock"></i>${escHtml(userStage)}</span>`);
-    if (decisionStage) tags.push(`<span class="card-tag"><i class="bi bi-compass"></i>${escHtml(decisionStage)}</span>`);
-    if (painPointLevel) tags.push(`<span class="card-tag"><i class="bi bi-lightning-charge"></i>痛点${escHtml(painPointLevel)}</span>`);
+    // decisionStageLabel 和 painPointLevelLabel 不再展示
 
     return `
         <div class="portrait-card-compact ${isFocused ? 'is-focused' : ''} ${index === 0 ? 'selected' : ''}"
@@ -5834,7 +5842,6 @@ function openPortraitDetail(key, index) {
     // 获取所有数据
     const name = portrait.name || '未命名';
     const portraitSummary = portrait.portrait_summary || '';
-    const userStage = portrait.用户阶段标签 || '';
     const usageScene = portrait.使用场景 || '';
     const industryScene = portrait.industry_scene || '';
 
@@ -5916,15 +5923,12 @@ function openPortraitDetail(key, index) {
         `;
     }
 
-    // 基本信息标签
-    if (userStage || usageScene || industryScene || languageStyle || crowdPerspective || painPointLevel || decisionStage) {
+    // 基本信息标签（已隐藏：决策阶段、痛点级别）
+    if (usageScene || industryScene || languageStyle || crowdPerspective) {
         html += `
             <div class="portrait-detail-section">
                 <div class="portrait-detail-label"><i class="bi bi-info-circle"></i> 基本标签</div>
                 <div class="portrait-detail-tags">
-                    ${userStage ? `<span class="portrait-detail-tag" style="background: rgba(255,59,48,0.08); color: var(--apple-red);">${escHtml(userStage)}</span>` : ''}
-                    ${decisionStage ? `<span class="portrait-detail-tag" style="background: rgba(255,149,0,0.1); color: #ff9500;">${escHtml(decisionStage)}</span>` : ''}
-                    ${painPointLevel ? `<span class="portrait-detail-tag" style="background: rgba(52,199,189,0.1); color: #34c759;">痛点${escHtml(painPointLevel)}</span>` : ''}
                     ${usageScene ? `<span class="portrait-detail-tag" style="background: rgba(0,122,255,0.1); color: #007aff;">${escHtml(usageScene)}</span>` : ''}
                     ${industryScene ? `<span class="portrait-detail-tag" style="background: rgba(88,86,214,0.1); color: #5856d6;">${escHtml(industryScene)}</span>` : ''}
                     ${languageStyle ? `<span class="portrait-detail-tag" style="background: rgba(255,59,48,0.06); color: #ff3b30;">${escHtml(languageStyle)}</span>` : ''}
@@ -6228,7 +6232,7 @@ function copyPortraitToClipboard(key, index) {
   ${portrait.portrait_summary || '暂无'}
 
 【基本信息】
-  用户阶段：${portrait.用户阶段标签 || '未知'}
+  决策阶段：${portrait.decision_stage || '未知'}
   使用场景：${portrait.使用场景 || '未知'}
   行业场景：${portrait.industry_scene || '未知'}
 

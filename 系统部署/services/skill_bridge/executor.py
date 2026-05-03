@@ -169,6 +169,8 @@ class SkillExecutor:
                 logger.info(f"[SkillExecutor] 跳过步骤: {step_id}")
                 continue
 
+            logger.info(f"[SkillExecutor] 开始执行步骤: {step_id}")
+
             # 构建上下文：上游输出 + 手动输入
             context = self.mapper.build_input_context(skill_name, self._outputs)
             context.update(manual_inputs)
@@ -179,8 +181,10 @@ class SkillExecutor:
 
             if result.success:
                 full_output[step_id] = result.output
+                logger.info(f"[SkillExecutor] 步骤 {step_id} 执行成功")
             else:
                 errors.append(f"步骤 {step_id} 失败: {result.error}")
+                logger.warning(f"[SkillExecutor] 步骤 {step_id} 执行失败: {result.error}")
                 if stop_on_error:
                     break
 
@@ -208,12 +212,12 @@ class SkillExecutor:
         step: dict,
         context: dict,
     ) -> StepResult:
-        """执行单个步骤（关键步骤解析失败时自动重试）"""
+        """执行单个步骤（关键步骤或网络错误时自动重试）"""
         step_id = step["id"]
         step_name = step.get("name", step_id)
 
-        # 关键步骤列表（必须成功，失败时自动重试）
-        critical_steps = ['step_generate_content']
+        # 关键步骤列表（失败时自动重试）
+        critical_steps = ['step_generate_content', 'step_analyze_blue_ocean_scenes', 'step_extract_problem_types']
         max_retries = 1  # 最多重试1次
 
         last_result = None
@@ -229,15 +233,24 @@ class SkillExecutor:
                     logger.info(f"[SkillExecutor] step={step_id} 重试 {attempt} 次后成功")
                 return result
 
-            # 如果是关键步骤且还有重试机会，记录并重试
-            if step_id in critical_steps and attempt < max_retries:
+            # 检查是否是网络错误导致的失败（可以重试）
+            is_network_error = (
+                result.error and
+                any(keyword in result.error for keyword in [
+                    'LLM 调用返回 None', 'LLM 调用异常', '超时', 'connection', 'SSL', '网络'
+                ])
+            )
+
+            # 如果是关键步骤或网络错误，且还有重试机会，记录并重试
+            if (step_id in critical_steps or is_network_error) and attempt < max_retries:
+                retry_reason = '关键步骤' if step_id in critical_steps else '网络错误'
                 logger.warning(
-                    f"[SkillExecutor] step={step_id} 失败: {result.error}, "
+                    f"[SkillExecutor] step={step_id} 失败 ({retry_reason}): {result.error}, "
                     f"自动重试 ({attempt + 1}/{max_retries})"
                 )
                 continue
 
-            # 非关键步骤或无重试机会，直接返回失败结果
+            # 非关键步骤且不是网络错误，无重试机会，直接返回失败结果
             break
 
         return last_result
@@ -277,6 +290,7 @@ class SkillExecutor:
         # 2. 调用 LLM
         try:
             raw_output = self.llm_call(prompt, skill_name)
+            logger.info(f"[SkillExecutor] step={step_id} prompt长度={len(prompt)}, raw_output长度={len(raw_output) if raw_output else 0}")
             if raw_output is None:
                 return StepResult(
                     step_id=step_id,
@@ -284,6 +298,8 @@ class SkillExecutor:
                     error="LLM 调用返回 None",
                     duration_ms=int((time.time() - start_time) * 1000),
                 )
+            # 调试：打印 LLM 返回的前500字符
+            logger.debug(f"[SkillExecutor] step={step_id} raw_output (前500字符): {raw_output[:500]}")
         except Exception as e:
             return StepResult(
                 step_id=step_id,
@@ -300,6 +316,7 @@ class SkillExecutor:
                 step.get("output_field", step_id),
                 step_id=step_id,
             )
+            logger.info(f"[SkillExecutor] step={step_id} 解析结果: {str(structured_output)[:500]}")
         except Exception as e:
             return StepResult(
                 step_id=step_id,
@@ -406,7 +423,10 @@ class SkillExecutor:
 
         # 优先级1：直接 JSON
         try:
-            return json.loads(raw)
+            parsed = json.loads(raw)
+            result = self._normalize_output(parsed, default_field)
+            logger.info(f"[SkillExecutor] step={step_id} direct JSON parsed, keys={list(result.keys())}")
+            return result
         except json.JSONDecodeError:
             pass
 
@@ -455,6 +475,7 @@ class SkillExecutor:
             f"[SkillExecutor] step={step_id} 无法解析为结构化 JSON，返回原始文本 "
             f"(前300字符): {raw[:300]!r}"
         )
+        logger.info(f"[SkillExecutor] step={step_id} raw_output full (前2000字符): {raw[:2000]!r}")
         return {"_raw": raw}
 
     def _normalize_output(self, parsed: dict, default_field: str) -> dict:

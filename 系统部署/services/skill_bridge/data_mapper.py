@@ -170,13 +170,31 @@ class DataMapper:
 
         # ── 2. 同 skill 内前序步骤输出（链式引用 <<step_xxx>>）─────────────
         # 注入前序步骤的输出，键名为步骤 ID，供链式 prompt 引用
-        # 例如：tag_generator 的 step_tag_generate 可以引用 <<step_tier_analysis>>
+        # 同时注入 output_field 作为别名，兼容 prompt 中使用 <<output_field>> 的写法
+        # 例如：portrait_generator 的 step_analyze_blue_ocean_scenes 输出 blue_ocean_scenes
+        #       prompt 中可以使用 <<blue_ocean_scenes>> 而不是 <<step_analyze_blue_ocean_scenes>>
         skill_outputs = outputs.get(skill_name, {})
+        skill_config = self.registry.get_skill(skill_name)
+        step_id_to_output_field = {}
+
+        if skill_config:
+            for step in skill_config.get("steps", []):
+                step_id = step.get("id")
+                output_field = step.get("output_field")
+                if step_id and output_field and step_id != output_field:
+                    step_id_to_output_field[step_id] = output_field
+
         for step_id, step_output in skill_outputs.items():
+            # 注入 step_id（原始键名）
             if isinstance(step_output, dict):
                 context[step_id] = step_output
             elif step_output is not None:
                 context[step_id] = step_output
+
+            # 注入 output_field 别名（如果存在）
+            if step_id in step_id_to_output_field:
+                output_field = step_id_to_output_field[step_id]
+                context[output_field] = step_output
 
         return context
 
