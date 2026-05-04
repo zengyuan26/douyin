@@ -4394,16 +4394,137 @@ function convertNewPortraitToOldFormat(portrait) {
     const barriers = portrait.barriers || [];
     const contentPreferences = portrait.content_preferences || [];
 
-    // 构建画像摘要（优先使用原始摘要，否则从数据构建）
+    // 构建画像摘要（优化版：身份+场景+痛点+深层恐惧+想转变+困境）
     let portraitSummary = portrait.portrait_summary || '';
     if (!portraitSummary) {
         const summaryParts = [];
+        
+        // 1. 身份
+        if (identity) {
+            summaryParts.push(identity);
+        }
+        
+        // 2. 场景
+        if (painScenarios.length > 0) {
+            summaryParts.push(painScenarios[0]);
+        }
+        
+        // 3. 痛点
         if (painPoints.length > 0) {
             summaryParts.push('痛点: ' + painPoints.slice(0, 2).join('、'));
         }
-        if (painScenarios.length > 0) {
-            summaryParts.push('场景: ' + painScenarios[0]);
+        
+        // 4. 深层恐惧（从心理学描述、痛点、场景等综合推断）
+        const buyerPerspective = portrait.buyer_perspective || {};
+        const psychology = buyerPerspective.psychology || portrait.psychology || '';
+        
+        // 综合所有文本用于恐惧推断
+        const allText = [
+            psychology,
+            painPoints.join(' '),
+            painScenarios.join(' '),
+            identity
+        ].join(' ').toLowerCase();
+        
+        const fearPatterns = [
+            // 原有关知哺
+            { keywords: ['选错', '后悔'], fear: '怕选错影响一生' },
+            { keywords: ['浪费', '白费'], fear: '怕浪费时间和钱' },
+            { keywords: ['找不到', '失业', '不好就业'], fear: '怕毕业即失业' },
+            { keywords: ['错过', '来不及'], fear: '怕错过最佳时机' },
+            { keywords: ['比较', '比不上'], fear: '怕比不上别人' },
+            { keywords: ['失败', '受挫'], fear: '怕努力白费' },
+            // 新增：从痛点/场景推断
+            { keywords: ['赔偿', '争议', '纠纷'], fear: '怕赔不起' },
+            { keywords: ['理赔', '保险'], fear: '怕理赔被拒' },
+            { keywords: ['事故', '车祸', '撞车'], fear: '怕担责赔不起' },
+            { keywords: ['复杂', '不懂', '不会'], fear: '怕搞砸' },
+            { keywords: ['迷茫', '无助', '不知所措'], fear: '怕做出错误决定' },
+            { keywords: ['信息', '不了解'], fear: '怕信息不对称吃亏' },
+            { keywords: ['流程', '步骤'], fear: '怕流程出错' },
+            { keywords: ['标准', '规则'], fear: '怕不了解规则' }
+        ];
+        
+        let fearText = '';
+        
+        for (const p of fearPatterns) {
+            if (p.keywords.some(k => allText.includes(k))) {
+                fearText = p.fear;
+                break;
+            }
         }
+        
+        // 如果还没找到，从心理学描述中找含"怕/担心/恐惧"的句子
+        if (!fearText && psychology) {
+            const sentences = psychology.split(/[。；！]/);
+            for (const s of sentences) {
+                if (s.includes('怕') || s.includes('担心') || s.includes('恐惧')) {
+                    const fearIdx = s.indexOf('怕') !== -1 ? s.indexOf('怕') : (s.indexOf('担心') !== -1 ? s.indexOf('担心') : s.indexOf('恐惧'));
+                    fearText = s.substring(fearIdx).substring(0, 15);
+                    break;
+                }
+            }
+        }
+        
+        if (fearText) {
+            summaryParts.push('深层恐惧: ' + fearText);
+        }
+        
+        // 5. 想转变（从 goal/problem 提取）
+        const goal = buyerPerspective.goal || '';
+        const userPerspective = portrait.user_perspective || {};
+        const userProblem = userPerspective.problem || '';
+        
+        const transformPatterns = [
+            { from: ['迷茫', '不知道'], to: '想找到方向' },
+            { from: ['焦虑', '担心', '害怕'], to: '想安心有把握' },
+            { from: ['无助', '没人帮'], to: '想有专业指导' },
+            { from: ['拖延', '晚了', '来不及'], to: '想尽快做决定' },
+            { from: ['后悔', '遗憾'], to: '想做出无悔选择' },
+            { from: ['不懂', '不会', '不清楚'], to: '想搞清楚弄明白' }
+        ];
+        
+        let transformText = '';
+        const combinedText = (goal + userProblem).toLowerCase();
+        
+        for (const p of transformPatterns) {
+            if (p.from.some(k => combinedText.includes(k))) {
+                transformText = p.to;
+                break;
+            }
+        }
+        
+        if (!transformText && goal) {
+            transformText = '想' + goal.substring(0, 10);
+        }
+        
+        if (transformText) {
+            summaryParts.push('想转变: ' + transformText);
+        }
+        
+        // 6. 困境（内部/外部）
+        const barriers = portrait.barriers || [];
+        const barrierLabels = [];
+        
+        const internalKeywords = ['认知', '知识', '经验', '能力', '心理', '焦虑', '恐惧'];
+        const externalKeywords = ['资金', '预算', '时间', '资源', '人脉', '地域', '分数'];
+        
+        const hasInternal = barriers.some(b => {
+            const text = typeof b === 'string' ? b : (b.text || b.name || '');
+            return internalKeywords.some(k => text.includes(k));
+        });
+        const hasExternal = barriers.some(b => {
+            const text = typeof b === 'string' ? b : (b.text || b.name || '');
+            return externalKeywords.some(k => text.includes(k));
+        });
+        
+        if (hasInternal) barrierLabels.push('认知局限');
+        if (hasExternal) barrierLabels.push('资源压力');
+        
+        if (barrierLabels.length > 0) {
+            summaryParts.push('困境: ' + barrierLabels.join('、'));
+        }
+        
         portraitSummary = summaryParts.join(' | ') || identity;
     }
 
@@ -5877,18 +5998,7 @@ function openPortraitDetail(key, index) {
     // 构建详情HTML
     let html = '';
 
-    // 问题来源
-    const problemType = portrait.problem_type || '';
-    const problemDesc = portrait.problem_type_description || portrait.description || '';
-    if (problemType || problemDesc) {
-        const sourceDisplay = (problemType && problemDesc) ? `${problemType}-${problemDesc}` : (problemType || problemDesc);
-        html += `
-            <div class="portrait-detail-source">
-                <div class="source-label"><i class="bi bi-link-45deg"></i> 来源问题</div>
-                <div class="source-identity">${escHtml(sourceDisplay)}</div>
-            </div>
-        `;
-    }
+    // 【来源问题 - 已隐藏，不再展示】
 
     // 画像摘要
     if (portraitSummary) {
@@ -6214,11 +6324,6 @@ function copyPortraitToClipboard(key, index) {
 
     const text = `
 【画像名称】${portrait.name || '未命名'}
-
-【来源问题】
-  身份：${problemInfo.identity}
-  问题类型：${problemInfo.problemType}
-  问题描述：${problemInfo.description}
 
 【画像摘要】
   ${portrait.portrait_summary || '暂无'}
