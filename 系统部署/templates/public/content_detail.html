@@ -812,20 +812,46 @@
         padding: 10px 12px;
         background: var(--apple-gray7);
         border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .topic-item:hover {
+        background: var(--apple-gray6);
+    }
+    .topic-item.selected {
+        background: rgba(0, 122, 255, 0.1);
+        border: 1px solid var(--apple-blue);
+    }
+    .topic-radio {
+        display: none;
+    }
+    .topic-label {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        width: 100%;
+        cursor: pointer;
+        flex: 1;
+    }
+    .topic-item.selected .topic-num {
+        background: var(--apple-blue);
+        color: white;
     }
     .topic-num {
         font-size: 0.6875rem;
         font-weight: 600;
         color: white;
-        background: var(--apple-blue);
+        background: var(--apple-gray);
         padding: 2px 8px;
         border-radius: 10px;
         flex-shrink: 0;
+        transition: all 0.2s;
     }
     .topic-content {
         display: flex;
         flex-direction: column;
         gap: 4px;
+        flex: 1;
     }
     .topic-title {
         font-size: 0.875rem;
@@ -844,6 +870,36 @@
         border-radius: 4px;
         color: var(--apple-gray);
         background: rgba(0,0,0,0.05);
+    }
+    /* 一键生成按钮样式 */
+    .btn-generate-topics {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        background: var(--apple-blue);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-generate-topics:hover {
+        background: var(--apple-blue-dark, #0051a8);
+    }
+    .btn-generate-topics:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .btn-generate-topics .apple-spinner {
+        width: 12px;
+        height: 12px;
+        border-width: 2px;
+        border-top-color: white;
+        border-right-color: transparent;
+        animation: spin 0.8s linear infinite;
     }
 
     /* 发布策略区块样式 */
@@ -3309,7 +3365,7 @@ function parsePublishSchedule(content) {
     return items;
 }
 
-// 内容延伸区块：展示系列化选题和延伸选题，支持一键复制
+// 内容延伸区块：展示系列化选题和延伸选题，支持一键生成
 function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
     cardClass = cardClass || 'section-card';
     var content = sec.content || '';
@@ -3323,20 +3379,12 @@ function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
         }
     }
 
-    // 清理markdown格式用于复制
-    var cleanContent = content
-        .replace(/^#+\s*/gm, '')
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/^>\s*/gm, '')
-        .replace(/^\|.*\|$/gm, function(m) {
-            return m.replace(/\|/g, '  ').trim();
-        })
-        .replace(/^[-=]+\s*$/gm, '')
-        .trim();
+    // 解析延伸选题
+    var extensionData = parseExtensionContent(content);
 
-    // 使用 data-content 属性存储内容
-    var copyBtn = '<button class="btn-copy-title" data-copy-content="' + escHtml(cleanContent.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
-        '<i class="bi bi-clipboard"></i>复制全部' +
+    // 一键生成按钮（替换复制全部按钮）
+    var generateBtn = '<button class="btn-generate-topics" onclick="generateSelectedTopic()">' +
+        '<i class="bi bi-magic"></i>一键生成' +
         '</button>';
 
     var html = '<div class="' + cardClass + '" id="panel-' + escHtml(sec.section_key) + '">' +
@@ -3346,13 +3394,10 @@ function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
                 (badgeText ? '<span class="section-badge ' + badgeClass + '">' + badgeText + '</span>' : '') +
             '</div>' +
             '<div class="section-actions">' +
-                copyBtn +
+                generateBtn +
             '</div>' +
         '</div>' +
         '<div class="section-card-body extension-body">';
-
-    // 解析延伸选题
-    var extensionData = parseExtensionContent(content);
 
     // 系列化选题
     if (extensionData.series.length > 0) {
@@ -3368,13 +3413,17 @@ function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
         html += '</div></div>';
     }
 
-    // 具体延伸选题
+    // 具体延伸选题（改为单选列表形式）
     if (extensionData.topics.length > 0) {
         html += '<div class="extension-section">';
         html += '<div class="extension-section-title">延伸选题</div>';
         html += '<div class="topic-list">';
         extensionData.topics.forEach(function(item) {
-            html += '<div class="topic-item">';
+            // 使用选题索引作为ID，方便获取选题信息
+            var itemId = 'ext-topic-' + item.seq;
+            html += '<div class="topic-item" data-topic-id="' + item.seq + '" data-topic-title="' + escHtml(item.title) + '" data-topic-type="' + escHtml(item.type || '') + '" data-topic-purpose="' + escHtml(item.purpose || '') + '">';
+            html += '<input type="radio" name="extension_topic" id="' + itemId + '" class="topic-radio">';
+            html += '<label for="' + itemId + '" class="topic-label">';
             html += '<span class="topic-num">#' + item.seq + '</span>';
             html += '<div class="topic-content">';
             html += '<div class="topic-title">' + escHtml(item.title) + '</div>';
@@ -3385,10 +3434,13 @@ function buildExtensionSection(sec, badgeClass, badgeText, cardClass) {
             if (item.purpose) {
                 html += '<span class="topic-purpose">' + escHtml(item.purpose) + '</span>';
             }
-            html += '</div></div></div>';
+            html += '</div></div></label></div>';
         });
         html += '</div></div>';
     }
+
+    // 存储延伸选题数据到全局变量，供生成使用
+    window._extensionTopics = extensionData.topics;
 
     if (extensionData.series.length === 0 && extensionData.topics.length === 0) {
         html += '<div class="content-raw">' + escHtml(content).replace(/\n/g, '<br>') + '</div>';
@@ -3886,6 +3938,214 @@ function regenerateContent() {
     } else {
         window.location.href = '/public';
     }
+}
+
+// ═══════════════════════════════════════════════════════════
+// 延伸选题单选交互和生成功能
+// ═══════════════════════════════════════════════════════════
+
+// 初始化延伸选题单选交互
+document.addEventListener('DOMContentLoaded', function() {
+    // 监听延伸选题列表中的点击事件
+    document.addEventListener('click', function(e) {
+        var topicItem = e.target.closest('.topic-item');
+        if (topicItem && topicItem.closest('.extension-body')) {
+            // 移除其他选中状态
+            var allItems = document.querySelectorAll('.extension-body .topic-item');
+            allItems.forEach(function(item) {
+                item.classList.remove('selected');
+            });
+            // 添加当前选中状态
+            topicItem.classList.add('selected');
+            // 选中对应的radio
+            var radio = topicItem.querySelector('.topic-radio');
+            if (radio) {
+                radio.checked = true;
+            }
+        }
+    });
+});
+
+// 获取选中的延伸选题
+function getSelectedExtensionTopic() {
+    var selected = document.querySelector('.extension-body .topic-item.selected');
+    if (!selected) {
+        return null;
+    }
+    return {
+        seq: selected.dataset.topicId,
+        title: selected.dataset.topicTitle,
+        type: selected.dataset.topicType,
+        purpose: selected.dataset.topicPurpose
+    };
+}
+
+// 一键生成：使用选中的延伸选题生成图文内容
+async function generateSelectedTopic() {
+    var selectedTopic = getSelectedExtensionTopic();
+    if (!selectedTopic) {
+        showToast('请先选择一个延伸选题', 'warning');
+        return;
+    }
+
+    // 获取当前内容详情的数据
+    if (!_generationData) {
+        showToast('内容数据加载失败，请刷新页面重试', 'error');
+        return;
+    }
+
+    var btn = document.querySelector('.btn-generate-topics');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="apple-spinner" style="display:inline-block;"></span> 生成中...';
+    }
+
+    try {
+        // 获取画像ID
+        var portraitId = _generationData.portrait_id || _portraitId;
+        if (!portraitId) {
+            showToast('缺少画像ID，无法生成内容', 'error');
+            return;
+        }
+
+        // 获取画像数据
+        var portraitResp = await fetch('/public/api/portraits/' + portraitId, { credentials: 'include' });
+        var portraitData = await portraitResp.json();
+        if (!portraitData.success || !portraitData.data) {
+            showToast('获取画像数据失败', 'error');
+            return;
+        }
+        var portrait = portraitData.data;
+
+        // 获取客户档案信息
+        var clientProfile = {};
+        try {
+            var profileResp = await fetch('/public/api/portraits/' + portraitId + '/client-profile', {
+                credentials: 'include'
+            });
+            var profileData = await profileResp.json();
+            if (profileData.success && profileData.data && profileData.data.client_profile) {
+                clientProfile = profileData.data.client_profile;
+            }
+        } catch (e) {
+            console.warn('[generateSelectedTopic] 获取客户档案失败:', e);
+        }
+
+        // 构建brand_context
+        var brandContext = {
+            business_name: portrait.business_description || '',
+            years_experience: clientProfile.operating_years || '',
+            brand_claims: clientProfile.core_advantages ? [clientProfile.core_advantages] : [],
+            anchor_positions: ['开头', '中间', '结尾'],
+            content_purpose: 'conversion',
+            contact_info: {
+                phone: clientProfile.contact_info || '',
+                wechat: '',
+                email: '',
+                address: '',
+                business_hours: '',
+                notes: clientProfile.service_guarantee || ''
+            }
+        };
+
+        // 构建选题数据（使用延伸选题的标题和类型）
+        var topicTitle = selectedTopic.title;
+        // 清理选题标题中的类型前缀，如"【知识科普】"等
+        var cleanTitle = topicTitle.replace(/^【[^】]+】\s*/, '').trim();
+
+        // 构建请求payload
+        var payload = {
+            topic_title: cleanTitle,
+            topic_type: selectedTopic.type || '种草推荐',
+            topic_type_key: '',
+            business_description: portrait.business_description || '',
+            business_range: 'local',
+            business_type: portrait.industry || 'local_service',
+            portrait: portrait.portrait_data || {},
+            portrait_id: portraitId,
+            problem_id: portrait.session_id || null,
+            client_profile: clientProfile,
+            brand_context: brandContext,
+            content_type: 'graphic',
+            selected_scene: null,
+        };
+
+        console.log('[generateSelectedTopic] 开始生成，payload:', payload);
+
+        // 首先：将延伸选题添加到选题库
+        var topicId = null;
+        try {
+            var addTopicResp = await fetch('/public/api/portraits/' + portraitId + '/topics/add', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topic_title: cleanTitle,
+                    topic_type: selectedTopic.type || '种草推荐',
+                    source: 'extension',
+                    scene_options: []
+                })
+            });
+            var addTopicData = await addTopicResp.json();
+            if (addTopicData.success && addTopicData.data && addTopicData.data.topic_id) {
+                topicId = addTopicData.data.topic_id;
+                console.log('[generateSelectedTopic] 选题已添加到选题库，topic_id:', topicId);
+                showToast('选题已添加到选题库，开始生成内容...', 'info');
+            }
+        } catch (e) {
+            console.warn('[generateSelectedTopic] 添加选题到选题库失败，继续生成:', e);
+        }
+
+        // 将选题ID添加到payload
+        if (topicId) {
+            payload.topic_id = topicId;
+        }
+
+        // 调用内容生成API
+        var resp = await fetch('/public/api/content/generate', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        var data = await resp.json();
+
+        if (!resp.ok || !data.success) {
+            showToast(data.message || '生成失败', 'error');
+            return;
+        }
+
+        // 生成成功，跳转到内容详情页
+        showToast('生成成功！正在跳转...', 'success');
+        setTimeout(function() {
+            window.location.href = '/public/content-detail?id=' + data.data.generation_id;
+        }, 1000);
+
+    } catch (e) {
+        console.error('[generateSelectedTopic] 生成失败:', e);
+        showToast('生成失败: ' + e.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-magic"></i>一键生成';
+        }
+    }
+}
+
+// Toast提示函数
+function showToast(message, type) {
+    type = type || 'info';
+    var toast = document.createElement('div');
+    toast.className = 'toast-message toast-' + type;
+    toast.innerHTML = '<span>' + message + '</span>';
+    toast.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 20px;background:var(--apple-' + type + ',#333);color:white;border-radius:8px;font-size:0.875rem;z-index:9999;animation:slideIn 0.3s;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+    document.body.appendChild(toast);
+    setTimeout(function() {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(function() { toast.remove(); }, 300);
+    }, 3000);
 }
 
 // ═══════════════════════════════════════════════════════════

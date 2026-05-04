@@ -3129,6 +3129,96 @@ def api_content_detail(generation_id):
     })
 
 
+@public_bp.route('/api/portraits/<int:portrait_id>/topics/add', methods=['POST'])
+def api_add_extension_topic(portrait_id):
+    """
+    将延伸选题添加到画像的选题库
+
+    请求格式：
+    {
+        "topic_title": "选题标题",
+        "topic_type": "知识科普",  // 类型
+        "source": "extension",      // 来源：extension 表示来自内容延伸
+        "scene_options": []         // 可选：场景选项
+    }
+    """
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    from models.public_models import SavedPortrait
+
+    # 查找画像
+    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+
+    params = request.get_json() or {}
+    topic_title = params.get('topic_title', '').strip()
+    if not topic_title:
+        return jsonify({'success': False, 'message': '选题标题不能为空'}), 400
+
+    topic_type = params.get('topic_type', '')
+    source = params.get('source', 'extension')
+    scene_options = params.get('scene_options', [])
+
+    # 初始化 topic_library（如果不存在）
+    if not portrait.topic_library:
+        portrait.topic_library = {}
+
+    if 'topics' not in portrait.topic_library:
+        portrait.topic_library['topics'] = []
+
+    # 生成选题ID（使用时间戳）
+    import time
+    topic_id = 'ext_' + str(int(time.time() * 1000))
+
+    # 构建选题数据
+    new_topic = {
+        'id': topic_id,
+        'title': topic_title,
+        'type_name': topic_type,
+        'type_key': _normalize_topic_type_key(topic_type),
+        'source': source,
+        'scene_options': scene_options,
+        'created_at': datetime.datetime.utcnow().isoformat(),
+        'generation_count': 0,
+    }
+
+    # 添加到选题库
+    portrait.topic_library['topics'].append(new_topic)
+    db.session.commit()
+
+    logger.info(f"[api_add_extension_topic] 添加延伸选题成功 portrait_id={portrait_id}, topic_id={topic_id}, title={topic_title[:30]}")
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'topic_id': topic_id,
+            'topic': new_topic,
+        },
+        'message': '选题已添加到选题库'
+    })
+
+
+def _normalize_topic_type_key(topic_type: str) -> str:
+    """将选题类型名称转为 type_key"""
+    if not topic_type:
+        return ''
+    type_map = {
+        '知识科普': 'knowledge',
+        '避坑指南': 'pitfall',
+        '实用攻略': 'guide',
+        '入门科普': 'beginner',
+        '干货进阶': 'advanced',
+        '问题诊断': 'diagnosis',
+        '种草推荐': 'seed',
+        '转化型': 'convert',
+        '人设型': 'persona',
+    }
+    return type_map.get(topic_type, topic_type)
+
+
 @public_bp.route('/api/content/<int:generation_id>/optimize', methods=['POST'])
 def api_optimize_content(generation_id):
     """
