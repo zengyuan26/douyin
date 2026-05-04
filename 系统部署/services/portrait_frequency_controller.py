@@ -196,14 +196,15 @@ class PortraitFrequencyController:
                 SET plan_type = :plan_type,
                     weekly_change_limit = :weekly_limit,
                     monthly_change_limit = :monthly_limit,
-                    updated_at = NOW()
+                    updated_at = :now
                 WHERE user_id = :user_id
             """),
             {
                 'user_id': user_id,
                 'plan_type': plan_type,
                 'weekly_limit': plan_config['weekly_change_limit'],
-                'monthly_limit': plan_config['monthly_change_limit']
+                'monthly_limit': plan_config['monthly_change_limit'],
+                'now': datetime.utcnow(),
             }
         )
         db.session.commit()
@@ -289,10 +290,10 @@ class PortraitFrequencyController:
                 UPDATE user_portrait_quota
                 SET {used_key} = :used,
                     {start_key} = :start,
-                    updated_at = NOW()
+                    updated_at = :now
                 WHERE user_id = :user_id
             """),
-            {'used': new_used, 'start': new_start, 'user_id': user_id}
+            {'used': new_used, 'start': new_start, 'user_id': user_id, 'now': datetime.utcnow()}
         )
         db.session.commit()
         return True
@@ -414,7 +415,7 @@ class PortraitFrequencyController:
                     quota_week_start = :week_start,
                     quota_month_start = :month_start,
                     total_changes = total_changes + 1,
-                    updated_at = NOW()
+                    updated_at = :now
                 WHERE user_id = :user_id
             """),
             {
@@ -422,7 +423,8 @@ class PortraitFrequencyController:
                 'weekly_used': new_weekly_used,
                 'monthly_used': new_monthly_used,
                 'week_start': week_start,
-                'month_start': month_start
+                'month_start': month_start,
+                'now': datetime.utcnow(),
             }
         )
         
@@ -455,10 +457,10 @@ class PortraitFrequencyController:
             text("""
                 UPDATE user_portrait_quota
                 SET total_generations = total_generations + 1,
-                    updated_at = NOW()
+                    updated_at = :now
                 WHERE user_id = :user_id
             """),
-            {'user_id': user_id}
+            {'user_id': user_id, 'now': datetime.utcnow()}
         )
         db.session.commit()
         return True
@@ -502,10 +504,10 @@ class PortraitFrequencyController:
                 UPDATE user_portrait_quota
                 SET weekly_changes_used = 0,
                     quota_week_start = :week_start,
-                    updated_at = NOW()
+                    updated_at = :now
                 WHERE user_id = :user_id
             """),
-            {'user_id': user_id, 'week_start': today}
+            {'user_id': user_id, 'week_start': today, 'now': datetime.utcnow()}
         )
         db.session.commit()
         return True

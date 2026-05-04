@@ -66,6 +66,7 @@ class PortraitSaveService:
                 portrait_name = f"画像_{datetime.now().strftime('%m%d_%H%M')}"
 
             # 插入保存记录
+            now = datetime.utcnow()
             result = db.session.execute(
                 text("""
                     INSERT INTO saved_portraits
@@ -73,7 +74,7 @@ class PortraitSaveService:
                      industry, target_customer, is_default, source_session_id,
                      generation_status, created_at)
                     VALUES (:user_id, :name, :data, :desc, :industry, :customer,
-                            :is_default, :session_id, :gen_status, NOW())
+                            :is_default, :session_id, :gen_status, :now)
                 """),
                 {
                     'user_id': user_id,
@@ -85,6 +86,7 @@ class PortraitSaveService:
                     'is_default': set_as_default,
                     'session_id': source_session_id,
                     'gen_status': 'pending',
+                    'now': now,
                 }
             )
 
@@ -98,6 +100,7 @@ class PortraitSaveService:
             # 尝试恢复旧数据（如果被删了）
             try:
                 if old_portraits:
+                    now = datetime.utcnow()
                     for op in old_portraits:
                         db.session.execute(
                             text("""
@@ -106,7 +109,7 @@ class PortraitSaveService:
                                  industry, target_customer, is_default, source_session_id,
                                  keyword_library, topic_library, created_at)
                                 VALUES (:uid, :name, :data, :desc, :industry, :customer,
-                                        :is_default, :session_id, :kw, :topic, NOW())
+                                        :is_default, :session_id, :kw, :topic, :now)
                             """),
                             {
                                 'uid': user_id,
@@ -119,6 +122,7 @@ class PortraitSaveService:
                                 'session_id': op.get('source_session_id'),
                                 'kw': json.dumps(op.get('keyword_library'), ensure_ascii=False) if op.get('keyword_library') else None,
                                 'topic': json.dumps(op.get('topic_library'), ensure_ascii=False) if op.get('topic_library') else None,
+                                'now': now,
                             }
                         )
                     db.session.commit()
@@ -339,10 +343,10 @@ class PortraitSaveService:
             text("""
                 UPDATE saved_portraits
                 SET used_count = used_count + 1,
-                    last_used_at = NOW()
+                    last_used_at = :now
                 WHERE id = :id AND user_id = :user_id
             """),
-            {'id': portrait_id, 'user_id': user_id}
+            {'id': portrait_id, 'user_id': user_id, 'now': datetime.utcnow()}
         )
         db.session.commit()
         return True
@@ -510,16 +514,18 @@ class PortraitSaveService:
             bool: 是否保存成功
         """
         try:
+            from datetime import datetime
             db.session.execute(
                 text("""
                     UPDATE saved_portraits
                     SET client_profile = :profile,
-                        updated_at = NOW()
+                        updated_at = :updated_at
                     WHERE id = :id
                 """),
                 {
                     'id': portrait_id,
                     'profile': json.dumps(client_profile, ensure_ascii=False) if client_profile else None,
+                    'updated_at': datetime.utcnow(),
                 }
             )
             db.session.commit()
@@ -543,16 +549,18 @@ class PortraitSaveService:
             bool: 是否保存成功
         """
         try:
+            from datetime import datetime
             db.session.execute(
                 text("""
                     UPDATE saved_portraits
                     SET selected_opportunity = :opp,
-                        updated_at = NOW()
+                        updated_at = :updated_at
                     WHERE id = :id
                 """),
                 {
                     'id': portrait_id,
                     'opp': json.dumps(opportunity, ensure_ascii=False) if opportunity else None,
+                    'updated_at': datetime.utcnow(),
                 }
             )
             db.session.commit()

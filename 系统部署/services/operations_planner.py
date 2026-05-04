@@ -209,28 +209,46 @@ class OperationsPlan:
     business_name: str
     industry: str
     content_stage: str
-    
+
     # 账号定位
     account_positioning: str                   # 账号定位
     ip_persona: str                           # IP人设
     content_style: str                         # 内容风格
     differentiation: str                       # 差异化方向
-    
+
     # 五段式规划
     five_stage_plan: List[StagePlan]          # 五段式规划列表
     total_topic_count: int                    # 总选题数量
-    
+
     # GEO模式匹配
     geo_mode_mapping: Dict[str, List[str]]     # 五段式 → GEO模式映射
-    
+
     # 内容策略
     content_ratio: Dict[str, float]           # 内容类型配比
     content_sequence: List[str]                # 推荐内容发布顺序
-    
+
     # 执行计划
     first_week_topics: List[Dict]              # 首周选题计划
     content_calendar: Dict[str, Any]           # 内容日历
-    
+
+    # 新增：账号设计（昵称方案、头像建议、简介、标签）
+    account_design: Dict[str, Any] = None
+
+    # 新增：IP人设打造（外在形象、内在特质、口头禅、信任路径）
+    ip_build: Dict[str, Any] = None
+
+    # 新增：变现路径（产品、定价、转化漏斗、话术）
+    monetization: Dict[str, Any] = None
+
+    # 新增：KPI目标（各阶段粉丝/咨询量/成交）
+    kpi_targets: Dict[str, Any] = None
+
+    # 新增：风险提示（季节性/竞争/政策）
+    risk_alerts: Dict[str, str] = None
+
+    # 新增：行动计划（优先级任务列表）
+    action_items: List[Dict] = None
+
     # 元信息
     created_at: str = ''
     version: str = '1.0'
@@ -260,62 +278,102 @@ class OperationsPlanner:
         business_info: Dict[str, Any],
         content_stage: str = '成长阶段',
         target_topic_count: int = 30,
+        client_profile: Dict[str, Any] = None,
     ) -> OperationsPlan:
         """
         生成运营规划方案
-        
+
         Args:
             portraits: 画像列表
             business_info: 业务信息
             content_stage: 账号内容阶段（起号阶段/成长阶段/成熟阶段）
             target_topic_count: 目标选题数量
-        
+            client_profile: 客户自定义信息（账号/IP/变现等信息）
+
         Returns:
             OperationsPlan: 运营规划方案
         """
+        # 确保 client_profile 不为 None
+        if client_profile is None:
+            client_profile = {}
+
         try:
             # 1. 确定账号阶段
             stage_enum = self._parse_content_stage(content_stage)
-            
+
             # 2. 生成五段式规划
             five_stage_plan = self._generate_five_stage_plan(
                 stage=stage_enum,
                 target_count=target_topic_count,
             )
-            
+
             # 3. 生成GEO模式匹配
             geo_mode_mapping = self._generate_geo_mode_mapping(five_stage_plan)
-            
+
             # 4. 生成账号定位
             account_positioning = self._generate_account_positioning(
                 portraits=portraits,
                 business_info=business_info,
+                client_profile=client_profile,
             )
-            
+
             # 5. 生成内容策略
             content_ratio = self._generate_content_ratio(
                 portraits=portraits,
                 stage=stage_enum,
             )
-            
+
             # 6. 生成内容发布计划
             content_sequence = self._generate_content_sequence(
                 five_stage_plan=five_stage_plan,
                 geo_mode_mapping=geo_mode_mapping,
             )
-            
+
             # 7. 生成首周选题计划
             first_week_topics = self._generate_first_week_topics(
                 five_stage_plan=five_stage_plan,
                 geo_mode_mapping=geo_mode_mapping,
             )
-            
+
             # 8. 生成内容日历
             content_calendar = self._generate_content_calendar(
                 five_stage_plan=five_stage_plan,
                 content_sequence=content_sequence,
             )
-            
+
+            # 9. 生成账号设计（昵称方案、头像建议等）
+            account_design = self._generate_account_design(
+                business_info=business_info,
+                client_profile=client_profile,
+            )
+
+            # 10. 生成IP人设打造
+            ip_build = self._generate_ip_build(
+                client_profile=client_profile,
+                business_info=business_info,
+            )
+
+            # 11. 生成变现路径
+            monetization = self._generate_monetization(
+                client_profile=client_profile,
+                business_info=business_info,
+            )
+
+            # 12. 生成KPI目标
+            kpi_targets = self._generate_kpi_targets(
+                stage=stage_enum,
+            )
+
+            # 13. 生成风险提示
+            risk_alerts = self._generate_risk_alerts(
+                business_info=business_info,
+            )
+
+            # 14. 生成行动计划
+            action_items = self._generate_action_items(
+                client_profile=client_profile,
+            )
+
             # 组装运营规划
             plan = OperationsPlan(
                 plan_id=f"plan_{business_info.get('business_name', 'unknown')}_{content_stage}",
@@ -333,13 +391,19 @@ class OperationsPlanner:
                 content_sequence=content_sequence,
                 first_week_topics=first_week_topics,
                 content_calendar=content_calendar,
+                account_design=account_design,
+                ip_build=ip_build,
+                monetization=monetization,
+                kpi_targets=kpi_targets,
+                risk_alerts=risk_alerts,
+                action_items=action_items,
                 created_at='',
                 version='1.0',
             )
-            
+
             logger.info(f"[OperationsPlanner] 生成运营规划: {plan.plan_id}")
             return plan
-            
+
         except Exception as e:
             logger.exception(f"[OperationsPlanner] 生成失败: {e}")
             raise
@@ -396,8 +460,12 @@ class OperationsPlanner:
         self,
         portraits: List[Dict[str, Any]],
         business_info: Dict[str, Any],
+        client_profile: Dict[str, Any] = None,
     ) -> Dict[str, str]:
         """生成账号定位"""
+        if client_profile is None:
+            client_profile = {}
+
         # 从画像中提取核心痛点
         pain_points = []
         identities = []
@@ -405,19 +473,39 @@ class OperationsPlanner:
             if isinstance(p, dict):
                 pain_points.extend(p.get('pain_points', [])[:2])
                 identities.append(p.get('identity', ''))
-        
+
+        # 用户录入的信息（支持 brand_name 和 account_name 两种字段）
+        user_defined_name = client_profile.get('account_name', '') or client_profile.get('brand_name', '')
+        user_defined_bio = client_profile.get('account_bio', '') or client_profile.get('brand_type', '')
+        user_defined_years = client_profile.get('operating_years', '')
+        user_defined_advantages = client_profile.get('core_advantages', '')
+        user_defined_credentials = client_profile.get('credentials', '')
+        user_defined_cases = client_profile.get('case_data', '')
+        user_defined_contact = client_profile.get('contact_info', '')
+        user_defined_target = client_profile.get('target_audience', '')
+
         # 调用LLM生成账号定位
         prompt = f"""基于以下信息，生成账号定位策略：
 
-业务信息：
+【业务信息】
 - 业务名称：{business_info.get('business_name', '')}
 - 业务描述：{business_info.get('business_description', '')}
 - 行业：{business_info.get('industry', '')}
+- 目标客户：{user_defined_target or business_info.get('target_customer', '')}
 
-目标人群：
+【用户已录入的信息】
+- 品牌/账号名称：{user_defined_name or '未填写'}
+- 品牌类型：{user_defined_bio or '未填写'}
+- 经营年限：{user_defined_years or '未填写'}
+- 核心优势：{user_defined_advantages or '未填写'}
+- 资质证书：{user_defined_credentials or '未填写'}
+- 成功案例：{user_defined_cases or '未填写'}
+- 联系方式：{user_defined_contact or '未填写'}
+
+【目标人群画像】
 {', '.join(set([i for i in identities if i]))}
 
-核心痛点：
+【核心痛点】
 {', '.join(set([p for p in pain_points if p]))}
 
 请生成JSON格式的账号定位策略：
@@ -431,7 +519,7 @@ class OperationsPlanner:
         try:
             messages = [{"role": "user", "content": prompt}]
             response = self.llm.chat(messages, temperature=0.5, max_tokens=1500)
-            
+
             if response:
                 import re
                 json_match = re.search(r'\{.*\}', response, re.DOTALL)
@@ -445,13 +533,14 @@ class OperationsPlanner:
                     }
         except Exception as e:
             logger.warning(f"[OperationsPlanner] LLM定位生成失败: {e}")
-        
-        # 兜底：基于业务信息生成
+
+        # 兜底：基于业务信息和用户录入信息生成
+        account_name = user_defined_name or business_info.get('business_name', '')
         return {
-            'positioning': f"{business_info.get('industry', '')}专家，专注解决{business_info.get('business_description', '')}相关问题",
-            'ip_persona': f"{business_info.get('business_name', '')}创始人，深耕行业多年",
+            'positioning': f"{account_name}，专注{business_info.get('industry', '')}服务",
+            'ip_persona': f"{account_name}创始人/负责人，{user_defined_advantages[:20] + '...' if user_defined_advantages else '专业可靠'}",
             'content_style': '专业可信、亲切接地气',
-            'differentiation': '专业经验 + 本地服务',
+            'differentiation': (user_defined_advantages[:30] if user_defined_advantages else '专业经验') + ' + 本地服务',
         }
     
     def _generate_content_ratio(
@@ -567,7 +656,282 @@ class OperationsPlanner:
             },
         }
         return calendar
-    
+
+    def _generate_account_design(
+        self,
+        business_info: Dict[str, Any],
+        client_profile: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """生成账号设计（昵称方案、头像建议、简介、标签）"""
+        if client_profile is None:
+            client_profile = {}
+
+        # 支持 brand_name 和 account_name
+        user_account_name = client_profile.get('account_name', '') or client_profile.get('brand_name', '')
+        user_brand_type = client_profile.get('brand_type', '')
+        user_advantages = client_profile.get('core_advantages', '')
+        user_credentials = client_profile.get('credentials', '')
+        business_name = business_info.get('business_name', '')
+        industry = business_info.get('industry', '')
+
+        # 如果用户已录入名称，使用用户提供的信息
+        if user_account_name:
+            # 基于用户提供的信息生成简介
+            bio_parts = []
+            if user_brand_type:
+                bio_parts.append(f"{user_brand_type}")
+            if user_advantages:
+                bio_parts.append(user_advantages[:20])
+            if user_credentials:
+                bio_parts.append(user_credentials[:15])
+
+            return {
+                'nickname_options': [
+                    user_account_name,
+                    f"{user_account_name.split()[0]}老师" if len(user_account_name.split()) > 1 else user_account_name,
+                    user_account_name.replace('老师', '咨询'),
+                ],
+                'avatar_suggestion': '个人形象照（专业、亲切）',
+                'bio_final': ' | '.join(bio_parts) if bio_parts else f"{industry}专家",
+                'content_tags': [f"#{industry}", f"#{user_account_name}"],
+            }
+
+        # 否则调用 LLM 生成
+        prompt = f"""为以下业务设计抖音账号方案：
+
+业务名称：{business_name}
+行业：{industry}
+
+请生成JSON格式：
+{{
+    "nickname_options": ["方案1", "方案2", "方案3"],
+    "avatar_suggestion": "头像建议",
+    "bio_final": "最终简介",
+    "content_tags": ["#标签1", "#标签2", "#标签3"]
+}}"""
+
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            response = self.llm.chat(messages, temperature=0.5, max_tokens=800)
+            if response:
+                import re
+                json_match = re.search(r'\{.*\}', response, re.DOTALL)
+                if json_match:
+                    return json.loads(json_match.group())
+        except Exception as e:
+            logger.warning(f"[OperationsPlanner] 账号设计生成失败: {e}")
+
+        # 兜底
+        return {
+            'nickname_options': [business_name, f"{business_name}老师", f"{business_name}咨询"],
+            'avatar_suggestion': '个人形象照（专业、亲切）',
+            'bio_final': f"{industry}专家，为您提供专业服务",
+            'content_tags': [f"#{industry}", '#服务'],
+        }
+
+    def _generate_ip_build(
+        self,
+        client_profile: Dict[str, Any] = None,
+        business_info: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """生成IP人设打造"""
+        if client_profile is None:
+            client_profile = {}
+        if business_info is None:
+            business_info = {}
+
+        # 支持 brand_name 和 account_name
+        brand_name = client_profile.get('brand_name', '') or client_profile.get('account_name', '')
+        operating_years = client_profile.get('operating_years', '')
+        core_advantages = client_profile.get('core_advantages', '')
+        credentials = client_profile.get('credentials', '')
+        case_data = client_profile.get('case_data', '')
+        contact_info = client_profile.get('contact_info', '')
+        industry = business_info.get('industry', '')
+
+        # 拼接年龄信息（如果有经营年限）
+        ip_age = ''
+        if operating_years:
+            try:
+                years = int(operating_years)
+                if years >= 1:
+                    ip_age = f"{20 + years}-{30 + years}岁"
+            except:
+                pass
+
+        # 调用 LLM 生成
+        prompt = f"""基于以下信息，生成IP人设设定：
+
+品牌名称：{brand_name or '待填写'}
+核心优势：{core_advantages or '待填写'}
+经营年限：{operating_years or '待填写'}
+资质证书：{credentials or '待填写'}
+成功案例：{case_data or '待填写'}
+联系方式：{contact_info or '待填写'}
+行业：{industry}
+
+请生成JSON格式：
+{{
+    "outer_appearance": "外在形象描述（年龄、穿着、语气）",
+    "inner_traits": ["特质1", "特质2", "特质3"],
+    "catchphrases": ["口头禅1", "口头禅2"],
+    "trust_path": ["Step 1: ...", "Step 2: ...", "Step 3: ...", "Step 4: ..."]
+}}"""
+
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            response = self.llm.chat(messages, temperature=0.5, max_tokens=1000)
+            if response:
+                import re
+                json_match = re.search(r'\{.*\}', response, re.DOTALL)
+                if json_match:
+                    return json.loads(json_match.group())
+        except Exception as e:
+            logger.warning(f"[OperationsPlanner] IP人设生成失败: {e}")
+
+        # 兜底
+        return {
+            'outer_appearance': f'年龄：{ip_age or "30-40岁"}，形象：专业但不刻板，亲切但不随意',
+            'inner_traits': [
+                f'专业：{core_advantages[:50] if core_advantages else "深耕行业"}{operating_years + "年" if operating_years else ""}',
+                '真诚：不夸大、不忽悠、实话实说',
+                '负责：把每个客户当自己家人对待',
+            ],
+            'catchphrases': ['专业服务，值得信赖'],
+            'trust_path': ['Step 1: 展示专业 - 免费知识输出，展示专业能力', 'Step 2: 建立信任 - 真实案例分享，口碑传播', 'Step 3: 获取咨询 - 提供价值后，自然转化', 'Step 4: 服务成交 - 专业服务 + 口碑推荐'],
+        }
+
+    def _generate_monetization(
+        self,
+        client_profile: Dict[str, Any] = None,
+        business_info: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """生成变现路径"""
+        if client_profile is None:
+            client_profile = {}
+
+        user_products = client_profile.get('monetization_products', [])
+        industry = business_info.get('industry', '') if business_info else ''
+
+        # 如果用户已录入变现产品，直接使用
+        if user_products:
+            products = []
+            for p in user_products:
+                products.append({
+                    'name': p.get('name', ''),
+                    'price': p.get('price', ''),
+                    'description': f"{p.get('name', '')}服务详情",
+                })
+            return {
+                'products': products,
+                'conversion_funnel': '免费内容吸引 → 私信咨询 → 免费解答 → 推荐服务 → 成交转化',
+                'sample_scripts': {
+                    '评论区': f"感谢关注！想了解更多可以私信我~ {industry}相关问题都可以问！",
+                    '私域': "您好，感谢您的信任！方便的话可以简单描述一下您的情况，我帮您分析一下~",
+                },
+            }
+
+        # 兜底：基于行业生成
+        return {
+            'products': [
+                {'name': '基础咨询', 'price': '待定', 'description': '单次咨询'},
+                {'name': '深度服务', 'price': '待定', 'description': '全程服务'},
+            ],
+            'conversion_funnel': '免费内容吸引 → 私信咨询 → 免费解答 → 推荐服务 → 成交转化',
+            'sample_scripts': {
+                '评论区': f"感谢关注！{industry}相关问题都可以私信问我~",
+                '私域': "您好，感谢您的信任！请问有什么可以帮到您的？",
+            },
+        }
+
+    def _generate_kpi_targets(
+        self,
+        stage: ContentStage = None,
+    ) -> Dict[str, Any]:
+        """生成KPI目标"""
+        return {
+            'startup': {
+                'fans': 500,
+                'consults': 10,
+                'deals': 1,
+                'description': '启动期（1个月）：建立账号基础，获取初始粉丝',
+            },
+            'growth': {
+                'fans': 5000,
+                'consults': 30,
+                'deals': 5,
+                'description': '测试期（2-3个月）：优化内容方向，建立信任',
+            },
+            'scale': {
+                'fans': 10000,
+                'consults': 100,
+                'deals': 15,
+                'description': '放大期（4-6个月）：冲刺旺季，实现变现',
+            },
+            'stable': {
+                'fans': 30000,
+                'consults': 200,
+                'deals': 30,
+                'description': '稳定期（6个月后）：持续运营，稳定变现',
+            },
+        }
+
+    def _generate_risk_alerts(
+        self,
+        business_info: Dict[str, Any] = None,
+    ) -> Dict[str, str]:
+        """生成风险提示"""
+        industry = business_info.get('industry', '') if business_info else ''
+
+        return {
+            'seasonal': f'{industry}业务存在季节性特征，需要在旺季前积累足够粉丝和信任',
+            'competition': '行业竞争激烈，需要用差异化定位+个人IP建立竞争壁垒',
+            'policy': f'需要持续关注相关政策变化，第一时间解读，增加用户信任',
+        }
+
+    def _generate_action_items(
+        self,
+        client_profile: Dict[str, Any] = None,
+    ) -> List[Dict]:
+        """生成行动计划"""
+        if client_profile is None:
+            client_profile = {}
+
+        brand_name = client_profile.get('brand_name', '')
+
+        return [
+            {
+                'priority': 'P0',
+                'task': '完善客户详细资料（服务内容、定价、成功案例）',
+                'owner': brand_name or '负责人',
+                'deadline': '立即',
+            },
+            {
+                'priority': 'P0',
+                'task': '账号基础搭建（头像、简介、背景图）',
+                'owner': brand_name or '负责人',
+                'deadline': '3天内',
+            },
+            {
+                'priority': 'P1',
+                'task': '拍摄10条科普视频储备',
+                'owner': brand_name or '负责人',
+                'deadline': '1周内',
+            },
+            {
+                'priority': 'P1',
+                'task': '确定前20条选题内容',
+                'owner': brand_name or '负责人',
+                'deadline': '1周内',
+            },
+            {
+                'priority': 'P2',
+                'task': '开始发布第一条视频',
+                'owner': brand_name or '负责人',
+                'deadline': '3天内',
+            },
+        ]
+
     def to_dict(self, plan: OperationsPlan) -> Dict[str, Any]:
         """将运营规划转换为字典"""
         return {
@@ -597,6 +961,13 @@ class OperationsPlanner:
             'content_sequence': plan.content_sequence,
             'first_week_topics': plan.first_week_topics,
             'content_calendar': plan.content_calendar,
+            # 新增字段
+            'account_design': plan.account_design,
+            'ip_build': plan.ip_build,
+            'monetization': plan.monetization,
+            'kpi_targets': plan.kpi_targets,
+            'risk_alerts': plan.risk_alerts,
+            'action_items': plan.action_items,
             'created_at': plan.created_at,
             'version': plan.version,
         }
@@ -722,16 +1093,18 @@ def generate_operations_plan(
     business_info: Dict[str, Any],
     content_stage: str = '成长阶段',
     target_topic_count: int = 30,
+    client_profile: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """
     便捷函数：生成运营规划方案
-    
+
     Args:
         portraits: 画像列表
         business_info: 业务信息
         content_stage: 账号内容阶段
         target_topic_count: 目标选题数量
-    
+        client_profile: 客户自定义信息（账号/IP/变现等）
+
     Returns:
         运营规划字典
     """
@@ -741,6 +1114,7 @@ def generate_operations_plan(
         business_info=business_info,
         content_stage=content_stage,
         target_topic_count=target_topic_count,
+        client_profile=client_profile,
     )
     return planner.to_dict(plan)
 

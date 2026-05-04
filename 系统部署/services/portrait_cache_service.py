@@ -282,8 +282,9 @@ class PortraitCacheService:
                                     if cache_type == 'all' or cache_type in t])
         
         # 标记为过期而非直接删除
+        now = datetime.utcnow()
         query = f"""
-            UPDATE keyword_cache SET is_stale = TRUE, updated_at = NOW() 
+            UPDATE keyword_cache SET is_stale = TRUE, updated_at = :now 
             WHERE 1=1
         """
         if industry:
@@ -292,11 +293,12 @@ class PortraitCacheService:
         if user_id:
             query += f" AND user_id = :user_id"
             params['user_id'] = user_id
+        params['now'] = now
             
         db.session.execute(text(query), params)
         db.session.execute(
             text(f"""
-                UPDATE topic_cache SET expires_at = NOW() WHERE 1=1
+                UPDATE topic_cache SET expires_at = :now WHERE 1=1
                 {'AND industry = :industry' if industry else ''}
                 {'AND user_id = :user_id' if user_id else ''}
             """),

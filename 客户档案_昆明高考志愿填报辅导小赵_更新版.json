@@ -1,0 +1,208 @@
+{
+  "client_profile": {
+    "id": "CP-20260405-001",
+    "created_at": "2026-04-05",
+    "updated_at": "2026-05-01",
+
+    "basic_info": {
+      "client_name": "昆明高考志愿填报辅导小赵",
+      "client_type": "service",
+      "client_type_detail": "本地生活服务-高考志愿填报辅导",
+      "industry": "教育服务",
+      "business_description": "昆明本地专业高考志愿填报辅导服务，帮助考生科学填报志愿、选对学校和专业",
+      "operating_years": "",
+      "account_name": "昆明高考志愿填报小赵老师"
+    },
+
+    "geographic": {
+      "scope": "local",
+      "scope_detail": "仅服务昆明市区",
+      "local_focus": true,
+      "target_cities": ["昆明"],
+      "target_districts": ["昆明市区"]
+    },
+
+    "brand": {
+      "personal_brand": true,
+      "personal_brand_detail": "创始人个人IP-小赵老师",
+      "company_brand": false,
+      "brand_priority": "personal",
+      "brand_name": "昆明高考志愿填报辅导小赵"
+    },
+
+    "language_style": {
+      "primary_language": "mandarin",
+      "dialect_detail": "普通话",
+      "dialect_ratio": "100%普通话",
+      "target_audience_age": "mixed",
+      "special_needs": ""
+    },
+
+    "product_service": {
+      "type": "solution",
+      "price_range": "medium_to_high",
+      "pricing_details": {
+        "one_on_one_consultation": "500-2000元/次",
+        "full_service": "2000-5000元",
+        "vip_package": "5000-10000元"
+      },
+      "unit_price": "待确认",
+      "seasonal": true,
+      "seasonal_detail": "高考前后（6-7月）为旺季"
+    },
+
+    "delivery": {
+      "mode": "online",
+      "frequency": "one_time",
+      "unit_price": ""
+    },
+
+    "goals": {
+      "primary": "conversion",
+      "secondary": ["traffic", "brand"],
+      "timeline": "medium",
+      "budget_level": "medium"
+    },
+
+    "resources": {
+      "has_team": false,
+      "team_size": "个人",
+      "content_frequency": "待确认",
+      "has_references": false,
+      "reference_accounts": []
+    },
+
+    "content_style": {
+      "preferred_style": ["专业型", "知识分享型"],
+      "notes": "强调专业性和实用性，帮助家长和考生解决志愿填报困惑"
+    },
+
+    "core_advantages": {
+      "local_expertise": "昆明本地化服务，更懂本地考生特点和录取数据",
+      "personal_ip": "比大机构更贴心、更灵活，建立信任感",
+      "content_marketing": "通过抖音建立信任，比传统推广更有效"
+    },
+
+    "target_audience": {
+      "primary": [
+        "高三考生家长",
+        "昆明本地考生家庭"
+      ],
+      "segments": [
+        {
+          "type": "高分考生家长",
+          "pain_points": "怕浪费分数、纠结清北复交 vs 强基计划",
+          "needs": "精准定位、分数最大化利用"
+        },
+        {
+          "type": "中分段考生",
+          "pain_points": "不知如何选择学校和专业",
+          "needs": "保底方案、性价比最高"
+        },
+        {
+          "type": "专科/民办担忧考生",
+          "pain_points": "担心学历含金量、就业前景",
+          "needs": "升学规划、专科逆袭路径"
+        },
+        {
+          "type": "艺术体育生",
+          "pain_points": "志愿填报规则特殊",
+          "needs": "专业指导、录取规则"
+        },
+        {
+          "type": "复读生",
+          "pain_points": "压力大、志愿填报更谨慎",
+          "needs": "稳中求胜、避免再次失误"
+        }
+      ]
+    },
+
+    "competitors": {
+      "major_players": [
+        {
+          "type": "全国性大机构",
+          "examples": "某方、某途等",
+          "advantage": "品牌大、资源多",
+          "weakness": "价格高、不了解本地情况"
+        },
+        {
+          "type": "本地小机构",
+          "examples": "",
+          "advantage": "价格灵活",
+          "weakness": "质量参差不齐"
+        },
+        {
+          "type": "个人咨询师",
+          "examples": "",
+          "advantage": "灵活",
+          "weakness": "良莠不齐，信任度低"
+        },
+        {
+          "type": "AI工具",
+          "examples": "",
+          "advantage": "免费",
+          "weakness": "不够精准"
+        }
+      ]
+    },
+
+    "blue_ocean_opportunities": {
+      "local_marketing": "昆明本地高考志愿填报市场分散，个人IP有机会脱颖而出",
+      "content_strategy": "抖音内容营销是低成本获客的有效途径",
+      "differentiation": "专业+真诚+本地化 = 差异化竞争"
+    }
+  },
+
+  "recommendations": {
+    "suggested_skill": "douyin-local",
+    "priority_keywords": ["高考志愿", "昆明高考", "志愿填报", "高考志愿填报", "昆明教育"],
+    "content_strategy": "本地化内容为主，强调专业性和真实案例分享",
+    "notes": [
+      "建议使用普通话增强专业感",
+      "重点打造小赵个人专家IP",
+      "强调昆明本地化服务和近年录取数据"
+    ]
+  },
+
+  "information_collection_status": {
+    "last_updated": "2026-05-01",
+    "source_files": [
+      "客户档案_昆明高考志愿填报辅导小赵.json",
+      "昆明高考志愿填报辅导小赵_运营规划方案.md",
+      "昆明高考志愿填报辅导小赵_选题库.md",
+      "昆明高考志愿填报辅导小赵_行业分析报告.md"
+    ],
+    "missing_fields": [
+      {
+        "field": "operating_years",
+        "description": "经营年限",
+        "status": "待补充"
+      },
+      {
+        "field": "pricing_details",
+        "description": "定价详情",
+        "status": "已从运营规划方案补充"
+      },
+      {
+        "field": "core_advantages",
+        "description": "核心优势",
+        "status": "已从市场分析报告补充"
+      },
+      {
+        "field": "target_audience",
+        "description": "目标客户画像",
+        "status": "已从市场分析报告和选题库补充"
+      },
+      {
+        "field": "competitors",
+        "description": "竞争对手分析",
+        "status": "已从市场分析报告补充"
+      },
+      {
+        "field": "blue_ocean_opportunities",
+        "description": "蓝海机会",
+        "status": "已从市场分析报告补充"
+      }
+    ]
+  }
+}

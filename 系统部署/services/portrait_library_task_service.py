@@ -261,70 +261,28 @@ def _do_generate_library(portrait_id: int, user_id: int, plan_type: str = 'free'
             portrait_id, len(tl.get('topics', [])),
         )
 
-        # ── ③ 生成运营规划（五段式配比 + GEO模式匹配）【新增】─────
-        from services.operations_planner import generate_operations_plan
-        from datetime import datetime
+        # ── ③ 运营规划生成已移至「客户信息提交后」触发 ─────────────────────
+        # 原自动生成逻辑已注释，不再在画像保存时自动生成运营规划
+        # 用户需填写客户信息后，点击「提交并生成」才会生成完整运营规划
+        #
+        # 旧代码（已禁用）：
+        # from services.operations_planner import generate_operations_plan
+        # from datetime import datetime
+        # operations_plan = generate_operations_plan(...)
+        #
+        # 现在统一在 submitAndGenerate() 中触发
 
-        # 构建业务信息
-        business_info_for_plan = {
-            'business_description': business_description,
-            'business_name': portrait.get('portrait_name', '') or industry,
-            'industry': industry,
-            'target_customer': target_customer,
-        }
-
-        # 获取画像列表
-        portraits_list = portrait.get('portraits', []) if isinstance(portrait.get('portraits'), list) else []
-
-        # 如果画像数据中没有portraits，尝试从portrait_data中提取
-        if not portraits_list:
-            # 兼容旧格式：portrait_data可能是单个画像
-            if portrait_data_dict and isinstance(portrait_data_dict, dict):
-                portraits_list = [portrait_data_dict]
-
-        operations_plan = {}
-        try:
-            if portraits_list:
-                operations_plan = generate_operations_plan(
-                    portraits=portraits_list,
-                    business_info=business_info_for_plan,
-                    content_stage='起号阶段',
-                    target_topic_count=len(tl.get('topics', [])) or 30,
-                )
-                logger.info(
-                    "[PortraitLibraryTask] 运营规划生成完成 portrait_id=%d: plan_id=%s",
-                    portrait_id, operations_plan.get('plan_id', 'N/A')
-                )
-            else:
-                logger.warning(
-                    "[PortraitLibraryTask] 无画像数据，跳过运营规划生成 portrait_id=%d",
-                    portrait_id
-                )
-        except Exception as e:
-            logger.warning(
-                "[PortraitLibraryTask] 运营规划生成失败 portrait_id=%d: %s",
-                portrait_id, str(e)
-            )
-            # 运营规划失败不影响整体流程，继续保存其他数据
-
-        # ── ④ 保存三个库，更新状态 ──────────────────────────────
+        # ── ④ 保存关键词库+选题库，更新状态 ─────────────────────────────
         portrait_row = SavedPortrait.query.get(portrait_id)
         if portrait_row:
             portrait_row.keyword_library = kl
             portrait_row.topic_library = tl
             portrait_row.generation_status = 'completed'
 
-            # 保存运营规划到 extra_data
-            if operations_plan:
-                extra_data = portrait_row.extra_data or {}
-                extra_data['operations_plan'] = operations_plan
-                extra_data['operations_plan_updated_at'] = datetime.utcnow().isoformat()
-                portrait_row.extra_data = extra_data
-
             db.session.commit()
 
             logger.info(
-                "[PortraitLibraryTask] 关键词库+选题库+运营规划全部生成完成 portrait_id=%d",
+                "[PortraitLibraryTask] 关键词库+选题库生成完成 portrait_id=%d（运营规划待客户信息提交后生成）",
                 portrait_id
             )
         else:

@@ -1770,16 +1770,13 @@
 
 {% block layout_extra_js %}
 <!-- 运营规划查看弹窗 -->
-<div class="modal fade" id="operationsPlanModal" tabindex="-1" role="dialog">
+<div class="modal fade" id="operationsPlanModal" tabindex="-1" role="dialog" data-backdrop="static">
     <div class="modal-dialog modal-lg" role="document" style="max-width:960px;">
         <div class="modal-content" style="border-radius:16px;overflow:hidden;">
             <div class="modal-header" style="background:linear-gradient(135deg,#34d399 0%,#059669 100%);color:white;padding:16px 20px;">
                 <h5 class="modal-title" style="margin:0;font-size:1.125rem;font-weight:600;">
                     <i class="bi bi-graph-up" style="margin-right:8px;"></i>运营规划方案
                 </h5>
-                <button type="button" class="close" data-dismiss="modal" style="color:white;opacity:0.8;">
-                    <span>&times;</span>
-                </button>
             </div>
 
             <!-- Tab 导航 -->
@@ -1790,9 +1787,6 @@
                 <button class="tab-btn" data-tab="ai-plan" onclick="switchOperationsTab('ai-plan')" style="flex:1;padding:12px 16px;border:none;background:transparent;color:#666;font-size:0.875rem;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;">
                     <i class="bi bi-robot" style="margin-right:6px;"></i>AI生成
                 </button>
-                <button class="tab-btn" data-tab="topic-list" onclick="switchOperationsTab('topic-list')" style="flex:1;padding:12px 16px;border:none;background:transparent;color:#666;font-size:0.875rem;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;">
-                    <i class="bi bi-list-ul" style="margin-right:6px;"></i>选题列表
-                </button>
             </div>
 
             <!-- Tab 内容区 -->
@@ -1802,9 +1796,10 @@
                     <div style="max-width:600px;margin:0 auto;">
                         <p style="font-size:0.8125rem;color:#666;margin-bottom:20px;">
                             <i class="bi bi-info-circle" style="margin-right:4px;"></i>
-                            填写以下信息用于运营规划和内容生成中的信任佐证展示
+                            填写以下基础信息，提交后 AI 将自动生成运营规划方案
                         </p>
 
+                        <!-- 品牌信息 -->
                         <div style="margin-bottom:16px;">
                             <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
                                 品牌名称 <span style="color:#dc3545;">*</span>
@@ -1812,83 +1807,98 @@
                             <input type="text" id="client-brand-name" placeholder="如：昆明高考志愿填报辅导小赵" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
                         </div>
 
-                        <div style="margin-bottom:16px;">
-                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
-                                品牌类型
-                            </label>
-                            <div style="display:flex;gap:20px;">
-                                <label style="display:flex;align-items:center;cursor:pointer;">
-                                    <input type="radio" name="client-brand-type" value="personal" checked style="margin-right:6px;">
-                                    <span style="font-size:0.875rem;">个人</span>
-                                </label>
-                                <label style="display:flex;align-items:center;cursor:pointer;">
-                                    <input type="radio" name="client-brand-type" value="franchise" style="margin-right:6px;">
-                                    <span style="font-size:0.875rem;">连锁店</span>
-                                </label>
-                                <label style="display:flex;align-items:center;cursor:pointer;">
-                                    <input type="radio" name="client-brand-type" value="enterprise" style="margin-right:6px;">
-                                    <span style="font-size:0.875rem;">企业</span>
-                                </label>
-                            </div>
-                        </div>
-
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                             <div>
                                 <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
-                                    经营年限
+                                    品牌类型
                                 </label>
-                                <div style="display:flex;align-items:center;gap:8px;">
-                                    <input type="number" id="client-operating-years" min="0" placeholder="如：8" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;">
-                                    <span style="font-size:0.875rem;color:#666;">年</span>
+                                <div style="display:flex;gap:12px;">
+                                    <label style="display:flex;align-items:center;cursor:pointer;">
+                                        <input type="radio" name="client-brand-type" value="personal" checked style="margin-right:4px;">
+                                        <span style="font-size:0.8125rem;">个人</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;cursor:pointer;">
+                                        <input type="radio" name="client-brand-type" value="enterprise" style="margin-right:4px;">
+                                        <span style="font-size:0.8125rem;">企业</span>
+                                    </label>
                                 </div>
                             </div>
                             <div>
                                 <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
-                                    目标客户
+                                    经营年限
                                 </label>
-                                <input type="text" id="client-target-audience" placeholder="如：云南专科批次考生" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <input type="number" id="client-operating-years" min="0" placeholder="如：8" style="width:80px;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;">
+                                    <span style="font-size:0.8125rem;color:#666;">年</span>
+                                </div>
                             </div>
                         </div>
 
+                        <!-- 核心信息 -->
                         <div style="margin-bottom:16px;">
                             <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
-                                核心优势 <span style="color:#dc3545;">*</span>
+                                核心优势 <span style="font-weight:400;color:#999;">（选填）</span>
                             </label>
                             <textarea id="client-core-advantages" rows="2" placeholder="如：专注云南高考志愿填报8年，熟悉各批次录取规则" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;resize:vertical;box-sizing:border-box;"></textarea>
                         </div>
 
                         <div style="margin-bottom:16px;">
                             <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
-                                联系方式
+                                目标客户 <span style="font-weight:400;color:#999;">（简单描述即可）</span>
                             </label>
-                            <input type="text" id="client-contact-info" placeholder="如：电话 138xxxx / 微信 xxx" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                            <input type="text" id="client-target-audience" placeholder="如：云南专科批次考生及家长" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
                         </div>
 
-                        <div style="margin-bottom:16px;">
-                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
-                                资质证书
-                            </label>
-                            <input type="text" id="client-credentials" placeholder="如：国家职业规划师 / 云南省高考志愿填报指导师" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                        <!-- 可选信息 -->
+                        <div style="border-top:1px dashed #eee;margin:20px 0;padding-top:16px;">
+                            <p style="font-size:0.75rem;color:#999;margin-bottom:12px;">
+                                <i class="bi bi-chevron-down" style="margin-right:4px;"></i>
+                                以下为可选信息，用于增强信任佐证
+                            </p>
                         </div>
 
-                        <div style="margin-bottom:16px;">
-                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                            <div>
+                                <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
+                                    联系方式
+                                </label>
+                                <input type="text" id="client-contact-info" placeholder="如：微信/电话" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;box-sizing:border-box;">
+                            </div>
+                            <div>
+                                <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
+                                    资质证书
+                                </label>
+                                <input type="text" id="client-credentials" placeholder="如：职业规划师" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;box-sizing:border-box;">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
                                 成功案例数据
                             </label>
-                            <input type="text" id="client-case-data" placeholder="如：累计服务2000+考生 / 录取率98%" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                            <input type="text" id="client-case-data" placeholder="如：累计服务2000+考生" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;box-sizing:border-box;">
                         </div>
 
-                        <div style="margin-bottom:16px;">
-                            <label style="display:block;font-size:0.875rem;font-weight:600;color:#333;margin-bottom:6px;">
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
                                 服务保障
                             </label>
-                            <input type="text" id="client-service-guarantee" placeholder="如：不满意可重填 / 录取前无限次修改" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
+                            <input type="text" id="client-service-guarantee" placeholder="如：不满意可重填" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;box-sizing:border-box;">
                         </div>
 
-                        <div style="margin-top:24px;text-align:center;">
-                            <button onclick="saveClientProfile()" style="padding:10px 32px;background:linear-gradient(135deg,#34d399,#059669);color:#fff;border:none;border-radius:8px;font-size:0.875rem;font-weight:600;cursor:pointer;">
-                                <i class="bi bi-check-lg" style="margin-right:6px;"></i>保存客户信息
-                            </button>
+                        <!-- 提交按钮 -->
+                        <div style="margin-top:24px;padding-top:20px;border-top:1px solid #eee;">
+                            <p style="font-size:0.75rem;color:#999;text-align:center;margin-bottom:12px;">
+                                提交后将自动生成运营规划方案（含账号设计、IP人设、变现路径等）
+                            </p>
+                            <div style="display:flex;gap:10px;justify-content:center;">
+                                <button onclick="saveClientProfile()" style="padding:10px 24px;background:#fff;color:#34d399;border:1px solid #34d399;border-radius:8px;font-size:0.875rem;font-weight:500;cursor:pointer;">
+                                    仅保存
+                                </button>
+                                <button onclick="submitAndGenerate()" id="btn-submit-generate" style="padding:10px 32px;background:linear-gradient(135deg,#34d399,#059669);color:#fff;border:none;border-radius:8px;font-size:0.875rem;font-weight:600;cursor:pointer;">
+                                    <i class="bi bi-rocket-takeoff" style="margin-right:6px;"></i>提交并生成
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1899,22 +1909,6 @@
                         <!-- 动态内容 -->
                     </div>
                 </div>
-
-                <!-- Tab3: 选题列表 -->
-                <div id="tab-topic-list" class="tab-content" style="display:none;">
-                    <div style="text-align:center;padding:40px;color:#666;">
-                        <i class="bi bi-list-ul" style="font-size:2rem;opacity:0.5;"></i>
-                        <p style="margin-top:12px;">选题列表可在上方选题区域查看</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer" style="padding:12px 20px;border-top:1px solid #eee;">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal" style="border-radius:8px;padding:6px 16px;">关闭</button>
-                <button type="button" class="btn btn-primary" id="btn-regenerate-operations" onclick="regenerateOperationsPlan()" style="border-radius:8px;padding:6px 16px;background:#34d399;border-color:#34d399;">
-                    <i class="bi bi-arrow-clockwise"></i> 重新生成
-                </button>
-            </div>
         </div>
     </div>
 </div>
@@ -2135,6 +2129,7 @@ async function loadClientProfile() {
         const data = await resp.json();
         if (data.success && data.data.client_profile) {
             const profile = data.data.client_profile;
+            // 基础信息
             document.getElementById('client-brand-name').value = profile.brand_name || '';
             document.querySelector('input[name="client-brand-type"][value="' + (profile.brand_type || 'personal') + '"]').checked = true;
             document.getElementById('client-operating-years').value = profile.operating_years || '';
@@ -2150,7 +2145,7 @@ async function loadClientProfile() {
     }
 }
 
-// 保存客户信息
+// 保存客户信息（仅保存，不生成）
 async function saveClientProfile() {
     if (!_portraitId) {
         showToast('缺少画像ID', 'error');
@@ -2158,14 +2153,9 @@ async function saveClientProfile() {
     }
 
     const brandName = document.getElementById('client-brand-name').value.trim();
-    const coreAdvantages = document.getElementById('client-core-advantages').value.trim();
 
     if (!brandName) {
         showToast('请填写品牌名称', 'error');
-        return;
-    }
-    if (!coreAdvantages) {
-        showToast('请填写核心优势', 'error');
         return;
     }
 
@@ -2174,7 +2164,7 @@ async function saveClientProfile() {
         brand_type: document.querySelector('input[name="client-brand-type"]:checked').value,
         operating_years: document.getElementById('client-operating-years').value,
         target_audience: document.getElementById('client-target-audience').value.trim(),
-        core_advantages: coreAdvantages,
+        core_advantages: document.getElementById('client-core-advantages').value.trim(),
         contact_info: document.getElementById('client-contact-info').value.trim(),
         credentials: document.getElementById('client-credentials').value.trim(),
         case_data: document.getElementById('client-case-data').value.trim(),
@@ -2190,13 +2180,81 @@ async function saveClientProfile() {
         });
         const data = await resp.json();
         if (data.success) {
-            showToast('客户信息保存成功', 'success');
+            showToast('客户信息已保存', 'success');
         } else {
             showToast(data.message || '保存失败', 'error');
         }
     } catch (e) {
         console.error('[saveClientProfile] 保存客户信息失败:', e);
         showToast('保存失败', 'error');
+    }
+}
+
+// 提交并生成运营规划
+async function submitAndGenerate() {
+    if (!_portraitId) {
+        showToast('缺少画像ID', 'error');
+        return;
+    }
+
+    const brandName = document.getElementById('client-brand-name').value.trim();
+
+    if (!brandName) {
+        showToast('请填写品牌名称', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btn-submit-generate');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="margin-right:6px;"></span>生成中...';
+
+    const clientProfile = {
+        brand_name: brandName,
+        brand_type: document.querySelector('input[name="client-brand-type"]:checked').value,
+        operating_years: document.getElementById('client-operating-years').value,
+        target_audience: document.getElementById('client-target-audience').value.trim(),
+        core_advantages: document.getElementById('client-core-advantages').value.trim(),
+        contact_info: document.getElementById('client-contact-info').value.trim(),
+        credentials: document.getElementById('client-credentials').value.trim(),
+        case_data: document.getElementById('client-case-data').value.trim(),
+        service_guarantee: document.getElementById('client-service-guarantee').value.trim(),
+    };
+
+    try {
+        // 1. 先保存客户信息
+        await fetch('/public/api/portraits/' + _portraitId + '/client-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ client_profile: clientProfile })
+        });
+
+        // 2. 触发生成
+        const resp = await fetch('/public/api/portraits/' + _portraitId + '/generate-operations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({})
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            showToast('运营规划生成完成！', 'success');
+            // 切换到 AI 生成 Tab 显示结果
+            switchOperationsTab('ai-plan');
+            // 渲染生成的规划
+            if (data.data.operation_plan) {
+                renderOperationsPlanForTab(data.data.operation_plan);
+            }
+        } else {
+            showToast(data.message || '生成失败', 'error');
+        }
+    } catch (e) {
+        console.error('[submitAndGenerate] 生成失败:', e);
+        showToast('生成失败', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-rocket-takeoff" style="margin-right:6px;"></i>提交并生成';
     }
 }
 
@@ -2218,7 +2276,7 @@ async function loadOperationPlanForTab() {
         if (data.success && data.data.operation_plan) {
             renderOperationsPlanForTab(data.data.operation_plan);
         } else {
-            contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#666;"><i class="bi bi-inbox" style="font-size:3rem;opacity:0.3;"></i><p style="margin-top:12px;">暂无运营规划</p><p style="font-size:0.875rem;">请先在"客户信息"标签页填写信息，然后点击"重新生成"</p></div>';
+            contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#666;"><i class="bi bi-inbox" style="font-size:3rem;opacity:0.3;"></i><p style="margin-top:12px;">暂无运营规划</p><p style="font-size:0.875rem;">请先填写客户信息</p></div>';
         }
     } catch (e) {
         contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#dc3545;"><i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:8px;">加载失败</p></div>';
@@ -2231,11 +2289,8 @@ function showOperationsPlanModal() {
         return;
     }
 
-    const regenerateBtn = document.getElementById('btn-regenerate-operations');
-
     // 重置到客户信息 Tab
     switchOperationsTab('client-info');
-    regenerateBtn.disabled = true;
 
     // 加载客户信息
     loadClientProfile();
@@ -2244,8 +2299,6 @@ function showOperationsPlanModal() {
     const modalEl = document.getElementById('operationsPlanModal');
     const modal = new bootstrap.Modal(modalEl);
     modal.show();
-
-    regenerateBtn.disabled = false;
 }
 
 // 为 Tab 内容渲染运营规划
@@ -2262,16 +2315,303 @@ function renderOperationsPlanForTab(plan) {
     if (plan.step_blue_ocean_opportunity || plan.step_account_design) {
         html += renderOperationsPlanNew(plan);
     } else if (!plan.summary && !plan.total_topics && !plan.phase_distribution && !plan.strategy_summary) {
-        // 未知格式，显示原始 JSON
-        html += '<div style="background:#f8f9fa;border-radius:10px;padding:16px;margin-bottom:20px;">';
-        html += '<h6 style="font-size:0.875rem;font-weight:600;color:#333;margin-bottom:12px;"><i class="bi bi-code-slash" style="margin-right:6px;"></i>运营规划原始数据</h6>';
-        html += '<pre style="font-size:0.75rem;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow:auto;background:#fff;border:1px solid #eee;border-radius:8px;padding:12px;">' + JSON.stringify(plan, null, 2) + '</pre>';
-        html += '</div>';
+        // 新格式：检测新增字段（account_design, ip_build, monetization, kpi_targets等）
+        if (plan.account_design || plan.ip_build || plan.monetization || plan.kpi_targets) {
+            html += renderOperationsPlanFull(plan);
+        } else {
+            // 未知格式，显示原始 JSON
+            html += '<div style="background:#f8f9fa;border-radius:10px;padding:16px;margin-bottom:20px;">';
+            html += '<h6 style="font-size:0.875rem;font-weight:600;color:#333;margin-bottom:12px;"><i class="bi bi-code-slash" style="margin-right:6px;"></i>运营规划原始数据</h6>';
+            html += '<pre style="font-size:0.75rem;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow:auto;background:#fff;border:1px solid #eee;border-radius:8px;padding:12px;">' + JSON.stringify(plan, null, 2) + '</pre>';
+            html += '</div>';
+        }
     } else {
         html += renderOperationsPlanOld(plan);
     }
 
     contentArea.innerHTML = html;
+}
+
+// 渲染完整运营规划（新格式）
+function renderOperationsPlanFull(plan) {
+    let html = '';
+
+    // ========== 一、账号定位 ==========
+    if (plan.account_positioning || plan.ip_persona || plan.content_style) {
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h5 style="font-size:1rem;font-weight:600;color:#1a1a2e;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #34d399;"><i class="bi bi-person-badge" style="margin-right:6px;color:#34d399;"></i>一、账号定位</h5>';
+
+        // 账号基本信息表
+        html += '<div style="background:#f8f9fa;border-radius:10px;padding:14px;margin-bottom:12px;">';
+        html += '<table style="width:100%;font-size:0.8125rem;border-collapse:collapse;">';
+        html += '<tr><td style="padding:6px 0;width:80px;color:#6c757d;">核心定位</td><td style="color:#333;font-weight:500;">' + (plan.account_positioning || '-') + '</td></tr>';
+        html += '<tr><td style="padding:6px 0;color:#6c757d;">IP人设</td><td style="color:#333;">' + (plan.ip_persona || '-') + '</td></tr>';
+        html += '<tr><td style="padding:6px 0;color:#6c757d;">内容风格</td><td style="color:#333;">' + (plan.content_style || '-') + '</td></tr>';
+        html += '<tr><td style="padding:6px 0;color:#6c757d;">差异化</td><td style="color:#333;">' + (plan.differentiation || '-') + '</td></tr>';
+        html += '</table></div></div>';
+    }
+
+    // ========== 二、账号设计 ==========
+    const accDesign = plan.account_design;
+    if (accDesign) {
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h5 style="font-size:1rem;font-weight:600;color:#1a1a2e;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #667eea;"><i class="bi bi-brush" style="margin-right:6px;color:#667eea;"></i>二、账号设计</h5>';
+
+        // 昵称方案
+        if (accDesign.nickname_options && accDesign.nickname_options.length > 0) {
+            html += '<div style="margin-bottom:12px;">';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#667eea;margin-bottom:6px;">昵称方案</div>';
+            accDesign.nickname_options.forEach((nick, idx) => {
+                const name = typeof nick === 'string' ? nick : nick.nickname || nick;
+                html += '<div style="display:inline-block;background:#fff;border:1px solid #e9ecef;border-radius:8px;padding:8px 14px;margin-right:8px;margin-bottom:8px;">';
+                html += '<span style="font-weight:600;color:#333;">' + name + '</span>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+
+        // 简介
+        if (accDesign.bio_final || accDesign.bio) {
+            html += '<div style="margin-bottom:12px;">';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#6c757d;margin-bottom:6px;">账号简介</div>';
+            html += '<div style="background:#fff;border:1px solid #e9ecef;border-radius:8px;padding:10px;font-size:0.8125rem;color:#333;">' + (accDesign.bio_final || accDesign.bio) + '</div>';
+            html += '</div>';
+        }
+
+        // 内容标签
+        if (accDesign.content_tags && accDesign.content_tags.length > 0) {
+            html += '<div style="margin-bottom:12px;">';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#6c757d;margin-bottom:6px;">内容标签</div>';
+            html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+            accDesign.content_tags.forEach(tag => {
+                html += '<span style="background:rgba(102,126,234,0.1);color:#667eea;padding:4px 10px;border-radius:14px;font-size:0.75rem;">' + tag + '</span>';
+            });
+            html += '</div></div>';
+        }
+
+        // 头像建议
+        if (accDesign.avatar_suggestion) {
+            html += '<div>';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#6c757d;margin-bottom:6px;">头像建议</div>';
+            html += '<div style="background:#fff;border:1px solid #e9ecef;border-radius:8px;padding:10px;font-size:0.8125rem;color:#333;">' + accDesign.avatar_suggestion + '</div>';
+            html += '</div>';
+        }
+
+        html += '</div>';
+    }
+
+    // ========== 三、IP人设打造 ==========
+    const ipBuild = plan.ip_build;
+    if (ipBuild) {
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h5 style="font-size:1rem;font-weight:600;color:#1a1a2e;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #f5576c;"><i class="bi bi-emoji-smile" style="margin-right:6px;color:#f5576c;"></i>三、IP人设打造</h5>';
+
+        // 外在形象
+        if (ipBuild.outer_appearance) {
+            html += '<div style="margin-bottom:12px;">';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#f5576c;margin-bottom:6px;">外在形象</div>';
+            html += '<div style="background:#f8f9fa;border-radius:8px;padding:10px;font-size:0.8125rem;color:#333;">' + ipBuild.outer_appearance + '</div>';
+            html += '</div>';
+        }
+
+        // 内在特质
+        if (ipBuild.inner_traits && ipBuild.inner_traits.length > 0) {
+            html += '<div style="margin-bottom:12px;">';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#6c757d;margin-bottom:6px;">内在特质</div>';
+            html += '<div style="background:#fff;border:1px solid #e9ecef;border-radius:8px;padding:10px;">';
+            ipBuild.inner_traits.forEach(trait => {
+                html += '<div style="font-size:0.8125rem;color:#333;margin-bottom:4px;">• ' + trait + '</div>';
+            });
+            html += '</div></div>';
+        }
+
+        // 口头禅
+        if (ipBuild.catchphrases && ipBuild.catchphrases.length > 0) {
+            html += '<div style="margin-bottom:12px;">';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#6c757d;margin-bottom:6px;">口头禅</div>';
+            ipBuild.catchphrases.forEach(c => {
+                html += '<div style="display:inline-block;background:#fff7ed;border:1px solid #fed7aa;border-radius:20px;padding:4px 12px;margin-right:8px;margin-bottom:8px;font-size:0.8125rem;color:#c2410c;">' + c + '</div>';
+            });
+            html += '</div>';
+        }
+
+        // 信任建立路径
+        if (ipBuild.trust_path && ipBuild.trust_path.length > 0) {
+            html += '<div>';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#6c757d;margin-bottom:6px;">信任建立路径</div>';
+            html += '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">';
+            ipBuild.trust_path.forEach((step, idx) => {
+                html += '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:6px 10px;font-size:0.75rem;color:#065f46;">' + step + '</div>';
+                if (idx < ipBuild.trust_path.length - 1) {
+                    html += '<span style="color:#34d399;font-size:0.75rem;">→</span>';
+                }
+            });
+            html += '</div></div>';
+        }
+
+        html += '</div>';
+    }
+
+    // ========== 四、内容策略 ==========
+    if (plan.five_stage_plan && plan.five_stage_plan.length > 0) {
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h5 style="font-size:1rem;font-weight:600;color:#1a1a2e;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #764ba2;"><i class="bi bi-stack" style="margin-right:6px;color:#764ba2;"></i>四、内容策略（五段式）</h5>';
+
+        html += '<div style="background:#f8f9fa;border-radius:10px;padding:12px;overflow-x:auto;">';
+        html += '<table style="width:100%;font-size:0.75rem;border-collapse:collapse;min-width:500px;">';
+        html += '<thead><tr style="background:#e9ecef;"><th style="padding:8px 6px;text-align:left;color:#495057;">阶段</th><th style="padding:8px 6px;text-align:center;color:#495057;">占比</th><th style="padding:8px 6px;text-align:center;color:#495057;">选题数</th><th style="padding:8px 6px;text-align:left;color:#495057;">内容类型</th></tr></thead>';
+        plan.five_stage_plan.forEach(stage => {
+            html += '<tr>';
+            html += '<td style="padding:8px 6px;color:#333;font-weight:500;">' + (stage.stage_name || stage.stage_key || '-') + '</td>';
+            html += '<td style="padding:8px 6px;text-align:center;color:#764ba2;font-weight:600;">' + Math.round((stage.ratio || 0) * 100) + '%</td>';
+            html += '<td style="padding:8px 6px;text-align:center;color:#667eea;">' + (stage.topic_count || 0) + '</td>';
+            html += '<td style="padding:8px 6px;color:#6c757d;">' + ((stage.content_types || []).slice(0, 2).join(', ')) + '</td>';
+            html += '</tr>';
+        });
+        html += '</table></div></div>';
+    }
+
+    // ========== 五、变现路径 ==========
+    const monetization = plan.monetization;
+    if (monetization) {
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h5 style="font-size:1rem;font-weight:600;color:#1a1a2e;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #f59e0b;"><i class="bi bi-currency-yen" style="margin-right:6px;color:#f59e0b;"></i>五、变现路径</h5>';
+
+        // 变现产品
+        if (monetization.products && monetization.products.length > 0) {
+            html += '<div style="margin-bottom:12px;">';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#f59e0b;margin-bottom:6px;">变现产品</div>';
+            html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">';
+            monetization.products.forEach(p => {
+                html += '<div style="background:#fff;border:1px solid #e9ecef;border-radius:8px;padding:10px;">';
+                html += '<div style="font-weight:600;color:#333;font-size:0.8125rem;">' + (p.name || '-') + '</div>';
+                html += '<div style="color:#f59e0b;font-size:0.875rem;font-weight:600;margin-top:4px;">' + (p.price || '-') + '</div>';
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+
+        // 转化漏斗
+        if (monetization.conversion_funnel) {
+            html += '<div style="margin-bottom:12px;">';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#6c757d;margin-bottom:6px;">转化漏斗</div>';
+            html += '<div style="background:#fff;border:1px solid #e9ecef;border-radius:8px;padding:10px;font-size:0.8125rem;color:#333;">' + monetization.conversion_funnel + '</div>';
+            html += '</div>';
+        }
+
+        // 话术示例
+        if (monetization.sample_scripts) {
+            html += '<div>';
+            html += '<div style="font-size:0.75rem;font-weight:600;color:#6c757d;margin-bottom:6px;">转化话术</div>';
+            for (const [scene, script] of Object.entries(monetization.sample_scripts)) {
+                html += '<div style="background:#f8f9fa;border-radius:8px;padding:8px 10px;margin-bottom:6px;">';
+                html += '<span style="font-size:0.6875rem;font-weight:600;color:#667eea;">' + scene + '：</span>';
+                html += '<span style="font-size:0.75rem;color:#333;">' + script + '</span>';
+                html += '</div>';
+            }
+            html += '</div>';
+        }
+
+        html += '</div>';
+    }
+
+    // ========== 六、KPI目标 ==========
+    const kpi = plan.kpi_targets;
+    if (kpi) {
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h5 style="font-size:1rem;font-weight:600;color:#1a1a2e;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #34d399;"><i class="bi bi-graph-up" style="margin-right:6px;color:#34d399;"></i>六、关键指标</h5>';
+
+        html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">';
+
+        const stages = [
+            { key: 'startup', name: '启动期', color: '#667eea' },
+            { key: 'growth', name: '测试期', color: '#34d399' },
+            { key: 'scale', name: '放大期', color: '#f59e0b' },
+            { key: 'stable', name: '稳定期', color: '#764ba2' },
+        ];
+
+        stages.forEach(s => {
+            const data = kpi[s.key];
+            if (data) {
+                html += '<div style="background:#f8f9fa;border-radius:10px;padding:12px;border-left:3px solid ' + s.color + ';">';
+                html += '<div style="font-weight:600;color:' + s.color + ';font-size:0.8125rem;margin-bottom:6px;">' + s.name + '</div>';
+                html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:0.6875rem;color:#6c757d;">';
+                html += '<div><span style="color:#333;font-weight:500;">' + (data.fans || 0) + '</span> 粉丝</div>';
+                html += '<div><span style="color:#333;font-weight:500;">' + (data.consults || 0) + '</span> 咨询</div>';
+                html += '<div><span style="color:#333;font-weight:500;">' + (data.deals || 0) + '</span> 成交</div>';
+                html += '</div>';
+                if (data.description) {
+                    html += '<div style="font-size:0.6875rem;color:#6c757d;margin-top:6px;">' + data.description + '</div>';
+                }
+                html += '</div>';
+            }
+        });
+
+        html += '</div></div>';
+    }
+
+    // ========== 七、风险提示 ==========
+    const risks = plan.risk_alerts;
+    if (risks) {
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h5 style="font-size:1rem;font-weight:600;color:#1a1a2e;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #dc3545;"><i class="bi bi-exclamation-triangle" style="margin-right:6px;color:#dc3545;"></i>七、风险提示</h5>';
+
+        html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+
+        if (risks.seasonal) {
+            html += '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#c2410c;margin-bottom:4px;">季节性风险</div>';
+            html += '<div style="font-size:0.8125rem;color:#333;">' + risks.seasonal + '</div>';
+            html += '</div>';
+        }
+
+        if (risks.competition) {
+            html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#dc2626;margin-bottom:4px;">竞争风险</div>';
+            html += '<div style="font-size:0.8125rem;color:#333;">' + risks.competition + '</div>';
+            html += '</div>';
+        }
+
+        if (risks.policy) {
+            html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px;">';
+            html += '<div style="font-size:0.6875rem;font-weight:600;color:#2563eb;margin-bottom:4px;">政策风险</div>';
+            html += '<div style="font-size:0.8125rem;color:#333;">' + risks.policy + '</div>';
+            html += '</div>';
+        }
+
+        html += '</div></div>';
+    }
+
+    // ========== 八、下一步行动 ==========
+    const actions = plan.action_items;
+    if (actions && actions.length > 0) {
+        html += '<div style="margin-bottom:24px;">';
+        html += '<h5 style="font-size:1rem;font-weight:600;color:#1a1a2e;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #059669;"><i class="bi bi-list-check" style="margin-right:6px;color:#059669;"></i>八、下一步行动</h5>';
+
+        html += '<div style="background:#f8f9fa;border-radius:10px;padding:12px;">';
+        html += '<table style="width:100%;font-size:0.75rem;border-collapse:collapse;">';
+        html += '<thead><tr style="background:#e9ecef;"><th style="padding:6px 8px;text-align:center;color:#495057;width:50px;">优先级</th><th style="padding:6px 8px;text-align:left;color:#495057;">任务</th><th style="padding:6px 8px;text-align:center;color:#495057;width:60px;">时间</th></tr></thead>';
+
+        const priorityColors = { 'P0': '#dc3545', 'P1': '#f59e0b', 'P2': '#6c757d' };
+
+        actions.forEach(item => {
+            const color = priorityColors[item.priority] || '#6c757d';
+            html += '<tr>';
+            html += '<td style="padding:8px;text-align:center;"><span style="background:' + color + ';color:#fff;padding:2px 6px;border-radius:4px;font-size:0.6875rem;font-weight:600;">' + (item.priority || '-') + '</span></td>';
+            html += '<td style="padding:8px;color:#333;">' + (item.task || '-') + '</td>';
+            html += '<td style="padding:8px;text-align:center;color:#6c757d;">' + (item.deadline || '-') + '</td>';
+            html += '</tr>';
+        });
+
+        html += '</table></div></div>';
+    }
+
+    // 版本信息
+    html += '<div style="text-align:center;padding-top:16px;margin-top:8px;border-top:1px solid #eee;">';
+    html += '<span style="font-size:0.6875rem;color:#adb5bd;">版本：' + (plan.version || '1.0') + ' | 生成时间：' + (plan.created_at || new Date().toLocaleString('zh-CN')) + '</span>';
+    html += '</div>';
+
+    return html;
 }
 
 function renderOperationsPlanNew(plan) {

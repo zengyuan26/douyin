@@ -1152,6 +1152,84 @@ def save_client_profile(user, portrait_id):
     })
 
 
+@portrait_bp.route('/<int:portrait_id>/generate-operations', methods=['POST'])
+@login_required
+def generate_operations_from_client_info(user, portrait_id):
+    """
+    从客户信息页触发生成运营规划（基于新的 operations_planner）
+    流程：画像数据 + 客户录入信息 → 运营规划
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 403
+
+    try:
+        from services.operations_planner import generate_operations_plan
+
+        # 获取画像数据
+        business_description = portrait.get('business_description', '')
+        portrait_name = portrait.get('portrait_name', '') or portrait.get('industry', '')
+        industry = portrait.get('industry', '')
+        target_customer = portrait.get('target_customer', '')
+
+        # 获取画像列表
+        portraits_data = portrait.get('portraits', []) or []
+        if not portraits_data and portrait.get('portrait_data'):
+            portraits_data = [portrait.get('portrait_data')]
+
+        # 获取客户自定义信息
+        client_profile = portrait.get('client_profile') or {}
+
+        # 构建业务信息
+        business_info = {
+            'business_name': client_profile.get('brand_name', '') or portrait_name,
+            'business_description': business_description,
+            'industry': industry,
+            'target_customer': client_profile.get('target_audience', '') or target_customer,
+        }
+
+        # 生成运营规划
+        operation_plan = generate_operations_plan(
+            portraits=portraits_data,
+            business_info=business_info,
+            content_stage='起号阶段',
+            target_topic_count=30,
+            client_profile=client_profile,
+        )
+
+        # 保存到画像
+        portrait_model = SavedPortrait.query.get(portrait_id)
+        if portrait_model:
+            portrait_model.operation_plan = operation_plan
+            portrait_model.operation_plan_updated_at = datetime.utcnow()
+            db.session.commit()
+
+        logger.info("[generate_operations] portrait_id=%s, 生成成功", portrait_id)
+
+        return jsonify({
+            'success': True,
+            'message': '运营规划生成成功',
+            'data': {
+                'operation_plan': operation_plan,
+                'operation_plan_updated_at': datetime.utcnow().isoformat(),
+            }
+        })
+
+    except Exception as e:
+        logger.exception("[generate_operations] portrait_id=%s, 生成失败: %s", portrait_id, str(e))
+        return jsonify({
+            'success': False,
+            'message': f'生成失败: {str(e)}'
+        }), 500
+
+
 @portrait_bp.route('/<int:portrait_id>/operation-plan', methods=['GET'])
 @login_required
 def get_operation_plan(user, portrait_id):
