@@ -1165,6 +1165,128 @@ def api_portrait_status(portrait_id):
     })
 
 
+@public_bp.route('/api/portraits/<int:portrait_id>/operation-plan', methods=['GET'])
+def api_get_operation_plan(portrait_id):
+    """获取画像的运营规划方案（公开端点，供内容生成页面使用）"""
+    from models.public_models import SavedPortrait
+    portrait = SavedPortrait.query.get(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+
+    # 优先从 extra_data 读取（新版存储位置），回退到 operation_plan 字段（旧版兼容）
+    operation_plan = portrait.operation_plan
+    updated_at = portrait.operation_plan_updated_at
+    if not operation_plan and portrait.extra_data:
+        operation_plan = portrait.extra_data.get('operations_plan', {})
+        updated_at = portrait.extra_data.get('operations_plan_updated_at', None)
+
+    # 处理 updated_at 格式（可能是 datetime 或字符串）
+    if updated_at:
+        if hasattr(updated_at, 'isoformat'):
+            updated_at_str = updated_at.isoformat()
+        else:
+            updated_at_str = str(updated_at)
+    else:
+        updated_at_str = None
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'operation_plan': operation_plan,
+            'operation_plan_updated_at': updated_at_str,
+            'has_operation_plan': bool(operation_plan),
+        }
+    })
+
+
+@public_bp.route('/api/portraits/<int:portrait_id>/operation-plan/generate', methods=['POST'])
+def api_generate_operation_plan(portrait_id):
+    """生成/更新画像的运营规划方案（公开端点，需要登录）"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    from models.public_models import SavedPortrait
+    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    try:
+        from services.skill_bridge import SkillBridge
+        bridge = SkillBridge()
+
+        business_description = portrait.business_description or ''
+        industry = portrait.industry or ''
+
+        business_type = 'b2c'
+        if any(kw in business_description.lower() for kw in ['企业', '批发', '代理', '加盟', 'B端', 'B2B']):
+            business_type = 'b2b'
+        elif any(kw in business_description.lower() for kw in ['零售', 'to c', 'toc', '个人', '家庭']):
+            business_type = 'b2c'
+        else:
+            business_type = 'both'
+
+        request_data = request.get_json() or {}
+        client_info = {
+            'brand_name': request_data.get('brand_name', ''),
+            'brand_type': request_data.get('brand_type', 'personal'),
+            'operating_years': request_data.get('operating_years', ''),
+            'core_advantages': request_data.get('core_advantages', ''),
+            'target_audience': request_data.get('target_audience', ''),
+            'competitors': request_data.get('competitors', ''),
+            'blue_ocean': request_data.get('blue_ocean', ''),
+            'contact_info': request_data.get('contact_info', ''),
+            'credentials': request_data.get('credentials', ''),
+            'service_guarantee': request_data.get('service_guarantee', ''),
+            'case_data': request_data.get('case_data', ''),
+        }
+
+        result = bridge.execute(
+            skill_name='operations_expert',
+            manual_inputs={
+                'business_description': business_description,
+                'industry': industry,
+                'business_type': business_type,
+                'portrait_data': portrait.portrait_data,
+                'selected_opportunity': portrait.selected_opportunity,
+                'client_profile': portrait.client_profile or client_info,
+                'keyword_library': portrait.keyword_library,
+                'topic_library': portrait.topic_library,
+            },
+        )
+
+        if not result.success:
+            return jsonify({
+                'success': False,
+                'message': f"运营规划生成失败: {result.errors[0] if result.errors else '未知错误'}"
+            }), 500
+
+        operation_plan = result.full_output
+
+        portrait.operation_plan = operation_plan
+        portrait.operation_plan_updated_at = datetime.utcnow()
+        db.session.commit()
+
+        logger.info("[api_generate_operation_plan] portrait_id=%s, 生成成功", portrait_id)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'operation_plan': operation_plan,
+                'operation_plan_updated_at': datetime.utcnow().isoformat(),
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        logger.error("[api_generate_operation_plan] 异常: %s", e)
+        logger.debug("[api_generate_operation_plan] 堆栈: %s", traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'生成失败: {str(e)}'
+        }), 500
+
+
 @public_bp.route('/api/portraits/<int:portrait_id>/library/generate', methods=['POST'])
 def api_trigger_library_generate(portrait_id):
     """触发关键词库和选题库生成"""

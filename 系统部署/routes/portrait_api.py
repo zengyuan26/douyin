@@ -1168,12 +1168,20 @@ def get_operation_plan(user, portrait_id):
     if not row or row[0] != user.id:
         return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
 
+    # 优先从 extra_data 读取（新版存储位置），回退到 operation_plan 字段（旧版兼容）
+    operation_plan = portrait.get('operation_plan')
+    updated_at = portrait.get('operation_plan_updated_at')
+    extra_data = portrait.get('extra_data') or {}
+    if not operation_plan and extra_data:
+        operation_plan = extra_data.get('operations_plan', {})
+        updated_at = extra_data.get('operations_plan_updated_at', None)
+
     return jsonify({
         'success': True,
         'data': {
-            'operation_plan': portrait.get('operation_plan'),
-            'operation_plan_updated_at': portrait.get('operation_plan_updated_at'),
-            'has_operation_plan': bool(portrait.get('operation_plan')),
+            'operation_plan': operation_plan,
+            'operation_plan_updated_at': updated_at,
+            'has_operation_plan': bool(operation_plan),
         }
     })
 
