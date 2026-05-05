@@ -3799,6 +3799,38 @@ async function confirmGenerate() {
     btn.innerHTML = '<span class="apple-spinner" style="display:inline-block;width:14px;height:14px;border-width:2px;margin-right:4px;border-top-color:#fff;"></span> 生成中...';
 
     try {
+        // ── 获取客户档案信息（包含联系方式）──
+        let clientProfile = {};
+        try {
+            const profileResp = await fetch('/public/api/portraits/' + _portraitId + '/client-profile', {
+                credentials: 'include'
+            });
+            const profileData = await profileResp.json();
+            if (profileData.success && profileData.data && profileData.data.client_profile) {
+                clientProfile = profileData.data.client_profile;
+            }
+        } catch (e) {
+            console.warn('[confirmGenerate] 获取客户档案失败:', e);
+        }
+
+        // 构建 brand_context（包含联系方式）
+        const brandContext = {
+            include_brand: true,
+            brand_name: clientProfile.brand_name || '',
+            years_experience: clientProfile.operating_years || '',
+            brand_claims: clientProfile.core_advantages ? [clientProfile.core_advantages] : [],
+            anchor_positions: ['开头', '中间', '结尾'],
+            content_purpose: 'conversion',
+            contact_info: {
+                phone: clientProfile.contact_info || '',
+                wechat: '',
+                email: '',
+                address: '',
+                business_hours: '',
+                notes: clientProfile.service_guarantee || ''
+            }
+        };
+
         const payload = {
             topic_id: topic.id,
             topic_title: topic.title,
@@ -3810,6 +3842,8 @@ async function confirmGenerate() {
             portrait: _portrait.portrait_data || {},
             portrait_id: _portraitId,
             problem_id: _portrait.session_id || null,
+            client_profile: clientProfile,  // 包含联系方式
+            brand_context: brandContext,    // 构建包含联系方式的 brand_context
         };
 
         if (_portrait.session_id) {

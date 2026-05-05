@@ -485,6 +485,7 @@ class SkillExecutor:
         处理以下情况：
         1. 数据被包裹在额外层级中（如 {"content": [...]} 而不是直接是数组）
         2. 数据字段名与预期不符（如 "tags" vs "tag_list"）
+        3. LLM 把 JSON 数组转成了字符串数组
 
         根据 output_field 决定：
         - 如果 default_field 存在于 parsed 中，直接返回 parsed
@@ -493,6 +494,25 @@ class SkillExecutor:
         - 否则返回 parsed
         """
         if not isinstance(parsed, dict):
+            # 处理 parsed 是字符串数组的情况（LLM 把 JSON 转成了字符串数组）
+            if isinstance(parsed, list) and default_field in ['portraits', 'slides', 'topics']:
+                parsed_list = []
+                any_parsed = False
+                for item in parsed:
+                    if isinstance(item, dict):
+                        parsed_list.append(item)
+                        any_parsed = True
+                    elif isinstance(item, str):
+                        try:
+                            parsed_item = json.loads(item)
+                            if isinstance(parsed_item, dict):
+                                parsed_list.append(parsed_item)
+                                any_parsed = True
+                        except (json.JSONDecodeError, ValueError):
+                            pass
+                if any_parsed:
+                    logger.info(f"[_normalize_output] 成功从字符串数组解析 {len(parsed_list)} 个 {default_field}")
+                    return {default_field: parsed_list}
             return {default_field: parsed}
 
         # 如果默认字段已存在，直接返回
@@ -543,6 +563,41 @@ class SkillExecutor:
                         if any_parsed:
                             return {default_field: parsed_slides}
                         # 如果完全无法解析，保留原 content
+                        return {default_field: inner}
+                    # 对于 output_field='portraits' 但数据被嵌套的情况
+                    # 处理 LLM 把 JSON 数组转成字符串数组的问题
+                    if default_field == 'portraits' and isinstance(inner, list):
+                        parsed_portraits = []
+                        any_parsed = False
+                        for item in inner:
+                            if isinstance(item, dict):
+                                parsed_portraits.append(item)
+                                any_parsed = True
+                            elif isinstance(item, str):
+                                # 尝试将字符串解析为 JSON
+                                try:
+                                    parsed_item = json.loads(item)
+                                    if isinstance(parsed_item, dict):
+                                        parsed_portraits.append(parsed_item)
+                                        any_parsed = True
+                                    elif isinstance(parsed_item, list):
+                                        # 如果解析出的是数组（嵌套的 portraits）
+                                        for pi in parsed_item:
+                                            if isinstance(pi, dict):
+                                                parsed_portraits.append(pi)
+                                                any_parsed = True
+                                except (json.JSONDecodeError, ValueError):
+                                    pass
+                                # 尝试从文本中提取 portrait JSON
+                                portrait = self._parse_text_to_portrait(item)
+                                if portrait:
+                                    parsed_portraits.append(portrait)
+                                    any_parsed = True
+                        # 只要有任何一个成功解析为 dict，就返回
+                        if any_parsed:
+                            logger.info(f"[_normalize_output] 成功解析 {len(parsed_portraits)} 个 portraits")
+                            return {default_field: parsed_portraits}
+                        # 如果完全无法解析，保留原值
                         return {default_field: inner}
                     return {default_field: inner}
 
@@ -646,6 +701,83 @@ class SkillExecutor:
             slide['big_slogan'] = text_preview
 
         return slide if slide else None
+
+    def _parse_text_to_portrait(self, text: str) -> Optional[dict]:
+        """
+        将一段文本解析为 portrait 对象。
+
+        适用于 LLM 返回格式如：
+        '{"portrait_id": "P1", "identity": "新手妈妈", ...}'
+
+        Returns:
+            解析到的 portrait 字典，或 None（无法解析时）
+        """
+        if not text or not isinstance(text, str):
+            return None
+
+        text = text.strip()
+        if not text:
+            return None
+
+        # 尝试直接 JSON 解析
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # 尝试从文本中提取 portrait_id 等关键字段
+        portrait = {}
+
+        # portrait_id 提取
+        patterns = [
+            r'"portrait_id"\s*:\s*"?([^",}\s]+)"?',
+            r'portrait_id["\s:：]+([^，,\s]+)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                portrait['portrait_id'] = match.group(1).strip()
+                break
+
+        # identity 提取
+        patterns = [
+            r'"identity"\s*:\s*"?([^",}\s]+)"?',
+            r'身份["\s:：]+([^，,\s]+)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                portrait['identity'] = match.group(1).strip()
+                break
+
+        # portrait_summary 提取
+        patterns = [
+            r'"portrait_summary"\s*:\s*"?([^"]+)"?',
+            r'summary["\s:：]+([^，,\n]+)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                portrait['portrait_summary'] = match.group(1).strip()
+                break
+
+        # problem_type 提取
+        patterns = [
+            r'"problem_type"\s*:\s*"?([^",}\s]+)"?',
+            r'问题类型["\s:：]+([^，,\s]+)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                portrait['problem_type'] = match.group(1).strip()
+                break
+
+        # 只有解析到 portrait_id 才算成功
+        if portrait.get('portrait_id'):
+            return portrait
+        return None
 
     def _extract_json_from_markdown(self, text: str, schema: dict) -> Optional[dict]:
         """

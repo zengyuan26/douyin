@@ -5726,10 +5726,37 @@ def _adapt_portrait_generator_result(bridge_result) -> dict:
 
     注意：full_output 的 key 是 step_id（如 step_extract_problem_types），
     不是字段名。字段数据在 step_output['output'] 中。
+
+    修复：当 LLM 返回嵌套的 JSON 字符串时，自动提取内层 JSON。
     """
+    import json
+    import re
+
     fo = bridge_result.full_output
     portraits = []
     problem_types = []
+
+    def _try_parse_nested_json(text: str) -> Optional[dict]:
+        """
+        尝试从嵌套的 JSON 字符串中提取真正的 JSON 对象。
+        处理 LLM 返回嵌套 JSON 的情况。
+        """
+        if not text or not isinstance(text, str):
+            return None
+
+        text = text.strip()
+        # 去掉 markdown 代码块标记
+        text = re.sub(r'^```json\s*', '', text)
+        text = re.sub(r'^```\s*', '', text)
+        text = re.sub(r'\s*```$', '', text)
+
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+        return None
 
     # step_extract_problem_types → output.problem_types
     step_prob = fo.get('step_extract_problem_types', {})
@@ -5750,6 +5777,52 @@ def _adapt_portrait_generator_result(bridge_result) -> dict:
     if isinstance(step_port, dict):
         step_output = step_port.get('output', step_port)
         pts_list = step_output.get('portraits', [])
+
+        # 添加详细日志
+        logger.info(f"[_adapt_portrait_generator_result] step_output keys: {list(step_output.keys())}")
+        logger.info(f"[_adapt_portrait_generator_result] pts_list type: {type(pts_list)}, len: {len(pts_list) if pts_list else 0}")
+        if pts_list:
+            logger.info(f"[_adapt_portrait_generator_result] pts_list[0] type: {type(pts_list[0])}")
+            logger.info(f"[_adapt_portrait_generator_result] pts_list[:3]: {pts_list[:3]!r}")
+
+        # 如果是字符串数组（LLM 返回嵌套 JSON），尝试提取真正的 JSON
+        if pts_list and all(isinstance(p, str) for p in pts_list):
+            logger.info(f"[_adapt_portrait_generator_result] 检测到 {len(pts_list)} 个字符串，尝试提取 JSON...")
+
+            parsed_list = []
+            for p_str in pts_list:
+                parsed = _try_parse_nested_json(p_str)
+                if parsed:
+                    parsed_list.append(parsed)
+                else:
+                    # 尝试从文本中提取字段
+                    portrait = {}
+                    # portrait_id
+                    m = re.search(r'"portrait_id"\s*:\s*"?([^",}\s]+)"?', p_str)
+                    if m:
+                        portrait['portrait_id'] = m.group(1).strip()
+                    # identity
+                    m = re.search(r'"identity"\s*:\s*"?([^",}\s]+)"?', p_str)
+                    if m:
+                        portrait['identity'] = m.group(1).strip()
+                    # portrait_summary
+                    m = re.search(r'"portrait_summary"\s*:\s*"?([^"]+)"?', p_str)
+                    if m:
+                        portrait['portrait_summary'] = m.group(1).strip()
+                    # problem_type
+                    m = re.search(r'"problem_type"\s*:\s*"?([^",}\s]+)"?', p_str)
+                    if m:
+                        portrait['problem_type'] = m.group(1).strip()
+                    if portrait:
+                        parsed_list.append(portrait)
+
+            if parsed_list:
+                pts_list = parsed_list
+                logger.info(f"[_adapt_portrait_generator_result] 成功提取 {len(parsed_list)} 个画像")
+            else:
+                logger.warning(f"[_adapt_portrait_generator_result] 无法提取 JSON，返回空列表")
+                pts_list = []
+
         for p in pts_list:
             if isinstance(p, dict):
                 # 保留所有字段，确保前端转换和展示完整
