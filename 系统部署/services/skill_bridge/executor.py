@@ -353,13 +353,49 @@ class SkillExecutor:
         - `<<variable>>` — 推荐（JSON 字符串内不会与 {{ }} 冲突）
         - `{variable}`    — 兼容（仅用于 JSON 安全场景）
 
+        支持嵌套占位符格式：
+        - `<<parent.child>>` — 如 `<<client_profile.brand_name>>` 会从 context['client_profile']['brand_name'] 获取值
+
         占位符内嵌 JSON 示例块时，使用 {{ }} 无需转义：
             "请按格式输出：<<example>>"  其中 example="{\"key\": \"value\"}"
         """
         import re
         result = template
 
-        # 优先处理 <<variable>> 格式（JSON 安全的双尖括号）
+        # 第一轮：处理嵌套占位符（点号分隔，如 <<client_profile.brand_name>>）
+        # 匹配 <<xxx.yyy.zzz>> 格式的占位符
+        nested_pattern = re.compile(r'<<([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)>>')
+        for match in nested_pattern.finditer(result):
+            full_placeholder = match.group(0)
+            path = match.group(1)
+            # 如果顶级 key 存在，说明还没被处理
+            top_level_key = path.split('.')[0]
+            if top_level_key not in context:
+                continue
+
+            # 解析嵌套路径
+            parts = path.split('.')
+            value = context
+            try:
+                for part in parts:
+                    if isinstance(value, dict):
+                        value = value.get(part)
+                    else:
+                        value = None
+                        break
+            except:
+                value = None
+
+            # 替换占位符
+            if value is None:
+                result = result.replace(full_placeholder, "(未提供)")
+            elif isinstance(value, (dict, list)):
+                json_str = json.dumps(value, ensure_ascii=False, indent=2)
+                result = result.replace(full_placeholder, json_str)
+            else:
+                result = result.replace(full_placeholder, str(value))
+
+        # 第二轮：处理顶级 <<variable>> 格式（JSON 安全的双尖括号）
         for key, value in context.items():
             placeholder = f"<<{key}>>"
             if placeholder not in result:
@@ -373,7 +409,7 @@ class SkillExecutor:
             else:
                 result = result.replace(placeholder, str(value))
 
-        # 兼容 {variable} 格式
+        # 第三轮：兼容 {variable} 格式
         for key, value in context.items():
             placeholder = "{" + key + "}"
             if placeholder not in result:

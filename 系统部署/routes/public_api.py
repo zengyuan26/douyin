@@ -1262,7 +1262,7 @@ def api_generate_operation_plan(portrait_id):
         operation_plan = result.full_output
 
         portrait.operation_plan = operation_plan
-        portrait.operation_plan_updated_at = datetime.utcnow()
+        portrait.operation_plan_updated_at = datetime.datetime.now(datetime.timezone.utc)
         db.session.commit()
 
         logger.info("[api_generate_operation_plan] portrait_id=%s, 生成成功", portrait_id)
@@ -1271,7 +1271,7 @@ def api_generate_operation_plan(portrait_id):
             'success': True,
             'data': {
                 'operation_plan': operation_plan,
-                'operation_plan_updated_at': datetime.utcnow().isoformat(),
+                'operation_plan_updated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
             }
         })
 
@@ -3023,7 +3023,7 @@ def api_generate_content_from_topic():
                             topic_title=topic_title,
                             usage_count=0,
                             generation_ids=[],
-                            created_at=datetime.datetime.utcnow(),
+                            created_at=datetime.datetime.now(datetime.timezone.utc),
                         )
                         db.session.add(link)
                         db.session.flush()
@@ -3073,7 +3073,7 @@ def api_generate_content_from_topic():
             # ── 更新 link ──
             if link:
                 link.add_generation(generation.id)
-                link.last_generated_at = datetime.datetime.utcnow()
+                link.last_generated_at = datetime.datetime.now(datetime.timezone.utc)
                 if link.first_generated_at is None:
                     link.first_generated_at = generation.created_at
 
@@ -3357,7 +3357,7 @@ def api_add_extension_topic(portrait_id):
         'type_key': topic_type_key,
         'source': source,
         'scene_options': scene_options,
-        'created_at': datetime.datetime.utcnow().isoformat(),
+        'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'generation_count': 0,
         # 方法论增强字段
         'marketing_purpose': marketing_purpose,
@@ -3382,7 +3382,7 @@ def api_add_extension_topic(portrait_id):
         """),
         {
             'topic_library': json.dumps(portrait.topic_library, ensure_ascii=False),
-            'updated_at': datetime.datetime.utcnow(),
+            'updated_at': datetime.datetime.now(datetime.timezone.utc),
             'portrait_id': portrait_id
         }
     )
@@ -4175,7 +4175,7 @@ def api_save_snapshot():
         {'uid': user.id, 'sid': session_id}
     ).fetchone()
 
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     if existing:
         # 更新
@@ -6531,7 +6531,7 @@ def api_create_opportunity_snapshot():
                 data['source_analyzed_at'].replace('Z', '+00:00')
             )
         except (ValueError, AttributeError):
-            source_analyzed_at = datetime.datetime.utcnow()
+            source_analyzed_at = datetime.datetime.now(datetime.timezone.utc)
 
     new_snapshot = OpportunitySnapshot(
         user_id=user.id,
@@ -6539,7 +6539,7 @@ def api_create_opportunity_snapshot():
         note=data.get('note', ''),
         source_business_desc=data.get('source_business_desc', ''),
         source_business_type=data.get('source_business_type', ''),
-        source_analyzed_at=source_analyzed_at or datetime.datetime.utcnow(),
+        source_analyzed_at=source_analyzed_at or datetime.datetime.now(datetime.timezone.utc),
     )
     db.session.add(new_snapshot)
     db.session.commit()
