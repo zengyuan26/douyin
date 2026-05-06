@@ -43,17 +43,35 @@ def get_operations_plan_from_portrait(portrait_id: int) -> dict:
         运营规划字典，如果不存在则返回空字典
     """
     try:
+        if not portrait_id:
+            logger.warning(f"[OperationsPlan] portrait_id 为空")
+            return {}
+
         portrait = SavedPortrait.query.get(portrait_id)
-        if portrait:
-            # 优先使用 operation_plan 字段（旧字段）
-            if hasattr(portrait, 'operation_plan') and portrait.operation_plan:
-                return portrait.operation_plan
-            # 兼容 extra_data（新字段，如TopicLibrary使用）
-            if hasattr(portrait, 'extra_data') and portrait.extra_data:
-                return portrait.extra_data.get('operations_plan', {}) or {}
-            # 兼容 portrait_data 中的 operations_plan
-            if hasattr(portrait, 'portrait_data') and portrait.portrait_data:
-                return portrait.portrait_data.get('operations_plan', {}) or {}
+        if not portrait:
+            logger.warning(f"[OperationsPlan] 画像不存在 portrait_id={portrait_id}")
+            return {}
+
+        # 检查 operation_plan 字段
+        if hasattr(portrait, 'operation_plan') and portrait.operation_plan:
+            logger.info(f"[OperationsPlan] 从 operation_plan 字段获取 portrait_id={portrait_id}, plan_id={portrait.operation_plan.get('plan_id', 'N/A')}")
+            return portrait.operation_plan
+
+        # 兼容 extra_data（新字段）
+        if hasattr(portrait, 'extra_data') and portrait.extra_data:
+            ops = portrait.extra_data.get('operations_plan', {})
+            if ops:
+                logger.info(f"[OperationsPlan] 从 extra_data.operations_plan 获取 portrait_id={portrait_id}")
+                return ops
+
+        # 兼容 portrait_data 中的 operations_plan
+        if hasattr(portrait, 'portrait_data') and portrait.portrait_data:
+            ops = portrait.portrait_data.get('operations_plan', {})
+            if ops:
+                logger.info(f"[OperationsPlan] 从 portrait_data.operations_plan 获取 portrait_id={portrait_id}")
+                return ops
+
+        logger.warning(f"[OperationsPlan] 画像无运营规划 portrait_id={portrait_id}")
     except Exception as e:
         logger.warning(f"[OperationsPlan] 获取运营规划失败 portrait_id={portrait_id}: {e}")
     return {}
@@ -5862,7 +5880,7 @@ def _apply_hvf_and_tags(
     # ── H-V-F 标题覆盖（优先使用审核推荐的标题）───────────────────
     if hvf_titles_output:
         # 优先使用审核结果推荐的标题
-        review_data = hvf_output.get('step_title_review', {}) if hvf_titles_output else {}
+        review_data = hvf_titles_output.get('step_title_review', {}) if hvf_titles_output else {}
         best_title_from_review = review_data.get('best_title', {})
         if isinstance(best_title_from_review, dict):
             extracted_title = best_title_from_review.get('main_title', '')
