@@ -2269,7 +2269,10 @@ def api_regenerate_topics():
     {
         "business_description": "...",
         "portraits": [...],
-        "problem_keywords": [...]
+        "problem_keywords": [...],
+        "topic_type": "problem_diagnosis",     # 可选：选题类型键
+        "topic_type_name": "问题诊断类",        # 可选：选题类型名称
+        "count": 10
     }
     """
     user_id = session.get('public_user_id')
@@ -2289,7 +2292,9 @@ def api_regenerate_topics():
             business_type=params.get('business_type', ''),
             portraits=params.get('portraits', []),
             problem_keywords=params.get('problem_keywords', []),
-            is_premium=is_premium
+            is_premium=is_premium,
+            topic_type=params.get('topic_type'),
+            topic_type_name=params.get('topic_type_name')
         )
 
         if result.get('success'):
@@ -3138,6 +3143,7 @@ def api_add_extension_topic(portrait_id):
     {
         "topic_title": "选题标题",
         "topic_type": "知识科普",  // 类型
+        "topic_type_key": "knowledge",  // 类型键（可选）
         "source": "extension",      // 来源：extension 表示来自内容延伸
         "scene_options": []         // 可选：场景选项
     }
@@ -3159,6 +3165,7 @@ def api_add_extension_topic(portrait_id):
         return jsonify({'success': False, 'message': '选题标题不能为空'}), 400
 
     topic_type = params.get('topic_type', '')
+    topic_type_key = params.get('topic_type_key', '') or _normalize_topic_type_key(topic_type)
     source = params.get('source', 'extension')
     scene_options = params.get('scene_options', [])
 
@@ -3178,7 +3185,7 @@ def api_add_extension_topic(portrait_id):
         'id': topic_id,
         'title': topic_title,
         'type_name': topic_type,
-        'type_key': _normalize_topic_type_key(topic_type),
+        'type_key': topic_type_key,
         'source': source,
         'scene_options': scene_options,
         'created_at': datetime.datetime.utcnow().isoformat(),
@@ -3187,6 +3194,25 @@ def api_add_extension_topic(portrait_id):
 
     # 添加到选题库
     portrait.topic_library['topics'].append(new_topic)
+
+    # 强制刷新，确保数据立即可读
+    db.session.flush()
+
+    # 使用原生SQL更新，确保数据写入
+    db.session.execute(
+        text("""
+            UPDATE saved_portraits
+            SET topic_library = :topic_library,
+                topic_updated_at = :updated_at
+            WHERE id = :portrait_id
+        """),
+        {
+            'topic_library': json.dumps(portrait.topic_library, ensure_ascii=False),
+            'updated_at': datetime.datetime.utcnow(),
+            'portrait_id': portrait_id
+        }
+    )
+
     db.session.commit()
 
     logger.info(f"[api_add_extension_topic] 添加延伸选题成功 portrait_id={portrait_id}, topic_id={topic_id}, title={topic_title[:30]}")
@@ -3206,6 +3232,7 @@ def _normalize_topic_type_key(topic_type: str) -> str:
     if not topic_type:
         return ''
     type_map = {
+        # 旧版类型名
         '知识科普': 'knowledge',
         '避坑指南': 'pitfall',
         '实用攻略': 'guide',
@@ -3215,6 +3242,14 @@ def _normalize_topic_type_key(topic_type: str) -> str:
         '种草推荐': 'seed',
         '转化型': 'convert',
         '人设型': 'persona',
+        # 新版8大选题类型名（兼容）
+        '问题诊断类': 'problem_diagnosis',
+        '解决方案类': 'solution',
+        '案例分享类': 'case_share',
+        '热点关联类': 'hot_topic',
+        '人设故事类': 'persona',
+        '观点输出类': 'opinion',
+        '避坑指南类': 'pitfall',
     }
     return type_map.get(topic_type, topic_type)
 

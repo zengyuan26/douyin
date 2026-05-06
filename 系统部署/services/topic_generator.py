@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class TopicGenerator:
     """选题生成器"""
 
-    # 选题类型
+    # 选题类型（与前端8大类型对应）
     TOPIC_TYPES = [
         '问题诊断',   # 诊断类：指出问题，引发共鸣
         '解决方案',   # 方案类：给出具体解决方案
@@ -25,6 +25,30 @@ class TopicGenerator:
         '避坑指南',   # 警示类：帮助用户避雷
         '知识科普',   # 科普类：传递专业知识
     ]
+
+    # 8大选题类型体系（前端展示用）
+    TOPIC_TYPE_SYSTEM = [
+        {'key': 'problem_diagnosis', 'name': '问题诊断类', 'desc': '挖掘痛点，引发共鸣'},
+        {'key': 'solution', 'name': '解决方案类', 'desc': '提供实用方法，高收藏'},
+        {'key': 'case_share', 'name': '案例分享类', 'desc': '真实案例故事，促转化'},
+        {'key': 'knowledge', 'name': '知识科普类', 'desc': '传授专业知识，建权威'},
+        {'key': 'hot_topic', 'name': '热点关联类', 'desc': '蹭当前热点，获流量'},
+        {'key': 'persona', 'name': '人设故事类', 'desc': '价值观/故事，建立信任'},
+        {'key': 'opinion', 'name': '观点输出类', 'desc': '表达立场态度，建权威'},
+        {'key': 'pitfall', 'name': '避坑指南类', 'desc': '帮助用户避雷，防损失'},
+    ]
+
+    # 类型键到类型名称的映射
+    TYPE_KEY_TO_NAME = {
+        'problem_diagnosis': '问题诊断',
+        'solution': '解决方案',
+        'case_share': '经验分享',
+        'knowledge': '知识科普',
+        'hot_topic': '热点关联',
+        'persona': '人设故事',
+        'opinion': '观点输出',
+        'pitfall': '避坑指南',
+    }
 
     def __init__(self):
         self.llm = get_llm_service()
@@ -37,7 +61,9 @@ class TopicGenerator:
         portraits: list,
         problem_keywords: list,
         is_premium: bool = False,
-        skill_mode: bool = False
+        skill_mode: bool = False,
+        topic_type: str = None,
+        topic_type_name: str = None
     ) -> dict:
         """
         生成选题
@@ -50,6 +76,8 @@ class TopicGenerator:
             problem_keywords: 问题关键词列表
             is_premium: 是否付费用户
             skill_mode: 是否使用Skill模式（输出增强字段）
+            topic_type: 选题类型键（如 problem_diagnosis, solution 等）
+            topic_type_name: 选题类型名称
 
         Returns:
             dict: {
@@ -79,7 +107,9 @@ class TopicGenerator:
                 current_season=current_season,
                 current_month=current_month,
                 is_premium=is_premium,
-                skill_mode=skill_mode
+                skill_mode=skill_mode,
+                topic_type=topic_type,
+                topic_type_name=topic_type_name
             )
 
             # 调用LLM生成
@@ -156,7 +186,9 @@ class TopicGenerator:
         current_season: str,
         current_month: int,
         is_premium: bool,
-        skill_mode: bool = False
+        skill_mode: bool = False,
+        topic_type: str = None,
+        topic_type_name: str = None
     ) -> str:
         """构建选题生成Prompt"""
 
@@ -181,7 +213,65 @@ class TopicGenerator:
     "scene_options": [{"id": "A", "label": "场景A描述"}, {"id": "B", "label": "场景B描述"}],
     "content_type": "图文/长文/短视频"'''
 
-        prompt = f"""你是一位资深的内容策划专家。请根据以下信息，生成5个精准的短视频/图文选题。
+        # 选题类型约束
+        type_constraint = ""
+        if topic_type and topic_type_name:
+            type_constraint = f"""
+## 选题类型约束【重要】
+你必须生成 **"{topic_type_name}"** 类型的选题。
+
+【{topic_type_name}选题特点】
+"""
+
+            # 根据类型添加特点描述
+            type_features = {
+                'problem_diagnosis': """- 挖掘用户痛点和问题
+- 标题包含痛点关键词，能引发共鸣
+- 内容方向：问题诊断、痛点分析、需求挖掘
+- 典型标题格式："XX问题怎么办？"、"XX的XX症状你中招了吗？\"""",
+                'solution': """- 提供具体的解决方案和实用建议
+- 标题突出价值和效果
+- 内容方向：方法步骤、实用技巧、解决方案
+- 典型标题格式："XX的正确方法"、"教你XX招搞定XX\"""",
+                'case_share': """- 分享真实案例和故事
+- 标题具有故事性和吸引力
+- 内容方向：客户案例、亲身经历、成功故事
+- 典型标题格式："XX客户的XX故事"、"我用XX方法帮客户XX\"""",
+                'knowledge': """- 传授专业知识和科普
+- 标题专业但易懂
+- 内容方向：行业知识、产品知识、专业科普
+- 典型标题格式："XX知识详解"、"关于XX你不知道的事\"""",
+                'hot_topic': """- 蹭当前热点和趋势
+- 标题紧跟时事热点
+- 内容方向：热点解读、趋势分析、话题关联
+- 典型标题格式："XX热点背后的XX"、"趁着XX说说XX\"""",
+                'persona': """- 建立人设和信任
+- 标题展现个人特色和价值观
+- 内容方向：人设故事、价值观分享、观点输出
+- 典型标题格式："我是怎么XX的"、"做XX这些年我的感悟\"""",
+                'opinion': """- 表达立场和观点
+- 标题有态度、有立场
+- 内容方向：行业观点、深度评论、犀利点评
+- 典型标题格式："XX的真相"、"别被XX骗了\"""",
+                'pitfall': """- 帮助用户避坑避雷
+- 标题包含警示元素
+- 内容方向：常见误区、避坑指南、注意事项
+- 典型标题格式："XX的XX坑千万别踩"、"XX最常见的XX误区\"""",
+            }
+            type_feature = type_features.get(topic_type, "")
+            type_constraint += type_feature + "\n"
+        else:
+            type_constraint = """
+## 选题类型参考
+选题类型包含：
+   - 问题诊断型：引发用户共鸣
+   - 解决方案型：给出实用建议
+   - 经验分享型：真实故事
+   - 避坑指南型：帮助用户避雷
+   - 知识科普型：传递专业知识
+"""
+
+        prompt = f"""你是一位资深的内容策划专家。请根据以下信息，生成10个精准的短视频/图文选题。
 
 ## 业务信息
 - 业务描述：{business_description}
@@ -198,15 +288,13 @@ class TopicGenerator:
 - 季节：{current_season}（{current_month}月）
 - 选题需考虑季节特性
 
+{type_constraint}
+
 ## 选题要求
 1. 每个选题围绕一个具体问题，标题简洁有力
 2. 标题包含问题关键词或痛点词
-3. 选题类型包含：
-   - 问题诊断型：引发用户共鸣
-   - 解决方案型：给出实用建议
-   - 经验分享型：真实故事
-4. 符合当前时间节点特点
-5. 每个选题说明推荐理由
+3. 符合当前时间节点特点
+4. 每个选题说明推荐理由
 {skill_mode_req}
 
 ## 输出格式（严格JSON）
@@ -216,12 +304,12 @@ class TopicGenerator:
     "id": "1",
     "title": "选题标题（20字以内）",
     "type": "问题诊断/解决方案/经验分享/避坑指南/知识科普",
-    "type_key": "pain_point/solution/emotional/pitfall/tutorial",
+    "type_key": "pain_point/solution/emotional/pitfall/tutorial/knowledge",
     "target": "目标人群描述",
     "reason": "推荐理由（为什么选这个选题）"
     {skill_fields_block}
   }},
-  ...共5个选题
+  ...共10个选题
 ]
 ```
 请严格按照JSON格式输出，不要包含其他内容。"""
