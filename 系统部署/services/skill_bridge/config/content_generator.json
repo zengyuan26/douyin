@@ -307,6 +307,100 @@
               "emotion_transition": {
                 "type": "string",
                 "minLength": 15
+              },
+              "image_prompt": {
+                "type": "object",
+                "description": "【方案1核心改进】独立生图Prompt，用于AI生图工具",
+                "properties": {
+                  "spec": {
+                    "type": "string",
+                    "description": "规格：1080x1920px, 9:16竖版"
+                  },
+                  "main_body": {
+                    "type": "string",
+                    "description": "画面主体：visual_target的具体描述，50字以上",
+                    "minLength": 50
+                  },
+                  "composition": {
+                    "type": "string",
+                    "description": "构图方式：如'左60%主体+右40%环境'",
+                    "minLength": 20
+                  },
+                  "scene": {
+                    "type": "string",
+                    "description": "场景描述：scene_dressing的完整场景道具描述",
+                    "minLength": 30
+                  },
+                  "atmosphere": {
+                    "type": "string",
+                    "description": "氛围描述：atmosphere_filter的完整质感描述",
+                    "minLength": 20
+                  },
+                  "character": {
+                    "type": "string",
+                    "description": "人物描述：character_consistency的完整人物描述",
+                    "minLength": 20
+                  },
+                  "light_shadow": {
+                    "type": "string",
+                    "description": "光影描述：light_shadow_logic的完整光影描述",
+                    "minLength": 20
+                  },
+                  "info_zones": {
+                    "type": "string",
+                    "description": "3区描述：info_zones的完整描述",
+                    "minLength": 30
+                  },
+                  "prohibition": {
+                    "type": "string",
+                    "description": "禁止项：纯色背景、手机外框、渐变背景等",
+                    "minLength": 30
+                  }
+                },
+                "required": ["spec", "main_body", "composition", "scene", "prohibition"]
+              },
+              "text_overlay": {
+                "type": "object",
+                "description": "【方案1核心改进】文字叠加指令，用于后期制作",
+                "properties": {
+                  "golden_quote": {
+                    "type": "string",
+                    "description": "金句：big_slogan金句内容，≤15字",
+                    "minLength": 5,
+                    "maxLength": 20
+                  },
+                  "position": {
+                    "type": "string",
+                    "description": "位置：底部居中/中部/顶部"
+                  },
+                  "bg_color": {
+                    "type": "string",
+                    "description": "背景色：如#FFF5EE"
+                  },
+                  "font": {
+                    "type": "string",
+                    "description": "字体：思源黑体/微软雅黑"
+                  },
+                  "font_size": {
+                    "type": "string",
+                    "description": "字号：18pt以上"
+                  },
+                  "sub_content": {
+                    "type": "string",
+                    "description": "副标题：sub_content内容，≤20字",
+                    "maxLength": 25
+                  },
+                  "sub_position": {
+                    "type": "string",
+                    "description": "副标题位置：金句上方或侧边"
+                  },
+                  "prohibition": {
+                    "type": "string",
+                    "description": "禁止项：禁止❌✅🏆💰等符号，禁止代码块符号",
+                    "minLength": 20
+                  }
+                },
+                "required": ["golden_quote", "position", "bg_color"]
               }
             }
           }
@@ -571,6 +665,28 @@
       ]
     }
   },
+
+  "steps": [
+    {
+      "id": "step_first_comment_optimize",
+      "name": "首评优化",
+      "order": 3,
+      "required": false,
+      "llm_prompt_template": "【首评优化 — 替观众发声质量提升】\n\n你是首评优化专家，专门提升首评的互动引导能力。\n\n## 已生成的首评内容\n<<step_generate_content.first_comment>>\n\n## 内容主题\n<<step_generate_content.title>>\n\n## 内容类型\n<<topic_type>>\n\n## 选题信息\n<<topic_title>>\n\n## 业务描述\n<<business_description>>\n\n## 目标用户画像\n<<portrait>>\n\n## 首评优化方法论\n\n### 核心原则\n首评 = 替观众说出来 × 说准了 × 说得比观众更好\n\n### 替观众发声的六种类型\n1. **类型A：替观众说出心里话** - 替观众说出憋在心里的话 + 制造群体认同 + 低门槛回应\n2. **类型B：替观众怼回去** - 替观众表达不满 + 制造群体共鸣 + 低门槛认同\n3. **类型C：替观众做出判断** - 替观众做出评价 + 提供判断依据 + 低门槛认同\n4. **类型D：替观众表达情绪** - 替观众发泄情绪 + 承认情绪合理性 + 低门槛共鸣\n5. **类型E：替观众做出表态** - 替观众表明立场 + 制造阵营感 + 低门槛站队\n6. **类型F：替观众说出经历** - 先承认经历相似 + 替观众说出感受 + 低门槛认同\n\n### ✅ 推荐句式\n- \"这种情况其实很常见，___\"\n- \"憋了这么久的话：___\"\n- \"真的想怼：___\"\n- \"当妈的都懂这种感觉：___\"\n- \"不吹不黑，我的态度是___\"\n- \"姐妹们，你们有没有同感？\"\n- \"有同感的点个赞让我看看有多少\"\n- \"是不是你？说中了的举手\"\n- \"太真实了，说的就是你\"\n\n### ❌ 禁止句式（询问暴露型）\n- \"你家宝宝有这种情况吗？\"（让用户暴露问题）\n- \"你们有什么问题想问？\"（居高临下）\n- \"评论区告诉我你们的情况\"（索取信息）\n- \"有什么问题可以问我\"（太官方）\n- \"欢迎留言讨论\"（太泛泛）\n- \"你的宝宝是否也有类似问题？\"（直接暴露）\n\n### 不同内容类型的首评策略\n| 内容类型 | 替观众发声的切入口 | 典型首评 |\n|----------|-------------------|----------|\n| 痛点问题 | 替观众说出无助感 | \"当妈的太难了...\" |\n| 解决方案 | 替观众做出判断 | \"不吹不黑，这方法...\" |\n| 知识科普 | 替观众问出疑问 | \"其实我一直想问...\" |\n| 对比测评 | 替观众做选择 | \"别再被忽悠了...\" |\n| 人设故事 | 替观众表达情绪 | \"说的太对了...\" |\n| 争议话题 | 替观众怼回去 | \"真想怼一句...\" |\n| 社会现象 | 替观众说出来 | \"大家都是敢怒不敢言...\" |\n\n## 优化要求\n\n1. 分析已生成首评的问题\n2. 选择最合适的首评类型\n3. 生成优化后的首评\n4. 确保符合推荐句式，避免禁止句式\n5. 首评长度控制在 30-50 字\n6. 必须能引发低门槛互动（扣1/点赞/举手/太对了）\n\n## 输出格式\n\n```json\n{\n  \"original_first_comment\": \"原始首评\",\n  \"analysis\": \"问题分析\",\n  \"selected_type\": \"选择的类型（A/B/C/D/E/F）\",\n  \"optimized_first_comment\": \"优化后的首评\",\n  \"interaction_guide\": \"互动引导方式（如：扣1/点赞/举手）\",\n  \"quality_score\": 85,\n  \"checklist\": {\n    \"is_speaking_for_audience\": true,\n    \"is_low_threshold\": true,\n    \"has_group_identification\": true,\n    \"no_exposure_risk\": true\n  }\n}\n```",
+      "output_field": "first_comment_optimized",
+      "output_schema": {
+        "original_first_comment": {"type": "string"},
+        "analysis": {"type": "string"},
+        "selected_type": {"type": "string"},
+        "optimized_first_comment": {"type": "string", "minLength": 15, "maxLength": 50},
+        "interaction_guide": {"type": "string"},
+        "quality_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "checklist": {"type": "object"}
+      },
+      "data_providers": ["step_generate_content"]
+    }
+  ],
+
   "data_flow": {
     "outputs": {
       "step_generate_content": {
@@ -594,6 +710,22 @@
         "cta": {
           "target": "content_data",
           "field": "cta"
+        },
+        "first_comment": {
+          "target": "content_data",
+          "field": "first_comment"
+        }
+      },
+      "step_first_comment_optimize": {
+        "_comment": "首评优化结果，替换原首评",
+        "optimized_first_comment": {
+          "target": "content_data",
+          "field": "first_comment",
+          "_override": true
+        },
+        "interaction_guide": {
+          "target": "content_data",
+          "field": "interaction_guide"
         }
       }
     }

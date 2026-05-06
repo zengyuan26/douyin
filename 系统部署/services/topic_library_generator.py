@@ -140,6 +140,73 @@ class TopicLibraryGenerator:
     }
 
     # =============================================================================
+    # 方法论增强：L1营销目的映射
+    # =============================================================================
+
+    # L1营销目的 → L2五段式阶段配比映射
+    MARKETING_TO_STAGE_RATIO = {
+        'persona': {  # 人设类
+            'audience':   0.20,
+            'pain':       0.15,
+            'compare':    0.20,
+            'vision':     0.30,  # 人设故事偏向愿景勾画
+            'hesitation': 0.15,
+            'description': '20%受众锁定 + 15%痛点放大 + 20%方案对比 + 30%愿景勾画 + 15%顾虑消除',
+        },
+        'traffic': {  # 流量类
+            'audience':   0.15,
+            'pain':       0.35,  # 偏向痛点放大获取共鸣
+            'compare':    0.25,
+            'vision':     0.15,
+            'hesitation': 0.10,
+            'description': '15%受众锁定 + 35%痛点放大 + 25%方案对比 + 15%愿景勾画 + 10%顾虑消除',
+        },
+        'conversion': {  # 转化类
+            'audience':   0.10,
+            'pain':       0.20,
+            'compare':    0.35,  # 偏向方案对比
+            'vision':     0.15,
+            'hesitation': 0.20,  # 偏向顾虑消除
+            'description': '10%受众锁定 + 20%痛点放大 + 35%方案对比 + 15%愿景勾画 + 20%顾虑消除',
+        }
+    }
+
+    # L1营销目的 → L2选题类型偏好映射
+    MARKETING_TO_TOPIC_TYPES = {
+        'persona': [  # 人设类选题类型
+            'persona_story',   # 人设故事类（新增方法论类型）
+            'persona_opinion',  # 观点输出类（新增方法论类型）
+            'persona_value',    # 价值观型（新增方法论类型）
+            'emotional',        # 情感故事（原五段式）
+            'scene',           # 场景细分
+            'identity'          # 人群锁定
+        ],
+        'traffic': [  # 流量类选题类型
+            'knowledge',       # 知识科普
+            'tutorial',        # 知识教程
+            'cause',           # 原因分析
+            'pitfall',         # 避坑指南
+            'rethink'          # 认知颠覆
+        ],
+        'conversion': [  # 转化类选题类型
+            'solution',         # 解决方案（原compare）
+            'compare',          # 方案对比
+            'effect_proof',     # 效果验证
+            'decision_encourage',  # 决策安心
+            'pain_point'        # 痛点放大
+        ]
+    }
+
+    # 画像维度 → L1营销目的映射
+    DIMENSION_TO_MARKETING = {
+        'identity': 'persona',      # 人群身份 → 人设类
+        'pain_point': 'traffic',   # 痛点需求 → 流量类（需要先放大痛点）
+        'concern': 'conversion',   # 购买顾虑 → 转化类
+        'scenario': 'traffic'      # 使用场景 → 流量类
+    }
+
+    # 画像维度 → 选题类型映射（本地控制）
+    # =============================================================================
     # 画像维度 → 选题类型映射（本地控制）
     # =============================================================================
 
@@ -211,6 +278,237 @@ class TopicLibraryGenerator:
 
     def __init__(self):
         self.llm = get_llm_service()
+        # 加载方法论配置
+        self._load_methodology_config()
+
+    # ===========================================================================
+    # 方法论配置加载
+    # ===========================================================================
+
+    def _load_methodology_config(self):
+        """加载方法论配置文件"""
+        import os
+        # config目录在系统部署/config/下
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # services/..
+        config_path = os.path.join(base_dir, 'config', 'topic_methodology.json')
+
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                self.methodology_config = json.load(f)
+            logger.info("[TopicLibraryGenerator] 方法论配置加载成功: %s", config_path)
+        except Exception as e:
+            logger.warning(f"[TopicLibraryGenerator] 加载方法论配置失败: {e}, path={config_path}")
+            self.methodology_config = {}
+
+    def _get_methodology_for_marketing(self, marketing_purpose: str, topic_type_key: str = None) -> dict:
+        """
+        获取指定营销目的和选题类型的创作指导
+        
+        Args:
+            marketing_purpose: L1营销目的（persona/traffic/conversion）
+            topic_type_key: 可选的选题类型键
+            
+        Returns:
+            方法论指导字典
+        """
+        if not self.methodology_config:
+            return {}
+        
+        categories = self.methodology_config.get('categories', {})
+        category = categories.get(marketing_purpose, {})
+        
+        if topic_type_key and 'topic_types' in category:
+            return category['topic_types'].get(topic_type_key, {})
+        
+        return category
+
+    def _get_methodology_for_type_key(self, type_key: str) -> Optional[dict]:
+        """
+        根据type_key查找对应的方法论指导
+        
+        Args:
+            type_key: 选题类型键（如 persona_story, pitfall 等）
+            
+        Returns:
+            方法论指导字典
+        """
+        if not self.methodology_config:
+            return None
+        
+        categories = self.methodology_config.get('categories', {})
+        
+        for category_key, category in categories.items():
+            topic_types = category.get('topic_types', {})
+            if type_key in topic_types:
+                return topic_types[type_key]
+        
+        return None
+
+    # ===========================================================================
+    # 方法论增强：内容指导生成
+    # ===========================================================================
+
+    def _generate_content_guidance(self, topic: dict, methodology: dict) -> dict:
+        """
+        根据方法论生成内容创作指导
+        
+        Args:
+            topic: 选题数据
+            methodology: 方法论指导
+            
+        Returns:
+            内容创作指导字典
+        """
+        guidance = {
+            'title_pattern': None,
+            'title_formula': '',
+            'title_examples': [],
+            'emotional_tone': None,
+            'key_do': [],
+            'key_dont': [],
+            'persona_elements': {}
+        }
+        
+        if not methodology:
+            return guidance
+        
+        # 标题指导
+        title_guidance = methodology.get('title_guidance', {})
+        if title_guidance:
+            patterns = title_guidance.get('patterns', [])
+            guidance['title_pattern'] = patterns[0] if patterns else None
+            guidance['title_formula'] = title_guidance.get('formula', '')
+            guidance['title_examples'] = title_guidance.get('examples', [])
+        
+        # 内容指导
+        content_guidance = methodology.get('content_guidance', {})
+        if content_guidance:
+            guidance['core_principle'] = content_guidance.get('core_principle', '')
+            guidance['expression_mode'] = content_guidance.get('expression_mode', '')
+            guidance['key_do'] = content_guidance.get('key_do', [])
+            guidance['key_dont'] = content_guidance.get('key_dont', [])
+        
+        # 人设元素
+        persona_elements = methodology.get('persona_elements', {})
+        if persona_elements:
+            guidance['persona_elements'] = {
+                'identity_tags': persona_elements.get('identity_tags', []),
+                'story_prompts': persona_elements.get('story_prompts', []),
+                'choice_prompts': persona_elements.get('choice_prompts', []),
+                'attitude_prompts': persona_elements.get('attitude_prompts', [])
+            }
+        
+        return guidance
+
+    def _generate_format_guidance(self, topic: dict, methodology: dict) -> dict:
+        """
+        为三种内容形式生成创作指导
+        
+        Args:
+            topic: 选题数据
+            methodology: 方法论指导
+            
+        Returns:
+            格式指导字典 {graphic: {...}, long_text: {...}, short_video: {...}}
+        """
+        format_guidance = {
+            'graphic': {},
+            'long_text': {},
+            'short_video': {}
+        }
+        
+        if not methodology:
+            return format_guidance
+        
+        # 从方法论中提取各形式指导
+        methodology_formats = methodology.get('format_guidance', {})
+        
+        for format_type in ['graphic', 'long_text', 'short_video']:
+            fmt = methodology_formats.get(format_type, {})
+            if fmt:
+                guidance = {
+                    'structure': fmt.get('structure', ''),
+                    'sections': fmt.get('sections', []),
+                    'tips': fmt.get('tips', [])
+                }
+                
+                if format_type == 'graphic':
+                    guidance['frame_count'] = fmt.get('frame_count', 7)
+                    guidance['emotion_arc'] = fmt.get('emotion_arc', {})
+                    guidance['layout_sequence'] = fmt.get('layout_sequence', [])
+                    guidance['color_scheme'] = fmt.get('color_scheme', {})
+                elif format_type == 'short_video':
+                    guidance['hook_guide'] = fmt.get('hook_guide', '')
+                    guidance['script_structure'] = fmt.get('script_structure', '')
+                    guidance['key_moments'] = fmt.get('key_moments', [])
+                    guidance['script_template'] = fmt.get('script_template', '')
+                
+                format_guidance[format_type] = guidance
+        
+        return format_guidance
+
+    # ===========================================================================
+    # 方法论增强：营销目的确定
+    # ===========================================================================
+
+    def _determine_marketing_ratio(self, portrait_dimensions: dict) -> dict:
+        """
+        根据画像维度确定L1营销目的配比
+        
+        Args:
+            portrait_dimensions: 画像维度分析结果
+            
+        Returns:
+            营销目的配比字典 {persona: 0.3, traffic: 0.4, conversion: 0.3}
+        """
+        if not portrait_dimensions:
+            return {'traffic': 0.4, 'persona': 0.3, 'conversion': 0.3}
+        
+        # 统计维度权重
+        dimension_weights = {}
+        for dim, info in portrait_dimensions.items():
+            marketing = self.DIMENSION_TO_MARKETING.get(dim, 'traffic')
+            weight = info.get('weight', 0.5) if isinstance(info, dict) else 0.5
+            dimension_weights[marketing] = dimension_weights.get(marketing, 0) + weight
+        
+        # 归一化
+        total = sum(dimension_weights.values()) or 1
+        result = {k: round(v / total, 2) for k, v in dimension_weights.items()}
+        
+        # 确保三种营销目的都有值
+        for mp in ['persona', 'traffic', 'conversion']:
+            if mp not in result:
+                result[mp] = 0.0
+        
+        return result
+
+    def _get_stage_config_for_marketing(self, marketing_purpose: str, content_stage: str, 
+                                        portrait_dimensions: dict, topic_count: int) -> dict:
+        """
+        获取指定营销目的的五段式配比
+        
+        Args:
+            marketing_purpose: L1营销目的
+            content_stage: 内容阶段
+            portrait_dimensions: 画像维度
+            topic_count: 选题数量
+            
+        Returns:
+            五段式配比字典
+        """
+        # 使用营销目的对应的配比
+        stage_ratio = self.MARKETING_TO_STAGE_RATIO.get(
+            marketing_purpose,
+            self.STAGE_RATIO_MAP.get(content_stage, self.STAGE_RATIO_MAP['成长阶段'])
+        ).copy()
+        
+        # 根据画像维度微调
+        if portrait_dimensions:
+            stage_ratio = self._adjust_stage_ratio_by_portrait(
+                {}, portrait_dimensions, stage_ratio, topic_count
+            )
+        
+        return stage_ratio
 
     # ===========================================================================
     # 公开接口
@@ -227,16 +525,19 @@ class TopicLibraryGenerator:
         portrait_id: Optional[int] = None,
         content_stage: Optional[str] = None,
         user_id: Optional[int] = None,
+        marketing_focus: Optional[str] = None,  # 新增：指定L1营销目的
     ) -> Dict[str, Any]:
         """
-        生成选题库（简化版）
+        生成选题库（方法论增强版）
 
         核心流程：
         1. 缓存检查 → 直接返回
         2. 防抖检查（5分钟）
-        3. 调用 LLM → 生成选题（只返回核心字段）
-        4. 本地分配 type_key（五段式阶段配比）
-        5. 兜底补全
+        3. 画像维度分析 → 确定L1营销目的配比
+        4. 调用 LLM → 生成选题（只返回核心字段）
+        5. 本地分配 type_key（五段式阶段配比）
+        6. 生成方法论指导（内容创作指导、格式指导）
+        7. 兜底补全
 
         注意：GEO 模式在内容生成时由 content_generator.match_geo_mode() 动态确定
         """
@@ -331,9 +632,27 @@ class TopicLibraryGenerator:
                 parsed_topics, stage_config, topic_count, portrait_dimensions
             )
 
+            # ── 9.1 方法论增强：确定L1营销目的 ──────────────
+            if marketing_focus:
+                # 指定了营销目的，按指定处理
+                marketing_ratio = {marketing_focus: 1.0}
+            else:
+                # 根据画像维度自动确定
+                marketing_ratio = self._determine_marketing_ratio(portrait_dimensions)
+            
+            logger.info("[TopicLibraryGenerator] L1营销目的配比: %s", marketing_ratio)
+
+            # ── 9.2 方法论增强：为选题添加创作指导 ────────────
+            enhanced_topics = []
+            for topic in typed_topics:
+                enhanced_topic = self._enhance_topic_with_methodology(
+                    topic, marketing_ratio, portrait_dimensions
+                )
+                enhanced_topics.append(enhanced_topic)
+            
             # ── 10. 兜底补全 ────────────────────────────
             filled_topics = self._fill_missing_topics(
-                typed_topics, topic_count, portrait_data, stage_config, business_info
+                enhanced_topics, topic_count, portrait_data, stage_config, business_info
             )
 
             # ── 11. 组装最终结构 ───────────────────────
@@ -346,11 +665,13 @@ class TopicLibraryGenerator:
                 'topics': filled_topics,
                 'by_type': self._count_by_type(filled_topics),
                 'by_stage': self._count_by_stage(filled_topics),
+                'by_marketing': self._count_by_marketing(filled_topics),
                 'priorities': self._count_by_priority(filled_topics),
                 'stage': stage,
                 'stage_ratio': result_stage_ratio,
                 'generated_at': datetime.utcnow().isoformat(),
                 '_portrait_dimensions': portrait_dimensions,
+                '_marketing_ratio': marketing_ratio,
             }
 
             return {
@@ -376,6 +697,170 @@ class TopicLibraryGenerator:
                 error_str = error_str[:300] + '...'
             logger.error("[TopicLibraryGenerator] Error: " + error_str)
             return {'success': False, 'error': error_str}
+
+    # ===========================================================================
+    # 方法论增强：为选题添加创作指导
+    # ===========================================================================
+
+    def _enhance_topic_with_methodology(
+        self,
+        topic: dict,
+        marketing_ratio: dict,
+        portrait_dimensions: dict
+    ) -> dict:
+        """
+        为选题添加方法论增强数据
+
+        Args:
+            topic: 选题数据
+            marketing_ratio: L1营销目的配比
+            portrait_dimensions: 画像维度
+
+        Returns:
+            增强后的选题数据
+        """
+        type_key = topic.get('type_key', '')
+
+        # 1. 确定L1营销目的
+        marketing_purpose = self._assign_marketing_purpose(
+            topic, marketing_ratio, portrait_dimensions
+        )
+
+        # 2. 获取方法论指导
+        methodology = self._get_methodology_for_type_key(type_key)
+        if not methodology:
+            # 如果没有精确匹配，尝试按营销目的获取
+            methodology = self._get_methodology_for_marketing(marketing_purpose)
+
+        # 3. 生成内容创作指导
+        content_guidance = self._generate_content_guidance(topic, methodology)
+
+        # 4. 生成格式指导
+        format_guidance = self._generate_format_guidance(topic, methodology)
+
+        # 5. 确定目标人群
+        target_audience = self._extract_target_audience(topic, portrait_dimensions)
+
+        # 6. 提取场景元素
+        scene_elements = self._extract_scene_elements(topic)
+
+        # 组装增强选题
+        enhanced = {
+            **topic,
+            'marketing_purpose': marketing_purpose,
+            'marketing_purpose_name': self._get_marketing_name(marketing_purpose),
+            'core_insight': topic.get('recommended_reason', ''),
+            'target_audience': target_audience,
+            'content_guidance': content_guidance,
+            'format_guidance': format_guidance,
+            'scene_elements': scene_elements,
+            'source_trace': {
+                'portrait_dimensions': portrait_dimensions,
+                'marketing_ratio_used': marketing_ratio,
+                'methodology_ref': type_key
+            }
+        }
+
+        return enhanced
+
+    def _assign_marketing_purpose(
+        self,
+        topic: dict,
+        marketing_ratio: dict,
+        portrait_dimensions: dict
+    ) -> str:
+        """
+        为选题分配L1营销目的
+
+        Args:
+            topic: 选题数据
+            marketing_ratio: 营销目的配比
+            portrait_dimensions: 画像维度
+
+        Returns:
+            营销目的键（persona/traffic/conversion）
+        """
+        type_key = topic.get('type_key', '')
+
+        # 如果type_key本身是人设类选题类型
+        if type_key in ['persona_story', 'persona_opinion', 'persona_value', 'emotional']:
+            return 'persona'
+
+        # 如果是流量相关
+        if type_key in ['knowledge', 'tutorial', 'cause', 'pitfall', 'rethink', 'hot_topic']:
+            return 'traffic'
+
+        # 如果是转化相关
+        if type_key in ['solution', 'compare', 'effect_proof', 'decision_encourage', 'pain_point']:
+            return 'conversion'
+
+        # 根据配比随机分配
+        if marketing_ratio:
+            import random
+            purposes = list(marketing_ratio.keys())
+            weights = [marketing_ratio.get(p, 0) for p in purposes]
+            total = sum(weights)
+            if total > 0:
+                return random.choices(purposes, weights=[w/total for w in weights])[0]
+
+        return 'traffic'  # 默认
+
+    def _get_marketing_name(self, marketing_purpose: str) -> str:
+        """获取营销目的中文名称"""
+        names = {
+            'persona': '人设类',
+            'traffic': '流量类',
+            'conversion': '转化类'
+        }
+        return names.get(marketing_purpose, '流量类')
+
+    def _extract_target_audience(self, topic: dict, portrait_dimensions: dict) -> str:
+        """从选题和画像维度中提取目标人群"""
+        # 优先使用选题中的人群标签
+        if 'identity' in str(topic.get('keywords', [])):
+            return '目标人群'
+
+        # 从画像维度提取
+        if portrait_dimensions:
+            dims = list(portrait_dimensions.keys())
+            if 'identity' in dims:
+                return portrait_dimensions['identity'].get('name', '目标人群') if isinstance(
+                    portrait_dimensions['identity'], dict) else '目标人群'
+
+        return '目标用户'
+
+    def _extract_scene_elements(self, topic: dict) -> dict:
+        """从选题中提取场景元素"""
+        keywords = topic.get('keywords', [])
+
+        # 简单的场景元素分类
+        pain_words = []
+        scene_words = []
+        emotion_words = []
+
+        if isinstance(keywords, list):
+            for kw in keywords[:10]:
+                if any(x in kw for x in ['痛', '难', '烦恼', '担心']):
+                    pain_words.append(kw)
+                elif any(x in kw for x in ['时候', '情况', '场景']):
+                    scene_words.append(kw)
+                else:
+                    emotion_words.append(kw)
+
+        return {
+            'pain_words': pain_words,
+            'scene_words': scene_words,
+            'emotion_words': emotion_words
+        }
+
+    def _count_by_marketing(self, topics: list) -> dict:
+        """统计各营销目的的选题数量"""
+        counts = {'persona': 0, 'traffic': 0, 'conversion': 0}
+        for topic in topics:
+            mp = topic.get('marketing_purpose', 'traffic')
+            if mp in counts:
+                counts[mp] += 1
+        return counts
 
     # ===========================================================================
     # GEO 模式分配（核心规则，全部本地计算）
@@ -645,12 +1130,18 @@ class TopicLibraryGenerator:
         dimensions = {}
 
         # 提取画像中的关键文本（用于关键词匹配）
+        # 注意：实际字段名可能是 pain_points, buyer_perspective 等
         portrait_text = ' '.join([
             str(portrait_data.get('identity', '') or ''),
+            str(portrait_data.get('identity_description', '') or ''),
             str(portrait_data.get('pain_point', '') or ''),
+            str(portrait_data.get('pain_points', '') or ''),
             str(portrait_data.get('concern', '') or ''),
             str(portrait_data.get('scenario', '') or ''),
+            str(portrait_data.get('使用场景', '') or ''),
             str(portrait_data.get('portrait_summary', '') or ''),
+            str(portrait_data.get('psychology', '') or ''),
+            str(portrait_data.get('pain_scenarios', '') or ''),
             # 包含子字段
             str(portrait_data.get('user_perspective', {}).get('problem', '') or ''),
             str(portrait_data.get('buyer_perspective', {}).get('obstacles', '') or ''),
@@ -663,14 +1154,25 @@ class TopicLibraryGenerator:
             for keyword in dim_config['keywords']:
                 if keyword.lower() in portrait_text:
                     score += 0.3
-            # 直接字段存在时加分
+            # 直接字段存在时加分（兼容多种字段名）
             if portrait_data.get(dim_key):
+                score += 0.4
+            # pain_point 可能叫 pain_points
+            if dim_key == 'pain_point' and portrait_data.get('pain_points'):
+                score += 0.4
+            # concern 可能叫 barriers 或其他
+            if dim_key == 'concern' and portrait_data.get('barriers'):
                 score += 0.4
             # 子字段检查
             if dim_key == 'identity' and portrait_data.get('identity_tags'):
                 score += 0.3
             if dim_key == 'concern' and portrait_data.get('barriers'):
                 score += 0.3
+            # buyer_perspective 中可能有决策障碍信息
+            buyer_perspective = portrait_data.get('buyer_perspective', {})
+            if buyer_perspective and dim_key in ['concern', 'pain_point']:
+                if buyer_perspective.get('obstacles') or buyer_perspective.get('psychology'):
+                    score += 0.3
 
             if score > 0:
                 dimensions[dim_key] = min(score, 1.0)

@@ -4835,18 +4835,20 @@ def _build_content_data_from_bridge(fo: dict) -> dict:
 
     数据源优先级：
     1. step_generate_content：核心图文内容（slides, title, tags 等）
-    2. step_quality_validate：质量评分
-    3. step_geo_mode_match：GEO模式信息
+    2. step_first_comment_optimize：首评优化（覆盖原首评）
+    3. step_quality_validate：质量评分
+    4. step_geo_mode_match：GEO模式信息
 
     字段名统一映射：
       - content_plan   ← publish_strategy（来自 step_generate_content）
       - comment        ← first_comment
       - publish        ← publish_strategy
-      - first_comment ← first_comment
+      - first_comment ← first_comment（可被 step_first_comment_optimize 覆盖）
 
     不再依赖 step_final_output，因为它的 LLM 输出格式不稳定。
     """
     gen = fo.get('step_generate_content', {}) or {}
+    fco = fo.get('step_first_comment_optimize', {}) or {}
     qv = fo.get('step_quality_validate', {}) or {}
     geo = fo.get('step_geo_mode_match', {}) or {}
 
@@ -4946,6 +4948,12 @@ def _build_content_data_from_bridge(fo: dict) -> dict:
     # 发布策略相关字段（统一映射到 section_key 名称）
     _publish_strategy = _safe_get(gen, 'publish_strategy') or ''
     _first_comment = _safe_get(gen, 'first_comment') or ''
+    # 首评优化：优先使用优化后的首评
+    _optimized_first_comment = _safe_get(fco, 'optimized_first_comment') or ''
+    _interaction_guide = _safe_get(fco, 'interaction_guide') or ''
+    # 如果有优化后的首评，替换原始首评
+    if _optimized_first_comment:
+        _first_comment = _optimized_first_comment
     content_plan = _safe_get(gen, 'content_plan') or _publish_strategy
     comment = _safe_get(gen, 'comment') or _first_comment
     publish = _safe_get(gen, 'publish') or _publish_strategy
@@ -5030,6 +5038,16 @@ def _build_content_data_from_bridge(fo: dict) -> dict:
             'suggestions': [],
             'failed_items': failed_items,
             'need_optimize': quality_score < 80,
+            # 首评优化信息
+            'first_comment_optimized': bool(_optimized_first_comment),
+            'first_comment_optimize_result': {
+                'original': _safe_get(gen, 'first_comment') or '',
+                'optimized': _optimized_first_comment,
+                'interaction_guide': _interaction_guide,
+                'analysis': _safe_get(fco, 'analysis') or '',
+                'selected_type': _safe_get(fco, 'selected_type') or '',
+                'quality_score': _safe_get(fco, 'quality_score') or 0,
+            } if fco else None,
         },
         # GEO 评分报告（兼容旧代码）
         'geo_report': {

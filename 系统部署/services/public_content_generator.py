@@ -9724,3 +9724,228 @@ def generate_portraits_parallel(problems: List[Dict], business_desc: str, is_pre
                 })
 
     return results
+
+
+# =============================================================================
+# 方法论增强：内容生成Prompt构建
+# =============================================================================
+
+def _build_methodology_prompt_section(
+    topic: dict,
+    content_type: str,
+    operation_plan: dict = None
+) -> str:
+    """
+    构建方法论指导的Prompt段落
+
+    核心改进：将方法论从"通用指南"变为"选题定制指导"
+
+    Args:
+        topic: 选题数据（包含content_guidance、format_guidance等）
+        content_type: 内容类型（graphic/long_text/short_video）
+        operation_plan: 运营规划数据
+
+    Returns:
+        方法论Prompt字符串
+    """
+    prompt_parts = []
+
+    # 1. 选题创作指导（来自选题库）
+    content_guidance = topic.get('content_guidance', {})
+    format_guidance = topic.get('format_guidance', {})
+
+    # 2. 运营规划数据
+    account_design = {}
+    trust_evidence = {}
+    if operation_plan:
+        account_design = operation_plan.get('account_design', {})
+        trust_evidence = operation_plan.get('step_trust_evidence', {})
+
+    # ===== 标题设计指导 =====
+    title_pattern = content_guidance.get('title_pattern', '')
+    title_examples = content_guidance.get('title_examples', [])
+    title_formula = content_guidance.get('title_formula', '')
+
+    if title_pattern or title_formula:
+        prompt_parts.append("""
+## 【选题专属】标题设计指导
+
+### 推荐标题模式：{pattern}
+
+### 标题公式
+{formula}
+
+### 参考示例
+{examples}
+""".format(
+            pattern=title_pattern or '无固定模式',
+            formula=title_formula or '无固定公式，自由发挥',
+            examples='\n'.join([f'- {ex}' for ex in title_examples[:3]]) if title_examples else '无参考示例'
+        ))
+
+    # ===== 情绪调性指导 =====
+    emotional_tone = content_guidance.get('emotional_tone', '')
+    core_principle = content_guidance.get('core_principle', '')
+
+    if emotional_tone or core_principle:
+        prompt_parts.append("""
+## 【选题专属】情绪调性指导
+
+### 内容调性：{tone}
+
+### 核心原则
+{principle}
+""".format(
+            tone=emotional_tone or '中性',
+            principle=core_principle or '无特殊原则'
+        ))
+
+    # ===== 根据内容形式的结构指导 =====
+    fmt_guidance = format_guidance.get(content_type, {}) if format_guidance else {}
+
+    if content_type == 'graphic':
+        prompt_parts.append(_build_graphic_methodology_prompt(topic, fmt_guidance))
+    elif content_type == 'long_text':
+        prompt_parts.append(_build_longtext_methodology_prompt(topic, fmt_guidance))
+    elif content_type == 'short_video':
+        prompt_parts.append(_build_shortvideo_methodology_prompt(topic, fmt_guidance))
+
+    return '\n'.join(prompt_parts)
+
+
+def _build_graphic_methodology_prompt(topic: dict, fmt_guidance: dict) -> str:
+    """构建图文内容的方法论Prompt"""
+
+    emotion_arc = fmt_guidance.get('emotion_arc', {})
+    frame_count = fmt_guidance.get('frame_count', 7)
+
+    # 生成情绪动线表格
+    arc_rows = []
+    for i in range(1, frame_count + 1):
+        p_key = f'P{i}'
+        frame_info = emotion_arc.get(p_key, {})
+        arc_rows.append(f"| P{i} | {frame_info.get('name', '')} | {frame_info.get('stage', '')} | {frame_info.get('goal', '')} | {frame_info.get('key_element', '')} |")
+
+    arc_table = '\n'.join(arc_rows) if arc_rows else '| P1-P7 | 根据选题类型自动确定 |'
+
+    prompt = f"""
+## 【选题专属】图文内容结构指导（七张图情绪动线）
+
+### 情绪动线（{frame_count}张图）
+| 帧 | 名称 | 情绪阶段 | 目标 | 关键元素 |
+|---|---|---|---|---|
+{arc_table}
+
+### 各帧内容指导
+"""
+
+    # 添加各帧详细指导
+    for i in range(1, frame_count + 1):
+        p_key = f'P{i}'
+        frame_info = emotion_arc.get(p_key, {})
+        name = frame_info.get('name', f'第{i}帧')
+        stage = frame_info.get('stage', '')
+        goal = frame_info.get('goal', '')
+        key_element = frame_info.get('key_element', '')
+
+        prompt += f"""
+#### P{i} {name}
+- **情绪目标**：{stage}
+- **内容目标**：{goal}
+- **关键元素**：{key_element}
+"""
+
+    # 添加人设内容指导（如果选题是人设类）
+    content_guidance = topic.get('content_guidance', {})
+    persona_elements = content_guidance.get('persona_elements', {})
+
+    if persona_elements:
+        prompt += f"""
+### 【人设内容特殊指导】
+
+**核心原则**：说事 > 说理，展示(Show) > 声明(Tell)
+
+**身份标签**：{', '.join(persona_elements.get('identity_tags', ['根据业务确定']))}
+
+**故事引导**：
+{chr(10).join([f'- {s}' for s in persona_elements.get('story_prompts', [])[:2]])}
+
+**态度表达**：
+{chr(10).join([f'- {s}' for s in persona_elements.get('attitude_prompts', [])[:2]])}
+
+**重要提醒**：
+- 不要直接喊口号，要通过故事带出价值观
+- 让用户自己得出结论，不要强行灌输
+- P6升华要从具体事上升到做人道理，点到为止
+"""
+
+    return prompt
+
+
+def _build_longtext_methodology_prompt(topic: dict, fmt_guidance: dict) -> str:
+    """构建长文内容的方法论Prompt"""
+
+    structure = fmt_guidance.get('structure', '开头-高潮-结尾')
+    sections = fmt_guidance.get('sections', [])
+
+    # 生成结构表格
+    section_rows = []
+    for sec in sections:
+        section_rows.append(f"| {sec.get('name', '')} | {sec.get('purpose', '')} | {sec.get('guide', '')} |")
+
+    section_table = '\n'.join(section_rows) if section_rows else '| 结构待定 |'
+
+    prompt = f"""
+## 【选题专属】长文内容结构指导
+
+### 文章结构：{structure}
+
+### 各部分指导
+| 部分 | 目的 | 内容指导 |
+|---|---|---|
+{section_table}
+
+### 写作要点
+{chr(10).join([f'- {t}' for t in fmt_guidance.get('tips', [])])}
+"""
+
+    return prompt
+
+
+def _build_shortvideo_methodology_prompt(topic: dict, fmt_guidance: dict) -> str:
+    """构建短视频内容的方法论Prompt"""
+
+    hook_guide = fmt_guidance.get('hook_guide', '')
+    script_structure = fmt_guidance.get('script_structure', '')
+    key_moments = fmt_guidance.get('key_moments', [])
+
+    prompt = f"""
+## 【选题专属】短视频内容结构指导
+
+### 前3秒钩子
+{hook_guide or '用一个真实场景/一句话勾起好奇'}
+
+### 脚本结构
+{script_structure or '场景引入(5s) → 故事展开(20s) → 观点升华(10s) → 行动引导(5s)'}
+
+### 关键时刻点
+{chr(10).join([f'- {m}' for m in key_moments]) if key_moments else '- 前3秒：抛出悬念或展示真实场景'}
+
+### 视觉要点
+{chr(10).join([f'- {t}' for t in fmt_guidance.get('visual_tips', [])])}
+"""
+
+    return prompt
+
+
+def _get_title_pattern_focus(pattern: str) -> str:
+    """获取标题模式的重点指导"""
+    focuses = {
+        'H-V-F': '先抛出Hook吸引点击，再给出Value让用户觉得有用，最后用Final引导互动',
+        '承诺型': '强调时间积累和经验，用"从来不"表明底线和态度',
+        '反常识型': '先说普遍认知，再反转观点，让用户觉得"原来如此"',
+        '设问型': '替用户问出他们想问的问题，再给出答案',
+        '感慨型': '用时间和经历铺垫，引出人生感悟',
+        '身份开场型': '用年龄/身份/资历开场，建立权威感'
+    }
+    return focuses.get(pattern, '无特殊指导')

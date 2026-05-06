@@ -483,30 +483,68 @@ class TopicContentGenerator:
 
 ## 【强制】AI生图指令（必须遵守，否则图片质量差）
 
-发送给AI生图工具时，必须包含以下指令：
+### 重要说明
+你必须为**每张图**生成一个独立的【生图Prompt】和【文字叠加指令】，而不是泛泛的通用指令。
+
+### 【生图Prompt模板】（用于AI生图工具）
 ```
-请生成一张图文笔记，尺寸1080x1920px（9:16竖版）
+请生成小红书封面图：
+- 规格：1080x1920px，9:16竖版
+- 画面主体：[visual_target的具体描述]
+- 构图：[scene_logic的具体方式，如"左侧60%宝宝特写+右侧40%宝妈表情"]
+- 场景：[scene_dressing的具体场景道具]
+- 氛围：[atmosphere_filter的质感描述]
+- 人物：[character_consistency的人物描述]
+- 光影：[light_shadow_logic的光影描述]
+- 禁止：纯色背景、手机外框、渐变背景
+```
 
-要求：
-1. 背景：虚化场景图（如厨房台面、冰箱内、餐桌等），严禁纯色/渐变背景
-2. 字体：思源黑体或微软雅黑，清晰简洁
-3. 不要使用特殊符号和emoji，用中文文字代替
-4. 标题：_______
-5. 副标题：_______
+### 【文字叠加指令模板】（用于后期制作）
+```
+文字层：
+- 金句：[big_slogan]
+- 位置：底部居中
+- 背景色：[golden_quote_block.bg_color]
+- 字体：思源黑体/微软雅黑，18pt+
+```
 
-重点提示：
-- 数字用大号字体突出
-- 文字颜色用对比色（深色背景用白字，浅色背景用黑字）
-- 避免使用 ❌ ✅ 🏆 💰 等符号，禁止使用代码块符号（┌ ═ ║ ─ │ ├）
-- 禁止生成横版（16:9）或正方形（1:1）
-- 禁止出现手机外框、手机Mockup
+## 【强制】每张图必须输出的生图字段
 
-【避免乱码特别注意】：
-1. 字体：只使用思源黑体、微软雅黑、华文细黑、Arial这4种
-2. 禁止特殊字符：不要使用 ┌ ═ ║ ─ │ ├ 等代码块符号，以及 ∑ π ∞ ★ ◆ ● 等装饰符号
-3. 中文标点：只使用中文逗号（，）、句号（。）、顿号（、）、冒号（：）、引号（「」『』）
-4. 避免复杂排版：不要使用表格、分隔线、边框等复杂元素
-5. 文字简化：每张图文字不超过30个字符
+请在每张图的slides数组中输出以下字段：
+
+```json
+{
+  "index": 1,
+  "role": "封面",
+  // ... 原有字段保持 ...
+
+  // ══════════════════════════════════════════════
+  // 【方案1核心改进】独立生图Prompt + 文字叠加指令
+  // ══════════════════════════════════════════════
+
+  "image_prompt": {
+    "spec": "1080x1920px, 9:16竖版",
+    "main_body": "[visual_target的具体描述，50字以上]",
+    "composition": "[scene_logic的具体构图方式，如'左60%主体+右40%环境']",
+    "scene": "[scene_dressing的完整场景描述]",
+    "atmosphere": "[atmosphere_filter的完整描述]",
+    "character": "[character_consistency的完整人物描述]",
+    "light_shadow": "[light_shadow_logic的完整光影描述]",
+    "info_zones": "[info_zones的3区完整描述]",
+    "prohibition": "禁止：纯色背景、手机外框、渐变背景、手机Mockup、任何电子设备外壳"
+  },
+
+  "text_overlay": {
+    "golden_quote": "[big_slogan金句，≤15字]",
+    "position": "底部居中",
+    "bg_color": "[golden_quote_block.bg_color，如#FFF5EE]",
+    "font": "思源黑体/微软雅黑",
+    "font_size": "18pt以上",
+    "sub_content": "[sub_content副标题内容，≤20字]",
+    "sub_position": "金句上方或侧边",
+    "prohibition": "禁止：❌ ✅ 🏆 💰等符号，禁止代码块符号"
+  }
+}
 ```
 
 ## 【强制】视觉资产一致性（三层约束）
@@ -1427,35 +1465,75 @@ class TopicContentGenerator:
             # 文字内容（AI生图用）
             lines.append('**【文字内容】（AI生图用）**')
             lines.append('')
-            lines.append('画面：' + (visual_style.split('\n')[0] if visual_style else '具体场景图'))
-            lines.append('')
 
-            # 主标题 / 金句
-            if main_title:
-                lines.append('文字：')
-                if role and '封面' in role:
-                    lines.append('主标题：' + main_title)
-                    if sub_content:
-                        for sc in sub_content.split('\n'):
-                            if sc.strip():
-                                lines.append('副标题：' + sc.strip())
-                else:
-                    for pt in (sub_points if sub_points else []):
-                        lines.append(pt)
+            # ═══════════════════════════════════════════════════════════════
+            # 【方案1核心改进】独立生图Prompt + 文字叠加指令
+            # ═══════════════════════════════════════════════════════════════
+
+            # 获取生图Prompt
+            image_prompt = slide.get('image_prompt', {})
+            text_overlay = slide.get('text_overlay', {})
+
+            # 如果有独立的生图Prompt，使用它；否则使用原有字段组合
+            if image_prompt and image_prompt.get('main_body'):
+                lines.append('**【生图Prompt】（用于AI生图工具）**')
+                lines.append('```')
+                lines.append(f'规格：{image_prompt.get("spec", "1080x1920px, 9:16竖版")}')
+                lines.append(f'画面主体：{image_prompt.get("main_body", visual_target)}')
+                lines.append(f'构图方式：{image_prompt.get("composition", scene_logic)}')
+                lines.append(f'场景描述：{image_prompt.get("scene", scene_dressing)}')
+                lines.append(f'氛围描述：{image_prompt.get("atmosphere", atmosphere_filter)}')
+                lines.append(f'人物描述：{image_prompt.get("character", character_consistency)}')
+                lines.append(f'光影描述：{image_prompt.get("light_shadow", light_shadow_logic)}')
+                lines.append(f'3区结构：{image_prompt.get("info_zones", info_zones)}')
+                lines.append(f'禁止项：{image_prompt.get("prohibition", "纯色背景、手机外框、渐变背景")}')
+                lines.append('```')
                 lines.append('')
 
-            # 金句色块
-            if golden_quote and golden_quote.get('text'):
-                lines.append('金句色块：' + golden_quote.get('text', ''))
-                lines.append('背景色：' + golden_quote.get('bg_color', ''))
+                lines.append('**【文字叠加指令】（用于后期制作）**')
+                lines.append('```')
+                lines.append(f'金句：{text_overlay.get("golden_quote", golden_quote.get("text", big_slogan) if isinstance(golden_quote, dict) else big_slogan)}')
+                lines.append(f'位置：{text_overlay.get("position", "底部居中")}')
+                lines.append(f'背景色：{text_overlay.get("bg_color", golden_quote.get("bg_color", "") if isinstance(golden_quote, dict) else "")}')
+                lines.append(f'字体：{text_overlay.get("font", "思源黑体/微软雅黑")}')
+                lines.append(f'字号：{text_overlay.get("font_size", "18pt以上")}')
+                if text_overlay.get('sub_content'):
+                    lines.append(f'副标题：{text_overlay.get("sub_content")}')
+                    lines.append(f'副标题位置：{text_overlay.get("sub_position", "金句上方")}')
+                lines.append(f'禁止：{text_overlay.get("prohibition", "❌✅🏆💰等符号，代码块符号")}')
+                lines.append('```')
+                lines.append('')
+            else:
+                # 原有格式兼容
+                lines.append('画面：' + (visual_style.split('\n')[0] if visual_style else '具体场景图'))
                 lines.append('')
 
-            if text_count_limit:
-                lines.append('字数限制：{}字'.format(text_count_limit))
-            lines.append('字体：思源黑体、微软雅黑（AI生图必须遵守）')
-            lines.append('尺寸：1080x1920px，9:16竖版')
-            lines.append('禁止：❌ ✅ 🏆 💰 等符号；┌ ═ ║ ─ │ ├ 等代码块符号')
-            lines.append('')
+                # 主标题 / 金句
+                if main_title:
+                    lines.append('文字：')
+                    if role and '封面' in role:
+                        lines.append('主标题：' + main_title)
+                        if sub_content:
+                            for sc in sub_content.split('\n'):
+                                if sc.strip():
+                                    lines.append('副标题：' + sc.strip())
+                    else:
+                        for pt in (sub_points if sub_points else []):
+                            lines.append(pt)
+                    lines.append('')
+
+                # 金句色块
+                if golden_quote and golden_quote.get('text'):
+                    lines.append('金句色块：' + golden_quote.get('text', ''))
+                    lines.append('背景色：' + golden_quote.get('bg_color', ''))
+                    lines.append('')
+
+                if text_count_limit:
+                    lines.append('字数限制：{}字'.format(text_count_limit))
+                lines.append('字体：思源黑体、微软雅黑（AI生图必须遵守）')
+                lines.append('尺寸：1080x1920px，9:16竖版')
+                lines.append('禁止：❌ ✅ 🏆 💰 等符号；┌ ═ ║ ─ │ ├ 等代码块符号')
+                lines.append('')
 
             # AI 生图约束（对齐 Skill 格式）
             lines.append('**【AI生图约束】**')
