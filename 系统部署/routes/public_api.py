@@ -77,20 +77,43 @@ def get_five_stage_info(operations_plan: dict, stage_key: str = None) -> dict:
     if not five_stage_plan:
         return {}
 
+    # 兼容两种格式：数组格式 [{stage_key: 'audience', ...}] 或 对象格式 {audience: {...}, pain: {...}}
+    stages_list = []
+    if isinstance(five_stage_plan, dict):
+        # 对象格式转换
+        stage_mapping = {
+            'audience': '受众锁定',
+            'pain': '痛点放大',
+            'compare': '方案对比',
+            'vision': '愿景勾画',
+            'hesitation': '顾虑消除',
+        }
+        for key, value in five_stage_plan.items():
+            if isinstance(value, dict):
+                stages_list.append({
+                    'stage_key': key,
+                    'stage_name': stage_mapping.get(key, key),
+                    'ratio': value.get('ratio', 0),
+                    'focus': value.get('focus', ''),
+                    'topic_examples': value.get('topic_examples', []),
+                })
+    elif isinstance(five_stage_plan, list):
+        # 数组格式，保持原样
+        stages_list = five_stage_plan
+
     if stage_key:
-        for stage in five_stage_plan:
+        for stage in stages_list:
             if stage.get('stage_key') == stage_key:
                 return {
                     'stage_name': stage.get('stage_name', ''),
                     'ratio': stage.get('ratio', 0),
-                    'topic_count': stage.get('topic_count', 0),
-                    'content_types': stage.get('content_types', []),
-                    'geo_modes': stage.get('geo_modes', []),
+                    'topic_count': stage.get('topic_count', len(stage.get('topic_examples', []))),
+                    'focus': stage.get('focus', ''),
                 }
         return {}
     else:
         return {
-            'stages': five_stage_plan,
+            'stages': stages_list,
             'geo_mode_mapping': operations_plan.get('geo_mode_mapping', {}),
             'content_ratio': operations_plan.get('content_ratio', {}),
         }
