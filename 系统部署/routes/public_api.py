@@ -1227,19 +1227,17 @@ def api_generate_operation_plan(portrait_id):
             business_type = 'both'
 
         request_data = request.get_json() or {}
-        client_info = {
-            'brand_name': request_data.get('brand_name', ''),
-            'brand_type': request_data.get('brand_type', 'personal'),
-            'operating_years': request_data.get('operating_years', ''),
-            'core_advantages': request_data.get('core_advantages', ''),
-            'target_audience': request_data.get('target_audience', ''),
-            'competitors': request_data.get('competitors', ''),
-            'blue_ocean': request_data.get('blue_ocean', ''),
-            'contact_info': request_data.get('contact_info', ''),
-            'credentials': request_data.get('credentials', ''),
-            'service_guarantee': request_data.get('service_guarantee', ''),
-            'case_data': request_data.get('case_data', ''),
-        }
+
+        # 如果请求中包含客户信息，先保存到数据库
+        incoming_client_profile = request_data.get('client_profile', {})
+        if incoming_client_profile and incoming_client_profile.get('brand_name'):
+            # 有新客户信息，保存到数据库
+            portrait.client_profile = incoming_client_profile
+            db.session.commit()
+            logger.info("[api_generate_operation_plan] portrait_id=%s, 客户信息已更新", portrait_id)
+
+        # 使用数据库中的客户信息（已更新或原有）
+        effective_client_profile = portrait.client_profile or {}
 
         result = bridge.execute(
             skill_name='operations_expert',
@@ -1249,7 +1247,7 @@ def api_generate_operation_plan(portrait_id):
                 'business_type': business_type,
                 'portrait_data': portrait.portrait_data,
                 'selected_opportunity': portrait.selected_opportunity,
-                'client_profile': portrait.client_profile or client_info,
+                'client_profile': effective_client_profile,
                 'keyword_library': portrait.keyword_library,
                 'topic_library': portrait.topic_library,
             },
@@ -1284,6 +1282,61 @@ def api_generate_operation_plan(portrait_id):
         return jsonify({
             'success': False,
             'message': f'生成失败: {str(e)}'
+        }), 500
+
+
+@public_bp.route('/api/portraits/<int:portrait_id>/client-profile', methods=['GET'])
+def api_get_client_profile(portrait_id):
+    """获取画像的客户信息"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'client_profile': portrait.client_profile or {}
+        }
+    })
+
+
+@public_bp.route('/api/portraits/<int:portrait_id>/client-profile', methods=['POST'])
+def api_save_client_profile(portrait_id):
+    """保存/更新画像的客户信息"""
+    user = get_current_public_user()
+    if not user:
+        return jsonify({'success': False, 'message': '请先登录'}), 401
+
+    portrait = SavedPortrait.query.filter_by(id=portrait_id, user_id=user.id).first()
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    try:
+        request_data = request.get_json() or {}
+        client_profile = request_data.get('client_profile', {})
+
+        # 保存到数据库
+        portrait.client_profile = client_profile
+        db.session.commit()
+
+        logger.info("[api_save_client_profile] portrait_id=%s, 保存成功", portrait_id)
+
+        return jsonify({
+            'success': True,
+            'message': '客户信息已保存',
+            'data': {
+                'client_profile': portrait.client_profile
+            }
+        })
+    except Exception as e:
+        logger.error("[api_save_client_profile] 异常: %s", e)
+        return jsonify({
+            'success': False,
+            'message': f'保存失败: {str(e)}'
         }), 500
 
 
@@ -2314,6 +2367,111 @@ def api_regenerate_topics():
         }), 500
 
 
+@public_bp.route('/api/topics/generate-with-methodology', methods=['POST'])
+def api_generate_topics_with_methodology():
+    """
+    使用方法论增强生成选题（所有用户可用）
+
+    请求格式：
+    {
+        "portrait_id": 123,           // 可选：画像ID（需要登录验证所有权）
+        "business_description": "...", // 可选：业务描述（无portrait_id时使用）
+        "marketing_focus": "persona",  // L1营销目的：persona/traffic/conversion
+        "marketing_focus_name": "人设类",
+        "topic_type": "persona_story",  // L2选题类型
+        "topic_type_name": "人设故事类",
+        "count": 10
+    }
+    """
+    user_id = session.get('public_user_id')
+
+    params = request.get_json() or {}
+    portrait_id = params.get('portrait_id')
+    marketing_focus = params.get('marketing_focus')
+    marketing_focus_name = params.get('marketing_focus_name', '')
+    topic_type = params.get('topic_type')
+    topic_type_name = params.get('topic_type_name', '')
+    count = params.get('count', 10)
+
+    try:
+        from services.topic_library_generator import TopicLibraryGenerator
+        from models.public_models import SavedPortrait
+
+        # 获取画像数据
+        portrait_data = {}
+        business_info = {}
+        if portrait_id:
+            portrait = SavedPortrait.query.get(portrait_id)
+            # 如果用户已登录，验证所有权；否则只允许访问公开画像
+            if portrait and (not user_id or portrait.user_id == user_id):
+                portrait_data = portrait.to_dict() if hasattr(portrait, 'to_dict') else {}
+                # 获取业务信息
+                business_info = {
+                    'industry': portrait.industry or '',
+                    'business_description': portrait.business_description or '',
+                    'target_customer': portrait.target_customer or '',
+                }
+            elif portrait:
+                # 用户未登录，尝试使用公开数据（如果画像是公开的）
+                portrait_data = portrait.to_dict() if hasattr(portrait, 'to_dict') else {}
+                business_info = {
+                    'industry': portrait.industry or '',
+                    'business_description': portrait.business_description or '',
+                    'target_customer': portrait.target_customer or '',
+                }
+        else:
+            # 没有portrait_id，使用请求中的business_description
+            business_info = {
+                'industry': params.get('industry', ''),
+                'business_description': params.get('business_description', ''),
+                'target_customer': params.get('target_customer', ''),
+            }
+
+        # 生成选题
+        generator = TopicLibraryGenerator()
+        result = generator.generate(
+            portrait_data=portrait_data,
+            business_info=business_info,
+            topic_count=count,
+            use_template=False,
+            portrait_id=portrait_id,
+            user_id=user_id,
+            marketing_focus=marketing_focus,
+        )
+
+        if result.get('success'):
+            # 注意：TopicLibraryGenerator 返回的是 result['topics']，不是 result['topic_library']['topics']
+            topics = result.get('topics', []) or result.get('topic_library', {}).get('topics', [])
+
+            # 为每个选题添加营销目的信息
+            for topic in topics:
+                if marketing_focus:
+                    topic['marketing_purpose'] = marketing_focus
+                    topic['marketing_purpose_name'] = marketing_focus_name
+                if topic_type:
+                    topic['type_key'] = topic_type
+                    topic['type_name'] = topic_type_name
+
+            return jsonify({
+                'success': True,
+                'topics': topics,
+                'meta': result.get('_meta', {}),
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result.get('error', '选题生成失败')
+            }), 500
+
+    except Exception as e:
+        import traceback
+        logger.error(f"[api_generate_topics_with_methodology] 错误: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'选题生成失败: {str(e)}'
+        }), 500
+
+
 # =============================================================================
 # 后台生成内容（异步）
 # =============================================================================
@@ -3145,7 +3303,12 @@ def api_add_extension_topic(portrait_id):
         "topic_type": "知识科普",  // 类型
         "topic_type_key": "knowledge",  // 类型键（可选）
         "source": "extension",      // 来源：extension 表示来自内容延伸
-        "scene_options": []         // 可选：场景选项
+        "scene_options": [],         // 可选：场景选项
+        // 方法论增强字段
+        "marketing_purpose": "traffic",  // L1营销目的
+        "marketing_purpose_name": "流量类",  // L1营销目的名称
+        "content_guidance": {},  // 内容创作指导
+        "format_guidance": {},  // 格式指导
     }
     """
     user = get_current_public_user()
@@ -3169,6 +3332,12 @@ def api_add_extension_topic(portrait_id):
     source = params.get('source', 'extension')
     scene_options = params.get('scene_options', [])
 
+    # 方法论增强字段
+    marketing_purpose = params.get('marketing_purpose', '')
+    marketing_purpose_name = params.get('marketing_purpose_name', '')
+    content_guidance = params.get('content_guidance', {})
+    format_guidance = params.get('format_guidance', {})
+
     # 初始化 topic_library（如果不存在）
     if not portrait.topic_library:
         portrait.topic_library = {}
@@ -3190,6 +3359,11 @@ def api_add_extension_topic(portrait_id):
         'scene_options': scene_options,
         'created_at': datetime.datetime.utcnow().isoformat(),
         'generation_count': 0,
+        # 方法论增强字段
+        'marketing_purpose': marketing_purpose,
+        'marketing_purpose_name': marketing_purpose_name,
+        'content_guidance': content_guidance,
+        'format_guidance': format_guidance,
     }
 
     # 添加到选题库

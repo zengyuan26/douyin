@@ -775,9 +775,9 @@
     .topic-type-modal-box {
         background: var(--bg-primary);
         border-radius: 16px;
-        width: 520px;
-        max-width: 92vw;
-        max-height: 85vh;
+        width: 900px;
+        max-width: 95vw;
+        max-height: 90vh;
         display: flex;
         flex-direction: column;
         box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
@@ -832,9 +832,10 @@
     }
 
     .topic-type-modal-body {
-        padding: 16px 20px;
+        padding: 16px 24px;
         overflow-y: auto;
         flex: 1;
+        max-height: calc(90vh - 140px);
     }
 
     .topic-type-tip {
@@ -856,8 +857,8 @@
 
     .topic-type-grid {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
     }
 
     .topic-type-card {
@@ -873,6 +874,11 @@
         position: relative;
     }
 
+    .topic-type-card.sub-card {
+        padding: 10px 12px;
+        font-size: 0.8125rem;
+    }
+
     .topic-type-card:hover {
         border-color: var(--apple-blue);
         background: rgba(0, 122, 255, 0.03);
@@ -881,6 +887,82 @@
     .topic-type-card.selected {
         border-color: var(--apple-blue);
         background: rgba(0, 122, 255, 0.06);
+    }
+
+    /* L1营销目的分组标题 - 在旧布局中使用，新布局隐藏 */
+    .topic-type-category-header {
+        display: none;
+    }
+
+    .topic-type-category-icon {
+        font-size: 1rem;
+    }
+
+    .topic-type-category-name {
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .topic-type-category-desc {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+
+    /* 分类列容器 - 三列布局 */
+    .topic-type-category-column {
+        background: var(--apple-gray6);
+        border-radius: 12px;
+        padding: 12px;
+    }
+
+    .topic-type-category-column-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--apple-gray4);
+    }
+
+    .topic-type-category-column-icon {
+        font-size: 1.25rem;
+    }
+
+    .topic-type-category-column-name {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* L2选题类型子网格 - 在三列布局中垂直排列 */
+    .topic-type-subgrid {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 0;
+    }
+
+    .topic-type-subgrid .topic-type-card {
+        margin-bottom: 0;
+    }
+
+    /* 选中信息显示 */
+    .topic-type-selected-info {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+    }
+
+    .topic-type-footer-btns {
+        display: flex;
+        gap: 8px;
+    }
+
+    /* 营销目的标签 */
+    .topic-marketing-badge {
+        font-size: 0.6875rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 500;
     }
 
     .topic-type-icon {
@@ -2099,6 +2181,74 @@
                             <input type="text" id="client-target-audience" placeholder="如：云南专科批次考生及家长" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.875rem;box-sizing:border-box;">
                         </div>
 
+                        <!-- 人设信息 -->
+                        <div style="border-top:1px dashed #e0e0e0;margin:20px 0;padding-top:16px;">
+                            <p style="font-size:0.8125rem;color:#059669;font-weight:600;margin-bottom:16px;">
+                                <i class="bi bi-person-circle" style="margin-right:6px;"></i>IP人设信息
+                            </p>
+
+                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+                                <div>
+                                    <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
+                                        年龄
+                                    </label>
+                                    <input type="number" id="client-age" min="18" max="80" placeholder="如：35" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
+                                        性别
+                                    </label>
+                                    <select id="client-gender" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;box-sizing:border-box;background:#fff;">
+                                        <option value="">请选择</option>
+                                        <option value="male">男</option>
+                                        <option value="female">女</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
+                                        身份
+                                    </label>
+                                    <select id="client-identity" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;box-sizing:border-box;background:#fff;">
+                                        <option value="">请选择</option>
+                                        <option value="counselor">志愿填报咨询师</option>
+                                        <option value="teacher">学校老师</option>
+                                        <option value="parent">考生家长</option>
+                                        <option value="student">考生本人</option>
+                                        <option value="other">其他</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                                <div>
+                                    <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
+                                        所在地区
+                                    </label>
+                                    <input type="text" id="client-location" placeholder="如：云南昆明" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
+                                        家庭情况
+                                    </label>
+                                    <input type="text" id="client-family" placeholder="如：家有高考生，三口之家" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;box-sizing:border-box;">
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
+                                    教育/专业背景 <span style="font-weight:400;color:#999;">（选填）</span>
+                                </label>
+                                <input type="text" id="client-education" placeholder="如：云南师范大学毕业，高考志愿规划师" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;box-sizing:border-box;">
+                            </div>
+
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block;font-size:0.8125rem;font-weight:500;color:#666;margin-bottom:4px;">
+                                    个人故事/经历 <span style="font-weight:400;color:#999;">（有助于塑造IP真实感，选填）</span>
+                                </label>
+                                <textarea id="client-story" rows="2" placeholder="如：曾帮助300+考生进入理想大学，最擅长专科逆袭案例" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.8125rem;resize:vertical;box-sizing:border-box;"></textarea>
+                            </div>
+                        </div>
+
                         <!-- 可选信息 -->
                         <div style="border-top:1px dashed #eee;margin:20px 0;padding-top:16px;">
                             <p style="font-size:0.75rem;color:#999;margin-bottom:12px;">
@@ -2389,6 +2539,14 @@ async function loadClientProfile() {
             document.getElementById('client-credentials').value = profile.credentials || '';
             document.getElementById('client-case-data').value = profile.case_data || '';
             document.getElementById('client-service-guarantee').value = profile.service_guarantee || '';
+            // 人设信息
+            document.getElementById('client-age').value = profile.age || '';
+            document.getElementById('client-gender').value = profile.gender || '';
+            document.getElementById('client-identity').value = profile.identity || '';
+            document.getElementById('client-location').value = profile.location || '';
+            document.getElementById('client-family').value = profile.family || '';
+            document.getElementById('client-education').value = profile.education || '';
+            document.getElementById('client-story').value = profile.story || '';
         }
     } catch (e) {
         console.error('[loadClientProfile] 加载客户信息失败:', e);
@@ -2419,6 +2577,14 @@ async function saveClientProfile() {
         credentials: document.getElementById('client-credentials').value.trim(),
         case_data: document.getElementById('client-case-data').value.trim(),
         service_guarantee: document.getElementById('client-service-guarantee').value.trim(),
+        // 人设信息
+        age: document.getElementById('client-age').value,
+        gender: document.getElementById('client-gender').value,
+        identity: document.getElementById('client-identity').value,
+        location: document.getElementById('client-location').value.trim(),
+        family: document.getElementById('client-family').value.trim(),
+        education: document.getElementById('client-education').value.trim(),
+        story: document.getElementById('client-story').value.trim(),
     };
 
     try {
@@ -2468,23 +2634,38 @@ async function submitAndGenerate() {
         credentials: document.getElementById('client-credentials').value.trim(),
         case_data: document.getElementById('client-case-data').value.trim(),
         service_guarantee: document.getElementById('client-service-guarantee').value.trim(),
+        // 人设信息
+        age: document.getElementById('client-age').value,
+        gender: document.getElementById('client-gender').value,
+        identity: document.getElementById('client-identity').value,
+        location: document.getElementById('client-location').value.trim(),
+        family: document.getElementById('client-family').value.trim(),
+        education: document.getElementById('client-education').value.trim(),
+        story: document.getElementById('client-story').value.trim(),
     };
 
     try {
         // 1. 先保存客户信息
-        await fetch('/public/api/portraits/' + _portraitId + '/client-profile', {
+        const saveResp = await fetch('/public/api/portraits/' + _portraitId + '/client-profile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({ client_profile: clientProfile })
         });
+        const saveData = await saveResp.json();
+        if (!saveData.success) {
+            showToast('保存客户信息失败', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-rocket-takeoff" style="margin-right:6px;"></i>提交并生成';
+            return;
+        }
 
-        // 2. 触发生成
-        const resp = await fetch('/public/api/portraits/' + _portraitId + '/generate-operations', {
+        // 2. 触发生成（带上客户信息）
+        const resp = await fetch('/public/api/portraits/' + _portraitId + '/operation-plan/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({})
+            body: JSON.stringify({ client_profile: clientProfile })
         });
         const data = await resp.json();
 
@@ -3433,6 +3614,16 @@ function renderTopicRows(topics) {
             ? '<span class="business-name-tag" title="业务名称">' + escHtml(businessName) + '</span>'
             : '<span class="business-name-tag empty">--</span>';
 
+        // ── 营销目的标签（L1分类）──
+        const mpKey = topic.marketing_purpose || '';
+        const mpColors = { 'persona': '#DDA0DD', 'traffic': '#FF6B6B', 'conversion': '#4ECDC4' };
+        const mpNames = { 'persona': '人设', 'traffic': '流量', 'conversion': '转化' };
+        const mpColor = mpColors[mpKey] || '#87CEEB';
+        const mpName = mpNames[mpKey] || '';
+        const marketingBadgeHtml = mpName
+            ? '<span class="topic-marketing-badge" style="background:' + mpColor + '15;color:' + mpColor + ';">' + mpName + '</span>'
+            : '';
+
         html +=
             '<div class="playlist-row ' + selectedClass + '" data-topic-id="' + topic.id + '" onclick="selectTopic(\'' + topic.id + '\')">' +
                 '<div class="row-radio">' +
@@ -3442,6 +3633,7 @@ function renderTopicRows(topics) {
                     '<div class="row-title-text" title="' + escHtml(topic.title || '') + '">' + escHtml(topic.title || '') + '</div>' +
                     '<div class="row-title-tags">' +
                         '<span class="topic-type-badge ' + priorityClass + '">' + escHtml(topic.type_name || topic.type_key || '') + '</span>' +
+                        marketingBadgeHtml +
                         '<span class="topic-direction-badge ' + directionBadgeClass + '">' + directionLabel + '</span>' +
                         hasVersionsBadge +
                         contentPlanBadge +
@@ -4199,7 +4391,47 @@ async function incrementTopicCount(topicId) {
 }
 
 // ── 选题类型选择弹框 ──────────────────────────────────────
-// 选题类型配置
+// 选题类型配置 - 方法论增强版（L1营销目的 + L2选题类型）
+var MARKETING_CATEGORIES = [
+    {
+        key: 'persona',
+        name: '人设类',
+        icon: '🎭',
+        desc: '建立信任，让用户认可这个人',
+        color: '#DDA0DD',
+        topicTypes: [
+            { key: 'persona_story', name: '人设故事类', icon: '📖', desc: '通过故事讲做人的道理' },
+            { key: 'persona_opinion', name: '观点输出类', icon: '💬', desc: '表达立场态度，建立权威' },
+            { key: 'persona_value', name: '价值观型', icon: '⚖️', desc: '展示选择和底线' },
+        ]
+    },
+    {
+        key: 'traffic',
+        name: '流量类',
+        icon: '🔥',
+        desc: '获取曝光，让更多人看到',
+        color: '#FF6B6B',
+        topicTypes: [
+            { key: 'knowledge', name: '知识科普类', icon: '📚', desc: '传授专业知识，建立权威' },
+            { key: 'tutorial', name: '知识教程类', icon: '💡', desc: '实用技能教学，高收藏' },
+            { key: 'cause', name: '原因分析类', icon: '🔍', desc: '挖掘原因，引发共鸣' },
+        ]
+    },
+    {
+        key: 'conversion',
+        name: '转化类',
+        icon: '💰',
+        desc: '促进成交，让用户行动购买',
+        color: '#4ECDC4',
+        topicTypes: [
+            { key: 'solution', name: '解决方案类', icon: '✅', desc: '给出具体方法，高收藏' },
+            { key: 'compare', name: '方案对比类', icon: '⚖️', desc: '突出我的方案更好' },
+            { key: 'case_share', name: '案例分享类', icon: '📖', desc: '真实案例故事，促进转化' },
+        ]
+    }
+];
+
+// 兼容旧版本
 var TOPIC_TYPES = [
     { key: 'problem_diagnosis', name: '问题诊断类', icon: '🔍', desc: '挖掘痛点，引发共鸣', color: '#FF6B6B' },
     { key: 'solution', name: '解决方案类', icon: '💡', desc: '提供实用方法，高收藏', color: '#4ECDC4' },
@@ -4216,17 +4448,32 @@ function showTopicTypeSelector() {
     var existingModal = document.getElementById('topic-type-modal');
     if (existingModal) existingModal.remove();
 
-    // 构建类型卡片HTML
-    var typeCardsHtml = TOPIC_TYPES.map(function(type) {
-        return '<div class="topic-type-card" data-type="' + type.key + '" onclick="selectTopicType(\'' + type.key + '\')">' +
-            '<div class="topic-type-icon" style="background:' + type.color + '20;color:' + type.color + ';">' + type.icon + '</div>' +
-            '<div class="topic-type-info">' +
-            '<div class="topic-type-name">' + type.name + '</div>' +
-            '<div class="topic-type-desc">' + type.desc + '</div>' +
-            '</div>' +
-            '<div class="topic-type-check"><i class="bi bi-check-circle-fill"></i></div>' +
-            '</div>';
-    }).join('');
+    // 构建三列布局HTML（L1营销目的 = 列，L2选题类型 = 列内选项）
+    var columnsHtml = '';
+    MARKETING_CATEGORIES.forEach(function(category) {
+        // 构建选题类型选项
+        var typesHtml = '';
+        category.topicTypes.forEach(function(type) {
+            typesHtml += '<div class="topic-type-card sub-card" data-category="' + category.key + '" data-type="' + type.key + '" onclick="selectTopicType(\'' + type.key + '\', \'' + category.key + '\')">';
+            typesHtml += '<div class="topic-type-icon" style="background:' + category.color + '15;color:' + category.color + ';">' + type.icon + '</div>';
+            typesHtml += '<div class="topic-type-info">';
+            typesHtml += '<div class="topic-type-name">' + type.name + '</div>';
+            typesHtml += '<div class="topic-type-desc">' + type.desc + '</div>';
+            typesHtml += '</div>';
+            typesHtml += '<div class="topic-type-check"><i class="bi bi-check-circle-fill"></i></div>';
+            typesHtml += '</div>';
+        });
+
+        // 列容器
+        columnsHtml += '<div class="topic-type-category-column" style="border-top: 3px solid ' + category.color + ';">';
+        columnsHtml += '<div class="topic-type-category-column-header">';
+        columnsHtml += '<span class="topic-type-category-column-icon">' + category.icon + '</span>';
+        columnsHtml += '<span class="topic-type-category-column-name" style="color:' + category.color + ';">' + category.name + '</span>';
+        columnsHtml += '</div>';
+        columnsHtml += '<div class="topic-type-subgrid">';
+        columnsHtml += typesHtml;
+        columnsHtml += '</div></div>';
+    });
 
     var modalHtml = '<div class="topic-type-modal-overlay" id="topic-type-modal" onclick="closeTopicTypeModal(event)">' +
         '<div class="topic-type-modal-box" onclick="event.stopPropagation()">' +
@@ -4235,14 +4482,17 @@ function showTopicTypeSelector() {
         '<button class="topic-type-modal-close" onclick="closeTopicTypeModal(event)"><i class="bi bi-x-lg"></i></button>' +
         '</div>' +
         '<div class="topic-type-modal-body">' +
-        '<div class="topic-type-tip"><i class="bi bi-lightbulb"></i> 选择后，系统将生成对应类型的精准选题</div>' +
-        '<div class="topic-type-grid" id="topic-type-grid">' + typeCardsHtml +
+        '<div class="topic-type-tip"><i class="bi bi-lightbulb"></i> 选择营销目的和选题类型，系统将生成精准选题</div>' +
+        '<div class="topic-type-grid" id="topic-type-grid">' + columnsHtml +
         '</div>' +
         '</div>' +
         '<div class="topic-type-modal-footer">' +
+        '<div class="topic-type-selected-info" id="topic-type-selected-info"></div>' +
+        '<div class="topic-type-footer-btns">' +
         '<button class="topic-type-btn-cancel" onclick="closeTopicTypeModal(event)">取消</button>' +
         '<button class="topic-type-btn-random" onclick="regenerateWithTopicType(null)"><i class="bi bi-shuffle"></i> 随机生成</button>' +
         '<button class="topic-type-btn-confirm" id="btn-confirm-topic-type" disabled onclick="confirmTopicType()">确认生成 <i class="bi bi-arrow-right"></i></button>' +
+        '</div>' +
         '</div>' +
         '</div>' +
         '</div>';
@@ -4264,7 +4514,7 @@ function closeTopicTypeModal(event) {
     }
 }
 
-function selectTopicType(typeKey) {
+function selectTopicType(typeKey, categoryKey) {
     // 移除其他选中状态
     var cards = document.querySelectorAll('.topic-type-card');
     cards.forEach(function(card) { card.classList.remove('selected'); });
@@ -4273,11 +4523,25 @@ function selectTopicType(typeKey) {
     var selectedCard = document.querySelector('.topic-type-card[data-type="' + typeKey + '"]');
     if (selectedCard) selectedCard.classList.add('selected');
 
+    // 更新选中信息
+    var category = MARKETING_CATEGORIES.find(function(c) { return c.key === categoryKey; });
+    var type = category ? category.topicTypes.find(function(t) { return t.key === typeKey; }) : null;
+
+    var infoEl = document.getElementById('topic-type-selected-info');
+    if (infoEl) {
+        if (category && type) {
+            infoEl.innerHTML = '已选择：<span style="color:' + category.color + ';">' + category.name + '</span> > ' + type.name;
+        } else {
+            infoEl.innerHTML = '已选择：' + typeKey;
+        }
+    }
+
     // 启用确认按钮
     var confirmBtn = document.getElementById('btn-confirm-topic-type');
     if (confirmBtn) {
         confirmBtn.disabled = false;
         confirmBtn.setAttribute('data-type', typeKey);
+        confirmBtn.setAttribute('data-category', categoryKey || '');
     }
 }
 
@@ -4285,16 +4549,32 @@ function selectTopicType(typeKey) {
 function confirmTopicType() {
     var confirmBtn = document.getElementById('btn-confirm-topic-type');
     var typeKey = confirmBtn ? confirmBtn.getAttribute('data-type') : null;
+    var categoryKey = confirmBtn ? confirmBtn.getAttribute('data-category') : null;
     closeTopicTypeModal();
-    regenerateWithTopicType(typeKey);
+    regenerateWithTopicType(typeKey, categoryKey);
 }
 
 // 根据选题类型生成选题
-async function regenerateWithTopicType(topicType) {
+async function regenerateWithTopicType(topicType, marketingFocus) {
     var typeName = '';
+    var categoryName = '';
+    var categoryColor = '#007AFF';
+
     if (topicType) {
-        var typeObj = TOPIC_TYPES.find(function(t) { return t.key === topicType; });
-        typeName = typeObj ? typeObj.name : '';
+        // 查找类型信息
+        for (var i = 0; i < MARKETING_CATEGORIES.length; i++) {
+            var cat = MARKETING_CATEGORIES[i];
+            for (var j = 0; j < cat.topicTypes.length; j++) {
+                var type = cat.topicTypes[j];
+                if (type.key === topicType) {
+                    typeName = type.name;
+                    categoryName = cat.name;
+                    categoryColor = cat.color;
+                    if (!marketingFocus) marketingFocus = cat.key;
+                    break;
+                }
+            }
+        }
     }
 
     var btn = document.getElementById('btn-regenerate-topics');
@@ -4303,14 +4583,19 @@ async function regenerateWithTopicType(topicType) {
     btn.innerHTML = '<span class="apple-spinner" style="display:inline-block;width:14px;height:14px;border-width:2px;border-color:rgba(0,0,0,0.2);border-top-color:var(--apple-blue);"></span> 生成中...';
 
     try {
-        var requestBody = { count: 10 };
-        if (topicType) {
-            requestBody.topic_type = topicType;
-            requestBody.topic_type_name = typeName;
-        }
+        var topics = [];
 
-        // 使用选题生成API
-        var resp = await fetch('/public/api/topics/regenerate', {
+        // 始终使用方法论增强API
+        var requestBody = {
+            portrait_id: _portraitId || null,
+            marketing_focus: marketingFocus || '',
+            marketing_focus_name: categoryName || '',
+            topic_type: topicType || '',
+            topic_type_name: typeName || '',
+            count: 10
+        };
+
+        var resp = await fetch('/public/api/topics/generate-with-methodology', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -4318,27 +4603,47 @@ async function regenerateWithTopicType(topicType) {
         });
         var data = await resp.json();
 
-        if (data.success && data.topics && data.topics.length > 0) {
-            var typeMsg = topicType ? ' [' + typeName + ']' : '';
+        if (data.success) {
+            topics = data.topics || [];
+        } else {
+            showToast(data.message || '生成失败', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> 重新生成选题';
+            return;
+        }
+
+        // 保存选题
+        if (topics.length > 0) {
+            var typeMsg = topicType ? ' [' + categoryName + '>' + typeName + ']' : '';
             var savedCount = 0;
 
-            // 将生成的选题保存到画像选题库
-            for (var i = 0; i < data.topics.length; i++) {
-                var topic = data.topics[i];
-                // 使用前端选择的类型，而不是 LLM 返回的 type
+            for (var i = 0; i < topics.length; i++) {
+                var topic = topics[i];
                 var saveTopicType = typeName || topic.type || topic.Type || topic.type_name || '';
                 var saveTopicTypeKey = topicType || topic.type_key || topic.typeKey || '';
+
+                // 构建保存数据
+                var saveData = {
+                    topic_title: topic.title || topic.Title || '',
+                    topic_type: saveTopicType,
+                    topic_type_key: saveTopicTypeKey,
+                    source: 'regenerate',
+                    scene_options: topic.scene_options || topic.sceneOptions || [],
+                };
+
+                // 添加方法论增强字段
+                if (marketingFocus) {
+                    saveData.marketing_purpose = marketingFocus;
+                    saveData.marketing_purpose_name = categoryName;
+                    saveData.content_guidance = topic.content_guidance || {};
+                    saveData.format_guidance = topic.format_guidance || {};
+                }
+
                 var saveResp = await fetch('/public/api/portraits/' + _portraitId + '/topics/add', {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        topic_title: topic.title || topic.Title || '',
-                        topic_type: saveTopicType,
-                        topic_type_key: saveTopicTypeKey,
-                        source: 'regenerate',
-                        scene_options: topic.scene_options || topic.sceneOptions || []
-                    })
+                    body: JSON.stringify(saveData)
                 });
                 var saveData = await saveResp.json();
                 if (saveData.success) {
@@ -4350,7 +4655,7 @@ async function regenerateWithTopicType(topicType) {
             _selectedTopicId = null;
             loadTopics(1);
         } else {
-            showToast(data.message || '生成失败', 'error');
+            showToast('未生成任何选题', 'warning');
         }
     } catch (e) {
         showToast('生成失败', 'error');
