@@ -1039,23 +1039,49 @@ class SkillExecutor:
                         current_slide['role'] = role_kw
                         break
                 # 提取主标题（去掉角色前缀后的内容）
-                title_part = re.sub(r'^(?:图片|第|\d+|\s|\[)+', '', line)
-                title_part = re.sub(rf'[{role_kw}]+', '', title_part).strip()
+                title_part = re.sub(r'^(?:图片|第|\d+|\s|\[|：|:)+', '', line)
+                # 修复：使用 role_kw 作为字符串替换，而不是作为字符类
+                if role_kw:
+                    title_part = title_part.replace(role_kw, '').strip()
+                else:
+                    title_part = title_part.strip()
                 if title_part and len(title_part) < 100:
                     current_slide['main_title'] = title_part
             elif current_slide:
-                # 提取内容到当前 slide
-                # 主标题
-                if not current_slide.get('main_title') and len(line) < 100:
-                    # 检查是否是标题行
+                # 检查是否是新的内容标记块（用于收集 big_slogan）
+                if re.match(r'\*\*【内容功能】\*\*', line):
+                    current_slide['_collecting_big_slogan'] = True
+                    current_slide['_collecting_sub_points'] = False
+                    continue
+
+                # 处理【画面描述】等标记，停止收集 big_slogan，开始收集 sub_points
+                if re.match(r'\*\*【画面描述】', line) or re.match(r'\*\*【.*】', line):
+                    current_slide['_collecting_big_slogan'] = False
+                    current_slide['_collecting_sub_points'] = True
+                    continue
+
+                # 根据状态收集内容
+                if current_slide.get('_collecting_big_slogan') and len(line) > 2 and not line.startswith(('##', '---', '>', '-', '*', '**')):
+                    if not current_slide.get('big_slogan') and line.strip():
+                        current_slide['big_slogan'] = line.strip()
+
+                elif current_slide.get('_collecting_sub_points'):
+                    if line.startswith('- '):
+                        point = line[2:].strip()
+                        if point and not any(kw in point for kw in ['禁止：', '视觉目标', '画面逻辑', '场景道具', '氛围感', '人物统一', '光影逻辑', '3区结构']):
+                            sub_points = current_slide.get('sub_points', [])
+                            if point not in sub_points:
+                                sub_points.append(point)
+                                current_slide['sub_points'] = sub_points
+
+                # 主标题提取（兼容旧格式）
+                elif not current_slide.get('main_title') and len(line) < 100:
                     if re.match(r'^[*#\-\s]*(?:标题|主标题|大字金句)', line):
                         title = re.sub(r'^[*#\-\s]*(?:标题|主标题|大字金句)[:：]?\s*', '', line)
                         if title:
                             current_slide['main_title'] = title
                     elif not line.startswith(('##', '---', '>')) and len(line) > 5:
-                        # 检查是否是连续的内容行
                         if current_slide.get('main_title'):
-                            # 作为 sub_point
                             sub_points = current_slide.get('sub_points', [])
                             sub_points.append(line)
                             current_slide['sub_points'] = sub_points

@@ -55,6 +55,7 @@ def get_operations_plan_from_portrait(portrait_id: int) -> dict:
         # 检查 operation_plan 字段
         if hasattr(portrait, 'operation_plan') and portrait.operation_plan:
             logger.info(f"[OperationsPlan] 从 operation_plan 字段获取 portrait_id={portrait_id}, plan_id={portrait.operation_plan.get('plan_id', 'N/A')}")
+            logger.info(f"[OperationsPlan] operation_plan keys={list(portrait.operation_plan.keys()) if isinstance(portrait.operation_plan, dict) else 'not_dict'}, step_five_stage type={type(portrait.operation_plan.get('step_five_stage'))}, len={len(portrait.operation_plan.get('step_five_stage', []))}")
             return portrait.operation_plan
 
         # 兼容 extra_data（新字段）
@@ -62,6 +63,7 @@ def get_operations_plan_from_portrait(portrait_id: int) -> dict:
             ops = portrait.extra_data.get('operations_plan', {})
             if ops:
                 logger.info(f"[OperationsPlan] 从 extra_data.operations_plan 获取 portrait_id={portrait_id}")
+                logger.info(f"[OperationsPlan] extra_data ops keys={list(ops.keys())}, step_five_stage type={type(ops.get('step_five_stage'))}, len={len(ops.get('step_five_stage', []))}")
                 return ops
 
         # 兼容 portrait_data 中的 operations_plan
@@ -69,7 +71,11 @@ def get_operations_plan_from_portrait(portrait_id: int) -> dict:
             ops = portrait.portrait_data.get('operations_plan', {})
             if ops:
                 logger.info(f"[OperationsPlan] 从 portrait_data.operations_plan 获取 portrait_id={portrait_id}")
+                logger.info(f"[OperationsPlan] portrait_data ops keys={list(ops.keys())}, step_five_stage type={type(ops.get('step_five_stage'))}, len={len(ops.get('step_five_stage', []))}")
                 return ops
+
+        # 调试：打印 portrait 实际有哪些字段
+        logger.info(f"[OperationsPlan] 画像无运营规划 portrait_id={portrait_id}, 字段: {[c.name for c in portrait.__table__.columns] if hasattr(portrait, '__table__') else 'no_table'}")
 
         logger.warning(f"[OperationsPlan] 画像无运营规划 portrait_id={portrait_id}")
     except Exception as e:
@@ -91,8 +97,10 @@ def get_five_stage_info(operations_plan: dict, stage_key: str = None) -> dict:
     if not operations_plan:
         return {}
 
-    five_stage_plan = operations_plan.get('five_stage_plan', [])
-    if not five_stage_plan:
+    # 【修复】实际 key 是 step_five_stage，不是 five_stage_plan
+    five_stage_plan = operations_plan.get('five_stage_plan') or operations_plan.get('step_five_stage', [])
+    # 【修复】确保 five_stage_plan 不是字符串
+    if not five_stage_plan or isinstance(five_stage_plan, str):
         return {}
 
     # 兼容两种格式：数组格式 [{stage_key: 'audience', ...}] 或 对象格式 {audience: {...}, pain: {...}}
@@ -2766,6 +2774,8 @@ def api_generate_content_from_topic():
                     selected_scene=effective_scene,
                     content_style=content_style,
                     brand_context=params.get('brand_context'),
+                    operation_plan=operations_plan,
+                    five_stage_info=five_stage_info,
                 )
 
                 if not bridge_result.success:
@@ -2803,6 +2813,35 @@ def api_generate_content_from_topic():
                 content = _build_video_script_text(bridge_data['content_data'])
                 result_type = 'short_video'
 
+                # 从 output 提取标题和标签供末尾 result 使用
+                hvf_titles = []
+                if hvf_titles_output:
+                    titles_data = hvf_titles_output.get('titles', []) or hvf_titles_output.get('step_title_generate', {}).get('titles', [])
+                    hvf_titles = titles_data or []
+
+                pyramid_tags = []
+                if pyramid_tags_output:
+                    tags_data = pyramid_tags_output.get('hashtags', []) or pyramid_tags_output.get('step_tag_generate', {}).get('hashtags', [])
+                    pyramid_tags = tags_data or []
+
+                # 返回结果（短视频分支结束）
+                return _build_content_result(
+                    bridge_data=bridge_data,
+                    content=content,
+                    qs_int=qs_int,
+                    quality_report=quality_report,
+                    extracted_title=extracted_title,
+                    extracted_tags=extracted_tags,
+                    hvf_titles_output=hvf_titles_output,
+                    pyramid_tags_output=pyramid_tags_output,
+                    hvf_report=hvf_report,
+                    pyramid_tags_report=pyramid_tags_report,
+                    params=params,
+                    user=user,
+                    result_type='short_video',
+                    geo_report=bridge_data.get('geo_report'),
+                )
+
             elif content_type == 'long_text':
                 # 长文生成 —— SkillBridge v2
                 from services.skill_bridge import SkillBridge
@@ -2820,6 +2859,8 @@ def api_generate_content_from_topic():
                     selected_scene=effective_scene,
                     content_style=content_style,
                     brand_context=params.get('brand_context'),
+                    operation_plan=operations_plan,
+                    five_stage_info=five_stage_info,
                 )
 
                 if not bridge_result.success:
@@ -2857,11 +2898,46 @@ def api_generate_content_from_topic():
                 content = _build_long_text_text(bridge_data['content_data'])
                 result_type = 'long_text'
 
+                # 从 output 提取标题和标签供末尾 result 使用
+                hvf_titles = []
+                if hvf_titles_output:
+                    titles_data = hvf_titles_output.get('titles', []) or hvf_titles_output.get('step_title_generate', {}).get('titles', [])
+                    hvf_titles = titles_data or []
+
+                pyramid_tags = []
+                if pyramid_tags_output:
+                    tags_data = pyramid_tags_output.get('hashtags', []) or pyramid_tags_output.get('step_tag_generate', {}).get('hashtags', [])
+                    pyramid_tags = tags_data or []
+
+                # 返回结果（长文分支结束）
+                return _build_content_result(
+                    bridge_data=bridge_data,
+                    content=content,
+                    qs_int=qs_int,
+                    quality_report=quality_report,
+                    extracted_title=extracted_title,
+                    extracted_tags=extracted_tags,
+                    hvf_titles_output=hvf_titles_output,
+                    pyramid_tags_output=pyramid_tags_output,
+                    hvf_report=hvf_report,
+                    pyramid_tags_report=pyramid_tags_report,
+                    params=params,
+                    user=user,
+                    result_type='long_text',
+                    geo_report=bridge_data.get('geo_report'),
+                )
+
             else:
                 # 图文生成（默认）—— SkillBridge v2
                 from services.skill_bridge import SkillBridge
                 bridge = SkillBridge()
                 logger.info(f"[GEO调试] selected_scene: {effective_scene}")
+
+                # 初始化 H-V-F 相关变量
+                hvf_titles = []
+                pyramid_tags = []
+                hvf_titles_output = {}
+                pyramid_tags_output = {}
 
                 # 获取画像数据（包括运营规划）【已整合到公共函数】
                 portrait = params.get('portrait', {})
@@ -2871,7 +2947,12 @@ def api_generate_content_from_topic():
                 operations_plan = get_operations_plan_from_portrait(portrait_id_for_plan)
                 if operations_plan:
                     logger.info(f"[运营规划] 找到运营规划: plan_id={operations_plan.get('plan_id', 'N/A')}")
-                    logger.info(f"[运营规划] 五段式: {[s.get('stage_name', '') for s in operations_plan.get('five_stage_plan', [])]}")
+                    five_stage = operations_plan.get('step_five_stage', [])
+                    # 修复：确保 five_stage 是列表
+                    if isinstance(five_stage, list):
+                        logger.info(f"[运营规划] 五段式: {[s.get('stage_name', '') for s in five_stage]}")
+                    else:
+                        logger.info(f"[运营规划] 五段式类型异常: {type(five_stage)}")
 
                 # 从运营规划获取五段式信息
                 five_stage_info = get_five_stage_info(operations_plan)
@@ -4684,6 +4765,155 @@ def _adapt_keyword_library_result(bridge_result) -> dict:
         'portrait_keywords': [],
         'keyword_stats': keyword_stats,
     }
+
+
+def _build_content_result(
+    bridge_data: dict,
+    content: str,
+    qs_int: int,
+    quality_report: dict,
+    extracted_title: str,
+    extracted_tags: list,
+    hvf_titles_output: dict,
+    pyramid_tags_output: dict,
+    hvf_report: dict,
+    pyramid_tags_report: dict,
+    params: dict,
+    user,
+    result_type: str,
+    geo_report: dict = None,
+):
+    """
+    统一构建内容生成结果，包含保存数据库记录和返回响应。
+
+    适用于 short_video / long_text 分支的早期返回。
+    graphic 分支继续使用原有的内联逻辑。
+    """
+    import datetime as dt_module
+
+    topic_id_str = params.get('topic_id', '') or None
+    portrait_id_val = params.get('portrait_id')
+    link = None
+    version_number = 1
+    parent_version_id = None
+    effective_scene = params.get('selected_scene')
+    content_style = params.get('content_style', '')
+    extracted_geo = ''
+
+    # ── 1:N 选题关系：创建/更新 link ──
+    if user and topic_id_str and portrait_id_val:
+        try:
+            link = _TopicGenerationLink.query.filter_by(
+                user_id=user.id,
+                portrait_id=portrait_id_val,
+                topic_id=topic_id_str
+            ).first()
+
+            if not link:
+                topic_title = params.get('topic_title', '')
+                from models.public_models import SavedPortrait as _SavedPortrait
+                portrait_rec = _SavedPortrait.query.filter_by(
+                    id=portrait_id_val, user_id=user.id
+                ).first()
+                if portrait_rec and portrait_rec.topic_library:
+                    for t in portrait_rec.topic_library.get('topics', []):
+                        if str(t.get('id', '')) == str(topic_id_str):
+                            topic_title = t.get('title', topic_title)
+                            break
+
+                link = TopicGenerationLink(
+                    user_id=user.id,
+                    portrait_id=portrait_id_val,
+                    problem_id=params.get('problem_id'),
+                    topic_id=topic_id_str,
+                    topic_title=topic_title,
+                    usage_count=0,
+                    generation_ids=[],
+                    created_at=dt_module.datetime.now(dt_module.timezone.utc),
+                )
+                db.session.add(link)
+                db.session.flush()
+            else:
+                version_number = link.usage_count + 1
+                if link.generation_ids:
+                    parent_version_id = link.generation_ids[-1]
+
+        except Exception as e:
+            logger.warning('创建/查找 link 失败: %s', e)
+
+    raw_content = bridge_data['content_data']
+
+    # ── 保存 generation 记录 ──
+    generation = PublicGeneration(
+        user_id=user.id if user else None,
+        industry=params.get('business_type', ''),
+        target_customer=params.get('portrait', {}).get('identity', ''),
+        content_type=result_type,
+        titles=[extracted_title],
+        tags=extracted_tags,
+        content_data={
+            **(raw_content or {}),
+            '_hvf_report': _build_hvf_report(hvf_titles_output) if hvf_titles_output else {},
+            '_pyramid_tags_report': _build_pyramid_tags(pyramid_tags_output) if pyramid_tags_output else {},
+            '_hvf_titles': hvf_titles_output or {},
+            '_pyramid_tags': pyramid_tags_output or {},
+        },
+        used_tokens=0,
+        topic_id=topic_id_str,
+        portrait_id=portrait_id_val,
+        problem_id=params.get('problem_id'),
+        selected_scenes=effective_scene,
+        link_id=link.id if link else None,
+        version_number=version_number,
+        parent_version_id=parent_version_id,
+        geo_mode_used=extracted_geo,
+        content_style=content_style,
+        quality_score=qs_int,
+        quality_report=quality_report if quality_report else None,
+    )
+    db.session.add(generation)
+    db.session.flush()
+
+    # ── 更新 link ──
+    if link:
+        link.add_generation(generation.id)
+        link.last_generated_at = dt_module.datetime.now(dt_module.timezone.utc)
+        if link.first_generated_at is None:
+            link.first_generated_at = generation.created_at
+
+    # ── 同步更新选题库 generation_count ──
+    if link and portrait_id_val:
+        from models.public_models import SavedPortrait as _SavedPortrait
+        sp = _SavedPortrait.query.filter_by(id=portrait_id_val, user_id=user.id).first()
+        if sp and sp.topic_library and 'topics' in sp.topic_library:
+            updated = False
+            tid_str = str(topic_id_str) if topic_id_str else ''
+            for t in sp.topic_library['topics']:
+                if str(t.get('id', '')) == tid_str:
+                    t['generation_count'] = link.usage_count
+                    updated = True
+                    break
+            if updated:
+                logger.info(f"[GenerationCount] 更新 portrait_id={portrait_id_val} topic_id={topic_id_str} generation_count={link.usage_count}")
+
+    # ── 扣减配额 ──
+    if user:
+        quota_manager.use_quota(user, 0)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'generation_id': generation.id,
+        'link_id': link.id if link else None,
+        'version_number': version_number,
+        'quality_report': quality_report,
+        'content': content,
+        'geo_report': geo_report or {},
+        'hvf_report': _build_hvf_report(hvf_titles_output) if hvf_titles_output else {},
+        'pyramid_tags': _build_pyramid_tags(pyramid_tags_output) if pyramid_tags_output else {},
+        'title': extracted_title,
+        'tags': extracted_tags,
+    })
 
 
 def _build_geo_report(bridge_full_output: dict) -> dict:

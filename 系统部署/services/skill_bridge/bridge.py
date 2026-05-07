@@ -310,6 +310,8 @@ class SkillBridge:
         business_range: str = "",
         business_type: str = "",
         structure_id: str = "",
+        operation_plan: Optional[dict] = None,
+        five_stage_info: Optional[dict] = None,
         skip_steps: Optional[List[str]] = None,
     ) -> SkillExecutionResult:
         """
@@ -344,9 +346,15 @@ class SkillBridge:
             manual_inputs["business_type"] = business_type
         if structure_id:
             manual_inputs["structure_id"] = structure_id
+        else:
+            manual_inputs["structure_id"] = ""
         # 【修复】始终传递可选参数，确保占位符被填充
         manual_inputs["brand_context"] = brand_context if brand_context else {}
         manual_inputs["keyword_library"] = keyword_library if keyword_library else {}
+        if operation_plan:
+            manual_inputs["operation_plan"] = operation_plan
+        if five_stage_info:
+            manual_inputs["five_stage_info"] = five_stage_info
 
         return self._executor.execute_skill(
             "video_script_generator",
@@ -369,6 +377,8 @@ class SkillBridge:
         business_range: str = "",
         business_type: str = "",
         template_id: str = "",
+        operation_plan: Optional[dict] = None,
+        five_stage_info: Optional[dict] = None,
         skip_steps: Optional[List[str]] = None,
     ) -> SkillExecutionResult:
         """
@@ -403,9 +413,15 @@ class SkillBridge:
             manual_inputs["business_type"] = business_type
         if template_id:
             manual_inputs["template_id"] = template_id
+        else:
+            manual_inputs["template_id"] = ""
         # 【修复】始终传递可选参数，确保占位符被填充
         manual_inputs["brand_context"] = brand_context if brand_context else {}
         manual_inputs["keyword_library"] = keyword_library if keyword_library else {}
+        if operation_plan:
+            manual_inputs["operation_plan"] = operation_plan
+        if five_stage_info:
+            manual_inputs["five_stage_info"] = five_stage_info
 
         return self._executor.execute_skill(
             "long_text_generator",

@@ -1924,6 +1924,7 @@ var _qualitySuggestionsHtml = '';
 var _currentReport = null; // 当前评分报告数据
 var _sectionDisplayConfig = [];
 var _allClientSections = []; // 所有客户端可见区块的内容
+var _contactInfo = null; // 联系方式信息
 
 function escHtml(str) {
     if (str == null) return '';
@@ -2016,6 +2017,24 @@ function loadContentDetail() {
                 _generationData = data.data;
                 _portraitId = data.data.portrait_id;
                 _sectionDisplayConfig = data.data.section_display_config || [];
+
+                // 获取客户档案信息（用于替换联系方式占位符）
+                if (_portraitId) {
+                    fetch('/public/api/portraits/' + _portraitId + '/client-profile', { credentials: 'include' })
+                        .then(function(resp) { return resp.json(); })
+                        .then(function(profileData) {
+                            if (profileData.success && profileData.data && profileData.data.client_profile) {
+                                var cp = profileData.data.client_profile;
+                                _contactInfo = {
+                                    phone: cp.contact_info || '',
+                                    wechat: cp.wechat_id || '',
+                                    publicAccount: cp.public_account || ''
+                                };
+                            }
+                        })
+                        .catch(function(e) { console.warn('获取客户档案失败:', e); });
+                }
+
                 renderContentDetail(data.data);
             } else {
                 showError('加载失败', data.message || '内容不存在或已删除');
@@ -2175,7 +2194,7 @@ function extractSectionContent(key, contentData) {
         if (!slides || !Array.isArray(slides) || slides.length === 0) {
             return '';
         }
-        return buildSlidesMarkdown(slides);
+        return buildSlidesMarkdown(slides, _contactInfo);
     }
 
     // content_plan：必须是字符串，不是对象则转为 JSON 展示
@@ -2806,11 +2825,15 @@ function buildSlidesSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass) 
     var slides = contentData.slides || [];
 
     // 构建可复制的 markdown 内容
-    var md = buildSlidesMarkdown(slides);
+    var md = buildSlidesMarkdown(slides, _contactInfo);
     var displayContent = escHtml(md);
     var previewContent = escHtml(md.substring(0, 300)) + (md.length > 300 ? '\n\n...（展开查看全部）' : '');
 
-    // 复用 renderClientSections 传入的复制按钮（保持布局一致）
+    // 使用与标题区块一致的复制按钮样式
+    var copyBtn = '<button class="btn-copy-title" data-copy-content="' + escHtml(md.replace(/"/g, '&quot;')) + '" onclick="copyFromDataAttr(this)">' +
+        '<i class="bi bi-clipboard"></i>复制全部' +
+        '</button>';
+
     var sectionKey = sec.section_key;
     return '<div class="' + cardClass + '" id="panel-' + escHtml(sectionKey) + '">' +
         '<div class="section-card-header">' +
@@ -2820,7 +2843,7 @@ function buildSlidesSection(sec, badgeClass, badgeText, copyBtnHtml, cardClass) 
                 (slides.length ? '<span class="slide-count-badge">' + slides.length + '张图</span>' : '') +
             '</div>' +
             '<div class="section-actions">' +
-                copyBtnHtml +
+                copyBtn +
             '</div>' +
         '</div>' +
         '<div class="section-card-body slides-body">' +
@@ -2845,7 +2868,8 @@ function copySlidesMarkdown(btn) {
 }
 
 // 将 slides 数据构建为 skill 规范的 markdown 格式
-function buildSlidesMarkdown(slides) {
+// contactInfo: 可选，包含真实联系方式的对象 {phone, wechat, publicAccount}
+function buildSlidesMarkdown(slides, contactInfo) {
     if (!slides || slides.length === 0) return '';
 
     var lines = [];
@@ -2934,41 +2958,40 @@ function buildSlidesMarkdown(slides) {
         lines.push('');
 
         // 文字内容（AI生图用）
-        lines.push('**【文字内容】（AI生图用）**');
-        lines.push('');
-        lines.push('画面：' + (visualStyle ? visualStyle.split('\n')[0] : '具体场景图'));
+        // 注意：只输出要叠加的纯文字内容，不输出标签
+        lines.push('**【叠加文字】**');
         lines.push('');
 
-        // 主标题 / 金句
-        if (mainTitle) {
-            lines.push('文字：');
-            if (role && role.includes('封面')) {
-                lines.push('主标题：' + mainTitle);
-                if (subContent) {
-                    subContent.split('\n').forEach(function(sc) {
-                        if (sc.trim()) lines.push('副标题：' + sc.trim());
-                    });
-                }
-            } else {
-                subPoints.forEach(function(pt) { lines.push(pt); });
-            }
-            lines.push('');
-        }
+        // 替换占位符的辅助函数
+        var replacePlaceholders = function(text) {
+            if (!contactInfo || !text) return text;
+            // 替换电话号码占位符
+            text = text.replace(/138xxxx8888|1[3-9]\d{9,10}/g, contactInfo.phone || '');
+            // 替换微信号占位符
+            text = text.replace(/微信号[:：]?\s*\S+/g, contactInfo.wechat ? '微信：' + contactInfo.wechat : '');
+            return text;
+        };
 
         // 金句色块
         if (goldenText) {
-            lines.push('金句色块：' + goldenText);
-            lines.push('背景色：' + goldenBg);
-            lines.push('');
+            lines.push(replacePlaceholders(goldenText));
         }
 
-        if (textCountLimit) {
-            lines.push('字数限制：' + textCountLimit + '字');
+        // 要点/副标题
+        if (role && role.includes('封面')) {
+            if (bigSlogan || mainTitle) {
+                lines.push(bigSlogan || mainTitle);
+            }
+        } else {
+            if (subPoints && subPoints.length > 0) {
+                subPoints.forEach(function(pt) {
+                    lines.push(replacePlaceholders(pt));
+                });
+            }
         }
-        lines.push('字体：思源黑体、微软雅黑（AI生图必须遵守）');
-        lines.push('尺寸：1080x1920px，9:16竖版');
-        // 禁止符号始终输出（与 Python 对齐）
-        lines.push('禁止：❌ ✅ 🏆 💰 等符号；┌ ═ ║ ─ │ ├ 等代码块符号');
+
+        lines.push('');
+        lines.push('（制作规范：字体-思源黑体/微软雅黑，字号18pt以上，禁止emoji符号）');
         lines.push('');
 
         // 设计规格
@@ -2980,7 +3003,7 @@ function buildSlidesMarkdown(slides) {
             var veLabels = visualElements.map(function(ve) { return veMap[ve] || ve; });
             specs.push('- UI组件：' + veLabels.join('、'));
         }
-        if (goldenText) specs.push('- 金句色块：' + goldenText + '（背景色：' + goldenBg + '）');
+        if (goldenText) specs.push('- 金句色块：' + replacePlaceholders(goldenText) + '（背景色：' + goldenBg + '）');
         lines.push('**【设计规格】**');
         specs.forEach(function(spec) { lines.push(spec); });
         lines.push('');
