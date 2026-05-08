@@ -9,7 +9,9 @@ import re
 import random
 import logging
 from datetime import datetime
+from typing import List, Optional, Dict, Any
 from services.llm import get_llm_service
+from services.temperature_word_library import temperature_word_library
 
 logger = logging.getLogger(__name__)
 
@@ -434,3 +436,362 @@ class TopicGenerator:
                 "reason": "知识科普型选题"
             }
         ]
+
+
+class ContentTemperatureMixin:
+    """
+    内容温度增强 Mixin
+
+    提供温度选题生成所需的方法：
+    1. 人设视角注入
+    2. 三要素关键词注入
+    3. 情绪词密度控制
+    4. 温度选题Prompt构建
+    """
+
+    def __init__(self):
+        self.word_library = temperature_word_library
+
+    def generate_topics_with_temperature(
+        self,
+        business_description: str,
+        business_range: str,
+        business_type: str,
+        portraits: list,
+        problem_keywords: list,
+        persona_type: str = '陪伴者',
+        target_elements: List[str] = None,
+        is_premium: bool = False,
+        skill_mode: bool = False,
+        topic_type: str = None,
+        topic_type_name: str = None
+    ) -> dict:
+        """
+        生成带温度属性的选题
+
+        Args:
+            business_description: 业务描述
+            business_range: 经营范围
+            business_type: 业务类型
+            portraits: 用户画像列表
+            problem_keywords: 问题关键词列表
+            persona_type: 人设类型（陪伴者/教导者/崇拜者/陪衬者/搞笑者）
+            target_elements: 目标三要素（至少2个）
+            is_premium: 是否付费用户
+            skill_mode: Skill模式
+            topic_type: 选题类型键
+            topic_type_name: 选题类型名称
+
+        Returns:
+            dict: {
+                "success": bool,
+                "topics": list,  # 每项包含温度元数据
+                "temperature_config": dict,  # 本次温度配置
+                "error": str
+            }
+        """
+        if target_elements is None:
+            target_elements = ['有用', '有共鸣']
+
+        try:
+            # 构建温度Prompt
+            prompt = self._build_temperature_topic_prompt(
+                business_description=business_description,
+                business_range=business_range,
+                business_type=business_type,
+                portraits=portraits,
+                problem_keywords=problem_keywords,
+                persona_type=persona_type,
+                target_elements=target_elements,
+                is_premium=is_premium,
+                skill_mode=skill_mode,
+                topic_type=topic_type,
+                topic_type_name=topic_type_name
+            )
+
+            # 调用LLM生成
+            messages = [
+                {"role": "system", "content": "你是一位资深的内容策划专家，擅长生成有温度、有情感共鸣的短视频/图文选题。必须严格按照JSON格式输出。"},
+                {"role": "user", "content": prompt}
+            ]
+            response = self.llm.chat(messages)
+
+            # 解析结果
+            topics = self._parse_topics_response(response)
+
+            if not topics:
+                return {
+                    'success': False,
+                    'error': '温度选题生成失败，请重试'
+                }
+
+            # 添加温度元数据
+            topics = self._add_temperature_metadata(
+                topics=topics,
+                persona_type=persona_type,
+                target_elements=target_elements
+            )
+
+            return {
+                'success': True,
+                'topics': topics,
+                'temperature_config': {
+                    'persona_type': persona_type,
+                    'target_elements': target_elements
+                }
+            }
+
+        except Exception as e:
+            logger.error("[TopicGenerator] Temperature generate error: %s", e)
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def _build_temperature_topic_prompt(
+        self,
+        business_description: str,
+        business_range: str,
+        business_type: str,
+        portraits: list,
+        problem_keywords: list,
+        persona_type: str,
+        target_elements: List[str],
+        is_premium: bool,
+        skill_mode: bool,
+        topic_type: str,
+        topic_type_name: str
+    ) -> str:
+        """构建带温度的选题Prompt"""
+
+        # 构建用户画像描述
+        portrait_descriptions = self._build_portrait_descriptions(portraits)
+        keyword_text = ', '.join(problem_keywords[:10]) if problem_keywords else ''
+
+        # 获取当前时间信息
+        current_season = self._get_current_season()
+        current_month = datetime.now().month
+
+        # 获取人设词库
+        persona_keywords = self.word_library.get_persona_keywords(persona_type)
+        persona_angles = self.word_library.get_persona_angles(persona_type)
+
+        # 获取三要素词库
+        elements_context = self._build_elements_context(target_elements)
+
+        # 人设角度选择
+        persona_angle = random.choice(persona_angles) if persona_angles else ""
+
+        # 温度约束
+        temperature_constraint = f"""
+## 【温度约束】人设视角与三要素
+你必须以【{persona_type}】的人设视角来构思选题。
+
+【{persona_type}人设特点】
+- 关键词：{', '.join(persona_keywords[:5])}
+- 人设角度：{persona_angle}
+- 语气特点：{self._get_persona_tone_desc(persona_type)}
+
+【目标三要素】（至少体现2个）
+{elements_context}
+
+【情绪词密度】每个选题标题或副标题中，至少包含1个情绪词
+情绪词参考：{', '.join(self.word_library.HIGH_EMOTION[:10])}
+"""
+
+        # Skill模式额外字段
+        skill_mode_req = ""
+        skill_fields_block = ""
+        if skill_mode:
+            skill_mode_req = '7. Skill模式：每个选题包含core_value（核心卖点）、scene_options（场景选项）、content_type（内容类型）'
+            skill_fields_block = '''
+    "core_value": "核心卖点/观点（一句话概括选题能提供的核心价值）",
+    "scene_options": [{"id": "A", "label": "场景A描述"}, {"id": "B", "label": "场景B描述"}],
+    "content_type": "图文/长文/短视频"'''
+
+        prompt = f"""你是一位资深的内容策划专家。请根据以下信息，生成10个有温度、有情感共鸣的短视频/图文选题。
+
+## 业务信息
+- 业务描述：{business_description}
+- 经营范围：{'本地服务' if business_range == 'local' else '跨区域服务'}
+- 业务类型：{business_type}
+
+## 目标用户画像
+{portrait_descriptions or '暂无详细画像信息'}
+
+## 问题关键词
+{keyword_text or '暂无关键词信息'}
+
+## 当前时间
+- 季节：{current_season}（{current_month}月）
+- 选题需考虑季节特性
+
+{temperature_constraint}
+
+## 选题要求
+1. 每个选题围绕一个具体问题，标题简洁有力（20字以内）
+2. 标题必须包含情绪词，引发用户共鸣
+3. 符合【{persona_type}】人设的视角和语气
+4. 体现目标三要素：{', '.join(target_elements)}
+5. 每个选题说明推荐理由和温度亮点
+{skill_mode_req}
+
+## 输出格式（严格JSON）
+```json
+[
+  {{
+    "id": "1",
+    "title": "选题标题（20字以内，必须包含情绪词）",
+    "subtitle": "副标题/补充（可选，用于增强温度感）",
+    "type": "问题诊断/解决方案/经验分享/避坑指南/知识科普",
+    "type_key": "pain_point/solution/emotional/pitfall/tutorial/knowledge",
+    "target": "目标人群描述",
+    "reason": "推荐理由",
+    "temperature_highlight": "温度亮点说明（为什么这个选题有温度）"
+    {skill_fields_block}
+  }},
+  ...共10个选题
+]
+```
+请严格按照JSON格式输出，不要包含其他内容。"""
+
+        return prompt
+
+    def _build_elements_context(self, target_elements: List[str]) -> str:
+        """构建三要素词库上下文"""
+        context_parts = []
+        for element in target_elements:
+            element_words = self.word_library.get_element_words(element)
+            if element_words:
+                patterns = ', '.join(element_words.get('patterns', [])[:5])
+                emotions = ', '.join(element_words.get('emotions', [])[:3])
+                context_parts.append(f"- {element}：关键词{patterns}，情感价值{emotions}")
+        return '\n'.join(context_parts) if context_parts else "- 有用：干货分享 | 有共鸣：情感连接"
+
+    def _get_persona_tone_desc(self, persona_type: str) -> str:
+        """获取人设语气描述"""
+        tone_map = {
+            '陪伴者': '温暖、理解、共情的口吻，像朋友间的倾诉',
+            '教导者': '专业、权威但易懂，像经验丰富的导师',
+            '崇拜者': '热情、激动、强烈推荐，像种草达人',
+            '陪衬者': '自嘲、低姿态，像分享踩坑经历的朋友',
+            '搞笑者': '幽默、反转、娱乐，像段子手'
+        }
+        return tone_map.get(persona_type, '温暖友好的口吻')
+
+    def _add_temperature_metadata(
+        self,
+        topics: list,
+        persona_type: str,
+        target_elements: List[str]
+    ) -> list:
+        """为选题添加温度元数据"""
+        for topic in topics:
+            # 人设类型
+            topic['persona_type'] = persona_type
+
+            # 三要素组合
+            topic['target_elements'] = target_elements
+
+            # 推荐情绪词（从词库随机选取）
+            emotion_words = random.sample(
+                self.word_library.HIGH_EMOTION + self.word_library.MEDIUM_EMOTION,
+                min(3, len(self.word_library.MEDIUM_EMOTION))
+            )
+            topic['recommended_emotion_words'] = emotion_words
+
+            # 推荐人设角度
+            persona_angles = self.word_library.get_persona_angles(persona_type)
+            topic['persona_angle_hint'] = random.choice(persona_angles) if persona_angles else ""
+
+            # 温度标签
+            topic['temperature_tags'] = {
+                'persona': persona_type,
+                'elements': target_elements,
+                'emotion_level': 'high' if '有趣' in target_elements else 'medium'
+            }
+
+        return topics
+
+    def build_temperature_topic_context(
+        self,
+        persona_type: str,
+        target_elements: List[str],
+        intensity: str = 'high'
+    ) -> str:
+        """构建温度选题上下文（供外部调用）"""
+        return self.word_library.build_temperature_prompt_context(
+            persona_type=persona_type,
+            target_elements=target_elements,
+            intensity=intensity
+        )
+
+
+class TemperatureTopicGenerator(TopicGenerator, ContentTemperatureMixin):
+    """
+    温度增强选题生成器
+
+    继承 TopicGenerator 的所有功能，并增加温度相关能力
+    """
+
+    def __init__(self):
+        TopicGenerator.__init__(self)
+        ContentTemperatureMixin.__init__(self)
+
+    def generate_topics(
+        self,
+        business_description: str,
+        business_range: str,
+        business_type: str,
+        portraits: list,
+        problem_keywords: list,
+        is_premium: bool = False,
+        skill_mode: bool = False,
+        topic_type: str = None,
+        topic_type_name: str = None,
+        # ── 温度相关参数 ──
+        enable_temperature: bool = False,
+        persona_type: str = '陪伴者',
+        target_elements: list = None
+    ) -> dict:
+        """
+        生成选题（支持温度增强）
+
+        Args:
+            enable_temperature: 是否启用温度增强
+            persona_type: 人设类型
+            target_elements: 三要素组合
+        """
+        if enable_temperature:
+            return self.generate_topics_with_temperature(
+                business_description=business_description,
+                business_range=business_range,
+                business_type=business_type,
+                portraits=portraits,
+                problem_keywords=problem_keywords,
+                persona_type=persona_type,
+                target_elements=target_elements or ['有用', '有共鸣'],
+                is_premium=is_premium,
+                skill_mode=skill_mode,
+                topic_type=topic_type,
+                topic_type_name=topic_type_name
+            )
+        else:
+            # 使用原有逻辑
+            return TopicGenerator.generate_topics(
+                self,
+                business_description=business_description,
+                business_range=business_range,
+                business_type=business_type,
+                portraits=portraits,
+                problem_keywords=problem_keywords,
+                is_premium=is_premium,
+                skill_mode=skill_mode,
+                topic_type=topic_type,
+                topic_type_name=topic_type_name
+            )
+
+
+# 全局实例
+topic_generator = TopicGenerator()
+temperature_topic_generator = TemperatureTopicGenerator()

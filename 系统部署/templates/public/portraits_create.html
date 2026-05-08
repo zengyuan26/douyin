@@ -1503,6 +1503,139 @@
         padding: 16px 24px;
     }
 
+    /* 温度配置样式 */
+    .temperature-config-section {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid var(--apple-gray6);
+    }
+    .temperature-config-section .section-title {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .temperature-config-section .section-title .badge {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--apple-red);
+        color: white;
+    }
+
+    /* 人设选择器 */
+    .persona-selector {
+        margin-bottom: 16px;
+    }
+    .persona-selector label {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        display: block;
+    }
+    .persona-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .persona-btn {
+        padding: 8px 14px;
+        border: 1.5px solid var(--apple-gray4);
+        border-radius: 8px;
+        background: var(--bg-primary);
+        font-size: 0.8125rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .persona-btn:hover {
+        border-color: var(--apple-red);
+        background: rgba(255, 59, 48, 0.05);
+    }
+    .persona-btn.active {
+        border-color: var(--apple-red);
+        background: rgba(255, 59, 48, 0.1);
+        color: var(--apple-red);
+    }
+
+    /* 三要素选择器 */
+    .element-selector {
+        margin-bottom: 16px;
+    }
+    .element-selector label {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        display: block;
+    }
+    .element-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .element-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border: 1.5px solid var(--apple-gray4);
+        border-radius: 8px;
+        background: var(--bg-primary);
+        font-size: 0.8125rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .element-checkbox:hover {
+        border-color: var(--apple-blue);
+        background: rgba(0, 122, 255, 0.05);
+    }
+    .element-checkbox.active {
+        border-color: var(--apple-blue);
+        background: rgba(0, 122, 255, 0.1);
+    }
+    .element-checkbox input {
+        display: none;
+    }
+    .element-checkbox .check-icon {
+        width: 16px;
+        height: 16px;
+        border: 1.5px solid var(--apple-gray4);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    .element-checkbox.active .check-icon {
+        background: var(--apple-blue);
+        border-color: var(--apple-blue);
+        color: white;
+    }
+
+    /* 温度预览 */
+    .temperature-preview {
+        margin-top: 12px;
+        padding: 12px;
+        background: var(--apple-gray7);
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+    }
+    .temperature-preview .preview-item {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 4px;
+    }
+    .temperature-preview .preview-label {
+        color: var(--text-tertiary);
+        min-width: 60px;
+    }
+
     /* 删除确认 Toast */
     .delete-confirm-toast {
         display: none;
@@ -2270,8 +2403,30 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab3：生成画像 -->
+                <div class="super-tab-panel" id="super-tab-portraits">
+                    <div class="tab-panel-inner">
+                        <div class="portraits-wrapper">
+                            <!-- 画像生成加载状态 -->
+                            <div id="portrait-generating-loading" style="display: none; text-align: center; padding: 48px 0;">
+                                <p style="color: var(--text-secondary); font-size: 0.9375rem;">
+                                    <i class="bi bi-hourglass-split" style="margin-right: 6px;"></i>正在加载...
+                                </p>
+                            </div>
+
+                            <!-- 画像为空时的提示 -->
+                            <div id="portraits-empty-hint" class="portraits-empty-hint" style="display: none;">
+                                <i class="bi bi-people" style="font-size: 3rem; color: #ccc; margin-bottom: 16px;"></i>
+                                <p style="font-size: 0.9375rem;">暂无目标客户画像</p>
+                                <p style="font-size: 0.8125rem;">请先生成画像后再查看</p>
+                            </div>
+
                             <!-- 画像卡片区域 -->
-                            <div id="target-customers-section" style="display: none;"></div>
+                            <div id="portraits-list-section" style="display: none;"></div>
                         </div>
                     </div>
                 </div>
@@ -2336,6 +2491,60 @@
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="portrait-default-check">
                         <label class="form-check-label" for="portrait-default-check">设为默认画像</label>
+                    </div>
+
+                    {# 温度配置区域 #}
+                    <div class="temperature-config-section">
+                        <div class="section-title">
+                            <span>内容温度配置</span>
+                            <span class="badge">推荐</span>
+                        </div>
+
+                        {# 人设选择器 #}
+                        <div class="persona-selector">
+                            <label>选择内容人设定位</label>
+                            <div class="persona-options" id="persona-options">
+                                <button type="button" class="persona-btn active" data-persona="陪伴者" data-icon="👥">👥 陪伴者</button>
+                                <button type="button" class="persona-btn" data-persona="教导者" data-icon="📚">📚 教导者</button>
+                                <button type="button" class="persona-btn" data-persona="崇拜者" data-icon="✨">✨ 崇拜者</button>
+                                <button type="button" class="persona-btn" data-persona="陪衬者" data-icon="😂">😂 陪衬者</button>
+                                <button type="button" class="persona-btn" data-persona="搞笑者" data-icon="🎭">🎭 搞笑者</button>
+                            </div>
+                        </div>
+
+                        {# 三要素选择器 #}
+                        <div class="element-selector">
+                            <label>选择内容要素（至少2个）</label>
+                            <div class="element-options" id="element-options">
+                                <label class="element-checkbox active" data-element="有趣">
+                                    <input type="checkbox" name="element" value="有趣" checked>
+                                    <span class="check-icon"><i class="bi bi-check"></i></span>
+                                    <span>🎉 有趣</span>
+                                </label>
+                                <label class="element-checkbox active" data-element="有用">
+                                    <input type="checkbox" name="element" value="有用" checked>
+                                    <span class="check-icon"><i class="bi bi-check"></i></span>
+                                    <span>💡 有用</span>
+                                </label>
+                                <label class="element-checkbox" data-element="有共鸣">
+                                    <input type="checkbox" name="element" value="有共鸣">
+                                    <span class="check-icon"><i class="bi bi-check"></i></span>
+                                    <span>💕 有共鸣</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {# 温度预览 #}
+                        <div class="temperature-preview" id="temperature-preview">
+                            <div class="preview-item">
+                                <span class="preview-label">人设：</span>
+                                <span id="preview-persona">陪伴者</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">要素：</span>
+                                <span id="preview-elements">有趣、有用</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -2784,17 +2993,10 @@ function resetSuperPortraitFlow() {
         if (list) list.innerHTML = '';
     }
 
-    // 清理问题区域（向后兼容）
-    const problemsSection = document.getElementById('problems-section');
-    if (problemsSection) {
-        problemsSection.innerHTML = '';
-        problemsSection.style.display = 'none';
-    }
-    safeSetDisplay('problems-empty-hint', 'flex');
-
-    const targetSection = document.getElementById('target-customers-section');
+    // 清理画像区域
+    const targetSection = document.getElementById('portraits-list-section');
     if (targetSection) targetSection.innerHTML = '';
-    safeSetDisplay('target-customers-section', 'none');
+    safeSetDisplay('portraits-list-section', 'none');
     safeSetDisplay('portraits-empty-hint', 'flex');
     safeSetDisplay('portrait-generating-loading', 'none');
 
@@ -2807,18 +3009,28 @@ function resetSuperPortraitFlow() {
 
 /**
  * 安全地设置元素显示状态或属性
+ * 支持两种调用方式：
+ *   - 三参数：safeSetDisplay('id', 'display', 'none')
+ *   - 两参数：safeSetDisplay('id', 'none') - 直接设置 display 样式
  * @param {string} elementId - 元素ID
- * @param {string} prop - 属性名（如 'display', 'disabled' 等）
- * @param {*} value - 属性值（如 'flex', 'none', true, false 等）
+ * @param {string} prop - 属性名（如 'display', 'disabled' 等）或直接是样式值（如 'flex', 'none'）
+ * @param {*} value - 属性值（如 'flex', 'none', true, false 等），两参数模式下可省略
  */
 function safeSetDisplay(elementId, prop, value) {
     const el = document.getElementById(elementId);
-    if (el) {
-        if (prop === 'disabled') {
-            el.disabled = value;
-        } else {
-            el.style[prop] = value;
-        }
+    if (!el) return;
+
+    // 两参数模式：prop 直接是样式值（如 safeSetDisplay('id', 'flex')）
+    if (value === undefined && prop !== 'disabled') {
+        el.style.display = prop;
+        return;
+    }
+
+    // 三参数模式
+    if (prop === 'disabled') {
+        el.disabled = value;
+    } else {
+        el.style[prop] = value;
     }
 }
 
@@ -2922,7 +3134,7 @@ async function refreshPortraits() {
 
     // 显示局部加载状态
     safeSetDisplay('portrait-generating-loading', 'display', 'block');
-    safeSetDisplay('target-customers-section', 'display', 'none');
+    safeSetDisplay('portraits-list-section', 'display', 'none');
     safeSetDisplay('portraits-empty-hint', 'display', 'none');
 
     _isGeneratingPortraits = true;
@@ -2959,8 +3171,8 @@ async function refreshPortraits() {
         const portraits = data.portraits || [];
 
         if (portraits.length === 0) {
-            document.getElementById('portrait-generating-loading').style.display = 'none';
-            document.getElementById('target-customers-section').style.display = 'block';
+            safeSetDisplay('portrait-generating-loading', 'display', 'none');
+            safeSetDisplay('portraits-list-section', 'display', 'block');
             showToast('该问题暂无画像数据', 'warning');
             return;
         }
@@ -2975,16 +3187,16 @@ async function refreshPortraits() {
         // 更新服务端快照
         saveSnapshotToServer();
 
-        document.getElementById('portrait-generating-loading').style.display = 'none';
-        document.getElementById('target-customers-section').style.display = 'block';
+        safeSetDisplay('portrait-generating-loading', 'display', 'none');
+        safeSetDisplay('portraits-list-section', 'display', 'block');
 
         showToast('换一批成功！获得 ' + portraits.length + ' 个画像', 'success');
     } catch (e) {
         if (mySeq !== _refreshPortraitsSeq) return;
         showToast('换一批失败，请稍后重试', 'error');
         console.error('[换一批-画像] 异常', e);
-        document.getElementById('portrait-generating-loading').style.display = 'none';
-        document.getElementById('target-customers-section').style.display = 'block';
+        safeSetDisplay('portrait-generating-loading', 'display', 'none');
+        safeSetDisplay('portraits-list-section', 'display', 'block');
     } finally {
         if (mySeq !== _refreshPortraitsSeq) return;
         _isGeneratingPortraits = false;
@@ -3446,17 +3658,14 @@ function showSupplyDemandModal(idx) {
     const opp = (_opportunityCarouselData || [])[idx];
     if (!opp) return;
 
+    // Skill 框架核心字段（字符串格式）
     const unmetProblem = opp.unmet_problem || '';
-    const sevCons = opp.severity_consequence || '';
-    const urgTrig = opp.urgency_trigger || '';
-    const whyUnsolved = opp.why_unsolved || {};
-    const supplyGap = opp.supply_gap || {};
-    const whyReasons = (whyUnsolved.reasons || []).join('、');
-    const whyBizType = whyUnsolved.business_type || '';
-    const whyDecCost = whyUnsolved.decision_cost || '';
-    const supQual = supplyGap.supply_quality_issue || '';
-    const supForm = supplyGap.supply_form_issue || '';
-    const whyContent = [whyBizType, whyReasons].filter(Boolean).join(' · ');
+    const whyUnsolved = opp.why_unsolved || '';  // 字符串格式
+    const supplyGap = opp.supply_gap || '';       // 字符串格式
+    const entryAngle = opp.entry_angle || '';     // 切入角度
+    const severity = opp.severity || 0;           // 严重程度
+    const urgency = opp.urgency || 0;             // 紧急程度
+    const failureExperiences = opp.failure_experiences || [];  // 用户失败经历
 
     const itemBar = (label, content, color) => {
         if (!content) return '';
@@ -3473,22 +3682,46 @@ function showSupplyDemandModal(idx) {
         </div>`;
     };
 
-    const whyFinal = whyContent + (whyDecCost ? ` · 决策成本${whyDecCost}` : '');
-
     const m = document.createElement('div');
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
     m.onclick = (e) => { if (e.target === m) m.remove(); };
+
+    // 失败经历展示
+    const failureHtml = failureExperiences.length > 0
+        ? `<div style="margin-top:16px;">
+            <div style="font-size:0.8125rem;font-weight:600;color:#ff3b30;margin-bottom:8px;">🔥 用户失败经历（爆款选题来源）</div>
+            ${failureExperiences.map(f => `
+                <div style="margin-bottom:10px;padding:10px;background:rgba(255,59,48,0.05);border-radius:8px;border-left:3px solid #ff3b30;">
+                    <div style="font-size:0.75rem;color:#ff3b30;font-weight:500;margin-bottom:4px;">${f.type || '失败经历'}</div>
+                    <div style="font-size:0.8125rem;color:#333;line-height:1.5;">${f.description || ''}</div>
+                    ${f.topic_formula ? `<div style="margin-top:6px;font-size:0.75rem;color:#888;">选题公式：${f.topic_formula}</div>` : ''}
+                </div>
+            `).join('')}
+           </div>`
+        : '';
+
     m.innerHTML = `
-        <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:600px;max-height:60vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+        <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:600px;max-height:70vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                 <span style="font-size:0.9375rem;font-weight:600;color:var(--text-primary);">供需分析详情</span>
                 <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#888;font-size:1.125rem;padding:4px;line-height:1;">✕</button>
             </div>
+            ${severity || urgency ? `
+            <div style="display:flex;gap:16px;margin-bottom:16px;">
+                <div style="flex:1;padding:10px;background:rgba(255,149,0,0.1);border-radius:8px;text-align:center;">
+                    <div style="font-size:0.6875rem;color:#888;">严重程度</div>
+                    <div style="font-size:1.25rem;font-weight:700;color:#ff9500;">${severity}</div>
+                </div>
+                <div style="flex:1;padding:10px;background:rgba(175,82,222,0.1);border-radius:8px;text-align:center;">
+                    <div style="font-size:0.6875rem;color:#888;">紧急程度</div>
+                    <div style="font-size:1.25rem;font-weight:700;color:#af52de;">${urgency}</div>
+                </div>
+            </div>` : ''}
             ${itemBar('未满足的问题', unmetProblem, '#007aff')}
-            ${itemBar('不解决的后果', sevCons, '#ff9500')}
-            ${itemBar('触发因素', urgTrig, '#af52de')}
-            ${itemBar('为什么没人做好', whyFinal, '#5856d6')}
-            ${itemBar('供给缺口', [supQual, supForm].filter(Boolean).join(' · '), '#34c759')}
+            ${itemBar('为什么没人解决', whyUnsolved, '#5856d6')}
+            ${itemBar('供给缺口', supplyGap, '#34c759')}
+            ${itemBar('切入角度', entryAngle, '#ff9500')}
+            ${failureHtml}
         </div>`;
     document.body.appendChild(m);
 }
@@ -3565,36 +3798,40 @@ function buildCardHTML(opp, idx, total, isActive) {
     const dcColor = dcTotal >= 7 ? '#34c759' : dcTotal >= 5 ? '#ff9500' : '#ff3b30';
     const dcBgColor = dcTotal >= 7 ? 'rgba(52,199,89,0.12)' : dcTotal >= 5 ? 'rgba(255,149,0,0.12)' : 'rgba(255,59,48,0.12)';
 
-    // 详情面板数据
+    // 详情面板数据（Skill 框架核心字段，字符串格式）
     const unmetProblem = opp.unmet_problem || '';
-    const sevCons = opp.severity_consequence || '';
-    const urgTrig = opp.urgency_trigger || '';
-    const supQual = (opp.supply_gap && opp.supply_gap.supply_quality_issue) ? opp.supply_gap.supply_quality_issue : '';
-    const supForm = (opp.supply_gap && opp.supply_gap.supply_form_issue) ? opp.supply_gap.supply_form_issue : '';
-    const whyReasons = (opp.why_unsolved && opp.why_unsolved.reasons) ? opp.why_unsolved.reasons.join('、') : '';
-    const whyBizType = (opp.why_unsolved && opp.why_unsolved.business_type) ? opp.why_unsolved.business_type : '';
-    const whyDecCost = (opp.why_unsolved && opp.why_unsolved.decision_cost) ? opp.why_unsolved.decision_cost : '';
+    const whyUnsolved = opp.why_unsolved || '';  // 字符串格式
+    const supplyGap = opp.supply_gap || '';       // 字符串格式
+    const entryAngle = opp.entry_angle || '';      // 切入角度
+    const severity = opp.severity || 0;
+    const urgency = opp.urgency || 0;
+    const failureExperiences = opp.failure_experiences || [];
 
     const detailPanelId = `opp-detail-${idx}`;
     const unmetRow = unmetProblem ? `<div class="opp-detail-item">
         <span class="opp-detail-label">未满足的问题</span>
         <span class="opp-detail-value">${unmetProblem}</span>
     </div>` : '';
-    const sevConsRow = sevCons ? `<div class="opp-detail-item">
-        <span class="opp-detail-label">不解决的后果</span>
-        <span class="opp-detail-value">${sevCons}</span>
+    const whyRow = whyUnsolved ? `<div class="opp-detail-item">
+        <span class="opp-detail-label">为什么没人解决</span>
+        <span class="opp-detail-value">${whyUnsolved}</span>
     </div>` : '';
-    const urgTrigRow = urgTrig ? `<div class="opp-detail-item">
-        <span class="opp-detail-label">触发因素</span>
-        <span class="opp-detail-value">${urgTrig}</span>
+    const supGapRow = supplyGap ? `<div class="opp-detail-item">
+        <span class="opp-detail-label">供给缺口</span>
+        <span class="opp-detail-value">${supplyGap}</span>
     </div>` : '';
-    const whyRow = whyReasons ? `<div class="opp-detail-item">
-        <span class="opp-detail-label">为什么没人做好</span>
-        <span class="opp-detail-value">${[whyBizType, whyReasons].filter(Boolean).join(' · ')}${whyDecCost ? ` · 决策成本${whyDecCost}` : ''}</span>
+    const entryRow = entryAngle ? `<div class="opp-detail-item">
+        <span class="opp-detail-label">切入角度</span>
+        <span class="opp-detail-value">${entryAngle}</span>
     </div>` : '';
-    const supGapRow = (supQual || supForm) ? `<div class="opp-detail-item">
-        <span class="opp-detail-label">供给缺口详情</span>
-        <span class="opp-detail-value">${[supQual, supForm].filter(Boolean).join(' | ')}</span>
+
+    // 严重程度×紧急程度展示
+    const severityRow = (severity || urgency) ? `<div class="opp-detail-item">
+        <span class="opp-detail-label">严重程度×紧急程度</span>
+        <span class="opp-detail-value" style="display:flex;gap:8px;">
+            <span style="padding:2px 8px;background:rgba(255,149,0,0.15);border-radius:4px;">严重 ${severity}</span>
+            <span style="padding:2px 8px;background:rgba(175,82,222,0.15);border-radius:4px;">紧急 ${urgency}</span>
+        </span>
     </div>` : '';
 
     // 问题类型（卡片主区域：只显示名称，用颜色区分；详情放弹窗）
@@ -3654,7 +3891,7 @@ function buildCardHTML(opp, idx, total, isActive) {
                 </div>
             </div>
             ${ptCardList ? `<div class="opp-pt-card">${ptCardList}</div>` : ''}
-            ${(unmetRow || sevConsRow || urgTrigRow || whyRow || supGapRow) ? `
+            ${(unmetRow || severityRow || whyRow || supGapRow || entryRow) ? `
             <button class="opp-detail-toggle" onclick="event.stopPropagation();showSupplyDemandModal(${idx})">
                 <i class="bi bi-bar-chart-steps"></i> 查看供需分析详情
             </button>` : ''}
@@ -3904,8 +4141,8 @@ async function selectOpportunityInTab(index, businessDirection) {
             problemKey: _selectedProblemKey,
         };
 
-        document.getElementById('portrait-generating-loading').style.display = 'none';
-        document.getElementById('target-customers-section').style.display = 'block';
+        safeSetDisplay('portrait-generating-loading', 'display', 'none');
+        safeSetDisplay('portraits-list-section', 'display', 'block');
         renderTargetCustomerCards(_selectedProblemKey);
 
         const coreBusinessInput = document.getElementById('core-business-input');
@@ -3957,7 +4194,7 @@ function viewGeneratedPortraits(oppName, carouselIdx) {
     lockFormPanel();
     document.getElementById('btn-one-key-analyze').disabled = true;
     switchSuperTab('tab-portraits');
-    document.getElementById('target-customers-section').style.display = 'block';
+    safeSetDisplay('portraits-list-section', 'display', 'block');
     renderTargetCustomerCards(oppState.problemKey);
 }
 
@@ -4251,7 +4488,7 @@ async function generatePortraitsWithBusiness(coreBusiness) {
     safeSetDisplay('problems-empty-hint', 'display', 'none');
     safeSetDisplay('portraits-empty-hint', 'display', 'none');
     safeSetDisplay('portrait-generating-loading', 'display', 'block');
-    safeSetDisplay('target-customers-section', 'display', 'none');
+    safeSetDisplay('portraits-list-section', 'display', 'none');
 
     // 更新加载提示文字，显示选择的业务方向
     const loadingText = document.querySelector('#portrait-generating-loading p');
@@ -4341,8 +4578,8 @@ async function generatePortraitsWithBusiness(coreBusiness) {
             }
 
             // 隐藏加载状态，显示画像区域
-            document.getElementById('portrait-generating-loading').style.display = 'none';
-            document.getElementById('target-customers-section').style.display = 'block';
+            safeSetDisplay('portrait-generating-loading', 'display', 'none');
+            safeSetDisplay('portraits-list-section', 'display', 'block');
 
             // 渲染画像卡片
             renderTargetCustomerCards(_selectedProblemKey);
@@ -5395,7 +5632,7 @@ async function generatePortraitsForProblem(key, index) {
     }
 
     safeSetDisplay('portrait-generating-loading', 'display', 'block');
-    safeSetDisplay('target-customers-section', 'display', 'none');
+    safeSetDisplay('portraits-list-section', 'display', 'none');
     safeSetDisplay('portraits-empty-hint', 'display', 'none');
 
     try {
@@ -5455,8 +5692,8 @@ async function generatePortraitsForProblem(key, index) {
         showToast('生成失败，请稍后重试', 'error');
         console.error('[generatePortraitsForProblem] 错误:', e);
     } finally {
-        document.getElementById('portrait-generating-loading').style.display = 'none';
-        document.getElementById('target-customers-section').style.display = 'block';
+        safeSetDisplay('portrait-generating-loading', 'display', 'none');
+        safeSetDisplay('portraits-list-section', 'display', 'block');
         _isGeneratingPortraits = false;
 
         // 恢复按钮状态（如果生成失败）
@@ -5476,7 +5713,7 @@ var _activeProblemKeyInOverview = null;
 
 // 渲染所有问题与画像的概览（支持一对多关系）
 function renderPortraitsOverview() {
-    const container = document.getElementById('target-customers-section');
+    const container = document.getElementById('portraits-list-section');
     if (!container) return;
 
     // 如果没有任何问题，清空
@@ -5588,7 +5825,7 @@ function toggleProblemGroupInOverview(key, index) {
     });
 
     // 重新渲染展开的画像列表
-    const container = document.getElementById('target-customers-section');
+    const container = document.getElementById('portraits-list-section');
     if (!container) return;
 
     const listContainer = container.querySelector('.portraits-list-container');
@@ -5707,7 +5944,7 @@ function formatSearchKeywords(keywords) {
 
 // 渲染画像卡片 - 始终展示所有画像，每个画像关联对应的问题溯源
 function renderTargetCustomerCards(focusKey) {
-    const container = document.getElementById('target-customers-section');
+    const container = document.getElementById('portraits-list-section');
     if (!container) return;
 
     // 确保容器可见
@@ -6353,6 +6590,9 @@ async function portraitConfirmSave() {
     const business = document.getElementById('portrait-business-input').value.trim();
     const setDefault = document.getElementById('portrait-default-check').checked;
 
+    // 获取温度配置
+    const temperatureConfig = getTemperatureConfig();
+
     if (!_currentPortraitData) {
         showToast('没有可保存的画像数据', 'error');
         resetSavePortraitBtn(btn, originalText);
@@ -6386,6 +6626,9 @@ async function portraitConfirmSave() {
                 source_session_id: '',
                 set_as_default: setDefault,
                 problem_types: problemTypes,
+                // 温度配置
+                temperature_persona: temperatureConfig.persona_type,
+                temperature_elements: temperatureConfig.target_elements,
             })
         });
 
@@ -6427,6 +6670,70 @@ async function portraitConfirmSave() {
         _isSavingPortrait = false;
     }
 }
+
+// 获取温度配置
+function getTemperatureConfig() {
+    // 获取选中的人设
+    const activePersona = document.querySelector('.persona-btn.active');
+    const personaType = activePersona ? activePersona.dataset.persona : '陪伴者';
+
+    // 获取选中的三要素
+    const selectedElements = [];
+    document.querySelectorAll('.element-checkbox.active').forEach(el => {
+        selectedElements.push(el.dataset.element);
+    });
+    if (selectedElements.length < 2) {
+        selectedElements.push('有用', '有共鸣');
+    }
+
+    return {
+        persona_type: personaType,
+        target_elements: selectedElements.slice(0, 3)
+    };
+}
+
+// 更新温度预览
+function updateTemperaturePreview() {
+    const config = getTemperatureConfig();
+    document.getElementById('preview-persona').textContent = config.persona_type;
+    document.getElementById('preview-elements').textContent = config.target_elements.join('、');
+}
+
+// 初始化温度选择器事件
+function initTemperatureSelectors() {
+    // 人设选择器
+    document.querySelectorAll('.persona-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.persona-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            updateTemperaturePreview();
+        });
+    });
+
+    // 三要素选择器
+    document.querySelectorAll('.element-checkbox').forEach(el => {
+        el.addEventListener('click', function(e) {
+            if (e.target.tagName === 'INPUT') return;
+            const checkbox = this.querySelector('input[type="checkbox"]');
+            checkbox.checked = !checkbox.checked;
+            this.classList.toggle('active', checkbox.checked);
+
+            // 至少选中2个
+            const activeCount = document.querySelectorAll('.element-checkbox.active').length;
+            if (activeCount < 2 && !checkbox.checked) {
+                showToast('至少需要选择2个三要素', 'warning');
+                checkbox.checked = true;
+                this.classList.add('active');
+            }
+            updateTemperaturePreview();
+        });
+    });
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    initTemperatureSelectors();
+});
 
 function resetSavePortraitBtn(btn, originalText) {
     if (btn) {
@@ -7429,7 +7736,7 @@ const SnapshotManager = {
             _selectedOpportunityData = d;
             this.closeDrawer();
             switchSuperTab('tab-portraits');
-            document.getElementById('target-customers-section').style.display = 'block';
+            safeSetDisplay('portraits-list-section', 'display', 'block');
             const problemKey = _oppGeneratedPortraits[name].problemKey;
             renderTargetCustomerCards(problemKey);
             showToast(`已恢复 ${name} 的画像`, 'success');
@@ -7488,8 +7795,8 @@ const SnapshotManager = {
                 problemKey: problemKey,
             };
 
-            document.getElementById('portrait-generating-loading').style.display = 'none';
-            document.getElementById('target-customers-section').style.display = 'block';
+            safeSetDisplay('portrait-generating-loading', 'display', 'none');
+            safeSetDisplay('portraits-list-section', 'display', 'block');
             renderTargetCustomerCards(problemKey);
             this.closeDrawer();
             showToast('画像生成完成', 'success');
@@ -7520,6 +7827,14 @@ const SnapshotManager = {
 // ═══════════════════════════════════════════════════════════════════
 
 var _industryAnalysisData = null;
+
+// 显示行业分析入口区域
+function showIndustryAnalysisSection() {
+    var section = document.getElementById('industry-analysis-section');
+    if (section) {
+        section.style.display = 'block';
+    }
+}
 
 async function generateIndustryAnalysis() {
     var btn = document.getElementById('btn-generate-industry-analysis');
@@ -7652,7 +7967,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     _oppGeneratedPortraits = {};
 
     // 清除 DOM 中的残留内容
-    const targetSection = document.getElementById('target-customers-section');
+    const targetSection = document.getElementById('portraits-list-section');
     if (targetSection) targetSection.innerHTML = '';
 
     await loadUserAuth();

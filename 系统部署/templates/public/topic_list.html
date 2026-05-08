@@ -60,7 +60,7 @@
     /* 列表头部 */
     .playlist-cols {
         display: grid;
-        grid-template-columns: 60px 1fr 160px 100px 80px;
+        grid-template-columns: 60px 1fr 160px 100px 80px 80px 80px;
         gap: 12px;
         padding: 10px 20px;
         background: var(--bg-secondary);
@@ -71,6 +71,11 @@
         letter-spacing: 0.5px;
         text-transform: uppercase;
         flex-shrink: 0;
+    }
+    .playlist-cols .col-persona,
+    .playlist-cols .col-elements,
+    .playlist-cols .col-temp-score {
+        text-align: center;
     }
 
     /* 列表内容区 */
@@ -91,13 +96,59 @@
     /* 列表行 */
     .playlist-row {
         display: grid;
-        grid-template-columns: 60px 1fr 160px 100px 80px;
+        grid-template-columns: 60px 1fr 160px 100px 80px 80px 80px;
         gap: 12px;
         padding: 10px 20px;
         align-items: center;
         border-bottom: 1px solid var(--apple-gray6);
         transition: background var(--transition-fast);
         position: relative;
+    }
+
+    /* 温度标签样式 */
+    .temp-persona-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        background: var(--apple-gray7);
+        color: var(--text-secondary);
+    }
+    .temp-elements-badge {
+        display: inline-flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .temp-element-tag {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 0.625rem;
+        background: var(--apple-gray7);
+        color: var(--text-secondary);
+    }
+    .temp-score-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-align: center;
+        min-width: 40px;
+    }
+    .temp-score-badge.high {
+        background: rgba(52, 199, 89, 0.15);
+        color: #34c759;
+    }
+    .temp-score-badge.medium {
+        background: rgba(255, 149, 0, 0.15);
+        color: #ff9500;
+    }
+    .temp-score-badge.low {
+        background: rgba(255, 59, 48, 0.15);
+        color: #ff3b30;
     }
 
     .playlist-row:last-child {
@@ -470,6 +521,8 @@
             <div style="text-align:center;">序号</div>
             <div>选题名称</div>
             <div style="text-align:center;">业务名称</div>
+            <div style="text-align:center;">人设</div>
+            <div style="text-align:center;">要素</div>
             <div style="text-align:center;">生成次数</div>
             <div style="text-align:center;">查看</div>
         </div>
@@ -657,6 +710,18 @@ function renderTopicRows(topics) {
             ? '<span class="topic-question-badge" title="以问题句开头，适合SEO收录">问句</span>'
             : '<span class="topic-question-badge no" title="建议改为问题句开头">非问句</span>';
 
+        // 温度标签（人设）
+        const personaType = topic.persona_type || '';
+        const personaHtml = personaType
+            ? '<span class="temp-persona-badge">' + escHtml(personaType) + '</span>'
+            : '<span class="temp-persona-badge" style="opacity:0.5;">--</span>';
+
+        // 温度标签（要素）
+        const targetElements = topic.target_elements || [];
+        const elementsHtml = targetElements.length > 0
+            ? '<div class="temp-elements-badge">' + targetElements.slice(0, 2).map(e => '<span class="temp-element-tag">' + escHtml(e) + '</span>').join('') + '</div>'
+            : '<span class="temp-element-tag" style="opacity:0.5;">--</span>';
+
         html +=
             '<div class="playlist-row">' +
                 '<div class="row-index">' + globalIdx + '</div>' +
@@ -670,6 +735,8 @@ function renderTopicRows(topics) {
                     '</div>' +
                 '</div>' +
                 '<div class="row-business">' + businessNameHtml + '</div>' +
+                '<div class="col-persona">' + personaHtml + '</div>' +
+                '<div class="col-elements">' + elementsHtml + '</div>' +
                 '<div class="row-count"><span class="count-num">' + usageCount + '</span> 次</div>' +
                 '<div class="row-action">' +
                     '<a href="/public/content-versions?portraitId=' + topic.portrait_id + '&topicId=' + topic.topic_id + '" class="btn-view" target="_blank">查看</a>' +

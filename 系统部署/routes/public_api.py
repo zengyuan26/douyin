@@ -2374,7 +2374,11 @@ def api_regenerate_topics():
         "problem_keywords": [...],
         "topic_type": "problem_diagnosis",     # 可选：选题类型键
         "topic_type_name": "问题诊断类",        # 可选：选题类型名称
-        "count": 10
+        "count": 10,
+        // ── 温度参数（可选）──
+        "enable_temperature": true,
+        "persona_type": "陪伴者",
+        "target_elements": ["有用", "有共鸣"]
     }
     """
     user_id = session.get('public_user_id')
@@ -2385,25 +2389,51 @@ def api_regenerate_topics():
 
     params = request.get_json() or {}
 
+    # 检查是否启用温度增强
+    enable_temperature = params.get('enable_temperature', False)
+    persona_type = params.get('persona_type', '陪伴者')
+    target_elements = params.get('target_elements', ['有用', '有共鸣'])
+
     try:
-        from services.topic_generator import TopicGenerator
-        generator = TopicGenerator()
-        result = generator.generate_topics(
-            business_description=params.get('business_description', ''),
-            business_range=params.get('business_range', ''),
-            business_type=params.get('business_type', ''),
-            portraits=params.get('portraits', []),
-            problem_keywords=params.get('problem_keywords', []),
-            is_premium=is_premium,
-            topic_type=params.get('topic_type'),
-            topic_type_name=params.get('topic_type_name')
-        )
+        if enable_temperature:
+            from services.topic_generator import TemperatureTopicGenerator
+            generator = TemperatureTopicGenerator()
+            result = generator.generate_topics(
+                business_description=params.get('business_description', ''),
+                business_range=params.get('business_range', ''),
+                business_type=params.get('business_type', ''),
+                portraits=params.get('portraits', []),
+                problem_keywords=params.get('problem_keywords', []),
+                is_premium=is_premium,
+                topic_type=params.get('topic_type'),
+                topic_type_name=params.get('topic_type_name'),
+                enable_temperature=True,
+                persona_type=persona_type,
+                target_elements=target_elements
+            )
+        else:
+            from services.topic_generator import TopicGenerator
+            generator = TopicGenerator()
+            result = generator.generate_topics(
+                business_description=params.get('business_description', ''),
+                business_range=params.get('business_range', ''),
+                business_type=params.get('business_type', ''),
+                portraits=params.get('portraits', []),
+                problem_keywords=params.get('problem_keywords', []),
+                is_premium=is_premium,
+                topic_type=params.get('topic_type'),
+                topic_type_name=params.get('topic_type_name')
+            )
 
         if result.get('success'):
-            return jsonify({
+            response_data = {
                 'success': True,
                 'topics': result.get('topics', [])
-            })
+            }
+            # 如果是温度选题，附加温度配置
+            if enable_temperature and 'temperature_config' in result:
+                response_data['temperature_config'] = result['temperature_config']
+            return jsonify(response_data)
         else:
             return jsonify({
                 'success': False,
@@ -6570,9 +6600,13 @@ def api_market_analyze_opportunities():
             logger.info(f"[api_market_analyze_opportunities] - decision_cost: {_opp.get('decision_cost')}")
             logger.info(f"[api_market_analyze_opportunities] - problem_types: {_debug_json.dumps(_opp.get('problem_types', []), ensure_ascii=False)[:200]}")
             logger.info(f"[api_market_analyze_opportunities] - target_audience: {_opp.get('target_audience','')[:100]}")
+            # Skill 框架核心字段
             logger.info(f"[api_market_analyze_opportunities] - unmet_problem: {_opp.get('unmet_problem','')[:100]}")
-            logger.info(f"[api_market_analyze_opportunities] - supply_gap: {_debug_json.dumps(_opp.get('supply_gap', {}), ensure_ascii=False)[:200]}")
-            logger.info(f"[api_market_analyze_opportunities] - why_unsolved: {_debug_json.dumps(_opp.get('why_unsolved', {}), ensure_ascii=False)[:200]}")
+            logger.info(f"[api_market_analyze_opportunities] - severity×urgency: {_opp.get('severity',0)}×{_opp.get('urgency',0)}")
+            logger.info(f"[api_market_analyze_opportunities] - why_unsolved: {str(_opp.get('why_unsolved',''))[:100]}")
+            logger.info(f"[api_market_analyze_opportunities] - supply_gap: {str(_opp.get('supply_gap',''))[:100]}")
+            logger.info(f"[api_market_analyze_opportunities] - entry_angle: {str(_opp.get('entry_angle',''))[:100]}")
+            logger.info(f"[api_market_analyze_opportunities] - failure_experiences: {_debug_json.dumps(_opp.get('failure_experiences', []), ensure_ascii=False)[:300]}")
         logger.info(f"[api_market_analyze_opportunities] ========== 数据结束 ==========")
 
         return jsonify({

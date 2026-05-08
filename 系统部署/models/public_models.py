@@ -137,6 +137,14 @@ class TopicGenerationLink(db.Model):
     geo_mode = db.Column(db.String(20))
     geo_mode_name = db.Column(db.String(50))
 
+    # ── 温度元数据（选题使用记录）──
+    # 人设类型：陪伴者/教导者/崇拜者/陪衬者/搞笑者
+    persona_type = db.Column(db.String(50), nullable=True)
+    # 目标三要素组合：["有趣", "有用", "有共鸣"]
+    target_elements = db.Column(db.JSON, nullable=True)
+    # 温度标签（情绪词、人设特征等）
+    temperature_tags = db.Column(db.JSON, nullable=True)
+
     # 使用统计
     usage_count = db.Column(db.Integer, default=0)
     # 该选题对应的所有 PublicGeneration ID 列表
@@ -214,6 +222,14 @@ class PublicGeneration(db.Model):
     # ── 质量评分 ──
     quality_score = db.Column(db.Integer, nullable=True)  # GEO质量评分 0-100
     quality_report = db.Column(db.JSON, nullable=True)  # 完整评分报告（含items）
+
+    # ── 温度评分（独立于GEO，0-50分）──
+    # 温度总分（5项×10分=50分）
+    temperature_score = db.Column(db.Integer, nullable=True)
+    # 温度档案详情（人设类型、三要素覆盖、情绪词密度等）
+    temperature_profile = db.Column(db.JSON, nullable=True)
+    # 温度5维度评分：标题温度、开篇温度、内容温度、情感连接、行动温度
+    temperature_dimension_scores = db.Column(db.JSON, nullable=True)
 
     # 消耗
     used_tokens = db.Column(db.Integer, default=0)
@@ -299,15 +315,20 @@ class SavedPortrait(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # ── 星系增强：恒星缩略图与地域 ──
-    # 恒星缩略图 URL（用于 ECharts 可视化）
-    cover_thumb = db.Column(db.String(255), default='')
     # 地域信息
     geo_province = db.Column(db.String(50))     # 主要省份
     geo_city = db.Column(db.String(50))          # 主要城市
     geo_level = db.Column(db.String(20), default='city')  # 地域粒度：province/city/district/nationwide
     geo_coverages = db.Column(db.JSON)           # 覆盖地域列表
     geo_tags = db.Column(db.JSON)                # 地域标签，如 ["高考大省", "西南地区"]
+
+    # ── 温度配置（内容温度提升方案）──
+    # 默认人设定位：陪伴者/教导者/崇拜者/陪衬者/搞笑者
+    temperature_persona = db.Column(db.String(50), nullable=True)
+    # 默认三要素组合：["有趣", "有用", "有共鸣"]，至少2个
+    temperature_elements = db.Column(db.JSON, nullable=True)
+    # 温度档案数量（用于配额控制）
+    temperature_profile_count = db.Column(db.Integer, default=0)
 
     @property
     def has_keyword_library(self):

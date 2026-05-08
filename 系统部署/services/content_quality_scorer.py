@@ -1296,3 +1296,518 @@ __all__ = [
     "score_content",
     "quick_score",
 ]
+
+
+# =============================================================================
+# 温度评分器（独立于GEO评分）
+# =============================================================================
+
+@dataclass
+class TemperatureScoreItem:
+    """温度单项评分结果"""
+    id: int
+    name: str               # 维度名称
+    category: str            # 所属分类
+    score: int              # 得分 0-10
+    max_score: int = 10     # 满分
+    passed: bool = False    # 是否通过（≥8分）
+    detail: str = ''        # 评分理由
+    suggestion: str = ''    # 改进建议
+    icon: str = '✅'        # 状态图标
+
+
+@dataclass
+class TemperatureScoreResult:
+    """温度评分结果"""
+    total_score: int = 0              # 总分 0-50
+    grade: str = 'D'                  # 等级 A/B/C/D
+    passed: bool = False              # 是否≥40分
+    pass_threshold: int = 40          # 通过阈值
+    items: List[TemperatureScoreItem] = field(default_factory=list)  # 各项评分
+    failed_items: List[TemperatureScoreItem] = field(default_factory=list)  # 不达标项
+    suggestions: List[str] = field(default_factory=list)  # 改进建议
+    profile: Dict = field(default_factory=dict)  # 温度档案
+
+
+class TemperatureScorer:
+    """
+    内容温度评分器
+
+    5项温度维度 × 10分 = 50分
+    独立于GEO评分，不影响原有总分
+    """
+
+    # 温度评估项配置
+    TEMPERATURE_SCORING_ITEMS = [
+        {
+            'id': 1,
+            'category': '标题温度',
+            'name': '标题温度',
+            'description': '标题是否包含情绪词、数字钩子、疑问句',
+            'method': 'rule',
+        },
+        {
+            'id': 2,
+            'category': '开篇温度',
+            'name': '开篇温度',
+            'description': '开篇是否在5秒内切入主题，引发共鸣',
+            'method': 'rule',
+        },
+        {
+            'id': 3,
+            'category': '内容温度',
+            'name': '内容温度',
+            'description': '内容是否体现人设一致性、三要素覆盖',
+            'method': 'rule',
+        },
+        {
+            'id': 4,
+            'category': '情感连接',
+            'name': '情感连接',
+            'description': '是否使用"你"、口语化、情绪词密度',
+            'method': 'rule',
+        },
+        {
+            'id': 5,
+            'category': '行动温度',
+            'name': '行动温度',
+            'description': 'CTA情感强度是否足够',
+            'method': 'rule',
+        },
+    ]
+
+    # 情绪词库
+    HIGH_EMOTION = [
+        '崩溃', '哭死', '救命', '扎心', '破防', '笑死',
+        '炸裂', '绝了', '太牛了', '惊艳', '神了', '跪了'
+    ]
+
+    MEDIUM_EMOTION = [
+        '太难了', '没想到', '幸好', '其实', '终于',
+        '终于知道了', '突然发现', '原来如此', '真的太'
+    ]
+
+    # 人设关键词
+    PERSONA_KEYWORDS = {
+        '陪伴者': ['焦虑', '迷茫', '担心', '崩溃', '扎心', '破防', '纠结', '困扰'],
+        '教导者': ['干货', '技巧', '秘诀', '方法', '指南', '攻略', '步骤', '诀窍'],
+        '崇拜者': ['种草', '强推', '绝了', '太牛了', '惊艳', '神了', '宝藏', 'YYDS'],
+        '陪衬者': ['笑死', '哈哈', '太真实', '我也有过', '社死', '翻车', '踩雷'],
+        '搞笑者': ['笑死', '绝了', '炸裂', '破防', '笑到', '离谱', '搞笑', '反转']
+    }
+
+    def __init__(self):
+        pass
+
+    def score(
+        self,
+        content: Dict,
+        persona_type: str = '陪伴者',
+        target_elements: List[str] = None
+    ) -> TemperatureScoreResult:
+        """
+        温度评分入口
+
+        Args:
+            content: 内容数据
+            persona_type: 人设类型
+            target_elements: 三要素组合
+
+        Returns:
+            TemperatureScoreResult: 温度评分结果
+        """
+        if target_elements is None:
+            target_elements = ['有用', '有共鸣']
+
+        # 提取内容
+        title = content.get('title', '')
+        slides = content.get('slides', [])
+        cta = content.get('cta', '')
+
+        # 合并slides内容
+        slides_text = ' '.join([
+            s.get('big_slogan', '') + ' ' + s.get('main_title', '') + ' ' + s.get('sub_content', '')
+            for s in slides
+        ])
+
+        results = {}
+
+        # 1. 标题温度
+        results[1] = self._evaluate_title_temperature(title)
+
+        # 2. 开篇温度
+        results[2] = self._evaluate_opener_temperature(slides)
+
+        # 3. 内容温度
+        results[3] = self._evaluate_content_temperature(
+            slides_text, persona_type, target_elements
+        )
+
+        # 4. 情感连接
+        results[4] = self._evaluate_emotional_connection(slides_text)
+
+        # 5. 行动温度
+        results[5] = self._evaluate_action_temperature(cta)
+
+        # 构建评分项列表
+        items = []
+        for item_config in self.TEMPERATURE_SCORING_ITEMS:
+            item_id = item_config['id']
+            if item_id in results:
+                result = results[item_id]
+                items.append(TemperatureScoreItem(
+                    id=item_id,
+                    name=item_config['name'],
+                    category=item_config['category'],
+                    score=result['score'],
+                    max_score=10,
+                    passed=result['score'] >= 8,
+                    detail=result.get('detail', ''),
+                    suggestion=result.get('suggestion', ''),
+                    icon='✅' if result['score'] >= 6 else '⚠️'
+                ))
+
+        # 计算总分
+        total_score = sum(item.score for item in items)
+
+        # 提取不达标项
+        failed_items = [item for item in items if not item.passed]
+
+        # 生成改进建议
+        suggestions = []
+        for item in failed_items:
+            if item.suggestion:
+                suggestions.append(f"【{item.name}】{item.suggestion}")
+
+        # 确定等级
+        grade = self._calculate_grade(total_score)
+
+        # 构建温度档案
+        profile = {
+            'persona_type': persona_type,
+            'target_elements': target_elements,
+            'dimension_scores': {
+                item.name: item.score for item in items
+            },
+            'total_score': total_score,
+            'grade': grade,
+        }
+
+        return TemperatureScoreResult(
+            total_score=total_score,
+            grade=grade,
+            passed=total_score >= 40,
+            pass_threshold=40,
+            items=items,
+            failed_items=failed_items,
+            suggestions=suggestions,
+            profile=profile
+        )
+
+    def _evaluate_title_temperature(self, title: str) -> Dict:
+        """评估标题温度"""
+        score = 5
+        detail_parts = []
+
+        if not title:
+            return {
+                'score': 3,
+                'detail': '标题为空',
+                'suggestion': '请添加有温度的标题'
+            }
+
+        # 检查情绪词
+        emotion_words = self.HIGH_EMOTION + self.MEDIUM_EMOTION
+        emotion_count = sum(1 for word in emotion_words if word in title)
+        if emotion_count >= 2:
+            score += 3
+            detail_parts.append('情绪词丰富')
+        elif emotion_count >= 1:
+            score += 1
+            detail_parts.append('有情绪词')
+
+        # 检查疑问句
+        has_question = any(q in title for q in ['吗', '怎么', '如何', '为什么', '是不是', '?'])
+        if has_question:
+            score += 1
+            detail_parts.append('有疑问句')
+
+        # 检查数字
+        import re
+        has_number = bool(re.search(r'\d+', title))
+        if has_number:
+            score += 1
+            detail_parts.append('有数字钩子')
+
+        # 检查"你"的使用
+        if '你' in title:
+            score += 1
+            detail_parts.append('有代入感')
+
+        score = min(score, 10)
+        detail = '、'.join(detail_parts) if detail_parts else '基础分'
+
+        return {
+            'score': score,
+            'detail': f'标题温度评估：{detail}' if detail_parts else '标题温度基础分',
+            'suggestion': '建议增加情绪词或数字钩子' if score < 7 else ''
+        }
+
+    def _evaluate_opener_temperature(self, slides: list) -> Dict:
+        """评估开篇温度"""
+        score = 5
+        detail_parts = []
+
+        if not slides:
+            return {
+                'score': 3,
+                'detail': '内容为空',
+                'suggestion': '请添加内容'
+            }
+
+        first_slide = slides[0]
+        first_text = first_slide.get('big_slogan', '') + ' ' + first_slide.get('main_title', '')
+
+        # 检查是否直接切入
+        if len(first_text) <= 30:
+            score += 2
+            detail_parts.append('开篇直接')
+        elif len(first_text) <= 50:
+            score += 1
+
+        # 检查情绪词
+        emotion_words = self.HIGH_EMOTION + self.MEDIUM_EMOTION
+        if any(word in first_text for word in emotion_words):
+            score += 2
+            detail_parts.append('有情绪词')
+
+        # 检查"你"的使用
+        if '你' in first_text:
+            score += 1
+            detail_parts.append('有代入感')
+
+        # 检查情绪阶段
+        emotion_stage = first_slide.get('emotion_stage', '')
+        if emotion_stage:
+            score += 1
+            detail_parts.append('有情绪设计')
+
+        score = min(score, 10)
+        detail = '、'.join(detail_parts) if detail_parts else '基础分'
+
+        return {
+            'score': score,
+            'detail': f'开篇温度：{detail}',
+            'suggestion': '建议开篇直接切入并增加情绪词' if score < 7 else ''
+        }
+
+    def _evaluate_content_temperature(
+        self,
+        slides_text: str,
+        persona_type: str,
+        target_elements: List[str]
+    ) -> Dict:
+        """评估内容温度"""
+        score = 5
+        detail_parts = []
+
+        if not slides_text:
+            return {
+                'score': 3,
+                'detail': '内容为空',
+                'suggestion': '请添加内容'
+            }
+
+        # 检查人设一致性
+        persona_keywords = self.PERSONA_KEYWORDS.get(persona_type, [])
+        persona_match = sum(1 for kw in persona_keywords if kw in slides_text)
+        if persona_match >= 4:
+            score += 3
+            detail_parts.append('人设一致')
+        elif persona_match >= 2:
+            score += 1
+            detail_parts.append('人设部分一致')
+
+        # 检查三要素覆盖
+        element_indicators = {
+            '有趣': ['搞笑', '幽默', '意外', '反转', '笑死'],
+            '有用': ['干货', '技巧', '方法', '步骤', '指南'],
+            '有共鸣': ['真实', '扎心', '共情', '感动', '温暖']
+        }
+
+        element_match_count = 0
+        for element in target_elements:
+            indicators = element_indicators.get(element, [])
+            if any(ind in slides_text for ind in indicators):
+                element_match_count += 1
+
+        if element_match_count >= 2:
+            score += 2
+            detail_parts.append('三要素覆盖')
+        elif element_match_count >= 1:
+            score += 1
+
+        score = min(score, 10)
+        detail = '、'.join(detail_parts) if detail_parts else '基础分'
+
+        return {
+            'score': score,
+            'detail': f'内容温度：{detail}',
+            'suggestion': '建议强化人设特征和三要素覆盖' if score < 7 else ''
+        }
+
+    def _evaluate_emotional_connection(self, slides_text: str) -> Dict:
+        """评估情感连接"""
+        score = 5
+        detail_parts = []
+
+        if not slides_text:
+            return {
+                'score': 3,
+                'detail': '内容为空',
+                'suggestion': '请添加内容'
+            }
+
+        # 检查"你"的使用频率
+        you_count = slides_text.count('你')
+        if you_count >= 5:
+            score += 3
+            detail_parts.append('代入感强')
+        elif you_count >= 2:
+            score += 1
+            detail_parts.append('有代入感')
+
+        # 检查情感词密度
+        emotion_words = self.HIGH_EMOTION + self.MEDIUM_EMOTION
+        emotion_count = sum(1 for word in emotion_words if word in slides_text)
+        if emotion_count >= 5:
+            score += 2
+            detail_parts.append('情感词丰富')
+        elif emotion_count >= 2:
+            score += 1
+            detail_parts.append('有情感词')
+
+        score = min(score, 10)
+        detail = '、'.join(detail_parts) if detail_parts else '基础分'
+
+        return {
+            'score': score,
+            'detail': f'情感连接：{detail}',
+            'suggestion': '建议增加"你"的使用和情感词密度' if score < 7 else ''
+        }
+
+    def _evaluate_action_temperature(self, cta: str) -> Dict:
+        """评估行动温度"""
+        score = 5
+        detail_parts = []
+
+        if not cta:
+            return {
+                'score': 3,
+                'detail': '缺少行动号召',
+                'suggestion': '请添加有温度的行动号召'
+            }
+
+        # 检查强CTA词
+        strong_words = ['收藏', '转发', '关注', '私信', '赶紧', '强烈', '求求', '必须']
+        weak_words = ['可以', '建议', '参考', '看看']
+
+        strong_count = sum(1 for word in strong_words if word in cta)
+        weak_count = sum(1 for word in weak_words if word in cta)
+
+        if strong_count >= 2:
+            score += 3
+            detail_parts.append('CTA强度高')
+        elif strong_count >= 1:
+            score += 1
+            detail_parts.append('CTA有一定强度')
+
+        if weak_count >= 2:
+            score -= 1
+
+        # 检查具体行动
+        has_action = any(word in cta for word in ['私信', '评论', '关注', '点击', '扫码'])
+        if has_action:
+            score += 2
+            detail_parts.append('有具体行动')
+
+        score = max(min(score, 10), 0)
+        detail = '、'.join(detail_parts) if detail_parts else '基础分'
+
+        return {
+            'score': score,
+            'detail': f'行动温度：{detail}',
+            'suggestion': '建议增强CTA情感强度' if score < 7 else ''
+        }
+
+    def _calculate_grade(self, score: int) -> str:
+        """计算等级"""
+        if score >= 45:
+            return 'A'
+        elif score >= 40:
+            return 'B'
+        elif score >= 30:
+            return 'C'
+        else:
+            return 'D'
+
+    def to_dict(self, result: TemperatureScoreResult) -> Dict:
+        """将评分结果转换为字典"""
+        return {
+            'total_score': result.total_score,
+            'grade': result.grade,
+            'passed': result.passed,
+            'pass_threshold': result.pass_threshold,
+            'items': [
+                {
+                    'id': item.id,
+                    'name': item.name,
+                    'category': item.category,
+                    'score': item.score,
+                    'max_score': item.max_score,
+                    'passed': item.passed,
+                    'detail': item.detail,
+                    'suggestion': item.suggestion,
+                    'icon': item.icon
+                }
+                for item in result.items
+            ],
+            'failed_items': [
+                {
+                    'id': item.id,
+                    'name': item.name,
+                    'score': item.score,
+                    'suggestion': item.suggestion
+                }
+                for item in result.failed_items
+            ],
+            'suggestions': result.suggestions,
+            'profile': result.profile
+        }
+
+
+# 全局实例
+temperature_scorer = TemperatureScorer()
+
+
+def score_temperature(
+    content: Dict,
+    persona_type: str = '陪伴者',
+    target_elements: List[str] = None
+) -> Dict:
+    """
+    便捷函数：评分内容温度
+
+    使用方法：
+        from services.content_quality_scorer import score_temperature
+
+        result = score_temperature(
+            content=content_data,
+            persona_type='陪伴者',
+            target_elements=['有用', '有共鸣']
+        )
+        print(f"温度得分: {result['total_score']}/50")
+    """
+    scorer = TemperatureScorer()
+    result = scorer.score(content, persona_type, target_elements)
+    return scorer.to_dict(result)

@@ -19,10 +19,13 @@
 import json
 import re
 import logging
+import random
 from datetime import datetime
+from typing import List, Optional, Dict, Any
 from services.llm import get_llm_service
 from services.content_quality_scorer import ContentQualityScorer, content_scorer
 from services.content_quality_optimizer import ProgressiveContentOptimizer
+from services.temperature_word_library import temperature_word_library
 
 logger = logging.getLogger(__name__)
 
@@ -1892,3 +1895,665 @@ class TopicContentGenerator:
     def get_all_structures(self) -> list:
         """获取所有可用内容结构"""
         return self.ALL_STRUCTURES
+
+
+class ContentTemperatureMixin:
+    """
+    内容温度增强 Mixin
+
+    为内容生成器添加温度相关能力：
+    1. 温度Section构建
+    2. 人设视角模板注入
+    3. 温度Prompt增强
+    """
+
+    def __init__(self):
+        self.word_library = temperature_word_library
+
+    def generate_content_with_temperature(
+        self,
+        topic_id: str,
+        topic_title: str,
+        topic_type: str,
+        topic_type_key: str = '',
+        business_description: str = '',
+        business_range: str = '',
+        business_type: str = '',
+        portrait: dict = None,
+        is_premium: bool = False,
+        premium_plan: str = 'free',
+        content_style: str = '',
+        selected_scene: dict = None,
+        brand_context: dict = None,
+        keyword_library: dict = None,
+        # ── 温度参数 ──
+        persona_type: str = '陪伴者',
+        target_elements: List[str] = None,
+        enable_temperature: bool = True
+    ) -> dict:
+        """
+        生成带温度属性的内容
+
+        Args:
+            persona_type: 人设类型
+            target_elements: 三要素组合
+            enable_temperature: 是否启用温度增强
+
+        Returns:
+            dict: 包含 geo_score, temperature_score, temperature_profile 等
+        """
+        if target_elements is None:
+            target_elements = ['有用', '有共鸣']
+
+        # 复用原有的内容生成逻辑，但增强Prompt
+        return self._generate_with_temperature_enhanced_prompt(
+            topic_id=topic_id,
+            topic_title=topic_title,
+            topic_type=topic_type,
+            topic_type_key=topic_type_key,
+            business_description=business_description,
+            business_range=business_range,
+            business_type=business_type,
+            portrait=portrait,
+            is_premium=is_premium,
+            premium_plan=premium_plan,
+            content_style=content_style,
+            selected_scene=selected_scene,
+            brand_context=brand_context,
+            keyword_library=keyword_library,
+            persona_type=persona_type,
+            target_elements=target_elements
+        )
+
+    def _generate_with_temperature_enhanced_prompt(
+        self,
+        topic_id: str,
+        topic_title: str,
+        topic_type: str,
+        topic_type_key: str = '',
+        business_description: str = '',
+        business_range: str = '',
+        business_type: str = '',
+        portrait: dict = None,
+        is_premium: bool = False,
+        premium_plan: str = 'free',
+        content_style: str = '',
+        selected_scene: dict = None,
+        brand_context: dict = None,
+        keyword_library: dict = None,
+        persona_type: str = '陪伴者',
+        target_elements: List[str] = None
+    ) -> dict:
+        """使用温度增强Prompt生成内容"""
+        try:
+            # 前置质量门控
+            gate_result = self.quality_gate(topic_title, topic_type)
+            if not gate_result.get('pass'):
+                return {
+                    'success': False,
+                    'error': '选题质量不达标',
+                    'reason': gate_result.get('reason', ''),
+                    'suggestion': gate_result.get('suggestion', '请优化选题后再试'),
+                }
+
+            # 构建温度增强Prompt
+            prompt = self._build_temperature_content_prompt(
+                topic_title=topic_title,
+                topic_type=topic_type,
+                topic_type_key=topic_type_key,
+                business_description=business_description,
+                business_range=business_range,
+                business_type=business_type,
+                portrait=portrait,
+                content_style=content_style,
+                selected_scene=selected_scene,
+                brand_context=brand_context,
+                keyword_library=keyword_library,
+                persona_type=persona_type,
+                target_elements=target_elements or ['有用', '有共鸣']
+            )
+
+            # 调用LLM
+            messages = [
+                {"role": "system", "content": "你是一位资深的内容创作专家，精通有温度、有情感共鸣的短视频和图文内容创作。必须严格按照JSON格式输出。"},
+                {"role": "user", "content": prompt}
+            ]
+            response = self.llm.chat(messages)
+
+            if not response:
+                return {
+                    'success': False,
+                    'error': 'LLM调用失败，请检查API配置'
+                }
+
+            # 解析结果
+            content = self._parse_content_response(response)
+
+            # GEO评分
+            brand_name_for_score = ''
+            if brand_context and brand_context.get('include_brand') and brand_context.get('brand_name'):
+                brand_name_for_score = brand_context['brand_name']
+
+            geo_score_result = content_scorer.score(
+                content,
+                brand_name=brand_name_for_score,
+                business_type=business_type or 'local_service'
+            )
+            geo_score = geo_score_result.total_score
+
+            # 温度评分（独立计算）
+            temperature_result = self._evaluate_temperature(
+                content=content,
+                persona_type=persona_type,
+                target_elements=target_elements or ['有用', '有共鸣']
+            )
+
+            # 构建返回结果
+            return {
+                'success': True,
+                'content': content,
+                'geo_score': geo_score,
+                'geo_report': {
+                    'total_score': geo_score,
+                    'grade': geo_score_result.grade,
+                    'items': [
+                        {
+                            'id': i.id,
+                            'name': i.name,
+                            'category': i.category,
+                            'score': i.score,
+                            'max_score': i.max_score,
+                            'passed': i.passed,
+                            'detail': i.detail,
+                            'suggestion': i.suggestion,
+                        }
+                        for i in geo_score_result.items
+                    ],
+                    'failed_items': [f.name for f in geo_score_result.failed_items],
+                    'summary': geo_score_result.summary,
+                },
+                'temperature_score': temperature_result['total_score'],
+                'temperature_profile': temperature_result['profile'],
+                'temperature_report': temperature_result['report'],
+                '_meta': {
+                    'persona_type': persona_type,
+                    'target_elements': target_elements,
+                    'plan': premium_plan,
+                }
+            }
+
+        except Exception as e:
+            logger.error("[ContentGenerator] Temperature generate error: %s", e)
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def _build_temperature_content_prompt(
+        self,
+        topic_title: str,
+        topic_type: str,
+        topic_type_key: str,
+        business_description: str,
+        business_range: str,
+        business_type: str,
+        portrait: dict,
+        content_style: str,
+        selected_scene: dict,
+        brand_context: dict,
+        keyword_library: dict,
+        persona_type: str,
+        target_elements: List[str]
+    ) -> str:
+        """构建温度增强的内容Prompt"""
+
+        # 获取人设词库
+        persona_keywords = self.word_library.get_persona_keywords(persona_type)
+        persona_phrases = self.word_library.get_persona_phrases(persona_type)
+        golden_quotes = self.word_library.get_golden_quotes(persona_type)
+
+        # 获取三要素词库
+        elements_context = self._build_elements_context(target_elements)
+
+        # 构建温度区块
+        temperature_section = self._build_temperature_section(
+            persona_type=persona_type,
+            persona_keywords=persona_keywords,
+            persona_phrases=persona_phrases,
+            target_elements=target_elements,
+            elements_context=elements_context
+        )
+
+        # 获取原有Prompt模板
+        base_prompt = self._build_content_prompt(
+            topic_title=topic_title,
+            topic_type=topic_type,
+            topic_type_key=topic_type_key,
+            business_description=business_description,
+            business_range=business_range,
+            business_type=business_type,
+            portrait=portrait,
+            content_style=content_style,
+            selected_scene=selected_scene,
+            brand_context=brand_context,
+            keyword_library=keyword_library
+        )
+
+        # 在基础Prompt中注入温度区块
+        # 找到合适的位置插入温度约束
+        if '## 选题信息' in base_prompt:
+            prompt_parts = base_prompt.split('## 选题信息')
+            insert_point = prompt_parts[0] + '## 选题信息' + prompt_parts[1]
+            # 在选题信息后插入温度区块
+            temperature_marker = '\n\n## 【温度约束】人设视角与情感共鸣\n'
+            insert_pos = insert_point.find('\n## 当前时间', insert_point.find('## 选题信息'))
+            if insert_pos > 0:
+                prompt = insert_point[:insert_pos] + temperature_marker + temperature_section + insert_point[insert_pos:]
+            else:
+                prompt = insert_point + '\n\n' + temperature_section
+        else:
+            prompt = base_prompt + '\n\n## 【温度约束】\n' + temperature_section
+
+        return prompt
+
+    def _build_temperature_section(
+        self,
+        persona_type: str,
+        persona_keywords: List[str],
+        persona_phrases: List[str],
+        target_elements: List[str],
+        elements_context: str
+    ) -> str:
+        """构建温度Prompt区块"""
+
+        # 获取人设语气描述
+        tone_desc = self._get_persona_tone_desc(persona_type)
+
+        # 获取开篇钩子
+        opening_hooks = self.word_library.get_opening_hooks()
+        sample_hooks = random.sample(opening_hooks, min(3, len(opening_hooks)))
+
+        # 获取CTA模板
+        cta_templates = self.word_library.get_cta_templates('strong')
+        sample_ctas = random.sample(cta_templates, min(2, len(cta_templates)))
+
+        section = f"""
+【人设定位：{persona_type}】
+{tone_desc}
+
+【人设关键词】（必须自然融入内容）
+{', '.join(persona_keywords[:8])}
+
+【人设常用语】（可参考使用）
+{', '.join(persona_phrases[:5])}
+
+【目标三要素】
+{elements_context}
+
+【情绪词密度要求】
+- 每张图至少包含1个情绪词
+- 高强度情绪词：{', '.join(self.word_library.HIGH_EMOTION[:8])}
+- 中强度情绪词：{', '.join(self.word_library.MEDIUM_EMOTION[:8])}
+
+【开篇钩子参考】
+{chr(10).join(f'- {h}' for h in sample_hooks)}
+
+【CTA情感强度模板】
+{chr(10).join(f'- {c}' for c in sample_ctas)}
+
+【温度写作要求】
+1. 以【{persona_type}】的视角和语气写作
+2. 使用"你"而非"用户"，增强代入感
+3. 情绪递进：从共鸣→触动→行动
+4. 口语化表达，避免书面语
+5. 金句要有温度，能引发情感共鸣
+"""
+
+        return section
+
+    def _build_elements_context(self, target_elements: List[str]) -> str:
+        """构建三要素词库上下文"""
+        context_parts = []
+        for element in target_elements:
+            element_words = self.word_library.get_element_words(element)
+            if element_words:
+                patterns = ', '.join(element_words.get('patterns', [])[:5])
+                emotions = ', '.join(element_words.get('emotions', [])[:3])
+                context_parts.append(f"- {element}：关键词{patterns}，情感价值{emotions}")
+        return '\n'.join(context_parts) if context_parts else "- 有用：干货分享 | 有共鸣：情感连接"
+
+    def _get_persona_tone_desc(self, persona_type: str) -> str:
+        """获取人设语气描述"""
+        tone_map = {
+            '陪伴者': '温暖、理解、共情的口吻，像朋友间的倾诉。多用"我懂你"、"别担心"、"抱抱"等表达。',
+            '教导者': '专业、权威但易懂，像经验丰富的导师。注重方法和步骤，干货满满。',
+            '崇拜者': '热情、激动、强烈推荐，像种草达人。使用"绝了"、"太牛了"、"YYDS"等表达。',
+            '陪衬者': '自嘲、低姿态，像分享踩坑经历的朋友。多用"笑死"、"太真实"、"我也有过"。',
+            '搞笑者': '幽默、反转、娱乐，像段子手。使用意外和反转制造笑点。'
+        }
+        return tone_map.get(persona_type, '温暖友好的口吻')
+
+    def _evaluate_temperature(
+        self,
+        content: dict,
+        persona_type: str,
+        target_elements: List[str]
+    ) -> dict:
+        """
+        评估内容温度（独立于GEO评分）
+
+        5项温度维度 × 10分 = 50分
+        """
+        scores = {}
+        suggestions = []
+
+        # 提取内容文本
+        title = content.get('title', '')
+        slides = content.get('slides', [])
+        cta = content.get('cta', '')
+
+        # ── 1. 标题温度 ──
+        title_score, title_suggestion = self._evaluate_title_temperature(title, target_elements)
+        scores['标题温度'] = title_score
+        if title_suggestion:
+            suggestions.append(title_suggestion)
+
+        # ── 2. 开篇温度 ──
+        opener = content.get('opening', '')
+        opener_score, opener_suggestion = self._evaluate_opener_temperature(opener, slides)
+        scores['开篇温度'] = opener_score
+        if opener_suggestion:
+            suggestions.append(opener_suggestion)
+
+        # ── 3. 内容温度 ──
+        content_score, content_suggestion = self._evaluate_content_temperature(
+            slides, persona_type, target_elements
+        )
+        scores['内容温度'] = content_score
+        if content_suggestion:
+            suggestions.append(content_suggestion)
+
+        # ── 4. 情感连接 ──
+        connection_score, connection_suggestion = self._evaluate_emotional_connection(slides)
+        scores['情感连接'] = connection_score
+        if connection_suggestion:
+            suggestions.append(connection_suggestion)
+
+        # ── 5. 行动温度 ──
+        action_score, action_suggestion = self._evaluate_action_temperature(cta)
+        scores['行动温度'] = action_score
+        if action_suggestion:
+            suggestions.append(action_suggestion)
+
+        # 计算总分
+        total_score = sum(scores.values())
+
+        # 构建档案
+        profile = {
+            'persona_type': persona_type,
+            'target_elements': target_elements,
+            'dimension_scores': scores,
+            'total_score': total_score,
+        }
+
+        # 构建报告
+        report = {
+            'dimensions': [
+                {'name': k, 'score': v, 'max': 10}
+                for k, v in scores.items()
+            ],
+            'suggestions': suggestions,
+        }
+
+        return {
+            'total_score': total_score,
+            'profile': profile,
+            'report': report
+        }
+
+    def _evaluate_title_temperature(
+        self,
+        title: str,
+        target_elements: List[str]
+    ) -> tuple:
+        """评估标题温度"""
+        score = 5  # 默认分数
+        suggestion = ""
+
+        if not title:
+            return 3, "标题为空，建议添加有温度的标题"
+
+        # 检查情绪词
+        emotion_words = self.word_library.HIGH_EMOTION + self.word_library.MEDIUM_EMOTION
+        has_emotion = any(word in title for word in emotion_words)
+        if has_emotion:
+            score += 2
+
+        # 检查疑问句
+        has_question = any(q in title for q in ['吗', '怎么', '如何', '为什么', '是不是'])
+        if has_question:
+            score += 1
+
+        # 检查数字
+        import re
+        has_number = bool(re.search(r'\d+', title))
+        if has_number:
+            score += 1
+
+        # 检查"你"的使用
+        if '你' in title:
+            score += 1
+
+        return min(score, 10), suggestion if score < 7 else ""
+
+    def _evaluate_opener_temperature(
+        self,
+        opener: str,
+        slides: list
+    ) -> tuple:
+        """评估开篇温度"""
+        score = 5
+        suggestion = ""
+
+        # 合并opener和第一张slide的内容
+        first_slide = slides[0] if slides else {}
+        first_content = opener + ' ' + first_slide.get('big_slogan', '') + ' ' + first_slide.get('main_title', '')
+
+        # 检查是否直接切入（≤30字给答案）
+        if len(first_content) <= 30:
+            score += 2
+        elif len(first_content) <= 50:
+            score += 1
+
+        # 检查情绪词
+        emotion_words = self.word_library.HIGH_EMOTION + self.word_library.MEDIUM_EMOTION
+        if any(word in first_content for word in emotion_words):
+            score += 2
+
+        # 检查"你"的使用
+        if '你' in first_content:
+            score += 1
+
+        return min(score, 10), suggestion if score < 7 else ""
+
+    def _evaluate_content_temperature(
+        self,
+        slides: list,
+        persona_type: str,
+        target_elements: List[str]
+    ) -> tuple:
+        """评估内容温度"""
+        score = 5
+        suggestion = ""
+
+        if not slides:
+            return 3, "内容为空"
+
+        # 获取人设关键词
+        persona_keywords = self.word_library.get_persona_keywords(persona_type)
+
+        # 检查人设一致性
+        content_text = ' '.join([
+            s.get('big_slogan', '') + ' ' + s.get('sub_content', '')
+            for s in slides
+        ])
+
+        persona_match = sum(1 for kw in persona_keywords if kw in content_text)
+        if persona_match >= 3:
+            score += 3
+        elif persona_match >= 1:
+            score += 1
+
+        # 检查三要素覆盖
+        element_words = []
+        for element in target_elements:
+            words = self.word_library.get_element_words(element)
+            element_words.extend(words.get('patterns', []))
+
+        element_match = sum(1 for word in element_words if word in content_text)
+        if element_match >= 5:
+            score += 2
+
+        return min(score, 10), suggestion if score < 7 else ""
+
+    def _evaluate_emotional_connection(self, slides: list) -> tuple:
+        """评估情感连接"""
+        score = 5
+        suggestion = ""
+
+        content_text = ' '.join([
+            s.get('big_slogan', '') + ' ' + s.get('sub_content', '')
+            for s in slides
+        ])
+
+        # 检查"你"的使用频率
+        you_count = content_text.count('你')
+        if you_count >= 3:
+            score += 2
+        elif you_count >= 1:
+            score += 1
+
+        # 检查情感词密度
+        emotion_words = self.word_library.HIGH_EMOTION + self.word_library.MEDIUM_EMOTION
+        emotion_count = sum(1 for word in emotion_words if word in content_text)
+        if emotion_count >= 5:
+            score += 2
+        elif emotion_count >= 2:
+            score += 1
+
+        return min(score, 10), suggestion if score < 7 else ""
+
+    def _evaluate_action_temperature(self, cta: str) -> tuple:
+        """评估行动温度"""
+        score = 5
+        suggestion = ""
+
+        if not cta:
+            return 3, "缺少行动号召"
+
+        # 检查CTA强度词
+        strong_words = ['收藏', '转发', '关注', '私信', '赶紧', '强烈', '求求']
+        weak_words = ['可以', '建议', '参考', '看看']
+
+        strong_count = sum(1 for word in strong_words if word in cta)
+        weak_count = sum(1 for word in weak_words if word in cta)
+
+        if strong_count >= 2:
+            score += 3
+        elif strong_count >= 1:
+            score += 1
+
+        if weak_count >= 2:
+            score -= 1
+
+        # 检查是否包含具体行动
+        has_action = any(word in cta for word in ['私信', '评论', '关注', '点击', '扫码'])
+        if has_action:
+            score += 2
+
+        return max(min(score, 10), 0), suggestion if score < 7 else ""
+
+
+class TemperatureContentGenerator(TopicContentGenerator, ContentTemperatureMixin):
+    """
+    温度增强内容生成器
+
+    继承 TopicContentGenerator 的所有功能，并增加温度相关能力
+    """
+
+    def __init__(self):
+        TopicContentGenerator.__init__(self)
+        ContentTemperatureMixin.__init__(self)
+
+    def generate_content(
+        self,
+        topic_id: str,
+        topic_title: str,
+        topic_type: str,
+        topic_type_key: str = '',
+        business_description: str = '',
+        business_range: str = '',
+        business_type: str = '',
+        portrait: dict = None,
+        is_premium: bool = False,
+        premium_plan: str = 'free',
+        content_style: str = '',
+        selected_scene: dict = None,
+        brand_context: dict = None,
+        keyword_library: dict = None,
+        # ── 温度参数 ──
+        enable_temperature: bool = False,
+        persona_type: str = '陪伴者',
+        target_elements: list = None
+    ) -> dict:
+        """
+        生成内容（支持温度增强）
+
+        Args:
+            enable_temperature: 是否启用温度增强
+            persona_type: 人设类型
+            target_elements: 三要素组合
+        """
+        if enable_temperature:
+            return self.generate_content_with_temperature(
+                topic_id=topic_id,
+                topic_title=topic_title,
+                topic_type=topic_type,
+                topic_type_key=topic_type_key,
+                business_description=business_description,
+                business_range=business_range,
+                business_type=business_type,
+                portrait=portrait,
+                is_premium=is_premium,
+                premium_plan=premium_plan,
+                content_style=content_style,
+                selected_scene=selected_scene,
+                brand_context=brand_context,
+                keyword_library=keyword_library,
+                persona_type=persona_type,
+                target_elements=target_elements or ['有用', '有共鸣']
+            )
+        else:
+            # 使用原有逻辑
+            return TopicContentGenerator.generate_content(
+                self,
+                topic_id=topic_id,
+                topic_title=topic_title,
+                topic_type=topic_type,
+                topic_type_key=topic_type_key,
+                business_description=business_description,
+                business_range=business_range,
+                business_type=business_type,
+                portrait=portrait,
+                is_premium=is_premium,
+                premium_plan=premium_plan,
+                content_style=content_style,
+                selected_scene=selected_scene,
+                brand_context=brand_context,
+                keyword_library=keyword_library
+            )
+
+
+# 全局实例
+content_generator = TopicContentGenerator()
+temperature_content_generator = TemperatureContentGenerator()

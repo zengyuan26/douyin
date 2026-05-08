@@ -20,6 +20,7 @@ from services.portrait_save_service import portrait_save_service
 from services.scene_generator import scene_generator
 from services.portrait_frequency_controller import portrait_frequency_controller
 from services.portrait_library_task_service import generate_with_semaphore
+from services.temperature_word_library import temperature_word_library
 from models.public_models import PublicUser, SavedPortrait, TopicGenerationLink, PublicGeneration
 from models.models import db
 from sqlalchemy import text
@@ -2531,3 +2532,240 @@ def _build_industry_analysis_markdown(report: dict, portrait_name: str,
         lines.append("")
 
     return "\n".join(lines)
+
+
+# =============================================================================
+# 温度配置相关API
+# =============================================================================
+
+@portrait_bp.route('/temperature/persona-options', methods=['GET'])
+@login_required
+def get_temperature_persona_options(user):
+    """
+    获取可选人设定居列表
+
+    返回：
+    - success: bool
+    - data: list 人设选项
+    """
+    personas = temperature_word_library.get_all_persona_types()
+    return jsonify({
+        'success': True,
+        'data': personas
+    })
+
+
+@portrait_bp.route('/temperature/element-options', methods=['GET'])
+@login_required
+def get_temperature_element_options(user):
+    """
+    获取可选三要素类型列表
+
+    返回：
+    - success: bool
+    - data: list 三要素选项
+    """
+    elements = temperature_word_library.get_all_element_types()
+    return jsonify({
+        'success': True,
+        'data': elements
+    })
+
+
+@portrait_bp.route('/<int:portrait_id>/temperature-profile', methods=['GET'])
+@login_required
+def get_portrait_temperature_profile(user, portrait_id):
+    """
+    获取画像的默认温度配置
+
+    返回：
+    - success: bool
+    - data: {
+        "persona_type": str,
+        "target_elements": list,
+        "temperature_profile_count": int
+      }
+    """
+    portrait = SavedPortrait.query.filter_by(
+        id=portrait_id,
+        user_id=user.id
+    ).first()
+
+    if not portrait:
+        return jsonify({
+            'success': False,
+            'message': '画像不存在'
+        }), 404
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'persona_type': portrait.temperature_persona or '陪伴者',
+            'target_elements': portrait.temperature_elements or ['有用', '有共鸣'],
+            'temperature_profile_count': portrait.temperature_profile_count or 0
+        }
+    })
+
+
+@portrait_bp.route('/<int:portrait_id>/temperature-profile', methods=['PUT'])
+@login_required
+def update_portrait_temperature_profile(user, portrait_id):
+    """
+    更新画像的默认温度配置
+
+    请求体：
+    {
+        "persona_type": "陪伴者",
+        "target_elements": ["有用", "有共鸣"]
+    }
+
+    返回：
+    - success: bool
+    - message: str
+    """
+    portrait = SavedPortrait.query.filter_by(
+        id=portrait_id,
+        user_id=user.id
+    ).first()
+
+    if not portrait:
+        return jsonify({
+            'success': False,
+            'message': '画像不存在'
+        }), 404
+
+    data = request.get_json() or {}
+
+    # 更新温度配置
+    persona_type = data.get('persona_type')
+    if persona_type:
+        # 验证人设类型
+        valid_personas = [p['key'] for p in temperature_word_library.get_all_persona_types()]
+        if persona_type not in valid_personas:
+            return jsonify({
+                'success': False,
+                'message': f'无效的人设类型，可选：{", ".join(valid_personas)}'
+            }), 400
+        portrait.temperature_persona = persona_type
+
+    target_elements = data.get('target_elements')
+    if target_elements:
+        # 验证三要素组合
+        valid_elements = [e['key'] for e in temperature_word_library.get_all_element_types()]
+        if not isinstance(target_elements, list):
+            return jsonify({
+                'success': False,
+                'message': 'target_elements 必须是数组'
+            }), 400
+        for element in target_elements:
+            if element not in valid_elements:
+                return jsonify({
+                    'success': False,
+                    'message': f'无效的三要素类型，可选：{", ".join(valid_elements)}'
+                }), 400
+        # 至少需要2个要素
+        if len(target_elements) < 2:
+            return jsonify({
+                'success': False,
+                'message': '至少需要选择2个三要素'
+            }), 400
+        portrait.temperature_elements = target_elements
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': '温度配置已更新',
+        'data': {
+            'persona_type': portrait.temperature_persona,
+            'target_elements': portrait.temperature_elements
+        }
+    })
+
+
+@portrait_bp.route('/temperature/word-library', methods=['GET'])
+@login_required
+def get_temperature_word_library(user):
+    """
+    获取温度词库（供前端使用）
+
+    查询参数：
+    - persona: 人设类型（可选）
+    - element: 三要素类型（可选）
+
+    返回：
+    - success: bool
+    - data: {
+        "keywords": list,
+        "phrases": list,
+        "emotion_words": list
+      }
+    """
+    persona = request.args.get('persona')
+    element = request.args.get('element')
+
+    result = {}
+
+    if persona:
+        result['keywords'] = temperature_word_library.get_persona_keywords(persona)
+        result['phrases'] = temperature_word_library.get_persona_phrases(persona)
+        result['angles'] = temperature_word_library.get_persona_angles(persona)
+        result['quotes'] = temperature_word_library.get_golden_quotes(persona)
+
+    if element:
+        result['element_words'] = temperature_word_library.get_element_words(element)
+
+    if not persona and not element:
+        result['emotion_words'] = {
+            'high': temperature_word_library.HIGH_EMOTION,
+            'medium': temperature_word_library.MEDIUM_EMOTION,
+            'low': temperature_word_library.LOW_EMOTION
+        }
+        result['opening_hooks'] = temperature_word_library.get_opening_hooks()
+        result['cta_templates'] = {
+            'strong': temperature_word_library.get_cta_templates('strong'),
+            'medium': temperature_word_library.get_cta_templates('medium'),
+            'soft': temperature_word_library.get_cta_templates('soft')
+        }
+
+    return jsonify({
+        'success': True,
+        'data': result
+    })
+
+
+@portrait_bp.route('/temperature/build-context', methods=['POST'])
+@login_required
+def build_temperature_context(user):
+    """
+    构建温度Prompt上下文（供前端预览）
+
+    请求体：
+    {
+        "persona_type": "陪伴者",
+        "target_elements": ["有用", "有共鸣"],
+        "intensity": "high"
+    }
+
+    返回：
+    - success: bool
+    - data: { "context": str }
+    """
+    data = request.get_json() or {}
+
+    persona_type = data.get('persona_type', '陪伴者')
+    target_elements = data.get('target_elements', ['有用', '有共鸣'])
+    intensity = data.get('intensity', 'high')
+
+    context = temperature_word_library.build_temperature_prompt_context(
+        persona_type=persona_type,
+        target_elements=target_elements,
+        intensity=intensity
+    )
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'context': context
+        }
+    })
