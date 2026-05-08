@@ -4937,7 +4937,7 @@ def _build_geo_report(bridge_full_output: dict) -> dict:
     except (ValueError, TypeError):
         quality_score = 0
 
-    grade = step_final.get('grade', 'D')
+    grade = step_final.get('grade', 'E')
     if quality_score >= 90:
         grade = 'A'
     elif quality_score >= 80:
@@ -4946,8 +4946,6 @@ def _build_geo_report(bridge_full_output: dict) -> dict:
         grade = 'C'
     elif quality_score >= 60:
         grade = 'D'
-    else:
-        grade = 'F'
 
     # 维度评分项：来自 step_quality_validate
     items = []
@@ -5128,7 +5126,7 @@ def _build_content_data_from_bridge(fo: dict) -> dict:
                 failed_items.append(dim)
 
     # 评分等级
-    grade = 'F'
+    grade = 'E'
     if quality_score >= 90:
         grade = 'A'
     elif quality_score >= 80:
@@ -5140,7 +5138,7 @@ def _build_content_data_from_bridge(fo: dict) -> dict:
 
     # 断言：检查数据完整性
     if not gen:
-        logger.error(f"[ContentData] step_generate_content 输出为空! "
+        logger.error(f"[ContentData] step_generate_content 输出为空!"
                      f"full_output keys={list(fo.keys())}, "
                      f"raw_preview={str(fo)[:300]}")
     missing = [f for f in ['slides', 'title'] if not gen.get(f)]
@@ -5354,7 +5352,7 @@ def _build_video_script_data_from_bridge(fo: dict) -> dict:
                 failed_items.append(dim)
 
     # 评分等级
-    grade = 'F'
+    grade = 'E'
     if quality_score >= 90:
         grade = 'A'
     elif quality_score >= 80:
@@ -5473,7 +5471,7 @@ def _build_long_text_data_from_bridge(fo: dict) -> dict:
                 failed_items.append(dim)
 
     # 评分等级
-    grade = 'F'
+    grade = 'E'
     if quality_score >= 90:
         grade = 'A'
     elif quality_score >= 80:
@@ -6523,6 +6521,7 @@ def api_market_analyze_opportunities():
 
     logger.info(f"[api_market_analyze_opportunities] Step 1: 挖掘蓝海机会（搜索增强={use_search}）: {business_description[:50]}，经营范围={business_range}，服务场景={service_scenario}")
 
+    import traceback as _tb_module
     try:
         analyzer = MarketAnalyzer()
         result = analyzer.analyze_opportunities(
@@ -6540,7 +6539,6 @@ def api_market_analyze_opportunities():
         logger.info(f"[api_market_analyze_opportunities] Step 1 完成: 发现 {len(result['market_opportunities'])} 个蓝海机会")
 
         # 调试/修复：确保 opportunities 数据可序列化
-        import traceback as _tb_module
         _opportunities = result['market_opportunities']
         try:
             import json as _json
@@ -6586,7 +6584,7 @@ def api_market_analyze_opportunities():
         })
 
     except Exception as e:
-        logger.error(f"[api_market_analyze_opportunities] 异常: {e}\n{tb_module.format_exc()}")
+        logger.error(f"[api_market_analyze_opportunities] 异常: {e}\n{_tb_module.format_exc()}")
         return jsonify({
             'success': False,
             'message': f'分析异常: {str(e)}'
@@ -8074,7 +8072,7 @@ def skill_bridge_content_quality_optimize():
                 if not passed:
                     failed_items.append(dim)
 
-        grade = 'F'
+        grade = 'E'
         if quality_score >= 90:
             grade = 'A'
         elif quality_score >= 80:

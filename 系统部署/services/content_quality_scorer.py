@@ -545,8 +545,10 @@ class ContentQualityScorer:
             return 'B'
         elif percentage >= 60:
             return 'C'
-        else:
+        elif percentage >= 45:
             return 'D'
+        else:
+            return 'E'
 
     def _get_grade_label(self, percentage: float) -> str:
         """根据百分比获取等级标签"""
@@ -556,8 +558,10 @@ class ContentQualityScorer:
             return '良好'
         elif percentage >= 60:
             return '及格'
+        elif percentage >= 45:
+            return '待改进'
         else:
-            return '需改进'
+            return '需优化'
 
     # 情绪词列表（高情绪词加分）
     TITLE_EMOTION_WORDS = [
@@ -1172,8 +1176,10 @@ class ContentQualityScorer:
             return 'B', '良好'
         elif score >= 70:
             return 'C', '及格'
+        elif score >= 60:
+            return 'D', '待改进'
         else:
-            return 'D', '待优化'
+            return 'E', '需优化'
 
     def _generate_suggestions(self, failed_items: List[ScoreItem]) -> List[str]:
         """生成改进建议"""

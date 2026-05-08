@@ -619,8 +619,24 @@ def get_portrait_topics(user, portrait_id):
     end = start + per_page
     page_topics = all_topics[start:end]
 
+    # ── 获取账号信息用于场景推荐 ──
+    # 从运营规划中获取账号定位
+    account_info = {}
+    operation_plan = portrait.get('operation_plan') or {}
+    extra_data = portrait.get('extra_data') or {}
+    if not operation_plan and extra_data:
+        operation_plan = extra_data.get('operations_plan', {})
+
+    if operation_plan:
+        account_info = {
+            'account_positioning': operation_plan.get('account_positioning', ''),
+            'brand_name': portrait.get('business_description', ''),
+            'industry': portrait.get('industry', ''),
+            'target_customer': portrait.get('target_customer', ''),
+        }
+
     # ── 星系增强：补充 scene_options 和 content_style ──
-    page_topics = scene_generator.enrich_topics_with_scene_options(page_topics)
+    page_topics = scene_generator.enrich_topics_with_scene_options(page_topics, account_info=account_info)
 
     # ── 补充 link 信息（版本数量、使用次数）──
     topic_ids = [str(t.get('id')) for t in page_topics if isinstance(t, dict) and t.get('id')]
@@ -919,7 +935,7 @@ def regenerate_portrait_topics(user, portrait_id):
         return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
 
     data = request.get_json() or {}
-    extra_count = int(data.get('count', 10))
+    extra_count = int(data.get('count', 5))
     content_stage = data.get('content_stage', '成长阶段')
 
     # 所有用户都可以重新生成选题（无付费限制）
@@ -1200,7 +1216,7 @@ def generate_operations_from_client_info(user, portrait_id):
             portraits=portraits_data,
             business_info=business_info,
             content_stage='起号阶段',
-            target_topic_count=30,
+            target_topic_count=5,
             client_profile=client_profile,
         )
 
@@ -1892,6 +1908,626 @@ def _build_topic_library_markdown(topic_lib: dict, portrait_name: str,
             cnt = priorities.get(p, 0)
             emoji = '🔴' if p == 'P0' else '🟠' if p == 'P1' else '🟡' if p == 'P2' else '⚪'
             lines.append(f"{emoji} **{p}**：{cnt} 条")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+# =============================================================================
+# 行业分析报告 API
+# =============================================================================
+
+@portrait_bp.route('/<int:portrait_id>/industry-analysis', methods=['GET'])
+@login_required
+def get_industry_analysis(user, portrait_id):
+    """
+    获取画像的行业分析报告
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    result = portrait_save_service.get_industry_analysis_report(portrait_id)
+
+    return jsonify({
+        'success': True,
+        'data': result or {
+            'report': None,
+            'updated_at': None,
+            'has_report': False
+        }
+    })
+
+
+@portrait_bp.route('/<int:portrait_id>/industry-analysis/generate', methods=['POST'])
+@login_required
+def generate_industry_analysis(user, portrait_id):
+    """
+    触发生成行业分析报告
+
+    Body: {
+        // 可选，覆盖默认值
+    }
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '画像不存在或无权访问'}), 404
+
+    try:
+        from services.llm import get_llm_service
+        llm = get_llm_service()
+
+        # 构建输入参数
+        business_description = portrait.get('business_description', '') or ''
+        industry = portrait.get('industry', '') or ''
+        target_customer = portrait.get('target_customer', '') or ''
+        portrait_name = portrait.get('portrait_name', '未命名')
+
+        # 构建 prompt - 使用固定模板生成报告
+        # 读取模板文件
+        import os
+        template_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            'skills', 'insights-analyst', '输出', '行业分析', '行业分析报告_模板.md'
+        )
+        
+        # 尝试多个可能的模板路径
+        possible_paths = [
+            template_path,
+            os.path.join(os.getcwd(), 'skills', 'insights-analyst', '输出', '行业分析', '行业分析报告_模板.md'),
+            '/Volumes/增元/项目/douyin/系统部署/skills/insights-analyst/输出/行业分析/行业分析报告_模板.md'
+        ]
+        
+        template_content = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                with open(path, 'r', encoding='utf-8') as f:
+                    template_content = f.read()
+                break
+        
+        if not template_content:
+            # 模板不存在，使用内嵌模板
+            template_content = """# {客户名称} 行业分析报告
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 {客户名称} 行业分析报告
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+报告日期：{日期}
+客户：{客户名称}
+行业：{行业}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## ⭐⭐⭐ 第一步：核心思维流程（必须按顺序）
+
+> 💡 **行业分析报告必须按以下7步顺序进行：**
+> 1️⃣ 行业分析 → 2️⃣ 找蓝海 → 3️⃣ 人群细分 → 4️⃣ 长尾需求 → 5️⃣ 知识技能解决 → 6️⃣ 搜前搜后 → 7️⃣ 行业关联
+
+> ✅ 完成以上7步后，才进入第二步：信任佐证 + 竞争优势
+
+> ⚠️ **内容配比规则**：信任佐证+竞争优势内容占比 **15%**，其他内容占比 **85%**
+
+### 一、行业分析
+[根据「{业务描述}」分析：行业规模、发展趋势、季节性特征、产品类型]
+
+### 二、找蓝海（竞争分析）
+[分析竞争对手、蓝海机会矩阵、红海vs蓝海业务分布]
+
+### 三、人群细分
+[分析：付费人vs使用人、客群痛点挖掘、客群优先级]
+
+### 四、长尾需求
+[分析：不同人群的独特需求、细分场景需求、蓝海需求发现]
+
+### 五、知识技能解决
+[分析：专业知识技能、服务解决方案、定制化能力]
+
+### 六、搜前搜后
+[分析搜索前后的用户问题]
+
+### 七、行业关联
+[分析：上游关联、下游需求、关联行业矩阵]
+
+---
+
+## ⭐⭐⭐ 第二步：信任佐证与竞争优势
+
+### 信任佐证4大方向
+| 信任方向 | 客户问题 | 佐证内容 |
+|----------|----------|----------|
+| **专业知识技能** | 能不能帮我做好？ | 经验、技术、配方 |
+| **环境** | 卫生吗？干净吗？ | 制作条件、现场 |
+| **过程** | 怎么做的？ | 制作流程、步骤 |
+| **案例** | 别人做得好不好？ | 客户反馈、口碑 |
+
+### 竞争优势4大维度
+| 竞争优势 | vs同行 | vs自己动手 |
+|----------|--------|------------|
+| **省心** | 做得更专业 | 不用自己动手 |
+| **省事** | 一站式服务 | 不用准备材料工具 |
+| **省钱** | 品质好价格合理 | 避免失败浪费 |
+| **放心** | 品质有保障 | 卫生看得见 |
+
+---
+
+## 一、行业概况
+
+### 1.1 行业定义与定位
+[具体描述{行业}的定义、业务类型、产品类型、核心价值]
+
+### 1.2 市场现状
+[分析市场态势、进入门槛、竞争程度、地域特点]
+
+---
+
+## 二、目标客户分析
+
+### 2.1 客群痛点挖掘
+[从「{业务描述}」中挖掘核心问题：客户搜索时在想什么？]
+
+### 2.2 客群优先级
+[按优先级排列目标客群及开发策略]
+
+---
+
+## 三、行业生态分析
+
+### 3.1 产业链结构
+[分析上游、中游、下游关系]
+
+### 3.2 上游关联（客户从哪来）
+[分析客户可能从哪些关联需求中找过来]
+
+### 3.3 下游需求（客户到哪去）
+[分析客户的延伸需求]
+
+### 3.4 消费习惯
+[分析采购频率、价格敏感度、决策因素、淡旺季]
+
+---
+
+## 四、用户失败经历分析 🔥
+
+> 💡 **核心洞察**：{行业}的爆款内容来自用户真实的失败经历
+
+### 4.1 失败经历类型
+[挖掘用户制作/使用过程中容易犯的错误]
+
+### 4.2 选题转化公式
+```
+💡 失败经历 → 爆款选题
+
+公式：为什么你[{动词}]{产品}总是[{失败}]，3招教你解决
+```
+
+---
+
+## 五、竞争格局与蓝海机会
+
+### 5.1 竞争对手分析
+[分析本地竞争对手的优劣势]
+
+### 5.2 蓝海机会矩阵
+[发现蓝海机会：痛点→解决方案→差异化优势]
+
+---
+
+## 六、总结
+
+### 6.1 核心优势
+[总结本业务的差异化优势]
+
+### 6.2 蓝海机会总结
+```
+🎯 {客户名称} 蓝海机会
+
+【核心机会】[核心机会描述]
+
+差异化定位：
+→ [定位1]
+→ [定位2]
+→ [定位3]
+```
+
+---
+
+**报告版本**：v2.0
+
+**生成日期**：{日期}
+
+---
+
+*本报告采用"专科医生"思维，从问题出发寻找蓝海机会*
+"""
+        
+        from datetime import datetime
+        
+        # 替换模板变量 - 使用安全的替换方式
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        
+        # 客户名称：优先使用业务描述，如果没有才用画像名称
+        if not business_description or business_description.strip() == '':
+            customer_name = portrait_name  # 画像名称作为客户名称
+            inferred_business = portrait_name  # 从名称推断业务
+            inferred_industry = industry if industry else '服务业'
+        else:
+            customer_name = business_description  # 业务描述作为客户名称
+            inferred_business = business_description
+            inferred_industry = industry if industry else '服务业'
+        
+        # 安全替换模板变量（避免 KeyError）
+        safe_template = template_content
+        safe_template = safe_template.replace('{客户名称}', customer_name)
+        safe_template = safe_template.replace('{日期}', current_date)
+        safe_template = safe_template.replace('{行业}', inferred_industry)
+        safe_template = safe_template.replace('{业务描述}', inferred_business)
+        # 处理可选变量
+        safe_template = safe_template.replace('{子行业}', '')
+        safe_template = safe_template.replace('{版本}', 'v2.0')
+        
+        # 移除内嵌模板中的未替换占位符提示
+        safe_template = safe_template.replace('[根据「{业务描述}」分析', '[根据业务分析')
+        safe_template = safe_template.replace('[具体描述{行业}的定义', '[具体描述行业的定义')
+        safe_template = safe_template.replace('从「{业务描述}」中挖掘', '从业务中挖掘')
+        safe_template = safe_template.replace('{行业}的爆款内容', '行业的爆款内容')
+        safe_template = safe_template.replace('[{动词}]{产品}', '')
+        safe_template = safe_template.replace('[{失败}]', '')
+        
+        prompt = f"""你是一位市场洞察专家。请根据以下业务信息，生成一份完整的行业分析报告。
+
+## 业务信息
+- 客户名称：{customer_name}
+- 业务描述：{inferred_business}
+- 所属行业：{inferred_industry}
+- 目标客户：{target_customer}
+
+## 重要提示
+如果业务描述为空或不明确（如"家庭主妇"），请先推断出具体业务，然后基于具体业务生成报告。
+
+## 输出要求
+请直接生成 Markdown 格式的行业分析报告。每个板块都要有具体的、可落地的内容。
+
+参考以下结构生成报告：
+
+{safe_template}
+
+只返回完整的 Markdown 格式报告。"""
+
+        # 调用 LLM
+        response = llm.chat(
+            [{"role": "user", "content": prompt}],
+            temperature=0.3,
+        )
+
+        # LLM 直接返回 Markdown 格式
+        report_markdown = response.strip()
+
+        # 保存 Markdown 格式的报告
+        report_data = {
+            "markdown": report_markdown,
+            "format": "markdown"
+        }
+        success = portrait_save_service.save_industry_analysis_report(portrait_id, report_data)
+        if not success:
+            return jsonify({
+                'success': False,
+                'message': '报告保存失败'
+            }), 500
+
+        logger.info("[generate_industry_analysis] portrait_id=%s, 生成成功", portrait_id)
+
+        return jsonify({
+            'success': True,
+            'message': '行业分析报告生成成功',
+            'data': {
+                'markdown': report_markdown,
+                'updated_at': datetime.utcnow().isoformat(),
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        logger.error("[generate_industry_analysis] portrait_id=%s, 异常: %s", portrait_id, str(e))
+        logger.debug("[generate_industry_analysis] 堆栈: %s", traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'生成失败: {str(e)}'
+        }), 500
+
+
+@portrait_bp.route('/industry-analysis/generate-from-opportunity', methods=['POST'])
+@login_required
+def generate_industry_analysis_from_opportunity(user):
+    """
+    从超级定位阶段触发生成行业分析报告（使用表单业务描述，不需要画像）
+
+    Body: {
+        business_name: str,        # 业务名称（用于报告标题）
+        business_description: str,  # 业务描述
+        industry: str,             # 行业
+        target_customer: str,      # 目标客户
+        business_type: str,        # 业务类型
+        business_range: str,      # 经营范围
+        service_scenario: str,     # 服务场景
+    }
+    """
+    try:
+        from services.llm import get_llm_service
+        llm = get_llm_service()
+
+        data = request.get_json() or {}
+
+        # 构建输入参数
+        portrait_name = data.get('business_name', '未知业务')
+        business_description = data.get('business_description', '') or ''
+        industry = data.get('industry', '') or ''
+        target_customer = data.get('target_customer', '') or ''
+
+        # 客户名称：优先使用业务描述
+        if business_description and business_description.strip():
+            customer_name = business_description
+        else:
+            customer_name = portrait_name
+
+        # 读取模板
+        import os
+        template_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            'skills', 'insights-analyst', '输出', '行业分析', '行业分析报告_模板.md'
+        )
+
+        possible_paths = [
+            template_path,
+            os.path.join(os.getcwd(), 'skills', 'insights-analyst', '输出', '行业分析', '行业分析报告_模板.md'),
+            '/Volumes/增元/项目/douyin/系统部署/skills/insights-analyst/输出/行业分析/行业分析报告_模板.md'
+        ]
+
+        template_content = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                with open(path, 'r', encoding='utf-8') as f:
+                    template_content = f.read()
+                break
+
+        if not template_content:
+            return jsonify({'success': False, 'message': '模板文件不存在'}), 500
+
+        # 替换模板变量
+        current_date = datetime.now().strftime('%Y-%m-%d')
+
+        safe_template = template_content
+        safe_template = safe_template.replace('{客户名称}', customer_name)
+        safe_template = safe_template.replace('{日期}', current_date)
+        safe_template = safe_template.replace('{行业}', industry or '服务业')
+        safe_template = safe_template.replace('{业务描述}', business_description)
+        safe_template = safe_template.replace('{子行业}', '')
+        safe_template = safe_template.replace('{版本}', 'v2.0')
+
+        # 清理占位符
+        safe_template = safe_template.replace('[根据「{业务描述}」分析', '[根据业务分析')
+        safe_template = safe_template.replace('[具体描述{行业}的定义', '[具体描述行业的定义')
+        safe_template = safe_template.replace('从「{业务描述}」中挖掘', '从业务中挖掘')
+        safe_template = safe_template.replace('{行业}的爆款内容', '行业的爆款内容')
+        safe_template = safe_template.replace('[{动词}]{产品}', '')
+        safe_template = safe_template.replace('[{失败}]', '')
+
+        prompt = f"""你是一位市场洞察专家。请根据以下业务信息，生成一份完整的行业分析报告。
+
+## 业务信息
+- 客户名称：{customer_name}
+- 业务描述：{business_description}
+- 所属行业：{industry or '服务业'}
+- 目标客户：{target_customer}
+
+## 输出要求
+请直接生成 Markdown 格式的行业分析报告。每个板块都要有具体的、可落地的内容。
+
+参考以下结构生成报告：
+
+{safe_template}
+
+只返回完整的 Markdown 格式报告。"""
+
+        # 调用 LLM
+        response = llm.chat(
+            [{"role": "user", "content": prompt}],
+            temperature=0.3,
+        )
+
+        report_markdown = response.strip()
+
+        logger.info("[generate_industry_analysis_from_opportunity] 用户 %s, 业务=%s, 生成成功", user.id, customer_name)
+
+        return jsonify({
+            'success': True,
+            'message': '行业分析报告生成成功',
+            'data': {
+                'markdown': report_markdown,
+                'updated_at': datetime.utcnow().isoformat(),
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        logger.error("[generate_industry_analysis_from_opportunity] 用户 %s, 异常: %s", user.id, str(e))
+        logger.debug("[generate_industry_analysis_from_opportunity] 堆栈: %s", traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'生成失败: {str(e)}'
+        }), 500
+
+
+@portrait_bp.route('/<int:portrait_id>/industry-analysis/markdown', methods=['GET'])
+@login_required
+def get_industry_analysis_markdown(user, portrait_id):
+    """
+    获取行业分析报告的 Markdown 格式（用于预览）
+    """
+    portrait = portrait_save_service.get_saved_portrait(portrait_id)
+    if not portrait:
+        return jsonify({'success': False, 'message': '画像不存在'}), 404
+    row = db.session.execute(
+        text("SELECT user_id FROM saved_portraits WHERE id = :id"),
+        {'id': portrait_id}
+    ).fetchone()
+    if not row or row[0] != user.id:
+        return jsonify({'success': False, 'message': '无权访问'}), 403
+
+    result = portrait_save_service.get_industry_analysis_report(portrait_id)
+    report = result.get('report') if result else None
+    updated_at = result.get('updated_at') if result else None
+
+    if not report:
+        return jsonify({'success': False, 'message': '行业分析报告为空，请先生成'}), 404
+
+    # 直接返回保存的 Markdown 格式
+    if isinstance(report, dict) and report.get('markdown'):
+        return jsonify({'success': True, 'data': {'markdown': report['markdown']}})
+
+    # 兼容旧格式，尝试渲染
+    portrait_name = portrait.get('portrait_name', '未命名')
+    industry = portrait.get('industry', '')
+    updated_str = updated_at or '未知'
+
+    md = _build_industry_analysis_markdown(report, portrait_name, industry, updated_str)
+    return jsonify({'success': True, 'data': {'markdown': md}})
+
+
+def _build_industry_analysis_markdown(report: dict, portrait_name: str,
+                                      industry: str, updated_at: str) -> str:
+    """将行业分析报告字典渲染为 Markdown 文本"""
+    lines = [
+        f"# 📊 {portrait_name} - 行业分析报告",
+        "",
+        f"| 项目 | 内容 |",
+        f"|------|------|",
+        f"| 行业 | {industry} |",
+        f"| 生成时间 | {updated_at} |",
+        "",
+    ]
+
+    # 行业消费习惯
+    consumption = report.get('consumption_habits', {})
+    if consumption:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 🛒 行业消费习惯")
+        lines.append("")
+        decision_flow = consumption.get('decision_flow', '')
+        if decision_flow:
+            lines.append(f"**决策流程**：{decision_flow}")
+            lines.append("")
+        info_channels = consumption.get('info_channels', [])
+        if info_channels:
+            lines.append(f"**信息获取渠道**：{'、'.join(info_channels)}")
+            lines.append("")
+        decision_points = consumption.get('decision_points', [])
+        if decision_points:
+            lines.append(f"**关键决策点**：{'、'.join(decision_points)}")
+            lines.append("")
+
+    # 淡旺季特征
+    seasonal = report.get('seasonal_features', {})
+    if seasonal:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 📅 淡旺季特征")
+        lines.append("")
+        peak = seasonal.get('peak_season', '')
+        if peak:
+            lines.append(f"**旺季**：{peak}")
+            lines.append("")
+        low = seasonal.get('low_season', '')
+        if low:
+            lines.append(f"**淡季**：{low}")
+            lines.append("")
+        peak_reason = seasonal.get('peak_reason', '')
+        if peak_reason:
+            lines.append(f"**旺季原因**：{peak_reason}")
+            lines.append("")
+
+    # 行业上下游关联
+    upstream_downstream = report.get('upstream_downstream', {})
+    if upstream_downstream:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 🔗 行业上下游关联")
+        lines.append("")
+        upstream = upstream_downstream.get('upstream', [])
+        if upstream:
+            lines.append("**上游（客户从哪来）**：")
+            for u in upstream:
+                lines.append(f"- {u}")
+            lines.append("")
+        downstream = upstream_downstream.get('downstream', [])
+        if downstream:
+            lines.append("**下游（客户到哪去）**：")
+            for d in downstream:
+                lines.append(f"- {d}")
+            lines.append("")
+
+    # 消费者痛点
+    pain_points = report.get('consumer_pain_points', {})
+    if pain_points:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 😣 消费者痛点")
+        lines.append("")
+        before = pain_points.get('before_decision', [])
+        if before:
+            lines.append("**决策前顾虑**：")
+            for p in before:
+                lines.append(f"- {p}")
+            lines.append("")
+        after = pain_points.get('after_decision', [])
+        if after:
+            lines.append("**决策后担忧**：")
+            for p in after:
+                lines.append(f"- {p}")
+            lines.append("")
+
+    # 蓝海机会
+    blue_ocean = report.get('blue_ocean_opportunities', [])
+    if blue_ocean:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 🎯 蓝海机会")
+        lines.append("")
+        for i, opp in enumerate(blue_ocean, 1):
+            direction = opp.get('direction', '')
+            reason = opp.get('reason', '')
+            lines.append(f"**{i}. {direction}**")
+            if reason:
+                lines.append(f"- 原因：{reason}")
+            lines.append("")
+
+    # 长尾需求
+    long_tail = report.get('long_tail_needs', [])
+    if long_tail:
+        lines.append("---")
+        lines.append("")
+        lines.append("## 🔍 长尾需求")
+        lines.append("")
+        for need in long_tail:
+            if isinstance(need, dict):
+                lines.append(f"- **{need.get('audience', '')}**：{need.get('need', '')}")
+            else:
+                lines.append(f"- {need}")
         lines.append("")
 
     return "\n".join(lines)

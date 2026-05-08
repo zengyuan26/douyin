@@ -2238,34 +2238,23 @@
                                 <div id="opportunities-list"></div>
                             </div>
 
-                            <!-- 空状态提示 -->
-                            <div class="problems-empty-hint" id="problems-empty-hint" style="display: none;">
-                                <i class="bi bi-compass" style="font-size:2rem;margin-bottom:12px;"></i>
-                                <p>请先在「描述业务」填写信息</p>
+                            <!-- 行业分析报告入口（简化版） -->
+                            <div id="industry-analysis-section" style="display: none; margin-top: 16px;">
+                                <button type="button" id="btn-generate-industry-analysis"
+                                        onclick="generateIndustryAnalysis()"
+                                        style="width: 100%; background: #f5f5f7; color: #667eea; font-weight: 600; padding: 12px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 0.875rem;">
+                                    <i class="bi bi-bar-chart" style="margin-right: 6px;"></i>
+                                    生成行业分析报告
+                                </button>
+                                <!-- 加载状态 -->
+                                <div id="industry-analysis-loading" style="display: none; text-align: center; padding: 12px; color: #888;">
+                                    <span class="spinner-border spinner-border-sm" role="status" style="margin-right: 6px;"></span>
+                                    生成中...
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Tab3：生成画像 -->
-                <div class="super-tab-panel" id="super-tab-portraits">
-                    <div class="tab-panel-inner">
-                        <div class="portraits-wrapper">
-                            <!-- 画像生成加载状态 -->
-                            <div class="portraits-loading" id="portrait-generating-loading" style="display: none;">
-                                <div class="apple-spinner mx-auto" style="width:36px;height:36px;border-width:3px;"></div>
-                                <p style="margin-top:16px;color:var(--text-secondary);font-size:0.9375rem;">
-                                    <i class="bi bi-magic" style="margin-right:6px;"></i>
-                                    正在生成目标客户画像...
-                                </p>
-                            </div>
-                            <!-- 空状态提示 -->
-                            <div class="portraits-empty-hint" id="portraits-empty-hint" style="display: none;">
-                                <i class="bi bi-people" style="font-size:2rem;margin-bottom:12px;"></i>
-                                <p>请先完成问题识别</p>
-                            </div>
                             <!-- 关键词库入口 -->
-                            <div id="keyword-library-entry" style="display: none; margin-bottom: 16px;">
+                            <div id="keyword-library-entry" style="display: none; margin-top: 16px;">
                                 <div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 12px; padding: 16px 20px; border: 1px solid rgba(25, 118, 210, 0.15); cursor: pointer;" onclick="showKeywordLibraryModal()">
                                     <div style="display: flex; align-items: center; justify-content: space-between;">
                                         <div style="display: flex; align-items: center; gap: 12px;">
@@ -2552,6 +2541,8 @@ function switchSuperTab(tabName) {
             _opportunityCarouselData = _marketAnalysisCache.opportunities;
             renderOpportunityCarousel();
         }
+        // 显示行业分析入口
+        showIndustryAnalysisSection();
     }
 
     console.log('[switchSuperTab] 完成切换:', tabName);
@@ -2799,14 +2790,36 @@ function resetSuperPortraitFlow() {
         problemsSection.innerHTML = '';
         problemsSection.style.display = 'none';
     }
-    document.getElementById('problems-empty-hint').style.display = 'flex';
+    safeSetDisplay('problems-empty-hint', 'flex');
 
-    document.getElementById('target-customers-section').innerHTML = '';
-    document.getElementById('target-customers-section').style.display = 'none';
-    document.getElementById('portraits-empty-hint').style.display = 'flex';
-    document.getElementById('portrait-generating-loading').style.display = 'none';
+    const targetSection = document.getElementById('target-customers-section');
+    if (targetSection) targetSection.innerHTML = '';
+    safeSetDisplay('target-customers-section', 'none');
+    safeSetDisplay('portraits-empty-hint', 'flex');
+    safeSetDisplay('portrait-generating-loading', 'none');
 
     switchSuperTab('tab-form');
+}
+
+// ============================================================================
+// 工具函数
+// ============================================================================
+
+/**
+ * 安全地设置元素显示状态或属性
+ * @param {string} elementId - 元素ID
+ * @param {string} prop - 属性名（如 'display', 'disabled' 等）
+ * @param {*} value - 属性值（如 'flex', 'none', true, false 等）
+ */
+function safeSetDisplay(elementId, prop, value) {
+    const el = document.getElementById(elementId);
+    if (el) {
+        if (prop === 'disabled') {
+            el.disabled = value;
+        } else {
+            el.style[prop] = value;
+        }
+    }
 }
 
 // ============================================================================
@@ -2908,9 +2921,9 @@ async function refreshPortraits() {
     }
 
     // 显示局部加载状态
-    document.getElementById('portrait-generating-loading').style.display = 'block';
-    document.getElementById('target-customers-section').style.display = 'none';
-    document.getElementById('portraits-empty-hint').style.display = 'none';
+    safeSetDisplay('portrait-generating-loading', 'display', 'block');
+    safeSetDisplay('target-customers-section', 'display', 'none');
+    safeSetDisplay('portraits-empty-hint', 'display', 'none');
 
     _isGeneratingPortraits = true;
 
@@ -3165,15 +3178,15 @@ async function portraitMineAndGenerate() {
         return;
     }
 
-    document.getElementById('problem-mining-loading').style.display = 'block';
+    safeSetDisplay('problem-mining-loading', 'block');
     // 更新加载提示文字
     const loadingText = document.getElementById('problem-mining-loading-text');
     if (loadingText) loadingText.textContent = '正在挖掘蓝海机会...';
     // 隐藏机会列表区域（如果存在）
     const oppSection = document.getElementById('opportunities-section');
     if (oppSection) oppSection.style.display = 'none';
-    document.getElementById('problems-empty-hint').style.display = 'none';
-    document.getElementById('btn-one-key-analyze').disabled = true;
+    safeSetDisplay('problems-empty-hint', 'none');
+    safeSetDisplay('btn-one-key-analyze', 'disabled', true);
 
     try {
         // Step 1: 调用两阶段 API - 仅挖掘蓝海机会
@@ -3193,10 +3206,10 @@ async function portraitMineAndGenerate() {
 
         if (!resp.ok) {
             showToast('分析失败，请稍后重试', 'error');
-            document.getElementById('problem-mining-loading').style.display = 'none';
-            document.getElementById('problems-empty-hint').style.display = 'flex';
+            safeSetDisplay('problem-mining-loading', 'display', 'none');
+            safeSetDisplay('problems-empty-hint', 'display', 'flex');
             unlockFormPanel();
-            document.getElementById('btn-one-key-analyze').disabled = false;
+            safeSetDisplay('btn-one-key-analyze', 'disabled', false);
             return;
         }
 
@@ -3231,7 +3244,7 @@ async function portraitMineAndGenerate() {
                 },
             };
 
-            document.getElementById('problem-mining-loading').style.display = 'none';
+            safeSetDisplay('problem-mining-loading', 'display', 'none');
 
             // 如果有蓝海机会，显示在蓝海机会 Tab
             if (opportunities.length > 0) {
@@ -3243,24 +3256,24 @@ async function portraitMineAndGenerate() {
             } else {
                 // 没有蓝海机会，提示用户
                 showToast('未发现明显蓝海机会', 'info');
-                document.getElementById('problems-empty-hint').style.display = 'flex';
+                safeSetDisplay('problems-empty-hint', 'display', 'flex');
                 unlockFormPanel();
-                document.getElementById('btn-one-key-analyze').disabled = false;
+                safeSetDisplay('btn-one-key-analyze', 'disabled', false);
             }
         } else {
             showToast(result.message || '分析失败', 'error');
-            document.getElementById('problem-mining-loading').style.display = 'none';
-            document.getElementById('problems-empty-hint').style.display = 'flex';
+            safeSetDisplay('problem-mining-loading', 'display', 'none');
+            safeSetDisplay('problems-empty-hint', 'display', 'flex');
             unlockFormPanel();
-            document.getElementById('btn-one-key-analyze').disabled = false;
+            safeSetDisplay('btn-one-key-analyze', 'disabled', false);
         }
     } catch (error) {
         console.error('市场分析失败:', error);
         showToast('分析失败，请稍后重试', 'error');
-        document.getElementById('problem-mining-loading').style.display = 'none';
-        document.getElementById('problems-empty-hint').style.display = 'flex';
+        safeSetDisplay('problem-mining-loading', 'display', 'none');
+        safeSetDisplay('problems-empty-hint', 'display', 'flex');
         unlockFormPanel();
-        document.getElementById('btn-one-key-analyze').disabled = false;
+        safeSetDisplay('btn-one-key-analyze', 'disabled', false);
     }
 }
 
@@ -3829,8 +3842,8 @@ async function selectOpportunityInTab(index, businessDirection) {
     _marketAnalysisCache.keyword_stats = { total: 0, blue_ocean: 0, red_ocean: 0 };
 
     switchSuperTab('tab-portraits');
-    document.getElementById('portraits-empty-hint').style.display = 'none';
-    document.getElementById('portrait-generating-loading').style.display = 'block';
+    safeSetDisplay('portraits-empty-hint', 'display', 'none');
+    safeSetDisplay('portrait-generating-loading', 'display', 'block');
     const loadingText = document.querySelector('#portrait-generating-loading p');
     if (loadingText) {
         loadingText.innerHTML = `<i class="bi bi-magic" style="margin-right:6px;"></i>正在生成精准画像...`;
@@ -3909,13 +3922,13 @@ async function selectOpportunityInTab(index, businessDirection) {
     } catch (e) {
         console.error('[selectOpportunityInTab] 异常:', e);
         showToast('生成画像时出错: ' + e.message, 'error');
-        document.getElementById('portrait-generating-loading').style.display = 'none';
-        document.getElementById('portraits-empty-hint').style.display = 'flex';
+        safeSetDisplay('portrait-generating-loading', 'display', 'none');
+        safeSetDisplay('portraits-empty-hint', 'display', 'flex');
         _selectedOpportunityIndex = null;
         _selectedOpportunityData = null;
         renderOpportunityCarousel();
         unlockFormPanel();
-        document.getElementById('btn-one-key-analyze').disabled = false;
+        safeSetDisplay('btn-one-key-analyze', 'disabled', false);
     }
 }
 
@@ -4235,10 +4248,10 @@ async function generatePortraitsWithBusiness(coreBusiness) {
     // 显示画像生成加载状态
     const oppSection = document.getElementById('opportunities-section');
     if (oppSection) oppSection.classList.add('force-hidden');
-    document.getElementById('problems-empty-hint').style.display = 'none';
-    document.getElementById('portraits-empty-hint').style.display = 'none';
-    document.getElementById('portrait-generating-loading').style.display = 'block';
-    document.getElementById('target-customers-section').style.display = 'none';
+    safeSetDisplay('problems-empty-hint', 'display', 'none');
+    safeSetDisplay('portraits-empty-hint', 'display', 'none');
+    safeSetDisplay('portrait-generating-loading', 'display', 'block');
+    safeSetDisplay('target-customers-section', 'display', 'none');
 
     // 更新加载提示文字，显示选择的业务方向
     const loadingText = document.querySelector('#portrait-generating-loading p');
@@ -4267,8 +4280,8 @@ async function generatePortraitsWithBusiness(coreBusiness) {
 
         if (!resp.ok) {
             showToast('画像生成失败', 'error');
-            document.getElementById('portrait-generating-loading').style.display = 'none';
-            document.getElementById('portraits-empty-hint').style.display = 'flex';
+            safeSetDisplay('portrait-generating-loading', 'display', 'none');
+            safeSetDisplay('portraits-empty-hint', 'display', 'flex');
             return;
         }
 
@@ -4347,14 +4360,14 @@ async function generatePortraitsWithBusiness(coreBusiness) {
 
         } else {
             showToast(result.message || '画像生成失败', 'error');
-            document.getElementById('portrait-generating-loading').style.display = 'none';
-            document.getElementById('portraits-empty-hint').style.display = 'flex';
+            safeSetDisplay('portrait-generating-loading', 'display', 'none');
+            safeSetDisplay('portraits-empty-hint', 'display', 'flex');
         }
     } catch (error) {
         console.error('画像生成失败:', error);
         showToast('画像生成失败，请重试', 'error');
-        document.getElementById('portrait-generating-loading').style.display = 'none';
-        document.getElementById('portraits-empty-hint').style.display = 'flex';
+        safeSetDisplay('portrait-generating-loading', 'display', 'none');
+        safeSetDisplay('portraits-empty-hint', 'display', 'flex');
     }
 
     // 注意：不清理 _marketAnalysisCache，保留机会数据用于 Tab 快照显示
@@ -5381,9 +5394,9 @@ async function generatePortraitsForProblem(key, index) {
         btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 生成中...';
     }
 
-    document.getElementById('portrait-generating-loading').style.display = 'block';
-    document.getElementById('target-customers-section').style.display = 'none';
-    document.getElementById('portraits-empty-hint').style.display = 'none';
+    safeSetDisplay('portrait-generating-loading', 'display', 'block');
+    safeSetDisplay('target-customers-section', 'display', 'none');
+    safeSetDisplay('portraits-empty-hint', 'display', 'none');
 
     try {
         const businessDesc = document.getElementById('business-desc').value.trim();
@@ -7428,8 +7441,8 @@ const SnapshotManager = {
         _selectedOpportunityData = d;
         lockFormPanel();
         switchSuperTab('tab-portraits');
-        document.getElementById('portraits-empty-hint').style.display = 'none';
-        document.getElementById('portrait-generating-loading').style.display = 'block';
+        safeSetDisplay('portraits-empty-hint', 'display', 'none');
+        safeSetDisplay('portrait-generating-loading', 'display', 'block');
         const loadingText = document.querySelector('#portrait-generating-loading p');
         if (loadingText) loadingText.innerHTML = `<i class="bi bi-search" style="margin-right:6px;"></i>正在基于「${this._esc(name)}」生成关键词库...`;
 
@@ -7484,8 +7497,8 @@ const SnapshotManager = {
         } catch (e) {
             console.error('[SnapshotManager] 恢复失败:', e);
             showToast('从快照继续失败: ' + e.message, 'error');
-            document.getElementById('portrait-generating-loading').style.display = 'none';
-            document.getElementById('portraits-empty-hint').style.display = 'flex';
+            safeSetDisplay('portrait-generating-loading', 'display', 'none');
+            safeSetDisplay('portraits-empty-hint', 'display', 'flex');
             unlockFormPanel();
         }
     },
@@ -7501,6 +7514,129 @@ const SnapshotManager = {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 };
+
+// ═══════════════════════════════════════════════════════════════════
+// 行业分析报告功能（简化版）
+// ═══════════════════════════════════════════════════════════════════
+
+var _industryAnalysisData = null;
+
+async function generateIndustryAnalysis() {
+    var btn = document.getElementById('btn-generate-industry-analysis');
+    var loadingEl = document.getElementById('industry-analysis-loading');
+
+    if (btn) {
+        btn.style.display = 'none';
+    }
+    loadingEl.style.display = 'block';
+
+    try {
+        var businessDesc = document.getElementById('business-desc')?.value.trim() || '';
+        var businessRange = document.querySelector('input[name="business-range"]:checked')?.value || '';
+        var serviceScenario = document.getElementById('service-scenario')?.value || '';
+        var businessType = document.querySelector('input[name="business-type"]:checked')?.value || '';
+
+        if (!businessDesc) {
+            throw new Error('请先填写业务描述');
+        }
+
+        var resp = await fetch('/public/api/portraits/industry-analysis/generate-from-opportunity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                business_name: businessDesc,
+                business_description: businessDesc,
+                industry: '',
+                target_customer: '',
+                business_type: businessType,
+                business_range: businessRange,
+                service_scenario: serviceScenario
+            })
+        });
+        var result = await resp.json();
+
+        if (result.success) {
+            _industryAnalysisData = result.data;
+            loadingEl.style.display = 'none';
+            if (btn) {
+                btn.innerHTML = '<i class="bi bi-eye" style="margin-right: 6px;"></i>查看报告';
+                btn.style.display = 'block';
+                btn.onclick = openIndustryAnalysisModal;
+            }
+            showToast('行业分析报告生成成功', 'success');
+        } else {
+            throw new Error(result.message || '生成失败');
+        }
+    } catch (e) {
+        showToast(e.message || '生成失败，请重试', 'error');
+        loadingEl.style.display = 'none';
+        if (btn) {
+            btn.style.display = 'block';
+        }
+    }
+}
+
+function openIndustryAnalysisModal() {
+    if (!_industryAnalysisData) {
+        showToast('请先生成行业分析报告', 'info');
+        return;
+    }
+    var markdown = _industryAnalysisData.markdown || '';
+    showMarkdownModal('行业分析报告', markdown);
+}
+
+function showMarkdownModal(title, markdown) {
+    var existing = document.getElementById('markdown-modal');
+    if (existing) existing.remove();
+
+    var modal = document.createElement('div');
+    modal.id = 'markdown-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.onclick = function(e) {
+        if (e.target === modal) modal.remove();
+    };
+
+    var content = document.createElement('div');
+    content.style.cssText = 'background:#fff;border-radius:12px;max-width:800px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;';
+
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #eee;';
+    header.innerHTML = '<div style="font-size:1rem;font-weight:600;">' + escHtml(title) + '</div>' +
+        '<button onclick="document.getElementById(\'markdown-modal\').remove()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#999;line-height:1;">&times;</button>';
+
+    var body = document.createElement('div');
+    body.style.cssText = 'flex:1;overflow-y:auto;padding:20px;font-size:0.875rem;line-height:1.8;';
+    body.innerHTML = simpleMarkdownToHtml(markdown);
+
+    modal.appendChild(content);
+    content.appendChild(header);
+    content.appendChild(body);
+    document.body.appendChild(modal);
+}
+
+function simpleMarkdownToHtml(md) {
+    if (!md) return '';
+    var html = md
+        .replace(/^### (.+)$/gm, '<h4 style="margin:16px 0 8px;font-size:1rem;font-weight:600;">$1</h4>')
+        .replace(/^## (.+)$/gm, '<h3 style="margin:20px 0 10px;font-size:1.125rem;font-weight:600;">$1</h3>')
+        .replace(/^# (.+)$/gm, '<h2 style="margin:24px 0 12px;font-size:1.25rem;font-weight:600;">$1</h2>')
+        .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #eee;margin:16px 0;">')
+        .replace(/^\* (.+)$/gm, '<li style="margin:4px 0 4px 20px;">$1</li>')
+        .replace(/^- (.+)$/gm, '<li style="margin:4px 0 4px 20px;">$1</li>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n\n/g, '</p><p style="margin:8px 0;">')
+        .replace(/\n/g, '<br>');
+    html = '<p style="margin:8px 0;">' + html + '</p>';
+    return html;
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
 
 // ── 页面初始化 ──────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async function() {

@@ -54,55 +54,29 @@ class TopicContentGenerator:
         {'name': '用户证言型', 'slides': 7, 'desc': '封面→用户痛点→真实故事→改变过程→使用效果→品牌'},
     ]
 
-    # ── GEO 8大模式定义 ──
+    # ── GEO 核心3模式（精简版）──
+    # 覆盖80%场景，减少LLM决策负担
     GEO_MODES = {
         '问题-答案模式': {
-            'keywords': ['什么是', '怎么选', '怎么办', '是否', '哪个好', '如何', '好不好', '怎么选'],
-            'best_formats': ['长文', '小红书'],
-            'title_patterns': ['什么是.*', '.*怎么办', '.*怎么选', '.*好不好', '.*如何.*'],
-            'hook': '直接给出专业答案，开篇≤20字无铺垫',
-        },
-        '定义-解释模式': {
-            'keywords': ['定义', '区别', '差异', '是什么', '和.*区别', '与.*不同'],
-            'best_formats': ['长文', '抖音'],
-            'title_patterns': ['.*定义.*', '.*区别.*', '.*是什么', '.*和.*区别'],
-            'hook': '定义≤30字 + 生动比喻结尾绑定品牌',
-        },
-        '金句-论证模式': {
-            'keywords': ['99%', '不是.*而是', '误区', '错了', '都错了', '真相', '其实'],
-            'best_formats': ['抖音', '小红书'],
-            'title_patterns': ['.*99%.*', '.*不是.*而是.*', '.*误区.*', '.*错了.*'],
-            'hook': '开篇金句制造认知冲突，结尾反转或正确认知',
-        },
-        '框架-工具模式': {
-            'keywords': ['方法论', '框架', '模型', '体系', '流程', '步骤', '清单'],
-            'best_formats': ['长文'],
-            'title_patterns': ['.*方法.*', '.*框架.*', '.*模型.*', '.*流程.*'],
-            'hook': '框架可视化描述 + 可落地操作清单',
-        },
-        '清单体模式': {
-            'keywords': ['清单', '技巧', '方法', '窍门', '步骤', '大全', '汇总'],
+            'keywords': ['怎么办', '怎么选', '好不好', '如何', '能不能', '是不是', '为什么', '能不能'],
             'best_formats': ['小红书', '长文'],
-            'title_patterns': ['.*清单.*', '.*技巧.*', '.*方法.*', '.*步骤.*'],
-            'hook': '数字承诺（如"10个技巧"）+ 优先级排序',
-        },
-        '榜单体模式': {
-            'keywords': ['排行', '排名', '红黑榜', '推荐', 'top', '榜单', '哪个'],
-            'best_formats': ['长文', '小红书'],
-            'title_patterns': ['.*排行.*', '.*排名.*', '.*推荐.*', '.*榜单.*'],
-            'hook': '榜单核心结论 + 评选维度说明',
-        },
-        '案例-故事模式': {
-            'keywords': ['案例', '故事', '经历', '客户', '真实', '成功', '创业'],
-            'best_formats': ['长文', '抖音'],
-            'title_patterns': ['.*案例.*', '.*故事.*', '.*经历.*', '.*客户.*'],
-            'hook': 'P-C-S-R英雄之旅结构：困境→尝试→方案→成果',
+            'title_patterns': ['.*怎么办', '.*怎么选', '.*好不好', '.*如何', '.*能不能'],
+            'hook': '开篇≤30字直接给答案，禁止任何铺垫',
+            'structure': '疑问揭秘型 (5张图)',
         },
         '对比-纠错模式': {
-            'keywords': ['对比', '比较', 'vs', '或者', '还是', '旧.*新', '错.*对'],
+            'keywords': ['对比', '比较', '误区', '错误', '错', '对', 'vs', '或者'],
             'best_formats': ['抖音', '长文'],
-            'title_patterns': ['.*对比.*', '.*vs.*', '.*旧.*新.*', '.*错.*对.*'],
+            'title_patterns': ['.*对比.*', '.*误区.*', '.*错误.*', '.*错.*对.*'],
             'hook': '旧vs新对比 + 错误vs正确并列',
+            'structure': '对比冲击型 (6张图)',
+        },
+        '清单-步骤模式': {
+            'keywords': ['清单', '技巧', '方法', '步骤', '哪些', '几个', '大全'],
+            'best_formats': ['小红书', '长文'],
+            'title_patterns': ['.*清单.*', '.*技巧.*', '.*方法.*', '.*步骤.*'],
+            'hook': '数字承诺 + 优先级排序',
+            'structure': '数字清单型 (6张图)',
         },
     }
 
@@ -116,6 +90,50 @@ class TopicContentGenerator:
 
     def __init__(self):
         self.llm = get_llm_service()
+
+    # ── 前置质量门控 ──
+    def quality_gate(self, topic_title: str, topic_type: str) -> dict:
+        """
+        前置质量门控检查选题是否满足生成标准
+
+        Returns:
+            dict: {"pass": bool, "reason": str, "suggestion": str}
+        """
+        prompt = f"""检查以下选题是否满足前置质量标准（返回JSON）：
+
+选题：{topic_title}
+类型：{topic_type}
+
+检查项：
+1. 标题是否以问题句开头？（是/否）
+2. 标题是否包含痛点关键词？
+3. 选题是否有明确目标人群？
+
+返回格式：
+{{"pass": true/false, "reason": "通过原因/不通过原因", "suggestion": "优化建议"}}
+"""
+        try:
+            response = self.llm.chat(prompt, max_tokens=300)
+            result = self._parse_json(response)
+            if not result:
+                logger.warning("[QualityGate] JSON解析失败，默认通过")
+                return {'pass': True, 'reason': '检查超时，默认通过', 'suggestion': ''}
+            return result
+        except Exception as e:
+            logger.warning(f"[QualityGate] 检查异常: {e}，默认通过")
+            return {'pass': True, 'reason': '检查异常，默认通过', 'suggestion': ''}
+
+    def _parse_json(self, text: str) -> dict:
+        """解析JSON响应"""
+        import re
+        try:
+            json_match = re.search(r'\{.*\}', text, re.DOTALL)
+            if json_match:
+                import json
+                return json.loads(json_match.group(0))
+        except Exception:
+            pass
+        return {}
 
     def generate_content(
         self,
@@ -159,6 +177,18 @@ class TopicContentGenerator:
             }
         """
         try:
+            # ── 前置质量门控 ──
+            gate_result = self.quality_gate(topic_title, topic_type)
+            if not gate_result.get('pass'):
+                logger.warning(f"[QualityGate] 选题未通过: {gate_result.get('reason')}")
+                return {
+                    'success': False,
+                    'error': '选题质量不达标',
+                    'reason': gate_result.get('reason', ''),
+                    'suggestion': gate_result.get('suggestion', '请优化选题后再试'),
+                    'gate_result': gate_result,
+                }
+
             # 所有用户均可使用全部20种结构
             structures = self.ALL_STRUCTURES
             structure_names = [s['name'] for s in structures]
@@ -234,7 +264,7 @@ class TopicContentGenerator:
                 current_score = initial_geo_score
                 best_content = content
                 best_score = initial_geo_score
-                max_total_rounds = 6
+                max_total_rounds = 3  # 精简：最多3轮（原来6轮）
                 no_improvement_count = 0
 
                 try:
@@ -250,7 +280,7 @@ class TopicContentGenerator:
                             logger.info(f"[GEO优化] 迭代{iteration}：无不合格项，停止")
                             break
 
-                        # 每轮最多3次ABC递进修补
+                        # 每轮最多2次ABC递进修补（精简：原来3次）
                         optimizer = ProgressiveContentOptimizer()
                         opt_result = optimizer.optimize(
                             current_content,
@@ -258,7 +288,7 @@ class TopicContentGenerator:
                             current_score,
                             brand_name=brand_name_for_score,
                             business_desc=business_description,
-                            max_rounds=3,
+                            max_rounds=2,
                         )
 
                         if not opt_result.success:
@@ -289,8 +319,8 @@ class TopicContentGenerator:
                             best_content = iter_content
                             break
 
-                        # 连续2轮无提升停止
-                        if no_improvement_count >= 2:
+                        # 连续1轮无提升停止（精简流程）
+                        if no_improvement_count >= 1:
                             logger.info(f"[GEO优化] 连续{no_improvement_count}轮无提升，停止")
                             break
 
@@ -896,34 +926,29 @@ class TopicContentGenerator:
         else:
             return "冬季"
 
-    # type_key → geo_mode 映射（选题库选题类型 → 内容生成时的GEO模式）
+    # type_key → geo_mode 映射（精简为3种核心模式）
     TYPE_KEY_TO_GEO_MODE = {
-        'pain_point':        '问题-答案模式',      # 痛点解决 → 直接给答案
-        'decision_encourage': '问题-答案模式',    # 决策鼓励 → 直接给答案
-        'compare':           '问题-答案模式',      # 对比选型 → 问题-答案
-        'pitfall':           '金句-论证模式',      # 避坑指南 → 反常识金句
-        'cause':             '问题-答案模式',      # 原因分析 → 问题-答案
-        'tutorial':          '定义-解释模式',     # 知识教程 → 定义-解释
-        'skill':             '框架-工具模式',     # 实操技巧 → 框架-工具
-        'seasonal':          '清单体模式',        # 季节营销 → 清单体
-        'festival':          '清单体模式',        # 节日营销 → 清单体
-        'emotional':         '案例-故事模式',     # 情感故事 → 案例故事
-        'upstream':          '定义-解释模式',     # 上游科普 → 定义-解释
-        'price':             '问题-答案模式',     # 行情价格 → 问题-答案
-        'rethink':           '金句-论证模式',     # 认知颠覆 → 金句论证
-        'effect_proof':      '案例-故事模式',    # 效果验证 → 案例故事
+        'pain_point':        '问题-答案模式',
+        'decision_encourage': '问题-答案模式',
+        'compare':           '对比-纠错模式',
+        'pitfall':           '对比-纠错模式',
+        'cause':             '问题-答案模式',
+        'tutorial':          '清单-步骤模式',
+        'skill':             '清单-步骤模式',
+        'seasonal':          '清单-步骤模式',
+        'festival':          '清单-步骤模式',
+        'emotional':         '问题-答案模式',
+        'upstream':          '问题-答案模式',
+        'price':             '问题-答案模式',
+        'rethink':           '对比-纠错模式',
+        'effect_proof':      '对比-纠错模式',
     }
 
-    # GEO模式名称 → mode_key 映射
+    # GEO模式名称 → mode_key 映射（精简为3种）
     GEO_MODE_KEY_MAP = {
         '问题-答案模式': 'question_answer',
-        '定义-解释模式': 'definition',
-        '金句-论证模式': 'golden_sentence',
-        '框架-工具模式': 'framework_tool',
-        '清单体模式': 'checklist',
-        '榜单体模式': 'ranking',
-        '案例-故事模式': 'case_story',
         '对比-纠错模式': 'comparison',
+        '清单-步骤模式': 'checklist',
     }
 
     def _get_mode_key(self, mode_name: str) -> str:
@@ -981,55 +1006,25 @@ class TopicContentGenerator:
         # 合并选题和场景关键词用于匹配
         combined_text = (topic_full + ' ' + scene_all_text).lower()
 
-        # 优先级匹配（按具体程度从高到低）
+        # 优先级匹配（精简为3种核心模式）
         matchers = [
-            # 1. 对比-纠错模式（最具体）
-            (lambda t, s: any(k in t for k in ['对比', '比较', ' vs ', '或者', '还是', '不准', '错误', '误区', '差异']) or
-                          any(k in s for k in ['对比', '比较', '旧', '正确', '错误', '不准', '差异']),
+            # 1. 对比-纠错模式
+            (lambda t, s: any(k in t for k in ['对比', '比较', '误区', '错误', '错', '对', 'vs', '或者']) or
+                          any(k in s for k in ['对比', '比较', '误区', '错误']),
              '对比-纠错模式', 'comparison',
-             lambda: '标题或场景含"不准/对比/错误/误区"，适合用旧vs新、错误vs正确对比'),
+             lambda: '标题或场景含"对比/误区/错误"，适合用对比冲击结构'),
 
-            # 2. 案例-故事模式
-            (lambda t, s: any(k in t for k in ['案例', '故事', '经历', '客户', '真实', '成功', '创业']) or
-                          any(k in s for k in ['故事', '经历', '真实', '客户', '成功']),
-             '案例-故事模式', 'case_story',
-             lambda: '标题或场景含"案例/故事/经历"，适合用P-C-S-R英雄之旅结构'),
-
-            # 3. 清单体模式
-            (lambda t, s: any(k in t for k in ['清单', '技巧', '方法', '窍门', '步骤', '大全', '哪些', '几个']) or
+            # 2. 清单-步骤模式
+            (lambda t, s: any(k in t for k in ['清单', '技巧', '方法', '步骤', '哪些', '几个', '大全']) or
                           any(k in s for k in ['清单', '步骤', '方法', '技巧']),
-             '清单体模式', 'checklist',
-             lambda: '标题或场景含数字+技巧/清单，适合用清单体结构'),
+             '清单-步骤模式', 'checklist',
+             lambda: '标题或场景含"清单/技巧/方法"，适合用数字清单结构'),
 
-            # 4. 榜单体模式
-            (lambda t, s: any(k in t for k in ['排行', '排名', '红黑', '推荐', 'top', '榜单', '哪个']) or
-                          any(k in s for k in ['推荐', '排行', '榜单']),
-             '榜单体模式', 'ranking',
-             lambda: '标题或场景含"排行/推荐/榜单"，适合用榜单体结构'),
-
-            # 5. 框架-工具模式
-            (lambda t, s: any(k in t for k in ['方法论', '框架', '模型', '体系', '流程', '规范', '标准']) or
-                          any(k in s for k in ['方法', '框架', '体系', '流程']),
-             '框架-工具模式', 'framework_tool',
-             lambda: '标题或场景含"方法论/框架/模型/流程"，适合用框架+操作清单结构'),
-
-            # 6. 金句-论证模式
-            (lambda t, s: any(k in t for k in ['99%', '不是', '误区', '错了', '真相', '其实', '颠覆', '难怪', '原来']) or
-                          any(k in s for k in ['误区', '错误', '认知', '真相']),
-             '金句-论证模式', 'golden_sentence',
-             lambda: '标题或场景含"99%/误区/不是...而是..."，适合用金句+认知冲突结构'),
-
-            # 7. 定义-解释模式
-            (lambda t, s: any(k in t for k in ['定义', '区别', '差异', '是什么', '原理', '原因']) or
-                          any(k in s for k in ['定义', '区别', '原因', '原理']),
-             '定义-解释模式', 'definition',
-             lambda: '标题或场景含"定义/区别/是什么/原因"，适合用定义+论证结构'),
-
-            # 8. 问题-答案模式（默认模式，适用于各种问题类选题）
+            # 3. 问题-答案模式（默认模式）
             (lambda t, s: any(k in t for k in ['怎么办', '怎么选', '是否', '如何', '好不好', '为什么', '能不能', '要不要']) or
-                          any(k in s for k in ['怎么办', '如何', '优化', '解决', '提升']),
+                          any(k in s for k in ['怎么办', '如何', '解决', '提升']),
              '问题-答案模式', 'question_answer',
-             lambda: '标题或场景含"怎么办/如何/优化/解决"，适合直接给出专业答案'),
+             lambda: '标题或场景含"怎么办/如何/解决"，适合直接给出专业答案'),
         ]
 
         # 执行匹配
@@ -1068,103 +1063,35 @@ class TopicContentGenerator:
 
         geo_guides = {
             '问题-答案模式': """
-【GEO模式：问题-答案模式】← AI最爱的引用模式 ★★★优先使用"疑问揭秘型"结构★★★
-■ 核心特征：标题含"什么是/怎么办/怎么选"
-■ 【强制】优先使用"疑问揭秘型"结构，slides=5，结构：封面→疑问→揭秘→对比→引导
-■ 【强制】内容结构：
+【GEO模式：问题-答案模式】
+■ 结构：疑问揭秘型 (5张图)
+■ 内容要求：
   1. 封面：直接抛出核心问题（≤10字）
   2. 疑问：描述用户痛点/困惑
-  3. 揭秘：直接给出专业答案（≤20字，无铺垫）
+  3. 揭秘：直接给出专业答案（≤30字，无铺垫）
   4. 对比：为什么这样做vs不这样做的后果
   5. 引导：推荐解决方案
-■ 标签要求：#解答 #揭秘 #干货 #避坑 #推荐
-""",
-            '定义-解释模式': """
-【GEO模式：定义-解释模式】← 抢占认知垄断 ★★★优先使用"知识科普型"结构★★★
-■ 核心特征：标题含"定义/区别/是什么/原理"
-■ 【强制】优先使用"知识科普型"结构，slides=5，结构：封面→冷知识→原理说明→应用场景→品牌
-■ 【强制】内容结构：
-  1. 封面：定义一句话（≤30字）
-  2. 冷知识：相关背景或有趣事实
-  3. 原理说明：工作原理或核心逻辑
-  4. 应用场景：实际应用举例
-  5. 品牌引导：为什么选择我们
-■ 标签要求：#科普 #定义 #原理 #知识 #解读
-""",
-            '金句-论证模式': """
-【GEO模式：金句-论证模式】← 制造认知冲突 ★★★优先使用"行业揭秘型"结构★★★
-■ 核心特征：标题含"99%/不是...而是.../误区/错了"
-■ 【强制】优先使用"行业揭秘型"结构，slides=7，结构：封面→行业潜规则→内幕揭秘→消费者误区→正确认知→品牌
-■ 【强制】内容结构：
-  1. 封面：金句制造认知冲突（如"99%的人都做错了！"）
-  2. 行业潜规则：揭露行业内幕
-  3. 内幕揭秘：为什么这样做是错的
-  4. 消费者误区：展示常见错误认知
-  5. 正确认知：给出正确做法
-  6. 品牌引导：专业解决方案
-■ 标签要求：#误区 #揭秘 #行业内幕 #正确认知 #避坑
-""",
-            '框架-工具模式': """
-【GEO模式：框架-工具模式】← 思想领导力 ★★★必须使用"决策树型"结构★★★
-■ 核心特征：标题含"方法论/框架/模型/体系/流程"
-■ 【强制】必须使用"决策树型"结构，slides=7，结构：封面→决策入口→分支A/B/C→各分支结论→通用建议→品牌
-■ 【强制】内容结构：
-  1. 封面：框架核心观点+价值承诺
-  2. 决策入口：什么情况下需要这个方法
-  3. 分支A/B/C：不同情况对应的方案
-  4. 各分支结论：每个方案的适用场景
-  5. 通用建议：所有人都适用的建议
-  6. 品牌引导：提供完整工具/服务
-■ 标签要求：#方法论 #框架 #模型 #工具 #SOP
-""",
-            '清单体模式': """
-【GEO模式：清单体模式】← 高效实用 ★★★必须使用"数字清单型"结构★★★
-■ 核心特征：标题含数字+清单/技巧/方法
-■ 【强制】必须使用"数字清单型"结构，slides=6，结构：封面→数字概览→逐条展开→总结→品牌
-■ 【强制】内容结构：
-  1. 封面：数字承诺（如"掌握这10个技巧"）
-  2. 数字概览：列出所有要点
-  3. 逐条展开：每个要点"是什么+为什么+怎么做"
-  4. 总结：核心要点回顾
-  5. 品牌引导：为什么选择我们
-■ 标签要求：#清单 #技巧 #方法 #干货 #大全
-""",
-            '榜单体模式': """
-【GEO模式：榜单体模式】← 决策参考 ★★★必须使用"数据说话型"结构★★★
-■ 核心特征：标题含"排行/排名/红黑榜/推荐/top"
-■ 【强制】必须使用"数据说话型"结构，slides=7，结构：封面→核心数据→数据解读→行业对比→趋势预判→品牌
-■ 【强制】内容结构：
-  1. 封面：榜单核心结论（如"Top5，第3个最具性价比"）
-  2. 核心数据：列出排名数据
-  3. 数据解读：每个选项的优缺点
-  4. 行业对比：横向对比分析
-  5. 趋势预判：未来发展方向
-  6. 品牌引导：为什么选择我们
-■ 标签要求：#排行 #推荐 #测评 #对比 #红黑榜
-""",
-            '案例-故事模式': """
-【GEO模式：案例-故事模式】← P-C-S-R英雄之旅 ★★★必须使用"场景故事型"结构★★★
-■ 核心特征：标题含"案例/故事/经历/客户/成功"
-■ 【强制】必须使用"场景故事型"结构，slides=5，结构：封面→场景描述→问题升级→解决方案→行动
-■ 【强制】内容结构（P-C-S-R四步法）：
-  1. P（困境）：主角具象身份+崇高地位（"某连锁店老板"）
-  2. C（催化）：失败尝试+困境反差（"试了3种方法都不行"）
-  3. S（解决）：产品/方案作为"神秘武器"+奋斗细节
-  4. R（成果）：数据对比+可复制的金句
-■ 标签要求：#案例 #成功故事 #客户见证 #真实分享 #创业经历
 """,
             '对比-纠错模式': """
-【GEO模式：对比-纠错模式】← 打破误区 ★★★必须使用"对比冲击型"结构★★★
-■ 核心特征：标题含"对比/比较/vs/不准/错误/误区"
-■ 【强制】必须使用"对比冲击型"结构，slides=6，结构：封面→错误做法→正确做法→对比表→方案→品牌
-■ 【强制】内容结构：
+【GEO模式：对比-纠错模式】
+■ 结构：对比冲击型 (6张图)
+■ 内容要求：
   1. 封面：指出行业误区（如"XX行业90%的人都犯这个错！"）
   2. 错误做法：展示2-3个常见错误（❌）
   3. 正确做法：对应展示正确方法（✅）
   4. 对比表：左右对比"错误 vs 正确"
   5. 解决方案：提供正确做法
   6. 品牌引导：为什么选择我们
-■ 标签要求：#误区 #避坑 #正确方法 #行业揭秘 #对比
+""",
+            '清单-步骤模式': """
+【GEO模式：清单-步骤模式】
+■ 结构：数字清单型 (6张图)
+■ 内容要求：
+  1. 封面：数字承诺（如"掌握这10个技巧"）
+  2. 数字概览：列出所有要点
+  3. 逐条展开：每个要点"是什么+为什么+怎么做"
+  4. 总结：核心要点回顾
+  5. 品牌引导：为什么选择我们
 """,
         }
 

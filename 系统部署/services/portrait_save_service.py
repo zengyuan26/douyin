@@ -571,6 +571,92 @@ class PortraitSaveService:
             logger.error("[save_selected_opportunity] 保存失败 portrait_id=%s, error=%s", portrait_id, str(e))
             return False
 
+    @classmethod
+    def save_industry_analysis_report(cls, portrait_id: int, report: Dict) -> bool:
+        """
+        保存行业分析报告
+
+        Args:
+            portrait_id: 画像ID
+            report: 行业分析报告字典
+
+        Returns:
+            bool: 是否保存成功
+        """
+        try:
+            # 获取现有的 extra_data
+            result = db.session.execute(
+                text("SELECT extra_data FROM saved_portraits WHERE id = :id"),
+                {'id': portrait_id}
+            ).fetchone()
+
+            extra_data = {}
+            if result and result[0]:
+                try:
+                    extra_data = json.loads(result[0]) if isinstance(result[0], str) else result[0]
+                except:
+                    extra_data = {}
+
+            # 更新字段
+            extra_data['industry_analysis_report'] = report
+            extra_data['industry_analysis_updated_at'] = datetime.utcnow().isoformat()
+
+            # 保存
+            db.session.execute(
+                text("""
+                    UPDATE saved_portraits
+                    SET extra_data = :extra_data,
+                        updated_at = :updated_at
+                    WHERE id = :id
+                """),
+                {
+                    'id': portrait_id,
+                    'extra_data': json.dumps(extra_data, ensure_ascii=False),
+                    'updated_at': datetime.utcnow(),
+                }
+            )
+            db.session.commit()
+            logger.info("[save_industry_analysis_report] 保存成功 portrait_id=%s", portrait_id)
+            return True
+        except Exception as e:
+            db.session.rollback()
+            logger.error("[save_industry_analysis_report] 保存失败 portrait_id=%s, error=%s", portrait_id, str(e))
+            return False
+
+    @classmethod
+    def get_industry_analysis_report(cls, portrait_id: int) -> Optional[Dict]:
+        """
+        获取行业分析报告
+
+        Args:
+            portrait_id: 画像ID
+
+        Returns:
+            Dict: 行业分析报告字典，如果不存在返回None
+        """
+        result = db.session.execute(
+            text("""
+                SELECT extra_data FROM saved_portraits WHERE id = :id
+            """),
+            {'id': portrait_id}
+        ).fetchone()
+
+        if not result or not result[0]:
+            return None
+
+        try:
+            extra_data = json.loads(result[0]) if isinstance(result[0], str) else result[0]
+            report = extra_data.get('industry_analysis_report') if isinstance(extra_data, dict) else None
+            updated_at = extra_data.get('industry_analysis_updated_at') if isinstance(extra_data, dict) else None
+            return {
+                'report': report,
+                'updated_at': updated_at,
+                'has_report': report is not None
+            }
+        except Exception as e:
+            logger.error("[get_industry_analysis_report] 解析失败 portrait_id=%s, error=%s", portrait_id, str(e))
+            return None
+
 
 # 全局实例
 portrait_save_service = PortraitSaveService()

@@ -282,6 +282,50 @@ class TopicLibraryGenerator:
         self._load_methodology_config()
 
     # ===========================================================================
+    # 问题句检测
+    # ===========================================================================
+
+    # 问题句检测模式
+    QUESTION_PATTERNS = [
+        r'.*[？?]$',  # 以问号结尾
+        r'^能不能',    # 能不能...
+        r'^会不会',    # 会不会...
+        r'^要不要',    # 要不要...
+        r'^是不是',    # 是不是...
+        r'^为什么',    # 为什么...
+        r'^怎么办',    # 怎么办...
+        r'^怎么',      # 怎么+动词
+        r'^如何',      # 如何...
+        r'^有多少',    # 有多少...
+        r'^谁的',      # 谁的...
+        r'^哪个',      # 哪个...
+        r'^哪里',      # 哪里...
+        r'^谁在',      # 谁在...
+        r'^哪些',      # 哪些...
+    ]
+
+    def _is_question_sentence(self, title: str) -> bool:
+        """
+        检测标题是否以问题句开头
+
+        Args:
+            title: 选题标题
+
+        Returns:
+            bool: True=问题句，False=非问题句
+        """
+        if not title:
+            return False
+
+        title = title.strip()
+
+        for pattern in self.QUESTION_PATTERNS:
+            if re.match(pattern, title):
+                return True
+
+        return False
+
+    # ===========================================================================
     # 方法论配置加载
     # ===========================================================================
 
@@ -521,7 +565,7 @@ class TopicLibraryGenerator:
         keyword_library: Dict = None,
         plan_type: str = 'professional',
         use_template: bool = True,
-        topic_count: int = 20,
+        topic_count: int = 5,
         portrait_id: Optional[int] = None,
         content_stage: Optional[str] = None,
         user_id: Optional[int] = None,
@@ -661,6 +705,17 @@ class TopicLibraryGenerator:
                 k: v for k, v in stage_config.items()
                 if k in ('audience', 'pain', 'compare', 'vision', 'hesitation')
             }
+
+            # ── 添加问题句标识 ───────────────────────
+            for topic in filled_topics:
+                title = topic.get('title', '')
+                topic['is_question'] = self._is_question_sentence(title)
+
+            # ── 12. LLM 生成场景选项 ──────────────────
+            filled_topics = self._generate_scenes_with_llm(
+                filled_topics, business_info, portrait_data
+            )
+
             result = {
                 'topics': filled_topics,
                 'by_type': self._count_by_type(filled_topics),
@@ -697,6 +752,154 @@ class TopicLibraryGenerator:
                 error_str = error_str[:300] + '...'
             logger.error("[TopicLibraryGenerator] Error: " + error_str)
             return {'success': False, 'error': error_str}
+
+    # ===========================================================================
+    # LLM 场景生成
+    # ===========================================================================
+
+    def _generate_scenes_with_llm(
+        self,
+        topics: List[Dict],
+        business_info: Dict,
+        portrait_data: Dict
+    ) -> List[Dict]:
+        """
+        使用 LLM 为每个选题生成贴合业务的场景选项
+
+        Args:
+            topics: 选题列表
+            business_info: 业务信息（包含 industry, target_customer 等）
+            portrait_data: 画像数据
+
+        Returns:
+            添加了 scene_options 字段的选题列表
+        """
+        if not topics:
+            return topics
+
+        industry = business_info.get('industry', '') or portrait_data.get('industry', '')
+        target_customer = business_info.get('target_customer', '') or portrait_data.get('target_customer', '')
+
+        if not industry and not target_customer:
+            logger.info("[TopicLibraryGenerator] 无行业/目标客户信息，跳过场景生成")
+            return topics
+
+        # 构建提示词
+        prompt = self._build_scene_prompt(topics, industry, target_customer)
+
+        try:
+            llm_service = get_llm_service()
+            messages = [
+                {"role": "system", "content": "你是一位抖音内容策划专家，擅长为选题生成精准的场景选项。"},
+                {"role": "user", "content": prompt}
+            ]
+
+            response = llm_service.chat(messages, temperature=0.7, max_tokens=3000)
+
+            if not response:
+                logger.warning("[TopicLibraryGenerator] LLM 生成场景失败，返回空")
+                return topics
+
+            # 解析 LLM 返回的场景
+            scenes_map = self._parse_scenes_response(response, len(topics))
+
+            # 为每个选题附加场景
+            for topic in topics:
+                topic_title = topic.get('title', '')
+                # 匹配最相似的选题
+                matched_key = self._match_topic_to_scenes(topic_title, scenes_map)
+                if matched_key and matched_key in scenes_map:
+                    topic['scene_options'] = scenes_map[matched_key]
+                elif scenes_map:
+                    # 兜底：使用第一个场景配置
+                    first_key = list(scenes_map.keys())[0]
+                    topic['scene_options'] = scenes_map[first_key][:3]
+
+            logger.info("[TopicLibraryGenerator] 场景生成完成，成功处理 %d 个选题", len(topics))
+
+        except Exception as e:
+            logger.error(f"[TopicLibraryGenerator] 场景生成异常: {e}")
+
+        return topics
+
+    def _build_scene_prompt(self, topics: List[Dict], industry: str, target_customer: str) -> str:
+        """构建场景生成的提示词"""
+        topics_text = "\n".join([
+            f"{i+1}. {t.get('title', '')}" for i, t in enumerate(topics[:10])  # 最多10个
+        ])
+
+        return f"""请为以下选题生成场景选项。
+
+=== 业务信息 ===
+行业：{industry}
+目标客户：{target_customer}
+
+=== 选题列表 ===
+{topics_text}
+
+请为每个选题生成 3 个场景选项，每个场景包含：
+- label: 人群标签（如"新手妈妈"、"职场白领"）
+- audience: 人群描述
+- pain: 核心痛点
+- pain_type: 痛点类型（risk/effect/info/price）
+- content_form: 适合的内容形式（graphic图文/shorvideo短视频/longtext长文），根据场景特点判断：
+  * 情绪共鸣型、视觉冲击型 → 短视频
+  * 干货分享型、对比分析型 → 图文或长文
+  * 故事叙述型、案例分享型 → 短视频或长文
+
+输出格式（JSON数组）：
+[
+  {{
+    "topic": "选题标题",
+    "scenes": [
+      {{"label": "人群标签", "audience": "人群描述", "pain": "核心痛点", "pain_type": "risk", "content_form": "shorvideo"}},
+      ...
+    ]
+  }},
+  ...
+]"""
+
+    def _parse_scenes_response(self, response: str, expected_count: int) -> Dict[str, List[Dict]]:
+        """解析 LLM 返回的场景响应"""
+        try:
+            # 尝试提取 JSON
+            import re
+            json_match = re.search(r'\[.*\]', response, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group())
+                result = {}
+                for item in data:
+                    topic = item.get('topic', '')
+                    scenes = item.get('scenes', [])
+                    if topic and scenes:
+                        result[topic] = scenes
+                return result
+        except Exception as e:
+            logger.warning(f"[TopicLibraryGenerator] 解析场景响应失败: {e}")
+
+        return {}
+
+    def _match_topic_to_scenes(self, topic_title: str, scenes_map: Dict) -> str:
+        """匹配选题到场景（模糊匹配）"""
+        if not scenes_map:
+            return None
+
+        topic_lower = topic_title.lower()
+        best_match = None
+        best_score = 0
+
+        for scene_topic in scenes_map.keys():
+            # 简单匹配：计算共同字符数
+            score = len(set(topic_lower) & set(scene_topic.lower()))
+            if score > best_score:
+                best_score = score
+                best_match = scene_topic
+
+        # 如果匹配度太低，返回 None
+        if best_score < 3:
+            return None
+
+        return best_match
 
     # ===========================================================================
     # 方法论增强：为选题添加创作指导
@@ -1449,68 +1652,132 @@ class TopicLibraryGenerator:
     # 增强字段生成（任务1.2新增）
     # ===========================================================================
 
-    def _generate_scene_details(self, topic: Dict) -> List[Dict]:
+    def _generate_scene_details(self, topic: Dict, portrait_data: Dict = None) -> List[Dict]:
         """
-        生成场景细分详情
+        生成场景细分详情（对齐Skill Step 6要求）
+
+        生成5个具体的人群场景，每个场景包含：
+        - id: 场景编号（A/B/C/D/E）
+        - scene/label: 场景名称（具体人群描述）
+        - description: 人群特征描述
+        - reason: 推荐理由
+        - trigger: 触发词
+        - emotion: 情绪词
 
         Returns:
-            List[Dict]: 场景列表，每个包含 scene, trigger, emotion
+            List[Dict]: 5个场景列表
         """
         type_key = topic.get('type_key', '')
         title = topic.get('title', '')
         stage_key = topic.get('stage_key', '')
 
-        # 根据类型决定场景模式
-        scene_templates = {
-            'identity': [
-                {'scene': '刷到视频的瞬间', 'trigger': '人群标签命中', 'emotion': '好奇'},
-                {'scene': '继续看下去', 'trigger': '问题戳中痛点', 'emotion': '认同'},
-            ],
-            'cause': [
-                {'scene': '回忆自己的经历', 'trigger': '原因分析共鸣', 'emotion': '恍然大悟'},
-                {'scene': '想到后果严重性', 'trigger': '后果展示', 'emotion': '焦虑'},
-            ],
-            'pitfall': [
-                {'scene': '回想自己踩过的坑', 'trigger': '避坑话题', 'emotion': '后怕'},
-                {'scene': '庆幸自己看到了', 'trigger': '解决方法', 'emotion': '庆幸'},
-            ],
-            'compare': [
-                {'scene': '对比不同方案', 'trigger': '方案对比', 'emotion': '纠结'},
-                {'scene': '做出选择', 'trigger': '推荐方案', 'emotion': '释然'},
-            ],
-            'skill': [
-                {'scene': '学习实操方法', 'trigger': '技巧讲解', 'emotion': '期待'},
-                {'scene': '准备尝试', 'trigger': '效果展示', 'emotion': '信心'},
-            ],
-            'decision_encourage': [
-                {'scene': '犹豫不决', 'trigger': '决策障碍', 'emotion': '焦虑'},
-                {'scene': '获得信心', 'trigger': '鼓励话语', 'emotion': '坚定'},
-            ],
-        }
+        # 从选题标题提取核心关键词
+        title_keywords = self._extract_keywords_from_title(title)
+        keyword1 = title_keywords[0] if len(title_keywords) > 0 else title
+        keyword2 = title_keywords[1] if len(title_keywords) > 1 else keyword1
 
-        # 根据阶段调整情绪
-        stage_emotions = {
-            'audience': ['好奇', '认同', '期待'],
-            'pain': ['焦虑', '恍然大悟', '后怕'],
-            'compare': ['纠结', '理性', '释然'],
-            'vision': ['期待', '信心', '满足'],
-            'hesitation': ['焦虑', '放心', '坚定'],
-        }
+        # 生成5个具体人群场景
+        scenes = []
 
-        default_scene = [
-            {'scene': '引发关注', 'trigger': '开头吸引', 'emotion': '好奇'},
-            {'scene': '建立共鸣', 'trigger': '痛点共情', 'emotion': '认同'},
-        ]
+        # 场景A：新手/入门用户
+        scenes.append({
+            'id': 'A',
+            'scene': f'刚接触{keyword1}的用户',
+            'label': f'刚接触{keyword1}的用户',
+            'description': f'初次接触{keyword1}的用户，缺乏经验，需要基础科普和指导',
+            'reason': '高焦虑，需要专业指导，容易引发共鸣',
+            'trigger': '人群标签命中',
+            'emotion': '好奇',
+        })
 
-        scenes = scene_templates.get(type_key, default_scene)
+        # 场景B：有一定了解但有困惑
+        scenes.append({
+            'id': 'B',
+            'scene': f'有困惑的{keyword1}用户',
+            'label': f'有困惑的{keyword1}用户',
+            'description': f'对{keyword1}有一定了解，但仍有疑问需要解答',
+            'reason': '困惑较多，需要详细解答，高收藏率',
+            'trigger': '问题共情',
+            'emotion': '认同',
+        })
 
-        # 补充阶段情绪
-        stage_emos = stage_emotions.get(stage_key, ['好奇', '认同'])
-        for i, scene in enumerate(scenes):
-            if i < len(stage_emos):
-                scene['emotion'] = stage_emos[i]
+        # 场景C：犹豫不决
+        scenes.append({
+            'id': 'C',
+            'scene': f'正在犹豫要不要{keyword2}的用户',
+            'label': f'正在犹豫要不要{keyword2}的用户',
+            'description': f'正在考虑是否要{keyword2}的用户，需要推动决策',
+            'reason': '决策障碍，需要推动一把，高转化率',
+            'trigger': '决策障碍',
+            'emotion': '纠结',
+        })
+
+        # 场景D：已尝试但遇到问题
+        scenes.append({
+            'id': 'D',
+            'scene': f'已尝试{keyword2}但遇到问题的用户',
+            'label': f'已尝试{keyword2}但遇到问题的用户',
+            'description': f'尝试过{keyword2}但效果不好或遇到困难的经历者',
+            'reason': '强烈痛点，需要解决方案，高分享率',
+            'trigger': '痛点共鸣',
+            'emotion': '焦虑',
+        })
+
+        # 场景E：想深入了解/追求专业
+        scenes.append({
+            'id': 'E',
+            'scene': f'想深入了解{keyword1}的用户',
+            'label': f'想深入了解{keyword1}的用户',
+            'description': f'追求专业、想深入了解{keyword1}的进阶用户',
+            'reason': '追求专业，需要深度内容，高信任感',
+            'trigger': '专业需求',
+            'emotion': '期待',
+        })
 
         return scenes
+
+    def _extract_keywords_from_title(self, title: str) -> List[str]:
+        """
+        从选题标题提取关键词
+
+        Args:
+            title: 选题标题
+
+        Returns:
+            List[str]: 提取的关键词列表
+        """
+        if not title:
+            return ['', '']
+
+        import re
+
+        # 移除常见疑问词
+        clean_title = title
+        question_words = ['怎么办', '怎么选', '好不好', '如何', '是什么', '为什么',
+                         '是不是', '能不能', '要不要', '哪个好', '怎么选', '多少钱']
+        for w in question_words:
+            clean_title = clean_title.replace(w, '')
+
+        # 移除标点符号
+        clean_title = re.sub(r'[，。！？、；：""''【】（）]', ' ', clean_title)
+
+        # 按空格分割并过滤
+        words = [w.strip() for w in clean_title.split() if len(w.strip()) >= 2]
+
+        # 返回前2个有效词
+        result = []
+        for w in words:
+            if w not in result:
+                result.append(w)
+            if len(result) >= 2:
+                break
+
+        # 兜底：如果没有提取到，返回原始标题的前半部分
+        if not result:
+            mid = len(title) // 2
+            return [title[:mid].strip(), title[mid:].strip()]
+
+        return result
 
     def _generate_core_value(self, topic: Dict) -> str:
         """

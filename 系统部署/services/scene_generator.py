@@ -165,34 +165,8 @@ class SceneGenerator:
     }
 
     # ========== 行业 → 维度映射 ==========
+    # 注意：此配置仅作为 fallback，已主要改为从画像动态提取
     INDUSTRY_DIMENSION_MAP = {
-        'education': {
-            'industry_aliases': ['教育', '高考', '中考', '考研', '志愿', '升学', '分数线', '录取', '选科'],
-            'dimensions': ['score_level', 'need_type', 'time_horizon'],
-            'score_level': {
-                'name': '分数维度',
-                'values': [
-                    {'value': '临界分', 'audience': '踩线考生', 'pain': '踩线最危险，必须搞清楚能报什么批次'},
-                    {'value': '高分', 'audience': '高分考生家长', 'pain': '想冲名校，要全部批次线都了解'},
-                    {'value': '低分', 'audience': '低分考生家长', 'pain': '分数不够，想找所有能报的出路'},
-                ],
-            },
-            'need_type': {
-                'name': '需求类型',
-                'values': [
-                    {'value': '普通类', 'audience': '普通类考生家长', 'pain': '只了解普通批次，不知道还有特殊类型'},
-                    {'value': '特殊类', 'audience': '军警师范考生家长', 'pain': '只看过特控线，不知道还要看一本线'},
-                    {'value': '艺体类', 'audience': '艺体类考生家长', 'pain': '艺体类批次线计算方式完全不同，不知道怎么算'},
-                ],
-            },
-            'time_horizon': {
-                'name': '时间维度',
-                'values': [
-                    {'value': '高三', 'audience': '高三考生家长', 'pain': '时间紧迫，必须马上做决定'},
-                    {'value': '高一高二', 'audience': '高一高二学生家长', 'pain': '还有时间提前规划，想提前了解'},
-                ],
-            },
-        },
         'default': {
             'industry_aliases': [],
             'dimensions': ['level', 'budget', 'experience'],
@@ -227,23 +201,54 @@ class SceneGenerator:
     }
 
     @classmethod
-    def generate_scenes(cls, topic: Dict) -> List[Dict]:
-        """为选题生成场景选项列表"""
-        # Step 1: 识别选题行业类型
-        industry_type = cls._identify_industry(topic)
+    def generate_scenes(cls, topic: Dict, account_info: Dict = None) -> List[Dict]:
+        """为选题生成场景选项列表
+
+        Args:
+            topic: 选题信息
+            account_info: 账号信息，包含 account_positioning, brand_name, industry, target_customer 等
+        """
+        # 获取账号定位信息
+        account_positioning = ''
+        brand_name = ''
+        industry = ''
+        target_customer = ''
+        if account_info:
+            account_positioning = account_info.get('account_positioning', '')
+            brand_name = account_info.get('brand_name', '')
+            industry = account_info.get('industry', '')
+            target_customer = account_info.get('target_customer', '')
+
+        # 如果画像有行业信息，优先使用
+        topic_industry = topic.get('industry', '') or industry
+
+        # 获取当前时间信息
+        from datetime import datetime
+        now = datetime.now()
+        month = now.month
+        season_info = cls._get_season_info(month)
+
+        # Step 1: 识别选题行业类型（优先用画像行业）
+        industry_type = cls._identify_industry(topic, topic_industry)
 
         # Step 2: 获取该行业对应的维度配置
         dimension_config = cls._get_dimension_config(industry_type)
 
-        # Step 3: 从选题提取关键词和核心概念
+        # Step 3: 如果有目标客户信息，基于它生成更具体的场景
+        if target_customer:
+            dimension_config = cls._customize_dimension_with_target(
+                dimension_config, target_customer, topic_industry
+            )
+
+        # Step 4: 从选题提取关键词和核心概念
         keywords = cls._extract_keywords(topic)
         topic_keyword = cls._get_topic_keyword(keywords, topic)
 
-        # Step 4: 识别痛点类型
+        # Step 5: 识别痛点类型
         pain_types = cls._identify_pains(keywords)
         primary_pain = pain_types[0][0] if pain_types else 'info'
 
-        # Step 5: 为每个维度生成场景
+        # Step 6: 为每个维度生成场景
         scenes = []
         for dim_key in dimension_config['dimensions']:
             dim_info = dimension_config.get(dim_key) or cls.DIMENSION_LIB.get(dim_key)
@@ -251,7 +256,7 @@ class SceneGenerator:
                 continue
 
             for val_info in dim_info.get('values', []):
-                scene = cls._build_scene_v2(
+                scene = cls._build_scene_v3(
                     dim_key=dim_key,
                     dim_value=val_info['value'],
                     audience_template=val_info['audience'],
@@ -260,13 +265,125 @@ class SceneGenerator:
                     primary_pain=primary_pain,
                     keywords=keywords,
                     topic=topic,
+                    account_positioning=account_positioning,
+                    season_info=season_info,
+                    industry=topic_industry,  # 传递行业信息
                 )
                 if scene:
                     scenes.append(scene)
 
-        # Step 6: 按优先级排序并限制数量
+        # Step 7: 按优先级排序并限制数量
         scenes.sort(key=lambda x: cls.PAIN_PRIORITY.get(x['pain_type'], 99))
         return scenes[:5]
+
+    @classmethod
+    def _identify_industry(cls, topic: Dict, industry_hint: str = None) -> str:
+        """识别选题所属行业类型
+
+        主要依赖画像传入的行业信息，不再硬编码行业关键词
+        """
+        # 优先使用传入的行业提示（来自画像）
+        if industry_hint:
+            return industry_hint
+
+        # 回退：从选题行业字段获取
+        topic_industry = topic.get('industry', '')
+        if topic_industry:
+            return topic_industry
+
+        return 'default'
+
+    @classmethod
+    def _customize_dimension_with_target(cls, dimension_config: Dict, target_customer: str, industry: str) -> Dict:
+        """基于目标客户信息动态生成场景维度
+
+        从目标客户描述中智能提取人群特征，生成贴合业务的场景
+        """
+        config = dict(dimension_config)
+        target_lower = target_customer.lower() if target_customer else ''
+
+        if not target_lower:
+            return config
+
+        # 通用人群特征模式库（用于从目标客户描述中识别）
+        # 这些模式用于匹配目标客户描述中的关键词，而非硬编码行业
+        customer_patterns = [
+            # 经验程度
+            (['新手', '第一次', '刚开始', '0经验'], '新手', '刚开始接触，不知道从哪里入手'),
+            (['老手', '有经验', '用过', '熟悉'], '有经验者', '有一定了解，想深入学习'),
+
+            # 角色身份
+            (['妈妈', '宝妈', '妈'], '妈妈群体', '需要照顾家庭，时间精力有限'),
+            (['爸爸', '宝爸'], '爸爸群体', '参与育儿，想找到最合适的方案'),
+            (['上班族', '职场', '上班', '打工人'], '上班族', '工作忙，只能利用碎片时间'),
+            (['全职', '全职带娃'], '全职家长', '有精力深入研究，但需要高效方案'),
+            (['新手爸妈', '新手父母', '新手家长'], '新手爸妈', '第一次当爸妈，什么都不懂最焦虑'),
+
+            # 家庭情况
+            (['二胎', '两个娃', '两个孩子'], '二胎家庭', '有经验但担心顾不过来'),
+            (['双胞胎', '龙凤胎'], '多胎家庭', '开销大，需要性价比方案'),
+            (['大宝', '大孩子'], '有大宝的家庭', '需要平衡多个孩子的需求'),
+
+            # 特殊需求
+            (['过敏', '敏宝', '敏感'], '过敏体质宝宝家长', '担心过敏问题，选产品最纠结'),
+            (['早产', '早产儿'], '早产儿家长', '需要特殊配方或产品'),
+            (['体弱', '体质差'], '体质较弱宝宝的家长', '想增强体质但不知道怎么做'),
+
+            # 关注点
+            (['价格', '便宜', '省钱', '性价比'], '价格敏感型', '预算有限，想找到最划算的选择'),
+            (['高端', '品质', '贵', '最好'], '品质优先型', '不差钱，要最好的'),
+            (['效果', '有用', '管用'], '效果导向型', '最关心实际效果'),
+            (['成分', '配方', '配料'], '成分研究型', '喜欢研究配料表和成分'),
+            (['安全', '放心', '健康'], '安全优先型', '最关心安全性和健康'),
+        ]
+
+        matched_values = []
+        for keywords, label, pain in customer_patterns:
+            for kw in keywords:
+                if kw in target_lower:
+                    matched_values.append({
+                        'value': label,
+                        'audience': label,
+                        'pain': pain
+                    })
+                    break
+
+        # 去重
+        seen = set()
+        unique_values = []
+        for v in matched_values:
+            if v['value'] not in seen:
+                seen.add(v['value'])
+                unique_values.append(v)
+
+        # 如果匹配到人群特征，插入到维度配置前面
+        if unique_values:
+            config['dimensions'] = ['customer_segment'] + config.get('dimensions', [])[:2]
+            config['customer_segment'] = {
+                'name': '目标人群细分',
+                'values': unique_values[:3]  # 最多3个
+            }
+
+        return config
+
+    @classmethod
+    def _get_season_info(cls, month: int) -> Dict:
+        """获取当前季节信息"""
+        season_map = {
+            3: {'season': '春季', 'keyword': '春季', 'tip': '春季高发问题'},
+            4: {'season': '春季', 'keyword': '春季', 'tip': '春季高发问题'},
+            5: {'season': '春季', 'keyword': '春季', 'tip': '春季高发问题'},
+            6: {'season': '夏季', 'keyword': '暑期', 'tip': '暑期热门话题'},
+            7: {'season': '夏季', 'keyword': '暑期', 'tip': '暑期热门话题'},
+            8: {'season': '夏季', 'keyword': '暑期', 'tip': '暑期热门话题'},
+            9: {'season': '秋季', 'keyword': '秋季', 'tip': '秋季常见问题'},
+            10: {'season': '秋季', 'keyword': '秋季', 'tip': '秋季常见问题'},
+            11: {'season': '秋季', 'keyword': '秋季', 'tip': '秋季常见问题'},
+            12: {'season': '冬季', 'keyword': '冬季', 'tip': '冬季热点话题'},
+            1: {'season': '冬季', 'keyword': '寒假期', 'tip': '寒期热门话题'},
+            2: {'season': '冬季', 'keyword': '春季开学', 'tip': '开学季问题'},
+        }
+        return season_map.get(month, {'season': '', 'keyword': '', 'tip': ''})
 
     @classmethod
     def _identify_industry(cls, topic: Dict) -> str:
@@ -370,44 +487,102 @@ class SceneGenerator:
     def _build_scene_v2(cls, dim_key: str, dim_value: str, audience_template: str,
                        pain_template: str, topic_keyword: str, primary_pain: str,
                        keywords: List[str], topic: Dict) -> Optional[Dict]:
-        """构建单个场景（v2版本）"""
+        """构建单个场景（v2版本，兼容旧调用）"""
+        return cls._build_scene_v3(
+            dim_key=dim_key,
+            dim_value=dim_value,
+            audience_template=audience_template,
+            pain_template=pain_template,
+            topic_keyword=topic_keyword,
+            primary_pain=primary_pain,
+            keywords=keywords,
+            topic=topic,
+            account_positioning='',
+            season_info={},
+        )
+
+    @classmethod
+    def _build_scene_v3(cls, dim_key: str, dim_value: str, audience_template: str,
+                       pain_template: str, topic_keyword: str, primary_pain: str,
+                       keywords: List[str], topic: Dict,
+                       account_positioning: str = '',
+                       season_info: Dict = None,
+                       industry: str = '') -> Optional[Dict]:
+        """构建单个场景（v3版本 - 含账号定位和季节信息、行业信息）"""
+        if season_info is None:
+            season_info = {}
+
         pain_info = cls.PAIN_TYPES.get(primary_pain, cls.PAIN_TYPES['info'])
 
-        # 填充人群模板
-        industry = topic.get('industry', '')
-        audience = audience_template.replace('{行业}', industry or '目标')
-
-        # 组合场景描述
-        group = f"{dim_value}的{industry}用户 → {topic_keyword}时"
-
-        # 场景标签
-        label = f"{dim_value} - {pain_info['name']}型"
-
-        # 生成痛点问题（替换模板变量）
-        pain_question = pain_template
+        # 优先使用传入的行业信息，其次从 topic 获取
+        industry_name = industry or topic.get('industry', '') or '目标用户'
 
         # 获取风格
         style = cls.PAIN_STYLE_MAP.get(primary_pain, '情绪共鸣')
         style_info = cls.STYLE_INFO.get(style, {})
+
+        # 构建易懂的用户标签
+        user_friendly_label = audience
+
+        # 人群描述：痛点问题
+        user_friendly_desc = pain_template
+
+        # 构建推荐理由（结合账号定位 + 季节 + 风格）
+        recommendation_reasons = []
+
+        # 1. 结合账号定位推荐
+        if account_positioning:
+            # 提取账号定位中的关键词
+            positioning_keywords = cls._extract_keywords_from_text(account_positioning)
+            if positioning_keywords:
+                recommendation_reasons.append(f"符合账号定位「{account_positioning[:20]}...」")
+
+        # 2. 结合季节推荐
+        if season_info.get('tip'):
+            recommendation_reasons.append(f"{season_info.get('tip')}，需求量大")
+
+        # 3. 内容风格建议
+        recommendation_reasons.append(f"建议{style}风格，{style_info.get('desc', '')}")
+
+        # 4. 痛点强度
+        if primary_pain == 'risk':
+            recommendation_reasons.append("情绪共鸣强，容易引发转发")
+        elif primary_pain == 'effect':
+            recommendation_reasons.append("真实案例，增强说服力")
+        elif primary_pain == 'info':
+            recommendation_reasons.append("干货内容，高收藏率")
+
+        user_friendly_reason = " | ".join(recommendation_reasons[:2])  # 最多2条理由
 
         return {
             'id': f'scene_{uuid.uuid4().hex[:8]}',
             'pain_type': primary_pain,
             'pain_name': pain_info['name'],
             'pain_desc': pain_info['desc'],
-            'label': label,
-            'group': group,
-            'question': pain_question,
+            'label': user_friendly_label,
+            'audience': audience,
+            'question': user_friendly_desc,
+            'reason': user_friendly_reason,
+            'group': f"{dim_value} → {topic_keyword}",
             'style': style,
             'style_icon': style_info.get('icon', '💭'),
             'style_desc': style_info.get('desc', ''),
             'priority': cls.PAIN_PRIORITY.get(primary_pain, 99),
             'urgency': 'high' if primary_pain in ['risk', 'effect'] else 'medium',
             'keywords': keywords[:3],
-            'audience': audience,
             'dim_key': dim_key,
             'dim_value': dim_value,
         }
+
+    @classmethod
+    def _extract_keywords_from_text(cls, text: str) -> List[str]:
+        """从文本中提取关键词"""
+        if not text:
+            return []
+        # 简单分词：按标点和常见分隔符分割
+        import re
+        words = re.split(r'[，。！？、；：""''【】（）\s,!?;:\'\"()\[\]]+', text)
+        return [w.strip() for w in words if len(w.strip()) >= 2][:5]
 
     @classmethod
     def get_style_for_pain(cls, pain_type: str) -> str:
@@ -425,17 +600,43 @@ class SceneGenerator:
     @classmethod
     def _normalize_scene_options(cls, scene_options: list) -> list:
         """
-        将旧格式场景选项转换为新格式。
+        将旧格式场景选项转换为新格式，并确保所有必要字段存在。
 
         旧格式：[{ "id": "...", "标签": "...", "组合": "...", "风格": "..." }]
         新格式：[{ "id": "...", "pain_name": "...", "group": "...", "style": "..." }]
+        LLM新格式：[{ "label": "...", "audience": "...", "pain": "...", "pain_type": "...", "content_form": "..." }]
         """
         if not scene_options:
             return []
 
         normalized = []
         for scene in scene_options:
+            # 检查是否是 LLM 新格式（有 label/audience/pain 但没有 pain_name）
+            if 'label' in scene and 'audience' in scene and 'pain' in scene:
+                pain_type = scene.get('pain_type', 'info')
+                new_scene = {
+                    'id': scene.get('id', f'scene_{uuid.uuid4().hex[:8]}'),
+                    'pain_type': pain_type,
+                    'pain_name': scene.get('label', '通用场景'),
+                    'pain_desc': scene.get('pain', ''),
+                    'label': scene.get('label', '通用场景'),
+                    'group': scene.get('audience', ''),
+                    'question': scene.get('pain', '怎么办'),
+                    'style': cls.get_style_for_pain(pain_type),  # 根据痛点类型推断风格
+                    'priority': 2,
+                    'urgency': 'medium',
+                    'keywords': [],
+                    'audience': scene.get('audience', ''),
+                    'content_form': scene.get('content_form', ''),  # LLM 新增的内容形式
+                    'reason': scene.get('pain', ''),  # 推荐理由
+                }
+                normalized.append(new_scene)
+                continue
+
             if 'pain_name' in scene or 'label' in scene:
+                # 确保有 style 字段
+                if 'style' not in scene:
+                    scene['style'] = cls.get_style_for_pain(scene.get('pain_type', 'info'))
                 normalized.append(scene)
                 continue
 
@@ -490,40 +691,61 @@ class SceneGenerator:
         return label
 
     DEFAULT_SCENE_TEMPLATES = [
-        {'pain_type': 'info',     'pain_name': '信息恐慌',       'style': '干货科普',   'label': '信息恐慌型'},
-        {'pain_type': 'cost',    'pain_name': '成本焦虑',       'style': '犀利吐槽',   'label': '成本焦虑型'},
-        {'pain_type': 'risk',    'pain_name': '风险担忧',       'style': '情绪共鸣',   'label': '风险担忧型'},
-        {'pain_type': 'effect',  'pain_name': '效果怀疑',       'style': '故事叙述',   'label': '效果怀疑型'},
-        {'pain_type': 'choice',  'pain_name': '选择困难',       'style': '权威背书',   'label': '选择困难型'},
+        # pain_type, 痛点名称, 内容风格, 默认受众, 痛点描述
+        {'pain_type': 'info',     'pain_name': '信息恐慌', 'style': '干货科普',
+         'audience': '信息匮乏的用户', 'desc': '不了解相关知识，需要科普指导'},
+        {'pain_type': 'cost',    'pain_name': '成本焦虑', 'style': '犀利吐槽',
+         'audience': '价格敏感型用户', 'desc': '担心花冤枉钱，需要性价比分析'},
+        {'pain_type': 'risk',    'pain_name': '风险担忧', 'style': '情绪共鸣',
+         'audience': '谨慎型用户', 'desc': '担心风险和后果，需要安全感'},
+        {'pain_type': 'effect',  'pain_name': '效果怀疑', 'style': '故事叙述',
+         'audience': '效果存疑的用户', 'desc': '怀疑效果真实性，需要真实案例'},
+        {'pain_type': 'choice',  'pain_name': '选择困难', 'style': '权威背书',
+         'audience': '选择困难型用户', 'desc': '选择太多太难，需要专业建议'},
     ]
 
     @classmethod
-    def _fill_scene_options_to_min(cls, scene_options: list, topic_title: str = '') -> list:
-        if not scene_options:
+    def _fill_scene_options_to_min(cls, scene_options: list, topic_title: str = '',
+                                   account_positioning: str = '', season_info: Dict = None) -> list:
+        if scene_options is None:
             scene_options = []
+        if season_info is None:
+            season_info = {}
 
         existing_types = set(s.get('pain_type', 'info') for s in scene_options)
         count = len(scene_options)
         next_id = count
 
         for tmpl in cls.DEFAULT_SCENE_TEMPLATES:
-            if count >= 3:
+            if count >= 5:
                 break
             if tmpl['pain_type'] in existing_types:
                 continue
+
+            # 构建推荐理由
+            recommendation_reasons = []
+            if account_positioning:
+                recommendation_reasons.append(f"符合账号定位「{account_positioning[:15]}...」")
+            if season_info.get('tip'):
+                recommendation_reasons.append(f"{season_info.get('tip')}，需求量大")
+            recommendation_reasons.append(f"建议{tmpl['style']}风格")
+
             scene_options.append({
                 'id': f'scene_default_{next_id}',
                 'pain_type': tmpl['pain_type'],
                 'pain_name': tmpl['pain_name'],
-                'pain_desc': '',
-                'label': tmpl['label'],
+                'pain_desc': tmpl['desc'],
+                'label': tmpl['audience'],
+                'audience': tmpl['audience'],
+                'question': tmpl['desc'],
+                'reason': ' | '.join(recommendation_reasons[:2]),
                 'group': topic_title,
-                'question': tmpl['pain_name'].replace('型', '') + '怎么办',
                 'style': tmpl['style'],
                 'priority': count + 1,
                 'urgency': 'medium',
                 'keywords': [],
-                'audience': '目标用户',
+                'dim_key': 'default',
+                'dim_value': tmpl['pain_type'],
             })
             existing_types.add(tmpl['pain_type'])
             next_id += 1
@@ -532,10 +754,24 @@ class SceneGenerator:
         return scene_options
 
     @classmethod
-    def enrich_topics_with_scene_options(cls, topics: list) -> list:
+    def enrich_topics_with_scene_options(cls, topics: list, account_info: Dict = None) -> list:
         """
         为选题列表补充 scene_options 和 content_style 字段。
+
+        Args:
+            topics: 选题列表
+            account_info: 账号信息，包含 account_positioning, brand_name 等
         """
+        # 获取账号定位信息
+        account_positioning = ''
+        if account_info:
+            account_positioning = account_info.get('account_positioning', '')
+
+        # 获取当前季节信息
+        from datetime import datetime
+        now = datetime.now()
+        season_info = cls._get_season_info(now.month)
+
         enriched = []
         for topic in topics:
             if not isinstance(topic, dict):
@@ -544,7 +780,10 @@ class SceneGenerator:
 
             if isinstance(t.get('scene_options'), list) and len(t.get('scene_options', [])) > 0:
                 t['scene_options'] = cls._normalize_scene_options(t['scene_options'])
-                t['scene_options'] = cls._fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+                t['scene_options'] = cls._fill_scene_options_to_min(
+                    t['scene_options'], t.get('title', ''),
+                    account_positioning=account_positioning, season_info=season_info
+                )
                 t['content_style'] = t.get('content_style', '') or (
                     t['scene_options'][0]['style'] if t['scene_options'] else ''
                 )
@@ -552,19 +791,28 @@ class SceneGenerator:
                 db_topic = PublicIndustryTopic.query.filter_by(title=t['title']).first()
                 if db_topic and db_topic.scene_options:
                     t['scene_options'] = cls._normalize_scene_options(db_topic.scene_options)
-                    t['scene_options'] = cls._fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+                    t['scene_options'] = cls._fill_scene_options_to_min(
+                        t['scene_options'], t.get('title', ''),
+                        account_positioning=account_positioning, season_info=season_info
+                    )
                     t['content_style'] = db_topic.content_style or (
                         t['scene_options'][0]['style'] if t['scene_options'] else ''
                     )
                 else:
-                    t['scene_options'] = cls.generate_scenes(t)
-                    t['scene_options'] = cls._fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+                    t['scene_options'] = cls.generate_scenes(t, account_info=account_info)
+                    t['scene_options'] = cls._fill_scene_options_to_min(
+                        t['scene_options'], t.get('title', ''),
+                        account_positioning=account_positioning, season_info=season_info
+                    )
                     t['content_style'] = t.get('content_style', '') or (
                         t['scene_options'][0]['style'] if t['scene_options'] else ''
                     )
             else:
-                t['scene_options'] = cls.generate_scenes(t)
-                t['scene_options'] = cls._fill_scene_options_to_min(t['scene_options'], t.get('title', ''))
+                t['scene_options'] = cls.generate_scenes(t, account_info=account_info)
+                t['scene_options'] = cls._fill_scene_options_to_min(
+                    t['scene_options'], t.get('title', ''),
+                    account_positioning=account_positioning, season_info=season_info
+                )
                 t['content_style'] = t.get('content_style', '') or (
                     t['scene_options'][0]['style'] if t['scene_options'] else ''
                 )

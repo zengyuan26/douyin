@@ -53,6 +53,64 @@ class TopicGenerator:
     def __init__(self):
         self.llm = get_llm_service()
 
+    # 问题句检测模式
+    QUESTION_PATTERNS = [
+        r'.*[？?]$',  # 以问号结尾
+        r'^能不能',    # 能不能...
+        r'^会不会',    # 会不会...
+        r'^要不要',    # 要不要...
+        r'^是不是',    # 是不是...
+        r'^为什么',    # 为什么...
+        r'^怎么办',    # 怎么办...
+        r'^怎么[怎做]', # 怎么+动词
+        r'^如何',      # 如何...
+        r'^能不能',    # 能不能...
+        r'^会不会',    # 会不会...
+        r'^有多少',    # 有多少...
+        r'^谁的',      # 谁的...
+        r'^哪个',      # 哪个...
+        r'^哪里',      # 哪里...
+        r'^谁在',      # 谁在...
+    ]
+
+    def is_question_sentence(self, title: str) -> bool:
+        """
+        检测标题是否以问题句开头
+
+        Args:
+            title: 选题标题
+
+        Returns:
+            bool: True=问题句，False=非问题句
+        """
+        if not title:
+            return False
+
+        import re
+        title = title.strip()
+
+        for pattern in self.QUESTION_PATTERNS:
+            if re.match(pattern, title):
+                return True
+
+        return False
+
+    def _mark_question_sentence(self, topics: list) -> list:
+        """
+        为选题列表添加问题句标识
+
+        Args:
+            topics: 选题列表
+
+        Returns:
+            list: 带 is_question 标记的选题列表
+        """
+        for topic in topics:
+            title = topic.get('title', '')
+            topic['is_question'] = self.is_question_sentence(title)
+
+        return topics
+
     def generate_topics(
         self,
         business_description: str,
@@ -127,6 +185,9 @@ class TopicGenerator:
                     'success': False,
                     'error': '选题生成失败，请重试'
                 }
+
+            # 添加问题句标识
+            topics = self._mark_question_sentence(topics)
 
             return {
                 'success': True,

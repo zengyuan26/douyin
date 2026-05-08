@@ -1203,9 +1203,9 @@
     .simple-modal-box {
         background: var(--bg-primary);
         border-radius: 16px;
-        width: 420px;
-        max-width: 90vw;
-        max-height: 85vh;
+        width: 680px;
+        max-width: 95vw;
+        max-height: 90vh;
         display: flex;
         flex-direction: column;
         box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
@@ -1259,8 +1259,10 @@
 
     .simple-modal-body {
         padding: 20px;
-        overflow-y: auto;
+        overflow-y: hidden;
         flex: 1;
+        display: flex;
+        flex-direction: column;
     }
 
     .simple-modal-footer {
@@ -1398,6 +1400,173 @@
         height: 6px;
         border-radius: 50%;
         background: white;
+    }
+
+    /* ────────────────────────────────────────────────
+       弹窗两列布局样式
+       ──────────────────────────────────────────────── */
+    .modal-two-column-layout {
+        display: flex;
+        gap: 24px;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .modal-two-column-layout .modal-content-type-section {
+        flex: 0 0 160px;
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-two-column-layout .modal-content-type-section .modal-scene-header {
+        flex-shrink: 0;
+    }
+
+    .modal-two-column-layout .modal-content-type-list {
+        flex-direction: column;
+        flex: 1;
+    }
+
+    .modal-two-column-layout .modal-content-type-option {
+        flex: 0 0 auto;
+        padding: 10px 12px;
+    }
+
+    .modal-two-column-layout .modal-scene-section {
+        flex: 1;
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .modal-two-column-layout .modal-scene-section .modal-scene-header {
+        flex-shrink: 0;
+    }
+
+    .modal-two-column-layout .modal-scene-list {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    /* ────────────────────────────────────────────────
+       场景选择区域样式（新增）
+       ──────────────────────────────────────────────── */
+    .modal-scene-section {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #e8e8e8;
+        display: none;  /* 默认隐藏，有场景时显示 */
+    }
+
+    .modal-scene-section.active {
+        display: block;
+    }
+
+    .modal-scene-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .modal-scene-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .modal-scene-hint {
+        font-size: 11px;
+        color: #999;
+    }
+
+    .modal-scene-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    .modal-scene-option {
+        padding: 8px 10px;
+        border: 1.5px solid var(--border-color);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.15s;
+        position: relative;
+    }
+
+    .modal-scene-option:hover {
+        border-color: var(--apple-blue);
+        background: rgba(0, 122, 255, 0.04);
+    }
+
+    .modal-scene-option.selected {
+        border-color: var(--apple-blue);
+        background: rgba(0, 122, 255, 0.08);
+    }
+
+    .modal-scene-option.selected::before {
+        content: '';
+        position: absolute;
+        left: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--apple-blue);
+    }
+
+    .modal-scene-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #333;
+        padding-left: 10px;
+        margin-bottom: 2px;
+    }
+
+    .modal-scene-desc {
+        font-size: 10px;
+        color: #666;
+        padding-left: 10px;
+        margin-bottom: 2px;
+        line-height: 1.3;
+    }
+
+    .modal-scene-reason {
+        font-size: 10px;
+        color: #f59e0b;
+        padding-left: 10px;
+    }
+
+    .modal-scene-tag {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        font-size: 9px;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--apple-blue);
+    }
+
+    .modal-scene-form {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: rgba(88, 86, 214, 0.1);
+        color: #5856d6;
+        margin-left: 6px;
+        font-weight: 500;
     }
 
     .generate-config-modal .modal-footer {
@@ -2069,23 +2238,44 @@
                 <button class="simple-modal-close" id="simple-modal-close">×</button>
             </div>
             <div class="simple-modal-body">
-                <!-- 内容类型选择 -->
-                <div class="modal-content-type-section">
-                    <div class="modal-content-type-list" id="simple-modal-type-list">
-                        <div class="modal-content-type-option selected" data-type="graphic">
-                            <span class="modal-content-type-icon">📄</span>
-                            <span class="modal-content-type-name">图文</span>
-                            <span class="type-check"></span>
+                <!-- 内容布局：内容类型和场景选择并排 -->
+                <div class="modal-two-column-layout">
+                    <!-- 左侧：内容类型选择 -->
+                    <div class="modal-content-type-section">
+                        <div class="modal-scene-header">
+                            <div class="modal-scene-title" style="margin-bottom:0;font-size:12px;color:#666;">
+                                <i class="bi bi-layout-text-sidebar" style="margin-right:4px;"></i>内容形式
+                            </div>
                         </div>
-                        <div class="modal-content-type-option" data-type="long_text">
-                            <span class="modal-content-type-icon">📝</span>
-                            <span class="modal-content-type-name">长文</span>
-                            <span class="type-check"></span>
+                        <div class="modal-content-type-list" id="simple-modal-type-list">
+                            <div class="modal-content-type-option selected" data-type="graphic">
+                                <span class="modal-content-type-icon">📄</span>
+                                <span class="modal-content-type-name">图文</span>
+                                <span class="type-check"></span>
+                            </div>
+                            <div class="modal-content-type-option" data-type="long_text">
+                                <span class="modal-content-type-icon">📝</span>
+                                <span class="modal-content-type-name">长文</span>
+                                <span class="type-check"></span>
+                            </div>
+                            <div class="modal-content-type-option" data-type="short_video">
+                                <span class="modal-content-type-icon">🎬</span>
+                                <span class="modal-content-type-name">短视频</span>
+                                <span class="type-check"></span>
+                            </div>
                         </div>
-                        <div class="modal-content-type-option" data-type="short_video">
-                            <span class="modal-content-type-icon">🎬</span>
-                            <span class="modal-content-type-name">短视频</span>
-                            <span class="type-check"></span>
+                    </div>
+
+                    <!-- 右侧：场景选择区域 -->
+                    <div class="modal-scene-section" id="modal-scene-section">
+                        <div class="modal-scene-header">
+                            <div class="modal-scene-title">
+                                <i class="bi bi-people" style="margin-right:4px;"></i>选择目标场景
+                            </div>
+                            <div class="modal-scene-hint">至少选择1个</div>
+                        </div>
+                        <div class="modal-scene-list" id="modal-scene-list">
+                            <!-- JS动态渲染场景选项 -->
                         </div>
                     </div>
                 </div>
@@ -4048,6 +4238,9 @@ function openGenerateModal() {
         defaultOpt.classList.add('selected');
     }
 
+    // === 新增：渲染场景选择 ===
+    renderSceneSelection(topic);
+
     // 重置按钮状态
     const btn = document.getElementById('simple-modal-confirm');
     if (btn) {
@@ -4058,6 +4251,153 @@ function openGenerateModal() {
     // 显示弹窗
     const modal = document.getElementById('simple-modal');
     modal.classList.add('active');
+}
+
+/**
+ * 渲染场景选择区域
+ * @param {Object} topic - 选题对象
+ */
+function renderSceneSelection(topic) {
+    const sceneSection = document.getElementById('modal-scene-section');
+    const sceneList = document.getElementById('modal-scene-list');
+    if (!sceneList) return;
+
+    // 获取场景列表（支持多种格式）
+    let sceneOptions = topic.scene_options || topic.scene_details || [];
+
+    // 获取两列布局容器
+    const twoColLayout = document.querySelector('.modal-two-column-layout');
+
+    // 如果没有场景，隐藏两列布局，只显示内容类型选择
+    if (!sceneOptions || sceneOptions.length === 0) {
+        if (sceneSection) {
+            sceneSection.classList.remove('active');
+            sceneSection.style.display = 'none';
+        }
+        if (twoColLayout) {
+            twoColLayout.style.display = 'block';
+        }
+        return;
+    }
+
+    // 显示场景区域
+    if (sceneSection) {
+        sceneSection.style.display = 'block';
+        sceneSection.classList.add('active');
+    }
+
+    // 渲染场景选项（最多显示5个）
+    const displayScenes = sceneOptions.slice(0, 5);
+    let html = '';
+
+    displayScenes.forEach(function(scene, idx) {
+        const isRecommended = idx === 0;
+
+        // 提取场景信息（支持多种格式）
+        // 优先使用受众友好的字段
+        let sceneName = '';
+        let sceneDesc = '';
+        let sceneReason = '';
+
+        // scene_generator.py 格式
+        if (scene.audience) {
+            sceneName = scene.audience;
+            sceneDesc = scene.question || scene.group || '';
+            sceneReason = '推荐理由：' + (scene.style_desc || '适合目标人群');
+        }
+        // topic_library_generator.py 新格式
+        else if (scene.label) {
+            sceneName = scene.label;
+            sceneDesc = scene.description || scene.emotion || '';
+            sceneReason = scene.reason || '';
+        }
+        // 兜底
+        else {
+            sceneName = scene.scene || scene.name || '场景' + (idx + 1);
+            sceneDesc = scene.description || scene.emotion || '';
+            sceneReason = scene.reason || scene.trigger || '';
+        }
+
+        // 获取内容形式标识
+        var contentFormLabel = '';
+        if (scene.content_form) {
+            var formMap = {'shorvideo': '短视频', 'graphic': '图文', 'longtext': '长文'};
+            contentFormLabel = formMap[scene.content_form] || scene.content_form;
+        }
+
+        // 构建HTML
+        html += '<div class="modal-scene-option' + (isRecommended ? ' selected' : '') + '" data-scene-idx="' + idx + '">';
+        html += '<div class="modal-scene-label">';
+        html += isRecommended ? '<span class="modal-scene-tag">推荐</span>' : '';
+        html += '<span>' + escapeHtml(sceneName) + '</span>';
+        if (contentFormLabel) {
+            html += '<span class="modal-scene-form">' + escapeHtml(contentFormLabel) + '</span>';
+        }
+        html += '</div>';
+        if (sceneDesc) {
+            html += '<div class="modal-scene-desc">' + escapeHtml(sceneDesc) + '</div>';
+        }
+        if (sceneReason && !sceneReason.startsWith('推荐理由：')) {
+            html += '<div class="modal-scene-reason">' + escapeHtml(sceneReason) + '</div>';
+        }
+        html += '</div>';
+    });
+
+    sceneList.innerHTML = html;
+
+    // 默认选中第一个场景
+    _selectedScene = displayScenes[0];
+
+    // 同步默认场景的内容类型
+    if (_selectedScene && _selectedScene.content_form) {
+        var defaultForm = _selectedScene.content_form;
+        document.querySelectorAll('#simple-modal-type-list .modal-content-type-option').forEach(function(typeOpt) {
+            typeOpt.classList.remove('selected');
+            if (typeOpt.dataset.type === defaultForm) {
+                typeOpt.classList.add('selected');
+            }
+        });
+        _selectedContentType = defaultForm;
+    }
+
+    // 绑定点击事件
+    sceneList.querySelectorAll('.modal-scene-option').forEach(function(opt) {
+        opt.addEventListener('click', function() {
+            // 取消其他选中
+            sceneList.querySelectorAll('.modal-scene-option').forEach(function(o) {
+                o.classList.remove('selected');
+            });
+            // 选中当前
+            opt.classList.add('selected');
+
+            // 更新选中状态
+            var idx = parseInt(opt.dataset.sceneIdx);
+            _selectedScene = displayScenes[idx];
+
+            // 如果场景指定了内容形式，自动切换
+            if (_selectedScene && _selectedScene.content_form) {
+                var form = _selectedScene.content_form;
+                // content_form 映射：shorvideo->shorvideo, graphic->graphic, longtext->longtext
+                document.querySelectorAll('#simple-modal-type-list .modal-content-type-option').forEach(function(typeOpt) {
+                    typeOpt.classList.remove('selected');
+                    if (typeOpt.dataset.type === form) {
+                        typeOpt.classList.add('selected');
+                    }
+                });
+                _selectedContentType = form;
+            }
+        });
+    });
+}
+
+/**
+ * HTML转义（防止XSS）
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function closeGenerateModal() {
@@ -4289,11 +4629,15 @@ async function confirmGenerate() {
         payload.content_type = _selectedContentType || 'graphic';
         console.log('confirmGenerate: content_type =', payload.content_type);
 
-        // ── 自动取选题的第一个场景组合传给后端（GEO匹配用）──
-        const sceneOptions = topic.scene_options || [];
-        if (sceneOptions.length > 0) {
-            payload.selected_scene = sceneOptions[0];
+        // ── 使用用户选择的场景组合传给后端（GEO匹配用）──
+        if (_selectedScene) {
+            payload.selected_scene = _selectedScene;
+        } else {
+            // 兜底：取第一个场景
+            const sceneOptions = topic.scene_options || topic.scene_details || [];
+            payload.selected_scene = sceneOptions[0] || null;
         }
+        console.log('confirmGenerate: selected_scene =', payload.selected_scene);
 
         console.log('confirmGenerate: 发送请求', payload);
 
@@ -5038,5 +5382,6 @@ function loadTodayCount() {
 // Tab 初始化（默认选题列表）
 switchMainTab('topics');
 document.getElementById('tab-title-topics').classList.add('active');
-loadTodayCount();</script>
+loadTodayCount();
+</script>
 {% endblock %}

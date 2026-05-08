@@ -187,6 +187,21 @@
         color: var(--apple-blue);
     }
 
+    /* 问题句标识 */
+    .topic-question-badge {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(52, 199, 89, 0.1);
+        color: var(--apple-green);
+    }
+
+    .topic-question-badge.no {
+        background: rgba(255, 149, 0, 0.1);
+        color: var(--apple-orange);
+    }
+
     /* 业务名称列 */
     .row-business {
         text-align: center;
@@ -636,12 +651,19 @@ function renderTopicRows(topics) {
             ? '<span class="business-name-tag" title="' + escHtml(businessName) + '">' + escHtml(businessName) + '</span>'
             : '<span class="business-name-tag empty">--</span>';
 
+        // 问题句标识
+        const isQuestion = topic.is_question;
+        const questionBadge = isQuestion
+            ? '<span class="topic-question-badge" title="以问题句开头，适合SEO收录">问句</span>'
+            : '<span class="topic-question-badge no" title="建议改为问题句开头">非问句</span>';
+
         html +=
             '<div class="playlist-row">' +
                 '<div class="row-index">' + globalIdx + '</div>' +
                 '<div class="row-title">' +
                     '<div class="row-title-text" title="' + escHtml(topic.topic_title || '') + '">' + escHtml(topic.topic_title || '未知选题') + '</div>' +
                     '<div class="row-title-tags">' +
+                        questionBadge +
                         (typeName ? '<span class="topic-type-badge ' + priorityClass + '">' + escHtml(typeName) + '</span>' : '') +
                         '<span class="topic-direction-badge ' + directionBadgeClass + '">' + directionLabel + '</span>' +
                         hasVersionsBadge +
