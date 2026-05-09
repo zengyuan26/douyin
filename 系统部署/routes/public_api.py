@@ -274,6 +274,12 @@ def portraits_create_page():
         raise
 
 
+@public_bp.route('/script-score')
+def script_score_page():
+    """短视频脚本评分页"""
+    return render_template('public/script_score.html')
+
+
 # =============================================================================
 # 认证相关 API
 # =============================================================================
@@ -2806,6 +2812,10 @@ def api_generate_content_from_topic():
                     brand_context=params.get('brand_context'),
                     operation_plan=operations_plan,
                     five_stage_info=five_stage_info,
+                    content_balancer=params.get('content_balancer'),
+                    video_duration=params.get('video_duration', '30s'),
+                    ip_mode=params.get('ip_mode', 'on_screen'),
+                    ip_avatar=params.get('ip_avatar', 'sister'),
                 )
 
                 if not bridge_result.success:
@@ -4821,6 +4831,10 @@ def _build_content_result(
     """
     import datetime as dt_module
 
+    # 声明 TopicGenerationLink 为局部引用（避免被函数内其他 import 语句误判为局部变量）
+    import models.public_models as pm
+    _TopicGenerationLink = pm.TopicGenerationLink
+
     topic_id_str = params.get('topic_id', '') or None
     portrait_id_val = params.get('portrait_id')
     link = None
@@ -4938,6 +4952,7 @@ def _build_content_result(
         'version_number': version_number,
         'quality_report': quality_report,
         'content': content,
+        'content_type': result_type,  # 返回内容类型
         'geo_report': geo_report or {},
         'hvf_report': _build_hvf_report(hvf_titles_output) if hvf_titles_output else {},
         'pyramid_tags': _build_pyramid_tags(pyramid_tags_output) if pyramid_tags_output else {},
@@ -5343,92 +5358,94 @@ def _build_content_data_from_bridge(fo: dict) -> dict:
 
 def _build_video_script_data_from_bridge(fo: dict) -> dict:
     """
-    从 SkillBridge video_script_generator 的输出构建内容数据。
+    从分步骤 SkillBridge video_script_generator 的输出构建内容数据。
 
-    数据源优先级：
-    1. step_generate_content：核心脚本内容（scenes, title, structure_name 等）
-    2. step_quality_validate：质量评分
-    3. step_geo_mode_match：GEO模式和结构信息
+    数据源：
+    - step_basic_info: 基础信息
+    - step_scene_1~4: 各场戏
+    - step_trust_evidence: 信任证据
+    - step_final_output: 最终整合
     """
-    gen = fo.get('step_generate_content', {}) or {}
-    qv = fo.get('step_quality_validate', {}) or {}
+    # 从各步骤获取数据
+    basic_info = fo.get('step_basic_info', {}) or {}
+    scene_1 = fo.get('step_scene_1', {}) or {}
+    scene_2 = fo.get('step_scene_2', {}) or {}
+    scene_3 = fo.get('step_scene_3', {}) or {}
+    scene_4 = fo.get('step_scene_4', {}) or {}
+    trust_data = fo.get('step_trust_evidence', {}) or {}
+    final_output = fo.get('step_final_output', {}) or {}
     geo = fo.get('step_geo_mode_match', {}) or {}
 
-    # 质量评分
-    qv_inner = qv.get('quality_validation', {}) if isinstance(qv, dict) else {}
-    if isinstance(qv, dict) and 'quality_validation' not in qv:
-        qv_inner = qv
-    qs_raw = _safe_get(qv_inner, 'quality_score', 0)
-    try:
-        quality_score = int(float(qs_raw)) if qs_raw else 0
-    except (ValueError, TypeError):
-        quality_score = 0
+    # 构建 scenes 数组
+    scenes = []
+    for s in [scene_1, scene_2, scene_3, scene_4]:
+        if s and s.get('scene_index'):
+            scenes.append({
+                'scene_index': s.get('scene_index', 0),
+                'scene_name': s.get('scene_name', ''),
+                'time_range': s.get('time_range', ''),
+                'emotion': s.get('emotion', ''),
+                'emotion_stage': s.get('emotion', ''),
+                'shot_type': s.get('shot_type', ''),
+                'camera': s.get('camera', ''),
+                'lighting': s.get('lighting', ''),
+                'narration': s.get('narration', ''),
+                'subtitle_text': s.get('subtitle', ''),
+                'broll': s.get('broll', ''),
+                'key_point': s.get('key_point', ''),
+            })
 
-    # 维度评分项
+    # 获取信任证据
+    trust_evidence = trust_data.get('trust_evidence', []) or []
+
+    # 从 final_output 或 basic_info 获取基本信息
+    basic = final_output.get('basic', {}) or basic_info
+    title = basic.get('title', '') or basic_info.get('title', '')
+    opening = basic.get('opening', '') or basic_info.get('opening', '')
+    duration = basic.get('duration', '') or basic_info.get('duration', '')
+    cta = basic.get('cta', '') or basic_info.get('cta', '')
+
+    # 获取 reward_plan, interaction_plan
+    reward_plan = final_output.get('reward_plan', {}) or basic_info.get('reward_plan', {})
+    interaction_plan = final_output.get('interaction_plan', {}) or basic_info.get('interaction_plan', {})
+    emotion_curve = final_output.get('emotion_curve', {}) or basic_info.get('emotion_curve', {})
+
+    # 获取标签
+    hashtags = final_output.get('hashtags', []) or basic_info.get('hashtags', [])
+    first_comment = final_output.get('first_comment', '') or basic_info.get('first_comment', '')
+
+    # 获取结构信息
+    structure_id = basic_info.get('structure', '') or ''
+    geo_mode = geo.get('geo_mode', '') or basic_info.get('geo_mode', '')
+
+    # 质量评分（如果有）
+    quality_score = 0
+    grade = 'C'
     items = []
     failed_items = []
-    ds = _safe_get(qv_inner, 'dimension_scores', {}) or {}
-    for dim, score_info in (ds.items() if isinstance(ds, dict) else []):
-        if isinstance(score_info, dict):
-            sr = score_info.get('score', 10)
-            try:
-                sv = int(float(sr)) if sr else 0
-            except (ValueError, TypeError):
-                sv = 0
-            pr = score_info.get('passed')
-            passed = bool(pr) if pr is not None else sv >= 8
-            items.append({'dimension': dim, 'score': sv, 'passed': passed})
-            if not passed:
-                failed_items.append(dim)
-
-    # 评分等级
-    grade = 'E'
-    if quality_score >= 90:
-        grade = 'A'
-    elif quality_score >= 80:
-        grade = 'B'
-    elif quality_score >= 70:
-        grade = 'C'
-    elif quality_score >= 60:
-        grade = 'D'
-
-    # 标题
-    title = _safe_get(gen, 'title') or ''
-    # 标签
-    tags = _safe_get(gen, 'tags') or []
-    hashtags = _safe_get(gen, 'hashtags') or []
-    # scenes
-    scenes = _safe_get(gen, 'scenes') or []
-    # 结构
-    structure_name = _safe_get(gen, 'structure_name') or _safe_get(gen, 'structure') or ''
-    # trust_evidence
-    trust_evidence = _safe_get(gen, 'trust_evidence') or []
-    # cta
-    cta = _safe_get(gen, 'cta') or ''
-    # GEO 模式
-    geo_mode = _safe_get(gen, 'geo_mode') or _safe_get(geo, 'geo_mode') or ''
 
     return {
         'content_data': {
-            'structure': _safe_get(gen, 'structure') or '',
-            'structure_name': structure_name,
+            'structure': structure_id,
+            'structure_name': geo.get('recommended_structure_name', ''),
             'geo_mode': geo_mode,
             'scenes_count': len(scenes),
             'title': title,
             'subtitle': '',
-            'tags': tags,
+            'tags': hashtags,
             'scenes': scenes,
             'hashtags': hashtags,
-            'duration': _safe_get(gen, 'duration') or '',
-            'aspect_ratio': _safe_get(gen, 'aspect_ratio') or '9:16',
-            'opening': _safe_get(gen, 'opening') or '',
-            'first_comment': _safe_get(gen, 'first_comment') or '',
-            'publish_strategy': _safe_get(gen, 'publish_strategy') or '',
-            'bgm_suggestion': _safe_get(gen, 'bgm_suggestion') or '',
-            'shooting_tips': _safe_get(gen, 'shooting_tips') or '',
-            'visual_report': _safe_get(gen, 'visual_report') or {},
+            'duration': duration,
+            'aspect_ratio': '9:16',
+            'opening': opening,
+            'ip_mode': basic_info.get('ip_mode', 'on_screen'),
+            'ip_avatar': basic_info.get('ip_avatar', 'sister'),
+            'reward_plan': reward_plan,
+            'interaction_plan': interaction_plan,
+            'emotion_curve': emotion_curve,
             'trust_evidence': trust_evidence,
             'cta': cta,
+            'first_comment': first_comment,
         },
         'quality_score': quality_score,
         'quality_report': {
@@ -5454,7 +5471,7 @@ def _build_video_script_data_from_bridge(fo: dict) -> dict:
             'summary': '',
         },
         'extracted_title': title,
-        'extracted_tags': tags or hashtags,
+        'extracted_tags': hashtags,
         'extracted_geo': geo_mode,
         'scenes_count': len(scenes),
     }
@@ -5628,58 +5645,188 @@ def _build_video_script_text(content_result: dict) -> str:
     lines = []
     basic = content_result.get('basic', {})
     title = content_result.get('title', basic.get('title', ''))
+    structure_name = content_result.get('structure_name', '')
+    duration = content_result.get('duration', basic.get('duration', ''))
+    opening = content_result.get('opening', basic.get('opening', ''))
+    cta = content_result.get('cta', basic.get('cta', ''))
+
     if title:
         lines.append(f"【{title}】")
-    structure_name = content_result.get('structure_name', '')
     if structure_name:
         lines.append(f"结构：{structure_name}")
-    duration = content_result.get('duration', '')
     if duration:
         lines.append(f"时长：{duration}")
-    opening = content_result.get('opening', '')
     if opening:
         lines.append(f"\n前3秒钩子：{opening}")
-    lines.append("")
+
+    # 情绪曲线
+    emotion_curve = content_result.get('emotion_curve', '')
+    if isinstance(emotion_curve, dict) and emotion_curve:
+        lines.append("")
+        lines.append("【情绪曲线】")
+        if emotion_curve.get('description'):
+            lines.append(f"  {emotion_curve['description']}")
+        if emotion_curve.get('peaks'):
+            lines.append(f"  高峰：{' → '.join(emotion_curve['peaks'])}")
+        if emotion_curve.get('valleys'):
+            lines.append(f"  低谷：{' → '.join(emotion_curve['valleys'])}")
+
+    lines.append("\n【专业分镜脚本】")
 
     for scene in scenes:
         idx = scene.get('scene_index', 0)
         name = scene.get('scene_name', '')
         time_range = scene.get('time_range', '')
-        emotion = scene.get('emotion_stage', '')
+        lines.append(f"\n━━━ 第{idx}场：{name}{' (' + time_range + ')' if time_range else ''} ━━━")
+
+        # 情绪（emotion可能是字符串或字典）
+        emotion_raw = scene.get('emotion', '')
+        if isinstance(emotion_raw, dict):
+            emotion_obj = emotion_raw
+            emotion_stage = scene.get('emotion_stage', emotion_obj.get('stage', ''))
+            if emotion_stage:
+                lines.append(f"  情绪：{emotion_stage}" + (f"（强度{emotion_obj.get('intensity', '')}/10）" if emotion_obj.get('intensity') else ""))
+                if emotion_obj.get('goal'):
+                    lines.append(f"  情绪目标：{emotion_obj['goal']}")
+        elif isinstance(emotion_raw, str) and emotion_raw:
+            emotion_stage = scene.get('emotion_stage', emotion_raw)
+            if emotion_stage:
+                lines.append(f"  情绪：{emotion_stage}")
+
+        # 色调
         color_tone = scene.get('color_tone', '')
-        narration = scene.get('narration', scene.get('narrration', ''))
+        if color_tone:
+            lines.append(f"  色调：{color_tone}")
+
+        # 场景设定
+        scene_setting = scene.get('scene_setting', '')
+        if isinstance(scene_setting, dict) and scene_setting:
+            lines.append("\n  ▼ 场景设定")
+            if scene_setting.get('location'):
+                lines.append(f"    地点：{scene_setting['location']}")
+            if scene_setting.get('environment'):
+                lines.append(f"    环境：{scene_setting['environment']}")
+            if scene_setting.get('props'):
+                lines.append(f"    道具：{'、'.join(scene_setting['props'])}")
+            if scene_setting.get('character_appearance'):
+                lines.append(f"    人物：{scene_setting['character_appearance']}")
+            if scene_setting.get('atmosphere'):
+                lines.append(f"    氛围：{scene_setting['atmosphere']}")
+
+        # 镜头语言
+        shot_lang = scene.get('shot_language', scene.get('visual_direction', ''))
+        if isinstance(shot_lang, dict) and shot_lang:
+            lines.append("\n  ▼ 镜头设计")
+            parts = []
+            if shot_lang.get('shot_type'):
+                parts.append(shot_lang['shot_type'])
+            if shot_lang.get('camera_movement'):
+                parts.append(shot_lang['camera_movement'])
+            if shot_lang.get('depth'):
+                parts.append(shot_lang['depth'])
+            if shot_lang.get('angle'):
+                parts.append(shot_lang['angle'])
+            if parts:
+                lines.append(f"    {' + '.join(parts)}")
+
+        # 光效（可能是字符串或字典）
+        lighting_raw = scene.get('lighting', '')
+        if isinstance(lighting_raw, dict) and lighting_raw:
+            parts = []
+            if lighting_raw.get('main_light'):
+                parts.append(lighting_raw['main_light'])
+            if lighting_raw.get('fill'):
+                parts.append(f"补光:{lighting_raw['fill']}")
+            if lighting_raw.get('mood'):
+                parts.append(f"氛围:{lighting_raw['mood']}")
+            if parts:
+                lines.append(f"    光效：{' | '.join(parts)}")
+        elif isinstance(lighting_raw, str) and lighting_raw:
+            lines.append(f"    光效：{lighting_raw}")
+        elif isinstance(shot_lang, dict) and shot_lang.get('lighting'):
+            lines.append(f"    光效：{shot_lang['lighting']}")
+
+        # 动作编排
+        action_choreo = scene.get('action_choreography', '')
+        if isinstance(action_choreo, dict) and action_choreo:
+            lines.append("\n  ▼ 动作编排")
+            if action_choreo.get('main_action'):
+                lines.append(f"    动作：{action_choreo['main_action']}")
+            if action_choreo.get('gaze'):
+                lines.append(f"    视线：{action_choreo['gaze']}")
+            if action_choreo.get('hand_motion'):
+                lines.append(f"    手部：{action_choreo['hand_motion']}")
+            if action_choreo.get('movement'):
+                lines.append(f"    移动：{action_choreo['movement']}")
+
+        # 画面构成
+        frame_comp = scene.get('frame_composition', '')
+        if isinstance(frame_comp, dict) and frame_comp:
+            lines.append("\n  ▼ 画面构成")
+            if frame_comp.get('subject_position'):
+                lines.append(f"    主体位置：{frame_comp['subject_position']}")
+            if frame_comp.get('foreground'):
+                lines.append(f"    前景：{frame_comp['foreground']}")
+            if frame_comp.get('background'):
+                lines.append(f"    背景：{frame_comp['background']}")
+            if frame_comp.get('negative_space'):
+                lines.append(f"    留白：{frame_comp['negative_space']}")
+
+        # 视觉隐喻
+        visual_metaphor = scene.get('visual_metaphor', '')
+        if isinstance(visual_metaphor, dict) and visual_metaphor:
+            lines.append("\n  ▼ 视觉隐喻")
+            if visual_metaphor.get('element'):
+                lines.append(f"    元素：{visual_metaphor['element']}")
+            if visual_metaphor.get('meaning'):
+                lines.append(f"    含义：{visual_metaphor['meaning']}")
+            if visual_metaphor.get('presentation'):
+                lines.append(f"    呈现：{visual_metaphor['presentation']}")
+
+        # 奖励/互动
+        reward_type = scene.get('reward_type', '')
+        interaction = scene.get('interaction', '')
+        if reward_type:
+            lines.append(f"  【奖励】{reward_type}")
+        if interaction:
+            lines.append(f"  【互动】{interaction}")
+
+        # 口播/字幕
         subtitle_text = scene.get('subtitle_text', '')
-        visual_dir = scene.get('visual_direction', {})
-        shot_type = _safe_get(visual_dir, 'shot_type', '')
-        camera = _safe_get(visual_dir, 'camera_movement', '')
-        lighting = _safe_get(visual_dir, 'lighting', '')
-        broll = _safe_get(visual_dir, 'broll_suggestion', '')
-        key_point = scene.get('key_point', '')
-
-        header = f"第{idx}场 | {name}"
-        if time_range:
-            header += f" ({time_range})"
-        lines.append(header)
-        if emotion:
-            lines.append(f"  情绪：{emotion} | 色调：{color_tone}")
+        narration = scene.get('narration', scene.get('narrration', ''))
         if subtitle_text:
-            lines.append(f"  字幕：{subtitle_text}")
+            lines.append(f"\n  📝 字幕：{subtitle_text}")
         if narration:
-            lines.append(f"  口播：{narration}")
-        if shot_type or camera:
-            lines.append(f"  镜头：{shot_type} / {camera} | 光：{lighting}")
-        if broll:
-            lines.append(f"  B-roll：{broll}")
-        if key_point:
-            lines.append(f"  要点：{key_point}")
-        lines.append("")
+            lines.append(f"  🎤 口播：{narration}")
 
-    cta = content_result.get('cta', '')
+        # B-roll
+        broll_raw = scene.get('broll', '')
+        broll_text = ''
+        if isinstance(broll_raw, dict) and broll_raw:
+            broll_text = broll_raw.get('description', '')
+            if broll_text:
+                parts = []
+                if broll_raw.get('type'):
+                    parts.append(broll_raw['type'])
+                parts.append(broll_text)
+                if broll_raw.get('duration'):
+                    parts.append(f"({broll_raw['duration']})")
+                lines.append(f"  📹 B-roll：{' '.join(parts)}")
+        elif isinstance(broll_raw, str) and broll_raw:
+            lines.append(f"  📹 B-roll：{broll_raw}")
+        elif isinstance(shot_lang, dict) and shot_lang.get('broll_suggestion'):
+            lines.append(f"  📹 B-roll：{shot_lang['broll_suggestion']}")
+
+        # 关键词/要点
+        keywords = scene.get('keywords', [])
+        key_point = scene.get('key_point', '')
+        if keywords:
+            lines.append(f"  🔑 关键词：{'、'.join(keywords)}")
+        if key_point:
+            lines.append(f"  ⭐ 要点：{key_point}")
+
     if cta:
-        lines.append(f"CTA：{cta}")
-    hashtags = content_result.get('hashtags', [])
-    if hashtags:
-        lines.append(" ".join(hashtags))
+        lines.append(f"\n━━━━━━━━━━━━━━━\n📢 CTA：{cta}")
 
     return "\n".join(lines)
 

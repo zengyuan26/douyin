@@ -1495,6 +1495,78 @@
         padding-right: 4px;
     }
 
+    /* 内容均衡器样式 */
+    .modal-balancer-section {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .modal-balancer-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 8px;
+    }
+
+    .balancer-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .balancer-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #333;
+        font-weight: 500;
+    }
+
+    .balancer-value {
+        color: var(--apple-blue);
+        font-weight: 600;
+    }
+
+    .balancer-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 4px;
+        border-radius: 2px;
+        background: linear-gradient(to right, var(--apple-blue) 0%, var(--apple-blue) var(--value, 50%), #e5e7eb var(--value, 50%), #e5e7eb 100%);
+        outline: none;
+        cursor: pointer;
+    }
+
+    .balancer-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid var(--apple-blue);
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+
+    .balancer-slider::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid var(--apple-blue);
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+
+    .balancer-hint {
+        font-size: 9px;
+        color: #999;
+        text-align: center;
+    }
+
     .modal-scene-option {
         padding: 8px 10px;
         border: 1.5px solid var(--border-color);
@@ -2266,6 +2338,118 @@
                         </div>
                     </div>
 
+                    <!-- 视频时长和IP模式区域（仅短视频显示） -->
+                    <div class="modal-video-settings" id="modal-video-settings" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
+                        <div style="margin-bottom:8px;">
+                            <div style="font-size:11px;color:#666;margin-bottom:4px;">
+                                <i class="bi bi-clock"></i> 视频时长
+                            </div>
+                            <div style="display:flex;gap:4px;">
+                                <button class="duration-btn" data-duration="15s" onclick="selectDuration(this)" style="flex:1;padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;background:#f9fafb;font-size:11px;cursor:pointer;">15秒</button>
+                                <button class="duration-btn selected" data-duration="30s" onclick="selectDuration(this)" style="flex:1;padding:4px 8px;border:1px solid var(--apple-blue);border-radius:6px;background:rgba(0,122,255,0.08);font-size:11px;color:var(--apple-blue);cursor:pointer;">30秒</button>
+                                <button class="duration-btn" data-duration="60s" onclick="selectDuration(this)" style="flex:1;padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;background:#f9fafb;font-size:11px;cursor:pointer;">60秒</button>
+                                <button class="duration-btn" data-duration="90s" onclick="selectDuration(this)" style="flex:1;padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;background:#f9fafb;font-size:11px;cursor:pointer;">90秒</button>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size:11px;color:#666;margin-bottom:4px;">
+                                <i class="bi bi-person"></i> IP出镜方式
+                            </div>
+                            <div style="display:flex;gap:4px;margin-bottom:6px;">
+                                <button class="ip-btn" data-ip="off_screen" onclick="selectIpMode(this)" style="flex:1;padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;background:#f9fafb;font-size:11px;cursor:pointer;">不出镜</button>
+                                <button class="ip-btn selected" data-ip="on_screen" onclick="selectIpMode(this)" style="flex:1;padding:4px 8px;border:1px solid var(--apple-blue);border-radius:6px;background:rgba(0,122,255,0.08);font-size:11px;color:var(--apple-blue);cursor:pointer;">数字人出镜</button>
+                            </div>
+                            <!-- 数字人形象选择（仅出镜时显示） -->
+                            <div id="ip-avatar-section" style="display:block;">
+                                <div style="font-size:10px;color:#999;margin-bottom:4px;">数字人形象</div>
+                                <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                    <button class="avatar-btn selected" data-avatar="sister" onclick="selectAvatar(this)" style="padding:3px 8px;border:1px solid var(--apple-blue);border-radius:4px;background:rgba(0,122,255,0.08);font-size:10px;color:var(--apple-blue);cursor:pointer;">邻家姐姐</button>
+                                    <button class="avatar-btn" data-avatar="mom" onclick="selectAvatar(this)" style="padding:3px 8px;border:1px solid #e5e7eb;border-radius:4px;background:#f9fafb;font-size:10px;cursor:pointer;">知性妈妈</button>
+                                    <button class="avatar-btn" data-avatar="consultant" onclick="selectAvatar(this)" style="padding:3px 8px;border:1px solid #e5e7eb;border-radius:4px;background:#f9fafb;font-size:10px;cursor:pointer;">专业顾问</button>
+                                    <button class="avatar-btn" data-avatar="boy" onclick="selectAvatar(this)" style="padding:3px 8px;border:1px solid #e5e7eb;border-radius:4px;background:#f9fafb;font-size:10px;cursor:pointer;">阳光男孩</button>
+                                    <button class="avatar-btn" data-avatar="custom" onclick="selectAvatar(this)" style="padding:3px 8px;border:1px solid #e5e7eb;border-radius:4px;background:#f9fafb;font-size:10px;cursor:pointer;">自定义</button>
+                                </div>
+                                <input type="text" id="ip-avatar-custom" placeholder="描述IP人物形象..." style="display:none;margin-top:4px;width:100%;padding:4px 8px;border:1px solid #e5e7eb;border-radius:4px;font-size:10px;" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 内容均衡器区域（仅短视频显示） -->
+                    <div class="modal-balancer-section" id="modal-balancer-section" style="display:none;">
+                        <div class="modal-scene-header">
+                            <div class="modal-scene-title" style="margin-bottom:0;font-size:12px;color:#666;">
+                                <i class="bi bi-sliders" style="margin-right:4px;"></i>内容均衡器
+                            </div>
+                            <div class="modal-scene-hint">
+                                <a href="javascript:void(0)" onclick="showBalancerPresets()" style="font-size:11px;">预设模式</a>
+                            </div>
+                        </div>
+                        <div class="modal-balancer-list" id="modal-balancer-list">
+                            <div class="balancer-item" data-param="info_density">
+                                <div class="balancer-label">
+                                    <span>信息密度</span>
+                                    <span class="balancer-value" id="balancer-info_density-value">60%</span>
+                                </div>
+                                <input type="range" class="balancer-slider" id="balancer-info_density" min="30" max="100" value="60" oninput="updateBalancerValue('info_density', this.value)">
+                                <div class="balancer-hint">稀疏 ←→ 密集</div>
+                            </div>
+                            <div class="balancer-item" data-param="question_suspense">
+                                <div class="balancer-label">
+                                    <span>问题悬念</span>
+                                    <span class="balancer-value" id="balancer-question_suspense-value">50%</span>
+                                </div>
+                                <input type="range" class="balancer-slider" id="balancer-question_suspense" min="30" max="100" value="50" oninput="updateBalancerValue('question_suspense', this.value)">
+                                <div class="balancer-hint">平铺直叙 ←→ 句句悬念</div>
+                            </div>
+                            <div class="balancer-item" data-param="emotion_wave">
+                                <div class="balancer-label">
+                                    <span>情绪波动</span>
+                                    <span class="balancer-value" id="balancer-emotion_wave-value">50%</span>
+                                </div>
+                                <input type="range" class="balancer-slider" id="balancer-emotion_wave" min="30" max="100" value="50" oninput="updateBalancerValue('emotion_wave', this.value)">
+                                <div class="balancer-hint">冷静理性 ←→ 情绪大起大落</div>
+                            </div>
+                            <div class="balancer-item" data-param="interaction_freq">
+                                <div class="balancer-label">
+                                    <span>互动频率</span>
+                                    <span class="balancer-value" id="balancer-interaction_freq-value">50%</span>
+                                </div>
+                                <input type="range" class="balancer-slider" id="balancer-interaction_freq" min="30" max="100" value="50" oninput="updateBalancerValue('interaction_freq', this.value)">
+                                <div class="balancer-hint">低调引导 ←→ 高频互动</div>
+                            </div>
+                            <div class="balancer-item" data-param="reward_distribution">
+                                <div class="balancer-label">
+                                    <span>奖励分布</span>
+                                    <span class="balancer-value" id="balancer-reward_distribution-value">50%</span>
+                                </div>
+                                <input type="range" class="balancer-slider" id="balancer-reward_distribution" min="30" max="100" value="50" oninput="updateBalancerValue('reward_distribution', this.value)">
+                                <div class="balancer-hint">均匀分布 ←→ 前密后疏</div>
+                            </div>
+                            <div class="balancer-item" data-param="difficulty_progression">
+                                <div class="balancer-label">
+                                    <span>难度递进</span>
+                                    <span class="balancer-value" id="balancer-difficulty_progression-value">50%</span>
+                                </div>
+                                <input type="range" class="balancer-slider" id="balancer-difficulty_progression" min="30" max="100" value="50" oninput="updateBalancerValue('difficulty_progression', this.value)">
+                                <div class="balancer-hint">平缓 ←→ 快速递进</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 预设模式弹窗 -->
+                    <div id="balancer-presets-modal" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);padding:16px;z-index:1001;min-width:320px;">
+                        <div style="font-weight:600;margin-bottom:12px;font-size:0.875rem;">选择预设模式</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <button class="preset-btn" onclick="applyBalancerPreset('steady')" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;cursor:pointer;font-size:0.75rem;">沉稳型</button>
+                            <button class="preset-btn" onclick="applyBalancerPreset('vibrant')" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;cursor:pointer;font-size:0.75rem;">活力型</button>
+                            <button class="preset-btn" onclick="applyBalancerPreset('professional')" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;cursor:pointer;font-size:0.75rem;">专业型</button>
+                            <button class="preset-btn" onclick="applyBalancerPreset('emotional')" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;cursor:pointer;font-size:0.75rem;">情感型</button>
+                            <button class="preset-btn" onclick="applyBalancerPreset('sharp')" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;cursor:pointer;font-size:0.75rem;">犀利型</button>
+                            <button class="preset-btn" onclick="applyBalancerPreset('warm')" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;cursor:pointer;font-size:0.75rem;">温情型</button>
+                        </div>
+                        <button onclick="hideBalancerPresets()" style="margin-top:12px;width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:8px;background:white;cursor:pointer;font-size:0.75rem;">关闭</button>
+                    </div>
+                </div>
+
                     <!-- 右侧：场景选择区域 -->
                     <div class="modal-scene-section" id="modal-scene-section">
                         <div class="modal-scene-header">
@@ -2547,6 +2731,16 @@ function initModalEvents() {
     const closeBtn = document.getElementById('simple-modal-close');
     const confirmBtn = document.getElementById('simple-modal-confirm');
 
+    // 初始化均衡器显示状态
+    var balancerSection = document.getElementById('modal-balancer-section');
+    var videoSettings = document.getElementById('modal-video-settings');
+    if (balancerSection && _selectedContentType === 'short_video') {
+        balancerSection.style.display = 'block';
+    }
+    if (videoSettings) {
+        videoSettings.style.display = _selectedContentType === 'short_video' ? 'block' : 'none';
+    }
+
     // 点击背景关闭
     modal.addEventListener('click', function(e) {
         if (e.target === modal) {
@@ -2575,7 +2769,139 @@ function initModalEvents() {
         });
         option.classList.add('selected');
         _selectedContentType = option.dataset.type || 'graphic';
+        console.log('[DEBUG] 内容类型切换为:', _selectedContentType, option.dataset.type);
+        // 短视频类型时显示内容均衡器
+        var balancerSection = document.getElementById('modal-balancer-section');
+        var videoSettings = document.getElementById('modal-video-settings');
+        if (balancerSection) {
+            balancerSection.style.display = _selectedContentType === 'short_video' ? 'block' : 'none';
+        }
+        if (videoSettings) {
+            videoSettings.style.display = _selectedContentType === 'short_video' ? 'block' : 'none';
+        }
     });
+}
+
+function updateBalancerValue(param, value) {
+    document.getElementById('balancer-' + param + '-value').textContent = value + '%';
+    var slider = document.getElementById('balancer-' + param);
+    if (slider) {
+        slider.style.setProperty('--value', value + '%');
+    }
+}
+
+function showBalancerPresets() {
+    var modal = document.getElementById('balancer-presets-modal');
+    if (modal) modal.style.display = 'block';
+}
+
+function hideBalancerPresets() {
+    var modal = document.getElementById('balancer-presets-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function applyBalancerPreset(preset) {
+    var presets = {
+        steady: { info_density: 70, question_suspense: 40, emotion_wave: 40, interaction_freq: 40, reward_distribution: 50, difficulty_progression: 60 },
+        vibrant: { info_density: 60, question_suspense: 80, emotion_wave: 90, interaction_freq: 80, reward_distribution: 90, difficulty_progression: 40 },
+        professional: { info_density: 90, question_suspense: 60, emotion_wave: 50, interaction_freq: 60, reward_distribution: 70, difficulty_progression: 80 },
+        emotional: { info_density: 40, question_suspense: 50, emotion_wave: 95, interaction_freq: 50, reward_distribution: 60, difficulty_progression: 40 },
+        sharp: { info_density: 70, question_suspense: 90, emotion_wave: 85, interaction_freq: 70, reward_distribution: 85, difficulty_progression: 60 },
+        warm: { info_density: 40, question_suspense: 40, emotion_wave: 80, interaction_freq: 60, reward_distribution: 50, difficulty_progression: 30 }
+    };
+    var p = presets[preset] || presets.steady;
+    Object.keys(p).forEach(function(key) {
+        var slider = document.getElementById('balancer-' + key);
+        if (slider) {
+            slider.value = p[key];
+            updateBalancerValue(key, p[key]);
+        }
+    });
+    hideBalancerPresets();
+}
+
+function getContentBalancer() {
+    if (_selectedContentType !== 'short_video') return null;
+    return {
+        info_density: parseInt(document.getElementById('balancer-info_density')?.value || 60),
+        question_suspense: parseInt(document.getElementById('balancer-question_suspense')?.value || 50),
+        emotion_wave: parseInt(document.getElementById('balancer-emotion_wave')?.value || 50),
+        interaction_freq: parseInt(document.getElementById('balancer-interaction_freq')?.value || 50),
+        reward_distribution: parseInt(document.getElementById('balancer-reward_distribution')?.value || 50),
+        difficulty_progression: parseInt(document.getElementById('balancer-difficulty_progression')?.value || 50)
+    };
+}
+
+function selectDuration(btn) {
+    document.querySelectorAll('.duration-btn').forEach(function(b) {
+        b.classList.remove('selected');
+        b.style.borderColor = '#e5e7eb';
+        b.style.background = '#f9fafb';
+        b.style.color = '#333';
+    });
+    btn.classList.add('selected');
+    btn.style.borderColor = 'var(--apple-blue)';
+    btn.style.background = 'rgba(0,122,255,0.08)';
+    btn.style.color = 'var(--apple-blue)';
+}
+
+function selectIpMode(btn) {
+    document.querySelectorAll('.ip-btn').forEach(function(b) {
+        b.classList.remove('selected');
+        b.style.borderColor = '#e5e7eb';
+        b.style.background = '#f9fafb';
+        b.style.color = '#333';
+    });
+    btn.classList.add('selected');
+    btn.style.borderColor = 'var(--apple-blue)';
+    btn.style.background = 'rgba(0,122,255,0.08)';
+    btn.style.color = 'var(--apple-blue)';
+    toggleAvatarSection();
+}
+
+function getVideoDuration() {
+    var selected = document.querySelector('.duration-btn.selected');
+    return selected ? selected.dataset.duration : '30s';
+}
+
+function getIpMode() {
+    var selected = document.querySelector('.ip-btn.selected');
+    return selected ? selected.dataset.ip : 'on_screen';
+}
+
+function selectAvatar(btn) {
+    document.querySelectorAll('.avatar-btn').forEach(function(b) {
+        b.classList.remove('selected');
+        b.style.borderColor = '#e5e7eb';
+        b.style.background = '#f9fafb';
+        b.style.color = '#333';
+    });
+    btn.classList.add('selected');
+    btn.style.borderColor = 'var(--apple-blue)';
+    btn.style.background = 'rgba(0,122,255,0.08)';
+    btn.style.color = 'var(--apple-blue)';
+
+    // 显示/隐藏自定义输入框
+    var customInput = document.getElementById('ip-avatar-custom');
+    if (customInput) {
+        customInput.style.display = btn.dataset.avatar === 'custom' ? 'block' : 'none';
+    }
+}
+
+function getIpAvatar() {
+    var selected = document.querySelector('.avatar-btn.selected');
+    if (!selected) return 'sister';
+    if (selected.dataset.avatar === 'custom') {
+        return document.getElementById('ip-avatar-custom')?.value || 'sister';
+    }
+    return selected.dataset.avatar;
+}
+
+function toggleAvatarSection() {
+    var avatarSection = document.getElementById('ip-avatar-section');
+    if (avatarSection) {
+        avatarSection.style.display = getIpMode() === 'on_screen' ? 'block' : 'none';
+    }
 }
 
 async function loadUserAuth() {
@@ -4227,15 +4553,23 @@ function openGenerateModal() {
 
     // 重置状态
     _selectedScene = null;
-    _selectedContentType = 'graphic';
 
-    // 重置内容类型选择（选中图文）
+    // 重置内容类型选择——如果之前没有选择过，才默认图文
     document.querySelectorAll('#simple-modal-type-list .modal-content-type-option').forEach(function(opt) {
         opt.classList.remove('selected');
     });
-    const defaultOpt = document.querySelector('#simple-modal-type-list .modal-content-type-option[data-type="graphic"]');
-    if (defaultOpt) {
-        defaultOpt.classList.add('selected');
+
+    // 如果当前选中的内容类型存在于选项中，保持选中状态
+    const currentOpt = document.querySelector('#simple-modal-type-list .modal-content-type-option[data-type="' + _selectedContentType + '"]');
+    if (currentOpt) {
+        currentOpt.classList.add('selected');
+    } else {
+        // 没有有效选择，默认图文
+        _selectedContentType = 'graphic';
+        const defaultOpt = document.querySelector('#simple-modal-type-list .modal-content-type-option[data-type="graphic"]');
+        if (defaultOpt) {
+            defaultOpt.classList.add('selected');
+        }
     }
 
     // === 新增：渲染场景选择 ===
@@ -4348,17 +4682,9 @@ function renderSceneSelection(topic) {
     // 默认选中第一个场景
     _selectedScene = displayScenes[0];
 
-    // 同步默认场景的内容类型
-    if (_selectedScene && _selectedScene.content_form) {
-        var defaultForm = _selectedScene.content_form;
-        document.querySelectorAll('#simple-modal-type-list .modal-content-type-option').forEach(function(typeOpt) {
-            typeOpt.classList.remove('selected');
-            if (typeOpt.dataset.type === defaultForm) {
-                typeOpt.classList.add('selected');
-            }
-        });
-        _selectedContentType = defaultForm;
-    }
+    // 【修复】不要用场景的默认类型覆盖用户之前选择的内容类型
+    // 只有当用户没有明确选择过时，才用场景的默认类型
+    // 保持用户之前选择的内容类型
 
     // 绑定点击事件
     sceneList.querySelectorAll('.modal-scene-option').forEach(function(opt) {
@@ -4374,18 +4700,10 @@ function renderSceneSelection(topic) {
             var idx = parseInt(opt.dataset.sceneIdx);
             _selectedScene = displayScenes[idx];
 
-            // 如果场景指定了内容形式，自动切换
-            if (_selectedScene && _selectedScene.content_form) {
-                var form = _selectedScene.content_form;
-                // content_form 映射：shorvideo->shorvideo, graphic->graphic, longtext->longtext
-                document.querySelectorAll('#simple-modal-type-list .modal-content-type-option').forEach(function(typeOpt) {
-                    typeOpt.classList.remove('selected');
-                    if (typeOpt.dataset.type === form) {
-                        typeOpt.classList.add('selected');
-                    }
-                });
-                _selectedContentType = form;
-            }
+            // 【修复】不要自动切换内容类型，保持用户选择
+            // 用户需要在内容类型区明确选择，而不是被场景自动覆盖
+            // 提示用户需要选择内容类型（如果当前没有选中）
+            // 已选中的内容类型会保持不变
         });
     });
 }
@@ -4627,7 +4945,24 @@ async function confirmGenerate() {
 
         // 携带内容类型
         payload.content_type = _selectedContentType || 'graphic';
-        console.log('confirmGenerate: content_type =', payload.content_type);
+        console.log('[DEBUG] confirmGenerate: _selectedContentType =', _selectedContentType);
+        console.log('[DEBUG] confirmGenerate: payload.content_type =', payload.content_type);
+        console.log('[DEBUG] confirmGenerate: 发送的完整payload:', JSON.stringify(payload, null, 2));
+
+        // 携带内容均衡器参数（仅短视频）
+        const balancer = getContentBalancer();
+        if (balancer) {
+            payload.content_balancer = balancer;
+            console.log('[DEBUG] confirmGenerate: content_balancer =', balancer);
+        }
+
+        // 短视频额外参数
+        if (_selectedContentType === 'short_video') {
+            payload.video_duration = getVideoDuration();
+            payload.ip_mode = getIpMode();
+            payload.ip_avatar = getIpAvatar();
+            console.log('[DEBUG] confirmGenerate: video_duration =', payload.video_duration, 'ip_mode =', payload.ip_mode, 'ip_avatar =', payload.ip_avatar);
+        }
 
         // ── 使用用户选择的场景组合传给后端（GEO匹配用）──
         if (_selectedScene) {

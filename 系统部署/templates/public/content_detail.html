@@ -2206,6 +2206,285 @@ function extractSectionContent(key, contentData) {
         return String(cp || '');
     }
 
+    // ══ 短视频脚本字段特殊处理 ══
+    // 短视频 content_data 可能使用 basic 嵌套结构或顶层结构
+    if (key === 'script') {
+        // 短视频脚本：渲染 scenes 列表
+        var scenes = contentData.scenes;
+        if (scenes && Array.isArray(scenes) && scenes.length > 0) {
+            var scriptLines = [];
+
+            // 基本信息（兼容 basic 嵌套结构）
+            var basic = contentData.basic || {};
+            var title = contentData.title || basic.title || '';
+            var structureName = contentData.structure_name || '';
+            var duration = contentData.duration || basic.duration || '';
+            var ipMode = contentData.ip_mode || '';
+            var ipAvatar = contentData.ip_avatar || '';
+            var opening = contentData.opening || basic.opening || '';
+            var cta = contentData.cta || basic.cta || '';
+
+            if (title) scriptLines.push('【' + title + '】\n');
+            if (structureName) scriptLines.push('结构：' + structureName);
+            if (duration) scriptLines.push('时长：' + duration);
+            if (ipMode) scriptLines.push('出镜：' + (ipMode === 'on_screen' ? '数字人' : '不出镜') + (ipAvatar ? ' - ' + ipAvatar : ''));
+            if (opening) scriptLines.push('\n前3秒钩子：' + opening + '\n');
+
+            // 奖励点计划
+            var rewardPlan = contentData.reward_plan;
+            if (rewardPlan && rewardPlan.total_count) {
+                scriptLines.push('【奖励点计划】共' + rewardPlan.total_count + '个');
+                if (rewardPlan.distribution) {
+                    rewardPlan.distribution.forEach(function(r) {
+                        if (r.count > 0) scriptLines.push('  ' + r.time_range + '：' + r.count + '个 ' + (r.types || []).join('/'));
+                    });
+                }
+            }
+
+            // 互动点计划
+            var interactionPlan = contentData.interaction_plan;
+            if (interactionPlan && interactionPlan.total_count) {
+                scriptLines.push('\n【互动点计划】共' + interactionPlan.total_count + '个');
+                if (interactionPlan.points) {
+                    interactionPlan.points.forEach(function(p) {
+                        scriptLines.push('  ' + p.time_range + '：' + p.type + ' - ' + p.content);
+                    });
+                }
+            }
+
+            // 情绪曲线
+            var emotionCurve = contentData.emotion_curve;
+            if (emotionCurve) {
+                scriptLines.push('\n【情绪曲线】');
+                if (emotionCurve.description) scriptLines.push('  ' + emotionCurve.description);
+                if (emotionCurve.peaks && emotionCurve.peaks.length) scriptLines.push('  高峰：' + emotionCurve.peaks.join(' → '));
+                if (emotionCurve.valleys && emotionCurve.valleys.length) scriptLines.push('  低谷：' + emotionCurve.valleys.join(' → '));
+            }
+
+            scriptLines.push('\n【专业分镜脚本】');
+
+            scenes.forEach(function(scene) {
+                var idx = scene.scene_index || 0;
+                var name = scene.scene_name || '';
+                var timeRange = scene.time_range || '';
+                scriptLines.push('\n━━━ 第' + idx + '场：' + name + (timeRange ? ' (' + timeRange + ')' : '') + ' ━━━');
+
+                // 情绪（支持新旧结构）
+                var emotion = scene.emotion || {};
+                var emotionStage = scene.emotion_stage || emotion.stage || '';
+                var emotionIntensity = emotion.intensity || '';
+                var emotionGoal = emotion.goal || '';
+                if (emotionStage) {
+                    var emotionText = '  情绪：' + emotionStage;
+                    if (emotionIntensity) emotionText += '（强度' + emotionIntensity + '/10）';
+                    scriptLines.push(emotionText);
+                    if (emotionGoal) scriptLines.push('  情绪目标：' + emotionGoal);
+                }
+
+                // 色调
+                var colorTone = scene.color_tone || '';
+                if (colorTone) scriptLines.push('  色调：' + colorTone);
+
+                // 场景设定
+                var sceneSetting = scene.scene_setting || {};
+                if (Object.keys(sceneSetting).length) {
+                    scriptLines.push('\n  ▼ 场景设定');
+                    if (sceneSetting.location) scriptLines.push('    地点：' + sceneSetting.location);
+                    if (sceneSetting.environment) scriptLines.push('    环境：' + sceneSetting.environment);
+                    if (sceneSetting.props && sceneSetting.props.length) scriptLines.push('    道具：' + sceneSetting.props.join('、'));
+                    if (sceneSetting.character_appearance) scriptLines.push('    人物：' + sceneSetting.character_appearance);
+                    if (sceneSetting.atmosphere) scriptLines.push('    氛围：' + sceneSetting.atmosphere);
+                }
+
+                // 镜头语言
+                var shotLang = scene.shot_language || scene.visual_direction || {};
+                if (Object.keys(shotLang).length) {
+                    scriptLines.push('\n  ▼ 镜头设计');
+                    var shotType = shotLang.shot_type || '';
+                    var camera = shotLang.camera_movement || '';
+                    var depth = shotLang.depth || '';
+                    var angle = shotLang.angle || '';
+                    var shotParts = [];
+                    if (shotType) shotParts.push(shotType);
+                    if (camera) shotParts.push(camera);
+                    if (depth) shotParts.push(depth);
+                    if (angle) shotParts.push(angle);
+                    if (shotParts.length) scriptLines.push('    ' + shotParts.join(' + '));
+                }
+
+                // 光效
+                var lightingObj = scene.lighting || {};
+                if (Object.keys(lightingObj).length) {
+                    var lightParts = [];
+                    if (lightingObj.main_light) lightParts.push(lightingObj.main_light);
+                    if (lightingObj.fill) lightParts.push('补光:' + lightingObj.fill);
+                    if (lightingObj.mood) lightParts.push('氛围:' + lightingObj.mood);
+                    if (lightParts.length) scriptLines.push('    光效：' + lightParts.join(' | '));
+                } else if (scene.visual_direction && scene.visual_direction.lighting) {
+                    scriptLines.push('    光效：' + scene.visual_direction.lighting);
+                }
+
+                // 动作编排
+                var actionChoreo = scene.action_choreography || {};
+                if (Object.keys(actionChoreo).length) {
+                    scriptLines.push('\n  ▼ 动作编排');
+                    if (actionChoreo.main_action) scriptLines.push('    动作：' + actionChoreo.main_action);
+                    if (actionChoreo.gaze) scriptLines.push('    视线：' + actionChoreo.gaze);
+                    if (actionChoreo.hand_motion) scriptLines.push('    手部：' + actionChoreo.hand_motion);
+                    if (actionChoreo.movement) scriptLines.push('    移动：' + actionChoreo.movement);
+                }
+
+                // 画面构成
+                var frameComp = scene.frame_composition || {};
+                if (Object.keys(frameComp).length) {
+                    scriptLines.push('\n  ▼ 画面构成');
+                    if (frameComp.subject_position) scriptLines.push('    主体位置：' + frameComp.subject_position);
+                    if (frameComp.foreground) scriptLines.push('    前景：' + frameComp.foreground);
+                    if (frameComp.background) scriptLines.push('    背景：' + frameComp.background);
+                    if (frameComp.negative_space) scriptLines.push('    留白：' + frameComp.negative_space);
+                }
+
+                // 视觉隐喻
+                var visualMetaphor = scene.visual_metaphor || {};
+                if (Object.keys(visualMetaphor).length) {
+                    scriptLines.push('\n  ▼ 视觉隐喻');
+                    if (visualMetaphor.element) scriptLines.push('    元素：' + visualMetaphor.element);
+                    if (visualMetaphor.meaning) scriptLines.push('    含义：' + visualMetaphor.meaning);
+                    if (visualMetaphor.presentation) scriptLines.push('    呈现：' + visualMetaphor.presentation);
+                }
+
+                // 奖励/互动
+                var rewardType = scene.reward_type || '';
+                var interaction = scene.interaction || '';
+                if (rewardType) scriptLines.push('  【奖励】' + rewardType);
+                if (interaction) scriptLines.push('  【互动】' + interaction);
+
+                // 口播/字幕
+                var subtitleText = scene.subtitle_text || '';
+                var narration = scene.narration || scene.narrration || '';
+                if (subtitleText) scriptLines.push('\n  📝 字幕：' + subtitleText);
+                if (narration) scriptLines.push('  🎤 口播：' + narration);
+
+                // B-roll
+                var brollObj = scene.broll || {};
+                var brollText = brollObj.description || (scene.visual_direction || {}).broll_suggestion || '';
+                var brollType = brollObj.type || '';
+                var brollDuration = brollObj.duration || '';
+                if (brollText) {
+                    var brollParts = [];
+                    if (brollType) brollParts.push(brollType);
+                    brollParts.push(brollText);
+                    if (brollDuration) brollParts.push('(' + brollDuration + ')');
+                    scriptLines.push('  📹 B-roll：' + brollParts.join(' '));
+                }
+
+                // 关键词/要点
+                var keywords = scene.keywords || [];
+                var keyPoint = scene.key_point || '';
+                if (keywords.length) scriptLines.push('  🔑 关键词：' + keywords.join('、'));
+                if (keyPoint) scriptLines.push('  ⭐ 要点：' + keyPoint);
+            });
+
+            if (cta) scriptLines.push('\n━━━━━━━━━━━━━━━\n📢 CTA：' + cta);
+            return scriptLines.join('\n');
+        }
+        // 兜底：返回 script 字段
+        var scriptField = contentData.script;
+        if (scriptField) {
+            return typeof scriptField === 'object' ? JSON.stringify(scriptField, null, 2) : String(scriptField);
+        }
+        return '';
+    }
+
+    if (key === 'shooting') {
+        // 短视频拍摄建议
+        var shootingTips = contentData.shooting_tips;
+        if (shootingTips) {
+            return typeof shootingTips === 'object' ? JSON.stringify(shootingTips, null, 2) : String(shootingTips);
+        }
+        // 兜底：检查 shooting 字段
+        var shootingField = contentData.shooting;
+        if (shootingField) {
+            return typeof shootingField === 'object' ? JSON.stringify(shootingField, null, 2) : String(shootingField);
+        }
+        return '';
+    }
+
+    // 标签：短视频用 hashtags
+    if (key === 'tags') {
+        // 优先用 hashtags（短视频结构）
+        var hashtags = contentData.hashtags;
+        if (hashtags) {
+            if (Array.isArray(hashtags)) {
+                return hashtags.join('\n');
+            }
+            return String(hashtags);
+        }
+        // 图文/长文用 tags
+        var tags = contentData.tags;
+        if (tags) {
+            if (Array.isArray(tags)) {
+                return tags.join('\n');
+            }
+            return String(tags);
+        }
+        return '';
+    }
+
+    // 评论区：短视频用 first_comment
+    if (key === 'comment') {
+        // 优先用 first_comment（短视频结构）
+        var firstComment = contentData.first_comment;
+        if (firstComment) {
+            if (typeof firstComment === 'object') {
+                return JSON.stringify(firstComment, null, 2);
+            }
+            return String(firstComment);
+        }
+        // 图文/长文用 comment
+        var topComment = contentData.comment;
+        if (topComment) {
+            return typeof topComment === 'object' ? JSON.stringify(topComment, null, 2) : String(topComment);
+        }
+        var article = contentData.article || {};
+        var articleComment = article.comment;
+        if (articleComment) {
+            return typeof articleComment === 'object' ? JSON.stringify(articleComment, null, 2) : String(articleComment);
+        }
+        var rawBody = contentData.body || '';
+        if (rawBody) {
+            var commentSection = rawBody.split(/#{1,6}\s*评论区/)[1] || '';
+            if (commentSection) {
+                var nextHeader = commentSection.match(/#{1,6}\s/);
+                if (nextHeader) {
+                    commentSection = commentSection.substring(0, nextHeader.index);
+                }
+                return commentSection.trim();
+            }
+        }
+        return '';
+    }
+
+    // 发布策略：短视频用 publish_strategy
+    if (key === 'publish') {
+        // 优先用 publish_strategy（短视频结构）
+        var publishStrategy = contentData.publish_strategy;
+        if (publishStrategy) {
+            return typeof publishStrategy === 'object' ? JSON.stringify(publishStrategy, null, 2) : String(publishStrategy);
+        }
+        // 图文/长文用 publish
+        var topPublish = contentData.publish;
+        if (topPublish) {
+            return typeof topPublish === 'object' ? JSON.stringify(topPublish, null, 2) : String(topPublish);
+        }
+        var article = contentData.article || {};
+        var articlePublish = article.publish;
+        if (articlePublish) {
+            return typeof articlePublish === 'object' ? JSON.stringify(articlePublish, null, 2) : String(articlePublish);
+        }
+        return '';
+    }
+
     // 根据 section_key 映射 content_data 字段
     var fieldMap = {
         'title':         'title',

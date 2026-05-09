@@ -121,6 +121,14 @@ def create_app(config_name='default'):
     except Exception as e:
         logging.warning(f"运营规划 API 注册失败: {e}")
 
+    # 注册短视频脚本生成增强 API
+    try:
+        from routes.script_api import script_bp as script_api_blueprint
+        app.register_blueprint(script_api_blueprint)
+        logging.info("短视频脚本生成增强 API 已注册")
+    except Exception as e:
+        logging.warning(f"短视频脚本生成增强 API 注册失败: {e}")
+
     # 初始化运营规划任务服务（后台执行器）
     try:
         from services.operations_plan_task_service import init_app as init_operations_plan_service

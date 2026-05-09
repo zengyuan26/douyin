@@ -313,6 +313,10 @@ class SkillBridge:
         operation_plan: Optional[dict] = None,
         five_stage_info: Optional[dict] = None,
         skip_steps: Optional[List[str]] = None,
+        content_balancer: Optional[dict] = None,
+        video_duration: str = "",
+        ip_mode: str = "",
+        ip_avatar: str = "",
     ) -> SkillExecutionResult:
         """
         执行短视频脚本生成 skill。
@@ -355,6 +359,19 @@ class SkillBridge:
             manual_inputs["operation_plan"] = operation_plan
         if five_stage_info:
             manual_inputs["five_stage_info"] = five_stage_info
+        if content_balancer:
+            manual_inputs["content_balancer"] = content_balancer
+            # 展平均衡器参数到顶层，供占位符替换使用
+            for key in ["info_density", "question_suspense", "emotion_wave",
+                       "interaction_freq", "reward_distribution", "difficulty_progression"]:
+                if key in content_balancer:
+                    manual_inputs[key] = content_balancer[key]
+        if video_duration:
+            manual_inputs["video_duration"] = video_duration
+        if ip_mode:
+            manual_inputs["ip_mode"] = ip_mode
+        if ip_avatar:
+            manual_inputs["ip_avatar"] = ip_avatar
 
         return self._executor.execute_skill(
             "video_script_generator",
