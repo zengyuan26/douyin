@@ -1087,6 +1087,8 @@ document.addEventListener('DOMContentLoaded', function() {
     loadUserAuth();
     loadPortraits();
     initSeasonalityGrid();
+    // 启动定期状态检查（每10秒检查一次画像状态变化）
+    startPeriodicStatusCheck();
 });
 
 /**
@@ -1526,6 +1528,7 @@ function ppPollKeywordLibraryStatus(portraitId) {
                 if (status === 'completed' || status === 'failed') {
                     clearInterval(_ppKwPollTimers[portraitId]);
                     delete _ppKwPollTimers[portraitId];
+                    // 重新加载完整画像列表以更新卡片状态
                     await loadPortraits();
                     if (status === 'completed') {
                         showToast('关键词库生成完成！', 'success');
@@ -1537,6 +1540,56 @@ function ppPollKeywordLibraryStatus(portraitId) {
             delete _ppKwPollTimers[portraitId];
         }
     }, 3000);
+}
+
+// 定期检查画像状态（防止页面长时间打开时数据过期）
+var _ppStatusCheckTimer = null;
+function startPeriodicStatusCheck() {
+    if (_ppStatusCheckTimer) return;
+    _ppStatusCheckTimer = setInterval(async function() {
+        try {
+            const resp = await fetch('/public/api/portraits/saved?include_data=true', { credentials: 'include' });
+            const data = await resp.json();
+            if (data.success && data.data) {
+                // 比较数据是否有变化
+                const hasChanges = data.data.some(function(newP) {
+                    const oldP = _portraits.find(function(p) { return p.id === newP.id; });
+                    if (!oldP) return true;
+                    // 检查关键词库数量是否变化
+                    const oldKwCount = countKwCount(oldP.keyword_library);
+                    const newKwCount = countKwCount(newP.keyword_library);
+                    // 检查生成状态是否变化
+                    return oldP.generation_status !== newP.generation_status ||
+                           oldKwCount !== newKwCount;
+                });
+                if (hasChanges) {
+                    console.log('[pp] 检测到画像状态变化，自动刷新...');
+                    await loadPortraits();
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+    }, 10000); // 每10秒检查一次
+}
+
+function countKwCount(kl) {
+    if (!kl) return 0;
+    let count = 0;
+    if (kl.categories && Array.isArray(kl.categories)) {
+        kl.categories.forEach(function(cat) { count += (cat.keywords || []).length; });
+    } else {
+        if (kl.problem_type_keywords) count += kl.problem_type_keywords.length;
+        if (kl.pain_point_keywords) count += kl.pain_point_keywords.length;
+        if (kl.scene_keywords) count += kl.scene_keywords.length;
+        if (kl.concern_keywords) count += kl.concern_keywords.length;
+        if (kl.direct_demand_keywords) count += kl.direct_demand_keywords.length;
+        if (kl.user_problem_keywords) count += kl.user_problem_keywords.length;
+        if (kl.payer_concern_keywords) count += kl.payer_concern_keywords.length;
+        if (kl.product_recommend_keywords) count += kl.product_recommend_keywords.length;
+    }
+    if (kl.blue_ocean) count += kl.blue_ocean.length;
+    return count;
 }
 
 // 显示关键词库弹窗
@@ -1779,6 +1832,15 @@ async function loadPortraits() {
         _portraits = data.data;
         body.innerHTML = renderRecommendCoverflow(_portraits);
         initPpCoverFlow();
+
+        // 检查是否有正在生成的画像，启动轮询更新状态
+        _portraits.forEach(function(p) {
+            if ((p.generation_status || 'pending') === 'generating') {
+                if (!_ppKwPollTimers[p.id]) {
+                    ppPollKeywordLibraryStatus(p.id);
+                }
+            }
+        });
     } catch (e) {
         loadingEl.style.display = 'none';
         body.innerHTML = '<div class="empty-state"><p style="color:var(--apple-red);">加载失败，请刷新重试</p></div>';

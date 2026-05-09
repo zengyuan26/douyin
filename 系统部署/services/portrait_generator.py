@@ -73,6 +73,23 @@ class Portrait:
     pain_point_level: str = "medium"             # 痛点强度：high(高)/medium(中)/low(低)
     decision_stage: str = "consideration"        # 决策阶段：awareness(认知)/consideration(考量)/decision(决策)
 
+    # ===== 三类客户分类（任务1.2新增）=====
+    customer_type: str = ""                     # 客户类型：本地居民/返乡人/在外本地人
+    customer_subtype: str = ""                  # 客户子类型：如"春节返乡送礼"
+
+    # ===== B端/C端区分（任务1.2新增）=====
+    client_type: str = ""                       # B端(企业)/C端(家庭/个人)
+    decision_makers: List[str] = field(default_factory=list)  # 决策人列表
+
+    # ===== 付费人/使用人（任务1.2新增）=====
+    payer_info: Dict[str, Any] = field(default_factory=dict)   # 付费人信息：{role, concerns}
+    user_info: Dict[str, Any] = field(default_factory=dict)    # 使用人信息：{role, concerns}
+    is_payer_user_separated: bool = False       # 付费人/使用人是否分离
+
+    # ===== 搜前搜后阶段（任务1.2新增）=====
+    search_stage: str = ""                      # 搜索阶段：awareness/consideration/decision
+    conversion_cycle: str = ""                  # 转化周期：短(当天)/中(3天内)/长(7天+)
+
 
 @dataclass
 class PortraitGenerationContext:
@@ -554,7 +571,7 @@ class PortraitGenerator:
         count: int,
         market_opportunities: List[Dict[str, Any]],
     ) -> str:
-        """构建基于场景的画像生成Prompt"""
+        """构建基于场景的画像生成Prompt（增强版，融入三类客户+B端C端+付费人使用人）"""
 
         business_desc = business_info.get('business_description', '')
         industry = business_info.get('industry', '')
@@ -572,7 +589,7 @@ class PortraitGenerator:
             if cat.get('market_type') == 'red_ocean':
                 red_ocean_kw.extend(cat.get('keywords', [])[:10])
 
-        # 市场机会信息
+        # 市场机会信息（增强版）
         opportunities_text = ""
         if market_opportunities:
             opp_list = []
@@ -581,15 +598,19 @@ class PortraitGenerator:
                     opp_name = opp.get('opportunity_name', '')
                     opp_audience = opp.get('target_audience', '')
                     opp_diff = opp.get('differentiation', '')
+                    pain_level = opp.get('pain_level', 'medium')
+                    severity = opp.get('severity_urgency', 'P2')
                 else:
                     opp_name = getattr(opp, 'opportunity_name', '')
                     opp_audience = getattr(opp, 'target_audience', '')
                     opp_diff = getattr(opp, 'differentiation', '')
+                    pain_level = getattr(opp, 'pain_level', 'medium')
+                    severity = getattr(opp, 'severity_urgency', 'P2')
 
-                dir_text = ""
-                diff_text = f"差异化：{opp_diff}" if opp_diff else ""
                 opp_list.append(
-                    f"- {opp_name}{dir_text}\n  人群：{opp_audience}\n  {diff_text}"
+                    f"- {opp_name}\n  人群：{opp_audience}\n  "
+                    f"痛点强度：{pain_level} | 优先级：{severity}\n  "
+                    f"差异化：{opp_diff}"
                 )
             opportunities_text = "\n".join(opp_list)
 
@@ -610,22 +631,84 @@ class PortraitGenerator:
 目标人群：{scene_audience or '根据场景推断'}
 场景关键词：{scene_keywords_text}
 
-=== 市场机会 ===
+=== 市场机会（增强版）===
 {opportunities_text or '暂无市场机会数据'}
 
 === 关键词库（参考）===
 蓝海关键词（细分方向）：{', '.join(blue_ocean_kw[:10]) if blue_ocean_kw else '暂无'}
 红海关键词（竞争方向）：{', '.join(red_ocean_kw[:5]) if red_ocean_kw else '暂无'}
 
-=== 画像生成要求 ===
-请生成{count}个精准用户画像，每个画像要求：
+=== 三类客户群体框架（必须覆盖）===
+每个画像必须明确属于哪类客户：
 
-1. **身份特征**：具体、可识别的人群描述（如"刚创业3个月的餐饮小店老板"）
-2. **痛点场景**：具体的、真实的痛苦场景（如"店面刚装修完发现排烟不畅，改造成本又超预算了"）
-3. **心理状态**：真实的内心独白（如"每天忙得焦头烂额，效果还是不见起色"）
-4. **行为障碍**：阻碍用户行动的卡点（如"不知道该怎么选设备方案"）
-5. **搜索关键词**：用户真实搜索词（3-5个）
-6. **内容偏好**：适合该用户的内容方向
+| 客户类型 | 画像特征 | 消费场景 | 核心需求 | 内容方向 |
+|----------|----------|----------|----------|----------|
+| 本地居民 | 本地常住人口 | 自家消费、到店购买 | 实惠、方便、新鲜 | 性价比、便利性 |
+| 返乡人 | 春节从外地返乡 | 送礼、带特产回城 | 品质、包装、便携 | 送礼攻略、品质推荐 |
+| 在外本地人 | 在外地工作的本地人 | 思念家乡味、复购 | 正宗、情怀、邮寄 | 乡愁内容、品牌故事 |
+
+=== B端 vs C端区分（必须明确）===
+| 维度 | B端(企业) | C端(家庭) |
+|------|-----------|-----------|
+| 购买目的 | 品牌展示、招待客户、员工福利 | 日常饮用、家庭使用 |
+| 决策人 | 老板、行政、采购、财务 | 家庭主妇、上班族、老年人 |
+| 核心痛点 | 报销、门槛、配送 | 品质、价格、服务 |
+| 搜索特点 | 专业、长尾、具体 | 通俗、广泛、口语化 |
+
+=== 付费人 vs 使用人（必须区分）===
+| 角色 | 定义 | 关注点 | 示例 |
+|------|------|--------|------|
+| 付费人 | 出钱购买的人 | 价值、成本、效果、可报销 | 老板、老公、父母 |
+| 使用人 | 实际使用的人 | 体验、品质、方便 | 员工、孩子、老婆 |
+
+典型分离场景：
+- 桶装水企业采购：付费人(行政)关心价格，使用人(员工)关心水质
+- 定制水送礼：付费人(送礼人)关心面子，使用人(收礼人)可能不使用
+
+=== 搜前搜后覆盖（必须考虑）===
+| 阶段 | 用户行为 | 关键词类型 | 画像内容偏好 |
+|------|----------|------------|--------------|
+| 搜前 | 问题探索 | 问题词、困惑词 | "XX怎么办"类内容 |
+| 搜中 | 方案对比 | 品牌词、对比词 | "XX和XX哪个好"类内容 |
+| 搜后 | 购买决策 | 价格词、使用词 | "XX多少钱"类内容 |
+
+=== 画像生成要求 ===
+请生成{count}个精准用户画像，每个画像必须包含以下全部字段：
+
+1. **身份特征**
+   - identity: 具体、可识别的人群描述（如"刚创业3个月的餐饮小店老板"）
+   - identity_description: 详细的人群画像描述
+   - customer_type: 本地居民/返乡人/在外本地人（三选一）
+   - client_type: B端/C端（二选一）
+
+2. **痛点场景**
+   - pain_points: 具体、真实的痛苦场景
+   - pain_point_level: high/medium/low
+   - pain_scenarios: 痛点发生的具体场景
+
+3. **心理画像**
+   - psychology: 真实的内心独白
+   - barriers: 阻碍行动的卡点
+
+4. **付费人/使用人区分**
+   - payer_role: 付费人角色（如"企业老板"）
+   - payer_concerns: 付费人关注点
+   - user_role: 使用人角色（如"企业员工"）
+   - user_concerns: 使用人关注点
+
+5. **搜索行为**
+   - search_keywords: 用户真实搜索词（3-5个）
+   - search_stage: awareness/consideration/decision
+
+6. **内容偏好**
+   - content_preferences: 适合该用户的内容方向
+   - language_style: 口语化/专业术语/情绪化/温情型
+   - crowd_perspective: 第一人称/第三人称/对话式
+
+7. **决策特征**
+   - decision_makers: 决策人列表（如"老板+行政"）
+   - decision_stage: awareness/consideration/decision
+   - conversion_cycle: 短(当天)/中(3天内)/长(7天+)
 
 请用JSON格式输出：
 {{
@@ -633,18 +716,27 @@ class PortraitGenerator:
         {{
             "identity": "具体人群描述",
             "identity_description": "人群画像描述",
-            "portrait_summary": "一句话总结",
+            "portrait_summary": "一句话总结：身份+问题+想转变+困境+深层需求",
+            "customer_type": "本地居民/返乡人/在外本地人",
+            "client_type": "B端/C端",
+            "decision_makers": ["决策人1", "决策人2"],
             "pain_points": ["痛点1", "痛点2"],
             "pain_scenarios": ["场景1", "场景2"],
+            "pain_point_level": "high/medium/low",
             "psychology": "内心独白",
             "barriers": ["障碍1", "障碍2"],
+            "payer_role": "付费人角色",
+            "payer_concerns": ["关注点1", "关注点2"],
+            "user_role": "使用人角色",
+            "user_concerns": ["关注点1", "关注点2"],
             "search_keywords": ["搜索词1", "搜索词2"],
+            "search_stage": "awareness/consideration/decision",
             "content_preferences": ["内容方向1", "内容方向2"],
             "language_style": "口语化/专业术语/情绪化/温情型",
             "crowd_perspective": "第一人称/第三人称/对话式",
             "age_range": "26-35岁",
-            "pain_point_level": "high/medium/low",
-            "decision_stage": "awareness/consideration/decision"
+            "decision_stage": "awareness/consideration/decision",
+            "conversion_cycle": "短(当天)/中(3天内)/长(7天+)"
         }}
     ]
 }}"""
@@ -676,6 +768,24 @@ class PortraitGenerator:
 
         def _build_portrait(raw: dict, idx: int) -> Portrait:
             p = raw if isinstance(raw, dict) else {}
+            
+            # 处理 payer_info 和 user_info
+            payer_info = p.get('payer_info', {})
+            user_info = p.get('user_info', {})
+            
+            # 如果是字符串形式的列表，尝试解析
+            if isinstance(payer_info, str):
+                try:
+                    payer_info = json.loads(payer_info)
+                except:
+                    payer_info = {}
+            
+            if isinstance(user_info, str):
+                try:
+                    user_info = json.loads(user_info)
+                except:
+                    user_info = {}
+            
             return Portrait(
                 portrait_id=f"{problem_type_name}_{idx+1}",
                 problem_type=problem_type_name,
@@ -697,6 +807,19 @@ class PortraitGenerator:
                 age_range=p.get('age_range', ''),
                 pain_point_level=p.get('pain_point_level', 'medium'),
                 decision_stage=p.get('decision_stage', 'consideration'),
+                # 三类客户分类（任务1.2新增）
+                customer_type=p.get('customer_type', ''),
+                customer_subtype=p.get('customer_subtype', ''),
+                # B端C端区分（任务1.2新增）
+                client_type=p.get('client_type', ''),
+                decision_makers=p.get('decision_makers') or [],
+                # 付费人/使用人（任务1.2新增）
+                payer_info=payer_info or {},
+                user_info=user_info or {},
+                is_payer_user_separated=p.get('is_payer_user_separated', False),
+                # 搜前搜后阶段（任务1.2新增）
+                search_stage=p.get('search_stage', ''),
+                conversion_cycle=p.get('conversion_cycle', ''),
             )
 
         def _try_parse(text: str) -> List[Portrait]:
@@ -944,6 +1067,19 @@ def generate_portraits_from_analysis(
             'age_range': p.age_range,
             'pain_point_level': p.pain_point_level,
             'decision_stage': p.decision_stage,
+            # 三类客户分类（任务1.2新增）
+            'customer_type': p.customer_type,
+            'customer_subtype': p.customer_subtype,
+            # B端C端区分（任务1.2新增）
+            'client_type': p.client_type,
+            'decision_makers': p.decision_makers,
+            # 付费人/使用人（任务1.2新增）
+            'payer_info': p.payer_info,
+            'user_info': p.user_info,
+            'is_payer_user_separated': p.is_payer_user_separated,
+            # 搜前搜后阶段（任务1.2新增）
+            'search_stage': p.search_stage,
+            'conversion_cycle': p.conversion_cycle,
         }
         for p in portraits
     ]
@@ -974,3 +1110,332 @@ def group_portraits_by_problem_type(
             grouped[problem_type] = []
         grouped[problem_type].append(portrait)
     return grouped
+
+
+# ============================================================
+# 增强版分组函数（任务1.2新增）
+# ============================================================
+
+def group_portraits_by_customer_type(
+    portraits: List[Union['Portrait', Dict[str, Any]]]
+) -> Dict[str, List[Union['Portrait', Dict[str, Any]]]]:
+    """
+    按三类客户分组画像
+
+    Returns:
+        {
+            '本地居民': [portrait1, portrait2, ...],
+            '返乡人': [portrait3, portrait4, ...],
+            '在外本地人': [portrait5, portrait6, ...],
+            '未分类': [...],
+        }
+    """
+    from services.customer_type_classifier import CustomerTypeClassifier
+
+    classifier = CustomerTypeClassifier()
+
+    # 先为画像补充客户类型
+    enriched_portraits = []
+    for portrait in portraits:
+        if isinstance(portrait, dict):
+            enriched = classifier.enrich_portrait_with_customer_type(portrait)
+        else:
+            # Portrait对象转dict
+            p_dict = {
+                'identity': portrait.identity,
+                'identity_description': portrait.identity_description,
+                'pain_points': portrait.pain_points,
+                'pain_scenarios': portrait.pain_scenarios,
+                'barriers': portrait.barriers,
+                'search_keywords': portrait.search_keywords,
+                'portrait_summary': portrait.portrait_summary,
+                'customer_type': portrait.customer_type,
+            }
+            enriched = classifier.enrich_portrait_with_customer_type(p_dict)
+            # 如果原画像没有分类但 enriched 有，更新原画像
+            if not portrait.customer_type and enriched.get('customer_type'):
+                portrait.customer_type = enriched.get('customer_type', '')
+            enriched_portraits.append(enriched)
+            continue
+        enriched_portraits.append(enriched)
+
+    # 按客户类型分组
+    grouped = {
+        '本地居民': [],
+        '返乡人': [],
+        '在外本地人': [],
+        '未分类': [],
+    }
+
+    for portrait, enriched in zip(portraits, enriched_portraits):
+        customer_type = enriched.get('customer_type', '')
+        if customer_type in grouped:
+            grouped[customer_type].append(portrait)
+        else:
+            grouped['未分类'].append(portrait)
+
+    # 清理空分组
+    return {k: v for k, v in grouped.items() if v}
+
+
+def group_portraits_by_client_type(
+    portraits: List[Union['Portrait', Dict[str, Any]]]
+) -> Dict[str, List[Union['Portrait', Dict[str, Any]]]]:
+    """
+    按B端/C端分组画像
+
+    Returns:
+        {
+            'B端': [portrait1, portrait2, ...],
+            'C端': [portrait3, portrait4, ...],
+            '未分类': [...],
+        }
+    """
+    from services.client_type_classifier import ClientTypeClassifier
+
+    classifier = ClientTypeClassifier()
+
+    # 先为画像补充B端C端
+    enriched_portraits = []
+    for portrait in portraits:
+        if isinstance(portrait, dict):
+            enriched = classifier.enrich_portrait_with_client_type(portrait)
+        else:
+            # Portrait对象转dict
+            p_dict = {
+                'identity': portrait.identity,
+                'identity_description': portrait.identity_description,
+                'pain_points': portrait.pain_points,
+                'pain_scenarios': portrait.pain_scenarios,
+                'barriers': portrait.barriers,
+                'portrait_summary': portrait.portrait_summary,
+                'client_type': portrait.client_type,
+            }
+            enriched = classifier.enrich_portrait_with_client_type(p_dict)
+            # 如果原画像没有分类但 enriched 有，更新原画像
+            if not portrait.client_type and enriched.get('client_type'):
+                portrait.client_type = enriched.get('client_type', '')
+            enriched_portraits.append(enriched)
+            continue
+        enriched_portraits.append(enriched)
+
+    # 按B端C端分组
+    grouped = {
+        'B端': [],
+        'C端': [],
+        '未分类': [],
+    }
+
+    for portrait, enriched in zip(portraits, enriched_portraits):
+        client_type = enriched.get('client_type', '')
+        if client_type in grouped:
+            grouped[client_type].append(portrait)
+        else:
+            grouped['未分类'].append(portrait)
+
+    # 清理空分组
+    return {k: v for k, v in grouped.items() if v}
+
+
+def group_portraits_by_payer_user_separation(
+    portraits: List[Union['Portrait', Dict[str, Any]]]
+) -> Dict[str, List[Union['Portrait', Dict[str, Any]]]]:
+    """
+    按付费人/使用人是否分离分组画像
+
+    Returns:
+        {
+            '分离': [portrait1, portrait2, ...],
+            '未分离': [portrait3, portrait4, ...],
+            '未分类': [...],
+        }
+    """
+    from services.payer_user_classifier import PayerUserClassifier
+
+    classifier = PayerUserClassifier()
+
+    # 先为画像补充付费人/使用人信息
+    enriched_portraits = []
+    for portrait in portraits:
+        if isinstance(portrait, dict):
+            enriched = classifier.enrich_portrait_with_payer_user(portrait)
+        else:
+            # Portrait对象转dict
+            p_dict = {
+                'identity': portrait.identity,
+                'pain_points': portrait.pain_points,
+                'barriers': portrait.barriers,
+                'portrait_summary': portrait.portrait_summary,
+                'payer_info': portrait.payer_info,
+                'user_info': portrait.user_info,
+                'is_payer_user_separated': portrait.is_payer_user_separated,
+            }
+            enriched = classifier.enrich_portrait_with_payer_user(p_dict)
+            # 如果原画像没有但 enriched 有，更新原画像
+            if not portrait.is_payer_user_separated and enriched.get('is_payer_user_separated') is not None:
+                portrait.is_payer_user_separated = enriched.get('is_payer_user_separated', False)
+                portrait.payer_info = enriched.get('payer_info', {})
+                portrait.user_info = enriched.get('user_info', {})
+            enriched_portraits.append(enriched)
+            continue
+        enriched_portraits.append(enriched)
+
+    # 按是否分离分组
+    grouped = {
+        '分离': [],
+        '未分离': [],
+        '未分类': [],
+    }
+
+    for portrait, enriched in zip(portraits, enriched_portraits):
+        is_separated = enriched.get('is_payer_user_separated')
+        if is_separated is True:
+            grouped['分离'].append(portrait)
+        elif is_separated is False:
+            grouped['未分离'].append(portrait)
+        else:
+            grouped['未分类'].append(portrait)
+
+    # 清理空分组
+    return {k: v for k, v in grouped.items() if v}
+
+
+def generate_portraits_with_all_enrichments(
+    context: PortraitGenerationContext,
+    enable_customer_type: bool = True,
+    enable_client_type: bool = True,
+    enable_payer_user: bool = True,
+) -> List[Portrait]:
+    """
+    生成画像并自动进行所有增强
+
+    Args:
+        context: 画像生成上下文
+        enable_customer_type: 是否启用三类客户分类
+        enable_client_type: 是否启用B端C端分类
+        enable_payer_user: 是否启用付费人/使用人区分
+
+    Returns:
+        增强后的画像列表
+
+    Usage:
+        from services.portrait_generator import generate_portraits_with_all_enrichments, PortraitGenerationContext
+
+        portraits = generate_portraits_with_all_enrichments(
+            context=PortraitGenerationContext(
+                keyword_library=keyword_library,
+                problem_types=problem_types,
+                business_info=business_info,
+                portraits_per_type=3,
+            ),
+            enable_customer_type=True,
+            enable_client_type=True,
+            enable_payer_user=True,
+        )
+    """
+    from services.customer_type_classifier import CustomerTypeClassifier
+    from services.client_type_classifier import ClientTypeClassifier
+    from services.payer_user_classifier import PayerUserClassifier
+
+    # 1. 生成基础画像
+    generator = PortraitGenerator()
+    portraits = generator.generate_portraits(context)
+
+    # 2. 初始化分类器
+    customer_classifier = CustomerTypeClassifier()
+    client_classifier = ClientTypeClassifier()
+    payer_user_classifier = PayerUserClassifier()
+
+    # 3. 遍历增强每个画像
+    enhanced_portraits = []
+    for portrait in portraits:
+        portrait_dict = _portrait_to_dict(portrait)
+
+        if enable_customer_type:
+            portrait_dict = customer_classifier.enrich_portrait_with_customer_type(portrait_dict)
+
+        if enable_client_type:
+            portrait_dict = client_classifier.enrich_portrait_with_client_type(portrait_dict)
+
+        if enable_payer_user:
+            portrait_dict = payer_user_classifier.enrich_portrait_with_payer_user(portrait_dict)
+
+        # 4. 转回 Portrait 对象
+        enhanced = _dict_to_portrait(portrait_dict, portrait.portrait_id, portrait.problem_type)
+        enhanced_portraits.append(enhanced)
+
+    return enhanced_portraits
+
+
+def _portrait_to_dict(portrait: Portrait) -> Dict[str, Any]:
+    """Portrait对象转字典"""
+    return {
+        'portrait_id': portrait.portrait_id,
+        'problem_type': portrait.problem_type,
+        'problem_type_description': portrait.problem_type_description,
+        'identity': portrait.identity,
+        'identity_description': portrait.identity_description,
+        'pain_points': portrait.pain_points,
+        'pain_scenarios': portrait.pain_scenarios,
+        'psychology': portrait.psychology,
+        'barriers': portrait.barriers,
+        'search_keywords': portrait.search_keywords,
+        'content_preferences': portrait.content_preferences,
+        'market_type': portrait.market_type,
+        'differentiation': portrait.differentiation,
+        'portrait_summary': portrait.portrait_summary,
+        'scene_tags': portrait.scene_tags,
+        'behavior_tags': portrait.behavior_tags,
+        'content_direction': portrait.content_direction,
+        'language_style': portrait.language_style,
+        'crowd_perspective': portrait.crowd_perspective,
+        'age_range': portrait.age_range,
+        'pain_point_level': portrait.pain_point_level,
+        'decision_stage': portrait.decision_stage,
+        'customer_type': portrait.customer_type,
+        'customer_subtype': portrait.customer_subtype,
+        'client_type': portrait.client_type,
+        'decision_makers': portrait.decision_makers,
+        'payer_info': portrait.payer_info,
+        'user_info': portrait.user_info,
+        'is_payer_user_separated': portrait.is_payer_user_separated,
+        'search_stage': portrait.search_stage,
+        'conversion_cycle': portrait.conversion_cycle,
+    }
+
+
+def _dict_to_portrait(data: Dict[str, Any], portrait_id: str, problem_type: str) -> Portrait:
+    """字典转Portrait对象"""
+    return Portrait(
+        portrait_id=portrait_id,
+        problem_type=problem_type,
+        problem_type_description=data.get('problem_type_description', ''),
+        identity=data.get('identity', ''),
+        identity_description=data.get('identity_description', ''),
+        pain_points=data.get('pain_points') or [],
+        pain_scenarios=data.get('pain_scenarios') or [],
+        psychology=data.get('psychology') or {},
+        barriers=data.get('barriers') or [],
+        search_keywords=data.get('search_keywords') or [],
+        content_preferences=data.get('content_preferences') or [],
+        market_type=data.get('market_type', 'blue_ocean'),
+        differentiation=data.get('differentiation', ''),
+        portrait_summary=data.get('portrait_summary', ''),
+        scene_tags=data.get('scene_tags') or [],
+        behavior_tags=data.get('behavior_tags') or [],
+        content_direction=data.get('content_direction', '种草型'),
+        language_style=data.get('language_style', ''),
+        crowd_perspective=data.get('crowd_perspective', ''),
+        age_range=data.get('age_range', ''),
+        pain_point_level=data.get('pain_point_level', 'medium'),
+        decision_stage=data.get('decision_stage', 'consideration'),
+        customer_type=data.get('customer_type', ''),
+        customer_subtype=data.get('customer_subtype', ''),
+        client_type=data.get('client_type', ''),
+        decision_makers=data.get('decision_makers') or [],
+        payer_info=data.get('payer_info') or {},
+        user_info=data.get('user_info') or {},
+        is_payer_user_separated=data.get('is_payer_user_separated', False),
+        search_stage=data.get('search_stage', ''),
+        conversion_cycle=data.get('conversion_cycle', ''),
+    )
