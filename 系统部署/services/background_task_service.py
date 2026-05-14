@@ -5,11 +5,14 @@
 1. 行业处理任务队列
 2. 定时任务调度
 3. 任务执行记录
+4. 异步 Skill 执行支持
 """
 
 import time
 import json
 import threading
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, Future
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Callable
 from enum import Enum
@@ -161,14 +164,14 @@ class TaskQueue:
         self._running = True
         self._worker_thread = threading.Thread(target=self._worker_loop, args=(max_workers,), daemon=True)
         self._worker_thread.start()
-logger.debug("[TaskQueue] 工作线程已启动")
+        logger.debug("[TaskQueue] 工作线程已启动")
 
     def stop_worker(self):
         """停止工作线程"""
         self._running = False
         if self._worker_thread:
             self._worker_thread.join(timeout=5)
-logger.debug("[TaskQueue] 工作线程已停止")
+        logger.debug("[TaskQueue] 工作线程已停止")
 
     def _worker_loop(self, max_workers: int):
         """工作线程主循环"""
@@ -312,12 +315,12 @@ class BackgroundTaskService:
     def start(self):
         """启动服务"""
         self._queue.start_worker(max_workers=2)
-logger.debug("[BackgroundTaskService] 服务已启动")
+        logger.debug("[BackgroundTaskService] 服务已启动")
 
     def stop(self):
         """停止服务"""
         self._queue.stop_worker()
-logger.debug("[BackgroundTaskService] 服务已停止")
+        logger.debug("[BackgroundTaskService] 服务已停止")
 
     def get_stats(self) -> Dict:
         """获取统计信息"""
@@ -333,5 +336,201 @@ logger.debug("[BackgroundTaskService] 服务已停止")
         }
 
 
+# ============================================================================
+# 异步 Skill 执行器
+# ============================================================================
+
+class AsyncSkillExecutor:
+    """
+    异步 Skill 执行器
+
+    用于执行耗时的 Skill 任务，支持：
+    1. 后台异步执行，不阻塞主线程
+    2. 任务状态追踪
+    3. 结果回调通知
+
+    使用示例：
+        executor = AsyncSkillExecutor()
+        task_id = executor.submit_skill(
+            skill_name='topic_library_generator',
+            manual_inputs={'industry': '奶粉', 'business_description': '卖奶粉'},
+            callback=on_complete
+        )
+    """
+
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self):
+        if self._initialized:
+            return
+
+        self._initialized = True
+        self._tasks: Dict[str, 'AsyncSkillTask'] = {}
+        self._tasks_lock = threading.Lock()
+        self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix='async_skill_')
+
+    def submit_skill(
+        self,
+        skill_name: str,
+        manual_inputs: dict,
+        callback: Callable = None,
+        task_id: str = None,
+    ) -> str:
+        """
+        提交异步 Skill 执行任务
+
+        Args:
+            skill_name: Skill 名称
+            manual_inputs: 手动输入参数
+            callback: 完成回调函数，签名为 (task_id, result) -> None
+            task_id: 可选的任务 ID，默认自动生成
+
+        Returns:
+            任务 ID
+        """
+        if task_id is None:
+            task_id = f"async_{skill_name}_{int(time.time() * 1000)}"
+
+        task = AsyncSkillTask(
+            task_id=task_id,
+            skill_name=skill_name,
+            manual_inputs=manual_inputs,
+            callback=callback,
+        )
+
+        with self._tasks_lock:
+            self._tasks[task_id] = task
+
+        # 提交到线程池执行
+        future = self._executor.submit(self._execute_skill, task)
+        task.future = future
+
+        logger.info(f"[AsyncSkillExecutor] 提交任务: task_id={task_id}, skill={skill_name}")
+        return task_id
+
+    def _execute_skill(self, task: 'AsyncSkillTask'):
+        """在线程池中执行 Skill"""
+        from services.skill_bridge import SkillBridge
+
+        try:
+            task.status = 'running'
+            task.started_at = datetime.utcnow()
+            logger.info(f"[AsyncSkillExecutor] 开始执行: task_id={task.task_id}")
+
+            # 创建 SkillBridge 并执行
+            bridge = SkillBridge()
+            result = bridge.execute(skill_name=task.skill_name, manual_inputs=task.manual_inputs)
+
+            task.result = result.to_dict() if hasattr(result, 'to_dict') else result
+            task.status = 'completed'
+            task.completed_at = datetime.utcnow()
+            logger.info(f"[AsyncSkillExecutor] 执行完成: task_id={task.task_id}, success={result.success if hasattr(result, 'success') else 'unknown'}")
+
+        except Exception as e:
+            task.status = 'failed'
+            task.error = str(e)
+            task.completed_at = datetime.utcnow()
+            logger.error(f"[AsyncSkillExecutor] 执行失败: task_id={task.task_id}, error={e}")
+
+        # 调用回调
+        if task.callback:
+            try:
+                task.callback(task.task_id, task.result, task.error)
+            except Exception as e:
+                logger.error(f"[AsyncSkillExecutor] 回调执行失败: {e}")
+
+    def get_task_status(self, task_id: str) -> Optional[Dict]:
+        """获取任务状态"""
+        with self._tasks_lock:
+            task = self._tasks.get(task_id)
+            if task:
+                return task.to_dict()
+            return None
+
+    def get_task_result(self, task_id: str) -> Optional[Any]:
+        """获取任务结果"""
+        with self._tasks_lock:
+            task = self._tasks.get(task_id)
+            if task:
+                return task.result
+            return None
+
+    def cancel_task(self, task_id: str) -> bool:
+        """取消任务"""
+        with self._tasks_lock:
+            task = self._tasks.get(task_id)
+            if task and task.status == 'pending':
+                task.status = 'cancelled'
+                return True
+            return False
+
+    def list_tasks(self, status: str = None) -> List[Dict]:
+        """列出任务"""
+        with self._tasks_lock:
+            tasks = list(self._tasks.values())
+            if status:
+                tasks = [t for t in tasks if t.status == status]
+            return [t.to_dict() for t in tasks]
+
+    def shutdown(self, wait: bool = True):
+        """关闭执行器"""
+        self._executor.shutdown(wait=wait)
+        logger.info("[AsyncSkillExecutor] 执行器已关闭")
+
+
+class AsyncSkillTask:
+    """异步 Skill 任务"""
+
+    def __init__(
+        self,
+        task_id: str,
+        skill_name: str,
+        manual_inputs: dict,
+        callback: Callable = None,
+    ):
+        self.task_id = task_id
+        self.skill_name = skill_name
+        self.manual_inputs = manual_inputs
+        self.callback = callback
+        self.status = 'pending'
+        self.result = None
+        self.error = None
+        self.future: Optional[Future] = None
+        self.created_at = datetime.utcnow()
+        self.started_at = None
+        self.completed_at = None
+
+    def to_dict(self) -> Dict:
+        return {
+            'task_id': self.task_id,
+            'skill_name': self.skill_name,
+            'status': self.status,
+            'result': self.result,
+            'error': self.error,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+
+# 全局实例
+async_skill_executor = AsyncSkillExecutor()
+
+
 # 全局实例
 task_service = BackgroundTaskService()
+
+
+# 导出异步执行器
+def get_async_skill_executor() -> AsyncSkillExecutor:
+    """获取异步 Skill 执行器实例"""
+    return async_skill_executor

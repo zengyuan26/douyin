@@ -4,6 +4,9 @@
 作为画像与内容生成之间的桥梁，将 Skill 的方法论（H-V-F、GEO、五段式）
 贯穿到内容生成流程中。
 
+参考 Skill: .cursor/skills/operations-expert/
+使用 SkillManager 加载 Prompt 模板
+
 功能：
 1. 基于画像生成运营规划方案
 2. 确定账号阶段和五段式配比
@@ -28,6 +31,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from services.llm import get_llm_service
+from services.skill_manager import get_skill_manager
 
 logger = logging.getLogger(__name__)
 
@@ -261,16 +265,23 @@ class OperationsPlan:
 class OperationsPlanner:
     """
     运营规划生成器
-    
+
     基于画像生成完整的运营规划方案，包含：
     1. 五段式阶段规划（起号/成长/成熟阶段的配比）
     2. GEO模式匹配（五段式各阶段适合的GEO模式）
     3. 账号定位策略
     4. 内容发布计划
+
+    使用 SkillManager 加载 Prompt 模板，实现 Skill 驱动的 Prompt 管理
     """
-    
+
     def __init__(self):
         self.llm = get_llm_service()
+        self._skill_manager = get_skill_manager()
+
+    def _load_prompt(self, prompt_type: str) -> Optional[str]:
+        """从 Skill 模板加载 Prompt"""
+        return self._skill_manager.get_prompt_template('operations-expert')
     
     def generate_plan(
         self,

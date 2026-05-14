@@ -26,7 +26,8 @@ class PortraitSaveService:
                     industry: str = None,
                     target_customer: str = None,
                     source_session_id: int = None,
-                    set_as_default: bool = False) -> Tuple[bool, str, Dict]:
+                    set_as_default: bool = False,
+                    customer_id: int = None) -> Tuple[bool, str, Dict]:
         """
         保存画像
         
@@ -39,6 +40,7 @@ class PortraitSaveService:
             target_customer: 目标客户
             source_session_id: 来源会话ID
             set_as_default: 是否设为默认
+            customer_id: 关联的客户ID
         
         Returns:
             (success, message, saved_portrait)
@@ -70,14 +72,15 @@ class PortraitSaveService:
             result = db.session.execute(
                 text("""
                     INSERT INTO saved_portraits
-                    (user_id, portrait_name, portrait_data, business_description,
+                    (user_id, customer_id, portrait_name, portrait_data, business_description,
                      industry, target_customer, is_default, source_session_id,
                      generation_status, created_at)
-                    VALUES (:user_id, :name, :data, :desc, :industry, :customer,
+                    VALUES (:user_id, :customer_id, :name, :data, :desc, :industry, :customer,
                             :is_default, :session_id, :gen_status, :now)
                 """),
                 {
                     'user_id': user_id,
+                    'customer_id': customer_id,
                     'name': portrait_name,
                     'data': json.dumps(portrait_data, ensure_ascii=False),
                     'desc': business_description,
@@ -105,14 +108,15 @@ class PortraitSaveService:
                         db.session.execute(
                             text("""
                                 INSERT INTO saved_portraits
-                                (user_id, portrait_name, portrait_data, business_description,
+                                (user_id, customer_id, portrait_name, portrait_data, business_description,
                                  industry, target_customer, is_default, source_session_id,
                                  keyword_library, topic_library, created_at)
-                                VALUES (:uid, :name, :data, :desc, :industry, :customer,
+                                VALUES (:uid, :customer_id, :name, :data, :desc, :industry, :customer,
                                         :is_default, :session_id, :kw, :topic, :now)
                             """),
                             {
                                 'uid': user_id,
+                                'customer_id': op.get('customer_id'),
                                 'name': op.get('portrait_name', ''),
                                 'data': json.dumps(op.get('portrait_data', {}), ensure_ascii=False),
                                 'desc': op.get('business_description', ''),
@@ -142,7 +146,7 @@ class PortraitSaveService:
         """获取已保存的画像"""
         result = db.session.execute(
             text("""
-                SELECT id, user_id, portrait_name, portrait_data, business_description,
+                SELECT id, user_id, customer_id, portrait_name, portrait_data, business_description,
                        industry, target_customer, is_default, used_count,
                        last_used_at, created_at,
                        keyword_library, topic_library,
@@ -160,13 +164,13 @@ class PortraitSaveService:
             return None
 
         # 检查字段数量，确保兼容性
-        # 字段顺序: id(0), user_id(1), portrait_name(2), portrait_data(3), business_description(4),
-        #           industry(5), target_customer(6), is_default(7), used_count(8), last_used_at(9),
-        #           created_at(10), keyword_library(11), topic_library(12), keyword_updated_at(13),
-        #           keyword_update_count(14), keyword_cache_expires_at(15), topic_updated_at(16),
-        #           topic_update_count(17), topic_cache_expires_at(18), generation_status(19),
-        #           generation_error(20), extra_data(21), operation_plan(22), operation_plan_updated_at(23),
-        #           selected_opportunity(24), client_profile(25)
+        # 字段顺序: id(0), user_id(1), customer_id(2), portrait_name(3), portrait_data(4), business_description(5),
+        #           industry(6), target_customer(7), is_default(8), used_count(9), last_used_at(10),
+        #           created_at(11), keyword_library(12), topic_library(13), keyword_updated_at(14),
+        #           keyword_update_count(15), keyword_cache_expires_at(16), topic_updated_at(17),
+        #           topic_update_count(18), topic_cache_expires_at(19), generation_status(20),
+        #           generation_error(21), extra_data(22), operation_plan(23), operation_plan_updated_at(24),
+        #           selected_opportunity(25), client_profile(26)
 
         def parse_json(val):
             if val is None:
@@ -189,36 +193,37 @@ class PortraitSaveService:
         return {
             'id': result[0],
             'user_id': result[1],
-            'portrait_name': result[2],
-            'portrait_data': parse_json(result[3]),
-            'business_description': result[4],
-            'industry': result[5],
-            'target_customer': result[6],
-            'is_default': result[7],
-            'used_count': result[8],
-            'last_used_at': fmt_datetime(result[9]),
-            'created_at': fmt_datetime(result[10]),
+            'customer_id': result[2],
+            'portrait_name': result[3],
+            'portrait_data': parse_json(result[4]),
+            'business_description': result[5],
+            'industry': result[6],
+            'target_customer': result[7],
+            'is_default': result[8],
+            'used_count': result[9],
+            'last_used_at': fmt_datetime(result[10]),
+            'created_at': fmt_datetime(result[11]),
             # 专属库
-            'keyword_library': parse_json(result[11]),
-            'topic_library': parse_json(result[12]),
-            'keyword_updated_at': fmt_datetime(result[13]),
-            'keyword_update_count': result[14] or 0,
-            'keyword_cache_expires_at': fmt_datetime(result[15]),
-            'topic_updated_at': fmt_datetime(result[16]),
-            'topic_update_count': result[17] or 0,
-            'topic_cache_expires_at': fmt_datetime(result[18]),
+            'keyword_library': parse_json(result[12]),
+            'topic_library': parse_json(result[13]),
+            'keyword_updated_at': fmt_datetime(result[14]),
+            'keyword_update_count': result[15] or 0,
+            'keyword_cache_expires_at': fmt_datetime(result[16]),
+            'topic_updated_at': fmt_datetime(result[17]),
+            'topic_update_count': result[18] or 0,
+            'topic_cache_expires_at': fmt_datetime(result[19]),
             # 生成状态
-            'generation_status': result[19] or 'pending',
-            'generation_error': result[20],
+            'generation_status': result[20] or 'pending',
+            'generation_error': result[21],
             # extra_data（包含运营规划等）
-            'extra_data': parse_json(result[21]) if len(result) > 21 else None,
+            'extra_data': parse_json(result[22]) if len(result) > 22 else None,
             # 运营规划
-            'operation_plan': parse_json(result[22]) if len(result) > 22 else None,
-            'operation_plan_updated_at': fmt_datetime(result[23]) if len(result) > 23 else None,
+            'operation_plan': parse_json(result[23]) if len(result) > 23 else None,
+            'operation_plan_updated_at': fmt_datetime(result[24]) if len(result) > 24 else None,
             # 选定的蓝海机会
-            'selected_opportunity': parse_json(result[24]) if len(result) > 24 else None,
+            'selected_opportunity': parse_json(result[25]) if len(result) > 25 else None,
             # 客户自定义信息
-            'client_profile': parse_json(result[25]) if len(result) > 25 else None,
+            'client_profile': parse_json(result[26]) if len(result) > 26 else None,
         }
     
     @classmethod

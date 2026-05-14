@@ -4,6 +4,12 @@
 
 {% block layout_extra_css %}
 <style>
+    /* 旋转动画 */
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
     /* ================================================
        生成画像独立页面样式
        ================================================ */
@@ -2149,32 +2155,35 @@
 {% block topbar_title %}{% endblock %}
 
 {% block sidebar_nav %}
-    {# 分组1：快速生成 #}
-    <div class="sidebar-group">
-        <div class="public-sidebar-section-label">快速生成</div>
-        <a class="public-sidebar-link" href="/public" id="sidebar-super-link">
-            <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
-            开始创作
-        </a>
-    </div>
+{# 分组1：快速生成 #}
+<div class="sidebar-group">
+    <div class="public-sidebar-section-label">快速生成</div>
+    <a class="public-sidebar-link" href="/public" id="sidebar-super-link">
+        <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+        开始创作
+    </a>
+</div>
 
-    {# 分组2：我的 #}
-    <div class="sidebar-group">
-        <div class="public-sidebar-section-label">我的</div>
-        <a class="public-sidebar-link is-active" href="/public/portraits" id="sidebar-portraits-link">
-            <i class="bi bi-people-fill" aria-hidden="true"></i>
-            <span id="sidebar-portraits-label">客户画像</span>
-            <span id="sidebar-portraits-badge" style="display:none; margin-left: auto; font-size: 0.7rem; padding: 1px 6px; border-radius: 8px; font-weight: 600; vertical-align: middle;"></span>
-        </a>
-        <a class="public-sidebar-link" href="#" onclick="portraitsNavToTab(event, 'tab-topics')">
-            <i class="bi bi-card-list" aria-hidden="true"></i>
-            选题清单
-        </a>
-        <a class="public-sidebar-link" href="#" onclick="portraitsNavToTab(event, 'tab-contents')">
-            <i class="bi bi-collection-play-fill" aria-hidden="true"></i>
-            内容清单
-        </a>
-    </div>
+{# 分组2：功能菜单 #}
+<div class="sidebar-group">
+    <a class="public-sidebar-link" href="/public/decision-cost" id="sidebar-decision-cost-link">
+        <i class="bi bi-graph-up" aria-hidden="true"></i>
+        决策成本诊断
+    </a>
+    <a class="public-sidebar-link is-active" href="/public/portraits" id="sidebar-portraits-link">
+        <i class="bi bi-people-fill" aria-hidden="true"></i>
+        <span id="sidebar-portraits-label">客户画像</span>
+        <span id="sidebar-portraits-badge" style="display:none; margin-left: auto; font-size: 0.7rem; padding: 1px 6px; border-radius: 8px; font-weight: 600; vertical-align: middle;"></span>
+    </a>
+    <a class="public-sidebar-link" href="#" onclick="portraitsNavToTab(event, 'tab-topics')">
+        <i class="bi bi-card-list" aria-hidden="true"></i>
+        选题清单
+    </a>
+    <a class="public-sidebar-link" href="#" onclick="portraitsNavToTab(event, 'tab-contents')">
+        <i class="bi bi-collection-play-fill" aria-hidden="true"></i>
+        内容清单
+    </a>
+</div>
 {% endblock %}
 
 {% block topbar_right %}
@@ -2236,7 +2245,7 @@
                     <i class="bi bi-card-text"></i>描述业务
                 </button>
                 <button class="super-tab-btn" data-super-tab="tab-problems" onclick="switchSuperTab('tab-problems')">
-                    <i class="bi bi-compass"></i>蓝海机会
+                    <i class="bi bi-compass"></i>蓝海机会分析
                     <span id="opp-snapshots-badge" class="opp-tab-badge"></span>
                 </button>
                 <button class="super-tab-btn" data-super-tab="tab-portraits" onclick="switchSuperTab('tab-portraits')">
@@ -2329,12 +2338,6 @@
                                     <input type="text" class="form-control" id="other-scenario-input" placeholder="请输入">
                                 </div>
                                 <div class="col-12" style="margin-top: 10px; display: flex; gap: 10px;">
-                                    <button type="button" class="btn btn-outline-secondary" id="btn-decision-cost-analyze"
-                                            onclick="showDecisionCostAnalyzeModal()"
-                                            style="flex: 1; padding: 10px; font-size: 0.875rem;">
-                                        <i class="bi bi-shield-check" style="margin-right: 4px;"></i>
-                                        决策成本
-                                    </button>
                                     <button type="button" class="btn-apple btn-primary-apple" id="btn-one-key-analyze"
                                             onclick="portraitMineAndGenerate()"
                                             style="flex: 1; padding: 10px; font-size: 0.875rem;">
@@ -2343,7 +2346,7 @@
                                     </button>
                                 </div>
                                 <div class="form-text text-muted" style="text-align: center; margin-top: 6px;">
-                                    决策成本：评估内容价值 | 一键分析：智能生成画像
+                                    智能推断用户画像，提交后一键生成
                                 </div>
                             </div>
                         </div>
@@ -2369,21 +2372,6 @@
                             <!-- 蓝海机会列表区域 -->
                             <div id="opportunities-section" style="display: none;">
                                 <div id="opportunities-list"></div>
-                            </div>
-
-                            <!-- 行业分析报告入口（简化版） -->
-                            <div id="industry-analysis-section" style="display: none; margin-top: 16px;">
-                                <button type="button" id="btn-generate-industry-analysis"
-                                        onclick="generateIndustryAnalysis()"
-                                        style="width: 100%; background: #f5f5f7; color: #667eea; font-weight: 600; padding: 12px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 0.875rem;">
-                                    <i class="bi bi-bar-chart" style="margin-right: 6px;"></i>
-                                    生成行业分析报告
-                                </button>
-                                <!-- 加载状态 -->
-                                <div id="industry-analysis-loading" style="display: none; text-align: center; padding: 12px; color: #888;">
-                                    <span class="spinner-border spinner-border-sm" role="status" style="margin-right: 6px;"></span>
-                                    生成中...
-                                </div>
                             </div>
 
                             <!-- 关键词库入口 -->
@@ -2750,8 +2738,6 @@ function switchSuperTab(tabName) {
             _opportunityCarouselData = _marketAnalysisCache.opportunities;
             renderOpportunityCarousel();
         }
-        // 显示行业分析入口
-        showIndustryAnalysisSection();
     }
 
     console.log('[switchSuperTab] 完成切换:', tabName);
@@ -2848,7 +2834,7 @@ async function refreshOpportunities() {
         const businessRange = document.querySelector('input[name="business-range"]:checked')?.value || '';
         const serviceScenario = document.getElementById('service-scenario')?.value || '';
 
-        const resp = await fetch('/public/api/market/analyze_opportunities', {
+        const resp = await fetch('/public/api/market/one_key_analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -3364,7 +3350,10 @@ function showBusinessDescError(message) {
 // 存储市场分析结果（用于选择后生成画像）
 let _marketAnalysisCache = null;
 
-// 一键分析 Step 1：市场分析 + 显示蓝海机会选择弹窗
+// 存储智能推断结果
+let _smartInferenceResult = null;
+
+// 一键分析：先智能推断，再让用户选择，最后执行分析
 async function portraitMineAndGenerate() {
     // 标记用户已开始分析，防止 initSnapshotRestore 覆盖 tab
     _userStartedAnalysis = true;
@@ -3390,19 +3379,369 @@ async function portraitMineAndGenerate() {
         return;
     }
 
+    safeSetDisplay('btn-one-key-analyze', 'disabled', true);
+
+    // Step 1: 智能推断 - 显示加载状态
+    const loadingModal = document.createElement('div');
+    loadingModal.id = 'smart-inference-loading';
+    loadingModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    loadingModal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+            <div class="apple-spinner mx-auto" style="width:40px;height:40px;border-width:3px;margin-bottom:16px;"></div>
+            <div style="font-size:1rem;font-weight:600;color:#333;margin-bottom:8px;">正在智能推断...</div>
+            <div style="font-size:0.875rem;color:#666;">基于"${businessDesc}"分析目标用户画像</div>
+        </div>`;
+    document.body.appendChild(loadingModal);
+
+    try {
+        // 调用智能推断 API
+        const resp = await fetch('/public/api/market/smart-infer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                business_description: businessDesc,
+                business_type: businessType,
+                business_range: businessRange,
+                service_scenario: serviceScenario
+            })
+        });
+
+        if (!resp.ok) {
+            throw new Error('智能推断请求失败');
+        }
+
+        const result = await resp.json();
+
+        if (!result.success || !result.data) {
+            throw new Error(result.message || '智能推断返回数据异常');
+        }
+
+        _smartInferenceResult = result.data;
+        loadingModal.remove();
+
+        // Step 2: 显示智能推断结果让用户选择
+        showSmartInferenceSelectionModal(businessDesc, businessType, businessRange, serviceScenario);
+
+    } catch (error) {
+        loadingModal.remove();
+        console.error('[智能推断] 异常:', error);
+        showToast('智能推断失败: ' + (error.message || '请稍后重试'), 'error');
+        safeSetDisplay('btn-one-key-analyze', 'disabled', false);
+    }
+}
+
+// 显示智能推断选择弹窗（使用Bootstrap Modal，禁止滚动）
+function showSmartInferenceSelectionModal(businessDesc, businessType, businessRange, serviceScenario) {
+    const inference = _smartInferenceResult;
+    const options = inference?.options || [];
+
+    // 如果没有数据，显示提示
+    if (options.length === 0) {
+        showToast('未获取到推断结果，请重试', 'error');
+        safeSetDisplay('btn-one-key-analyze', 'disabled', false);
+        return;
+    }
+
+    // 构建选项卡片 HTML
+    const optionCards = buildInferenceOptionCards(options);
+
+    // 先移除可能存在的旧弹窗
+    const existingModal = document.getElementById('smartInferenceModal');
+    if (existingModal) existingModal.remove();
+
+    // 构建弹窗 HTML
+    const modalHtml = `
+    <div class="modal fade" id="smartInferenceModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-lg" style="max-height:90vh;">
+            <div class="modal-content" style="border-radius:16px;overflow:hidden;">
+                <div class="modal-header" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:16px 20px;border:none;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="width:32px;height:32px;background:rgba(255,255,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-cpu" style="font-size:1rem;"></i>
+                        </div>
+                        <span style="font-size:1rem;font-weight:600;">智能推断方向选择</span>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" onclick="closeInferenceModal()" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body" style="padding:20px;max-height:60vh;overflow-y:auto;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                        <div style="font-size:0.875rem;color:#666;">
+                            基于"<span style="color:#333;font-weight:500;">${businessDesc}</span>"推断出以下方向：
+                        </div>
+                        <button id="btn-refresh-inference" onclick="refreshInferenceAndClose('${businessDesc}', '${businessType}', '${businessRange}', '${serviceScenario}')"
+                                style="padding:6px 12px;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:6px;font-size:0.75rem;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                            <i class="bi bi-arrow-repeat" style="font-size:0.875rem;"></i> 换一批
+                        </button>
+                    </div>
+                    <div id="inference-options-container">
+                        ${optionCards}
+                    </div>
+                </div>
+                <div class="modal-footer" style="padding:16px 20px;border-top:1px solid #eee;justify-content:center;">
+                    <button onclick="confirmInferenceAndAnalyze('${businessDesc}', '${businessType}', '${businessRange}', '${serviceScenario}')"
+                            style="width:100%;padding:12px;background:#007aff;color:white;border:none;border-radius:10px;font-size:0.9375rem;font-weight:600;cursor:pointer;">
+                        <i class="bi bi-check-circle me-1"></i>确认并继续分析
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    // 添加到body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // 添加禁止滚动的样式
+    const style = document.createElement('style');
+    style.id = 'smart-inference-modal-style';
+    style.textContent = `
+        body.smart-inference-open { overflow: hidden !important; }
+        #smartInferenceModal .modal-body::-webkit-scrollbar { width: 6px; }
+        #smartInferenceModal .modal-body::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+        #smartInferenceModal .modal-body::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        #smartInferenceModal .modal-body::-webkit-scrollbar-thumb:hover { background: #aaa; }
+    `;
+    document.head.appendChild(style);
+    document.body.classList.add('smart-inference-open');
+
+    // 显示弹窗
+    const modal = new bootstrap.Modal(document.getElementById('smartInferenceModal'));
+    modal.show();
+
+    // 弹窗关闭时清理
+    document.getElementById('smartInferenceModal').addEventListener('hidden.bs.modal', function () {
+        document.body.classList.remove('smart-inference-open');
+        const styleEl = document.getElementById('smart-inference-modal-style');
+        if (styleEl) styleEl.remove();
+        const modalEl = document.getElementById('smartInferenceModal');
+        if (modalEl) modalEl.remove();
+    }, { once: true });
+}
+
+// 构建推断选项卡片 HTML
+function buildInferenceOptionCards(options) {
+    return options.map((opt, idx) => {
+        const isSelected = idx === 0;
+        const keywords = opt.keywords || [];
+        const keywordsHtml = keywords.slice(0, 6).map(k =>
+            `<span style="display:inline-block;background:#e8f5e9;color:#2e7d32;padding:3px 8px;border-radius:10px;font-size:0.75rem;margin:2px;">${k}</span>`
+        ).join('');
+
+        return `
+            <div class="inference-option-card ${isSelected ? 'selected' : ''}" data-index="${idx}"
+                 style="background:${isSelected ? '#f0f7ff' : '#fafafa'};border:2px solid ${isSelected ? '#007aff' : '#eee'};border-radius:12px;padding:16px;margin-bottom:12px;cursor:pointer;transition:all 0.2s;"
+                 onclick="selectInferenceOption(this, ${idx})">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                    <div style="width:24px;height:24px;border-radius:50%;border:2px solid ${isSelected ? '#007aff' : '#ccc'};background:${isSelected ? '#007aff' : 'white'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        ${isSelected ? '<div style="width:10px;height:10px;background:white;border-radius:50%;"></div>' : ''}
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:0.9375rem;font-weight:600;color:#1c1c1e;">${opt.title}</div>
+                    </div>
+                </div>
+                ${opt.description ? `<div style="font-size:0.8125rem;color:#444;margin-bottom:8px;line-height:1.4;padding-left:34px;">${opt.description}</div>` : ''}
+                ${opt.target_audience ? `<div style="font-size:0.75rem;color:#666;margin-bottom:6px;padding-left:34px;"><strong>目标用户：</strong>${opt.target_audience}</div>` : ''}
+                ${opt.content_direction ? `<div style="font-size:0.75rem;color:#666;margin-bottom:6px;padding-left:34px;"><strong>内容方向：</strong>${opt.content_direction}</div>` : ''}
+                ${keywordsHtml ? `<div style="margin-top:8px;padding-left:34px;">${keywordsHtml}</div>` : ''}
+            </div>`;
+    }).join('');
+}
+
+// 刷新推断选项（换一批）- 关闭弹框并重新生成
+async function refreshInferenceAndClose(businessDesc, businessType, businessRange, serviceScenario) {
+    const modal = document.getElementById('smartInferenceModal');
+
+    // 先创建并显示加载状态（保证层级正确）
+    const loadingModal = document.createElement('div');
+    loadingModal.id = 'smart-inference-loading';
+    loadingModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99998;display:flex;align-items:center;justify-content:center;padding:16px;';
+    loadingModal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+            <div class="apple-spinner mx-auto" style="width:40px;height:40px;border-width:3px;margin-bottom:16px;"></div>
+            <div style="font-size:1rem;font-weight:600;color:#333;margin-bottom:8px;">正在智能推断...</div>
+            <div style="font-size:0.875rem;color:#666;">基于"${businessDesc}"分析目标用户画像</div>
+        </div>`;
+    document.body.appendChild(loadingModal);
+    document.body.classList.add('smart-inference-open');
+
+    // 等待旧弹框关闭动画完成后再移除
+    if (modal) {
+        const bsModal = bootstrap.Modal.getInstance(modal);
+        if (bsModal) {
+            await new Promise(resolve => {
+                modal.addEventListener('hidden.bs.modal', function handler() {
+                    modal.removeEventListener('hidden.bs.modal', handler);
+                    modal.remove();
+                    resolve();
+                });
+                bsModal.hide();
+            });
+        } else {
+            modal.remove();
+        }
+    }
+
+    try {
+        // 调用智能推断 API
+        const resp = await fetch('/public/api/market/smart-infer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                business_description: businessDesc,
+                business_type: businessType,
+                business_range: businessRange,
+                service_scenario: serviceScenario
+            })
+        });
+
+        if (!resp.ok) {
+            throw new Error('智能推断请求失败');
+        }
+
+        const result = await resp.json();
+
+        if (!result.success || !result.data) {
+            throw new Error(result.message || '智能推断返回数据异常');
+        }
+
+        _smartInferenceResult = result.data;
+        loadingModal.remove();
+
+        // 重新显示弹框
+        showSmartInferenceSelectionModal(businessDesc, businessType, businessRange, serviceScenario);
+
+    } catch (error) {
+        loadingModal.remove();
+        console.error('[换一批] 异常:', error);
+        showToast('刷新失败: ' + (error.message || '请稍后重试'), 'error');
+        safeSetDisplay('btn-one-key-analyze', 'disabled', false);
+    }
+}
+
+// 刷新推断选项（保留兼容性，内部直接调用新的刷新方法）
+async function refreshInferenceOptions(businessDesc, businessType, businessRange, serviceScenario) {
+    await refreshInferenceAndClose(businessDesc, businessType, businessRange, serviceScenario);
+}
+
+// 选择推理选项
+function selectInferenceOption(card, index, type) {
+    // 移除其他选中状态
+    document.querySelectorAll('.inference-option-card').forEach(c => {
+        c.classList.remove('selected');
+        c.style.background = '#fafafa';
+        c.style.borderColor = '#eee';
+        const radioContainer = c.querySelector('div > div:first-child');
+        if (radioContainer) {
+            radioContainer.style.borderColor = '#ccc';
+            radioContainer.style.background = 'white';
+            const dot = radioContainer.querySelector('div');
+            if (dot) dot.remove();
+        }
+    });
+
+    // 设置选中状态
+    card.classList.add('selected');
+    card.style.background = '#f0f7ff';
+    card.style.borderColor = '#007aff';
+    const selectedRadio = card.querySelector('div > div:first-child');
+    if (selectedRadio) {
+        selectedRadio.style.borderColor = '#007aff';
+        selectedRadio.style.background = '#007aff';
+        const inner = document.createElement('div');
+        inner.style.cssText = 'width:10px;height:10px;background:white;border-radius:50%;';
+        selectedRadio.appendChild(inner);
+    }
+}
+
+// 关闭推理弹窗
+function closeInferenceModal() {
+    const modal = document.getElementById('smartInferenceModal');
+    if (modal) {
+        const bsModal = bootstrap.Modal.getInstance(modal);
+        if (bsModal) {
+            bsModal.hide();
+        } else {
+            modal.remove();
+        }
+    }
+    document.body.classList.remove('smart-inference-open');
+    const styleEl = document.getElementById('smart-inference-modal-style');
+    if (styleEl) styleEl.remove();
+}
+
+// 关闭推理弹窗（兼容旧代码，不要在这里启用按钮）
+function closeInferenceModalLegacy() {
+    const modal = document.getElementById('smart-inference-modal');
+    if (modal) modal.remove();
+}
+
+// 确认选择并继续分析
+async function confirmInferenceAndAnalyze(businessDesc, businessType, businessRange, serviceScenario) {
+    console.log('[DEBUG] confirmInferenceAndAnalyze called', { businessDesc, businessType });
+
+    // 获取选中的选项
+    const selectedCard = document.querySelector('.inference-option-card.selected');
+    if (!selectedCard) {
+        showToast('请选择一个方向', 'warning');
+        return;
+    }
+
+    const selectedIndex = parseInt(selectedCard.dataset.index);
+    const selectedOption = (_smartInferenceResult?.options || [])[selectedIndex];
+    console.log('[DEBUG] selectedOption:', selectedOption);
+
+    // 保存选中的推断方向信息
+    if (selectedOption) {
+        window._selectedInferenceOption = selectedOption;
+    }
+
+    // 关闭弹窗并等待完成
+    const modal = document.getElementById('smartInferenceModal');
+    if (modal) {
+        const bsModal = bootstrap.Modal.getInstance(modal);
+        if (bsModal) {
+            // 等待 Modal 关闭动画完成
+            await new Promise(resolve => {
+                modal.addEventListener('hidden.bs.modal', function handler() {
+                    modal.removeEventListener('hidden.bs.modal', handler);
+                    resolve();
+                });
+                bsModal.hide();
+            });
+        } else {
+            modal.remove();
+        }
+    }
+    document.body.classList.remove('smart-inference-open');
+    const styleEl = document.getElementById('smart-inference-modal-style');
+    if (styleEl) styleEl.remove();
+
+    console.log('[DEBUG] calling continueOneKeyAnalyze...');
+    // 继续执行原有的一键分析流程
+    await continueOneKeyAnalyze(businessDesc, businessType, businessRange, serviceScenario);
+}
+
+// 继续一键分析流程
+async function continueOneKeyAnalyze(businessDesc, businessType, businessRange, serviceScenario) {
+    console.log('[DEBUG] continueOneKeyAnalyze started');
+    safeSetDisplay('btn-one-key-analyze', 'disabled', true);
     safeSetDisplay('problem-mining-loading', 'block');
-    // 更新加载提示文字
     const loadingText = document.getElementById('problem-mining-loading-text');
     if (loadingText) loadingText.textContent = '正在挖掘蓝海机会...';
-    // 隐藏机会列表区域（如果存在）
     const oppSection = document.getElementById('opportunities-section');
     if (oppSection) oppSection.style.display = 'none';
     safeSetDisplay('problems-empty-hint', 'none');
-    safeSetDisplay('btn-one-key-analyze', 'disabled', true);
+
+    // 获取选中的推断选项
+    const selectedOption = window._selectedInferenceOption;
+    console.log('[DEBUG] selectedOption:', selectedOption);
+    const keywords = selectedOption?.keywords || [];
 
     try {
-        // Step 1: 调用两阶段 API - 仅挖掘蓝海机会
-        const resp = await fetch('/public/api/market/analyze_opportunities', {
+        console.log('[DEBUG] calling one_key_analyze API...');
+        // 调用两阶段 API - 仅挖掘蓝海机会
+        const resp = await fetch('/public/api/market/one_key_analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -3413,6 +3752,10 @@ async function portraitMineAndGenerate() {
                 local_city: document.getElementById('local-city')?.value?.trim() || '',
                 service_scenario: serviceScenario,
                 industry: '',
+                // 传递智能推断的关键词和方向
+                inference_keywords: keywords,
+                inference_direction: selectedOption?.content_direction || '',
+                inference_focus: selectedOption?.content_focus || '',
             })
         });
 
@@ -3426,34 +3769,131 @@ async function portraitMineAndGenerate() {
         }
 
         const result = await resp.json();
+        console.log('[DEBUG] one_key_analyze response success:', result?.success, 'has data:', !!result?.data);
 
         if (result.success && result.data) {
             const data = result.data;
-            // 兼容新旧 API 结构：新结构将数据放在 market_analysis 字段下
-            const marketAnalysis = data.market_analysis || {};
-            const opportunities = marketAnalysis.opportunities || data.opportunities || [];
-            const subdivisionInsights = marketAnalysis.subdivision_insights || data.subdivision_insights || {};
-            const problemTypes = data.problem_types || marketAnalysis.problem_types || [];
 
-            // 调试日志
-            console.log('[portraitMineAndGenerate] API返回:', {
-                opportunitiesCount: opportunities.length,
-                opportunities: opportunities,
-                dataKeys: Object.keys(data),
-                hasMarketAnalysis: !!marketAnalysis
+            // 解析 API 返回数据（one_key_analyze 返回 market_analyzer, keyword_library, topic_library）
+            const marketAnalyzerData = data.market_analyzer || {};
+            const keywordLibraryData = data.keyword_library || {};
+            const topicLibraryData = data.topic_library || {};
+
+            // 提取蓝海机会（从 market_analyzer.step2_blue_ocean）
+            const marketOutput = marketAnalyzerData.step2_blue_ocean || {};
+            let opportunities = marketOutput.blue_ocean_opportunities || marketOutput.opportunities || [];
+
+            // 后处理：计算蓝海指数和决策成本（如果 API 未返回）
+            opportunities.forEach(opp => {
+                if (!opp.verification_data || !opp.verification_data.overall_score) {
+                    const difficulty = opp.difficulty || '中';
+                    const potential = opp.potential || '中';
+
+                    let compScore = 0.5, diffScore = 0.5;
+                    if (difficulty.includes('高')) { compScore = 0.8; diffScore = 0.7; }
+                    else if (difficulty.includes('低')) { compScore = 0.2; diffScore = 0.3; }
+
+                    let demandScore = 0.6;
+                    if (potential.includes('大')) demandScore = 0.85;
+                    else if (potential.includes('小')) demandScore = 0.4;
+
+                    const overallScore = demandScore * 0.4 + (1 - compScore) * 0.4 + diffScore * 0.2;
+
+                    opp.verification_data = {
+                        overall_score: overallScore,
+                        demand_score: demandScore,
+                        competition_score: compScore,
+                        scarcity_score: 0.7,
+                        content_gap_score: 0.65
+                    };
+                    opp.logic_chain = `需求${Math.round(demandScore*100)}% × 竞争${Math.round((1-compScore)*100)}% × 难度${Math.round(diffScore*100)}%`;
+                    opp.final_verdict = `综合蓝海指数 ${Math.round(overallScore*100)}分，${overallScore >= 0.6 ? '蓝海机会明显' : overallScore >= 0.4 ? '存在中等机会' : '红海竞争激烈'}`;
+                }
+
+                if (!opp.decision_cost || !opp.decision_cost.total_score) {
+                    const difficulty = opp.difficulty || '中';
+                    const dcData = { total_score: 5 };
+
+                    if (difficulty.includes('高')) {
+                        Object.assign(dcData, {
+                            money_score: 8, time_score: 7, info_access_score: 7, info_judge_score: 8,
+                            trust_build_score: 9, risk_score: 7, mental_score: 8, judgment: "高决策成本",
+                            insight: "建议内容方向：重点解决用户在【信任】【辨识】【心理】维度的顾虑，降低决策门槛。内容应强调品牌背书，专业认证、用户案例和售后保障。"
+                        });
+                    } else if (difficulty.includes('低')) {
+                        Object.assign(dcData, {
+                            money_score: 4, time_score: 4, info_access_score: 5, info_judge_score: 5,
+                            trust_build_score: 5, risk_score: 4, mental_score: 4, judgment: "低决策成本",
+                            insight: "建议内容方向：快速建立差异化优势，强调产品特点和便捷服务。内容应突出使用效果、方便性和用户好评。"
+                        });
+                    } else {
+                        Object.assign(dcData, {
+                            money_score: 6, time_score: 5, info_access_score: 6, info_judge_score: 6,
+                            trust_build_score: 7, risk_score: 5, mental_score: 6, judgment: "中等决策成本",
+                            insight: "建议内容方向：重点解决用户在【信任】【金钱】维度的顾虑，降低决策门槛。内容应强调性价比、售后服务保障和真实用户反馈。"
+                        });
+                    }
+
+                    const scores = [dcData.money_score, dcData.time_score, dcData.info_access_score, dcData.info_judge_score, dcData.trust_build_score, dcData.risk_score, dcData.mental_score];
+                    dcData.total_score = scores.reduce((a, b) => a + b, 0) / scores.length;
+                    opp.decision_cost = dcData;
+                }
+
+                if (!opp.supply_gap) {
+                    opp.supply_gap = {
+                        supply_quality_issue: "市场现有产品质量参差不齐",
+                        supply_form_issue: "现有解决方案未能很好满足细分需求"
+                    };
+                }
+                if (!opp.unmet_problem) {
+                    opp.unmet_problem = opp.why_blue_ocean || "存在未被充分满足的用户需求";
+                }
+                if (!opp.why_unsolved) {
+                    opp.why_unsolved = {
+                        reasons: ["大品牌垄断流量", "内容同质化严重", "缺乏差异化定位"],
+                        business_type: "小商家",
+                        decision_cost: opp.decision_cost?.judgment || "中等"
+                    };
+                }
             });
 
-            // 缓存市场分析结果（蓝海机会）
+            // 解析行业报告数据
+            const industryReportData = marketAnalyzerData.step1_industry_overview || {};
+
+            // 解析关键词库
+            const keywordLibrary = {
+                keyword_library_summary: keywordLibraryData.keyword_library_summary || {},
+                common_keywords: keywordLibraryData.common_keywords || [],
+                blue_ocean_matrix: keywordLibraryData.blue_ocean_matrix || {},
+                total_count: keywordLibraryData.keyword_library_summary?.summary?.total_count ||
+                             keywordLibraryData.keyword_library_summary?.total_count || 0
+            };
+
+            // 解析选题库
+            const topicLibrary = {
+                topic_library_summary: topicLibraryData.topic_library_summary || {},
+                common_topics: topicLibraryData.common_topics || [],
+                total_count: topicLibraryData.topic_library_summary?.summary?.total_count ||
+                             topicLibraryData.topic_library_summary?.total_count || 0
+            };
+
+            // 缓存完整分析结果
             _marketAnalysisCache = {
                 business_desc: businessDesc,
                 business_type: businessType,
                 business_range: businessRange,
                 service_scenario: serviceScenario,
                 opportunities: opportunities,
-                subdivision_insights: subdivisionInsights,
-                analysis_result: {
-                    problem_types: problemTypes,
+                industry_report: industryReportData,
+                market_output: {
+                    step1_industry_overview: industryReportData,
+                    step2_blue_ocean: marketOutput
                 },
+                keyword_library: keywordLibrary,
+                topic_library: topicLibrary,
+                market_analyzer_success: data.market_analyzer_success,
+                keyword_library_success: data.keyword_library_success,
+                topic_library_success: data.topic_library_success,
             };
 
             safeSetDisplay('problem-mining-loading', 'display', 'none');
@@ -6734,7 +7174,6 @@ function initTemperatureSelectors() {
 document.addEventListener('DOMContentLoaded', function() {
     initTemperatureSelectors();
 });
-
 function resetSavePortraitBtn(btn, originalText) {
     if (btn) {
         btn.disabled = false;
@@ -7821,137 +8260,6 @@ const SnapshotManager = {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 };
-
-// ═══════════════════════════════════════════════════════════════════
-// 行业分析报告功能（简化版）
-// ═══════════════════════════════════════════════════════════════════
-
-var _industryAnalysisData = null;
-
-// 显示行业分析入口区域
-function showIndustryAnalysisSection() {
-    var section = document.getElementById('industry-analysis-section');
-    if (section) {
-        section.style.display = 'block';
-    }
-}
-
-async function generateIndustryAnalysis() {
-    var btn = document.getElementById('btn-generate-industry-analysis');
-    var loadingEl = document.getElementById('industry-analysis-loading');
-
-    if (btn) {
-        btn.style.display = 'none';
-    }
-    loadingEl.style.display = 'block';
-
-    try {
-        var businessDesc = document.getElementById('business-desc')?.value.trim() || '';
-        var businessRange = document.querySelector('input[name="business-range"]:checked')?.value || '';
-        var serviceScenario = document.getElementById('service-scenario')?.value || '';
-        var businessType = document.querySelector('input[name="business-type"]:checked')?.value || '';
-
-        if (!businessDesc) {
-            throw new Error('请先填写业务描述');
-        }
-
-        var resp = await fetch('/public/api/portraits/industry-analysis/generate-from-opportunity', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                business_name: businessDesc,
-                business_description: businessDesc,
-                industry: '',
-                target_customer: '',
-                business_type: businessType,
-                business_range: businessRange,
-                service_scenario: serviceScenario
-            })
-        });
-        var result = await resp.json();
-
-        if (result.success) {
-            _industryAnalysisData = result.data;
-            loadingEl.style.display = 'none';
-            if (btn) {
-                btn.innerHTML = '<i class="bi bi-eye" style="margin-right: 6px;"></i>查看报告';
-                btn.style.display = 'block';
-                btn.onclick = openIndustryAnalysisModal;
-            }
-            showToast('行业分析报告生成成功', 'success');
-        } else {
-            throw new Error(result.message || '生成失败');
-        }
-    } catch (e) {
-        showToast(e.message || '生成失败，请重试', 'error');
-        loadingEl.style.display = 'none';
-        if (btn) {
-            btn.style.display = 'block';
-        }
-    }
-}
-
-function openIndustryAnalysisModal() {
-    if (!_industryAnalysisData) {
-        showToast('请先生成行业分析报告', 'info');
-        return;
-    }
-    var markdown = _industryAnalysisData.markdown || '';
-    showMarkdownModal('行业分析报告', markdown);
-}
-
-function showMarkdownModal(title, markdown) {
-    var existing = document.getElementById('markdown-modal');
-    if (existing) existing.remove();
-
-    var modal = document.createElement('div');
-    modal.id = 'markdown-modal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
-    modal.onclick = function(e) {
-        if (e.target === modal) modal.remove();
-    };
-
-    var content = document.createElement('div');
-    content.style.cssText = 'background:#fff;border-radius:12px;max-width:800px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;';
-
-    var header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #eee;';
-    header.innerHTML = '<div style="font-size:1rem;font-weight:600;">' + escHtml(title) + '</div>' +
-        '<button onclick="document.getElementById(\'markdown-modal\').remove()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#999;line-height:1;">&times;</button>';
-
-    var body = document.createElement('div');
-    body.style.cssText = 'flex:1;overflow-y:auto;padding:20px;font-size:0.875rem;line-height:1.8;';
-    body.innerHTML = simpleMarkdownToHtml(markdown);
-
-    modal.appendChild(content);
-    content.appendChild(header);
-    content.appendChild(body);
-    document.body.appendChild(modal);
-}
-
-function simpleMarkdownToHtml(md) {
-    if (!md) return '';
-    var html = md
-        .replace(/^### (.+)$/gm, '<h4 style="margin:16px 0 8px;font-size:1rem;font-weight:600;">$1</h4>')
-        .replace(/^## (.+)$/gm, '<h3 style="margin:20px 0 10px;font-size:1.125rem;font-weight:600;">$1</h3>')
-        .replace(/^# (.+)$/gm, '<h2 style="margin:24px 0 12px;font-size:1.25rem;font-weight:600;">$1</h2>')
-        .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #eee;margin:16px 0;">')
-        .replace(/^\* (.+)$/gm, '<li style="margin:4px 0 4px 20px;">$1</li>')
-        .replace(/^- (.+)$/gm, '<li style="margin:4px 0 4px 20px;">$1</li>')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n\n/g, '</p><p style="margin:8px 0;">')
-        .replace(/\n/g, '<br>');
-    html = '<p style="margin:8px 0;">' + html + '</p>';
-    return html;
-}
-
-function escHtml(str) {
-    if (!str) return '';
-    var div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
 
 // ── 页面初始化 ──────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async function() {

@@ -1288,8 +1288,37 @@
                 AI 棱镜
             </a>
 
-            {# 侧栏导航 - 由子模板填充 #}
-            {% block sidebar_nav %}{% endblock %}
+            {# 侧栏导航 - 默认内容（可被子模板覆盖） #}
+            {% block sidebar_nav %}
+            <nav class="public-sidebar-nav">
+                <div class="sidebar-group">
+                    <div class="public-sidebar-section-label">快速生成</div>
+                    <a class="public-sidebar-link" href="/public" id="sidebar-super-link">
+                        <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+                        开始创作
+                    </a>
+                </div>
+
+                <div class="sidebar-group">
+                    <a class="public-sidebar-link" href="/public/decision-cost" id="sidebar-decision-cost-link">
+                        <i class="bi bi-graph-up" aria-hidden="true"></i>
+                        决策成本诊断
+                    </a>
+                    <a class="public-sidebar-link" href="/public/portraits" id="sidebar-portraits-link">
+                        <i class="bi bi-people-fill" aria-hidden="true"></i>
+                        客户画像
+                    </a>
+                    <a class="public-sidebar-link" href="/public/topic-list">
+                        <i class="bi bi-card-list" aria-hidden="true"></i>
+                        选题清单
+                    </a>
+                    <a class="public-sidebar-link" href="/public/portraits" onclick="if(window.portraitManager){window.portraitManager.switchTab('tab-contents');} return true;">
+                        <i class="bi bi-collection-play-fill" aria-hidden="true"></i>
+                        内容清单
+                    </a>
+                </div>
+            </nav>
+            {% endblock %}
             </div>{# /.public-sidebar-scroll #}
         </aside>
 

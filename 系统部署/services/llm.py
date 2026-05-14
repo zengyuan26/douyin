@@ -80,6 +80,8 @@ TASK_MAX_TOKENS: Dict[str, Dict] = {
     'content_create': {'max_tokens': 4000, 'temperature': 0.8, 'description': '图文内容创作（7帧slides）'},
     'market_analysis': {'max_tokens': 2500, 'temperature': 0.7, 'description': '市场分析'},
     'deep_analysis': {'max_tokens': 2500, 'temperature': 0.6, 'description': '深度分析'},
+    'decision_cost_deep_analyze': {'max_tokens': 3000, 'temperature': 0.6, 'description': '决策成本深度分析'},
+    'decision_cost_content': {'max_tokens': 2000, 'temperature': 0.7, 'description': '决策成本内容生成'},
 
     # SkillBridge 各 skill 专用任务类型
     'title_generate': {'max_tokens': 1500, 'temperature': 0.8, 'description': 'H-V-F标题生成'},
@@ -87,10 +89,10 @@ TASK_MAX_TOKENS: Dict[str, Dict] = {
     'quality_validate': {'max_tokens': 2000, 'temperature': 0.3, 'description': '内容质量评分'},
     # SkillBridge skill 名称映射（executor 传入 task_type=skill_name）
     'content_generator': {'max_tokens': 4000, 'temperature': 0.8, 'description': '图文内容生成（7帧slides）'},
-    'market_analyzer': {'max_tokens': 3000, 'temperature': 0.7, 'description': '市场分析'},
-    'keyword_library_generator': {'max_tokens': 3000, 'temperature': 0.7, 'description': '关键词库生成'},
-    'topic_library_generator': {'max_tokens': 3000, 'temperature': 0.7, 'description': '选题库生成'},
-    'portrait_generator': {'max_tokens': 3000, 'temperature': 0.8, 'description': '画像生成'},
+    'market_analyzer': {'max_tokens': 4000, 'temperature': 0.7, 'description': '市场分析'},
+    'keyword_library_generator': {'max_tokens': 12000, 'temperature': 0.7, 'description': '关键词库生成（蓝海词50+条）'},
+    'topic_library_generator': {'max_tokens': 15000, 'temperature': 0.7, 'description': '选题库生成（240+条选题）'},
+    'portrait_generator': {'max_tokens': 4000, 'temperature': 0.8, 'description': '画像生成'},
     'video_script_generator': {'max_tokens': 4000, 'temperature': 0.8, 'description': '短视频脚本生成'},
     'long_text_generator': {'max_tokens': 4000, 'temperature': 0.8, 'description': '长文内容生成'},
     'psychology_reviewer': {'max_tokens': 2000, 'temperature': 0.3, 'description': '心理学审核'},

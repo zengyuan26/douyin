@@ -3950,19 +3950,18 @@
 <!-- 分组1：快速生成 -->
 <div class="sidebar-group">
     <div class="public-sidebar-section-label">快速生成</div>
-        <a class="public-sidebar-link" href="/public" id="sidebar-super-link">
+    <a class="public-sidebar-link" href="/public" id="sidebar-super-link">
         <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
         开始创作
     </a>
 </div>
 
-<!-- 分组2：我的 -->
+<!-- 分组2：功能菜单 -->
 <div class="sidebar-group">
-    <div class="public-sidebar-section-label">我的</div>
-    <a class="public-sidebar-link" href="/public/portraits" id="sidebar-portraits-link"
-       onclick="sidebarNavLink(event, this)" data-page="portraits">
-        <i class="bi bi-people-fill" aria-hidden="true"></i>
-        客户画像
+    <a class="public-sidebar-link" href="/public/decision-cost" id="sidebar-decision-cost-link"
+       onclick="sidebarNavLink(event, this)" data-page="decision-cost">
+        <i class="bi bi-graph-up" aria-hidden="true"></i>
+        决策成本诊断
     </a>
     <a class="public-sidebar-link" href="#" data-sidebar-tab="tab-topics"
        onclick="sidebarNavClick(event, 'tab-topics')">
@@ -3974,8 +3973,7 @@
         <i class="bi bi-collection-play-fill" aria-hidden="true"></i>
         内容清单
     </a>
-</div>
-{% endblock %}
+</div>{% endblock %}
 
 {% block topbar_title %}
 {% endblock %}

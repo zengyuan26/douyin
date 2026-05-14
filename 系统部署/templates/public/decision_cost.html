@@ -1,0 +1,1666 @@
+{% extends "public/public_layout.html" %}
+
+{% block title %}可复制产品设计 - AI 棱镜{% endblock %}
+
+{% block layout_extra_css %}
+<style>
+    .dc-page {
+        padding: 24px 28px;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+
+    .dc-header {
+        margin-bottom: 24px;
+    }
+
+    .dc-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 6px;
+    }
+
+    .dc-subtitle {
+        font-size: 0.9375rem;
+        color: var(--text-secondary);
+    }
+
+    /* 步骤指示器 */
+    .step-indicator {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        padding: 16px 20px;
+        background: var(--apple-gray6);
+        border-radius: var(--radius-lg);
+    }
+
+    .step-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .step-item.active {
+        color: var(--netease-red);
+        font-weight: 600;
+    }
+
+    .step-item.completed {
+        color: #34C759;
+    }
+
+    .step-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--apple-gray5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .step-item.active .step-num {
+        background: var(--netease-red);
+        color: #fff;
+    }
+
+    .step-item.completed .step-num {
+        background: #34C759;
+        color: #fff;
+    }
+
+    .step-arrow {
+        color: var(--apple-gray4);
+        font-size: 0.75rem;
+    }
+
+    /* 输入区域 */
+    .dc-input-section {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--apple-gray5);
+    }
+
+    .input-row {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    .input-group {
+        flex: 1;
+    }
+
+    .input-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .input-field {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid var(--apple-gray4);
+        border-radius: var(--radius-md);
+        font-size: 0.9375rem;
+        background: var(--bg-primary);
+        transition: all 0.15s;
+    }
+
+    .input-field:focus {
+        border-color: var(--netease-red);
+        box-shadow: 0 0 0 3px rgba(236,65,65,0.1);
+        outline: none;
+    }
+
+    .input-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .input-tag {
+        padding: 8px 14px;
+        background: var(--apple-gray6);
+        border: 1px solid transparent;
+        border-radius: 20px;
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .input-tag:hover {
+        background: rgba(236,65,65,0.08);
+        color: var(--netease-red);
+    }
+
+    .input-tag.selected {
+        background: var(--netease-red);
+        color: #fff;
+    }
+
+    .scope-options {
+        display: flex;
+        gap: 10px;
+    }
+
+    .scope-option {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid var(--apple-gray4);
+        border-radius: var(--radius-md);
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.15s;
+        font-size: 0.875rem;
+    }
+
+    .scope-option:hover {
+        border-color: var(--apple-gray3);
+    }
+
+    .scope-option.selected {
+        border-color: var(--netease-red);
+        background: rgba(236,65,65,0.08);
+        color: var(--netease-red);
+        font-weight: 600;
+    }
+
+    .analyze-btn {
+        width: 100%;
+        padding: 14px 24px;
+        background: var(--netease-red);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-md);
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 8px;
+    }
+
+    .analyze-btn:hover {
+        background: var(--netease-red-hover);
+    }
+
+    .analyze-btn:disabled {
+        background: var(--apple-gray4);
+        cursor: not-allowed;
+    }
+
+    /* 加载状态 */
+    .dc-loading {
+        display: none;
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .dc-loading.show {
+        display: block;
+    }
+
+    .dc-spinner {
+        width: 44px;
+        height: 44px;
+        border: 3px solid rgba(236,65,65,0.15);
+        border-top-color: var(--netease-red);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .dc-loading-text {
+        font-size: 0.9375rem;
+        color: var(--text-secondary);
+    }
+
+    /* 分析结果区 */
+    .dc-results {
+        display: none;
+    }
+
+    .dc-results.show {
+        display: block;
+    }
+
+    /* 模块卡片 */
+    .module-card {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        margin-bottom: 16px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--apple-gray5);
+        overflow: hidden;
+    }
+
+    .module-header {
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .module-header:hover {
+        background: var(--apple-gray6);
+    }
+
+    .module-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    .module-icon.m1 { background: rgba(59,130,246,0.12); }
+    .module-icon.m2 { background: rgba(249,115,22,0.12); }
+    .module-icon.m3 { background: rgba(139,92,246,0.12); }
+    .module-icon.m4 { background: rgba(236,65,65,0.12); }
+
+    .module-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .module-summary {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        flex: 1;
+        text-align: right;
+    }
+
+    .module-toggle {
+        color: var(--text-secondary);
+        transition: transform 0.2s;
+    }
+
+    .module-card.expanded .module-toggle {
+        transform: rotate(180deg);
+    }
+
+    .module-body {
+        display: none;
+        padding: 0 20px 20px;
+    }
+
+    .module-card.expanded .module-body {
+        display: block;
+    }
+
+    /* 分析项目 */
+    .analysis-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .analysis-item {
+        background: var(--apple-gray6);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+    }
+
+    .analysis-item-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+
+    .analysis-item-value {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .analysis-item-detail {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    /* AI机遇表格 */
+    .opportunity-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8125rem;
+    }
+
+    .opportunity-table th,
+    .opportunity-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--apple-gray5);
+    }
+
+    .opportunity-table th {
+        background: var(--apple-gray6);
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .opportunity-table td {
+        color: var(--text-secondary);
+    }
+
+    .opportunity-type {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+    }
+
+    .opportunity-type.replace { background: rgba(239,68,68,0.12); color: #ef4444; }
+    .opportunity-type.enhance { background: rgba(59,130,246,0.12); color: #3b82f6; }
+    .opportunity-type.automate { background: rgba(139,92,246,0.12); color: #8b5cf6; }
+    .opportunity-type.create { background: rgba(16,185,129,0.12); color: #10b981; }
+
+    /* 天花板进度条 */
+    .ceiling-bar {
+        height: 28px;
+        background: var(--apple-gray5);
+        border-radius: 14px;
+        overflow: hidden;
+        margin: 12px 0;
+    }
+
+    .ceiling-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 14px;
+        color: #fff;
+        font-size: 0.8125rem;
+        font-weight: 700;
+        min-width: 50px;
+        transition: width 0.5s ease;
+    }
+
+    /* 选择方向区 */
+    .options-section {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        margin: 24px 0;
+        border: 2px solid var(--netease-red);
+        box-shadow: 0 0 0 4px rgba(236,65,65,0.08);
+    }
+
+    .options-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .options-subtitle {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-bottom: 16px;
+    }
+
+    .options-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .option-card {
+        border: 2px solid var(--apple-gray4);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: var(--bg-primary);
+    }
+
+    .option-card:hover {
+        border-color: var(--apple-gray3);
+        background: var(--apple-gray6);
+    }
+
+    .option-card.selected {
+        border-color: var(--netease-red);
+        background: rgba(236,65,65,0.05);
+    }
+
+    .option-icon {
+        font-size: 2rem;
+        margin-bottom: 8px;
+    }
+
+    .option-name {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .option-summary {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+        margin-bottom: 8px;
+    }
+
+    .option-score {
+        font-size: 0.75rem;
+        color: var(--netease-red);
+        font-weight: 600;
+    }
+
+    .option-check {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 2px solid var(--apple-gray4);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        color: #fff;
+        transition: all 0.15s;
+    }
+
+    .option-card.selected .option-check {
+        display: flex;
+        background: var(--netease-red);
+        border-color: var(--netease-red);
+    }
+
+    .analyze-route-btn {
+        width: 100%;
+        padding: 14px;
+        background: var(--netease-red);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-md);
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .analyze-route-btn:hover {
+        background: var(--netease-red-hover);
+    }
+
+    .analyze-route-btn:disabled {
+        background: var(--apple-gray4);
+        cursor: not-allowed;
+    }
+
+    /* 路线详情 */
+    .route-section {
+        display: none;
+        margin-top: 24px;
+    }
+
+    .route-section.show {
+        display: block;
+    }
+
+    .route-card {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        margin-bottom: 16px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--apple-gray5);
+        overflow: hidden;
+    }
+
+    .route-header {
+        background: linear-gradient(135deg, var(--netease-red), #FF6B6B);
+        padding: 20px 24px;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .route-icon {
+        font-size: 2rem;
+    }
+
+    .route-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .route-desc {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+
+    .route-body {
+        padding: 24px;
+    }
+
+    /* 时间线 */
+    .timeline {
+        position: relative;
+        padding-left: 32px;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 11px;
+        top: 8px;
+        bottom: 8px;
+        width: 2px;
+        background: var(--apple-gray4);
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-bottom: 24px;
+    }
+
+    .timeline-item:last-child {
+        padding-bottom: 0;
+    }
+
+    .timeline-dot {
+        position: absolute;
+        left: -32px;
+        top: 4px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--netease-red);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6875rem;
+        font-weight: 700;
+    }
+
+    .timeline-phase {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+
+    .timeline-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .timeline-desc {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .timeline-duration {
+        font-size: 0.75rem;
+        color: var(--netease-red);
+        font-weight: 600;
+        margin-top: 6px;
+    }
+
+    /* 风险评估 */
+    .risk-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin: 20px 0;
+    }
+
+    .risk-card {
+        padding: 16px;
+        border-radius: var(--radius-md);
+        text-align: center;
+    }
+
+    .risk-card.high { background: rgba(239,68,68,0.08); }
+    .risk-card.medium { background: rgba(251,191,36,0.08); }
+    .risk-card.low { background: rgba(16,185,129,0.08); }
+
+    .risk-label {
+        font-size: 0.6875rem;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+
+    .risk-value {
+        font-size: 0.875rem;
+        font-weight: 700;
+    }
+
+    .risk-card.high .risk-value { color: #ef4444; }
+    .risk-card.medium .risk-value { color: #f59e0b; }
+    .risk-card.low .risk-value { color: #10b981; }
+
+    /* 要求匹配 */
+    .requirements-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8125rem;
+    }
+
+    .requirements-table th,
+    .requirements-table td {
+        padding: 10px 12px;
+        text-align: center;
+        border: 1px solid var(--apple-gray5);
+    }
+
+    .requirements-table th {
+        background: var(--apple-gray6);
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .req-yes { color: #34C759; font-weight: 600; }
+    .req-no { color: #FF3B30; }
+    .req-partial { color: #FF9500; }
+
+    /* 里程碑 */
+    .milestone-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    .milestone-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: var(--apple-gray6);
+        border-radius: var(--radius-md);
+        font-size: 0.75rem;
+    }
+
+    .milestone-time {
+        color: var(--netease-red);
+        font-weight: 600;
+    }
+
+    .milestone-text {
+        color: var(--text-secondary);
+    }
+
+    /* 底部按钮 */
+    .dc-footer {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+    }
+
+    .dc-btn {
+        flex: 1;
+        padding: 12px 20px;
+        border-radius: var(--radius-md);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .dc-btn-outline {
+        background: var(--bg-primary);
+        border: 1px solid var(--apple-gray4);
+        color: var(--text-primary);
+    }
+
+    .dc-btn-outline:hover {
+        border-color: var(--text-primary);
+    }
+
+    .dc-btn-primary {
+        background: var(--netease-red);
+        border: none;
+        color: #fff;
+    }
+
+    .dc-btn-primary:hover {
+        background: var(--netease-red-hover);
+    }
+
+    .dc-btn-primary:disabled {
+        background: var(--apple-gray4);
+        cursor: not-allowed;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+        .dc-page { padding: 16px; }
+        .input-row { flex-direction: column; }
+        .options-grid { grid-template-columns: repeat(2, 1fr); }
+        .risk-grid { grid-template-columns: 1fr; }
+        .analysis-items { grid-template-columns: 1fr; }
+        .dc-footer { flex-direction: column; }
+    }
+</style>
+{% endblock %}
+
+{% block sidebar_nav %}
+<nav class="public-sidebar-nav">
+<div class="sidebar-group">
+    <a class="public-sidebar-link is-active" href="/public/decision-cost" id="sidebar-dc-link">
+        <i class="bi bi-compass"></i>
+        可复制产品设计
+    </a>
+    <a class="public-sidebar-link" href="/public" id="sidebar-super-link">
+        <i class="bi bi-lightning-charge-fill"></i>
+        开始创作
+    </a>
+</div>
+<div class="sidebar-group">
+    <div class="public-sidebar-section-label">分析工具</div>
+    <a class="public-sidebar-link" href="/public/portraits">
+        <i class="bi bi-people-fill"></i>
+        客户画像
+    </a>
+</div>
+</nav>
+{% endblock %}
+
+{% block topbar_title %}
+<span class="topbar-title-text">可复制产品设计</span>
+{% endblock %}
+
+{% block content %}
+<div class="dc-page">
+    <!-- 头部 -->
+    <div class="dc-header">
+        <h1 class="dc-title">可复制产品设计</h1>
+        <p class="dc-subtitle">找到边际成本趋近于零的产品，结合AI赋能，实现真正的时间自由</p>
+    </div>
+
+    <!-- 步骤指示器 -->
+    <div class="step-indicator">
+        <div class="step-item active" id="step1Indicator">
+            <div class="step-num">1</div>
+            <span>业务分析</span>
+        </div>
+        <span class="step-arrow">→</span>
+        <div class="step-item" id="step2Indicator">
+            <div class="step-num">2</div>
+            <span>选择方向</span>
+        </div>
+        <span class="step-arrow">→</span>
+        <div class="step-item" id="step3Indicator">
+            <div class="step-num">3</div>
+            <span>执行路线</span>
+        </div>
+    </div>
+
+    <!-- 输入区域 -->
+    <div class="dc-input-section" id="inputSection">
+        <div class="input-row">
+            <div class="input-group">
+                <div class="input-label">
+                    <span>🎯</span> 你的业务是什么？
+                </div>
+                <input type="text" class="input-field" id="businessInput"
+                       placeholder="例如：心理咨询、装修设计、美容院..."
+                       onkeypress="if(event.key==='Enter') startAnalysis()">
+                <div class="input-tags" style="margin-top: 10px;">
+                    <span class="input-tag" data-value="心理咨询">心理咨询</span>
+                    <span class="input-tag" data-value="法律咨询">法律咨询</span>
+                    <span class="input-tag" data-value="装修设计">装修设计</span>
+                    <span class="input-tag" data-value="美容整形">美容整形</span>
+                    <span class="input-tag" data-value="儿童培训">儿童培训</span>
+                    <span class="input-tag" data-value="餐饮">餐饮</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-row">
+            <div class="input-group">
+                <div class="input-label">
+                    <span>🌍</span> 客户范围
+                </div>
+                <div class="scope-options">
+                    <div class="scope-option selected" data-scope="local">本地</div>
+                    <div class="scope-option" data-scope="national">全国</div>
+                    <div class="scope-option" data-scope="global">全球</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-row">
+            <div class="input-group">
+                <div class="input-label">
+                    <span>📦</span> 你有哪些资源？（可多选）
+                </div>
+                <div class="input-tags">
+                    <span class="input-tag resource-tag" data-resource="knowledge">专业知识</span>
+                    <span class="input-tag resource-tag" data-resource="experience">行业经验</span>
+                    <span class="input-tag resource-tag" data-resource="technique">技术/工艺</span>
+                    <span class="input-tag resource-tag" data-resource="brand">品牌口碑</span>
+                    <span class="input-tag resource-tag" data-resource="customers">客户资源</span>
+                    <span class="input-tag resource-tag" data-resource="capital">资金</span>
+                </div>
+            </div>
+        </div>
+
+        <button class="analyze-btn" onclick="startAnalysis()">
+            <i class="bi bi-search"></i>
+            开始AI分析
+        </button>
+    </div>
+
+    <!-- 加载状态 -->
+    <div class="dc-loading" id="loadingSection">
+        <div class="dc-spinner"></div>
+        <p class="dc-loading-text">深度分析中，请稍候...</p>
+    </div>
+
+    <!-- 分析结果 -->
+    <div class="dc-results" id="resultsSection">
+        <!-- M1 业务本质诊断 -->
+        <div class="module-card" id="moduleM1">
+            <div class="module-header" onclick="toggleModule('M1')">
+                <div class="module-icon m1">🔍</div>
+                <div class="module-title">M1: 业务本质诊断</div>
+                <div class="module-summary" id="m1Summary">-</div>
+                <i class="bi bi-chevron-down module-toggle"></i>
+            </div>
+            <div class="module-body" id="m1Body"></div>
+        </div>
+
+        <!-- M2 决策成本评估 -->
+        <div class="module-card" id="moduleM2">
+            <div class="module-header" onclick="toggleModule('M2')">
+                <div class="module-icon m2">⏰</div>
+                <div class="module-title">M2: 决策成本评估</div>
+                <div class="module-summary" id="m2Summary">-</div>
+                <i class="bi bi-chevron-down module-toggle"></i>
+            </div>
+            <div class="module-body" id="m2Body"></div>
+        </div>
+
+        <!-- M3 资产盘点 -->
+        <div class="module-card" id="moduleM3">
+            <div class="module-header" onclick="toggleModule('M3')">
+                <div class="module-icon m3">📦</div>
+                <div class="module-title">M3: 资产盘点</div>
+                <div class="module-summary" id="m3Summary">-</div>
+                <i class="bi bi-chevron-down module-toggle"></i>
+            </div>
+            <div class="module-body" id="m3Body"></div>
+        </div>
+
+        <!-- M4 AI机遇分析 -->
+        <div class="module-card" id="moduleM4">
+            <div class="module-header" onclick="toggleModule('M4')">
+                <div class="module-icon m4">🤖</div>
+                <div class="module-title">M4: AI机遇分析</div>
+                <div class="module-summary" id="m4Summary">-</div>
+                <i class="bi bi-chevron-down module-toggle"></i>
+            </div>
+            <div class="module-body" id="m4Body"></div>
+        </div>
+
+        <!-- 选择方向 -->
+        <div class="options-section">
+            <div class="options-title">
+                <span>✨</span> 选择可复制方向
+            </div>
+            <div class="options-subtitle">根据分析结果，选择1-2个最适合你的方向，我会为你生成详细执行路线</div>
+            <div class="options-grid" id="optionsGrid"></div>
+            <button class="analyze-route-btn" id="analyzeRouteBtn" onclick="analyzeRoute()" disabled>
+                <i class="bi bi-map"></i>
+                生成详细执行路线
+            </button>
+        </div>
+
+        <!-- 路线详情 -->
+        <div class="route-section" id="routeSection"></div>
+
+        <!-- 底部按钮 -->
+        <div class="dc-footer">
+            <button class="dc-btn dc-btn-outline" onclick="resetAnalysis()">
+                <i class="bi bi-arrow-clockwise"></i>
+                重新分析
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 状态管理
+let currentData = null;
+let selectedOptions = [];
+let currentStep = 1;
+
+// 初始化标签点击
+document.querySelectorAll('.input-tag[data-value]').forEach(tag => {
+    tag.addEventListener('click', () => {
+        document.getElementById('businessInput').value = tag.dataset.value;
+        document.querySelectorAll('.input-tag[data-value]').forEach(t => t.classList.remove('selected'));
+        tag.classList.add('selected');
+    });
+});
+
+// 初始化范围选择
+document.querySelectorAll('.scope-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+        document.querySelectorAll('.scope-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+    });
+});
+
+// 初始化资源选择
+document.querySelectorAll('.resource-tag').forEach(tag => {
+    tag.addEventListener('click', () => {
+        tag.classList.toggle('selected');
+    });
+});
+
+function getInputs() {
+    return {
+        business: document.getElementById('businessInput').value.trim(),
+        scope: document.querySelector('.scope-option.selected')?.dataset.scope || 'local',
+        resources: Array.from(document.querySelectorAll('.resource-tag.selected')).map(t => t.dataset.resource)
+    };
+}
+
+async function startAnalysis() {
+    const inputs = getInputs();
+
+    if (!inputs.business) {
+        alert('请输入或选择业务类型');
+        return;
+    }
+
+    // UI切换
+    document.getElementById('inputSection').style.display = 'none';
+    document.getElementById('loadingSection').classList.add('show');
+    document.getElementById('resultsSection').classList.remove('show');
+
+    try {
+        const response = await fetch('/api/decision-cost/step1-analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(inputs)
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            alert(result.message || '分析失败');
+            showInput();
+            return;
+        }
+
+        currentData = result.data;
+        renderResults(currentData);
+
+        // 更新步骤指示器
+        updateStepIndicator(1);
+
+    } catch (error) {
+        console.error(error);
+        alert('分析失败，请重试');
+        showInput();
+    }
+}
+
+function showInput() {
+    document.getElementById('inputSection').style.display = 'block';
+    document.getElementById('loadingSection').classList.remove('show');
+    document.getElementById('resultsSection').classList.remove('show');
+}
+
+function updateStepIndicator(step) {
+    currentStep = step;
+    document.querySelectorAll('.step-item').forEach((item, index) => {
+        item.classList.remove('active', 'completed');
+        if (index < step - 1) {
+            item.classList.add('completed');
+        } else if (index === step - 1) {
+            item.classList.add('active');
+        }
+    });
+}
+
+function renderResults(data) {
+    document.getElementById('loadingSection').classList.remove('show');
+    document.getElementById('resultsSection').classList.add('show');
+
+    // 渲染M1
+    renderM1(data.modules?.M1);
+
+    // 渲染M2
+    renderM2(data.modules?.M2);
+
+    // 渲染M3
+    renderM3(data.modules?.M3);
+
+    // 渲染M4
+    renderM4(data.modules?.M4);
+
+    // 渲染选项
+    renderOptions(data.replicable_options || []);
+
+    // 默认展开M1
+    toggleModule('M1');
+}
+
+function renderM1(m1) {
+    if (!m1) return;
+
+    document.getElementById('m1Summary').textContent = m1.items?.[0]?.value || '-';
+
+    const itemsHtml = m1.items?.map(item => `
+        <div class="analysis-item">
+            <div class="analysis-item-label">${item.label}</div>
+            <div class="analysis-item-value">${item.value}</div>
+            <div class="analysis-item-detail">${item.detail || ''}</div>
+        </div>
+    `).join('') || '';
+
+    // 信任分析卡片
+    const trustHtml = m1.trust_analysis ? `
+        <div style="margin-top: 16px; padding: 14px; background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.05)); border-radius: var(--radius-md); border-left: 4px solid #8b5cf6;">
+            <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                <span>🤝</span> 信任获取机制
+            </div>
+            <div style="font-size: 0.8125rem; font-weight: 600; color: #8b5cf6; margin-bottom: 4px;">${m1.trust_analysis.type}</div>
+            <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 8px;">${m1.trust_analysis.description}</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                <div style="margin-bottom: 4px;"><strong>关键因素：</strong>${m1.trust_analysis.key_factors?.join(' > ') || ''}</div>
+                <div style="color: #f97316; margin-top: 8px; font-weight: 500;">💡 ${m1.trust_analysis.implication}</div>
+            </div>
+        </div>
+    ` : '';
+
+    document.getElementById('m1Body').innerHTML = `
+        <div class="analysis-items">${itemsHtml}</div>
+        ${trustHtml}
+        ${m1.expandable && m1.details ? `
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--apple-gray5);">
+                <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 8px;">详细信息</div>
+                ${Object.entries(m1.details).map(([key, val]) => `
+                    <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 4px;">
+                        <span style="color: var(--text-primary); font-weight: 500;">${key}:</span> ${val}
+                    </div>
+                `).join('')}
+            </div>
+        ` : ''}
+    `;
+}
+
+function renderM2(m2) {
+    if (!m2) return;
+
+    document.getElementById('m2Summary').textContent = m2.trap_type || '-';
+
+    const itemsHtml = m2.items?.map(item => `
+        <div class="analysis-item">
+            <div class="analysis-item-label">${item.label}</div>
+            <div class="analysis-item-value">${item.value}</div>
+            <div class="analysis-item-detail">${item.detail || ''}</div>
+        </div>
+    `).join('') || '';
+
+    // 本地服务型业务的特殊建议
+    const specialRecommendation = m2.special_case ? `
+        <div style="margin-top: 16px; padding: 16px; background: linear-gradient(135deg, rgba(239,68,68,0.08), rgba(251,191,36,0.05)); border-radius: var(--radius-md); border-left: 4px solid #ef4444;">
+            <div style="font-size: 0.875rem; font-weight: 700; color: #ef4444; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                <span>⚡</span> ${m2.recommendation?.directive || '特殊建议'}
+            </div>
+            <div style="font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 12px;">
+                ${m2.recommendation?.reason || ''}
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">📋 推荐策略：</div>
+            <div style="font-size: 0.8125rem; color: #8b5cf6; font-weight: 600; margin-bottom: 10px;">
+                ${m2.recommendation?.strategy || ''}
+            </div>
+            ${m2.recommendation?.action_items ? `
+                <div style="font-size: 0.75rem;">
+                    ${m2.recommendation.action_items.map(item => `
+                        <div style="display: flex; align-items: flex-start; gap: 6px; margin-bottom: 6px;">
+                            <span style="color: #34C759;">✓</span>
+                            <span style="color: var(--text-secondary);">${item}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+        </div>
+    ` : '';
+
+    // 详细信息
+    const detailsHtml = m2.expandable && m2.details ? `
+        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--apple-gray5);">
+            ${Object.entries(m2.details).map(([key, val]) => `
+                <div style="margin-bottom: 8px;">
+                    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">${key}</div>
+                    <div style="font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5;">${val}</div>
+                </div>
+            `).join('')}
+        </div>
+    ` : '';
+
+    document.getElementById('m2Body').innerHTML = `
+        <div style="background: rgba(249,115,22,0.08); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.25rem;">⚠️</span>
+            <div>
+                <div style="font-size: 0.875rem; font-weight: 600; color: #f97316;">${m2.trap_type || '待诊断'}</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">${m2.trap_desc || ''}</div>
+            </div>
+        </div>
+        <div class="analysis-items">${itemsHtml}</div>
+        ${specialRecommendation}
+        ${detailsHtml}
+    `;
+}
+
+function renderM3(m3) {
+    if (!m3) return;
+
+    document.getElementById('m3Summary').textContent = m3.items?.[1]?.value || '-';
+
+    // 本地服务型资产的特殊渲染
+    if (m3.special_case && m3.non_replicable_assets) {
+        // 本地服务型：区分不可复制和可复制的资产
+        const nonReplicableHtml = m3.non_replicable_assets?.map(asset => `
+            <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--apple-gray5);">
+                <span style="color: #ef4444;">✗</span>
+                <div>
+                    <div style="font-size: 0.875rem; font-weight: 500;">${asset.name}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${asset.note}</div>
+                </div>
+            </div>
+        `).join('') || '';
+
+        const replicableHtml = m3.replicable_assets?.map(asset => `
+            <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--apple-gray5);">
+                <span style="color: #34C759;">✓</span>
+                <div>
+                    <div style="font-size: 0.875rem; font-weight: 500;">${asset.name}</div>
+                    <div style="font-size: 0.75rem; color: #8b5cf6;">→ ${asset.action}</div>
+                </div>
+            </div>
+        `).join('') || '';
+
+        document.getElementById('m3Body').innerHTML = `
+            <div style="background: rgba(239,68,68,0.06); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 16px;">
+                <div style="font-size: 0.8125rem; color: #ef4444; font-weight: 500;">
+                    ⚠️ 核心资产无法复制，但技艺可以产品化
+                </div>
+            </div>
+            <div class="analysis-items">
+                ${m3.items?.map(item => `
+                    <div class="analysis-item">
+                        <div class="analysis-item-label">${item.label}</div>
+                        <div class="analysis-item-value">${item.value}</div>
+                        <div class="analysis-item-detail">${item.detail || ''}</div>
+                    </div>
+                `).join('') || ''}
+            </div>
+            <div style="margin-top: 16px;">
+                <div style="font-size: 0.8125rem; font-weight: 600; margin-bottom: 6px; color: #ef4444;">✗ 不可复制的资产（本地专属）</div>
+                ${nonReplicableHtml}
+            </div>
+            <div style="margin-top: 16px;">
+                <div style="font-size: 0.8125rem; font-weight: 600; margin-bottom: 6px; color: #34C759;">✓ 可以复制的资产</div>
+                ${replicableHtml}
+            </div>
+            ${m3.details ? `
+                <div style="margin-top: 16px; padding: 12px; background: rgba(139,92,246,0.08); border-radius: var(--radius-md); border-left: 3px solid #8b5cf6;">
+                    <div style="font-size: 0.75rem; font-weight: 600; margin-bottom: 6px;">💡 正确的复制方式</div>
+                    <div style="font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5;">
+                        ${m3.details['正确的复制方式'] || '不是"再开一家店"，而是"把你的技艺变成内容/产品，卖给更多人"'}
+                    </div>
+                </div>
+            ` : ''}
+        `;
+        return;
+    }
+
+    // 非本地服务型资产的渲染
+    const assetsHtml = m3.digital_assets?.map(asset => `
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--apple-gray5);">
+            <span style="color: #34C759;">✓</span>
+            <div>
+                <div style="font-size: 0.875rem; font-weight: 500;">${asset.name}</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">${asset.status}</div>
+            </div>
+        </div>
+    `).join('') || '';
+
+    document.getElementById('m3Body').innerHTML = `
+        <div class="analysis-items">
+            ${m3.items?.map(item => `
+                <div class="analysis-item">
+                    <div class="analysis-item-label">${item.label}</div>
+                    <div class="analysis-item-value">${item.value}</div>
+                    <div class="analysis-item-detail">${item.detail || ''}</div>
+                </div>
+            `).join('') || ''}
+        </div>
+        <div style="margin-top: 16px;">
+            <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 8px;">可产品化资产</div>
+            ${assetsHtml}
+        </div>
+        ${m3.resource_match ? `
+            <div style="margin-top: 16px; padding: 12px; background: var(--apple-gray6); border-radius: var(--radius-md);">
+                <div style="font-size: 0.8125rem;">
+                    <span style="font-weight: 600;">资源匹配度:</span>
+                    <span style="color: var(--netease-red); font-weight: 700;">${m3.resource_match.score}%</span>
+                    <span style="color: var(--text-secondary);"> - ${m3.resource_match.strength}</span>
+                </div>
+            </div>
+        ` : ''}
+    `;
+}
+
+function renderM4(m4) {
+    if (!m4) return;
+
+    document.getElementById('m4Summary').textContent = `${m4.ceiling?.level || 0}%天花板`;
+
+    const opTypeLabels = {
+        'replace': '🔴替代',
+        'enhance': '🔵增强',
+        'automate': '🟣自动化',
+        'create': '🟢创造'
+    };
+
+    // 本地服务型业务的特殊渲染
+    if (m4.special_case) {
+        const opportunitiesHtml = m4.opportunities?.map(op => `
+            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--apple-gray6); border-radius: var(--radius-sm); margin-bottom: 8px;">
+                <div style="flex-shrink: 0;">
+                    <span class="opportunity-type ${op.type}">${opTypeLabels[op.type] || op.type}</span>
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">${op.task}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">${op.ai_action}</div>
+                    <div style="font-size: 0.75rem; color: #34C759; font-weight: 500;">
+                        效果: ${op.impact}
+                        ${op.priority ? `<span style="margin-left: 8px; padding: 2px 6px; background: ${op.priority === '最高' ? '#ef4444' : op.priority === '高' ? '#f97316' : '#8b5cf6'}; color: white; border-radius: 4px; font-size: 0.625rem;">${op.priority}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('') || '';
+
+        const recsHtml = m4.recommendations?.map((rec, i) => `
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <span style="color: var(--netease-red); font-weight: 700; flex-shrink: 0;">${i + 1}.</span>
+                <span style="font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5;">${rec}</span>
+            </div>
+        `).join('') || '';
+
+        document.getElementById('m4Body').innerHTML = `
+            <div style="background: linear-gradient(135deg, rgba(239,68,68,0.08), rgba(251,191,36,0.05)); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px; border-left: 4px solid #ef4444;">
+                <div style="font-size: 0.9375rem; font-weight: 600; margin-bottom: 6px;">💡 ${m4.core_insight?.title || 'AI机遇'}</div>
+                <div style="font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5;">${m4.core_insight?.description || ''}</div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 8px;">🎯 AI能帮你做什么</div>
+                ${opportunitiesHtml}
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 8px;">行业+AI天花板</div>
+                <div class="ceiling-bar">
+                    <div class="ceiling-fill" style="width: ${m4.ceiling?.level || 0}%;">${m4.ceiling?.level || 0}%</div>
+                </div>
+                <div style="font-size: 0.8125rem; color: var(--text-secondary);">${m4.ceiling?.desc || ''}</div>
+            </div>
+
+            <div style="background: rgba(239,68,68,0.06); border-radius: var(--radius-md); padding: 12px; margin-bottom: 16px;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: #ef4444; margin-bottom: 6px;">⚠️ 你的情况: ${m4.risk?.desc || ''}</div>
+            </div>
+
+            <div>
+                <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 8px;">🚀 建议立即做的事</div>
+                ${recsHtml}
+            </div>
+        `;
+        return;
+    }
+
+    // 非本地服务型企业的渲染
+    const opportunitiesHtml = m4.opportunities?.map(op => `
+        <tr>
+            <td><span class="opportunity-type ${op.type}">${opTypeLabels[op.type] || op.type}</span></td>
+            <td>${op.task || '-'}</td>
+            <td>${op.ai_action || '-'}</td>
+            <td>${op.impact || '-'}</td>
+        </tr>
+    `).join('') || '';
+
+    const recsHtml = m4.recommendations?.map((rec, i) => `
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <span style="color: var(--netease-red); font-weight: 700; flex-shrink: 0;">${i + 1}.</span>
+            <span style="font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5;">${rec}</span>
+        </div>
+    `).join('') || '';
+
+    document.getElementById('m4Body').innerHTML = `
+        <div style="background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(139,92,246,0.05)); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+            <div style="font-size: 0.9375rem; font-weight: 600; margin-bottom: 6px;">💡 ${m4.core_insight?.title || 'AI机遇'}</div>
+            <div style="font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5;">${m4.core_insight?.description || ''}</div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 8px;">AI可替代/增强的环节</div>
+            <table class="opportunity-table">
+                <thead>
+                    <tr>
+                        <th>类型</th>
+                        <th>环节</th>
+                        <th>AI作用</th>
+                        <th>影响</th>
+                    </tr>
+                </thead>
+                <tbody>${opportunitiesHtml}</tbody>
+            </table>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 8px;">行业+AI天花板</div>
+            <div class="ceiling-bar">
+                <div class="ceiling-fill" style="width: ${m4.ceiling?.level || 0}%;">${m4.ceiling?.level || 0}%</div>
+            </div>
+            <div style="font-size: 0.8125rem; color: var(--text-secondary);">${m4.ceiling?.desc || ''}</div>
+        </div>
+
+        <div style="background: rgba(239,68,68,0.06); border-radius: var(--radius-md); padding: 12px; margin-bottom: 16px;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: #ef4444; margin-bottom: 6px;">⚠️ 被替代风险: ${m4.risk?.level === 'high' ? '高' : m4.risk?.level === 'medium' ? '中' : '低'}</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary);">${m4.risk?.desc || ''}</div>
+        </div>
+
+        <div>
+            <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 8px;">🚀 AI+行动建议</div>
+            ${recsHtml}
+        </div>
+    `;
+}
+
+function renderOptions(options) {
+    const grid = document.getElementById('optionsGrid');
+
+    // 根据难度计算星级
+    const getDifficultyStars = (difficulty) => {
+        const levels = { '低': 1, '中': 2, '高': 3 };
+        const stars = levels[difficulty] || 1;
+        return '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+    };
+
+    // 颜色标识
+    const getDifficultyColor = (difficulty) => {
+        const colors = { '低': '#34C759', '中': '#ff9500', '高': '#ff3b30' };
+        return colors[difficulty] || '#8e8e93';
+    };
+
+    grid.innerHTML = options.map(opt => `
+        <div class="option-card" onclick="toggleOption('${opt.id}', this)" style="position: relative;">
+            <div class="option-check"><i class="bi bi-check"></i></div>
+            <div class="option-icon">${opt.icon}</div>
+            <div class="option-name">${opt.name}</div>
+            <div class="option-summary">${opt.summary}</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--apple-gray5);">
+                <div style="text-align: center;">
+                    <div style="font-size: 0.625rem; color: var(--text-secondary);">可行性</div>
+                    <div style="font-size: 0.875rem; font-weight: 700; color: #34C759;">${opt.match_score || 0}%</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 0.625rem; color: var(--text-secondary);">难度</div>
+                    <div style="font-size: 0.75rem; font-weight: 600; color: ${getDifficultyColor(opt.difficulty)};">${opt.difficulty || '中'}</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 0.625rem; color: var(--text-secondary);">推荐</div>
+                    <div style="font-size: 0.875rem;">${getDifficultyStars(opt.difficulty)}</div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    selectedOptions = [];
+    updateAnalyzeBtn();
+}
+
+function toggleOption(optionId, element) {
+    element.classList.toggle('selected');
+
+    if (element.classList.contains('selected')) {
+        if (selectedOptions.length >= 2) {
+            // 取消最早的选项
+            const firstCard = document.querySelector('.option-card.selected');
+            if (firstCard) {
+                firstCard.classList.remove('selected');
+                selectedOptions.shift();
+            }
+        }
+        selectedOptions.push(optionId);
+    } else {
+        selectedOptions = selectedOptions.filter(id => id !== optionId);
+    }
+
+    updateAnalyzeBtn();
+}
+
+function updateAnalyzeBtn() {
+    const btn = document.getElementById('analyzeRouteBtn');
+    btn.disabled = selectedOptions.length === 0;
+    btn.innerHTML = selectedOptions.length === 0
+        ? '<i class="bi bi-map"></i> 请先选择方向'
+        : `<i class="bi bi-map"></i> 生成 ${selectedOptions.length} 个方向的详细路线`;
+}
+
+async function analyzeRoute() {
+    if (selectedOptions.length === 0) return;
+
+    const inputs = getInputs();
+    const btn = document.getElementById('analyzeRouteBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 分析中...';
+
+    try {
+        const response = await fetch('/api/decision-cost/step2-route', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                business: inputs.business,
+                selected_options: selectedOptions,
+                scope: inputs.scope,
+                resources: inputs.resources
+            })
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            alert(result.message || '路线生成失败');
+            return;
+        }
+
+        renderRoutes(result.data.routes || {});
+        updateStepIndicator(2);
+
+    } catch (error) {
+        console.error(error);
+        alert('路线生成失败，请重试');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-map"></i> 重新生成路线';
+    }
+}
+
+function renderRoutes(routes) {
+    const container = document.getElementById('routeSection');
+    container.classList.add('show');
+
+    let html = '';
+
+    for (const [routeId, route] of Object.entries(routes)) {
+        if (!route) continue;
+
+        // 时间线
+        const timelineHtml = route.steps?.map((step, i) => `
+            <div class="timeline-item">
+                <div class="timeline-dot">${i + 1}</div>
+                <div class="timeline-phase">${step.phase || ''}</div>
+                <div class="timeline-title">${step.title || ''}</div>
+                <div class="timeline-desc">${step.description || ''}</div>
+                <div class="timeline-duration">⏱ ${step.duration || ''}</div>
+            </div>
+        `).join('') || '';
+
+        // 风险评估
+        const risksHtml = route.risks?.map(risk => `
+            <div class="risk-card ${risk.level || 'medium'}">
+                <div class="risk-label">${risk.type || '风险'}</div>
+                <div class="risk-value">${risk.level === 'high' ? '⚠️高' : risk.level === 'medium' ? '○中' : '✓低'}</div>
+                <div style="font-size: 0.6875rem; color: var(--text-secondary); margin-top: 4px;">${risk.desc || ''}</div>
+            </div>
+        `).join('') || '';
+
+        // 要求匹配
+        const reqLabels = { 'yes': '需要', 'no': '不需要', 'partial': '部分' };
+        const reqClasses = { 'yes': 'req-yes', 'no': 'req-no', 'partial': 'req-partial' };
+        const reqs = route.requirements || {};
+
+        // 里程碑
+        const milestonesHtml = route.milestones?.map(m => `
+            <div class="milestone-item">
+                <span class="milestone-time">${m.week ? `第${m.week}周` : m.month ? `第${m.month}月` : ''}</span>
+                <span class="milestone-text">${m.milestone || ''}</span>
+            </div>
+        `).join('') || '';
+
+        html += `
+            <div class="route-card">
+                <div class="route-header">
+                    <div class="route-icon">${route.icon || '📋'}</div>
+                    <div>
+                        <div class="route-title">${route.name || ''}</div>
+                        <div class="route-desc">${route.description || ''}</div>
+                    </div>
+                </div>
+                <div class="route-body">
+                    <div style="display: flex; gap: 16px; margin-bottom: 20px;">
+                        <div style="flex: 1; padding: 12px; background: rgba(52,199,89,0.08); border-radius: var(--radius-md); text-align: center;">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary);">预计周期</div>
+                            <div style="font-size: 1rem; font-weight: 700; color: #34C759;">${route.timeline || '-'}</div>
+                        </div>
+                        <div style="flex: 1; padding: 12px; background: rgba(139,92,246,0.08); border-radius: var(--radius-md); text-align: center;">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary);">初始投入</div>
+                            <div style="font-size: 1rem; font-weight: 700; color: #8b5cf6;">${route.investment || '-'}</div>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 0.9375rem; font-weight: 700; margin-bottom: 12px;">📋 执行路线</div>
+                    <div class="timeline">${timelineHtml}</div>
+
+                    <div style="margin-top: 20px;">
+                        <div style="font-size: 0.9375rem; font-weight: 700; margin-bottom: 8px;">⚠️ 风险评估</div>
+                        <div class="risk-grid">${risksHtml}</div>
+                    </div>
+
+                    <div style="margin-top: 20px;">
+                        <div style="font-size: 0.9375rem; font-weight: 700; margin-bottom: 8px;">📊 你的条件匹配</div>
+                        <table class="requirements-table">
+                            <tr>
+                                <th>资金</th>
+                                <th>技术</th>
+                                <th>时间</th>
+                                <th>人脉</th>
+                            </tr>
+                            <tr>
+                                <td class="${reqClasses[reqs.capital?.level] || 'req-no'}">${reqLabels[reqs.capital?.level] || '-'}</td>
+                                <td class="${reqClasses[reqs.technique?.level] || 'req-no'}">${reqLabels[reqs.technique?.level] || '-'}</td>
+                                <td class="${reqClasses[reqs.time?.level] || 'req-no'}">${reqLabels[reqs.time?.level] || '-'}</td>
+                                <td class="${reqClasses[reqs.network?.level] || 'req-no'}">${reqLabels[reqs.network?.level] || '-'}</td>
+                            </tr>
+                        </table>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px;">
+                            资金: ${reqs.capital?.desc || ''} | 技术: ${reqs.technique?.desc || ''} | 时间: ${reqs.time?.desc || ''} | 人脉: ${reqs.network?.desc || ''}
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px;">
+                        <div style="font-size: 0.9375rem; font-weight: 700; margin-bottom: 8px;">🎯 关键里程碑</div>
+                        <div class="milestone-list">${milestonesHtml}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+
+    // 滚动到路线区域
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    updateStepIndicator(3);
+}
+
+function toggleModule(moduleId) {
+    const card = document.getElementById(`module${moduleId}`);
+    card.classList.toggle('expanded');
+}
+
+function resetAnalysis() {
+    currentData = null;
+    selectedOptions = [];
+    document.getElementById('resultsSection').classList.remove('show');
+    document.getElementById('routeSection').classList.remove('show');
+    showInput();
+    updateStepIndicator(1);
+}
+</script>
+{% endblock %}

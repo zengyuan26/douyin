@@ -104,6 +104,11 @@ class SkillBridge:
         business_type: str,
         market_analyzer_output: Optional[dict] = None,
         skip_steps: Optional[List[str]] = None,
+        # 智能推断的额外信息
+        inferred_keywords: Optional[List[str]] = None,
+        inferred_target_audience: str = "",
+        inferred_content_direction: str = "",
+        inferred_content_focus: str = "",
     ) -> SkillExecutionResult:
         """
         执行关键词库生成 skill。
@@ -111,6 +116,12 @@ class SkillBridge:
         如果传入了 market_analyzer_output，会自动映射：
           step3_audience_segment   → keyword_library.input.paying_equals_using
           step4_search_journey    → keyword_library.input.search_journey
+
+        智能推断参数用于增强关键词库生成：
+          - inferred_keywords: 核心关键词列表，用于引导生成方向
+          - inferred_target_audience: 目标人群描述
+          - inferred_content_direction: 内容方向
+          - inferred_content_focus: 内容侧重
         """
         outputs = {}
         if market_analyzer_output:
@@ -121,6 +132,16 @@ class SkillBridge:
             "industry": industry,
             "business_type": business_type,
         }
+
+        # 添加智能推断信息（如果有）
+        if inferred_keywords:
+            manual_inputs["inferred_keywords"] = inferred_keywords
+        if inferred_target_audience:
+            manual_inputs["inferred_target_audience"] = inferred_target_audience
+        if inferred_content_direction:
+            manual_inputs["inferred_content_direction"] = inferred_content_direction
+        if inferred_content_focus:
+            manual_inputs["inferred_content_focus"] = inferred_content_focus
 
         return self._executor.execute_skill(
             "keyword_library_generator",
@@ -136,6 +157,11 @@ class SkillBridge:
         market_analyzer_output: Optional[dict] = None,
         content_stage: str = "成长阶段",
         skip_steps: Optional[List[str]] = None,
+        # 智能推断的额外信息
+        inferred_keywords: Optional[List[str]] = None,
+        inferred_target_audience: str = "",
+        inferred_content_direction: str = "",
+        inferred_content_focus: str = "",
     ) -> SkillExecutionResult:
         """
         执行选题库生成 skill。
@@ -145,7 +171,34 @@ class SkillBridge:
           market_analyzer.step6_search_journey   → input.search_journey
           keyword_library.blue_ocean.L2_long_tail → input.blue_ocean_long_tail
           keyword_library.priority_keywords       → input.priority_keywords
+
+        智能推断参数用于增强选题库生成：
+          - inferred_keywords: 核心关键词列表
+          - inferred_target_audience: 目标人群描述
+          - inferred_content_direction: 内容方向
+          - inferred_content_focus: 内容侧重
         """
+        # 如果 industry 为空，从 business_description 或 market_analyzer_output 推断
+        final_industry = industry
+        if not final_industry:
+            if business_description:
+                # 使用业务描述作为行业
+                final_industry = business_description
+            elif market_analyzer_output:
+                # 尝试从 market_analyzer 输出中获取行业信息
+                industry_data = market_analyzer_output.get('step1_industry_overview', {})
+                if industry_data:
+                    # 使用市场数据中的关键信息构建行业描述
+                    market_size = industry_data.get('market_size', '')
+                    key_players = industry_data.get('key_players', [])
+                    if key_players:
+                        final_industry = f"{key_players[0]}等行业（市场{market_size}）" if market_size else f"{key_players[0]}等行业"
+                    else:
+                        final_industry = market_size if market_size else "未知行业"
+            # 如果仍然是空的，尝试用 inferred_keywords
+            if not final_industry and inferred_keywords and len(inferred_keywords) > 0:
+                final_industry = inferred_keywords[0]
+
         outputs = {}
         if market_analyzer_output:
             outputs["market_analyzer"] = market_analyzer_output
@@ -155,10 +208,40 @@ class SkillBridge:
         manual_inputs = {
             "content_stage": content_stage,
         }
-        if industry:
-            manual_inputs["industry"] = industry
+        if final_industry:
+            manual_inputs["industry"] = final_industry
         if business_description:
             manual_inputs["business_description"] = business_description
+
+        # 手动传递蓝海长尾关键词（从关键词库输出）
+        if keyword_library_output:
+            blue_ocean_matrix = keyword_library_output.get('step_blue_ocean_matrix', keyword_library_output.get('blue_ocean_matrix', {}))
+            if blue_ocean_matrix:
+                l2_long_tail = blue_ocean_matrix.get('L2_long_tail', [])
+                if l2_long_tail:
+                    manual_inputs["blue_ocean_long_tail"] = l2_long_tail
+                # 也传递完整的蓝海矩阵
+                manual_inputs["blue_ocean_matrix"] = blue_ocean_matrix
+
+        # 从市场分析输出传递核心痛点
+        if market_analyzer_output:
+            # 从人群细分获取痛点
+            audience_data = market_analyzer_output.get('step3_audience_segment', {})
+            if isinstance(audience_data, dict):
+                paying_user = audience_data.get('paying_user', {})
+                concerns = paying_user.get('concerns', []) if isinstance(paying_user, dict) else []
+                if concerns:
+                    manual_inputs["core_pain_points"] = concerns
+
+        # 添加智能推断信息（如果有）
+        if inferred_keywords:
+            manual_inputs["inferred_keywords"] = inferred_keywords
+        if inferred_target_audience:
+            manual_inputs["inferred_target_audience"] = inferred_target_audience
+        if inferred_content_direction:
+            manual_inputs["inferred_content_direction"] = inferred_content_direction
+        if inferred_content_focus:
+            manual_inputs["inferred_content_focus"] = inferred_content_focus
 
         return self._executor.execute_skill(
             "topic_library_generator",
@@ -634,6 +717,11 @@ class SkillBridge:
         business_type: str,
         service_scenario: Optional[str] = None,
         content_stage: str = "成长阶段",
+        # 智能推断的额外信息
+        inferred_keywords: Optional[List[str]] = None,
+        inferred_target_audience: str = "",
+        inferred_content_direction: str = "",
+        inferred_content_focus: str = "",
     ) -> Dict[str, Any]:
         """
         执行完整流水线：市场分析 → 关键词库 → 选题库
@@ -661,17 +749,22 @@ class SkillBridge:
             logger.warning("[SkillBridge] 市场分析失败，终止流水线")
             return results
 
-        # Step 2: 关键词库（传入市场分析输出，自动数据映射）
+        # Step 2: 关键词库（传入市场分析输出和智能推断信息）
         logger.info("[SkillBridge] 执行关键词库生成...")
         keyword_result = self.execute_keyword_library(
             business_description=business_description,
             industry=industry,
             business_type=business_type,
             market_analyzer_output=market_result.full_output,
+            # 智能推断的额外信息，用于增强关键词库生成
+            inferred_keywords=inferred_keywords,
+            inferred_target_audience=inferred_target_audience,
+            inferred_content_direction=inferred_content_direction,
+            inferred_content_focus=inferred_content_focus,
         )
         results["keyword_library"] = keyword_result
 
-        # Step 3: 选题库（传入关键词库输出，自动数据映射）
+        # Step 3: 选题库（传入关键词库输出和智能推断信息）
         logger.info("[SkillBridge] 执行选题库生成...")
         topic_result = self.execute_topic_library(
             industry=industry,
@@ -679,6 +772,11 @@ class SkillBridge:
             keyword_library_output=keyword_result.full_output,
             market_analyzer_output=market_result.full_output,
             content_stage=content_stage,
+            # 智能推断的额外信息
+            inferred_keywords=inferred_keywords,
+            inferred_target_audience=inferred_target_audience,
+            inferred_content_direction=inferred_content_direction,
+            inferred_content_focus=inferred_content_focus,
         )
         results["topic_library"] = topic_result
 

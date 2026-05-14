@@ -136,6 +136,14 @@ def industry_delete(id):
 
 # ==================== 客户管理 ====================
 
+@admin.route('/customers')
+@login_required
+@super_admin_required
+def customers_page():
+    """客户管理页面"""
+    return render_template('admin/customers.html')
+
+
 @admin.route('/public/users')
 @login_required
 @super_admin_required

@@ -1,0 +1,969 @@
+{% extends "base.html" %}
+
+{% block title %}客户管理 - AI棱镜{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- 页面标题 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1" style="font-weight: 600; color: var(--color-text-primary);">客户管理</h4>
+                    <p class="text-muted mb-0">管理客户信息、业务档案、画像和生成记录</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="showCustomerModal()">
+                        <i class="bi bi-plus-lg me-1"></i> 新增客户
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-opacity-10 rounded-3 p-2">
+                                <i class="bi bi-building text-primary"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 text-muted small">客户总数</h6>
+                            <h4 class="mb-0" id="stat-total">-</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 rounded-3 p-2">
+                                <i class="bi bi-pie-chart text-success"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 text-muted small">行业覆盖</h6>
+                            <h4 class="mb-0" id="stat-industries">-</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 rounded-3 p-2">
+                                <i class="bi bi-person-badge text-info"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 text-muted small">总画像数</h6>
+                            <h4 class="mb-0" id="stat-portraits">-</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-opacity-10 rounded-3 p-2">
+                                <i class="bi bi-file-earmark-text text-warning"></i>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 text-muted small">总生成数</h6>
+                            <h4 class="mb-0" id="stat-generations">-</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 搜索和筛选 -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form id="search-form" class="row g-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" class="form-control" id="search-input" placeholder="搜索客户名称、品牌...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="industry-filter">
+                        <option value="">全部行业</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" id="status-filter">
+                        <option value="">全部状态</option>
+                        <option value="active" selected>活跃</option>
+                        <option value="inactive">已停用</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-primary me-2" onclick="loadCustomers(1)">
+                        <i class="bi bi-search me-1"></i> 搜索
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="resetSearch()">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> 重置
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 客户列表 -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">客户信息</th>
+                            <th style="width: 12%;">行业</th>
+                            <th style="width: 12%;">客户类型</th>
+                            <th style="width: 10%;">地域</th>
+                            <th style="width: 8%;">画像</th>
+                            <th style="width: 8%;">生成</th>
+                            <th style="width: 10%;">状态</th>
+                            <th style="width: 15%;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customer-list">
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                加载中...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div class="text-muted">
+                    共 <span id="total-count">0</span> 条记录
+                </div>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0" id="pagination">
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增/编辑客户弹窗 -->
+<div class="modal fade" id="customer-modal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-title">新增客户</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="customer-form">
+                    <input type="hidden" id="customer-id">
+
+                    <!-- 第一步：基础信息 -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-info-circle me-1"></i> 第一步：基础信息
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">客户名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="customer_name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">客户编码</label>
+                                <input type="text" class="form-control" id="customer_code" placeholder="选填，自动生成">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">客户类型 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="client_type" required>
+                                    <option value="">请选择</option>
+                                    <option value="product">卖货类</option>
+                                    <option value="service">服务类</option>
+                                    <option value="both">两者都有</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">行业 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="industry" placeholder="如：母婴、餐饮、美业" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">业务描述 <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="business_description" rows="2" placeholder="请描述您的核心业务..." required></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 第二步：地域信息 -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-geo-alt me-1"></i> 第二步：地域信息
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">地域范围 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="geographic_scope" required>
+                                    <option value="">请选择</option>
+                                    <option value="local">本地服务</option>
+                                    <option value="regional">跨区域服务</option>
+                                    <option value="global">全球/海外</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">目标城市</label>
+                                <input type="text" class="form-control" id="target_cities" placeholder="如：成都、重庆">
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="local_focus">
+                                    <label class="form-check-label" for="local_focus">
+                                        强调地域特色（本地商家）
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 第三步：品牌定位 -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-star me-1"></i> 第三步：品牌定位
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">品牌名称</label>
+                                <input type="text" class="form-control" id="brand_name" placeholder="您的品牌名称">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">品牌优先级</label>
+                                <select class="form-select" id="brand_priority">
+                                    <option value="">请选择</option>
+                                    <option value="personal">个人IP为主</option>
+                                    <option value="company">企业品牌为主</option>
+                                    <option value="both">均衡发展</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label d-block">品牌类型</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="personal_brand">
+                                    <label class="form-check-label" for="personal_brand">个人IP</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="company_brand">
+                                    <label class="form-check-label" for="company_brand">企业品牌</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 第四步：语言风格 -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-mic me-1"></i> 第四步：语言风格
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">主要语言</label>
+                                <select class="form-select" id="primary_language">
+                                    <option value="mandarin">普通话</option>
+                                    <option value="cantonese">粤语</option>
+                                    <option value="sichuan">四川话</option>
+                                    <option value="northeast">东北话</option>
+                                    <option value="shanghai">上海话/江浙话</option>
+                                    <option value="min">闽南语/福建话</option>
+                                    <option value="hokkien">台语</option>
+                                    <option value="other">其他方言</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">方言比例</label>
+                                <select class="form-select" id="dialect_ratio">
+                                    <option value="">不使用方言</option>
+                                    <option value="full">全方言（100%）</option>
+                                    <option value="dominant">为主（70%方言+30%普通话）</option>
+                                    <option value="accent">点缀（关键口播用方言）</option>
+                                    <option value="minimal">普通话为主（仅开头/结尾方言）</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 第五步：项目目标 -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-bullseye me-1"></i> 第五步：项目目标
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">主要目标</label>
+                                <select class="form-select" id="primary_goal">
+                                    <option value="">请选择</option>
+                                    <option value="traffic">流量获取</option>
+                                    <option value="brand">品牌曝光</option>
+                                    <option value="conversion">转化成交</option>
+                                    <option value="education">客户教育</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">预算范围</label>
+                                <select class="form-select" id="budget_level">
+                                    <option value="">请选择</option>
+                                    <option value="free">纯自然流（几乎无预算）</option>
+                                    <option value="low">低预算（1000-5000元/月）</option>
+                                    <option value="medium">中等预算（5000-20000元/月）</option>
+                                    <option value="high">高预算（20000元以上/月）</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">团队情况</label>
+                                <select class="form-select" id="has_team">
+                                    <option value="">请选择</option>
+                                    <option value="true">有专职团队</option>
+                                    <option value="false">暂无/兼职</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">内容产能</label>
+                                <select class="form-select" id="content_frequency">
+                                    <option value="">请选择</option>
+                                    <option value="daily">可日更</option>
+                                    <option value="weekly">周更2-3篇</option>
+                                    <option value="occasional">周更1篇或更少</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 第六步：联系信息 -->
+                    <div class="mb-4">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-person-lines-fill me-1"></i> 第六步：联系信息（选填）
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">联系人</label>
+                                <input type="text" class="form-control" id="contact_person">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">联系电话</label>
+                                <input type="text" class="form-control" id="contact_phone">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">邮箱</label>
+                                <input type="email" class="form-control" id="contact_email">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">微信</label>
+                                <input type="text" class="form-control" id="contact_wechat">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 备注 -->
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" id="notes" rows="2"></textarea>
+                    </div>
+
+                    <!-- 状态 -->
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="status" checked>
+                            <label class="form-check-label" for="status">
+                                客户状态（勾选为活跃）
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveCustomer()">
+                    <i class="bi bi-check-lg me-1"></i> 保存客户信息
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 客户详情弹窗 -->
+<div class="modal fade" id="detail-modal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">客户详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="detail-tabs">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-basic">基本信息</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-portraits">画像列表</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-generations">生成记录</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-activities">活动日志</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- 基本信息 -->
+                    <div class="tab-pane fade show active" id="tab-basic">
+                        <div class="row g-4" id="detail-content">
+                        </div>
+                    </div>
+
+                    <!-- 画像列表 -->
+                    <div class="tab-pane fade" id="tab-portraits">
+                        <div id="portrait-list" class="list-group">
+                        </div>
+                    </div>
+
+                    <!-- 生成记录 -->
+                    <div class="tab-pane fade" id="tab-generations">
+                        <div id="generation-list" class="list-group">
+                        </div>
+                    </div>
+
+                    <!-- 活动日志 -->
+                    <div class="tab-pane fade" id="tab-activities">
+                        <div id="activity-list" class="list-group">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+let currentCustomerId = null;
+let customerModal = null;
+let detailModal = null;
+
+$(document).ready(function() {
+    customerModal = new bootstrap.Modal(document.getElementById('customer-modal'));
+    detailModal = new bootstrap.Modal(document.getElementById('detail-modal'));
+
+    loadCustomers(1);
+    loadIndustries();
+});
+
+function loadIndustries() {
+    $.get('/api/admin/customers/industries', function(res) {
+        if (res.success) {
+            const select = $('#industry-filter');
+            res.data.forEach(function(industry) {
+                select.append($('<option>').val(industry).text(industry));
+            });
+        }
+    });
+}
+
+function loadCustomers(page) {
+    currentPage = page;
+    const search = $('#search-input').val();
+    const industry = $('#industry-filter').val();
+    const status = $('#status-filter').val();
+
+    $.get('/api/admin/customers', {
+        page: page,
+        page_size: 20,
+        search: search,
+        industry: industry,
+        status: status
+    }, function(res) {
+        if (res.success) {
+            renderCustomers(res.data.items);
+            renderPagination(res.data);
+            updateStats(res.data.items);
+        } else {
+            showToast('加载客户列表失败', 'danger');
+        }
+    });
+}
+
+function updateStats(items) {
+    let totalPortraits = 0;
+    let totalGenerations = 0;
+    const industries = new Set();
+
+    items.forEach(function(c) {
+        totalPortraits += c.portrait_count || 0;
+        totalGenerations += c.generation_count || 0;
+        if (c.industry) industries.add(c.industry);
+    });
+
+    $('#stat-portraits').text(totalPortraits);
+    $('#stat-generations').text(totalGenerations);
+    $('#stat-industries').text(industries.size);
+}
+
+function renderCustomers(customers) {
+    const tbody = $('#customer-list');
+
+    if (customers.length === 0) {
+        tbody.html('<tr><td colspan="8" class="text-center text-muted py-5">暂无数据</td></tr>');
+        return;
+    }
+
+    let html = '';
+    customers.forEach(function(c) {
+        html += `
+        <tr>
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-light rounded-3 p-2 text-center" style="width: 40px; height: 40px;">
+                            <i class="bi bi-building text-primary"></i>
+                        </div>
+                    </div>
+                    <div class="ms-3">
+                        <div class="fw-semibold">${c.customer_name}</div>
+                        <div class="text-muted small">${c.brand_name || '-'}</div>
+                    </div>
+                </div>
+            </td>
+            <td><span class="badge bg-light text-dark">${c.industry || '-'}</span></td>
+            <td>${getClientTypeText(c.client_type)}</td>
+            <td>${getScopeText(c.geographic_scope)}</td>
+            <td><span class="badge bg-primary">${c.portrait_count || 0}</span></td>
+            <td><span class="badge bg-info">${c.generation_count || 0}</span></td>
+            <td>${getStatusBadge(c.status)}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="viewCustomer(${c.id})">
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="editCustomer(${c.id})">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer(${c.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+        `;
+    });
+
+    tbody.html(html);
+}
+
+function renderPagination(data) {
+    $('#total-count').text(data.total);
+
+    const pagination = $('#pagination');
+    let html = '';
+
+    if (data.pages <= 1) {
+        pagination.html('');
+        return;
+    }
+
+    // 上一页
+    html += `<li class="page-item ${data.page <= 1 ? 'disabled' : ''}">
+        <a class="page-link" href="javascript:loadCustomers(${data.page - 1})">‹</a>
+    </li>`;
+
+    // 页码
+    for (let i = 1; i <= data.pages; i++) {
+        if (i === 1 || i === data.pages || (i >= data.page - 2 && i <= data.page + 2)) {
+            html += `<li class="page-item ${i === data.page ? 'active' : ''}">
+                <a class="page-link" href="javascript:loadCustomers(${i})">${i}</a>
+            </li>`;
+        } else if (i === data.page - 3 || i === data.page + 3) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+
+    // 下一页
+    html += `<li class="page-item ${data.page >= data.pages ? 'disabled' : ''}">
+        <a class="page-link" href="javascript:loadCustomers(${data.page + 1})">›</a>
+    </li>`;
+
+    pagination.html(html);
+}
+
+function resetSearch() {
+    $('#search-input').val('');
+    $('#industry-filter').val('');
+    $('#status-filter').val('active');
+    loadCustomers(1);
+}
+
+function showCustomerModal(isEdit) {
+    if (!isEdit) {
+        $('#customer-form')[0].reset();
+        $('#customer-id').val('');
+        $('#modal-title').text('新增客户');
+    }
+    customerModal.show();
+}
+
+function saveCustomer() {
+    const form = $('#customer-form')[0];
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const customerId = $('#customer-id').val();
+    const data = {
+        customer_name: $('#customer_name').val(),
+        customer_code: $('#customer_code').val(),
+        client_type: $('#client_type').val(),
+        industry: $('#industry').val(),
+        business_description: $('#business_description').val(),
+        geographic_scope: $('#geographic_scope').val(),
+        target_cities: $('#target_cities').val(),
+        local_focus: $('#local_focus').is(':checked'),
+        brand_name: $('#brand_name').val(),
+        brand_priority: $('#brand_priority').val(),
+        personal_brand: $('#personal_brand').is(':checked'),
+        company_brand: $('#company_brand').is(':checked'),
+        primary_language: $('#primary_language').val(),
+        dialect_ratio: $('#dialect_ratio').val(),
+        primary_goal: $('#primary_goal').val(),
+        budget_level: $('#budget_level').val(),
+        has_team: $('#has_team').val() === 'true' ? true : ($('#has_team').val() === 'false' ? false : null),
+        content_frequency: $('#content_frequency').val(),
+        contact_person: $('#contact_person').val(),
+        contact_phone: $('#contact_phone').val(),
+        contact_email: $('#contact_email').val(),
+        contact_wechat: $('#contact_wechat').val(),
+        notes: $('#notes').val(),
+        status: $('#status').is(':checked') ? 'active' : 'inactive'
+    };
+
+    const url = customerId
+        ? `/api/admin/customers/${customerId}`
+        : '/api/admin/customers';
+    const method = customerId ? 'PUT' : 'POST';
+
+    $.ajax({
+        url: url,
+        method: method,
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(res) {
+            if (res.success) {
+                showToast(customerId ? '客户更新成功' : '客户创建成功', 'success');
+                customerModal.hide();
+                loadCustomers(currentPage);
+            } else {
+                showToast(res.message || '保存失败', 'danger');
+            }
+        },
+        error: function() {
+            showToast('保存失败，请重试', 'danger');
+        }
+    });
+}
+
+function editCustomer(id) {
+    $.get(`/api/admin/customers/${id}`, function(res) {
+        if (res.success) {
+            const c = res.data;
+            $('#customer-id').val(c.id);
+            $('#customer_name').val(c.customer_name);
+            $('#customer_code').val(c.customer_code);
+            $('#client_type').val(c.client_type);
+            $('#industry').val(c.industry);
+            $('#business_description').val(c.business_description);
+            $('#geographic_scope').val(c.geographic_scope);
+            $('#target_cities').Array.from && $('#target_cities').val((c.target_cities || []).join(', '));
+            $('#local_focus').prop('checked', c.local_focus);
+            $('#brand_name').val(c.brand_name);
+            $('#brand_priority').val(c.brand_priority);
+            $('#personal_brand').prop('checked', c.personal_brand);
+            $('#company_brand').prop('checked', c.company_brand);
+            $('#primary_language').val(c.primary_language);
+            $('#dialect_ratio').val(c.dialect_ratio);
+            $('#primary_goal').val(c.primary_goal);
+            $('#budget_level').val(c.budget_level);
+            $('#has_team').val(c.has_team === true ? 'true' : (c.has_team === false ? 'false' : ''));
+            $('#content_frequency').val(c.content_frequency);
+            $('#contact_person').val(c.contact_person);
+            $('#contact_phone').val(c.contact_phone);
+            $('#contact_email').val(c.contact_email);
+            $('#contact_wechat').val(c.contact_wechat);
+            $('#notes').val(c.notes);
+            $('#status').prop('checked', c.status === 'active');
+
+            $('#modal-title').text('编辑客户');
+            customerModal.show();
+        }
+    });
+}
+
+function viewCustomer(id) {
+    currentCustomerId = id;
+    $.get(`/api/admin/customers/${id}?include_stats=true`, function(res) {
+        if (res.success) {
+            renderCustomerDetail(res.data);
+            detailModal.show();
+
+            // 加载子数据
+            loadCustomerPortraits(id);
+            loadCustomerGenerations(id);
+            loadCustomerActivities(id);
+        }
+    });
+}
+
+function renderCustomerDetail(c) {
+    let html = `
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-primary">基本信息</h6>
+                    <table class="table table-sm">
+                        <tr><td class="text-muted">客户名称</td><td>${c.customer_name}</td></tr>
+                        <tr><td class="text-muted">客户类型</td><td>${getClientTypeText(c.client_type)}</td></tr>
+                        <tr><td class="text-muted">行业</td><td>${c.industry}</td></tr>
+                        <tr><td class="text-muted">业务描述</td><td>${c.business_description || '-'}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-primary">地域与品牌</h6>
+                    <table class="table table-sm">
+                        <tr><td class="text-muted">地域范围</td><td>${getScopeText(c.geographic_scope)}</td></tr>
+                        <tr><td class="text-muted">品牌名称</td><td>${c.brand_name || '-'}</td></tr>
+                        <tr><td class="text-muted">品牌类型</td><td>${getBrandType(c)}</td></tr>
+                        <tr><td class="text-muted">语言风格</td><td>${getLanguageText(c.primary_language, c.dialect_ratio)}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-primary">项目目标</h6>
+                    <table class="table table-sm">
+                        <tr><td class="text-muted">主要目标</td><td>${getGoalText(c.primary_goal)}</td></tr>
+                        <tr><td class="text-muted">预算范围</td><td>${getBudgetText(c.budget_level)}</td></tr>
+                        <tr><td class="text-muted">团队情况</td><td>${c.has_team === true ? '有专职团队' : (c.has_team === false ? '暂无/兼职' : '-')}</td></tr>
+                        <tr><td class="text-muted">内容产能</td><td>${getFrequencyText(c.content_frequency)}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-primary">联系信息</h6>
+                    <table class="table table-sm">
+                        <tr><td class="text-muted">联系人</td><td>${c.contact_person || '-'}</td></tr>
+                        <tr><td class="text-muted">电话</td><td>${c.contact_phone || '-'}</td></tr>
+                        <tr><td class="text-muted">邮箱</td><td>${c.contact_email || '-'}</td></tr>
+                        <tr><td class="text-muted">微信</td><td>${c.contact_wechat || '-'}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    $('#detail-content').html(html);
+}
+
+function loadCustomerPortraits(customerId) {
+    $.get(`/api/admin/customers/${customerId}/portraits`, {page_size: 10}, function(res) {
+        if (res.success) {
+            let html = '';
+            if (res.data.items.length === 0) {
+                html = '<div class="text-center text-muted py-3">暂无画像</div>';
+            } else {
+                res.data.items.forEach(function(p) {
+                    html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">${p.portrait_name}</div>
+                                <div class="text-muted small">${p.industry} · ${p.target_customer || '-'}</div>
+                            </div>
+                            <span class="badge bg-primary">${p.used_count || 0}次使用</span>
+                        </div>
+                    </div>
+                    `;
+                });
+            }
+            $('#portrait-list').html(html);
+        }
+    });
+}
+
+function loadCustomerGenerations(customerId) {
+    $.get(`/api/admin/customers/${customerId}/generations`, {page_size: 10}, function(res) {
+        if (res.success) {
+            let html = '';
+            if (res.data.items.length === 0) {
+                html = '<div class="text-center text-muted py-3">暂无生成记录</div>';
+            } else {
+                res.data.items.forEach(function(g) {
+                    const date = g.created_at ? new Date(g.created_at).toLocaleDateString() : '-';
+                    html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">${g.content_type}</div>
+                                <div class="text-muted small">${g.industry || '-'} · ${date}</div>
+                            </div>
+                            ${g.quality_score ? `<span class="badge bg-success">评分: ${g.quality_score}</span>` : ''}
+                        </div>
+                    </div>
+                    `;
+                });
+            }
+            $('#generation-list').html(html);
+        }
+    });
+}
+
+function loadCustomerActivities(customerId) {
+    $.get(`/api/admin/customers/${customerId}/activities`, {page_size: 20}, function(res) {
+        if (res.success) {
+            let html = '';
+            if (res.data.items.length === 0) {
+                html = '<div class="text-center text-muted py-3">暂无活动记录</div>';
+            } else {
+                res.data.items.forEach(function(a) {
+                    const date = a.created_at ? new Date(a.created_at).toLocaleString() : '-';
+                    html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge bg-secondary">${a.activity_type}</span>
+                                <span class="ms-2">${a.activity_detail || ''}</span>
+                            </div>
+                            <small class="text-muted">${date}</small>
+                        </div>
+                    </div>
+                    `;
+                });
+            }
+            $('#activity-list').html(html);
+        }
+    });
+}
+
+function deleteCustomer(id) {
+    if (!confirm('确定要删除该客户吗？')) return;
+
+    $.ajax({
+        url: `/api/admin/customers/${id}`,
+        method: 'DELETE',
+        success: function(res) {
+            if (res.success) {
+                showToast('客户已删除', 'success');
+                loadCustomers(currentPage);
+            } else {
+                showToast(res.message || '删除失败', 'danger');
+            }
+        },
+        error: function() {
+            showToast('删除失败，请重试', 'danger');
+        }
+    });
+}
+
+// 辅助函数
+function getClientTypeText(type) {
+    const map = {product: '卖货类', service: '服务类', both: '两者都有'};
+    return map[type] || '-';
+}
+
+function getScopeText(scope) {
+    const map = {local: '本地', regional: '跨区域', global: '全球'};
+    return map[scope] || '-';
+}
+
+function getStatusBadge(status) {
+    if (status === 'active') {
+        return '<span class="badge bg-success">活跃</span>';
+    } else {
+        return '<span class="badge bg-secondary">停用</span>';
+    }
+}
+
+function getGoalText(goal) {
+    const map = {traffic: '流量获取', brand: '品牌曝光', conversion: '转化成交', education: '客户教育'};
+    return map[goal] || '-';
+}
+
+function getBudgetText(budget) {
+    const map = {free: '纯自然流', low: '低预算', medium: '中等预算', high: '高预算'};
+    return map[budget] || '-';
+}
+
+function getFrequencyText(freq) {
+    const map = {daily: '可日更', weekly: '周更2-3篇', occasional: '周更1篇'};
+    return map[freq] || '-';
+}
+
+function getLanguageText(lang, ratio) {
+    if (!lang || lang === 'mandarin') return '普通话';
+    const langMap = {cantonese: '粤语', sichuan: '四川话', northeast: '东北话', shanghai: '江浙话', min: '闽南语', hokkien: '台语'};
+    const ratioMap = {full: '全方言', dominant: '为主', accent: '点缀', minimal: '极少量'};
+    return `${langMap[lang] || lang}${ratio ? ' (' + (ratioMap[ratio] || ratio) + ')' : ''}`;
+}
+
+function getBrandType(c) {
+    const types = [];
+    if (c.personal_brand) types.push('个人IP');
+    if (c.company_brand) types.push('企业品牌');
+    return types.length > 0 ? types.join(' + ') : '-';
+}
+
+function showToast(message, type) {
+    const toast = $(`
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
+            <div class="toast show align-items-center text-white bg-${type} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        </div>
+    `);
+    $('body').append(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+{% endblock %}

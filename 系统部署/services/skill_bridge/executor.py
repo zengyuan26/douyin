@@ -217,8 +217,9 @@ class SkillExecutor:
         step_name = step.get("name", step_id)
 
         # 关键步骤列表（失败时自动重试）
-        critical_steps = ['step_generate_content', 'step_analyze_blue_ocean_scenes', 'step_extract_problem_types']
-        max_retries = 1  # 最多重试1次
+        critical_steps = ['step_generate_content', 'step_analyze_blue_ocean_scenes', 'step_extract_problem_types',
+                         'step_public_topics', 'step_portrait_topics', 'step_blue_ocean_matrix']
+        max_retries = 2  # 增加到2次重试
 
         last_result = None
         for attempt in range(max_retries + 1):
@@ -241,16 +242,34 @@ class SkillExecutor:
                 ])
             )
 
-            # 如果是关键步骤或网络错误，且还有重试机会，记录并重试
-            if (step_id in critical_steps or is_network_error) and attempt < max_retries:
-                retry_reason = '关键步骤' if step_id in critical_steps else '网络错误'
+            # 检查是否是约束验证警告（数量不足，可以重试）
+            has_constraint_warnings = (
+                result.validation_warnings and
+                any('数量不足' in w for w in result.validation_warnings)
+            )
+
+            # 如果是关键步骤或可修复的错误，且还有重试机会，记录并重试
+            should_retry = (
+                (step_id in critical_steps or is_network_error or has_constraint_warnings) and
+                attempt < max_retries
+            )
+
+            if should_retry:
+                retry_reason = []
+                if step_id in critical_steps:
+                    retry_reason.append('关键步骤')
+                if is_network_error:
+                    retry_reason.append('网络错误')
+                if has_constraint_warnings:
+                    retry_reason.append('约束验证警告')
+                retry_reason_str = '/'.join(retry_reason)
                 logger.warning(
-                    f"[SkillExecutor] step={step_id} 失败 ({retry_reason}): {result.error}, "
+                    f"[SkillExecutor] step={step_id} 失败 ({retry_reason_str}): {result.error}, "
                     f"自动重试 ({attempt + 1}/{max_retries})"
                 )
                 continue
 
-            # 非关键步骤且不是网络错误，无重试机会，直接返回失败结果
+            # 非关键步骤且不是可修复的错误，无重试机会，直接返回失败结果
             break
 
         return last_result

@@ -1200,3 +1200,72 @@ class PersonaPortrait(db.Model):
 
     def __repr__(self):
         return f'<PersonaPortrait {self.name}>'
+
+
+# ========== 蓝海分析模块 ==========
+
+class BlueOceanAnalysis(db.Model):
+    """蓝海分析报告表 - 一次性存储所有分析结果"""
+    __tablename__ = 'blue_ocean_analyses'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # 基础信息
+    name = db.Column(db.String(100))  # 报告名称
+    industry = db.Column(db.String(50))  # 行业
+    business_type = db.Column(db.String(20))  # 业务类型：toc/tob/both
+    status = db.Column(db.String(20), default='processing')  # 状态：processing/completed/failed
+    error_message = db.Column(db.Text)  # 错误信息
+
+    # 关联ID（兼容现有系统）
+    customer_profile_id = db.Column(db.Integer, db.ForeignKey('customer_profiles.id'))
+
+    # 一次性产出的完整数据（JSON）
+    industry_report = db.Column(db.JSON)  # 【行业分析报告】
+    blue_ocean_opportunities = db.Column(db.JSON)  # 【蓝海机会列表】
+    target_personas = db.Column(db.JSON)  # 【目标人群画像列表】
+    time_insights = db.Column(db.JSON)  # 【时间维度洞察】
+    keyword_library = db.Column(db.JSON)  # 【关键词库】
+    topic_library = db.Column(db.JSON)  # 【选题库】
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = db.relationship('User', backref='blue_ocean_analyses')
+
+    def __repr__(self):
+        return f'<BlueOceanAnalysis {self.id} {self.name}>'
+
+
+class OperationPlan(db.Model):
+    """运营规划表"""
+    __tablename__ = 'operation_plans'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    blue_ocean_id = db.Column(db.Integer, db.ForeignKey('blue_ocean_analyses.id'))
+
+    # 账号设计
+    account_name = db.Column(db.String(100))  # 账号昵称
+    account_bio = db.Column(db.Text)  # 账号简介
+    avatar_suggestion = db.Column(db.Text)  # 头像建议
+    content_tags = db.Column(db.JSON)  # 内容标签
+
+    # 内容配比
+    content_ratio = db.Column(db.JSON)  # 内容配比 JSON
+
+    # 运营规划完整内容
+    plan_content = db.Column(db.JSON)  # 运营规划完整方案
+
+    status = db.Column(db.String(20), default='draft')  # 状态
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = db.relationship('User', backref='operation_plans')
+    blue_ocean = db.relationship('BlueOceanAnalysis', backref='operation_plan')
+
+    def __repr__(self):
+        return f'<OperationPlan {self.id} {self.account_name}>'

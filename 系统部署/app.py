@@ -13,6 +13,12 @@ from flask_login import LoginManager
 from config import config, BASE_DIR
 from models.models import db, User, Expert, Skill, KnowledgeCategory, KnowledgeArticle, KnowledgeAnalysis, KnowledgeRule, KnowledgeAccount, KnowledgeAccountHistory
 
+# 导入客户管理模型
+from models.customer_models import Customer
+
+# 导入公开用户模型（需要在 Customer 之后导入以避免循环引用）
+from models.public_models import PublicUser, PublicGeneration, SavedPortrait
+
 # 配置日志
 logging.basicConfig(level=logging.DEBUG)
 
@@ -97,6 +103,30 @@ def create_app(config_name='default'):
     except Exception as e:
         logging.warning(f"人群画像 API 注册失败: {e}")
 
+    # 注册蓝海分析 API
+    try:
+        from routes.blue_ocean_api import blue_ocean_bp
+        app.register_blueprint(blue_ocean_bp)
+        logging.info("蓝海分析 API 已注册")
+    except Exception as e:
+        logging.warning(f"蓝海分析 API 注册失败: {e}")
+
+    # 注册全链路营销套件 API
+    try:
+        from routes.suite_api import suite_bp
+        app.register_blueprint(suite_bp)
+        logging.info("全链路营销套件 API 已注册")
+    except Exception as e:
+        logging.warning(f"全链路营销套件 API 注册失败: {e}")
+
+    # 注册运营规划 API
+    try:
+        from routes.operation_plan_api import operation_plan_bp
+        app.register_blueprint(operation_plan_bp)
+        logging.info("运营规划 API 已注册")
+    except Exception as e:
+        logging.warning(f"运营规划 API 注册失败: {e}")
+
     # 注册画像管理 API（保存/缓存/频率控制）
     try:
         from routes.portrait_api import portrait_bp as portrait_api_blueprint
@@ -121,6 +151,14 @@ def create_app(config_name='default'):
     except Exception as e:
         logging.warning(f"运营规划 API 注册失败: {e}")
 
+    # 注册客户管理 API
+    try:
+        from routes.customer_api import customer_bp as customer_api_blueprint
+        app.register_blueprint(customer_api_blueprint)
+        logging.info("客户管理 API 已注册")
+    except Exception as e:
+        logging.warning(f"客户管理 API 注册失败: {e}")
+
     # 注册短视频脚本生成增强 API
     try:
         from routes.script_api import script_bp as script_api_blueprint
@@ -128,6 +166,14 @@ def create_app(config_name='default'):
         logging.info("短视频脚本生成增强 API 已注册")
     except Exception as e:
         logging.warning(f"短视频脚本生成增强 API 注册失败: {e}")
+
+    # 注册决策成本诊断 API（现为商业模式设计）
+    try:
+        from routes.decision_cost_api import decision_cost_bp
+        app.register_blueprint(decision_cost_bp)
+        logging.info("商业模式设计 API 已注册")
+    except Exception as e:
+        logging.warning(f"商业模式设计 API 注册失败: {e}")
 
     # 初始化运营规划任务服务（后台执行器）
     try:

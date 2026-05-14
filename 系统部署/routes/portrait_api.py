@@ -80,10 +80,11 @@ def save_portrait(user):
     target_customer = data.get('target_customer')
     source_session_id = data.get('source_session_id')
     set_as_default = data.get('set_as_default', False)
-    
+    customer_id = data.get('customer_id')  # 客户关联ID
+
     # 调试日志
-    current_app.logger.info("[save_portrait] business_description=%s, industry=%s, target_customer=%s",
-        business_description, industry, target_customer)
+    current_app.logger.info("[save_portrait] business_description=%s, industry=%s, target_customer=%s, customer_id=%s",
+        business_description, industry, target_customer, customer_id)
     current_app.logger.info("[save_portrait] portrait_data keys=%s", list(portrait_data.keys()) if isinstance(portrait_data, dict) else type(portrait_data))
 
     # #region agent_debug_log
@@ -120,6 +121,7 @@ def save_portrait(user):
         target_customer=target_customer,
         source_session_id=source_session_id,
         set_as_default=set_as_default,
+        customer_id=customer_id,
     )
 
     if not success:

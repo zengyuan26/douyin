@@ -1,0 +1,1204 @@
+{% extends "public/public_layout.html" %}
+
+{% block title %}蓝海分析 - AI棱镜{% endblock %}
+
+{% block layout_extra_css %}
+<style>
+    /* ================================================
+       蓝海分析页面 - 表格化展示风格
+       ================================================ */
+    .blue-ocean-page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 28px 32px 40px;
+    }
+
+    /* 页面标题区 */
+    .page-hero {
+        background: linear-gradient(135deg, #EC4141 0%, #FF6B6B 100%);
+        border-radius: var(--radius-xl);
+        padding: 28px 32px;
+        margin-bottom: 24px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .page-hero::before {
+        content: '';
+        position: absolute;
+        top: -40%;
+        right: -5%;
+        width: 250px;
+        height: 250px;
+        background: rgba(255,255,255,0.08);
+        border-radius: 50%;
+    }
+
+    .page-hero-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .page-hero-subtitle {
+        font-size: 0.9375rem;
+        opacity: 0.9;
+    }
+
+    /* 步骤1表单 */
+    .step1-section {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        padding: 28px 32px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--apple-gray5);
+        margin-bottom: 24px;
+    }
+
+    .step1-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .step-badge {
+        width: 36px;
+        height: 36px;
+        background: var(--netease-red);
+        color: white;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1rem;
+    }
+
+    .step-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+
+    .form-textarea {
+        width: 100%;
+        min-height: 120px;
+        padding: 14px 16px;
+        border: 1px solid var(--apple-gray4);
+        border-radius: var(--radius-md);
+        font-size: 0.9375rem;
+        line-height: 1.6;
+        resize: vertical;
+        background: var(--bg-primary);
+    }
+
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--netease-red);
+        box-shadow: 0 0 0 3px rgba(236, 65, 65, 0.12);
+    }
+
+    .radio-group {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .radio-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        padding: 10px 18px;
+        background: var(--apple-gray6);
+        border-radius: var(--radius-md);
+        border: 1px solid transparent;
+        transition: all 0.15s;
+    }
+
+    .radio-item:hover {
+        background: var(--apple-gray5);
+    }
+
+    .radio-item input[type="radio"] {
+        accent-color: var(--netease-red);
+    }
+
+    .radio-item span {
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 28px;
+        background: var(--netease-red);
+        color: white;
+        border: none;
+        border-radius: var(--radius-md);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .btn-primary:hover {
+        background: var(--netease-red-hover);
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* 步骤2 */
+    .step2-section {
+        display: none;
+    }
+
+    .step2-section.active {
+        display: block;
+    }
+
+    /* 加载状态 */
+    .loading-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--apple-gray5);
+    }
+
+    .loading-spinner {
+        width: 48px;
+        height: 48px;
+        border: 3px solid var(--apple-gray5);
+        border-top-color: var(--netease-red);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .loading-hint {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-top: 6px;
+    }
+
+    /* 通用卡片区块 */
+    .data-section {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        margin-bottom: 20px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--apple-gray5);
+        overflow: hidden;
+    }
+
+    .section-header {
+        padding: 16px 24px;
+        background: linear-gradient(135deg, rgba(236, 65, 65, 0.06) 0%, rgba(255, 107, 107, 0.06) 100%);
+        border-bottom: 1px solid var(--apple-gray5);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .section-icon {
+        width: 36px;
+        height: 36px;
+        background: var(--netease-red);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1rem;
+    }
+
+    .section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .section-body {
+        padding: 20px 24px;
+    }
+
+    /* 表格样式 */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9375rem;
+    }
+
+    .data-table th {
+        background: var(--apple-gray6);
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid var(--apple-gray5);
+    }
+
+    .data-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--apple-gray5);
+        vertical-align: top;
+    }
+
+    .data-table tr:hover td {
+        background: rgba(236, 65, 65, 0.03);
+    }
+
+    .data-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .table-label {
+        font-weight: 600;
+        color: var(--text-primary);
+        white-space: nowrap;
+    }
+
+    .table-value {
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    /* 指标徽章 */
+    .metric-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .metric-badge.high {
+        background: rgba(52, 199, 89, 0.12);
+        color: #34C759;
+    }
+
+    .metric-badge.medium {
+        background: rgba(255, 149, 0, 0.12);
+        color: var(--apple-orange);
+    }
+
+    .metric-badge.low {
+        background: rgba(255, 59, 48, 0.12);
+        color: var(--apple-red);
+    }
+
+    .metric-badge.stars {
+        background: rgba(255, 184, 0, 0.12);
+        color: #FFB800;
+        letter-spacing: 1px;
+    }
+
+    .metric-badge.neutral {
+        background: var(--apple-gray6);
+        color: var(--text-secondary);
+    }
+
+    /* 机会卡片 */
+    .opportunity-table {
+        margin-top: 0;
+    }
+
+    .opportunity-row {
+        display: grid;
+        grid-template-columns: 60px 1fr 140px;
+        gap: 16px;
+        padding: 20px;
+        border-bottom: 1px solid var(--apple-gray5);
+        align-items: start;
+    }
+
+    .opportunity-row:last-child {
+        border-bottom: none;
+    }
+
+    .opportunity-row:hover {
+        background: rgba(236, 65, 65, 0.02);
+    }
+
+    .opportunity-num {
+        width: 44px;
+        height: 44px;
+        background: linear-gradient(135deg, var(--netease-red) 0%, #FF6B6B 100%);
+        color: white;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.125rem;
+    }
+
+    .opportunity-info h4 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 10px;
+    }
+
+    .opportunity-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .opportunity-desc {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .opportunity-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+        border: none;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .action-btn.primary {
+        background: var(--netease-red);
+        color: white;
+    }
+
+    .action-btn.primary:hover {
+        background: var(--netease-red-hover);
+    }
+
+    .action-btn.secondary {
+        background: var(--apple-gray6);
+        color: var(--text-primary);
+        border: 1px solid var(--apple-gray4);
+    }
+
+    .action-btn.secondary:hover {
+        border-color: var(--netease-red);
+        color: var(--netease-red);
+    }
+
+    /* 关键词/选题标签 */
+    .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .tag-item {
+        padding: 6px 14px;
+        background: linear-gradient(135deg, rgba(236, 65, 65, 0.08) 0%, rgba(255, 107, 107, 0.08) 100%);
+        border: 1px solid rgba(236, 65, 65, 0.15);
+        border-radius: 20px;
+        font-size: 0.8125rem;
+        color: var(--netease-red);
+        font-weight: 500;
+    }
+
+    /* 行业分析详情 */
+    .industry-block {
+        margin-bottom: 24px;
+    }
+
+    .industry-block:last-child {
+        margin-bottom: 0;
+    }
+
+    .industry-block h4 {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--netease-red);
+        display: inline-block;
+    }
+
+    .industry-block ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+
+    .industry-block li {
+        margin-bottom: 8px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .industry-block li strong {
+        color: var(--text-primary);
+    }
+
+    .industry-block p {
+        color: var(--text-secondary);
+        line-height: 1.7;
+    }
+
+    /* 时间洞察 */
+    .insight-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+    }
+
+    .insight-card {
+        background: var(--apple-gray6);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        text-align: center;
+    }
+
+    .insight-value {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 6px;
+    }
+
+    .insight-label {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+    }
+
+    /* 目标人群 */
+    .persona-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .persona-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        background: linear-gradient(135deg, rgba(236, 65, 65, 0.06) 0%, rgba(255, 107, 107, 0.06) 100%);
+        border: 1px solid rgba(236, 65, 65, 0.15);
+        border-radius: 24px;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+    }
+
+    .persona-tag strong {
+        color: var(--netease-red);
+    }
+
+    /* 模态框 */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1050;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.show {
+        display: flex;
+    }
+
+    .modal-content {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        max-width: 560px;
+        width: 90%;
+        max-height: 70vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .modal-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--apple-gray5);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--apple-gray6);
+    }
+
+    .modal-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .modal-title i {
+        color: var(--netease-red);
+    }
+
+    .modal-close {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: var(--apple-gray5);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        color: var(--text-secondary);
+    }
+
+    .modal-close:hover {
+        background: var(--netease-red);
+        color: white;
+    }
+
+    .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+    }
+
+    .modal-item {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--apple-gray5);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-item:last-child {
+        border-bottom: none;
+    }
+
+    .modal-item-text {
+        color: var(--text-primary);
+    }
+
+    .modal-item-type {
+        font-size: 0.75rem;
+        color: var(--netease-red);
+        background: rgba(236, 65, 65, 0.1);
+        padding: 2px 8px;
+        border-radius: 4px;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+        .blue-ocean-page {
+            padding: 20px 16px 32px;
+        }
+
+        .page-hero {
+            padding: 20px 20px;
+        }
+
+        .page-hero-title {
+            font-size: 1.25rem;
+        }
+
+        .step1-section,
+        .section-body {
+            padding: 20px 16px;
+        }
+
+        .insight-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .opportunity-row {
+            grid-template-columns: 1fr;
+        }
+
+        .opportunity-num {
+            width: 36px;
+            height: 36px;
+            font-size: 0.9375rem;
+        }
+
+        .opportunity-actions {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .opportunity-actions .action-btn {
+            flex: 1;
+            min-width: 80px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="blue-ocean-page">
+    <!-- 页面标题 -->
+    <div class="page-hero">
+        <h1 class="page-hero-title">
+            <i class="bi bi-compass"></i>
+            蓝海分析报告
+        </h1>
+        <p class="page-hero-subtitle">智能挖掘抖音蓝海机会，发现高增长内容赛道</p>
+    </div>
+
+    <!-- 步骤1：输入表单 -->
+    <section id="step1" class="step1-section">
+        <div class="step1-header">
+            <div class="step-badge">1</div>
+            <h2 class="step-title">描述你的业务</h2>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">业务描述</label>
+            <textarea id="business-description"
+                      class="form-textarea"
+                      placeholder="请描述你的业务，例如：&#10;• 我是做婴幼儿奶粉的，主要面向0-3岁宝宝家庭，在成都地区销售&#10;• 我有一家家政公司，主要提供保洁、保姆服务，在武汉经营&#10;• 我销售定制矿泉水，主要面向企业客户，全国范围"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">业务类型</label>
+            <div class="radio-group">
+                <label class="radio-item">
+                    <input type="radio" name="biz-type" value="toc" checked>
+                    <span>To C（面向消费者）</span>
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="biz-type" value="tob">
+                    <span>To B（面向企业）</span>
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="biz-type" value="both">
+                    <span>两者都有</span>
+                </label>
+            </div>
+        </div>
+
+        <button id="btn-start" class="btn-primary" onclick="startBlueOceanAnalysis()">
+            <i class="bi bi-rocket-takeoff"></i>
+            开始蓝海分析
+        </button>
+    </section>
+
+    <!-- 步骤2：结果展示 -->
+    <section id="step2" class="step2-section">
+        <!-- 加载状态 -->
+        <div id="loading-state" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">正在生成蓝海分析报告...</p>
+            <p class="loading-hint">这可能需要几分钟，请耐心等待</p>
+        </div>
+
+        <!-- 分析结果 -->
+        <div id="result-content" style="display: none;">
+            <!-- 蓝海机会 -->
+            <div class="data-section">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <i class="bi bi-lightbulb-fill"></i>
+                    </div>
+                    <h2 class="section-title">蓝海机会</h2>
+                </div>
+                <div class="section-body" id="opportunities-list"></div>
+            </div>
+
+            <!-- 行业分析 -->
+            <div class="data-section">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <i class="bi bi-bar-chart-fill"></i>
+                    </div>
+                    <h2 class="section-title">行业分析报告</h2>
+                </div>
+                <div class="section-body" id="industry-report"></div>
+            </div>
+
+            <!-- 时间洞察 -->
+            <div class="data-section">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <i class="bi bi-calendar-event-fill"></i>
+                    </div>
+                    <h2 class="section-title">时间洞察</h2>
+                </div>
+                <div class="section-body">
+                    <div class="insight-grid" id="time-insights"></div>
+                </div>
+            </div>
+
+            <!-- 关键词库 -->
+            <div class="data-section">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <i class="bi bi-key-fill"></i>
+                    </div>
+                    <h2 class="section-title">关键词库</h2>
+                </div>
+                <div class="section-body" id="keyword-library"></div>
+            </div>
+
+            <!-- 选题库 -->
+            <div class="data-section">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <i class="bi bi-journal-text"></i>
+                    </div>
+                    <h2 class="section-title">选题库</h2>
+                </div>
+                <div class="section-body" id="topic-library"></div>
+            </div>
+
+            <!-- 目标人群 -->
+            <div class="data-section" id="persona-section" style="display: none;">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                    <h2 class="section-title">目标人群</h2>
+                </div>
+                <div class="section-body">
+                    <div class="persona-tags" id="persona-tags"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- 指标详情模态框 -->
+<div class="modal-overlay" id="metric-detail-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="metric-detail-title">
+                <i class="bi bi-info-circle-fill"></i>
+                指标详情
+            </h3>
+            <button class="modal-close" onclick="closeMetricDetail()">×</button>
+        </div>
+        <div class="modal-body" id="metric-detail-body"></div>
+    </div>
+</div>
+
+<!-- 关键词库模态框 -->
+<div class="modal-overlay" id="keyword-modal">
+    <div class="modal-content" style="max-width: 640px;">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="bi bi-key-fill"></i>
+                关键词库
+            </h3>
+            <button class="modal-close" onclick="closeKeywordModal()">×</button>
+        </div>
+        <div class="modal-body" id="keyword-modal-content"></div>
+    </div>
+</div>
+
+<!-- 选题库模态框 -->
+<div class="modal-overlay" id="topic-modal">
+    <div class="modal-content" style="max-width: 640px;">
+        <div class="modal-header">
+            <h3 class="modal-title">
+                <i class="bi bi-journal-text"></i>
+                选题库
+            </h3>
+            <button class="modal-close" onclick="closeTopicModal()">×</button>
+        </div>
+        <div class="modal-body" id="topic-modal-content"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block layout_extra_js %}
+<script>
+let currentAnalysisId = null;
+let currentData = null;
+
+async function startBlueOceanAnalysis() {
+    const description = document.getElementById('business-description').value.trim();
+    const bizType = document.querySelector('input[name="biz-type"]:checked').value;
+
+    if (!description) {
+        alert('请描述你的业务');
+        return;
+    }
+
+    const btn = document.getElementById('btn-start');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="loading-spinner" style="width:16px;height:16px;border-width:2px;border-top-color:white;"></div> 分析中...';
+
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').classList.add('active');
+    document.getElementById('loading-state').style.display = 'block';
+    document.getElementById('result-content').style.display = 'none';
+
+    try {
+        const resp = await fetch('/public/api/blue-ocean/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                description: description,
+                business_type: bizType
+            })
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+            currentAnalysisId = data.data.id;
+            pollAnalysisResult(data.data.id);
+        } else {
+            alert('分析失败: ' + data.message);
+            location.reload();
+        }
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+        location.reload();
+    }
+}
+
+async function pollAnalysisResult(id) {
+    const poll = async function() {
+        try {
+            const resp = await fetch('/public/api/blue-ocean/' + id, {
+                credentials: 'include'
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                if (data.data.status === 'completed') {
+                    currentData = data.data;
+                    renderAnalysisResult(data.data);
+                    document.getElementById('loading-state').style.display = 'none';
+                    document.getElementById('result-content').style.display = 'block';
+                } else if (data.data.status === 'failed') {
+                    alert('分析失败，请重试');
+                    location.reload();
+                } else {
+                    setTimeout(poll, 3000);
+                }
+            }
+        } catch (e) {
+            console.error('轮询失败:', e);
+            setTimeout(poll, 5000);
+        }
+    };
+    poll();
+}
+
+function renderAnalysisResult(data) {
+    renderOpportunities(data.blue_ocean_opportunities);
+    renderIndustryReport(data.industry_report);
+    renderTimeInsights(data.time_insights);
+    renderKeywordLibrary(data.keyword_library);
+    renderTopicLibrary(data.topic_library);
+    renderPersonaBrief(data.target_personas);
+}
+
+function renderOpportunities(opportunities) {
+    const container = document.getElementById('opportunities-list');
+    if (!opportunities || !opportunities.length) {
+        container.innerHTML = '<p style="color:var(--text-secondary);text-align:center;padding:40px;">暂无数据</p>';
+        return;
+    }
+
+    let html = '';
+    opportunities.forEach(function(opp, index) {
+        const stars = '★'.repeat(opp.blue_ocean_score || 3) + '☆'.repeat(5 - (opp.blue_ocean_score || 3));
+        const dcClass = opp.decision_cost === '高' ? 'high' : (opp.decision_cost === '中' ? 'medium' : 'low');
+        
+        html += 
+            '<div class="opportunity-row">' +
+                '<div class="opportunity-num">' + (index + 1) + '</div>' +
+                '<div class="opportunity-info">' +
+                    '<h4>' + (opp.name || '未命名机会') + '</h4>' +
+                    '<div class="opportunity-meta">' +
+                        '<span class="metric-badge ' + dcClass + '" onclick="showMetricDetail(\'decision_cost\', \'' + (opp.decision_cost || '中') + '\', \'' + (opp.decision_cost_desc || '') + '\')">决策成本: ' + (opp.decision_cost || '中') + '</span>' +
+                        '<span class="metric-badge stars" onclick="showMetricDetail(\'blue_ocean_score\', \'' + stars + '\', \'' + (opp.blue_ocean_score_desc || '') + '\')">蓝海指数: ' + stars + '</span>' +
+                        '<span class="metric-badge neutral" onclick="showMetricDetail(\'supply_demand\', \'' + (opp.supply_demand || '供需平衡') + '\', \'' + (opp.supply_demand_desc || '') + '\')">供需: ' + (opp.supply_demand || '供需平衡') + '</span>' +
+                    '</div>' +
+                    '<div class="opportunity-desc"><strong>未满足问题：</strong>' + (opp.unmet_problem || '暂无') + '</div>' +
+                    '<div class="opportunity-desc" style="margin-top:8px;"><strong>切入角度：</strong>' + (opp.entry_angle || '暂无') + '</div>' +
+                '</div>' +
+                '<div class="opportunity-actions">' +
+                    '<button class="action-btn primary" onclick="goToTopicList()"><i class="bi bi-play-fill"></i> 选题创作</button>' +
+                    '<button class="action-btn secondary" onclick="showKeywordModal()"><i class="bi bi-key"></i> 关键词库</button>' +
+                    '<button class="action-btn secondary" onclick="showTopicModal()"><i class="bi bi-journal-text"></i> 选题库</button>' +
+                '</div>' +
+            '</div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function renderIndustryReport(report) {
+    const container = document.getElementById('industry-report');
+    if (!report || !Object.keys(report).length) {
+        container.innerHTML = '<p style="color:var(--text-secondary);">暂无数据</p>';
+        return;
+    }
+
+    let html = '';
+
+    if (report.overview) {
+        html += '<div class="industry-block"><h4>行业概况</h4><p>' + report.overview + '</p></div>';
+    }
+
+    if (report.upstream_downstream) {
+        const ud = report.upstream_downstream;
+        html += '<div class="industry-block"><h4>行业生态上下游</h4><ul>';
+        if (ud.upstream) html += '<li><strong>上游：</strong>' + ud.upstream + '</li>';
+        if (ud.midstream) html += '<li><strong>中游：</strong>' + ud.midstream + '</li>';
+        if (ud.downstream) html += '<li><strong>下游：</strong>' + ud.downstream + '</li>';
+        html += '</ul></div>';
+    }
+
+    if (report.competition) {
+        const comp = report.competition;
+        html += '<div class="industry-block"><h4>竞争格局</h4>';
+        if (comp.main_competitors) {
+            const competitors = Array.isArray(comp.main_competitors) ? comp.main_competitors.join('、') : comp.main_competitors;
+            html += '<p><strong>主要竞争对手：</strong>' + competitors + '</p>';
+        }
+        if (comp.differential_analysis) html += '<p><strong>差异化分析：</strong>' + comp.differential_analysis + '</p>';
+        if (comp.market_gaps) {
+            const gaps = Array.isArray(comp.market_gaps) ? comp.market_gaps.join('、') : comp.market_gaps;
+            html += '<p><strong>市场空白：</strong>' + gaps + '</p>';
+        }
+        html += '</div>';
+    }
+
+    if (report.search_behavior) {
+        const sb = report.search_behavior;
+        html += '<div class="industry-block"><h4>用户搜索行为</h4>';
+        if (sb.pre_search) html += '<p><strong>购买前：</strong>' + sb.pre_search + '</p>';
+        if (sb.post_search) html += '<p><strong>购买后：</strong>' + sb.post_search + '</p>';
+        html += '</div>';
+    }
+
+    container.innerHTML = html || '<p style="color:var(--text-secondary);">暂无数据</p>';
+}
+
+function renderTimeInsights(insights) {
+    const container = document.getElementById('time-insights');
+    if (!insights) {
+        container.innerHTML = '<p style="color:var(--text-secondary);">暂无数据</p>';
+        return;
+    }
+
+    container.innerHTML = 
+        '<div class="insight-card"><div class="insight-value">' + (insights.current_date || '-') + '</div><div class="insight-label">当前时间</div></div>' +
+        '<div class="insight-card"><div class="insight-value">' + (insights.season || '-') + '</div><div class="insight-label">季节特征</div></div>' +
+        '<div class="insight-card"><div class="insight-value">' + (insights.content_direction || '-') + '</div><div class="insight-label">内容方向</div></div>';
+}
+
+function renderKeywordLibrary(library) {
+    const container = document.getElementById('keyword-library');
+    if (!library || !library.public_keywords || !library.public_keywords.length) {
+        container.innerHTML = '<p style="color:var(--text-secondary);">暂无数据</p>';
+        return;
+    }
+
+    const keywords = library.public_keywords;
+    let html = '<div class="tag-list">';
+    keywords.forEach(function(kw) {
+        const text = typeof kw === 'string' ? kw : kw.keyword || '';
+        html += '<span class="tag-item">' + text + '</span>';
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function renderTopicLibrary(library) {
+    const container = document.getElementById('topic-library');
+    if (!library || !library.public_topics || !library.public_topics.length) {
+        container.innerHTML = '<p style="color:var(--text-secondary);">暂无数据</p>';
+        return;
+    }
+
+    const topics = library.public_topics;
+    let html = '<div class="tag-list">';
+    topics.forEach(function(tp) {
+        const text = typeof tp === 'string' ? tp : tp.topic || '';
+        html += '<span class="tag-item">' + text + '</span>';
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function renderPersonaBrief(personas) {
+    const section = document.getElementById('persona-section');
+    const container = document.getElementById('persona-tags');
+
+    if (!personas || !personas.length) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = 'block';
+    let html = '';
+    personas.forEach(function(p) {
+        const name = p.name || '画像';
+        const painPoints = p.specific_pain_points || [];
+        if (painPoints.length) {
+            html += '<span class="persona-tag"><strong>' + name + '</strong>：' + painPoints.slice(0, 3).join('、') + '</span>';
+        } else {
+            html += '<span class="persona-tag"><strong>' + name + '</strong></span>';
+        }
+    });
+    container.innerHTML = html;
+}
+
+function showMetricDetail(type, value, description) {
+    const titles = {
+        'decision_cost': '决策成本分析',
+        'blue_ocean_score': '蓝海指数分析',
+        'supply_demand': '供需分析'
+    };
+
+    document.getElementById('metric-detail-title').innerHTML = '<i class="bi bi-info-circle-fill"></i>' + (titles[type] || '指标详情');
+    document.getElementById('metric-detail-body').innerHTML = 
+        '<p><strong>当前值：</strong>' + value + '</p>' +
+        '<p style="margin-top:12px;"><strong>详细说明：</strong></p>' +
+        '<p>' + (description || '暂无详细说明') + '</p>';
+    document.getElementById('metric-detail-modal').classList.add('show');
+}
+
+function closeMetricDetail() {
+    document.getElementById('metric-detail-modal').classList.remove('show');
+}
+
+function showKeywordModal() {
+    if (!currentData || !currentData.keyword_library) return;
+    const library = currentData.keyword_library;
+    const keywords = library.public_keywords || [];
+
+    let html = '';
+    if (keywords.length) {
+        keywords.forEach(function(kw) {
+            const text = typeof kw === 'string' ? kw : kw.keyword || '';
+            const type = typeof kw === 'object' ? kw.type || '' : '';
+            html += '<div class="modal-item"><span class="modal-item-text">' + text + '</span>' + 
+                   (type ? '<span class="modal-item-type">' + type + '</span>' : '') + '</div>';
+        });
+    } else {
+        html = '<p style="color:var(--text-secondary);">暂无关键词</p>';
+    }
+
+    document.getElementById('keyword-modal-content').innerHTML = html;
+    document.getElementById('keyword-modal').classList.add('show');
+}
+
+function closeKeywordModal() {
+    document.getElementById('keyword-modal').classList.remove('show');
+}
+
+function showTopicModal() {
+    if (!currentData || !currentData.topic_library) return;
+    const library = currentData.topic_library;
+    const topics = library.public_topics || [];
+
+    let html = '';
+    if (topics.length) {
+        topics.forEach(function(tp) {
+            const text = typeof tp === 'string' ? tp : tp.topic || '';
+            const type = typeof tp === 'object' ? tp.type || '' : '';
+            html += '<div class="modal-item"><span class="modal-item-text">' + text + '</span>' +
+                   (type ? '<span class="modal-item-type">' + type + '</span>' : '') + '</div>';
+        });
+    } else {
+        html = '<p style="color:var(--text-secondary);">暂无选题</p>';
+    }
+
+    document.getElementById('topic-modal-content').innerHTML = html;
+    document.getElementById('topic-modal').classList.add('show');
+}
+
+function closeTopicModal() {
+    document.getElementById('topic-modal').classList.remove('show');
+}
+
+function goToTopicList() {
+    if (!currentAnalysisId) {
+        alert('请先完成蓝海分析');
+        return;
+    }
+    location.href = '/public/topic-list?analysis_id=' + currentAnalysisId;
+}
+
+// 点击模态框外部关闭
+document.addEventListener('click', function(e) {
+    const modals = ['metric-detail-modal', 'keyword-modal', 'topic-modal'];
+    modals.forEach(function(id) {
+        if (e.target.id === id) {
+            document.getElementById(id).classList.remove('show');
+        }
+    });
+});
+
+// ESC键关闭
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.show').forEach(function(m) {
+            m.classList.remove('show');
+        });
+    }
+});
+</script>
+{% endblock %}

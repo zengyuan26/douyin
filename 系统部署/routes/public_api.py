@@ -246,6 +246,24 @@ def portraits_page():
     return render_template('public/portraits.html')
 
 
+@public_bp.route('/decision-cost')
+def decision_cost_page():
+    """商业模式设计页"""
+    return render_template('public/decision_cost.html')
+
+
+@public_bp.route('/blue-ocean')
+def blue_ocean_page():
+    """蓝海分析页"""
+    return render_template('public/blue_ocean.html')
+
+
+@public_bp.route('/blue-ocean/<int:analysis_id>/operation-plan')
+def blue_ocean_operation_plan_page(analysis_id):
+    """蓝海分析-运营规划页"""
+    return render_template('public/blue_ocean.html', analysis_id=analysis_id)
+
+
 @public_bp.route('/portraits/create')
 def portraits_create_page():
     """生成画像独立页面（无客户画像/为你推荐）"""
@@ -373,6 +391,39 @@ def api_logout():
     """用户登出"""
     session.pop('public_user_id', None)
     return jsonify({'success': True, 'message': '已退出登录'})
+
+
+@public_bp.route('/api/check-auth', methods=['GET'])
+def api_check_auth():
+    """检查用户登录状态"""
+    public_user_id = session.get('public_user_id')
+    if not public_user_id:
+        return jsonify({'success': False, 'message': '未登录'})
+
+    # 获取用户信息
+    user = PublicUser.query.get(public_user_id)
+    if not user:
+        session.pop('public_user_id', None)
+        return jsonify({'success': False, 'message': '用户不存在'})
+
+    # 获取配额信息
+    quota_info = quota_manager.get_user_quota_info(user)
+    feature_access = quota_manager.get_feature_access(user)
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'id': user.id,
+            'email': user.email,
+            'nickname': user.nickname or '',
+            'avatar': user.avatar or '',
+            'plan_type': user.premium_plan or 'free',
+            'plan_name': quota_info.get('plan_name', '免费版'),
+            'is_premium': user.is_premium,
+            'quota': quota_info,
+            'features': feature_access
+        }
+    })
 
 
 @public_bp.route('/api/verify-email', methods=['POST'])
@@ -1043,6 +1094,7 @@ def api_save_portrait():
     set_as_default = params.get('set_as_default', False)
     keyword_library = params.get('keyword_library', None)  # 前端传递的关键词库
     problem_types = params.get('problem_types', [])       # 前端传递的问题类型
+    customer_id = params.get('customer_id')               # 关联客户ID
     
     if not portrait_data:
         return jsonify({'success': False, 'message': '画像数据不能为空'}), 400
@@ -1071,6 +1123,7 @@ def api_save_portrait():
     # 插入新记录
     new_portrait = SavedPortrait(
         user_id=user.id,
+        customer_id=customer_id,
         portrait_data=portrait_data,
         portrait_name=portrait_name,
         business_description=business_description,
@@ -6773,6 +6826,315 @@ def api_market_analyze_opportunities():
 
 
 # =============================================================================
+# 一键分析 API - 一次性完成蓝海分析+关键词库+选题库
+# =============================================================================
+
+@public_bp.route('/api/market/one_key_analyze', methods=['POST'])
+def api_market_one_key_analyze():
+    """
+    一键分析 - 一次性完成蓝海分析、关键词库、选题库
+
+    POST /public/api/market/one_key_analyze
+    Body: {
+        business_description: str,   # 业务描述
+        industry: str,              # 行业（可选，从业务描述提取）
+        business_type: str,         # 经营类型：product/local_service/personal/enterprise
+        business_range: str,        # 经营范围：cross_region/local
+        local_city: str,            # 本地城市（可选）
+        service_scenario: str,      # 服务场景（可选）
+    }
+
+    Response: {
+        success: True,
+        data: {
+            market_analyzer: {...},    # 市场分析结果（包含蓝海机会、行业分析等）
+            keyword_library: {...},    # 关键词库
+            topic_library: {...},     # 选题库
+            analysis_id: int,         # 分析记录ID
+        }
+    }
+    """
+    from services.skill_bridge import SkillBridge
+    from services.llm import get_llm_service
+
+    logger = logging.getLogger(__name__)
+    import traceback as _tb_module
+
+    data = request.get_json() or {}
+    business_description = data.get('business_description', '').strip()
+    if not business_description:
+        return jsonify({
+            'success': False,
+            'message': '请输入业务描述'
+        }), 400
+
+    industry = data.get('industry', '')
+    business_type = data.get('business_type', 'product')
+    business_range = data.get('business_range', '')
+    local_city = data.get('local_city', '').strip()
+    service_scenario = data.get('service_scenario', '')
+
+    # 智能推断的额外信息
+    inferred_keywords = data.get('inferred_keywords', [])
+    inferred_target_audience = data.get('inferred_target_audience', '')
+    inferred_content_direction = data.get('inferred_content_direction', '')
+    inferred_content_focus = data.get('inferred_content_focus', '')
+
+    logger.info(f"[api_market_one_key_analyze] 开始一键分析: {business_description}，类型={business_type}，范围={business_range}")
+    if inferred_keywords:
+        logger.info(f"[api_market_one_key_analyze] 智能推断关键词: {inferred_keywords[:5]}...")
+
+    try:
+        # 转换 business_type：前端格式 → Skill 格式
+        type_mapping = {
+            'product': 'b2c',
+            'local_service': 'b2c',
+            'personal': 'b2c',
+            'enterprise': 'b2b',
+        }
+        skill_business_type = type_mapping.get(business_type, 'b2c')
+
+        # 调用 SkillBridge 一键分析
+        bridge = SkillBridge()
+        pipeline_result = bridge.execute_full_pipeline(
+            business_description=business_description,
+            industry=industry,
+            business_type=skill_business_type,
+            service_scenario=service_scenario if service_scenario else None,
+            content_stage='成长阶段',
+            # 智能推断的额外信息
+            inferred_keywords=inferred_keywords,
+            inferred_target_audience=inferred_target_audience,
+            inferred_content_direction=inferred_content_direction,
+            inferred_content_focus=inferred_content_focus,
+        )
+
+        # 提取各模块结果
+        market_result = pipeline_result.get('market_analyzer')
+        keyword_result = pipeline_result.get('keyword_library')
+        topic_result = pipeline_result.get('topic_library')
+
+        # 检查市场分析是否成功
+        if not market_result or not market_result.success:
+            error_msg = market_result.errors[0] if market_result and market_result.errors else '市场分析失败'
+            logger.error(f"[api_market_one_key_analyze] 市场分析失败: {error_msg}")
+            return jsonify({
+                'success': False,
+                'message': f'市场分析失败: {error_msg}'
+            }), 500
+
+        # 构建返回数据
+        result_data = {
+            'market_analyzer': market_result.full_output if hasattr(market_result, 'full_output') else {},
+            'keyword_library': keyword_result.full_output if keyword_result and hasattr(keyword_result, 'full_output') else {},
+            'topic_library': topic_result.full_output if topic_result and hasattr(topic_result, 'full_output') else {},
+            'market_analyzer_success': market_result.success if hasattr(market_result, 'success') else False,
+            'keyword_library_success': keyword_result.success if keyword_result and hasattr(keyword_result, 'success') else False,
+            'topic_library_success': topic_result.success if topic_result and hasattr(topic_result, 'success') else False,
+        }
+
+        # 调试日志：打印返回数据结构
+        try:
+            logger.info(f"[api_market_one_key_analyze] 返回数据键: market_analyzer={list(result_data['market_analyzer'].keys())[:10] if isinstance(result_data['market_analyzer'], dict) else 'N/A'}")
+            logger.info(f"[api_market_one_key_analyze] 关键词库键: {list(result_data['keyword_library'].keys())[:10] if isinstance(result_data['keyword_library'], dict) else 'N/A'}")
+
+            # 打印关键词库统计
+            market_analyzer = result_data['market_analyzer']
+            if isinstance(market_analyzer, dict):
+                step5 = market_analyzer.get('step5_keyword_library', {})
+                kw_summary = step5.get('keyword_library_summary', {})
+                logger.info(f"[api_market_one_key_analyze] 关键词库摘要: total={kw_summary.get('total_count', 0)}")
+        except Exception as log_err:
+            logger.warning(f"[api_market_one_key_analyze] 调试日志失败: {log_err}")
+
+        logger.info(f"[api_market_one_key_analyze] 完成: market_analyzer={result_data['market_analyzer_success']}, "
+                   f"keyword_library={result_data['keyword_library_success']}, "
+                   f"topic_library={result_data['topic_library_success']}")
+
+        return jsonify({
+            'success': True,
+            'data': result_data
+        })
+
+    except Exception as e:
+        logger.error(f"[api_market_one_key_analyze] 异常: {e}\n{_tb_module.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'分析异常: {str(e)}'
+        }), 500
+
+
+# =============================================================================
+# 智能推断 API - 替换决策成本分析
+# =============================================================================
+
+@public_bp.route('/api/market/smart-infer', methods=['POST'])
+def api_market_smart_infer():
+    """
+    智能推断 - 根据业务描述推断多个可选方向
+
+    POST /public/api/market/smart-infer
+    Body: {
+        business_description: str,   # 业务描述
+    }
+
+    Response: {
+        success: True,
+        data: {
+            options: [
+                {
+                    title: "有机婴儿奶粉零售",
+                    description: "专注有机、高端婴儿配方奶粉市场",
+                    target_audience: "0-3岁宝宝的父母，注重食品安全和营养",
+                    content_direction: "育儿知识科普 + 产品推荐",
+                    content_focus: "有机成分、食品安全、营养配方",
+                    keywords: ["有机奶粉", "婴儿奶粉推荐", ...],
+                },
+                ...
+            ]
+        }
+    }
+    """
+    from services.llm import LLMService
+    from services.skill_bridge import SkillBridge
+
+    data = request.get_json() or {}
+    business_description = data.get('business_description', '').strip()
+    business_type = data.get('business_type', 'b2c')  # 业务类型：b2c/b2b
+    business_range = data.get('business_range', '')  # 经营范围
+    service_scenario = data.get('service_scenario', '')  # 服务场景
+
+    if not business_description:
+        return jsonify({
+            'success': False,
+            'message': '请输入业务描述'
+        }), 400
+
+    # 判断客户类型
+    is_b2c = business_type in ['b2c', 'product', 'local_service', 'personal']
+    is_b2b = business_type in ['b2b', 'enterprise']
+    customer_type_hint = "个人/家庭消费者（B2C）" if is_b2c else "企业/商家客户（B2B）" if is_b2b else "混合型客户"
+
+    # 地域信息
+    geographic_hint = ""
+    if business_range:
+        geographic_hint = f"\n地域范围：{business_range}"
+    if service_scenario:
+        geographic_hint += f"\n服务场景：{service_scenario}"
+
+    logger.info(f"[api_market_smart_infer] 推断: {business_description}, 类型: {business_type}, 地域: {business_range}, 场景: {service_scenario}")
+
+    try:
+        # 调用 LLM 进行智能推断
+        llm = LLMService()
+        prompt = f"""你是本地化内容运营专家。请根据以下业务描述，智能推断出2-4个最可能的方向选项。
+
+【重要】客户类型：{customer_type_hint}
+业务描述：{business_description}{geographic_hint}
+
+请从以下维度进行推断：
+1. 产品/服务细分类型（如：有机、特殊配方、进口等）
+2. 目标人群（如：新生儿父母、过敏宝宝、企业客户等）
+3. 内容方向（如：知识科普、产品评测、使用教程等）
+4. 内容侧重（如：食品安全、性价比、便捷性等）
+
+请生成多个推断选项，每个选项包含：
+- title: 推断方向的标题
+- description: 简短描述
+- target_audience: 目标人群
+- content_direction: 内容方向
+- content_focus: 内容侧重
+- keywords: 核心关键词列表（5-10个）
+
+注意：
+- 选项之间要有明显差异
+- 要符合抖音/小红书平台的内容风格
+- 关键词要能生成足够的蓝海词
+
+请以JSON格式输出，格式如下：
+```json
+{{
+  "options": [
+    {{
+      "title": "方向1标题",
+      "description": "方向1描述",
+      "target_audience": "目标人群描述",
+      "content_direction": "内容方向",
+      "content_focus": "内容侧重",
+      "keywords": ["关键词1", "关键词2", "关键词3"]
+    }}
+  ]
+}}
+```
+
+只输出JSON，不要其他文字。
+"""
+        response = llm.chat(prompt, task_type='general')
+
+        if not response:
+            return jsonify({
+                'success': False,
+                'message': '推断服务暂时不可用'
+            }), 500
+
+        # 解析 JSON
+        try:
+            # 尝试提取 JSON 块
+            import re
+            json_match = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
+            if json_match:
+                result_data = json.loads(json_match.group(1))
+            else:
+                # 尝试直接解析整个响应
+                result_data = json.loads(response)
+
+            options = result_data.get('options', [])
+
+            # 验证选项格式
+            if not options:
+                # 如果没有options，尝试从result_data中找
+                for key in result_data:
+                    if isinstance(result_data[key], list):
+                        options = result_data[key]
+                        break
+
+            logger.info(f"[api_market_smart_infer] 推断完成: {len(options)} 个选项")
+
+            return jsonify({
+                'success': True,
+                'data': {
+                    'options': options
+                }
+            })
+
+        except json.JSONDecodeError as e:
+            logger.error(f"[api_market_smart_infer] JSON解析失败: {e}\n原始响应: {response[:500]}")
+            # 返回默认选项
+            return jsonify({
+                'success': True,
+                'data': {
+                    'options': [
+                        {
+                            'title': f'{business_description} - 标准方向',
+                            'description': '基于您描述的标准业务方向',
+                            'target_audience': '目标消费者群体',
+                            'content_direction': '产品介绍 + 知识科普',
+                            'content_focus': '产品特点、使用方法',
+                            'keywords': [business_description]
+                        }
+                    ]
+                }
+            })
+
+    except Exception as e:
+        logger.error(f"[api_market_smart_infer] 异常: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'推断异常: {str(e)}'
+        }), 500
+
+
+# =============================================================================
 # 行业级决策成本分析 API
 # =============================================================================
 
@@ -7696,6 +8058,7 @@ def api_save_portrait_batch():
         },
         portrait_name: str,       # 画像名称（可选）
         set_as_default: bool,      # 是否设为默认（可选）
+        customer_id: int,         # 关联客户ID（可选）
     }
     """
     user = get_current_public_user()
@@ -7706,6 +8069,7 @@ def api_save_portrait_batch():
     analysis_data = params.get('analysis_data', {})
     portrait_name = params.get('portrait_name', '')
     set_as_default = params.get('set_as_default', False)
+    customer_id = params.get('customer_id')  # 关联客户ID
 
     if not analysis_data or not analysis_data.get('portraits'):
         return jsonify({
@@ -7759,6 +8123,7 @@ def api_save_portrait_batch():
         # 插入新记录
         new_portrait = SavedPortrait(
             user_id=user.id,
+            customer_id=customer_id,
             portrait_data=portrait_data,
             portrait_name=portrait_name,
             keyword_library=keyword_library,
@@ -7803,6 +8168,7 @@ def api_save_portrait_batch():
                 # 插入新记录（只给第一个设默认）
                 new_portrait = SavedPortrait(
                     user_id=user.id,
+                    customer_id=customer_id,
                     portrait_data=portrait_data,
                     portrait_name=p_name,
                     keyword_library=keyword_library,  # 关键词库共享
@@ -7820,8 +8186,8 @@ def api_save_portrait_batch():
                 })
 
     logger.info(
-        "[api_save_portrait_batch] 保存成功: user_id=%s, portraits_count=%d",
-        user.id, len(saved_portraits)
+        "[api_save_portrait_batch] 保存成功: user_id=%s, customer_id=%s, portraits_count=%d",
+        user.id, customer_id, len(saved_portraits)
     )
 
     return jsonify({

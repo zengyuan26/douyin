@@ -66,12 +66,15 @@ class PublicUser(db.Model):
     last_login = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relationships - 注意：user 的 backref 在 PublicGeneration 定义处
-    profile = db.relationship('PublicUserProfile', backref='user',
+    # Relationships
+    profile = db.relationship('PublicUserProfile', back_populates='user',
                               uselist=False, cascade='all, delete-orphan')
     generations = db.relationship('PublicGeneration',
                                   back_populates='user',
                                   lazy='dynamic', cascade='all, delete-orphan')
+    saved_portraits = db.relationship('SavedPortrait',
+                                      back_populates='user',
+                                      lazy='dynamic', cascade='all, delete-orphan')
 
     def is_paid_user(self):
         if not self.is_premium:
@@ -97,6 +100,9 @@ class PublicUserProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('public_users.id'),
                         nullable=False, unique=True)
+
+    # Relationships
+    user = db.relationship('PublicUser', back_populates='profile')
 
     # 基本信息
     industry = db.Column(db.String(50))
@@ -180,13 +186,18 @@ class PublicGeneration(db.Model):
         db.Index('idx_generation_portrait', 'user_id', 'portrait_id'),
         db.Index('idx_generation_problem', 'user_id', 'problem_id'),
         db.Index('idx_generation_link', 'user_id', 'link_id'),
+        db.Index('idx_generation_customer', 'customer_id'),  # 客户查询优化
     )
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('public_users.id'), nullable=False)
 
+    # ── 客户关联（新增） ──
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
+
     # Relationships
     user = db.relationship('PublicUser', back_populates='generations')
+    customer = db.relationship('Customer', back_populates='generations')
 
     # ── 选题关联（外键） ──
     # 关联选题使用记录表（同一选题多次生成指向同一条 link）
@@ -238,6 +249,36 @@ class PublicGeneration(db.Model):
     # Relationship
     link = db.relationship('TopicGenerationLink', backref='generations')
 
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'customer_id': self.customer_id,
+            'link_id': self.link_id,
+            'version_number': self.version_number,
+            'parent_version_id': self.parent_version_id,
+            'portrait_id': self.portrait_id,
+            'problem_id': self.problem_id,
+            'topic_id': self.topic_id,
+            'industry': self.industry,
+            'target_customer': self.target_customer,
+            'content_type': self.content_type,
+            'geo_mode_used': self.geo_mode_used,
+            'content_style': self.content_style,
+            'titles': self.titles,
+            'tags': self.tags,
+            'content_data': self.content_data,
+            'selected_scenes': self.selected_scenes,
+            'quality_score': self.quality_score,
+            'quality_report': self.quality_report,
+            'temperature_score': self.temperature_score,
+            'temperature_profile': self.temperature_profile,
+            'temperature_dimension_scores': self.temperature_dimension_scores,
+            'used_tokens': self.used_tokens,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
 
 class SavedPortrait(db.Model):
     """用户保存的画像表"""
@@ -246,13 +287,18 @@ class SavedPortrait(db.Model):
         db.Index('idx_portrait_user', 'user_id'),
         db.Index('idx_portrait_user_created', 'user_id', 'created_at'),
         db.Index('idx_portrait_geo', 'user_id', 'geo_province', 'geo_city'),  # 地域查询优化
+        db.Index('idx_portrait_customer', 'customer_id'),  # 客户查询优化
     )
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('public_users.id'), nullable=False)
 
+    # ── 客户关联（新增） ──
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
+
     # Relationships
-    user = db.relationship('PublicUser', backref='saved_portraits')
+    user = db.relationship('PublicUser', back_populates='saved_portraits')
+    customer = db.relationship('Customer', back_populates='portraits')
 
     # 画像数据（JSON格式存储）
     portrait_data = db.Column(db.JSON, nullable=False)
@@ -358,6 +404,47 @@ class SavedPortrait(db.Model):
     def has_operation_plan(self):
         """是否有运营规划"""
         return bool(self.operation_plan)
+
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'customer_id': self.customer_id,
+            'portrait_data': self.portrait_data,
+            'portrait_name': self.portrait_name,
+            'business_description': self.business_description,
+            'industry': self.industry,
+            'target_customer': self.target_customer,
+            'used_count': self.used_count,
+            'is_default': self.is_default,
+            'keyword_library': self.keyword_library,
+            'topic_library': self.topic_library,
+            'keyword_updated_at': self.keyword_updated_at.isoformat() if self.keyword_updated_at else None,
+            'keyword_update_count': self.keyword_update_count,
+            'topic_updated_at': self.topic_updated_at.isoformat() if self.topic_updated_at else None,
+            'topic_update_count': self.topic_update_count,
+            'session_id': self.session_id,
+            'generation_status': self.generation_status,
+            'generation_error': self.generation_error,
+            'content_stage': self.content_stage,
+            'seasonal_config': self.seasonal_config,
+            'operation_plan': self.operation_plan,
+            'operation_plan_updated_at': self.operation_plan_updated_at.isoformat() if self.operation_plan_updated_at else None,
+            'selected_opportunity': self.selected_opportunity,
+            'client_profile': self.client_profile,
+            'extra_data': self.extra_data,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'geo_province': self.geo_province,
+            'geo_city': self.geo_city,
+            'geo_level': self.geo_level,
+            'geo_coverages': self.geo_coverages,
+            'geo_tags': self.geo_tags,
+            'temperature_persona': self.temperature_persona,
+            'temperature_elements': self.temperature_elements,
+            'temperature_profile_count': self.temperature_profile_count,
+        }
 
 
 class OpportunitySnapshot(db.Model):

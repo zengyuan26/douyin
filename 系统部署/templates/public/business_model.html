@@ -1,0 +1,1432 @@
+{% extends "public/public_layout.html" %}
+
+{% block title %}商业模式设计 - AI 棱镜{% endblock %}
+
+{% block layout_extra_css %}
+<style>
+    /* ================================================
+       商业模式设计页专属样式
+       ================================================ */
+
+    /* 页面容器 */
+    .bm-container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px 32px;
+    }
+
+    .bm-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .bm-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+    }
+
+    .bm-subtitle {
+        font-size: 1rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    /* 步骤指示器 */
+    .bm-steps {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 40px;
+    }
+
+    .bm-step {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        background: var(--apple-gray6);
+        transition: all var(--transition-fast);
+    }
+
+    .bm-step.active {
+        background: var(--apple-blue);
+        color: white;
+    }
+
+    .bm-step.completed {
+        background: #10b981;
+        color: white;
+    }
+
+    .bm-step-num {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    /* 输入卡片 */
+    .bm-input-card {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        margin-bottom: 24px;
+        border: 1px solid var(--apple-gray5);
+    }
+
+    .bm-section-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .bm-section-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--apple-blue);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    /* 表单 */
+    .bm-form-group {
+        margin-bottom: 20px;
+    }
+
+    .bm-form-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .bm-form-hint {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    .bm-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid var(--apple-gray4);
+        border-radius: var(--radius-md);
+        font-size: 0.9375rem;
+        background: var(--bg-primary);
+        transition: all var(--transition-fast);
+    }
+
+    .bm-input:focus {
+        border-color: var(--apple-blue);
+        box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+        outline: none;
+    }
+
+    .bm-input-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+
+    /* 快捷标签 */
+    .bm-quick-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+
+    .bm-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 16px;
+        background: var(--apple-gray6);
+        border: 1px solid var(--apple-gray5);
+        border-radius: 20px;
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .bm-tag:hover {
+        background: var(--apple-blue);
+        color: white;
+        border-color: var(--apple-blue);
+    }
+
+    .bm-tag.active {
+        background: var(--apple-blue);
+        color: white;
+        border-color: var(--apple-blue);
+    }
+
+    /* 选项组 */
+    .bm-option-group {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .bm-option {
+        padding: 10px 20px;
+        border: 1px solid var(--apple-gray4);
+        border-radius: var(--radius-md);
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        background: var(--bg-primary);
+    }
+
+    .bm-option:hover {
+        border-color: var(--apple-blue);
+    }
+
+    .bm-option.active {
+        border-color: var(--apple-blue);
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--apple-blue);
+    }
+
+    /* 复选组 */
+    .bm-checkbox-group {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+    }
+
+    .bm-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border: 1px solid var(--apple-gray4);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        background: var(--bg-primary);
+    }
+
+    .bm-checkbox:hover {
+        border-color: var(--apple-blue);
+    }
+
+    .bm-checkbox.active {
+        border-color: var(--apple-blue);
+        background: rgba(0, 122, 255, 0.1);
+    }
+
+    .bm-checkbox input {
+        display: none;
+    }
+
+    .bm-checkbox-icon {
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--apple-gray4);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all var(--transition-fast);
+    }
+
+    .bm-checkbox.active .bm-checkbox-icon {
+        background: var(--apple-blue);
+        border-color: var(--apple-blue);
+    }
+
+    .bm-checkbox-icon::after {
+        content: '✓';
+        color: white;
+        font-size: 0.75rem;
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+    }
+
+    .bm-checkbox.active .bm-checkbox-icon::after {
+        opacity: 1;
+    }
+
+    .bm-checkbox-text {
+        font-size: 0.875rem;
+        color: var(--text-primary);
+    }
+
+    /* 主按钮 */
+    .bm-btn-primary {
+        width: 100%;
+        padding: 16px 32px;
+        background: linear-gradient(135deg, var(--apple-blue) 0%, #6366f1 100%);
+        color: white;
+        border: none;
+        border-radius: var(--radius-md);
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .bm-btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 122, 255, 0.3);
+    }
+
+    .bm-btn-primary:disabled {
+        background: var(--apple-gray4);
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    /* 结果卡片 */
+    .bm-result-card {
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        margin-bottom: 24px;
+        border: 1px solid var(--apple-gray5);
+    }
+
+    /* 评分概览 */
+    .bm-score-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+
+    .bm-score-item {
+        background: linear-gradient(135deg, var(--apple-blue) 0%, #8b5cf6 100%);
+        color: white;
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        text-align: center;
+    }
+
+    .bm-score-item.warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+    }
+
+    .bm-score-item.success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .bm-score-label {
+        font-size: 0.8125rem;
+        opacity: 0.9;
+        margin-bottom: 8px;
+    }
+
+    .bm-score-value {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .bm-score-desc {
+        font-size: 0.75rem;
+        opacity: 0.8;
+        margin-top: 4px;
+    }
+
+    /* 维度网格 */
+    .bm-dimensions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+
+    .bm-dimension-card {
+        background: var(--apple-gray6);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        border: 1px solid var(--apple-gray5);
+        transition: all var(--transition-fast);
+    }
+
+    .bm-dimension-card:hover {
+        border-color: var(--apple-blue);
+        transform: translateY(-2px);
+    }
+
+    .bm-dimension-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .bm-dimension-icon {
+        font-size: 1.5rem;
+    }
+
+    .bm-dimension-name {
+        flex: 1;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .bm-dimension-score {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--apple-blue);
+    }
+
+    .bm-dimension-status {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 4px;
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--apple-blue);
+    }
+
+    .bm-dimension-desc {
+        font-size: 0.8125rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-bottom: 12px;
+    }
+
+    .bm-dimension-advice {
+        font-size: 0.8125rem;
+        color: var(--text-primary);
+        padding: 10px 12px;
+        background: rgba(0, 122, 255, 0.05);
+        border-radius: var(--radius-sm);
+        border-left: 3px solid var(--apple-blue);
+    }
+
+    /* 复制能力详情 */
+    .bm-replication-detail {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--apple-gray5);
+    }
+
+    .bm-replication-item {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 0.8125rem;
+    }
+
+    .bm-replication-label {
+        color: var(--text-secondary);
+        min-width: 70px;
+    }
+
+    .bm-replication-value {
+        color: var(--text-primary);
+    }
+
+    .bm-difficulty-stars {
+        color: #ef4444;
+        letter-spacing: 2px;
+    }
+
+    /* AI危机详情 */
+    .bm-ai-detail {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--apple-gray5);
+    }
+
+    .bm-risk-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .bm-risk-high {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+
+    .bm-risk-medium {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+    }
+
+    .bm-risk-low {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+    }
+
+    /* 综合结论 */
+    .bm-conclusion {
+        background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        color: white;
+        margin-bottom: 24px;
+    }
+
+    .bm-conclusion-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .bm-conclusion-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .bm-conclusion-item {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: var(--radius-md);
+        padding: 20px;
+    }
+
+    .bm-conclusion-item-title {
+        font-size: 0.8125rem;
+        opacity: 0.7;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .bm-conclusion-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .bm-conclusion-list li {
+        font-size: 0.875rem;
+        padding: 6px 0;
+        padding-left: 20px;
+        position: relative;
+    }
+
+    .bm-conclusion-list li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+    }
+
+    .bm-conclusion-list.strengths li::before {
+        background: #10b981;
+    }
+
+    .bm-conclusion-list.problems li::before {
+        background: #ef4444;
+    }
+
+    .bm-conclusion-list.actions li::before {
+        background: #f59e0b;
+    }
+
+    .bm-summary {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: center;
+    }
+
+    .bm-summary-text {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #fbbf24;
+    }
+
+    /* 行动按钮组 */
+    .bm-action-buttons {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 24px;
+    }
+
+    .bm-btn-secondary {
+        flex: 1;
+        min-width: 160px;
+        padding: 14px 20px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border: 1px solid var(--apple-gray4);
+        border-radius: var(--radius-md);
+        font-size: 0.9375rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .bm-btn-secondary:hover {
+        background: var(--apple-gray6);
+        border-color: var(--apple-blue);
+    }
+
+    .bm-btn-success {
+        flex: 1;
+        min-width: 160px;
+        padding: 14px 20px;
+        background: #10b981;
+        color: white;
+        border: none;
+        border-radius: var(--radius-md);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .bm-btn-success:hover {
+        background: #059669;
+        transform: translateY(-1px);
+    }
+
+    /* 加载状态 */
+    .bm-loading {
+        display: none;
+        text-align: center;
+        padding: 80px 20px;
+    }
+
+    .bm-loading.show {
+        display: block;
+    }
+
+    .bm-spinner {
+        width: 48px;
+        height: 48px;
+        border: 3px solid rgba(0, 122, 255, 0.1);
+        border-top-color: var(--apple-blue);
+        border-radius: 50%;
+        animation: bm-spin 0.8s linear infinite;
+        margin: 0 auto 20px;
+    }
+
+    @keyframes bm-spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .bm-loading-text {
+        font-size: 1rem;
+        color: var(--text-secondary);
+    }
+
+    /* 隐藏状态 */
+    .bm-hidden {
+        display: none !important;
+    }
+
+    /* 动画 */
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in {
+        animation: fadeInUp 0.4s ease forwards;
+    }
+
+    /* 雷达图容器 */
+    .bm-radar-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 32px;
+    }
+
+    .bm-radar-wrapper {
+        max-width: 350px;
+        width: 100%;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+        .bm-container {
+            padding: 16px;
+        }
+
+        .bm-title {
+            font-size: 1.5rem;
+        }
+
+        .bm-steps {
+            flex-wrap: wrap;
+        }
+
+        .bm-input-card, .bm-result-card {
+            padding: 20px;
+        }
+
+        .bm-dimensions {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block sidebar_nav %}
+<nav class="public-sidebar-nav">
+<!-- 分组1：快速生成 -->
+<div class="sidebar-group">
+    <div class="public-sidebar-section-label">核心功能</div>
+    <a class="public-sidebar-link is-active" href="/public/business-model" id="sidebar-business-model-link">
+        <i class="bi bi-compass" aria-hidden="true"></i>
+        商业模式设计
+    </a>
+    <a class="public-sidebar-link" href="/public" id="sidebar-super-link">
+        <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+        开始创作
+    </a>
+</div>
+
+<!-- 分组2：分析工具 -->
+<div class="sidebar-group">
+    <div class="public-sidebar-section-label">分析工具</div>
+    <a class="public-sidebar-link" href="/public/decision-cost" id="sidebar-decision-cost-link">
+        <i class="bi bi-graph-up" aria-hidden="true"></i>
+        决策成本诊断
+    </a>
+    <a class="public-sidebar-link" href="/public/portraits">
+        <i class="bi bi-people-fill" aria-hidden="true"></i>
+        客户画像
+    </a>
+    <a class="public-sidebar-link" href="/public/portraits" onclick="if(window.portraitManager){window.portraitManager.switchTab('tab-topics');} return true;">
+        <i class="bi bi-card-list" aria-hidden="true"></i>
+        选题清单
+    </a>
+</div>
+</nav>
+{% endblock %}
+
+{% block topbar_title %}
+<span class="topbar-title-text">商业模式设计</span>
+{% endblock %}
+
+{% block topbar_right %}
+<div class="public-topbar-actions" id="topbar-auth">
+    <span id="nav-login">
+        <a class="nav-link" href="/login?type=public" target="_self">登录</a>
+    </span>
+    <span id="nav-register">
+        <a class="btn btn-primary" href="/login?type=public#register" target="_self">免费开始</a>
+    </span>
+</div>
+<div class="topbar-user" id="topbar-user" style="display:none;">
+    <div class="topbar-avatar" id="topbar-avatar">
+        <span id="topbar-avatar-letter"></span>
+    </div>
+    <span class="topbar-nickname" id="topbar-nickname"></span>
+    <span class="topbar-plan-badge" id="topbar-plan-badge"></span>
+    <span class="topbar-separator"></span>
+    <div class="topbar-settings-dropdown" id="topbar-settings-dropdown">
+        <button type="button" class="topbar-icon-btn" id="topbar-settings-btn" onclick="toggleSettingsDropdown(event)" title="设置" aria-expanded="false" aria-haspopup="true" aria-controls="topbar-settings-menu">
+            <i class="bi bi-gear" aria-hidden="true"></i>
+        </button>
+        <div class="topbar-settings-menu" id="topbar-settings-menu" role="menu">
+            <button type="button" class="topbar-settings-item" role="menuitem" onclick="openAccountSettings(event, 'profile'); toggleSettingsDropdown(event);">
+                <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                个人资料维护
+            </button>
+            <button type="button" class="topbar-settings-item" role="menuitem" onclick="openAccountSettings(event, 'password'); toggleSettingsDropdown(event);">
+                <i class="bi bi-key" aria-hidden="true"></i>
+                修改密码
+            </button>
+            <div class="topbar-settings-divider"></div>
+            <button type="button" class="topbar-settings-item danger" role="menuitem" onclick="logout(event)">
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                退出登录
+            </button>
+        </div>
+    </div>
+</div>
+<button type="button" class="topbar-icon-btn topbar-skin-btn" id="topbar-skin-btn" onclick="openSkinPicker(event)" title="个性皮肤" aria-label="个性皮肤">
+    <svg class="topbar-skin-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+        <path d="M16.25 3.5c-.35 0-.68.18-.87.48L14 6h-4L8.62 3.98a1 1 0 00-.87-.48H5.75L3 6.25V9h2v11h14V9h2V6.25L18.25 3.5h-2zM7 9h10v9H7V9zm11-1H6V6.7L6.92 5.5h1.45l1.51 2.02a1 1 0 001.24.28.98.98 0 00.28-.28L12.91 5.5h1.45L16 6.7V8z"/>
+    </svg>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="bm-container">
+    <!-- 头部 -->
+    <div class="bm-header">
+        <h1 class="bm-title">商业模式设计</h1>
+        <p class="bm-subtitle">帮你从当前位置，走到财富彼岸。<br>基于纳瓦尔宝典思维，分析你的业务本质与破局路径。</p>
+    </div>
+
+    <!-- 步骤指示器 -->
+    <div class="bm-steps">
+        <div class="bm-step active" id="step1">
+            <span class="bm-step-num">1</span>
+            <span>输入业务</span>
+        </div>
+        <div class="bm-step" id="step2">
+            <span class="bm-step-num">2</span>
+            <span>10维分析</span>
+        </div>
+        <div class="bm-step" id="step3">
+            <span class="bm-step-num">3</span>
+            <span>综合结论</span>
+        </div>
+    </div>
+
+    <!-- 输入区域 -->
+    <div class="bm-input-card" id="inputSection">
+        <!-- 步骤1：基础信息 -->
+        <div class="bm-section-title">
+            <span class="bm-section-num">1</span>
+            告诉我你的业务
+        </div>
+
+        <div class="bm-form-group">
+            <label class="bm-form-label">业务关键词</label>
+            <input type="text" class="bm-input" id="businessInput"
+                   placeholder="例如：灌香肠加工、医美整形、装修、儿童培训..."
+                   onkeypress="if(event.key==='Enter') startAnalysis()">
+            <p class="bm-form-hint">输入你的主营业务，我们会进行深度分析</p>
+        </div>
+
+        <div class="bm-quick-tags">
+            <span class="bm-tag" data-value="灌香肠加工">灌香肠加工</span>
+            <span class="bm-tag" data-value="医美整形">医美整形</span>
+            <span class="bm-tag" data-value="装修">装修</span>
+            <span class="bm-tag" data-value="儿童教育">儿童教育</span>
+            <span class="bm-tag" data-value="心理咨询">心理咨询</span>
+            <span class="bm-tag" data-value="法律咨询">法律咨询</span>
+            <span class="bm-tag" data-value="高考志愿">高考志愿</span>
+            <span class="bm-tag" data-value="留学中介">留学中介</span>
+            <span class="bm-tag" data-value="金融投资">金融投资</span>
+            <span class="bm-tag" data-value="房产买卖">房产买卖</span>
+        </div>
+
+        <!-- 步骤2：用户画像 -->
+        <div class="bm-section-title" style="margin-top: 32px;">
+            <span class="bm-section-num">2</span>
+            补充你的情况（帮助更精准分析）
+        </div>
+
+        <div class="bm-input-row">
+            <div class="bm-form-group">
+                <label class="bm-form-label">客户范围</label>
+                <div class="bm-option-group">
+                    <div class="bm-option active" data-field="scope" data-value="local">本地的</div>
+                    <div class="bm-option" data-field="scope" data-value="national">全国的</div>
+                    <div class="bm-option" data-field="scope" data-value="global">全球的</div>
+                </div>
+            </div>
+
+            <div class="bm-form-group">
+                <label class="bm-form-label">干了多少年？</label>
+                <div class="bm-option-group">
+                    <div class="bm-option" data-field="years" data-value="0-1">新手</div>
+                    <div class="bm-option active" data-field="years" data-value="1-5">1-5年</div>
+                    <div class="bm-option" data-field="years" data-value="5-10">5-10年</div>
+                    <div class="bm-option" data-field="years" data-value="10+">10年+</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bm-form-group">
+            <label class="bm-form-label">有哪些积累？（可多选）</label>
+            <div class="bm-checkbox-group">
+                <label class="bm-checkbox">
+                    <input type="checkbox" name="accumulations" value="客户资源">
+                    <span class="bm-checkbox-icon"></span>
+                    <span class="bm-checkbox-text">客户资源</span>
+                </label>
+                <label class="bm-checkbox">
+                    <input type="checkbox" name="accumulations" value="行业经验">
+                    <span class="bm-checkbox-icon"></span>
+                    <span class="bm-checkbox-text">行业经验</span>
+                </label>
+                <label class="bm-checkbox">
+                    <input type="checkbox" name="accumulations" value="技术产品">
+                    <span class="bm-checkbox-icon"></span>
+                    <span class="bm-checkbox-text">技术/产品</span>
+                </label>
+                <label class="bm-checkbox">
+                    <input type="checkbox" name="accumulations" value="个人品牌">
+                    <span class="bm-checkbox-icon"></span>
+                    <span class="bm-checkbox-text">个人品牌</span>
+                </label>
+                <label class="bm-checkbox">
+                    <input type="checkbox" name="accumulations" value="资金">
+                    <span class="bm-checkbox-icon"></span>
+                    <span class="bm-checkbox-text">资金</span>
+                </label>
+                <label class="bm-checkbox">
+                    <input type="checkbox" name="accumulations" value="团队人脉">
+                    <span class="bm-checkbox-icon"></span>
+                    <span class="bm-checkbox-text">团队/人脉</span>
+                </label>
+                <label class="bm-checkbox">
+                    <input type="checkbox" name="accumulations" value="口碑">
+                    <span class="bm-checkbox-icon"></span>
+                    <span class="bm-checkbox-text">口碑</span>
+                </label>
+                <label class="bm-checkbox">
+                    <input type="checkbox" name="accumulations" value="暂无">
+                    <span class="bm-checkbox-icon"></span>
+                    <span class="bm-checkbox-text">暂无积累</span>
+                </label>
+            </div>
+        </div>
+
+        <button class="bm-btn-primary" id="startBtn" onclick="startAnalysis()">
+            <i class="bi bi-compass"></i>
+            开始分析
+        </button>
+    </div>
+
+    <!-- 加载状态 -->
+    <div class="bm-loading" id="loadingSection">
+        <div class="bm-spinner"></div>
+        <p class="bm-loading-text">深度分析中，请稍候...</p>
+    </div>
+
+    <!-- 结果区域 -->
+    <div class="bm-result-section bm-hidden" id="resultSection">
+        <!-- 评分概览 -->
+        <div class="bm-score-overview" id="scoreOverview"></div>
+
+        <!-- 雷达图 -->
+        <div class="bm-radar-container">
+            <div class="bm-radar-wrapper">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 10维度分析 -->
+        <div class="bm-section-title" style="margin-bottom: 20px;">
+            <span class="bm-section-num">2</span>
+            10维度深度分析
+        </div>
+        <div class="bm-dimensions" id="dimensionList"></div>
+
+        <!-- 综合结论 -->
+        <div class="bm-conclusion" id="conclusionSection">
+            <div class="bm-conclusion-title">
+                <span>🎯</span>
+                综合结论
+            </div>
+            <div class="bm-conclusion-grid" id="conclusionGrid">
+                <div class="bm-conclusion-item">
+                    <div class="bm-conclusion-item-title">
+                        <span>✅</span> 核心优势
+                    </div>
+                    <ul class="bm-conclusion-list strengths" id="strengthsList"></ul>
+                </div>
+                <div class="bm-conclusion-item">
+                    <div class="bm-conclusion-item-title">
+                        <span>🔴</span> 核心问题
+                    </div>
+                    <ul class="bm-conclusion-list problems" id="problemsList"></ul>
+                </div>
+                <div class="bm-conclusion-item">
+                    <div class="bm-conclusion-item-title">
+                        <span>🎯</span> 行动优先级
+                    </div>
+                    <ul class="bm-conclusion-list actions" id="actionsList"></ul>
+                </div>
+            </div>
+            <div class="bm-summary" id="summarySection">
+                <p class="bm-summary-text" id="summaryText"></p>
+            </div>
+        </div>
+
+        <!-- 行动按钮 -->
+        <div class="bm-action-buttons">
+            <button class="bm-btn-secondary" onclick="refreshAnalysis()">
+                <i class="bi bi-arrow-clockwise"></i>
+                重新分析
+            </button>
+            <button class="bm-btn-secondary" onclick="doLLMAnalysis()">
+                <i class="bi bi-cpu"></i>
+                深度洞察
+            </button>
+            <button class="bm-btn-success" onclick="goToNextStep()">
+                <i class="bi bi-arrow-right"></i>
+                下一步：内容杠杆
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    let currentAnalysis = null;
+    let radarChart = null;
+    let currentUser = null;
+
+    // 检查用户登录状态
+    async function checkUserState() {
+        try {
+            const resp = await fetch('/public/api/check-auth', { credentials: 'include' });
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.success) {
+                    currentUser = data.data;
+                    updateNav();
+                }
+            }
+        } catch (e) {
+            console.error('检查登录状态失败', e);
+        }
+    }
+
+    // 更新导航
+    function updateNav() {
+        if (currentUser) {
+            document.getElementById('topbar-auth').style.display = 'none';
+            const topbarUser = document.getElementById('topbar-user');
+            topbarUser.style.display = 'flex';
+            const displayName = currentUser.nickname || currentUser.email || '用户';
+            document.getElementById('topbar-nickname').textContent = displayName;
+            const avatarEl = document.getElementById('topbar-avatar');
+            const avatarUrl = currentUser.avatar || '';
+            if (avatarUrl) {
+                avatarEl.innerHTML = '<img src="' + avatarUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+            } else {
+                avatarEl.innerHTML = '<span style="color:#fff;font-weight:600;">' + displayName.charAt(0).toUpperCase() + '</span>';
+            }
+            const planName = currentUser.quota && currentUser.quota.plan_name ? currentUser.quota.plan_name : '';
+            const badge = document.getElementById('topbar-plan-badge');
+            if (planName) {
+                badge.textContent = planName;
+                badge.className = 'topbar-plan-badge ' + planName.toLowerCase();
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    }
+
+    checkUserState();
+
+    // 标签点击
+    document.querySelectorAll('.bm-tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+            document.getElementById('businessInput').value = tag.dataset.value;
+            document.querySelectorAll('.bm-tag').forEach(t => t.classList.remove('active'));
+            tag.classList.add('active');
+        });
+    });
+
+    // 选项点击
+    document.querySelectorAll('.bm-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            const field = opt.dataset.field;
+            document.querySelectorAll(`.bm-option[data-field="${field}"]`).forEach(o => o.classList.remove('active'));
+            opt.classList.add('active');
+        });
+    });
+
+    // 复选框点击
+    document.querySelectorAll('.bm-checkbox').forEach(cb => {
+        cb.addEventListener('click', () => {
+            cb.classList.toggle('active');
+            const input = cb.querySelector('input');
+            if (input) input.checked = cb.classList.contains('active');
+        });
+    });
+
+    // 获取用户画像
+    function getUserProfile() {
+        const scope = document.querySelector('.bm-option[data-field="scope"].active')?.dataset.value || 'local';
+        const years = document.querySelector('.bm-option[data-field="years"].active')?.dataset.value || '1-5';
+        const accumulations = [];
+        document.querySelectorAll('.bm-checkbox.active[name="accumulations"]').forEach(cb => {
+            accumulations.push(cb.querySelector('input')?.value);
+        });
+
+        return { scope, years, accumulations };
+    }
+
+    // 开始分析
+    async function startAnalysis() {
+        const business = document.getElementById('businessInput').value.trim();
+        if (!business) {
+            alert('请输入或选择业务类型');
+            return;
+        }
+
+        document.getElementById('inputSection').style.display = 'none';
+        document.getElementById('loadingSection').classList.add('show');
+        document.getElementById('step1').classList.remove('active');
+        document.getElementById('step1').classList.add('completed');
+        document.getElementById('step2').classList.add('active');
+
+        try {
+            const response = await fetch('/api/business-model/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    business_keyword: business,
+                    user_profile: getUserProfile()
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                alert(result.message);
+                showInput();
+                return;
+            }
+
+            currentAnalysis = result;
+            renderResult(result);
+
+        } catch (error) {
+            console.error(error);
+            alert('分析失败，请重试');
+            showInput();
+        }
+    }
+
+    function showInput() {
+        document.getElementById('inputSection').style.display = 'block';
+        document.getElementById('loadingSection').classList.remove('show');
+        document.getElementById('step1').classList.add('active');
+        document.getElementById('step1').classList.remove('completed');
+        document.getElementById('step2').classList.remove('active');
+    }
+
+    function renderResult(result) {
+        document.getElementById('loadingSection').classList.remove('show');
+        document.getElementById('resultSection').classList.remove('bm-hidden');
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step2').classList.add('completed');
+        document.getElementById('step3').classList.add('active');
+
+        // 评分概览
+        const scoreClass = result.avg_score >= 7 ? 'success' : (result.avg_score >= 5 ? 'warning' : '');
+        document.getElementById('scoreOverview').innerHTML = `
+            <div class="bm-score-item ${scoreClass}">
+                <div class="bm-score-label">综合评分</div>
+                <div class="bm-score-value">${result.avg_score}</div>
+                <div class="bm-score-desc">/10</div>
+            </div>
+            <div class="bm-score-item">
+                <div class="bm-score-label">业务类型</div>
+                <div class="bm-score-value" style="font-size:1.25rem">${result.business_type}</div>
+                <div class="bm-score-desc">${result.basic_info.price_range || ''}</div>
+            </div>
+            <div class="bm-score-item">
+                <div class="bm-score-label">内容价值</div>
+                <div class="bm-score-value" style="font-size:1.25rem">${result.content_value}</div>
+                <div class="bm-score-desc">基于10维度分析</div>
+            </div>
+        `;
+
+        // 雷达图
+        renderRadarChart(result);
+
+        // 维度列表
+        renderDimensions(result.dimensions);
+
+        // 综合结论
+        renderConclusion(result.conclusion);
+
+        document.getElementById('step3').classList.remove('active');
+        document.getElementById('step3').classList.add('completed');
+    }
+
+    function renderRadarChart(result) {
+        const ctx = document.getElementById('radarChart').getContext('2d');
+        const labels = result.dimensions.map(d => d.name);
+        const scores = result.dimensions.map(d => d.score);
+
+        if (radarChart) {
+            radarChart.destroy();
+        }
+
+        radarChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '维度评分',
+                    data: scores,
+                    fill: true,
+                    backgroundColor: 'rgba(0, 122, 255, 0.2)',
+                    borderColor: 'rgb(0, 122, 255)',
+                    pointBackgroundColor: 'rgb(0, 122, 255)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgb(0, 122, 255)'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 10,
+                        ticks: { stepSize: 2, display: false }
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function renderDimensions(dimensions) {
+        const container = document.getElementById('dimensionList');
+        container.innerHTML = dimensions.map((d, i) => {
+            // 特殊处理复制能力维度
+            if (d.key === 'replication') {
+                return `
+                    <div class="bm-dimension-card fade-in" style="animation-delay: ${i * 0.05}s">
+                        <div class="bm-dimension-header">
+                            <span class="bm-dimension-icon">${d.icon}</span>
+                            <span class="bm-dimension-name">${d.name}</span>
+                            <span class="bm-dimension-score">${d.score}分</span>
+                        </div>
+                        <div class="bm-dimension-desc">${d.description}</div>
+                        <div class="bm-replication-detail">
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">核心资源</span>
+                                <span class="bm-replication-value">${d.core_resources}</span>
+                            </div>
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">经验来源</span>
+                                <span class="bm-replication-value">${d.experience_source}</span>
+                            </div>
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">复制难度</span>
+                                <span class="bm-replication-value bm-difficulty-stars">${d.difficulty_rating}</span>
+                            </div>
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">复制路径</span>
+                                <span class="bm-replication-value">${d.replication_path}</span>
+                            </div>
+                        </div>
+                        <div class="bm-dimension-advice">💡 ${d.advice}</div>
+                    </div>
+                `;
+            }
+
+            // 特殊处理AI危机维度
+            if (d.key === 'ai_crisis') {
+                const riskLevel = d.replacement_risk.includes('★★★★') ? 'high' :
+                                  d.replacement_risk.includes('★★') ? 'medium' : 'low';
+                return `
+                    <div class="bm-dimension-card fade-in" style="animation-delay: ${i * 0.05}s">
+                        <div class="bm-dimension-header">
+                            <span class="bm-dimension-icon">${d.icon}</span>
+                            <span class="bm-dimension-name">${d.name}</span>
+                            <span class="bm-risk-badge bm-risk-${riskLevel}">${d.replacement_risk}</span>
+                        </div>
+                        <div class="bm-dimension-desc">${d.description}</div>
+                        <div class="bm-ai-detail">
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">量化可能</span>
+                                <span class="bm-replication-value">${d.quantifiable ? '✅ 可量化' : '❌ 难量化'}</span>
+                            </div>
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">模式变化</span>
+                                <span class="bm-replication-value">${d.mode_change || d.quantification_desc}</span>
+                            </div>
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">机遇杠杆</span>
+                                <span class="bm-replication-value">${d.opportunity}</span>
+                            </div>
+                        </div>
+                        <div class="bm-dimension-advice">💡 ${d.advice}</div>
+                    </div>
+                `;
+            }
+
+            // 特殊处理决策难度维度
+            if (d.key === 'decision_difficulty') {
+                return `
+                    <div class="bm-dimension-card fade-in" style="animation-delay: ${i * 0.05}s">
+                        <div class="bm-dimension-header">
+                            <span class="bm-dimension-icon">${d.icon}</span>
+                            <span class="bm-dimension-name">${d.name}</span>
+                            <span class="bm-dimension-score">${d.score}分</span>
+                        </div>
+                        <div class="bm-dimension-desc">${d.description}</div>
+                        <div class="bm-replication-detail">
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">认知差</span>
+                                <span class="bm-replication-value">${d.cognition_gap}</span>
+                            </div>
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">信息差</span>
+                                <span class="bm-replication-value">${d.info_gap}</span>
+                            </div>
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">技能差</span>
+                                <span class="bm-replication-value">${d.skill_gap}</span>
+                            </div>
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">资源差</span>
+                                <span class="bm-replication-value">${d.resource_gap}</span>
+                            </div>
+                        </div>
+                        <div class="bm-dimension-advice">💡 ${d.advice}</div>
+                    </div>
+                `;
+            }
+
+            // 特殊处理资产盘点维度
+            if (d.key === 'asset_check') {
+                return `
+                    <div class="bm-dimension-card fade-in" style="animation-delay: ${i * 0.05}s">
+                        <div class="bm-dimension-header">
+                            <span class="bm-dimension-icon">${d.icon}</span>
+                            <span class="bm-dimension-name">${d.name}</span>
+                            <span class="bm-dimension-score">${d.score}分</span>
+                        </div>
+                        <div class="bm-dimension-desc">${d.description}</div>
+                        <div class="bm-replication-detail">
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">已有</span>
+                                <span class="bm-replication-value">${d.current_assets.join('、') || '暂无'}</span>
+                            </div>
+                            <div class="bm-replication-item">
+                                <span class="bm-replication-label">缺失</span>
+                                <span class="bm-replication-value">${d.missing_assets.join('、') || '无'}</span>
+                            </div>
+                        </div>
+                        <div class="bm-dimension-advice">💡 ${d.advice}</div>
+                    </div>
+                `;
+            }
+
+            // 默认维度卡片
+            return `
+                <div class="bm-dimension-card fade-in" style="animation-delay: ${i * 0.05}s">
+                    <div class="bm-dimension-header">
+                        <span class="bm-dimension-icon">${d.icon}</span>
+                        <span class="bm-dimension-name">${d.name}</span>
+                        <span class="bm-dimension-score">${d.score}分</span>
+                    </div>
+                    <div class="bm-dimension-desc">${d.description}</div>
+                    <div class="bm-dimension-advice">💡 ${d.advice}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderConclusion(conclusion) {
+        document.getElementById('strengthsList').innerHTML = conclusion.core_strengths
+            .map(s => `<li>${s}</li>`).join('');
+
+        document.getElementById('problemsList').innerHTML = conclusion.core_problems
+            .map(p => `<li>${p}</li>`).join('');
+
+        document.getElementById('actionsList').innerHTML = conclusion.priority_actions
+            .map(a => `<li>${a}</li>`).join('');
+
+        // 生成一句话总结
+        const avgScore = currentAnalysis?.avg_score || 0;
+        let summary = '';
+        if (avgScore >= 8) {
+            summary = `你的「${currentAnalysis?.business_type}」生意评分${avgScore}分，赛道优质，核心是放大杠杆效应`;
+        } else if (avgScore >= 6) {
+            summary = `你的「${currentAnalysis?.business_type}」生意评分${avgScore}分，有潜力但需解决核心问题`;
+        } else {
+            summary = `你的「${currentAnalysis?.business_type}」生意评分${avgScore}分，需要重新审视商业模式`;
+        }
+        document.getElementById('summaryText').textContent = summary;
+    }
+
+    // 重新分析
+    function refreshAnalysis() {
+        document.getElementById('resultSection').classList.add('bm-hidden');
+        document.getElementById('step1').classList.remove('completed');
+        document.getElementById('step2').classList.remove('completed');
+        document.getElementById('step3').classList.remove('completed');
+        showInput();
+    }
+
+    // LLM深度分析
+    async function doLLMAnalysis() {
+        if (!currentAnalysis) return;
+
+        const btn = event.target.closest('button');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 分析中...';
+
+        try {
+            const response = await fetch('/api/business-model/llm-conclusion', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    business_keyword: currentAnalysis.input_keyword,
+                    analysis_result: currentAnalysis
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.conclusion) {
+                renderConclusion(result.conclusion);
+
+                if (result.conclusion.one_line_summary) {
+                    document.getElementById('summaryText').textContent = result.conclusion.one_line_summary;
+                }
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert('深度分析失败');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-cpu"></i> 深度洞察';
+        }
+    }
+
+    // 下一步
+    function goToNextStep() {
+        // 后续阶段开发后跳转
+        alert('第二阶段（独特交集分析）和第三阶段（内容杠杆）开发中...');
+    }
+</script>
+{% endblock %}
