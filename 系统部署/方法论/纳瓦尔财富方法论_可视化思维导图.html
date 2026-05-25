@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>纳瓦尔财富方法论 - 思维导图</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #a0a0a0;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .mindmap-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 4px solid #f5576c;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .card-content {
+            color: #b0b0b0;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .card-1 { border-top: 4px solid #00d2d3; }
+        .card-2 { border-top: 4px solid #ff6b6b; }
+        .card-3 { border-top: 4px solid #feca57; }
+        .card-4 { border-top: 4px solid #5f27cd; }
+        .card-5 { border-top: 4px solid #00b894; }
+
+        .bullet-diagram {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 40px;
+        }
+
+        .bullet-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .bullet-item {
+            flex: 1;
+            text-align: center;
+            padding: 15px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin: 0 5px;
+        }
+
+        .bullet-item:first-child {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+        }
+
+        .bullet-item:last-child {
+            background: linear-gradient(135deg, #636e72, #b2bec3);
+        }
+
+        .bullet-label {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .bullet-score {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .arrow {
+            font-size: 1.5rem;
+            color: #a0a0a0;
+        }
+
+        .roadmap {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 30px 0;
+        }
+
+        .roadmap-item {
+            flex: 1;
+            min-width: 150px;
+            text-align: center;
+            position: relative;
+        }
+
+        .roadmap-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .roadmap-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .roadmap-desc {
+            font-size: 0.85rem;
+            color: #a0a0a0;
+        }
+
+        .roadmap-arrow {
+            font-size: 2rem;
+            color: #667eea;
+        }
+
+        .checklist {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+        }
+
+        .checklist-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .checklist-section h3 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            color: #d0d0d0;
+        }
+
+        .checklist-item input {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            accent-color: #00d2d3;
+        }
+
+        .formula {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+            border-radius: 20px;
+            margin-bottom: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .formula-text {
+            font-size: 3rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .formula-desc {
+            margin-top: 15px;
+            color: #a0a0a0;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .roadmap-arrow {
+                display: none;
+            }
+
+            .bullet-bar {
+                flex-direction: column;
+            }
+
+            .bullet-item {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+
+            .arrow {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>纳瓦尔财富方法论</h1>
+        <p class="subtitle">基于《纳瓦尔宝典》构建的业务诊断与优化框架</p>
+
+        <!-- 核心公式 -->
+        <div class="formula">
+            <div class="formula-text">财富 = 价值 × 杠杆</div>
+            <p class="formula-desc">一切商业分析都围绕这两个维度展开</p>
+        </div>
+
+        <!-- 四大支柱 -->
+        <div class="card-grid">
+            <div class="card card-1">
+                <div class="card-icon">🎯</div>
+                <h3 class="card-title">第一步：定位</h3>
+                <div class="card-content">
+                    <p>找到你的独特天赋</p>
+                    <p>培养判断力</p>
+                    <p>坚持长期主义</p>
+                </div>
+            </div>
+
+            <div class="card card-2">
+                <div class="card-icon">💎</div>
+                <h3 class="card-title">第二步：价值</h3>
+                <div class="card-content">
+                    <p>创造特定知识</p>
+                    <p>输出判断力</p>
+                    <p>积累复利</p>
+                </div>
+            </div>
+
+            <div class="card card-3">
+                <div class="card-icon">🚀</div>
+                <h3 class="card-title">第三步：杠杆</h3>
+                <div class="card-content">
+                    <p>代码杠杆（最高）</p>
+                    <p>媒体杠杆（最易）</p>
+                    <p>资本/人力杠杆</p>
+                </div>
+            </div>
+
+            <div class="card card-4">
+                <div class="card-icon">💫</div>
+                <h3 class="card-title">第四步：子弹剥离</h3>
+                <div class="card-content">
+                    <p>你的价值能脱离你吗？</p>
+                    <p>可替代性排序</p>
+                    <p>被动收入路径</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 剥离子弹 -->
+        <div class="bullet-diagram">
+            <h2 class="section-title">剥离子弹 - 可替代性排序</h2>
+            <p style="color: #a0a0a0; margin-bottom: 25px; text-align: center;">你的价值有多难被复制？</p>
+
+            <div class="bullet-bar">
+                <div class="bullet-item">
+                    <div class="bullet-label">🧠 认知差</div>
+                    <div class="bullet-score">最难替代 ★★★★★</div>
+                </div>
+                <div class="arrow">></div>
+                <div class="bullet-item">
+                    <div class="bullet-label">📡 信息差</div>
+                    <div class="bullet-score">较难替代 ★★★★☆</div>
+                </div>
+                <div class="arrow">></div>
+                <div class="bullet-item">
+                    <div class="bullet-label">🎓 经验壁垒</div>
+                    <div class="bullet-score">中等替代 ★★★☆☆</div>
+                </div>
+                <div class="arrow">></div>
+                <div class="bullet-item">
+                    <div class="bullet-label">🏭 资源壁垒</div>
+                    <div class="bullet-score">较易替代 ★★☆☆☆</div>
+                </div>
+                <div class="arrow">></div>
+                <div class="bullet-item">
+                    <div class="bullet-label">⚡ 无壁垒</div>
+                    <div class="bullet-score">最易替代 ★☆☆☆☆</div>
+                </div>
+            </div>
+
+            <p style="text-align: center; margin-top: 30px; color: #00d2d3; font-weight: 600;">
+                💡 核心问题：你的价值能脱离你而存在吗？
+            </p>
+        </div>
+
+        <!-- 成功路径 -->
+        <div class="mindmap-container">
+            <h2 class="section-title">成功路径图</h2>
+
+            <div class="roadmap">
+                <div class="roadmap-item">
+                    <div class="roadmap-circle">1.0</div>
+                    <div class="roadmap-title">单点突破</div>
+                    <div class="roadmap-desc">找到天赋，专注一件事</div>
+                </div>
+                <div class="roadmap-arrow">→</div>
+                <div class="roadmap-item">
+                    <div class="roadmap-circle">2.0</div>
+                    <div class="roadmap-title">价值聚焦</div>
+                    <div class="roadmap-desc">创造独特价值</div>
+                </div>
+                <div class="roadmap-arrow">→</div>
+                <div class="roadmap-item">
+                    <div class="roadmap-circle">3.0</div>
+                    <div class="roadmap-title">杠杆放大</div>
+                    <div class="roadmap-desc">代码/媒体杠杆</div>
+                </div>
+                <div class="roadmap-arrow">→</div>
+                <div class="roadmap-item">
+                    <div class="roadmap-circle">4.0</div>
+                    <div class="roadmap-title">规模化</div>
+                    <div class="roadmap-desc">产品化、系统化</div>
+                </div>
+                <div class="roadmap-arrow">→</div>
+                <div class="roadmap-item">
+                    <div class="roadmap-circle">5.0</div>
+                    <div class="roadmap-title">财富自由</div>
+                    <div class="roadmap-desc">被动收入 > 支出</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 杠杆类型 -->
+        <div class="mindmap-container">
+            <h2 class="section-title">杠杆类型详解</h2>
+
+            <div class="card-grid">
+                <div class="card card-1">
+                    <h3 class="card-title">🤖 代码杠杆</h3>
+                    <div class="card-content">
+                        <p>★ 最高杠杆，边际成本为零</p>
+                        <ul style="margin-top: 10px; padding-left: 20px;">
+                            <li>AI工具 / 软件</li>
+                            <li>自动化脚本</li>
+                            <li>SaaS服务</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card card-2">
+                    <h3 class="card-title">📱 媒体杠杆</h3>
+                    <div class="card-content">
+                        <p>★ 最容易入门</p>
+                        <ul style="margin-top: 10px; padding-left: 20px;">
+                            <li>短视频 ★★★★★</li>
+                            <li>公众号/博客 ★★★★☆</li>
+                            <li>播客/书籍 ★★★★☆</li>
+                            <li>课程 ★★★☆☆</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card card-3">
+                    <h3 class="card-title">💰 资本杠杆</h3>
+                    <div class="card-content">
+                        <p>★ 需要信誉</p>
+                        <ul style="margin-top: 10px; padding-left: 20px;">
+                            <li>投资理财</li>
+                            <li>合伙投资</li>
+                            <li>股权融资</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card card-5">
+                    <h3 class="card-title">👥 人力杠杆</h3>
+                    <div class="card-content">
+                        <p>★ 最古老的杠杆</p>
+                        <ul style="margin-top: 10px; padding-left: 20px;">
+                            <li>外包/自由职业者</li>
+                            <li>团队</li>
+                            <li>组织</li>
+                        </ul>
+                        <p style="margin-top: 10px; color: #ff6b6b;">⚠️ 管人是最难的</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 诊断清单 -->
+        <div class="checklist">
+            <h2 class="section-title">诊断清单</h2>
+
+            <div class="checklist-grid">
+                <div class="checklist-section">
+                    <h3>🎯 定位诊断</h3>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c1">
+                        <label for="c1">我的事是我天赋所在吗？</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c2">
+                        <label for="c2">我有清晰的决策标准吗？</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c3">
+                        <label for="c3">我在积累什么不可替代的能力？</label>
+                    </div>
+                </div>
+
+                <div class="checklist-section">
+                    <h3>💎 价值诊断</h3>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c4">
+                        <label for="c4">我有什么"只有我知道"的独特知识？</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c5">
+                        <label for="c5">我的价值能被产品化吗？</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c6">
+                        <label for="c6">我的技能有复利效应吗？</label>
+                    </div>
+                </div>
+
+                <div class="checklist-section">
+                    <h3>🚀 杠杆诊断</h3>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c7">
+                        <label for="c7">我的工作有多少可以用代码/AI替代？</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c8">
+                        <label for="c8">我有持续输出的内容吗？</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c9">
+                        <label for="c9">我有被动收入吗？</label>
+                    </div>
+                </div>
+
+                <div class="checklist-section">
+                    <h3>💫 子弹剥离诊断</h3>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c10">
+                        <label for="c10">休息一个月，收入归零吗？</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c11">
+                        <label for="c11">客户能离开我独立运转吗？</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="c12">
+                        <label for="c12">我在建立资产还是消耗时间？</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <p style="text-align: center; color: #666; margin-top: 40px;">
+            基于《纳瓦尔宝典》整理 | 如需进一步细化某个模块，请告诉我
+        </p>
+    </div>
+</body>
+</html>

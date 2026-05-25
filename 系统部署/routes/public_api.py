@@ -7026,7 +7026,9 @@ def api_market_smart_infer():
 
     try:
         # 调用 LLM 进行智能推断
-        llm = LLMService()
+        # 使用 deepseek provider（通过 get_llm_service 确保从配置读取正确参数）
+        from services.llm import get_llm_service
+        llm = get_llm_service()
         prompt = f"""你是本地化内容运营专家。请根据以下业务描述，智能推断出2-4个最可能的方向选项。
 
 【重要】客户类型：{customer_type_hint}

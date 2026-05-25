@@ -35,7 +35,7 @@ def step1_analyze():
     {
         "business": "心理咨询",
         "scope": "national",
-        "resources": ["knowledge", "experience"]
+        "assets": ["certificate", "content"]  // 新字段：资产类型
     }
 
     返回：
@@ -62,26 +62,34 @@ def step1_analyze():
     data = request.get_json() or {}
     business = data.get('business', '').strip()
     scope = data.get('scope', 'local')
-    resources = data.get('resources', [])
+    assets = data.get('assets', [])  # 资产类型
+    revenue = data.get('revenue', None)  # 收入范围
 
     if not business:
         return jsonify({"success": False, "message": "请输入业务类型"}), 400
 
-    # 调用LLM进行深度分析
-    analysis_result = _llm_analyze_business(business, scope, resources)
+    # 优先尝试LLM分析（所有业务类型统一走LLM）
+    analysis_result = _llm_analyze_business(business, scope, assets)
 
-    # 生成可复制方向选项
-    replicable_options = _generate_replicable_options(business, scope, resources)
+    # 如果LLM分析返回空或失败，使用规则分析作为备用
+    if not analysis_result or not analysis_result.get("M1"):
+        print(f"LLM分析不可用，使用规则分析: {business}")
+        analysis_result = _rule_based_analyze(business, scope, assets, revenue)
+        # 备用方案也生成可复制选项
+        replicable_options = _generate_replicable_options(business, scope, assets)
+    else:
+        # 使用LLM返回的可复制选项
+        replicable_options = analysis_result.get("replicable_options", []) or _generate_replicable_options(business, scope, assets)
 
     return jsonify({
         "success": True,
         "data": {
             "step": 1,
             "modules": {
-                "M1": analysis_result.get("M1", {}),
-                "M2": analysis_result.get("M2", {}),
-                "M3": analysis_result.get("M3", {}),
-                "M4": analysis_result.get("M4", {})
+                "M1": analysis_result.get("M1", _get_empty_module("业务本质诊断", "🔍")),
+                "M2": analysis_result.get("M2", _get_empty_module("决策成本评估", "⏰")),
+                "M3": analysis_result.get("M3", _get_empty_module("资产盘点", "📦")),
+                "M4": analysis_result.get("M4", _get_empty_module("AI机遇分析", "🤖"))
             },
             "replicable_options": replicable_options,
             "llm_summary": analysis_result.get("summary", "")
@@ -96,28 +104,265 @@ def _llm_analyze_business(business: str, scope: str, resources: list) -> dict:
     resource_desc = "无" if not resources else "、".join([
         {"knowledge": "专业知识", "experience": "行业经验", "technique": "技术工艺",
          "brand": "品牌口碑", "customers": "客户资源", "capital": "资金支持"}.get(r, r)
-        for r in resources
+        for r in resources if r
     ])
 
     # 范围描述
     scope_desc = {"local": "本地客户", "national": "全国客户", "global": "全球客户"}.get(scope, "本地客户")
 
-    # LLM分析提示词 - 简化版
-    prompt = f"""请分析这个业务，输出JSON：
+    # LLM分析提示词 - 详细版
+    prompt = f"""你是一个专业的商业诊断顾问。请对这个业务进行深度分析，输出完整的JSON格式结果。
+
+## 分析框架指导原则（纳瓦尔宝典）
+
+**核心公式：财富 = 价值 × 杠杆 × 时间**
+
+---
+
+### 第一步：识别价值（最关键）
+
+分析"解决问题的核心方式"是什么：
+
+| 方式类型 | 特征 | 剥离难度 |
+|---------|------|---------|
+| 出卖体力 | 纯手工、不可规模化 | 极高 |
+| 出卖时间 | 技能服务、一对一交付 | 高 |
+| 出卖知识 | 经验变现、可规模化 | 中 |
+| 出卖资源 | 资产变现、杠杆效应 | 低 |
+| 出卖系统 | 商业模式、可完全脱离 | 极低 |
+
+**资产依附性判断（关键维度）：**
+| 类型 | 资产状态 | 变现方式 | 剥离路径 |
+|------|---------|---------|---------|
+| 个人技艺型 | 个人拥有 | 必须投入时间换钱 | 内容杠杆+产品化 |
+| 知识经验型 | 人脑拥有 | 可产品化后自动售卖 | 课程+社群+出版 |
+| 资产占有型 | 直接占有 | 资产直接产生现金流 | 加盟/授权/出售 |
+| 资源控制型 | 控制使用权 | 低成本控制资产变现 | 二房东/共享模式/代理 |
+| 系统模式型 | 系统自动运转 | 系统直接产生现金流 | SaaS/平台/规模化 |
+
+**关键区分：赚钱 vs 换钱 vs 占钱**
+- 赚钱：资产自动产生现金流（租金、系统）
+- 换钱：必须投入时间体力（打工、个人服务）
+- 占钱：控制他人资产产生现金流（二房东、代理、运营）
+
+**二房东思维：不求所有，但求所用**
+- 关键是你能控制多少资源
+- 控制权可以脱离所有权
+- 轻资产复制 = 控制资产使用权，而非购买资产
+
+分析时必须明确：
+1. **资产是什么？** 个人/技术/资源使用权/系统
+2. **你拥有它还是控制它？** 所有权 vs 使用权/控制权
+3. **现金流如何产生？** 换钱(投入时间) / 占钱(控制资产) / 赚钱(资产自有)
+4. **能否低成本复制？** 控制权可以脱离所有权，轻资产复制
+
+关键判断：
+- **资产依附谁？** 资产在个人身上，还是可以脱离个人存在？
+- **能否脱离个人？** 离开你，这个业务还能运转吗？
+- **能否复制？** 别人能做吗？怎么复制？
+- **复制代价？** 需要多少时间/金钱/培训？
+
+---
+
+### 第二步：选择杠杆
+
+当价值识别清楚后，选择合适的杠杆放大：
+
+- **代码杠杆**：边际成本趋近于0（AI、产品、工具）
+- **媒体杠杆**：一次生产无限分发（自媒体、内容）
+- **人力杠杆**：用别人时间（团队、外包）
+- **资本杠杆**：用钱买时间（投资、规模化）
+
+**优先级**：代码 > 媒体 > 人力 > 资本
+
+---
+
+### 第三步：时间积累
+
+- 当前业务能否产生复利效应？
+- 能否积累可复用的资产（内容、用户、品牌）？
+
+---
+
 业务：{business}
 范围：{scope_desc}
 资源：{resource_desc}
 
-输出格式（纯JSON，不要任何其他文字）：
+请输出完整的JSON（不要省略任何字段，不要用...代替）：
+
+**重要：summary字段必须按以下格式输出：**
+"价值类型（变现方式）× 杠杆类型 × 时间积累 = X分（定性）"
+例如："出卖体力（换钱型）× 难以杠杆化 × 无复利 = 20分（体力陷阱）"
+例如："出卖知识（可产品化）× 媒体杠杆 × 内容复利 = 65分（知识IP）"
+例如："控制资源（占钱型）× 人力杠杆 × 规模复利 = 75分（资源杠杆）"
+
+格式说明：
+- 价值：出卖体力(10分) / 出卖时间(30分) / 出卖知识(50分) / 出卖资源(70分) / 出卖系统(90分)
+- 变现方式：换钱型(必须投入时间) / 占钱型(控制资产使用权) / 赚钱型(资产自有现金流)
+- 资产类型：个人技艺型 / 知识经验型 / 资产占有型 / 资源控制型 / 系统模式型
+- 杠杆：难以杠杆化(10分) / 媒体杠杆(30分) / 人力杠杆(50分) / 代码杠杆(80分) / 资本杠杆(90分)
+- 时间：单次出售(10分) / 有限复利(30分) / 内容复利(50分) / 资产复利(70分) / 品牌复利(90分)
+
+---
+
 {{
-  "summary": "一句话诊断",
-  "M1": {{"title":"业务本质诊断","icon":"🔍","items":[{{"label":"卖什么","value":"xxx"}}],"summary":"xxx"}},
-  "M2": {{"title":"决策成本评估","icon":"⏰","items":[{{"label":"瓶颈","value":"xxx"}}],"summary":"xxx"}},
-  "M3": {{"title":"资产盘点","icon":"📦","items":[{{"label":"资产","value":"xxx"}}],"summary":"xxx"}},
-  "M4": {{"title":"AI机遇分析","icon":"🤖","summary":"xxx","recommendations":["建议1","建议2"]}}
+  "summary": "价值类型 × 杠杆类型 × 时间积累 = X分（简要定性）",
+  "M1": {{
+    "title": "业务本质诊断",
+    "icon": "🔍",
+    "items": [
+      {{"label": "卖什么", "value": "具体产品/服务", "detail": "详细说明"}},
+      {{"label": "卖给谁", "value": "目标客户群体", "detail": "详细说明"}},
+      {{"label": "价格区间", "value": "价格范围", "detail": "市场定价"}},
+      {{"label": "收入模式", "value": "盈利方式", "detail": "详细说明"}}
+    ],
+    "summary": "业务本质的详细描述",
+    "expandable": true,
+    "details": {{
+      "核心价值": "核心价值描述",
+      "商业模式": "商业模式描述",
+      "竞争要素": "竞争要素描述",
+      "信任机制": "信任机制描述",
+      "资产类型": "个人技艺型/知识经验型/资产占有型/资源控制型/系统模式型",
+      "资产控制权": "所有权/使用权/控制权",
+      "变现方式": "换钱型/占钱型/赚钱型",
+      "剥离路径": "建议的剥离路径"
+    }},
+    "trust_analysis": {{
+      "summary": "信任机制总结",
+      "type": "信任类型",
+      "description": "信任机制详细描述",
+      "key_factors": ["因素1", "因素2"],
+      "challenge": "挑战描述",
+      "implication": "建议描述"
+    }},
+    "is_local_service": true/false,
+    "is_hard_to_replicate": true/false
+  }},
+  "M2": {{
+    "title": "决策成本评估",
+    "icon": "⏰",
+    "trap_type": "时间陷阱类型",
+    "trap_desc": "陷阱详细描述",
+    "can_scale": true/false,
+    "items": [
+      {{"label": "时间陷阱", "value": "陷阱类型", "detail": "详细说明"}},
+      {{"label": "没你能否转", "value": "是/否/部分", "detail": "详细说明"}},
+      {{"label": "可复制指数", "value": "X/100", "detail": "复制难度说明"}},
+      {{"label": "核心痛点", "value": "主要痛点", "detail": "详细说明"}}
+    ],
+    "summary": "决策成本评估总结",
+    "expandable": true,
+    "details": {{
+      "自运转能力": "X%（详细说明）",
+      "可复制指数": "X/100",
+      "核心痛点": "痛点1、痛点2"
+    }},
+    "special_case": true/false,
+    "recommendation_type": "类型",
+    "recommendation": {{
+      "directive": "建议指令",
+      "reason": "原因",
+      "strategy": "策略",
+      "action_items": ["行动1", "行动2", "行动3"]
+    }},
+    "财富公式评估": {{
+      "价值": {{"score": 85, "desc": "价值评估描述"}},
+      "杠杆": {{"score": 60, "desc": "杠杆评估描述", "lever_type": "代码/媒体/人力/资本"}},
+      "时间": {{"score": 40, "desc": "时间积累评估描述"}},
+      "财富指数": 45
+    }},
+    "剥离分析": {{
+      "能否剥离": "能/否/部分",
+      "剥离路径": "直接可剥离/需产品化后剥离/难以剥离",
+      "剥离前提": "剥离需要满足的条件",
+      "剥离方案": "具体剥离策略"
+    }}
+  }},
+  "M3": {{
+    "title": "资产盘点",
+    "icon": "📦",
+    "items": [
+      {{"label": "可产品化资产", "value": "X项", "detail": "详细说明"}},
+      {{"label": "复制潜力", "value": "高/中/低", "detail": "详细说明"}},
+      {{"label": "资源匹配", "value": "X%", "detail": "详细说明"}}
+    ],
+    "digital_assets": [
+      {{"name": "资产名称", "status": "状态", "value": "价值"}}
+    ],
+    "replicable_potential": {{
+      "score": 75,
+      "level": "高/中/低",
+      "reason": "原因说明"
+    }},
+    "resource_match": {{
+      "score": 80,
+      "strength": "资源强度描述",
+      "match_items": ["匹配项1", "匹配项2"]
+    }},
+    "summary": "资产盘点总结",
+    "expandable": true,
+    "details": {{
+      "可产品化资产": ["资产1", "资产2"],
+      "复制潜力评分": "X/100",
+      "资源匹配度": "X%"
+    }}
+  }},
+  "M4": {{
+    "title": "AI机遇分析",
+    "icon": "🤖",
+    "special_case": true/false,
+    "ai_type": "AI类型",
+    "core_insight": {{
+      "title": "核心洞察标题",
+      "description": "详细描述"
+    }},
+    "opportunities": [
+      {{
+        "type": "replace/enhance/automate/create",
+        "task": "任务名称",
+        "ai_action": "AI行动",
+        "impact": "效果影响",
+        "priority": "最高/高/中/低"
+      }}
+    ],
+    "ceiling": {{
+      "level": 75,
+      "desc": "天花板描述"
+    }},
+    "risk": {{
+      "level": "high/medium/low",
+      "desc": "风险描述"
+    }},
+    "time_window": {{
+      "value": "short/medium/long",
+      "desc": "时间窗口描述"
+    }},
+    "recommendations": [
+      "建议1：详细说明",
+      "建议2：详细说明",
+      "建议3：详细说明"
+    ],
+    "summary": "AI机遇总结"
+  }},
+  "replicable_options": [
+    {{
+      "id": "选项id（如course、handbook等）",
+      "name": "选项名称",
+      "icon": "图标emoji",
+      "summary": "选项描述",
+      "difficulty": "低/中/高",
+      "match_score": 85,
+      "reason": "为什么适合这个业务",
+      "lever_type": "代码/媒体/人力/资本",
+      "passive_income_potential": "高/中/低",
+      "detach_ability": "完全可剥离/部分可剥离/难以剥离",
+      "margin_cost": "边际成本趋近于0/较低/较高"
+    }}
+  ]
 }}
 
-直接输出JSON，不要解释。"""
+直接输出JSON，不要有任何其他文字。"""
 
     # 调用LLM
     if LLM_AVAILABLE:
@@ -156,78 +401,55 @@ def _llm_analyze_business(business: str, scope: str, resources: list) -> dict:
             # 尝试直接解析
             try:
                 result = json.loads(response)
+                # 验证结果是否有效
+                if result and "M1" in result:
+                    print(f"LLM解析成功")
+                    return result
+                else:
+                    print(f"LLM返回结果不完整，使用规则分析")
             except:
                 # 尝试修复后解析
                 try:
                     fixed = fix_json(response)
                     result = json.loads(fixed)
+                    if result and "M1" in result:
+                        print(f"LLM解析成功（修复后）")
+                        return result
                 except:
                     # 打印详细错误信息
                     print(f"JSON解析失败，尝试修复...")
                     print(f"修复后内容: {fixed[:500] if 'fixed' in dir() else response[:500]}...")
-                    raise ValueError("无法解析JSON")
 
-            print(f"LLM解析成功")
-            return result
+            # LLM解析失败，使用规则分析
+            print(f"LLM分析失败，使用规则分析作为备用")
+            return _rule_based_analyze(business, scope, resources)
+
         except Exception as e:
             print(f"LLM分析失败: {e}")
             import traceback
             traceback.print_exc()
-            # LLM失败时使用备用规则
-            return _fallback_analysis(business, scope, resources)
+            # LLM失败时使用规则分析
+            return _rule_based_analyze(business, scope, resources)
     else:
-        # 没有LLM时使用备用规则
-        print("LLM不可用，使用备用分析")
-        return _fallback_analysis(business, scope, resources)
+        # 没有LLM时使用规则分析
+        print("LLM不可用，使用规则分析")
+        return _rule_based_analyze(business, scope, resources)
 
 
-def _fallback_analysis(business: str, scope: str, resources: list) -> dict:
-    """备用分析：当LLM不可用时使用规则分析"""
-    business_lower = business.lower()
-    is_local = _is_local_service_business(business_lower)
+def _rule_based_analyze(business: str, scope: str, assets: list, revenue: str = None) -> dict:
+    """
+    基于规则的深度分析：当LLM不可用时使用完整规则分析
+    """
+    print(f"使用规则分析: business={business}, scope={scope}, assets={assets}, revenue={revenue}")
 
-    summary = f"你的{business}需要根据具体情况进行深度分析。"
+    # 调用各个分析模块
+    m1 = _analyze_business_essence(business, scope, assets)
+    m2 = _analyze_decision_cost(business, scope, assets)
+    m3 = _analyze_assets(business, scope, assets, revenue)
+    m4 = _analyze_ai_opportunity(business, scope, assets)
 
-    # M1 - 业务本质
-    m1 = {
-        "title": "业务本质诊断",
-        "icon": "🔍",
-        "items": [
-            {"label": "业务类型", "value": business, "detail": "待LLM深度分析"},
-            {"label": "服务范围", "value": scope, "detail": "目标市场范围"}
-        ],
-        "summary": f"请配置LLM服务以获得更精准的分析",
-        "expandable": True,
-        "details": {"提示": "建议启用LLM服务以获得针对性分析"}
-    }
-
-    # M2 - 决策成本
-    m2 = {
-        "title": "决策成本评估",
-        "icon": "⏰",
-        "items": [
-            {"label": "分析状态", "value": "待分析", "detail": "请配置LLM服务"}
-        ],
-        "summary": "请启用LLM获取详细分析"
-    }
-
-    # M3 - 资产盘点
-    m3 = {
-        "title": "资产盘点",
-        "icon": "📦",
-        "items": [
-            {"label": "分析状态", "value": "待分析", "detail": "请配置LLM服务"}
-        ],
-        "summary": "请启用LLM获取详细分析"
-    }
-
-    # M4 - AI机遇
-    m4 = {
-        "title": "AI机遇分析",
-        "icon": "🤖",
-        "summary": "请启用LLM获取详细分析",
-        "recommendations": ["启用LLM服务以获得AI机遇分析"]
-    }
+    # 生成综合摘要
+    summary = m1.get("summary", "")
 
     return {
         "summary": summary,
@@ -236,6 +458,21 @@ def _fallback_analysis(business: str, scope: str, resources: list) -> dict:
         "M3": m3,
         "M4": m4
     }
+
+
+def _get_empty_module(title: str, icon: str) -> dict:
+    """返回一个空模块的默认结构"""
+    return {
+        "title": title,
+        "icon": icon,
+        "items": [],
+        "summary": "暂无数据"
+    }
+
+
+def _fallback_analysis(business: str, scope: str, resources: list) -> dict:
+    """备用分析：当LLM不可用时使用规则分析（已废弃，使用_rule_based_analyze代替）"""
+    return _rule_based_analyze(business, scope, resources)
 
 
 # ==================== 第二阶段：路线规划接口 ====================
@@ -282,7 +519,7 @@ def step2_route():
     resource_desc = "无" if not resources else "、".join([
         {"knowledge": "专业知识", "experience": "行业经验", "technique": "技术工艺",
          "brand": "品牌口碑", "customers": "客户资源", "capital": "资金支持"}.get(r, r)
-        for r in resources
+        for r in resources if r
     ])
 
     scope_desc = {"local": "本地客户", "national": "全国客户", "global": "全球客户"}.get(scope, "本地客户")
@@ -629,6 +866,9 @@ def _analyze_decision_cost(business: str, scope: str, resources: list) -> dict:
     if is_local_service:
         return _analyze_local_service(business, scope)
 
+    # 信任建立分析（核心新增）
+    trust_analysis = _analyze_trust_for_decision_cost(business_lower, scope)
+
     # 判断时间陷阱类型
     if any(k in business_lower for k in ["心理", "法律", "财税", "咨询", "教练"]):
         trap_type = "时间换钱型"
@@ -671,21 +911,24 @@ def _analyze_decision_cost(business: str, scope: str, resources: list) -> dict:
         without_you = "需要评估具体情况"
         autonomy_score = 50
 
-    # 计算可复制指数
+    # 计算可复制指数（考虑信任建立因素）
+    trust_factor = trust_analysis["replication_impact_score"]  # -30 到 +30
+    base_replication = 50
+
     if any(k in business_lower for k in ["心理", "法律", "财税", "医"]):
-        replication_score = 45
+        replication_score = min(100, max(0, base_replication + trust_factor + 0))  # 资质可传递
         replication_level = "中等"
     elif any(k in business_lower for k in ["培训", "教育", "咨询"]):
-        replication_score = 55
+        replication_score = min(100, max(0, base_replication + trust_factor + 5))
         replication_level = "中等偏高"
     elif any(k in business_lower for k in ["设计", "装修", "中介"]):
-        replication_score = 50
+        replication_score = min(100, max(0, base_replication + trust_factor + 0))
         replication_level = "中等"
     elif any(k in business_lower for k in ["美容", "健身", "家政"]):
-        replication_score = 40
+        replication_score = min(100, max(0, base_replication + trust_factor - 10))
         replication_level = "较低"
     else:
-        replication_score = 50
+        replication_score = min(100, max(0, base_replication + trust_factor))
         replication_level = "中等"
 
     # 核心痛点
@@ -709,14 +952,174 @@ def _analyze_decision_cost(business: str, scope: str, resources: list) -> dict:
             "自运转能力": f"{autonomy_score}%（{without_you}）",
             "可复制指数": f"{replication_score}/100",
             "核心痛点": "、".join(pain_points)
-        }
+        },
+        # 新增：信任建立分析
+        "trust_analysis": trust_analysis
     }
+
+
+def _analyze_trust_for_decision_cost(business_lower: str, scope: str) -> dict:
+    """
+    分析信任建立机制及其对复制难度的影响
+    这是决策成本评估的核心维度之一
+    """
+    is_local_service = _is_local_service_business(business_lower)
+
+    # 本地服务型（人情型信任）- 复制极难
+    if is_local_service and scope == "local":
+        return {
+            "type": "人情型信任",
+            "type_icon": "👥",
+            "difficulty": "极高",
+            "difficulty_score": 90,
+            "description": "信任建立在本地社会关系网络上，靠口碑、关系介绍、回头客",
+            "key_factors": [
+                {"factor": "主理人威望", "desc": "客户信任你这个人，包括你的为人、做事方式"},
+                {"factor": "人情往来", "desc": "通过长期接触积累的人情，互相帮忙、介绍客户"},
+                {"factor": "邻里口碑", "desc": "街坊邻居的认可和推荐"},
+                {"factor": "回头客", "desc": "客户体验好后持续复购并介绍新客户"}
+            ],
+            "replication_barrier": "这种信任无法随身携带！外地客户不认识你，没有共同社会网络背书",
+            "replication_impact": "复制难度 +40分（非常难）",
+            "replication_impact_score": -30,
+            "how_to_build": "如果想复制，需要用'内容'建立新的信任背书，而不是复制本地模式",
+            "alternative_path": "把技艺产品化（教程、课程）+ 内容获客，服务外地同乡"
+        }
+
+    # 本地服务想扩张全国（内容型信任）- 复制较难
+    elif is_local_service and scope in ["national", "global"]:
+        return {
+            "type": "内容型信任",
+            "type_icon": "📱",
+            "difficulty": "较高",
+            "difficulty_score": 60,
+            "description": "需要通过内容输出（抖音、小红书）建立专业形象",
+            "key_factors": [
+                {"factor": "内容影响力", "desc": "视频/图文内容的传播力和专业度"},
+                {"factor": "作品展示", "desc": "服务案例、过程记录、对比图"},
+                {"factor": "客户评价", "desc": "真实用户反馈和见证"},
+                {"factor": "专业资质", "desc": "证书、头衔、行业认可"}
+            ],
+            "replication_barrier": "没有本地社会网络背书，需要更强的内容营销能力",
+            "replication_impact": "复制难度 +20分（较难）",
+            "replication_impact_score": -15,
+            "how_to_build": "先把本地成功案例做成内容（抖音/小红书），吸引外地客户",
+            "alternative_path": "服务在外地的本地人或认同你价值的远方客户"
+        }
+
+    # 知识服务型（专业型信任）- 复制中等
+    elif any(k in business_lower for k in ["心理", "法律", "财税", "医", "教育", "培训", "咨询", "教练"]):
+        return {
+            "type": "专业型信任",
+            "type_icon": "🎓",
+            "difficulty": "中等",
+            "difficulty_score": 50,
+            "description": "专业资质本身就是信任背书，可以通过远程服务全国客户",
+            "key_factors": [
+                {"factor": "专业资质", "desc": "证书、执照、学历等硬性背书"},
+                {"factor": "成功案例", "desc": "解决过的问题、帮客户达成的结果"},
+                {"factor": "平台认证", "desc": "在专业平台上的认证和排名"},
+                {"factor": "行业口碑", "desc": "同行认可和推荐"}
+            ],
+            "replication_barrier": "资质可以传递，但建立同等口碑需要时间",
+            "replication_impact": "复制难度 0分（中等）",
+            "replication_impact_score": 0,
+            "how_to_build": "培养团队成员获取资质，复制方法论和流程",
+            "alternative_path": "适合做线上课程/咨询，边际成本低，可规模化"
+        }
+
+    # 技术服务型（作品型信任）- 复制较易
+    elif any(k in business_lower for k in ["设计", "装修", "IT", "软件", "开发", "摄影", "摄像"]):
+        return {
+            "type": "作品型信任",
+            "type_icon": "🖼️",
+            "difficulty": "较低",
+            "difficulty_score": 40,
+            "description": "客户通过作品集和案例判断能力，可线上展示触达全国",
+            "key_factors": [
+                {"factor": "作品质量", "desc": "过往作品的专业度和美观度"},
+                {"factor": "案例展示", "desc": "完整案例的前后对比、过程说明"},
+                {"factor": "客户评价", "desc": "真实客户的好评和推荐"},
+                {"factor": "服务效率", "desc": "响应速度和专业沟通能力"}
+            ],
+            "replication_barrier": "作品集可以传承，但交付质量依赖团队培训",
+            "replication_impact": "复制难度 -10分（较易）",
+            "replication_impact_score": 10,
+            "how_to_build": "建立标准流程和培训体系，培养团队成员",
+            "alternative_path": "标准化流程 + 培养团队，降低对个人的依赖"
+        }
+
+    # 品牌型（品牌型信任）- 复制较易
+    elif any(k in business_lower for k in ["中介", "代理", "猎头", "房产", "保险", "直销"]):
+        return {
+            "type": "品牌型信任",
+            "type_icon": "🏢",
+            "difficulty": "较低",
+            "difficulty_score": 35,
+            "description": "品牌背书让客户更容易信任新员工或加盟店",
+            "key_factors": [
+                {"factor": "品牌知名度", "desc": "品牌在市场上的认知度和美誉度"},
+                {"factor": "标准流程", "desc": "统一的服务流程和标准"},
+                {"factor": "背书体系", "desc": "品牌方提供的支持和背书"},
+                {"factor": "系统支持", "desc": "CRM系统、培训体系等支持"}
+            ],
+            "replication_barrier": "品牌可以授权，但执行质量参差不齐",
+            "replication_impact": "复制难度 -15分（较易）",
+            "replication_impact_score": 15,
+            "how_to_build": "建立品牌标准和加盟体系，统一培训和支持",
+            "alternative_path": "加盟/代理模式，快速扩张但需管控品质"
+        }
+
+    # 撮合型（资源型信任）- 复制难
+    elif any(k in business_lower for k in ["撮合", "平台", "渠道"]):
+        return {
+            "type": "资源型信任",
+            "type_icon": "🔗",
+            "difficulty": "高",
+            "difficulty_score": 70,
+            "description": "信任建立在资源连接能力上",
+            "key_factors": [
+                {"factor": "资源丰富度", "desc": "掌握的供需双方资源数量"},
+                {"factor": "匹配效率", "desc": "快速精准匹配的能力"},
+                {"factor": "行业人脉", "desc": "在行业中的关系网络"},
+                {"factor": "数据壁垒", "desc": "积累的用户数据和关系网络"}
+            ],
+            "replication_barrier": "资源和人脉难以快速复制",
+            "replication_impact": "复制难度 +25分（难）",
+            "replication_impact_score": -20,
+            "how_to_build": "建立数据壁垒，向平台化方向演进",
+            "alternative_path": "用技术提升匹配效率，建立网络效应"
+        }
+
+    else:
+        # 通用型
+        return {
+            "type": "综合型信任",
+            "type_icon": "⚖️",
+            "difficulty": "中等",
+            "difficulty_score": 50,
+            "description": "混合多种信任机制",
+            "key_factors": [
+                {"factor": "产品质量", "desc": "核心产品/服务的质量"},
+                {"factor": "服务态度", "desc": "专业、耐心、负责的态度"},
+                {"factor": "价格竞争力", "desc": "性价比是否突出"},
+                {"factor": "渠道覆盖", "desc": "触达客户的渠道能力"}
+            ],
+            "replication_barrier": "需要平衡多个维度的竞争要素",
+            "replication_impact": "复制难度 0分（中等）",
+            "replication_impact_score": 0,
+            "how_to_build": "找出你最独特的竞争力，集中资源打造",
+            "alternative_path": "差异化定位，找到细分市场"
+        }
 
 
 def _analyze_local_service(business: str, scope: str) -> dict:
     """分析本地服务型业务的核心问题"""
 
     business_lower = business.lower()
+
+    # 获取信任分析
+    trust_analysis = _analyze_trust_for_decision_cost(business_lower, scope)
 
     # 判断具体类型
     if any(k in business_lower for k in ["灌香肠", "腊肉", "腊肠", "腌菜", "酱料", "豆腐", "豆芽", "面条", "馒头", "糕点"]):
@@ -789,11 +1192,13 @@ def _analyze_local_service(business: str, scope: str) -> dict:
                     "考虑把技术/配方产品化（课程、教程、工具）",
                     "服务在外地的本地人或认同你价值的客户"
                 ]
-            }
+            },
+            # 新增：信任建立分析
+            "trust_analysis": trust_analysis
         }
     else:
         # 选择全国/全球的分析
-        return {
+        result = {
             "title": "决策成本评估",
             "icon": "⏰",
             "trap_type": "内容品牌型",
@@ -824,8 +1229,11 @@ def _analyze_local_service(business: str, scope: str) -> dict:
                     "把核心技能产品化（课程/教程/工具）",
                     "服务在外地务工的本地同乡"
                 ]
-            }
+            },
+            # 新增：信任建立分析
+            "trust_analysis": trust_analysis
         }
+        return result
 
 
 def _get_pain_points(business_lower: str) -> list:
@@ -850,84 +1258,615 @@ def _get_pain_points(business_lower: str) -> list:
 
 # ==================== M3: 资产盘点 ====================
 
-def _analyze_assets(business: str, scope: str, resources: list) -> dict:
-    """M3: 盘点用户资产"""
+def _analyze_assets(business: str, scope: str, models_input: list, revenue: str = None) -> dict:
+    """
+    M3: 杠杆点与资产化路径
+
+    核心问题：
+    1. 你现在在出卖什么？（时间？体力？技能？资源？）
+    2. 你卖的东西中，哪一部分可以"剥离"出来？
+    3. 这个可剥离的东西能否病毒化复制？
+
+    参考《纳瓦尔宝典》+《富爸爸穷爸爸》：
+    - 餐盘修复 → 做内容 → 卖教程 → 被动收入
+    - 核心是找到那个"可以病毒化复制的点"
+    """
 
     business_lower = business.lower()
-    is_local_service = _is_local_service_business(business_lower)
 
-    # 本地服务型业务的资产盘点（特殊逻辑）
-    if is_local_service:
-        return _analyze_local_service_assets(business, scope)
+    # 分析你的"出卖物"
+    what_you_sell = _analyze_what_you_sell(business_lower)
 
-    # 可产品化的资产
-    digital_assets = []
-    if any(k in business_lower for k in ["心理", "法律", "财税", "医", "教育", "咨询"]):
-        digital_assets = [
-            {"name": "专业知识体系", "status": "已整理/待整理", "value": "高"},
-            {"name": "案例库", "status": "有积累/需整理", "value": "高"},
-            {"name": "方法论", "status": "有经验/待提炼", "value": "高"}
-        ]
-    elif any(k in business_lower for k in ["设计", "装修", "IT"]):
-        digital_assets = [
-            {"name": "设计方案库", "status": "有积累/可复用", "value": "高"},
-            {"name": "素材模板", "status": "待整理", "value": "中"},
-            {"name": "工具流程", "status": "有经验/可标准化", "value": "高"}
-        ]
-    else:
-        digital_assets = [
-            {"name": "行业经验", "status": "有积累/待整理", "value": "中"},
-            {"name": "操作流程", "status": "待标准化", "value": "中"}
-        ]
+    # 识别可复制的杠杆点
+    leverage_points = _identify_replicable_leverage(business_lower, what_you_sell)
 
-    # 可复制潜力评估
-    if any(k in business_lower for k in ["心理", "法律", "教育", "咨询"]):
-        replicable_potential = {
-            "score": 85,
-            "level": "高",
-            "reason": "知识密集型，最适合产品化"
-        }
-    elif any(k in business_lower for k in ["设计", "装修"]):
-        replicable_potential = {
-            "score": 70,
-            "level": "较高",
-            "reason": "可建立标准流程和模板"
-        }
-    elif any(k in business_lower for k in ["美容", "健身", "中介"]):
-        replicable_potential = {
-            "score": 55,
-            "level": "中等",
-            "reason": "部分环节可标准化"
-        }
-    else:
-        replicable_potential = {
-            "score": 60,
-            "level": "中等",
-            "reason": "需要挖掘可标准化环节"
-        }
+    # 资产化路径
+    assetization_path = _analyze_assetization_path_v2(business_lower, models_input, leverage_points)
 
-    # 资源匹配度
-    resource_match = _analyze_resource_match(resources, business_lower)
+    # 综合评估
+    comprehensive = _comprehensive_assessment_v2(leverage_points, assetization_path)
 
     return {
-        "title": "资产盘点",
-        "icon": "📦",
+        "title": "杠杆点与资产化路径",
+        "icon": "🎯",
         "items": [
-            {"label": "可产品化资产", "value": f"{len(digital_assets)}项", "detail": "可转化为数字产品"},
-            {"label": "复制潜力", "value": replicable_potential["level"], "detail": replicable_potential["reason"]},
-            {"label": "资源匹配", "value": f"{resource_match['score']}%", "detail": resource_match["strength"]}
+            {"label": "你在出卖", "value": what_you_sell["type"], "detail": what_you_sell["desc"]},
+            {"label": "可复制点", "value": leverage_points["has_leverage"] if leverage_points.get("has_leverage") else "待识别", "detail": leverage_points.get("summary", "分析中...")},
+            {"label": "资产化路径", "value": assetization_path["level"], "detail": assetization_path["summary"]}
         ],
-        "digital_assets": digital_assets,
-        "replicable_potential": replicable_potential,
-        "resource_match": resource_match,
-        "summary": f"你的业务有{len(digital_assets)}项可产品化资产，复制潜力{replicable_potential['level']}（{replicable_potential['score']}分）。",
+        "what_you_sell": what_you_sell,
+        "leverage_points": leverage_points,
+        "assetization_path": assetization_path,
+        "comprehensive": comprehensive,
+        "summary": comprehensive["summary"],
         "expandable": True,
         "details": {
-            "可产品化资产": [a["name"] for a in digital_assets],
-            "复制潜力评分": f"{replicable_potential['score']}/100",
-            "资源匹配度": f"{resource_match['score']}%"
+            "核心洞察": comprehensive.get("core_insight", ""),
+            "行动建议": comprehensive.get("action", "")
         }
     }
+
+
+def _analyze_what_you_sell(business_lower: str) -> dict:
+    """
+    分析你在出卖什么
+    核心：出卖的是什么，决定了能不能复制
+
+    关键洞察（中餐店 vs 麦当劳）：
+    - 中餐：依赖主厨技能 → 技能在厨师脑子里 → 难以复制
+    - 麦当劳：依赖流程系统 → 系统可以无限复制 → 容易做大
+
+    核心问题：这个业务的"核心资产"是依附在人身上，还是依附在系统/品牌上？
+    """
+    # 纯时间出租
+    if any(k in business_lower for k in ["外卖", "快递", "滴滴", "代驾", "搬运", "临时工"]):
+        return {
+            "type": "纯时间",
+            "desc": "干一小时算一小时，无法积累，无法复制",
+            "can_replicate": False,
+            "why": "你的时间只能出租一次，无法复制",
+            "asset_location": "依附在你身上",
+            "example_problem": "骑手跑了就跑了，没有任何积累"
+        }
+
+    # 餐饮（中餐问题）
+    if any(k in business_lower for k in ["餐饮", "饭店", "餐厅", "小吃", "早餐", "中餐", "川菜", "粤菜", "湘菜"]):
+        return {
+            "type": "手艺 + 口味（依赖人）",
+            "desc": "核心价值在厨师和配方，难以标准化",
+            "can_replicate": False,
+            "why": "中餐的灵魂在厨师，而厨师需要多年培养，主厨走了店就完了",
+            "asset_location": "依附在厨师身上",
+            "example_problem": "麦当劳可以复制，因为不依赖厨师；中餐难以复制，因为太依赖主厨",
+            "mcdonald_insight": "麦当劳ceo说：'我们不是做汉堡的，我们是做房地产的'",
+            "solution_hint": "要么标准化（麦当劳模式），要么卖手艺（培训/教程）"
+        }
+
+    # 体力 + 少量技能
+    if any(k in business_lower for k in ["美容", "美发", "理发", "家政", "保洁", "按摩"]):
+        return {
+            "type": "时间 + 体力 + 少量技能",
+            "desc": "需要到现场，手艺有一定壁垒",
+            "can_replicate": "partial",
+            "why": "手艺可以教，但需要人到现场",
+            "asset_location": "部分依附在人身上",
+            "replicable_part": "技术/手法",
+            "non_replicable_part": "服务本身",
+            "example_good": "海底捞：标准化服务流程 → 员工可复制",
+            "example_bad": "个体美发店：太依赖理发师个人"
+        }
+
+    # 技能/专业知识
+    if any(k in business_lower for k in ["心理", "法律", "财税", "医", "教育", "培训", "咨询", "教练"]):
+        return {
+            "type": "专业知识 + 时间",
+            "desc": "出卖专业知识和经验",
+            "can_replicate": True,
+            "why": "知识可以整理成产品（课程/教程），一次制作持续销售",
+            "asset_location": "知识可以独立于你存在",
+            "replicable_part": "知识体系、方法论",
+            "non_replicable_part": "服务/咨询",
+            "example_good": "知识付费：课程录好后，不需要你亲自在场",
+            "transformation": "从'亲自服务'到'卖知识产品'"
+        }
+
+    # 资源运作（撮合）
+    if any(k in business_lower for k in ["中介", "代理", "猎头", "房产", "保险", "二房东", "租赁"]):
+        return {
+            "type": "资源 + 信息差 + 时间",
+            "desc": "撮合供需双方，赚取差价/佣金",
+            "can_replicate": "partial",
+            "why": "资源/人脉难以复制，但撮合方法可以",
+            "asset_location": "核心竞争力在个人关系",
+            "replicable_part": "匹配逻辑、系统、流程",
+            "non_replicable_part": "现有资源/关系",
+            "example_good": "贝壳：把房产中介的逻辑系统化，加盟扩张"
+        }
+
+    # 产品制造
+    if any(k in business_lower for k in ["制造", "生产", "加工", "灌香肠", "腊肉", "腊肠", "腌菜", "酱料"]):
+        return {
+            "type": "产品 + 配方/工艺",
+            "desc": "生产产品，销售给客户",
+            "can_replicate": True,
+            "why": "产品可以标准化，配方可以传授",
+            "asset_location": "配方/工艺可以独立存在",
+            "replicable_part": "产品、配方、流程",
+            "non_replicable_part": "核心口味/秘方",
+            "example_good": "可口可乐：配方标准化，全世界一个味道",
+            "transformation": "从'手工作坊'到'工业化生产'"
+        }
+
+    # 餐盘修复等特殊技能
+    if any(k in business_lower for k in ["修复", "维修", "修补", "diy", "手工"]):
+        return {
+            "type": "特殊技能 + 知识",
+            "desc": "有一定壁垒的特殊技能",
+            "can_replicate": True,
+            "why": "技能可以教学，经验可以整理成教程",
+            "asset_location": "技能可以独立于你存在",
+            "replicable_part": "技术教程、操作流程",
+            "non_replicable_part": "实操经验",
+            "example_good": "修复教程 → 内容获客 → 卖课/工具"
+        }
+
+    # 默认
+    return {
+        "type": "待分析",
+        "desc": "需要更多信息判断",
+        "can_replicate": "unknown",
+        "why": "请明确你的商业模式",
+        "asset_location": "待确定"
+    }
+
+
+def _identify_replicable_leverage(business_lower: str, what_you_sell: dict) -> dict:
+    """
+    识别可复制的杠杆点
+    核心：找到那个可以病毒化复制的"点"
+
+    态度：不给中庸答案，不行就是不行
+    """
+    can_replicate = what_you_sell.get("can_replicate", False)
+    replicable_part = what_you_sell.get("replicable_part", "")
+    business_type = what_you_sell.get("type", "")
+
+    if can_replicate == False:
+        # 纯时间出租 - 直接否定
+        return {
+            "has_leverage": "❌ 无杠杆点",
+            "summary": "你的业务本质上无法积累资产，100%在出租时间",
+            "verdict": "❌ 不行",
+            "verdict_reason": "时间出租=干一天算一天，没有积累，没有未来",
+            "problem": "没有任何东西可以'剥离'出来做产品，因为你的价值=时间本身",
+            "leverage_type": None,
+            "leverage_points": [],
+            "core_insight": "你必须转型，没有任何优化空间",
+            "difficulty": "极高（需要完全转型）",
+            "action": "放弃这条路，选择一个有杠杆点的业务"
+        }
+
+    if can_replicate == "partial":
+        # 部分可复制 - 明确难度
+        if "手艺" in business_type or "体力" in business_type:
+            # 美发/美容等 - 难度高
+            return {
+                "has_leverage": "⚡ 有杠杆点，但难度高",
+                "summary": "手艺可以标准化，但需要系统化改造",
+                "verdict": "⚡ 可以，但很难",
+                "verdict_reason": "成功案例少（海底捞算一个），失败率高",
+                "problem": "你现在的竞争力在'人'身上，要变成在'系统'身上，需要彻底重构",
+                "leverage_type": "系统杠杆 + 品牌杠杆",
+                "leverage_points": [
+                    {
+                        "name": "标准化流程",
+                        "desc": "把服务流程标准化，雇人执行",
+                        "difficulty": "极高",
+                        "difficulty_reason": "中餐美发标准化成功率<5%，需要极强的管理能力",
+                        "example": "失败案例远多于成功案例",
+                        "viral_score": 30,
+                        "action": "适合极少数有管理天赋的人，普通人慎重"
+                    },
+                    {
+                        "name": "转型卖手艺",
+                        "desc": "把技术做成教程/培训",
+                        "difficulty": "中等",
+                        "difficulty_reason": "需要你从'做事'变成'教人做事'",
+                        "example": "成功的理发师转型培训的比单纯开店的少",
+                        "viral_score": 70,
+                        "action": "如果你热爱教人，这是个好方向"
+                    }
+                ],
+                "core_insight": "⚠️ 这条路很难走，成功率低。问问自己：你是那5%有管理天赋的人吗？",
+                "difficulty": "极高",
+                "action": "要么成为海底捞（极难），要么转型卖手艺（更现实）"
+            }
+
+        elif "资源" in business_type or "撮合" in business_type:
+            # 中介/猎头等 - 难度中等
+            return {
+                "has_leverage": "⚡ 有杠杆点",
+                "summary": "方法可以系统化，但资源/人脉难复制",
+                "verdict": "⚡ 可以做",
+                "verdict_reason": "贝壳/链家已经验证这条路是可行的",
+                "problem": "你的核心竞争力在关系，关系无法转移",
+                "leverage_type": "系统杠杆 + 品牌杠杆",
+                "leverage_points": [
+                    {
+                        "name": "标准化 + 品牌化",
+                        "desc": "让客户认品牌不认个人",
+                        "difficulty": "高",
+                        "difficulty_reason": "需要大量资金和时间建立品牌",
+                        "example": "贝壳：砸钱建立品牌 → 系统化流程 → 加盟扩张",
+                        "viral_score": 60,
+                        "action": "普通人：深耕本地，做出口碑"
+                    },
+                    {
+                        "name": "工具化",
+                        "desc": "开发系统提升匹配效率",
+                        "difficulty": "高（需要技术合伙人）",
+                        "difficulty_reason": "技术开发成本高，周期长",
+                        "example": "猎头SaaS、房产小程序",
+                        "viral_score": 70,
+                        "action": "找技术合伙人，或者用现成工具"
+                    }
+                ],
+                "core_insight": "你的方法可以复制，但需要时间和资金",
+                "difficulty": "高",
+                "action": "从小做起，先验证模型，再扩张"
+            }
+
+        # 默认部分可复制
+        return {
+            "has_leverage": "⚡ 有杠杆点",
+            "summary": "有路径，但需要努力",
+            "verdict": "⚡ 可以做",
+            "difficulty": "中等",
+            "leverage_points": []
+        }
+
+    if can_replicate == True:
+        # 技能/知识型 - 明确可行
+        return {
+            "has_leverage": "✅ 有杠杆点",
+            "summary": f"你的'{replicable_part}'可以'剥离'出来做成产品",
+            "verdict": "✅ 可以做",
+            "verdict_reason": "知识产品化是普通人最容易成功的资产化路径",
+            "problem": "你现在在亲自出卖这部分，需要转变思维",
+            "leverage_type": "内容杠杆 + 产品杠杆",
+            "leverage_points": [
+                {
+                    "name": "教程/课程",
+                    "desc": "把技能整理成教程，卖给想学的人",
+                    "difficulty": "低",
+                    "difficulty_reason": "录课门槛低，成功案例多（知识付费已验证）",
+                    "example": "餐盘修复教程 → 卖99元/份，录一次卖1000份",
+                    "viral_score": 80,
+                    "action": "整理核心技能 → 录制教程 → 内容获客 → 销售"
+                },
+                {
+                    "name": "内容影响力",
+                    "desc": "做内容展示技能，吸引潜在客户",
+                    "difficulty": "低",
+                    "difficulty_reason": "抖音/小红书已验证，普通人可以做到",
+                    "example": "抖音发修复视频 → 引流 → 接单/卖教程",
+                    "viral_score": 90,
+                    "action": "持续输出内容 → 建立影响力 → 被动获客"
+                },
+                {
+                    "name": "培训/授权",
+                    "desc": "培训学员，收取学费或授权费",
+                    "difficulty": "中等",
+                    "difficulty_reason": "需要教学能力和口碑积累",
+                    "example": "开培训班 → 学员学会后接单 → 你赚学费",
+                    "viral_score": 60,
+                    "action": "先做内容建立口碑，再招生培训"
+                }
+            ],
+            "core_insight": f"✅ 关键洞察：你的'{replicable_part}'是你最大的资产，开始整理它",
+            "difficulty": "低（知识产品化已验证）",
+            "action": "🎯 立即行动：从录制第一个教程开始"
+        }
+
+    return {
+        "has_leverage": "❓ 待分析",
+        "summary": "需要更多信息",
+        "difficulty": "待评估",
+        "leverage_points": []
+    }
+
+
+def _analyze_assetization_path_v2(business_lower: str, models_input: list, leverage_points: dict) -> dict:
+    """
+    分析资产化路径 v2
+    核心：从出卖时间 → 拥有可复制的产品 → 拥有资产
+    """
+    has_leverage = leverage_points.get("has_leverage", "")
+
+    if "❌ 无杠杆点" in has_leverage:
+        return {
+            "level": "❌ 无法资产化",
+            "summary": "纯时间出租，必须转型",
+            "path": "转型 → 选择一个有杠杆点的业务",
+            "stages": [
+                {"stage": "1. 认清现实", "desc": "纯时间出租无法积累资产"},
+                {"stage": "2. 转型方向", "desc": "选择技能型或资源型业务"},
+                {"stage": "3. 建立杠杆", "desc": "找到可复制的产品/内容"}
+            ]
+        }
+
+    if "✅ 有杠杆点" in has_leverage:
+        return {
+            "level": "优秀",
+            "summary": "有明确的资产化路径",
+            "path": "内容/教程 → 影响力 → 被动收入",
+            "stages": [
+                {"stage": "1. 提取", "desc": "从业务中提取可复制的部分（技术/知识）"},
+                {"stage": "2. 产品化", "desc": "做成教程/课程/工具"},
+                {"stage": "3. 内容获客", "desc": "用内容建立影响力"},
+                {"stage": "4. 被动收入", "desc": "产品销售不需要你亲自在场"},
+                {"stage": "5. 积累资产", "desc": "用收入购买硬资产（房产/设备）"}
+            ],
+            "example": "餐盘修复 → 修复教程（99元） → 抖音发视频 → 教程被动销售 → 攒钱买设备扩大产能"
+        }
+
+    if "⚡ 有部分杠杆点" in has_leverage:
+        return {
+            "level": "中等",
+            "summary": "有路径但需要更多积累",
+            "path": "标准化 → 系统化 → 规模化",
+            "stages": [
+                {"stage": "1. 标准化", "desc": "把核心流程梳理清楚"},
+                {"stage": "2. 团队化", "desc": "雇人执行，你做管理"},
+                {"stage": "3. 系统化", "desc": "开发工具/系统提升效率"},
+                {"stage": "4. 品牌化", "desc": "让客户认品牌不认个人"},
+                {"stage": "5. 规模化", "desc": "加盟/合伙/融资"}
+            ],
+            "example": "中介 → 标准化流程 → 雇人执行 → 品牌化 → 加盟扩张"
+        }
+
+    return {
+        "level": "待分析",
+        "summary": "需要更多信息",
+        "path": "待规划"
+    }
+
+
+def _comprehensive_assessment_v2(leverage_points: dict, assetization_path: dict) -> dict:
+    """
+    综合评估 v2
+    """
+    has_leverage = leverage_points.get("has_leverage", "")
+
+    if "✅ 有杠杆点" in has_leverage:
+        # 找出最高viral_score的杠杆点
+        best_point = max(leverage_points.get("leverage_points", []), key=lambda x: x.get("viral_score", 0), default={})
+
+        return {
+            "score": 80,
+            "level": "优秀",
+            "summary": "✅ 你找到了可病毒化复制的杠杆点",
+            "core_insight": leverage_points.get("core_insight", ""),
+            "action": f"🎯 立即行动：从'{best_point.get('name', '核心技能')}'开始，录制第一个教程/内容",
+            "viral_point": best_point.get("name", ""),
+            "viral_score": best_point.get("viral_score", 0),
+            "example": best_point.get("example", "")
+        }
+
+    if "⚡ 有部分杠杆点" in has_leverage:
+        return {
+            "score": 50,
+            "level": "中等",
+            "summary": "⚡ 你有杠杆点，但需要系统化",
+            "core_insight": leverage_points.get("core_insight", ""),
+            "action": "📋 优先事项：标准化核心流程，建立可复制的系统",
+            "viral_point": "系统/品牌",
+            "viral_score": 60
+        }
+
+    return {
+        "score": 20,
+        "level": "较弱",
+        "summary": "❌ 你目前没有找到可复制的杠杆点",
+        "core_insight": "核心问题：你的业务本质是出租时间，无法提取可复制的部分",
+        "action": "🔄 转型建议：选择技能型或资源型业务，找到那个'可以剥离出来做产品的点'",
+        "viral_point": "无",
+        "viral_score": 0
+    }
+
+
+def _analyze_asset_detachability(business_lower: str, scope: str) -> dict:
+    """
+    分析各类资产的"可剥离性"
+    核心问题：这个资产能不能从你身上剥离？
+    - 可剥离：剥离后你能脱身，业务还能运转
+    - 依附型：剥离后你还得在，无法脱身
+    """
+    assets = []
+    summary_parts = []
+
+    # 知识/经验类 - 可剥离
+    if any(k in business_lower for k in ["心理", "法律", "财税", "医", "教育", "培训", "咨询", "教练"]):
+        assets.append({
+            "name": "专业知识体系",
+            "type": "knowledge",
+            "detachability": "high",
+            "detach_label": "可剥离",
+            "detach_desc": "整理成课程/教程/电子书，边际成本趋近于零",
+            "replication_form": "在线课程、付费专栏、训练营",
+            "barrier": "需要整理和包装，但整理后可持续销售",
+            "can_escape": True,  # 能否让你脱身
+            "escape_desc": "用户购买后你可不再参与"
+        })
+        summary_parts.append("知识可产品化")
+
+    # 方法论/流程类 - 可剥离
+    if any(k in business_lower for k in ["设计", "装修", "IT", "软件", "管理", "运营"]):
+        assets.append({
+            "name": "方法论/流程",
+            "type": "methodology",
+            "detachability": "high",
+            "detach_label": "可剥离",
+            "detach_desc": "标准化流程、模板、工具包",
+            "replication_form": "模板工具、SaaS产品、培训手册",
+            "barrier": "需要提炼和文档化",
+            "can_escape": True,
+            "escape_desc": "用户按流程自行执行，你可脱身"
+        })
+        summary_parts.append("方法论可标准化")
+
+    # 案例/作品类 - 可剥离
+    if any(k in business_lower for k in ["设计", "装修", "摄影", "文案", "营销"]):
+        assets.append({
+            "name": "案例/作品集",
+            "type": "portfolio",
+            "detachability": "medium",
+            "detach_label": "可部分剥离",
+            "detach_desc": "作品可以展示，但交付仍需参与",
+            "replication_form": "案例库、作品集电子书、教程",
+            "barrier": "展示型产品可脱身，交付型仍需参与",
+            "can_escape": True,
+            "escape_desc": "如果只卖教程/案例，可以脱身"
+        })
+        summary_parts.append("案例可展示化")
+
+    # 客户关系类 - 难以剥离
+    if any(k in business_lower for k in ["销售", "中介", "代理", "猎头", "房产", "保险"]):
+        assets.append({
+            "name": "客户关系",
+            "type": "relationships",
+            "detachability": "low",
+            "detach_label": "难以剥离",
+            "detach_desc": "客户信任你这个人，不是信任品牌",
+            "replication_form": "建立品牌，让客户信任品牌而非个人",
+            "barrier": "客户跟你走，不是跟品牌走",
+            "can_escape": False,
+            "escape_desc": "你需要持续维护，否则客户流失"
+        })
+        summary_parts.append("⚠️ 客户关系难剥离")
+
+    # 人力服务类 - 依附型
+    if any(k in business_lower for k in ["美容", "健身", "按摩", "理发", "餐饮", "家政"]):
+        assets.append({
+            "name": "手艺/服务",
+            "type": "skill",
+            "detachability": "low",
+            "detach_label": "依附型",
+            "detach_desc": "核心价值在你的手艺，无法转移",
+            "replication_form": "培训徒弟/员工，但品质难保证",
+            "barrier": "品质完全依赖个人，无法规模化",
+            "can_escape": False,
+            "escape_desc": "你不上班就没收入"
+        })
+        summary_parts.append("⚠️ 手艺无法剥离")
+
+    # 资质/认证类 - 可剥离
+    if any(k in business_lower for k in ["心理", "法律", "财税", "医", "教育"]):
+        assets.append({
+            "name": "专业资质",
+            "type": "certification",
+            "detachability": "medium",
+            "detach_label": "可转移但有条件",
+            "detach_desc": "资质可给团队成员，但建立同等信任需时间",
+            "replication_form": "培养持证员工，授权使用资质",
+            "barrier": "资质背后是信任，需要时间积累",
+            "can_escape": "partial",
+            "escape_desc": "有资质的人可以在，但客户可能只认你"
+        })
+        summary_parts.append("资质可转移")
+
+    # 数据/信息类 - 可剥离
+    if any(k in business_lower for k in ["咨询", "分析", "数据", "报告"]):
+        assets.append({
+            "name": "数据/洞察",
+            "type": "data",
+            "detachability": "high",
+            "detach_label": "可剥离",
+            "detach_desc": "行业数据、洞察、报告可以产品化",
+            "replication_form": "付费报告、订阅服务、API接口",
+            "barrier": "需要持续更新，但边际成本低",
+            "can_escape": True,
+            "escape_desc": "用户付费后自行使用，你可脱身"
+        })
+        summary_parts.append("数据可产品化")
+
+    # 如果没有匹配到，添加通用分析
+    if not assets:
+        assets.append({
+            "name": "行业经验",
+            "type": "experience",
+            "detachability": "medium",
+            "detach_label": "视情况而定",
+            "detach_desc": "经验可以提炼，但需要主动整理",
+            "replication_form": "整理成教程/咨询/课程",
+            "barrier": "取决于你愿不愿意花时间整理",
+            "can_escape": "partial",
+            "escape_desc": "整理后可以脱身，但需要前期投入"
+        })
+        summary_parts.append("经验待整理")
+
+    # 计算统计
+    detachable_count = sum(1 for a in assets if a["detachability"] == "high")
+    attached_count = sum(1 for a in assets if a["detachability"] == "low")
+    partial_count = sum(1 for a in assets if a["detachability"] == "medium")
+
+    # 生成剥离结论
+    if detachable_count > attached_count:
+        detach_conclusion = "✅ 你的资产以可剥离型为主，可以尝试产品化和规模化"
+        detach_score = 70 + detachable_count * 10
+    elif attached_count > detachable_count:
+        detach_conclusion = "⚠️ 你的资产以依附型为主，核心价值在你本人，复制难度大"
+        detach_score = 30 - attached_count * 10
+    else:
+        detach_conclusion = "⚡ 你的资产混合存在，需要选择性产品化"
+        detach_score = 50
+
+    detach_score = max(10, min(90, detach_score))
+
+    return {
+        "assets": assets,
+        "summary": "、".join(summary_parts) + f"。剥离可行性评分：{detach_score}分",
+        "detach_conclusion": detach_conclusion,
+        "detach_score": detach_score,
+        "detachable_count": detachable_count,
+        "attached_count": attached_count,
+        "partial_count": partial_count
+    }
+
+
+def _calculate_replication_potential(asset_analysis: dict, resource_match: dict) -> dict:
+    """计算复制可行性"""
+
+    detach_score = asset_analysis['detach_score']
+    resource_score = resource_match.get('score', 50)
+
+    # 综合评分
+    composite_score = (detach_score * 0.7) + (resource_score * 0.3)
+
+    if composite_score >= 70:
+        return {
+            "score": int(composite_score),
+            "level": "高",
+            "reason": "资产可剥离，资源匹配好，适合规模化",
+            "replication_path": "知识产品化 + 内容获客 + 自动化交付",
+            "main_barrier": "需要系统整理和持续运营"
+        }
+    elif composite_score >= 50:
+        return {
+            "score": int(composite_score),
+            "level": "中等",
+            "reason": "部分资产可剥离，但存在瓶颈",
+            "replication_path": "选择性产品化 + 培养团队分担",
+            "main_barrier": "核心环节仍需你参与"
+        }
+    else:
+        return {
+            "score": int(composite_score),
+            "level": "低",
+            "reason": "资产依附型强，复制意味着重建",
+            "replication_path": "建立标准 + 培训团队 + 品牌化",
+            "main_barrier": "你需要从执行者转变为管理者"
+        }
 
 
 def _analyze_local_service_assets(business: str, scope: str) -> dict:
@@ -935,93 +1874,233 @@ def _analyze_local_service_assets(business: str, scope: str) -> dict:
 
     business_lower = business.lower()
 
-    # 区分不可复制的资产和可以复制的资产
-    non_replicable_assets = []
-    replicable_assets = []
-
-    # 本地口碑（不可复制）
-    non_replicable_assets.append({
-        "name": "本地口碑",
-        "status": "本地积累",
-        "value": "极高（本地）",
-        "note": "在本地很有价值，但在外地无法使用"
-    })
-
-    # 人情关系（不可复制）
-    non_replicable_assets.append({
-        "name": "人情关系网络",
-        "status": "长期积累",
-        "value": "极高（本地）",
-        "note": "依赖共同社会网络，外地客户无法使用"
-    })
-
-    # 地理位置（不可复制）
-    non_replicable_assets.append({
-        "name": "地理位置",
-        "status": "已占据",
-        "value": "高（本地）",
-        "note": "只服务周边客户，扩张外地无效"
-    })
-
-    # 可复制的资产
-    if any(k in business_lower for k in ["灌香肠", "腊肉", "腊肠", "腌菜", "酱料", "豆腐", "豆芽", "面条", "馒头", "糕点"]):
-        replicable_assets = [
-            {"name": "配方/工艺", "status": "核心资产", "value": "可产品化", "action": "整理成教程/课程"},
-            {"name": "制作经验", "status": "可提炼", "value": "可产品化", "action": "写成电子书/手册"},
-            {"name": "产品本身", "status": "可邮寄", "value": "可产品化", "action": "做成可邮寄的产品"}
-        ]
-    elif any(k in business_lower for k in ["美容", "美发", "理发", "按摩", "健身"]):
-        replicable_assets = [
-            {"name": "服务技术", "status": "核心资产", "value": "可产品化", "action": "录制教学视频"},
-            {"name": "经验方法", "status": "可提炼", "value": "可产品化", "action": "写成教程"},
-            {"name": "客户见证", "status": "可展示", "value": "内容素材", "action": "做成内容吸引外地客户"}
-        ]
-    elif any(k in business_lower for k in ["餐饮", "饭店", "餐厅", "小吃"]):
-        replicable_assets = [
-            {"name": "招牌菜/特色", "status": "核心资产", "value": "可产品化", "action": "考虑做成预制菜/产品"},
-            {"name": "服务流程", "status": "可提炼", "value": "可标准化", "action": "写成运营手册"},
-            {"name": "口碑故事", "status": "可展示", "value": "内容素材", "action": "做成内容吸引外地同乡"}
-        ]
-    elif any(k in business_lower for k in ["维修", "电器", "手机", "电脑", "汽车"]):
-        replicable_assets = [
-            {"name": "维修技术", "status": "核心资产", "value": "可产品化", "action": "录制教学视频"},
-            {"name": "故障排除经验", "status": "可提炼", "value": "可产品化", "action": "写成教程/手册"},
-            {"name": "工具和方法", "status": "可标准化", "value": "可工具化", "action": "开发成工具/模板"}
-        ]
-    else:
-        replicable_assets = [
-            {"name": "技艺/技术", "status": "核心资产", "value": "可产品化", "action": "考虑录制教程"},
-            {"name": "行业经验", "status": "可提炼", "value": "可产品化", "action": "整理成文档/课程"},
-            {"name": "客户见证", "status": "可展示", "value": "内容素材", "action": "做成内容吸引外地客户"}
-        ]
-
-    # 判断复制潜力（基于资产类型）
-    replicable_potential = {
-        "score": 50,
-        "level": "有限",
-        "reason": "你的核心资产（口碑、人情）无法复制，但技艺和产品可以"
-    }
+    # 分析可剥离性
+    asset_analysis = _analyze_local_service_detachability(business_lower, scope)
 
     return {
         "title": "资产盘点",
         "icon": "📦",
         "items": [
-            {"label": "不可复制资产", "value": f"{len(non_replicable_assets)}项", "detail": "本地专属，外地无效"},
-            {"label": "可复制资产", "value": f"{len(replicable_assets)}项", "detail": "技艺、产品、经验可以产品化"},
-            {"label": "复制策略", "value": "内容杠杆", "detail": "不是开分店，是做内容"}
+            {"label": "可剥离资产", "value": f"{asset_analysis['detachable_count']}项", "detail": "可以产品化，从你身上剥离"},
+            {"label": "依附资产", "value": f"{asset_analysis['attached_count']}项", "detail": "依赖你本人，无法带走"},
+            {"label": "脱身可能", "value": asset_analysis['escape_possible'], "detail": asset_analysis['escape_reason']}
         ],
-        "non_replicable_assets": non_replicable_assets,
-        "replicable_assets": replicable_assets,
-        "replicable_potential": replicable_potential,
-        "summary": "⚠️ 你的核心资产（口碑、人情关系）是本地专属，无法复制到外地！但你的技艺和经验可以产品化。",
+        "asset_analysis": asset_analysis,
+        "summary": asset_analysis['summary'],
         "expandable": True,
         "details": {
-            "为什么本地资产难复制": "外地客户不认识你，没有共同的社会网络，也没有在你这里消费过的体验。口碑无法随身携带。",
-            "什么可以复制": "你的技艺、经验、配方、产品本身 - 这些可以通过内容展示给别人。",
-            "正确的复制方式": "不是'再开一家店'，而是'把你的技艺变成内容/产品，卖给更多人'。"
-        },
-        "special_case": True,
-        "recommendation_type": "local_service_assets"
+            "剥离结论": asset_analysis['detach_conclusion'],
+            "复制形式": asset_analysis['replication_form'],
+            "最大风险": asset_analysis['main_risk']
+        }
+    }
+
+
+def _analyze_local_service_detachability(business_lower: str, scope: str) -> dict:
+    """分析本地服务型资产的剥离可能性"""
+
+    assets = []
+    summary_parts = []
+
+    # 食品加工类
+    if any(k in business_lower for k in ["灌香肠", "腊肉", "腊肠", "腌菜", "酱料", "豆腐", "豆芽", "面条", "馒头", "糕点"]):
+        # 配方 - 可剥离
+        assets.append({
+            "name": "配方/工艺",
+            "detachability": "high",
+            "detach_label": "✅ 可剥离",
+            "detach_desc": "配方可以整理成文档，传授给他人",
+            "replication_form": "教程、课程、授权使用",
+            "can_escape": True,
+            "escape_note": "配方传授后可脱身"
+        })
+        # 口碑 - 不可剥离
+        assets.append({
+            "name": "本地口碑",
+            "detachability": "low",
+            "detach_label": "❌ 无法剥离",
+            "detach_desc": "口碑是本地的，离开就消失",
+            "replication_form": "只能重建，无法转移",
+            "can_escape": False,
+            "escape_note": "外地客户不认识你"
+        })
+        # 产品本身 - 可邮寄/可产品化
+        assets.append({
+            "name": "产品（成品）",
+            "detachability": "high",
+            "detach_label": "✅ 可剥离",
+            "detach_desc": "可以做成预制菜/真空包装，邮寄外地",
+            "replication_form": "产品化销售、代理分销",
+            "can_escape": True,
+            "escape_note": "产品可以离开你销售"
+        })
+        # 制作经验 - 部分可剥离
+        assets.append({
+            "name": "制作经验",
+            "detachability": "medium",
+            "detach_label": "⚡ 部分可剥离",
+            "detach_desc": "可以录制教程，但'感觉'难以传递",
+            "replication_form": "教程视频、直播教学",
+            "can_escape": "partial",
+            "escape_note": "教程可脱身，但精髓需要亲自传授"
+        })
+        summary_parts.append("配方可产品化，但口碑无法复制")
+
+    # 餐饮类
+    elif any(k in business_lower for k in ["餐饮", "饭店", "餐厅", "小吃", "早餐"]):
+        assets.append({
+            "name": "招牌菜/特色",
+            "detachability": "medium",
+            "detach_label": "⚡ 部分可剥离",
+            "detach_desc": "可以做预制菜，但堂食体验无法复制",
+            "replication_form": "预制菜、调料包",
+            "can_escape": "partial",
+            "escape_note": "产品可卖，但堂食体验带不走"
+        })
+        assets.append({
+            "name": "服务流程",
+            "detachability": "medium",
+            "detach_label": "⚡ 部分可剥离",
+            "detach_desc": "可以标准化流程，但人情味难以传递",
+            "replication_form": "运营手册、培训课程",
+            "can_escape": "partial",
+            "escape_note": "流程可复制，但服务温度难复制"
+        })
+        assets.append({
+            "name": "地理位置",
+            "detachability": "low",
+            "detach_label": "❌ 无法剥离",
+            "detach_desc": "位置是固定的，离开这个位置价值归零",
+            "replication_form": "无",
+            "can_escape": False,
+            "escape_note": "换地址等于重新开始"
+        })
+        summary_parts.append("堂食体验难以复制，产品化是出路")
+
+    # 美发美容类
+    elif any(k in business_lower for k in ["美容", "美发", "理发", "化妆"]):
+        assets.append({
+            "name": "技术/手艺",
+            "detachability": "low",
+            "detach_label": "❌ 无法剥离",
+            "detach_desc": "手艺在你手上，无法转移",
+            "replication_form": "培训徒弟",
+            "can_escape": False,
+            "escape_note": "你不上班就没收入"
+        })
+        assets.append({
+            "name": "客户关系",
+            "detachability": "low",
+            "detach_label": "❌ 无法剥离",
+            "detach_desc": "客户信任你这个人，不是店",
+            "replication_form": "建立品牌，但需要时间",
+            "can_escape": False,
+            "escape_note": "客户只认你，换人就走"
+        })
+        assets.append({
+            "name": "技术教程",
+            "detachability": "high",
+            "detach_label": "✅ 可剥离",
+            "detach_desc": "可以录制教程，教别人技术",
+            "replication_form": "线上课程、付费教程",
+            "can_escape": True,
+            "escape_note": "教程录好后可持续销售"
+        })
+        summary_parts.append("手艺无法转移，但可以教别人")
+
+    # 维修类
+    elif any(k in business_lower for k in ["维修", "电器", "手机", "电脑", "汽车"]):
+        assets.append({
+            "name": "维修技术",
+            "detachability": "medium",
+            "detach_label": "⚡ 部分可剥离",
+            "detach_desc": "可以整理成教程，培训员工",
+            "replication_form": "教程、技术咨询、培训",
+            "can_escape": "partial",
+            "escape_note": "教给员工后可以脱身一部分"
+        })
+        assets.append({
+            "name": "故障排除经验",
+            "detachability": "high",
+            "detach_label": "✅ 可剥离",
+            "detach_desc": "典型故障可以整理成案例库",
+            "replication_form": "教程、维修手册、咨询",
+            "can_escape": True,
+            "escape_note": "案例库可以脱离你存在"
+        })
+        assets.append({
+            "name": "工具/设备",
+            "detachability": "high",
+            "detach_label": "✅ 可剥离",
+            "detach_desc": "工具设备可以购置，流程可以复制",
+            "replication_form": "加盟连锁、技术授权",
+            "can_escape": True,
+            "escape_note": "设备和流程可以转移"
+        })
+        summary_parts.append("技术可传授，案例可产品化")
+
+    # 通用本地服务
+    else:
+        assets.append({
+            "name": "服务经验",
+            "detachability": "medium",
+            "detach_label": "⚡ 部分可剥离",
+            "detach_desc": "可以整理成流程和标准",
+            "replication_form": "手册、培训、咨询",
+            "can_escape": "partial",
+            "escape_note": "标准化后可以部分脱身"
+        })
+        assets.append({
+            "name": "本地口碑",
+            "detachability": "low",
+            "detach_label": "❌ 无法剥离",
+            "detach_desc": "口碑是本地积累，离开就消失",
+            "replication_form": "只能在新地方重建",
+            "can_escape": False,
+            "escape_note": "外地没人认识你"
+        })
+        summary_parts.append("经验可整理，口碑难复制")
+
+    # 计算统计
+    detachable_count = sum(1 for a in assets if a["detachability"] == "high")
+    attached_count = sum(1 for a in assets if a["detachability"] == "low")
+    partial_count = sum(1 for a in assets if a["detachability"] == "medium")
+
+    # 剥离结论
+    if detachable_count >= attached_count:
+        detach_conclusion = "⚡ 你的资产有可产品化部分，建议聚焦可剥离资产"
+        escape_possible = "部分可能"
+        escape_reason = "可产品化的部分可以脱身，但核心服务仍需参与"
+    else:
+        detach_conclusion = "⚠️ 你的核心资产依附于你本人，复制意味着重建"
+        escape_possible = "较难"
+        escape_reason = "想脱身需要彻底转型为产品/内容提供者"
+
+    # 复制形式
+    replicable_assets = [a for a in assets if a["detachability"] != "low"]
+    if replicable_assets:
+        replication_form = "、".join([a["replication_form"] for a in replicable_assets[:2]])
+    else:
+        replication_form = "只能重新建立"
+
+    # 最大风险
+    attached_assets = [a for a in assets if a["detachability"] == "low"]
+    if attached_assets:
+        main_risk = f"'{attached_assets[0]['name']}'无法转移，限制了规模化"
+    else:
+        main_risk = "需要投入时间整理和标准化"
+
+    return {
+        "assets": assets,
+        "summary": "、".join(summary_parts),
+        "detach_conclusion": detach_conclusion,
+        "escape_possible": escape_possible,
+        "escape_reason": escape_reason,
+        "detachable_count": detachable_count,
+        "attached_count": attached_count,
+        "partial_count": partial_count,
+        "replication_form": replication_form,
+        "main_risk": main_risk
     }
 
 
@@ -2263,3 +3342,557 @@ def _generate_route_detail(option_id: str, business: str, scope: str, resources:
 def replicable_products():
     """简化版：一步完成分析"""
     return step1_analyze()
+
+
+# ==================== 快速诊断接口 ====================
+
+@decision_cost_bp.route('/quick-analyze', methods=['POST'])
+def quick_analyze():
+    """
+    快速诊断分析：基于10道题的答案生成个性化报告
+
+    请求体：
+    {
+        "answers": {"q1": "skill", "q2": "need_train", ...},
+        "score": 450
+    }
+
+    返回：
+    {
+        "success": true,
+        "data": {
+            "score": 450,
+            "percentage": 68,
+            "stage": "第二阶段",
+            "stage_label": "发展期",
+            "stage_emoji": "🚀",
+            "value_type": "skill",
+            "value_type_label": "卖手艺",
+            "asset_type": "skill_only",
+            "asset_type_label": "技艺型",
+            "leverages": ["content", "passive"],
+            "strengths": ["✨ 有专业技能", "💪 亲自服务客户", "🌟 口碑积累中"],
+            "weaknesses": ["⚠️ 过度依赖自己", "🚧 缺乏杠杆放大", "📈 收入有天花板"],
+            "insights": ["洞察1", "洞察2", "洞察3", "洞察4"],
+            "recommendations": [
+                {"title": "行动标题", "action": "具体做法", "result": "预期结果"}
+            ]
+        }
+    }
+    """
+    data = request.get_json() or {}
+    answers = data.get('answers', {})
+    score = data.get('score', 0)
+
+    # 阶段判断
+    if score < 120:
+        stage, stage_label, stage_emoji = "第一阶段", "起步期", "🌱"
+    elif score < 200:
+        stage, stage_label, stage_emoji = "第二阶段", "发展期", "🚀"
+    elif score < 280:
+        stage, stage_label, stage_emoji = "第三阶段", "成熟期", "⭐"
+    else:
+        stage, stage_label, stage_emoji = "第四阶段", "突破期", "👑"
+
+    # 推断价值类型
+    value_type = answers.get('q1', 'skill')
+    value_type_labels = {
+        'product': '卖产品',
+        'skill': '卖手艺',
+        'knowledge': '卖知识',
+        'labor': '卖体力'
+    }
+    value_type_label = value_type_labels.get(value_type, '卖手艺')
+
+    # 推断资产类型
+    if answers.get('q3') == 'no_impact':
+        asset_type, asset_type_label = 'system', '系统型'
+    elif answers.get('q2') == 'only_me':
+        asset_type, asset_type_label = 'skill_only', '技艺型'
+    else:
+        asset_type, asset_type_label = 'knowledge', '知识型'
+
+    # 推断杠杆类型
+    leverages = []
+    if answers.get('q5') in ['yes_active', 'yes_sometimes']:
+        leverages.append('content')
+    if answers.get('q4') in ['small_team', 'big_team']:
+        leverages.append('team')
+    if answers.get('q7') in ['yes', 'some']:
+        leverages.append('passive')
+
+    # 尝试调用LLM生成个性化内容
+    strengths = []
+    weaknesses = []
+    insights = []
+    recommendations = []
+
+    if LLM_AVAILABLE:
+        try:
+            llm_result = _llm_quick_analyze(answers, score, stage, value_type_label, asset_type_label, leverages)
+            if llm_result:
+                strengths = llm_result.get('strengths', [])
+                weaknesses = llm_result.get('weaknesses', [])
+                insights = llm_result.get('insights', [])
+                recommendations = llm_result.get('recommendations', [])
+        except Exception as e:
+            print(f"LLM快速分析失败: {e}")
+
+    # 如果LLM失败，使用默认内容
+    if not strengths:
+        strengths = _default_strengths(answers, value_type_label)
+    if not weaknesses:
+        weaknesses = _default_weaknesses(answers)
+    if not insights:
+        insights = _default_insights(answers, score)
+    if not recommendations:
+        recommendations = _default_recommendations(answers, stage)
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "score": score,
+            "percentage": min(int(score / 400 * 100), 100),
+            "stage": stage,
+            "stage_label": stage_label,
+            "stage_emoji": stage_emoji,
+            "value_type": value_type,
+            "value_type_label": value_type_label,
+            "asset_type": asset_type,
+            "asset_type_label": asset_type_label,
+            "leverages": leverages,
+            "strengths": strengths,
+            "weaknesses": weaknesses,
+            "insights": insights,
+            "recommendations": recommendations
+        }
+    })
+
+
+def _llm_quick_analyze(answers, score, stage, value_type, asset_type, leverages):
+    """调用LLM生成快速诊断的个性化内容"""
+
+    answers_text = "\n".join([f"- {k}: {v}" for k, v in answers.items()])
+    leverage_text = "、".join(leverages) if leverages else "无"
+
+    # 判断信息差/认知差（统一逻辑）
+    q1 = answers.get('q1', '')
+    q2 = answers.get('q2', '')
+    q5 = answers.get('q5', '')
+    has_info_gap = q1 == 'labor' or q5 in ['yes_active', 'yes_sometimes']
+    has_cognition_gap = q1 == 'knowledge' or q2 == 'only_me'
+    if has_info_gap and has_cognition_gap:
+        profit_model = "信息差+认知差双轮驱动"
+    elif has_cognition_gap:
+        profit_model = "认知差变现"
+    else:
+        profit_model = "信息差变现"
+
+    prompt = f"""用户完成了快速商业诊断测试，请根据回答生成个性化报告。
+
+用户回答：
+{answers_text}
+
+基本信息：
+- 总分：{score}分
+- 阶段：{stage}
+- 价值类型：{value_type}
+- 资产类型：{asset_type}
+- 已有杠杆：{leverage_text}
+- 盈利模式：{profit_model}
+
+请生成JSON格式的报告，包含：
+
+1. strengths: 3条优势，简短有力（格式："✨ 优势描述"）
+2. weaknesses: 3条不足（格式："⚠️ 不足描述"）
+3. insights: 4条核心洞察，第1条必须分析"{profit_model}"对天花板的影响，其他3条要让用户觉得"说中了"（不超过25字）
+4. recommendations: 3条行动建议，每条包含title、action、result
+
+直接返回JSON，不要其他内容。"""
+
+    try:
+        result = chat_with_llm(
+            prompt=prompt,
+            system="你是一个专业的商业模式分析师。你的回答只包含JSON格式。",
+            temperature=0.7,
+            max_tokens=1500
+        )
+
+        # 解析JSON
+        import json
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', result)
+        if json_match:
+            return json.loads(json_match.group())
+    except Exception as e:
+        print(f"LLM调用失败: {e}")
+
+    return None
+
+
+def _default_strengths(answers, value_type):
+    """生成默认优势列表"""
+    strengths = []
+
+    if answers.get('q2') == 'need_train':
+        strengths.append("✨ 有一定的专业能力")
+    elif answers.get('q2') == 'only_me':
+        strengths.append("✨ 有独特的专业技能")
+
+    if answers.get('q6') == 'referral':
+        strengths.append("💪 口碑积累不错")
+    elif answers.get('q6') == 'passive':
+        strengths.append("💪 有自然流量")
+
+    if answers.get('q10') == 'very_much':
+        strengths.append("🌟 有做大事业的意愿")
+
+    if not strengths:
+        strengths = ["✨ 有稳定的客户基础", "💪 专业能力在积累", "🌟 发展潜力不错"]
+
+    return strengths[:3]
+
+
+def _default_weaknesses(answers):
+    """生成默认不足列表"""
+    weaknesses = []
+
+    if answers.get('q3') == 'stop':
+        weaknesses.append("⚠️ 过度依赖自己")
+    if answers.get('q4') == 'alone':
+        weaknesses.append("🚧 缺乏团队杠杆")
+    if answers.get('q5') == 'no':
+        weaknesses.append("📈 内容获客未开发")
+    if answers.get('q7') == 'no':
+        weaknesses.append("💰 缺乏被动收入")
+    if answers.get('q8') == 'very_limited':
+        weaknesses.append("🏔️ 收入天花板明显")
+
+    if not weaknesses:
+        weaknesses = ["⚠️ 收入模式有提升空间", "🚧 杠杆利用不足", "📈 可进一步产品化"]
+
+    return weaknesses[:3]
+
+
+def _default_insights(answers, score):
+    """生成默认洞察"""
+    insights = []
+
+    # 信息差 vs 认知差分析（统一逻辑）
+    q1 = answers.get('q1', '')
+    q2 = answers.get('q2', '')
+    q5 = answers.get('q5', '')
+
+    has_info_gap = q1 == 'labor' or q5 in ['yes_active', 'yes_sometimes']
+    has_cognition_gap = q1 == 'knowledge' or q2 == 'only_me'
+
+    if has_info_gap and has_cognition_gap:
+        insights.append("🔮 你的模式：信息差+认知差双轮驱动，天花板较高")
+    elif has_cognition_gap:
+        insights.append("🧠 你的模式：认知差变现，天花板取决于你的独特性")
+    else:
+        insights.append("📡 你的模式：信息差变现，容易被模仿，需快速建立壁垒")
+
+    if answers.get('q3') in ['stop', 'some_impact'] or answers.get('q4') == 'alone':
+        insights.append("⏰ 你的技能很值钱，但被困在时间牢笼里")
+
+    if answers.get('q7') == 'no':
+        insights.append("💤 收入完全依赖主动工作，缺乏睡后收入")
+
+    if answers.get('q5') == 'no':
+        insights.append("📢 还没有利用内容杠杆，获客效率低")
+
+    return insights[:4]
+
+
+def _default_recommendations(answers, stage):
+    """生成默认建议"""
+    recommendations = []
+
+    recommendations.append({
+        "title": "整理你的方法论",
+        "action": "花3天时间，把你的工作流程写成文档",
+        "result": "形成可复制的方法"
+    })
+
+    if answers.get('q5') == 'no':
+        recommendations.append({
+            "title": "开始发布内容",
+            "action": "每周在小红书发2条作品展示",
+            "result": "建立个人品牌，吸引客户"
+        })
+
+    if answers.get('q7') == 'no':
+        recommendations.append({
+            "title": "开发一个低价产品",
+            "action": "把你的经验做成教程或模板",
+            "result": "边际成本为零的收入"
+        })
+
+    if len(recommendations) < 3:
+        recommendations.append({
+            "title": "建立客户社群",
+            "action": "把客户聚集到微信群，定期分享价值",
+            "result": "提高复购率和转介绍"
+        })
+
+    return recommendations[:3]
+
+
+# ==================== 深度分析接口 ====================
+
+@decision_cost_bp.route('/deep-analyze/business', methods=['POST'])
+def deep_analyze_business():
+    """
+    深度分析Step1：业务信息分析
+
+    请求体：
+    {
+        "business_desc": "心理咨询师...",
+        "scope": "local",
+        "customer_tags": ["职场人士", "宝妈"],
+        "quick_answers": {...},
+        "quick_score": 250
+    }
+
+    返回：
+    {
+        "success": true,
+        "data": {
+            "trust_type": "技艺展示型",
+            "trust_desc": "...",
+            "剥离建议": [...]
+        }
+    }
+    """
+    user = get_current_public_user()
+    if not user:
+        return jsonify({"success": False, "message": "请先登录"}), 401
+
+    data = request.get_json() or {}
+    business_desc = data.get('business_desc', '').strip()
+    scope = data.get('scope', 'local')
+    customer_tags = data.get('customer_tags', [])
+
+    if not business_desc:
+        return jsonify({"success": False, "message": "请描述你的业务"}), 400
+
+    # 基于业务类型推断信任获取方式
+    quick_answers = data.get('quick_answers', {})
+    business_type = quick_answers.get('q1', 'skill')
+
+    trust_types = {
+        'product': {
+            'type': '产品品质型',
+            'icon': '📦',
+            'desc': '通过产品质量、功能体验、价格优势建立信任。客户信任的是产品本身，而非你这个人。',
+            'factors': ['产品评价', '销量数据', '品牌背书', '售后保障'],
+            '剥离建议': [
+                {'title': '建立可沉淀的信任资产', 'desc': '把产品评价、用户反馈整理成案例库，新客户能看到真实口碑。'},
+                {'title': '设计信任传递机制', 'desc': '让购买过的客户成为你的背书者，形成「购买 → 好评 → 转介绍」的自动循环。'}
+            ]
+        },
+        'skill': {
+            'type': '技艺展示型',
+            'icon': '🛠️',
+            'desc': '通过作品集、案例展示、专业资质建立信任。客户信任的是你的专业能力和过往作品。',
+            'factors': ['作品集', '成功案例', '客户评价', '专业资质'],
+            '剥离建议': [
+                {'title': '建立作品资产库', 'desc': '系统整理过往作品，按行业/类型分类，方便新客户快速了解你的能力。'},
+                {'title': '案例故事化', 'desc': '把成功案例写成「问题-方案-结果」的故事格式，增强说服力。'}
+            ]
+        },
+        'knowledge': {
+            'type': '知识权威型',
+            'icon': '📚',
+            'desc': '通过专业背景、内容输出、权威背书建立信任。客户信任的是你的知识储备和解读能力。',
+            'factors': ['专业背景', '内容输出', '权威推荐', '行业认可'],
+            '剥离建议': [
+                {'title': '内容资产化', 'desc': '把你输出的内容（文章、视频、直播）整理成体系，建立知识IP。'},
+                {'title': '背书矩阵', 'desc': '争取行业KOL推荐、媒体采访、协会认证等多维度背书。'}
+            ]
+        },
+        'labor': {
+            'type': '服务口碑型',
+            'icon': '💪',
+            'desc': '通过服务质量、准时交付、态度细节建立信任。客户信任的是你的可靠性和服务态度。',
+            'factors': ['服务质量', '准时交付', '态度细节', '转介绍率'],
+            '剥离建议': [
+                {'title': '服务SOP化', 'desc': '把服务流程标准化，确保每个客户体验一致，降低对个人的依赖。'},
+                {'title': '口碑可视化', 'desc': '收集客户好评、截图、评价，整理成「客户证言库」。'}
+            ]
+        }
+    }
+
+    trust_data = trust_types.get(business_type, trust_types['skill'])
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "trust_type": trust_data['type'],
+            "trust_icon": trust_data['icon'],
+            "trust_desc": trust_data['desc'],
+            "factors": trust_data['factors'],
+            "剥离建议": trust_data['剥离建议']
+        }
+    })
+
+
+@decision_cost_bp.route('/deep-analyze/bluocean', methods=['POST'])
+def deep_analyze_bluocean():
+    """
+    深度分析Step4：蓝海市场分析
+
+    请求体：
+    {
+        "business_desc": "...",
+        "scope": "local",
+        "customer_tags": ["职场人士"],
+        "personality_type": "IN",
+        "quick_answers": {...}
+    }
+
+    返回：
+    {
+        "success": true,
+        "data": {
+            "niche_markets": [...],
+            "small_markets": [...],
+            "differentiators": [...]
+        }
+    }
+    """
+    user = get_current_public_user()
+    if not user:
+        return jsonify({"success": False, "message": "请先登录"}), 401
+
+    data = request.get_json() or {}
+    business_desc = data.get('business_desc', '')
+    scope = data.get('scope', 'local')
+    customer_tags = data.get('customer_tags', [])
+    personality_type = data.get('personality_type', 'IN')
+    quick_answers = data.get('quick_answers', {})
+
+    business_type = quick_answers.get('q1', 'skill')
+
+    # 基于业务类型生成蓝海数据
+    niche_markets = _generate_niche_markets(business_type, customer_tags)
+    small_markets = _generate_small_markets(business_type, scope)
+    differentiators = _generate_differentiators(business_type, personality_type)
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "niche_markets": niche_markets,
+            "small_markets": small_markets,
+            "differentiators": differentiators
+        }
+    })
+
+
+def _generate_niche_markets(business_type, customer_tags):
+    """生成细分人群"""
+    base_markets = {
+        'skill': [
+            {'icon': '🎨', 'name': '设计师群体', 'desc': '平面设计、UI设计、插画师，需要接单指导和能力展示'},
+            {'icon': '💻', 'name': '程序员转型', 'desc': '技术人转管理或自由职业的规划需求'},
+            {'icon': '📸', 'name': '摄影爱好者', 'desc': '想把爱好变成副业或主业的人群'}
+        ],
+        'knowledge': [
+            {'icon': '📖', 'name': '考证人群', 'desc': '需要通过考试的上班族，时间紧迫，需要高效学习法'},
+            {'icon': '💪', 'name': '自律困难户', 'desc': '想学习但缺乏自制力，需要监督和陪伴'},
+            {'icon': '🏢', 'name': '企业内训', 'desc': '中小企业员工的技能提升需求'}
+        ],
+        'product': [
+            {'icon': '🛒', 'name': '电商创业者', 'desc': '想开网店但缺乏选品和运营经验的小白'},
+            {'icon': '🏪', 'name': '实体店主', 'desc': '线下店铺想拓展线上渠道的经营者'},
+            {'icon': '📱', 'name': '微商转型', 'desc': '想从朋友圈微商转型到正规电商的群体'}
+        ],
+        'labor': [
+            {'icon': '🏠', 'name': '家政创业者', 'desc': '想从家政阿姨转型为管理者的群体'},
+            {'icon': '🚗', 'name': '司机转型', 'desc': '滴滴/货运司机想拓展副业或转型的需求'},
+            {'icon': '🍜', 'name': '小吃摊主', 'desc': '想把手艺变成正规餐饮店的小创业者'}
+        ]
+    }
+
+    return base_markets.get(business_type, base_markets['skill'])
+
+
+def _generate_small_markets(business_type, scope):
+    """生成小众需求市场"""
+    markets = [
+        {
+            'icon': '📱',
+            'name': '线上轻咨询',
+            'desc': f'30分钟语音/视频咨询{"全国" if scope != "local" else "本地"}可做，价格适中，适合初次体验'
+        },
+        {
+            'icon': '📦',
+            'name': '标准化产品包',
+            'desc': '把专业知识打包成模板/清单/课程，边际成本为零，可批量售卖'
+        },
+        {
+            'icon': '👥',
+            'name': '小班训练营',
+            'desc': '8-15人小班制，深度陪伴式学习，客单价可提高3-5倍'
+        }
+    ]
+
+    # 根据scope调整
+    if scope == 'global':
+        markets.append({
+            'icon': '🌐',
+            'name': '海外华人市场',
+            'desc': '服务海外华人群体，时差和语言障碍反而成为壁垒'
+        })
+
+    return markets
+
+
+def _generate_differentiators(business_type, personality_type):
+    """生成差异化策略"""
+    base_diffs = [
+        {
+            'icon': '🎨',
+            'name': '差异化定位',
+            'desc': '聚焦细分人群，打造专属标签，如「程序员创业顾问」「宝妈理财师」'
+        },
+        {
+            'icon': '📚',
+            'name': '内容IP化',
+            'desc': '持续输出专业知识，建立行业影响力，实现自动获客'
+        },
+        {
+            'icon': '🔄',
+            'name': '产品矩阵',
+            'desc': '低价引流产品 + 中价服务 + 高价私教，阶梯变现，最大化客户价值'
+        }
+    ]
+
+    # 根据性格类型调整建议
+    if personality_type == 'IN':
+        base_diffs.append({
+            'icon': '✍️',
+            'name': '深度内容型',
+            'desc': '适合做长图文、深度文章、系列课程，用内容深度建立壁垒'
+        })
+    elif personality_type == 'EN':
+        base_diffs.append({
+            'icon': '🎬',
+            'name': '视频直播型',
+            'desc': '适合做短视频、直播，用个人魅力和感染力吸引粉丝'
+        })
+    elif personality_type == 'IS':
+        base_diffs.append({
+            'icon': '📋',
+            'name': '案例作品型',
+            'desc': '适合积累大量成功案例，用作品说话，证明专业能力'
+        })
+    else:
+        base_diffs.append({
+            'icon': '💡',
+            'name': '创意差异化',
+            'desc': '适合开发独特的产品形式或服务方式，用创新吸引眼球'
+        })
+
+    return base_diffs

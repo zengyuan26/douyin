@@ -108,14 +108,18 @@ TASK_MAX_TOKENS: Dict[str, Dict] = {
 class LLMService:
     """LLM 服务类"""
     
-    def __init__(self, provider='qwen', model=None):
+    def __init__(self, provider=None, model=None):
         """
         初始化 LLM 服务
-        
+
         Args:
-            provider: 模型提供商 ('ollama', 'openai', 'qwen', 'azure', 'siliconflow')
+            provider: 模型提供商 ('ollama', 'openai', 'qwen', 'azure', 'siliconflow', 'deepseek')
+                      如果为 None，则从环境变量 LLM_PROVIDER 读取
             model: 模型名称
         """
+        # 如果 provider 未指定，从环境变量读取
+        if provider is None:
+            provider = os.environ.get('LLM_PROVIDER', 'siliconflow')
         self.provider = provider
         self.model = model or os.environ.get('LLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
         self.base_url = os.environ.get('LLM_BASE_URL', 'https://api.siliconflow.cn/v1')
@@ -159,6 +163,8 @@ class LLMService:
                 return self._chat_siliconflow(messages, temperature, max_tokens)
             elif self.provider == 'azure':
                 return self._chat_azure(messages, temperature, max_tokens)
+            elif self.provider == 'deepseek':
+                return self._chat_deepseek(messages, temperature, max_tokens)
             else:
                 logger.error(f"Unknown provider: {self.provider}")
                 return None
@@ -380,6 +386,69 @@ class LLMService:
             logger.error(f"[LLM] Azure 响应格式异常: {e}, result={str(result)[:300]}")
             return None
 
+    def _chat_deepseek(self, messages, temperature, max_tokens):
+        """DeepSeek API 调用 - 兼容 OpenAI 格式"""
+        import requests
+        import urllib3
+        
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        url = f"{self.base_url}/chat/completions"
+        payload = {
+            "model": self.model,  # deepseek-ai/DeepSeek-V3
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        # 禁用 SSL 警告
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        # 创建 session，明确禁用代理
+        session = requests.Session()
+        session.trust_env = False
+        
+        try:
+            response = session.post(
+                url, 
+                headers=headers, 
+                json=payload, 
+                timeout=300, 
+                verify=False
+            )
+        except requests.exceptions.SSLError as e:
+            logger.warning(f"SSL error in DeepSeek API, retrying: {e}")
+            session = requests.Session()
+            session.trust_env = False
+            response = session.post(
+                url, 
+                headers=headers, 
+                json=payload, 
+                timeout=300, 
+                verify=True
+            )
+        
+        # 检查响应状态
+        if response.status_code != 200:
+            logger.error(f"[LLM] DeepSeek API 错误: {response.status_code} - {response.text[:500]}")
+            return None
+
+        try:
+            result = response.json()
+        except Exception as e:
+            logger.error(f"[LLM] DeepSeek 响应 JSON 解析失败: {e}, body={response.text[:200]}")
+            return None
+
+        try:
+            content = result["choices"][0]["message"]["content"]
+            return content
+        except (KeyError, TypeError, IndexError) as e:
+            logger.error(f"[LLM] DeepSeek 响应格式异常: {e}, result={str(result)[:300]}")
+            return None
+
     def list_models(self):
         """列出可用模型"""
         try:
@@ -414,6 +483,8 @@ class LLMService:
                 yield from self._chat_stream_openai(messages, temperature, max_tokens)
             elif self.provider == 'azure':
                 yield from self._chat_stream_azure(messages, temperature, max_tokens)
+            elif self.provider == 'deepseek':
+                yield from self._chat_stream_openai(messages, temperature, max_tokens)
             else:
                 logger.error(f"Unknown provider: {self.provider}")
         except Exception as e:
