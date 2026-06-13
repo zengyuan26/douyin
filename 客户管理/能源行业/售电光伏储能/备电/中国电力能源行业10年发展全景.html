@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中国电力能源行业近10年发展全景</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; background:#0f172a; color:#e2e8f0; padding:20px; }
+  .header { text-align:center; padding:40px 20px; }
+  .header h1 { font-size:2em; background:linear-gradient(90deg,#60a5fa,#34d399,#fb923c,#f87171); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .section { max-width:1400px; margin:0 auto 40px; background:#1e293b; border-radius:16px; padding:30px; }
+  .section h2 { font-size:1.3em; margin-bottom:20px; padding-left:12px; border-left:4px solid; }
+  h2.blue { border-color:#3b82f6; } h2.green { border-color:#22c55e; } h2.orange { border-color:#f97316; } h2.red { border-color:#ef4444; }
+
+  /* Legend */
+  .legend { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+  .legend span { padding:4px 14px; border-radius:20px; font-size:.85em; font-weight:600; }
+  .legend .sd { background:rgba(59,130,246,.25); color:#60a5fa; }
+  .legend .cn { background:rgba(34,197,94,.25); color:#4ade80; }
+  .legend .wg { background:rgba(249,115,22,.25); color:#fb923c; }
+  .legend .gz { background:rgba(239,68,68,.25); color:#f87171; }
+
+  /* Mermaid */
+  .mermaid-wrapper { overflow:auto; background:#0f172a; border-radius:12px; padding:20px; }
+  .mermaid-wrapper svg { max-width:100%; height:auto; }
+  .zoom-controls { display:flex; gap:8px; margin-bottom:12px; }
+  .zoom-controls button { padding:6px 16px; border-radius:8px; border:none; cursor:pointer; background:#334155; color:#e2e8f0; font-size:.9em; }
+  .zoom-controls button:hover { background:#475569; }
+
+  /* Table */
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:.9em; }
+  th { background:#334155; padding:12px 10px; text-align:left; font-weight:600; white-space:nowrap; }
+  td { padding:10px; border-bottom:1px solid #334155; vertical-align:top; }
+  tr:hover td { background:rgba(255,255,255,.03); }
+  .tag { display:inline-block; padding:2px 10px; border-radius:12px; font-size:.8em; font-weight:600; margin:2px; }
+  .tag-sd { background:rgba(59,130,246,.3); color:#93c5fd; }
+  .tag-cn { background:rgba(34,197,94,.3); color:#86efac; }
+  .tag-wg { background:rgba(249,115,22,.3); color:#fdba74; }
+  .tag-gz { background:rgba(239,68,68,.3); color:#fca5a5; }
+  .tag-tp { background:rgba(250,204,21,.25); color:#fde047; font-weight:700; }
+
+  /* Chart */
+  .chart-wrap { position:relative; height:500px; }
+  @media (max-width:768px) { .chart-wrap { height:380px; } }
+
+  /* Responsive */
+  @media (max-width:768px) {
+    body { padding:10px; }
+    .section { padding:20px 14px; }
+    .header h1 { font-size:1.4em; }
+    table { font-size:.78em; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>中国电力能源行业近10年发展全景</h1>
+  <p style="color:#94a3b8;margin-top:10px;">2015→2026 · 政策·技术·市场·转折</p>
+</div>
+
+<!-- Legend -->
+<div class="section" style="padding:16px 20px;">
+  <div class="legend">
+    <span class="sd">🔵 售电</span>
+    <span class="cn">🟢 储能</span>
+    <span class="wg">🟠 微电网/虚拟电厂</span>
+    <span class="gz">🔴 绿证/3060</span>
+    <span style="background:rgba(250,204,21,.25);color:#fde047;padding:4px 14px;border-radius:20px;font-size:.85em;font-weight:600;">⭐ 转折点</span>
+  </div>
+</div>
+
+<!-- 1. Mermaid Mindmap -->
+<div class="section">
+  <h2 class="blue">🧠 全景思维导图（滚轮缩放 · 拖拽平移）</h2>
+  <div class="zoom-controls">
+    <button onclick="zoomIn()">🔍 放大</button>
+    <button onclick="zoomOut()">🔍 缩小</button>
+    <button onclick="resetZoom()">↺ 重置</button>
+  </div>
+  <div class="mermaid-wrapper" id="mermaidContainer">
+    <pre class="mermaid">
+mindmap
+  root((中国电力能源行业<br/>近10年发展全景))
+    顶层总纲：3060双碳目标
+      2020.9 联合国承诺：2030碳达峰 2060碳中和
+      2021 "1+N"政策体系
+      2026 能耗双控→碳排放双控
+      2030 碳达峰目标
+    售电行业
+      2015 9号文：放开两头_管住中间
+      2016-2018 野蛮增长：价差暴利
+      2021 批零倒挂_行业洗牌
+      2025 综合能源转型
+      关键产品：售电公司_虚拟电厂_绿电交易_碳资产管理
+    储能行业
+      2017 首个指导意见：技术储备
+      2021 强制配储：爆发起点
+      2022-2024 装机暴涨_成本下降
+      2025 取消强配+容量电价
+      2026 新型储能独立市场主体
+      技术路线：锂电主导_钠电崛起_液流补充_铅酸衰退
+    AI微电网
+      本质：实体资产_局域自治
+      关键能力：预测_调度_孤岛运行
+      技术：云边端AI架构_能量管理系统
+      案例：广东海寿岛_青海三江源
+    虚拟电厂VPP
+      本质：软件平台_广域聚合
+      关键能力：资源聚合_电力交易_需求响应
+      政策里程碑：2024虚拟电厂纳入经营主体_2025专项指导意见
+    绿电+绿证
+      绿电：新能源直接交易
+      绿证：环境权益证明
+      关键节点：2025绿证获RE100认可_2026碳市场扩围
+    EMC合同能源管理
+      模式：用能单位零初投_节能收益分享
+      应用：工业节能_建筑节能_园区综合能源
+    交叉融合
+      售电公司+虚拟电厂+储能聚合
+      微电网作为虚拟电厂的可调度资源
+      3060驱动全部板块
+    </pre>
+  </div>
+</div>
+
+<!-- 2. Yearly Table -->
+<div class="section">
+  <h2 class="green">📊 年度关键事件表</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>年份</th><th>政策/文件</th><th>技术里程碑</th><th>市场事件</th><th>⭐ 转折点</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2015</td>
+          <td><span class="tag tag-sd">9号文：电改启动</span><span class="tag tag-wg">微电网示范指导意见</span></td>
+          <td>微电网技术体系首次提出</td>
+          <td>售电公司注册潮</td>
+          <td><span class="tag tag-tp">售电元年</span></td>
+        </tr>
+        <tr>
+          <td>2016</td>
+          <td><span class="tag tag-sd">售电公司准入</span></td>
+          <td>—</td>
+          <td>广东首次集中竞价交易</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>2017</td>
+          <td><span class="tag tag-cn">首个储能指导意见</span><span class="tag tag-wg">28个微电网示范项目</span></td>
+          <td>锂电储能系统集成起步</td>
+          <td>售电价差暴利期</td>
+          <td><span class="tag tag-tp">微电网示范启动</span></td>
+        </tr>
+        <tr>
+          <td>2018</td>
+          <td><span class="tag tag-wg">微电网并网测试国标</span></td>
+          <td>储能成本>2元/Wh</td>
+          <td>售电公司洗牌开始</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>2019</td>
+          <td><span class="tag tag-gz">绿证制度试点</span></td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>2020</td>
+          <td><span class="tag tag-gz">3060双碳承诺</span></td>
+          <td>AI预测算法引入电力</td>
+          <td>新能源装机加速</td>
+          <td><span class="tag tag-tp">双碳定调</span></td>
+        </tr>
+        <tr>
+          <td>2021</td>
+          <td><span class="tag tag-cn">强制配储政策</span><span class="tag tag-gz">1+N体系</span></td>
+          <td>磷酸铁锂成本<1元/Wh</td>
+          <td>储能装机爆发</td>
+          <td><span class="tag tag-tp">储能爆发</span></td>
+        </tr>
+        <tr>
+          <td>2022</td>
+          <td><span class="tag tag-sd">现货市场加速</span></td>
+          <td>钠离子电池中试</td>
+          <td>工商业储能起步</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>2023</td>
+          <td><span class="tag tag-wg">虚拟电厂试点扩大</span></td>
+          <td>AI调度系统商用</td>
+          <td>储能价格战</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>2024</td>
+          <td><span class="tag tag-wg">虚拟电厂纳入经营主体</span><span class="tag tag-gz">碳市场扩围</span></td>
+          <td>8h长时储能示范</td>
+          <td>储能成本<0.8元/Wh</td>
+          <td><span class="tag tag-tp">VPP合法化</span></td>
+        </tr>
+        <tr>
+          <td>2025</td>
+          <td><span class="tag tag-cn">取消强配+容量电价</span><span class="tag tag-gz">绿证获RE100认可</span></td>
+          <td>钠电量产</td>
+          <td>售电综合能源转型</td>
+          <td><span class="tag tag-tp">储能市场化</span></td>
+        </tr>
+        <tr>
+          <td>2026</td>
+          <td><span class="tag tag-cn">新型储能独立主体</span><span class="tag tag-sd">1656号文</span><span class="tag tag-wg">工业微电网建设指南</span><span class="tag tag-gz">碳双控/10号文</span></td>
+          <td>15分钟电价落地<br/>AI+微电网商用</td>
+          <td>代理交易爆发<br/>独立储能基金成立</td>
+          <td><span class="tag tag-tp">全面市场化</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 3. Technology Rise/Fall Timeline Chart -->
+<div class="section">
+  <h2 class="orange">📈 技术/业务兴衰对比（热度指数 · 相对值）</h2>
+  <div class="chart-wrap">
+    <canvas id="techChart"></canvas>
+  </div>
+  <p style="color:#64748b;font-size:.8em;margin-top:8px;">*基于行业热度、装机量、政策关注度综合估算的相对指数</p>
+</div>
+
+<script>
+// Mermaid init
+mermaid.initialize({ startOnLoad:true, theme:'dark', mindmap:{ padding:20, maxWidth:600 } });
+
+// Zoom controls
+let scale = 1;
+function zoomIn()  { scale=Math.min(scale+0.2,4); applyZoom(); }
+function zoomOut() { scale=Math.max(scale-0.2,0.4); applyZoom(); }
+function resetZoom(){ scale=1; applyZoom(); }
+function applyZoom(){
+  const svg = document.querySelector('#mermaidContainer svg');
+  if(svg) { svg.style.transform=`scale(${scale})`; svg.style.transformOrigin='top left'; }
+}
+
+// Wait for mermaid render then allow zoom
+setTimeout(()=>{ const svg=document.querySelector('#mermaidContainer svg'); if(svg) svg.style.cursor='grab'; },1500);
+
+// Chart.js Timeline
+const ctx = document.getElementById('techChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: ['2015','2016','2017','2018','2019','2020','2021','2022','2023','2024','2025','2026'],
+    datasets: [
+      { label:'售电（价差套利）', data:[20,50,80,70,60,50,40,35,30,25,20,15], borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.15)', fill:true, tension:.3, borderWidth:2 },
+      { label:'储能（锂电装机）', data:[5,8,15,20,25,35,65,78,88,90,82,85], borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,.15)', fill:true, tension:.3, borderWidth:2 },
+      { label:'微电网/虚拟电厂', data:[10,12,18,20,25,30,40,50,62,78,88,95], borderColor:'#f97316', backgroundColor:'rgba(249,115,22,.15)', fill:true, tension:.3, borderWidth:2 },
+      { label:'绿证/碳交易', data:[3,5,8,10,15,25,35,45,55,68,80,92], borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,.15)', fill:true, tension:.3, borderWidth:2 },
+      { label:'EMC合同能源管理', data:[30,32,35,38,40,42,48,55,62,72,82,90], borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.1)', fill:true, tension:.3, borderWidth:2, borderDash:[5,3] },
+      { label:'代理交易', data:[0,0,0,0,0,5,10,15,20,30,55,88], borderColor:'#fde047', backgroundColor:'rgba(250,204,21,.1)', fill:true, tension:.3, borderWidth:3 },
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins: {
+      legend:{ labels:{ color:'#94a3b8', usePointStyle:true, pointStyleWidth:10, padding:20, font:{size:13} } },
+      tooltip:{ mode:'index',intersect:false }
+    },
+    scales: {
+      x:{ ticks:{ color:'#64748b' }, grid:{ color:'rgba(100,116,139,.15)' } },
+      y:{ min:0, max:100, ticks:{ color:'#64748b', callback:v=>v+'%' }, grid:{ color:'rgba(100,116,139,.1)' }, title:{ display:true, text:'行业热度指数', color:'#64748b' } }
+    },
+    interaction:{ mode:'nearest',axis:'x',intersect:false }
+  }
+});
+</script>
+
+</body>
+</html>
