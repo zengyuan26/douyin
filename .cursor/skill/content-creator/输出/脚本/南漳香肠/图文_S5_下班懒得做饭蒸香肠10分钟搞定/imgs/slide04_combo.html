@@ -1,0 +1,63 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=1080,height=1920"><title>搭配</title><style>* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif; background:#2D2B55; display:flex; justify-content:center; align-items:center; min-height:100vh; }
+.page { width:1080px; height:1920px; background:#FFF9F5; overflow:hidden; position:relative; flex-shrink:0; }
+.page { background:linear-gradient(160deg,#FFFBF7 0%,#FFF8F0 50%,#FFF3E8 100%); }
+.header { padding:50px 60px 0; }
+.tag { display:inline-block;font-size:20px;font-weight:600;padding:8px 22px;border-radius:20px;margin-right:12px;margin-bottom:8px; }
+.tg { background:rgba(76,175,80,0.1);color:#4CAF50; }
+.to { background:rgba(255,152,0,0.1);color:#FF9800; }
+.h1 { font-size:48px;font-weight:800;color:#333333;line-height:1.3;margin-bottom:10px; }
+.sub { font-size:27px;color:#888;margin-bottom:28px; }
+.div { width:80px;height:4px;background:linear-gradient(90deg,#4CAF50,#FF9800);border-radius:2px;margin-bottom:22px; }
+.list { padding:0 50px;display:flex;flex-direction:column;gap:14px; }
+.card { background:white;border-radius:20px;padding:24px 28px;box-shadow:0 3px 14px rgba(139,109,83,0.07);display:flex;align-items:center;gap:22px; }
+.ci { width:70px;height:70px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;flex-shrink:0; }
+.c1 { background:linear-gradient(135deg,rgba(139,109,83,0.12),rgba(212,165,116,0.2));color:#8D6E63; }
+.c2 { background:linear-gradient(135deg,rgba(255,152,0,0.12),rgba(255,107,53,0.2));color:#FF9800; }
+.c3 { background:linear-gradient(135deg,rgba(76,175,80,0.12),rgba(129,199,132,0.2));color:#4CAF50; }
+.name { font-size:29px;font-weight:700;color:#333333;margin-bottom:6px; }
+.desc { font-size:21px;color:#888;line-height:1.5; }
+.badge { font-size:17px;font-weight:600;padding:6px 15px;border-radius:12px;flex-shrink:0; }
+.c1 .badge { background:rgba(139,109,83,0.1);color:#8D6E63; }
+.c2 .badge { background:rgba(255,152,0,0.1);color:#FF9800; }
+.c3 .badge { background:rgba(76,175,80,0.1);color:#4CAF50; }
+.extra { margin:18px 50px;background:linear-gradient(135deg,rgba(76,175,80,0.08),rgba(139,109,83,0.06));border-radius:20px;padding:22px 28px;border:1px solid rgba(76,175,80,0.15); }
+.el { font-size:21px;color:#4CAF50;font-weight:700;margin-bottom:12px; }
+.items { display:flex;gap:12px;flex-wrap:wrap; }
+.item { background:white;border-radius:14px;padding:12px 20px;font-size:23px;color:#333333;font-weight:500;box-shadow:0 2px 8px rgba(139,109,83,0.06); }
+.bottom { position:absolute;bottom:58px;left:50px;right:50px;text-align:center;padding:22px;background:linear-gradient(135deg,#8D6E63,#D4A574);border-radius:20px; }
+.bottom p { font-size:27px;color:white;font-weight:700; }</style></head><body>
+<div class="page">
+  <div class="header">
+    <div><span class="tag tg">快手搭配</span><span class="tag to">一学就会</span></div>
+    <h1 class="h1">香肠配一配<br>一顿像样的晚餐就有了</h1>
+    <p class="sub">三种经典搭配，总有一款适合你</p>
+    <div class="div"></div>
+  </div>
+  <div class="list">
+    <div class="card">
+      <div class="ci c1">米饭</div>
+      <div style="flex:1"><p class="name">香肠 + 白米饭</p><p class="desc">最经典的吃法，最简单的满足<br>上班族一人食首选</p></div>
+      <div class="badge">最经典</div>
+    </div>
+    <div class="card">
+      <div class="ci c2">面条</div>
+      <div style="flex:1"><p class="name">香肠 + 面条</p><p class="desc">香肠切片铺在面上，或者香肠丁煮面<br>吃得饱又有滋味</p></div>
+      <div class="badge">碳水爆炸</div>
+    </div>
+    <div class="card">
+      <div class="ci c3">白粥</div>
+      <div style="flex:1"><p class="name">香肠 + 白粥</p><p class="desc">早上晚上都适合，清淡解腻<br>香肠配粥比配饭还香</p></div>
+      <div class="badge">清淡解腻</div>
+    </div>
+  </div>
+  <div class="extra">
+    <p class="el">再配一个：</p>
+    <div class="items">
+      <span class="item">蒜苗炒鸡蛋</span>
+      <span class="item">烫个青菜</span>
+      <span class="item">一饭有肉有菜</span>
+    </div>
+  </div>
+  <div class="bottom"><p>不用大鱼大肉，日常一餐很满足</p></div>
+</div></body></html>
