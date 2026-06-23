@@ -39,6 +39,7 @@ Thumbs.db
 
 # Cursor
 .cursor/
+!.cursor/skill/
 
 # Database
 *.db
