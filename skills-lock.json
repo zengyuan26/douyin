@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "jackyshen-gen-short-video-script": {
+      "source": "mebusw/awesome-jackyshen-skills",
+      "sourceType": "github",
+      "skillPath": "skills/jackyshen-gen-short-video-script/SKILL.md",
+      "computedHash": "eb42d54f50e9f7c6984b5fb8b75b6316fc02773c62cf47a5d9f35aeaddce6d4b"
+    },
+    "viral-short-form": {
+      "source": "vyralcontent/content-skills",
+      "sourceType": "github",
+      "skillPath": "skills/viral-short-form/SKILL.md",
+      "computedHash": "c60a80164b0efb9a390c30a2a12463d7460c75c44ea73e39393261a78a67b036"
+    }
+  }
+}
