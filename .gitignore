@@ -38,7 +38,7 @@ env/
 Thumbs.db
 
 # Cursor
-.cursor/
+.cursor/*
 !.cursor/skill/
 
 # Database
