@@ -1,0 +1,2283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>备电 · 内容数据仪表盘</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.5/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #1a1e24; --card: #222830; --border: #2a3340;
+    --text: #c8cdd4; --muted: #687080; --accent: #C89050;
+    --green: #5a9e6e; --red: #c45555; --blue: #4a8eb5;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font:14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:1400px; margin:0 auto; padding:24px; }
+  header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  h1 { font-size:22px; font-weight:700; color:#eee; }
+  h1 span { color:var(--accent); }
+  .btns { display:flex; gap:8px; }
+  button, .btn { padding:7px 16px; border:1px solid var(--border); border-radius:6px;
+    background:var(--card); color:var(--text); cursor:pointer; font-size:13px; white-space:nowrap; }
+  button:hover, .btn:hover { border-color:var(--accent); color:#eee; }
+  button.accent { background:var(--accent); border-color:var(--accent); color:#111; font-weight:600; }
+  button.accent:hover { opacity:0.9; }
+  button.small { padding:4px 10px; font-size:12px; }
+
+  .kpi-row { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:20px; }
+  .kpi { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:14px 16px; text-align:center; }
+  .kpi .val { font-size:26px; font-weight:700; color:#eee; }
+  .kpi .lbl { font-size:12px; color:var(--muted); margin-top:2px; }
+
+  .main-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px; }
+  .panel h2 { font-size:15px; margin-bottom:12px; color:#ddd; }
+  .panel.wordcloud { grid-column:1; grid-row:1/3; }
+  .wordcloud-wrap { width:100%; height:420px; position:relative; overflow-y:auto; }
+  .wc-word:hover { transform:scale(1.15)!important; z-index:5; }
+  .chart-wrap { width:100%; height:220px; position:relative; }
+  .chart-wrap.tall { height:300px; }
+
+  .table-panel { margin-bottom:20px; }
+  .table-panel h2 { font-size:15px; margin-bottom:10px; color:#ddd; }
+  .filter-row { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .filter-row select, .filter-row input { padding:6px 10px; background:var(--bg); border:1px solid var(--border);
+    border-radius:4px; color:var(--text); font-size:13px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:8px 10px; border-bottom:2px solid var(--border); color:var(--muted); font-weight:600; cursor:pointer; }
+  th:hover { color:#ddd; }
+  td { padding:7px 10px; border-bottom:1px solid var(--border); }
+  tr:hover td { background:rgba(255,255,255,0.03); }
+  tr.selected td { background:rgba(200,144,80,0.12); }
+  .clickable { cursor:pointer; color:var(--blue); }
+  .clickable:hover { text-decoration:underline; }
+
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:100; }
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:24px; width:520px; max-height:80vh; overflow-y:auto; }
+  .modal h3 { margin-bottom:16px; color:#eee; }
+  .form-row { margin-bottom:12px; }
+  .form-row label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .form-row input, .form-row select, .form-row textarea { width:100%; padding:8px 10px; background:var(--bg);
+    border:1px solid var(--border); border-radius:4px; color:var(--text); font-size:13px; }
+  .form-row textarea { resize:vertical; min-height:60px; }
+  .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
+
+  .tooltip-box { position:absolute; background:#111; border:1px solid var(--accent); border-radius:6px;
+    padding:10px 14px; font-size:12px; line-height:1.6; pointer-events:none; z-index:50; display:none;
+    max-width:260px; box-shadow:0 4px 16px rgba(0,0,0,0.5); }
+
+  @media (max-width:900px) { .main-grid { grid-template-columns:1fr; } .kpi-row { grid-template-columns:repeat(3,1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>备电 · <span>内容数据仪表盘</span></h1>
+  <div class="btns">
+    <button onclick="openAddPost()">+ 添加内容</button>
+    <button onclick="exportJSON()">导出</button>
+    <button onclick="document.getElementById('importFile').click()">导入</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(this)">
+  </div>
+</header>
+
+<div class="kpi-row" id="kpiRow"></div>
+
+<div class="main-grid">
+  <div class="panel wordcloud">
+    <h2>关键词云 <span style="font-weight:400;font-size:12px;color:var(--muted)">— 大小=播放覆盖 · 颜色=互动效果 · 点击筛选</span>
+      <span style="float:right;font-size:11px;font-weight:400;">
+        <span style="color:#5a9e6e">● 好词</span>
+        <span style="color:#687080;margin-left:8px">● 正常</span>
+        <span style="color:#c45555;margin-left:8px">● 差词</span>
+      </span>
+    </h2>
+    <div class="wordcloud-wrap" id="wordcloudDiv" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;align-content:center;gap:8px 12px;padding:10px;overflow-y:auto;height:385px;"></div>
+    <div class="tooltip-box" id="wcTooltip"></div>
+  </div>
+  <div class="panel">
+    <h2>按内容类型 · 效果对比</h2>
+    <div class="chart-wrap tall"><canvas id="chartType"></canvas></div>
+  </div>
+  <div class="panel">
+    <h2>选题方向 TOP10 <span style="font-weight:400;font-size:12px;color:var(--muted)">— 按均互动率</span></h2>
+    <div class="chart-wrap tall"><canvas id="chartTopic"></canvas></div>
+  </div>
+</div>
+
+<div class="main-grid" style="grid-template-columns:1fr 1fr;">
+  <div class="panel">
+    <h2>目标人群 · 雷达</h2>
+    <div class="chart-wrap tall"><canvas id="chartAudience"></canvas></div>
+  </div>
+  <div class="panel">
+    <h2>单篇增长曲线 <span style="font-weight:400;font-size:12px;color:var(--muted)">— 点击列表中的内容</span></h2>
+    <div class="chart-wrap tall"><canvas id="chartGrowth"></canvas></div>
+  </div>
+</div>
+
+<div class="table-panel panel">
+  <h2>内容列表 <span id="listCount" style="font-weight:400;font-size:12px;color:var(--muted)"></span></h2>
+  <div class="filter-row">
+    <select id="filterType" onchange="renderTable()">
+      <option value="">全部类型</option>
+    </select>
+    <input type="text" id="filterSearch" placeholder="搜索标题/关键词..." oninput="renderTable()">
+    <button class="small" onclick="clearFilter()">清除筛选</button>
+  </div>
+  <div style="overflow-x:auto">
+    <table><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+  </div>
+</div>
+</div>
+
+<!-- Add/Edit Post Modal -->
+<div class="modal-overlay" id="modalPost" style="display:none">
+  <div class="modal">
+    <h3 id="modalPostTitle">添加新内容</h3>
+    <div class="form-row"><label>标题</label><input id="mfTitle"></div>
+    <div class="form-row"><label>内容类型</label><select id="mfType"><option>A型图文</option><option>B型图文</option><option>图文</option><option>短视频</option><option>口播脚本</option><option>清单体口播</option><option>概念图谱</option><option>其他</option></select></div>
+    <div class="form-row"><label>选题方向</label><input id="mfTopic"></div>
+    <div class="form-row"><label>目标人群（逗号分隔）</label><input id="mfAudience" placeholder="行业同行, 工厂老板"></div>
+    <div class="form-row"><label>关键词（逗号分隔）</label><input id="mfKeywords" placeholder="储能, 虚拟电厂, 工商业"></div>
+    <div class="form-row"><label>人设</label><input id="mfPersona"></div>
+    <div class="form-row"><label>发布日期</label><input type="date" id="mfDate"></div>
+    <div class="modal-actions">
+      <button onclick="closeModal('modalPost')">取消</button>
+      <button class="accent" onclick="savePost()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fill Metrics Modal -->
+<div class="modal-overlay" id="modalMetrics" style="display:none">
+  <div class="modal">
+    <h3>填充数据 — <span id="metricsPostTitle" style="color:var(--accent)"></span></h3>
+    <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label>播放量</label><input type="number" id="mmViews" value="0"></div>
+      <div><label>点赞</label><input type="number" id="mmLikes" value="0"></div>
+      <div><label>评论</label><input type="number" id="mmComments" value="0"></div>
+      <div><label>转发</label><input type="number" id="mmShares" value="0"></div>
+      <div><label>收藏</label><input type="number" id="mmSaves" value="0"></div>
+      <div><label>涨粉</label><input type="number" id="mmFollowers" value="0"></div>
+    </div>
+    <div class="form-row"><label>记录日期</label><input type="date" id="mmDate"></div>
+    <div class="modal-actions">
+      <button onclick="closeModal('modalMetrics')">取消</button>
+      <button class="accent" onclick="saveMetrics()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let state = { version: 1, posts: [] };
+let selectedPostId = null;
+let filteredKeyword = null;
+let sortCol = null, sortDir = 1;
+let charts = {};
+
+const COLORS = {
+  green: '#5a9e6e', gray: '#687080', red: '#c45555', accent: '#C89050',
+  blue: '#4a8eb5', purple: '#8b6fae', teal: '#5a9e9e'
+};
+const TYPE_COLORS = {
+  'A型图文': '#4a8eb5', 'B型图文': '#8b6fae', '图文': '#5a9e9e',
+  '短视频': '#C89050', '口播脚本': '#c45555', '清单体口播': '#5a9e6e',
+  '概念图谱': '#b57a4a', '其他': '#687080'
+};
+const CONTENT_TYPES = ['A型图文','B型图文','图文','短视频','口播脚本','清单体口播','概念图谱','其他'];
+
+// ── Persistence ──
+function saveState() {
+  localStorage.setItem('beidian-registry', JSON.stringify(state));
+}
+
+function loadState() {
+  const raw = localStorage.getItem('beidian-registry');
+  if (raw) {
+    try { state = JSON.parse(raw); return true; } catch(e) {}
+  }
+  return false;
+}
+
+// ── Seed data ──
+const SEED_POSTS = [
+  {
+    "id": "post-001",
+    "title": "禅宗_借来的人生",
+    "contentType": "口播脚本",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-19",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-002",
+    "title": "虚拟电厂",
+    "contentType": "口播脚本",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "储能",
+      "滴滴",
+      "电力市场",
+      "虚拟电厂",
+      "行业观察"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-18",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-003",
+    "title": "亿纬锂能大幅预增看电池格局_v2",
+    "contentType": "A型图文",
+    "topic": "亿纬锂能半年报大幅预增 → 储能电池供不应求 → 三种电池技术路线行业格局",
+    "audience": [
+      "行业同行",
+      "工厂老板",
+      "关注新能源的人"
+    ],
+    "keywords": [
+      "亿纬锂能",
+      "储能电池",
+      "储能装机",
+      "半固态电池",
+      "新能源行业观察",
+      "电池技术路线"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-19",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-004",
+    "title": "亿纬锂能大幅预增看电池格局",
+    "contentType": "A型图文",
+    "topic": "亿纬锂能半年报大幅预增 → 储能电池供不应求 → 三种电池技术路线行业格局",
+    "audience": [
+      "关注新能源",
+      "储能的行业从业者",
+      "工厂老板",
+      "股民（只讲行业不荐股）"
+    ],
+    "keywords": [
+      "亿纬锂能",
+      "储能电池",
+      "储能电池为什么不够用",
+      "储能装机",
+      "储能需求",
+      "全固态电池",
+      "全固态电池进展",
+      "全固态还要多久",
+      "半固态什么时候量产",
+      "半固态电池",
+      "半固态电池量产",
+      "新能源行业观察",
+      "电池技术路线",
+      "磷酸铁锂天花板"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "刚入行研究新能源的CVC投资人",
+    "publishedDate": "2026-06-18",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-005",
+    "title": "储能电池行业三个坎",
+    "contentType": "A型图文",
+    "topic": "亿纬大幅预增 → 全行业都在增长 → 但钱从哪里来、能赚多久？逐层拆解储能电池行业",
+    "audience": [
+      "关注新能源的普通人和股民——先讲机会，再逐层深入"
+    ],
+    "keywords": [
+      "亿纬锂能",
+      "储能产能过剩",
+      "储能电池",
+      "储能电池有什么风险",
+      "储能装机",
+      "全固态电池",
+      "全固态电池进展",
+      "全固态还要多久",
+      "半固态什么时候量产",
+      "半固态电池",
+      "半固态电池量产",
+      "新能源行业观察",
+      "电池技术路线",
+      "电池行业风险",
+      "磷酸铁锂天花板"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "刚入行研究新能源的CVC投资人",
+    "publishedDate": "2026-06-18",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-006",
+    "title": "微电网_工厂老板的账",
+    "contentType": "A型图文",
+    "topic": "Q1工商业光伏暴跌61.5% -> 工厂老板的账变了 -> 四份文件打开的机会",
+    "audience": [
+      "工厂老板",
+      "行业同行",
+      "关注新能源的普通人"
+    ],
+    "keywords": [
+      "工厂老板",
+      "工商业光伏",
+      "微电网",
+      "行业观察"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-19",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-007",
+    "title": "微电网系列1_工厂老板的账算不过来了",
+    "contentType": "A型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "光伏储能",
+      "工厂老板",
+      "工商业光伏",
+      "微电网",
+      "行业观察"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-19",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-008",
+    "title": "微电网系列_四篇设计框架",
+    "contentType": "A型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-19",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-009",
+    "title": "新能源车下乡_v2",
+    "contentType": "A型图文",
+    "topic": "五部门新能源车下乡——表面卖车，实质重建乡村能源基础设施",
+    "audience": [
+      "工厂老板",
+      "想做项目的人",
+      "行业同行"
+    ],
+    "keywords": [
+      "乡村充电桩",
+      "光储充一体化",
+      "新能源车下乡",
+      "行业观察"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-19",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-010",
+    "title": "新能源车下乡_资方视角",
+    "contentType": "A型图文",
+    "topic": "五部门新能源车下乡——表面卖车，实质重建乡村能源基础设施。资方该看什么？",
+    "audience": [
+      "资方",
+      "想做项目的人",
+      "行业同行"
+    ],
+    "keywords": [
+      "乡村能源",
+      "光储充一体化",
+      "新能源车下乡",
+      "行业观察"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-19",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-011",
+    "title": "三种电池对比",
+    "contentType": "B型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "全钒液流",
+      "磷酸铁锂",
+      "钠离子电池"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-16",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-012",
+    "title": "储能产业链20大玩家",
+    "contentType": "B型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-13",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-013",
+    "title": "六张网20万亿",
+    "contentType": "B型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "储能",
+      "六张网",
+      "十五五",
+      "新型电网",
+      "行业研究"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-16",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-014",
+    "title": "售电交易流程",
+    "contentType": "B型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-12",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-015",
+    "title": "工商业储能投产比模型",
+    "contentType": "B型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-12",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-016",
+    "title": "市面所有水分类",
+    "contentType": "B型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-17",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-017",
+    "title": "液态半固态全固态电池对比",
+    "contentType": "B型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "全固态",
+      "半固态",
+      "固态电池",
+      "液态电池"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-17",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-018",
+    "title": "源网荷储一张图",
+    "contentType": "B型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "源网荷储"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-14",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-019",
+    "title": "绿证碳资产流程图",
+    "contentType": "B型图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-12",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-020",
+    "title": "AI视频耗电",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-17",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-021",
+    "title": "EMC从可选变必推",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "EMC合同能源管理",
+      "EMC政策2026",
+      "光伏储能",
+      "合同能源管理新规",
+      "居间人",
+      "居间人怎么做",
+      "工厂省电",
+      "工厂节能",
+      "工厂资源变现",
+      "工商业储能",
+      "有工厂资源怎么变现"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-10",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-022",
+    "title": "SNEC2026储能展3个趋势",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "SNEC 2026",
+      "储能",
+      "储能会不会降价",
+      "储能基金",
+      "储能要不要装",
+      "工厂省电",
+      "工厂配储能",
+      "工商业储能",
+      "钠离子电池",
+      "长时储能"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-08",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-023",
+    "title": "光伏并网红线取消",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-17",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-024",
+    "title": "六张网20万亿",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-16",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-025",
+    "title": "固态电池热胀冷缩",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-17",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-026",
+    "title": "电价储能一条讲清",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "储能",
+      "储能底薪怎么拿",
+      "容量电价",
+      "工商业储能",
+      "新能源",
+      "电价改革",
+      "虚拟电厂"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-15",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-027",
+    "title": "电力交易员薪资暴涨",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "15分钟动态电价",
+      "售电行业",
+      "售电行业前景",
+      "找工作",
+      "新职业",
+      "电价改革",
+      "电力交易员",
+      "电力交易员做什么的",
+      "电力市场化",
+      "能源行业",
+      "转行"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-10",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-028",
+    "title": "绿电消费核算指南",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "工厂光伏",
+      "工厂碳排放",
+      "工商业储能",
+      "碳交易",
+      "碳核算",
+      "碳核算怎么变",
+      "绿电",
+      "绿电消费核算",
+      "绿证",
+      "绿证交易",
+      "绿证怎么用",
+      "非化石能源电力核算"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-09",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-029",
+    "title": "绿证价格暴涨碳资产",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "出口企业碳关税",
+      "工厂买绿电",
+      "碳核算",
+      "碳资产",
+      "碳足迹",
+      "碳配额",
+      "绿电交易",
+      "绿证",
+      "绿证价格",
+      "绿证值不值钱",
+      "绿证入编",
+      "绿证怎么买",
+      "绿证有什么用"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-12",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-030",
+    "title": "蚂蚁集团虚拟电厂跟工厂有啥关系",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "光伏储能",
+      "制造业",
+      "工厂光伏储能",
+      "工厂电费怎么降",
+      "工厂省电",
+      "接入虚拟电厂要多少钱",
+      "虚拟电厂",
+      "虚拟电厂怎么接入",
+      "虚拟电厂案例",
+      "蚂蚁集团"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-07",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-031",
+    "title": "通用汽车跨界钠电储能",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "AI数据中心用电",
+      "AI算力",
+      "AI算力用电有多夸张",
+      "储能电站投资",
+      "储能能不能投",
+      "工业微电网",
+      "工厂光伏储能",
+      "工厂怎么靠储能赚钱",
+      "车企跨界储能",
+      "通用汽车",
+      "钠电储能",
+      "钠离子电池"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-12",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-032",
+    "title": "钠电CVC投资分析",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "大型储能电站",
+      "宁德时代钠电",
+      "电网侧储能",
+      "钠电产业链",
+      "钠电储能",
+      "钠电和锂电区别",
+      "钠电成本",
+      "钠电正极材料",
+      "钠电池投资",
+      "钠电能不能投",
+      "钠离子电池",
+      "高寒地区储能"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-11",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-033",
+    "title": "钠电正极材料三种路线",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "NFPP正极",
+      "储能正极材料",
+      "动力电池正极",
+      "层状氧化物",
+      "层状氧化物和聚阴离子区别",
+      "普鲁士蓝",
+      "普鲁士蓝能成吗",
+      "聚阴离子",
+      "钠电产业链",
+      "钠电正极哪条路线好",
+      "钠电正极材料",
+      "钠电正极材料厂商",
+      "钠电池正极材料技术路线"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-11",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-034",
+    "title": "高寒储能实地调研",
+    "contentType": "图文",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "-40℃储能",
+      "东北储能电站",
+      "低温储能",
+      "低温储能选什么电池",
+      "极寒储能电站",
+      "钠电低温性能",
+      "钠电储能",
+      "钠电冬天会不会衰减",
+      "钠电在东北能不能用",
+      "钠离子电池",
+      "风电配储",
+      "高寒储能",
+      "高寒地区储能"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-11",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-035",
+    "title": "源网荷储虚拟电厂微电网",
+    "contentType": "概念图谱",
+    "topic": "科普分析·框架拆解 | 创作者角色：刚入行的投资人（合伙人教的）",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-14",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-036",
+    "title": "储能行业隐形冠军。你知道几个？",
+    "contentType": "清单体口播",
+    "topic": "储能产业链各环节隐形冠军——不产电池、不做 pack，但在各自细分环节市占率第一",
+    "audience": [
+      "行业同行",
+      "想做居间人",
+      "关注新能源的泛人群"
+    ],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-19",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-037",
+    "title": "AI算力引爆储能新需求",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-09",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-038",
+    "title": "AI这笔账_投资人视角",
+    "contentType": "短视频",
+    "topic": "AI烧了几千亿——钱从哪回来？投资人告诉你钱在往哪流",
+    "audience": [],
+    "keywords": [
+      "AI取代工作",
+      "投资视角",
+      "新能源",
+      "深度思考",
+      "转行"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-12",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-039",
+    "title": "C07_光伏储能售电黄金组合",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-06",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-040",
+    "title": "互联网巨头跨界售电",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "互联网跨界",
+      "副业",
+      "华为",
+      "售电",
+      "售电公司",
+      "工厂省电",
+      "滴滴",
+      "电力交易"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-08",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-041",
+    "title": "储能容量电价来了",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-08",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-042",
+    "title": "光伏并网红线取消",
+    "contentType": "短视频",
+    "topic": "政策解读·反直觉认知 | 锚点：6月18日新政落地",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-17",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-043",
+    "title": "六张网新型电网12万亿",
+    "contentType": "短视频",
+    "topic": "事件分析 | 锚点：百度热搜第一 + 中央政治局4.28会议",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-16",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-044",
+    "title": "写给焦虑的计算机人",
+    "contentType": "短视频",
+    "topic": "深度观点/趋势洞察 | 角色：拆弹专家（过来人）",
+    "audience": [],
+    "keywords": [
+      "焦虑",
+      "程序员",
+      "计算机就业",
+      "转行"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-12",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-045",
+    "title": "售电公司不是二道贩子",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-08",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-046",
+    "title": "售电公司代运营储能",
+    "contentType": "短视频",
+    "topic": "投储能的人在大撤退，国家电网反而在往里进——为什么？",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-13",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-047",
+    "title": "售电行话6个词",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-07",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-048",
+    "title": "固态电池明年量产是骗局",
+    "contentType": "短视频",
+    "topic": "反直觉认知 | 创作者角色：刚入行CVC投行，研究新能源，翻译给大家听",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-16",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-049",
+    "title": "增元个人故事",
+    "contentType": "短视频",
+    "topic": "干了18年互联网，为什么转行做投资？",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-12",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-050",
+    "title": "* — 挑战型标题，匹配面试式快问快答。",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "储能",
+      "储能成本",
+      "储能知识",
+      "储能科普",
+      "工商业储能",
+      "新能源"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-18",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-051",
+    "title": "电价储能核心知识",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-15",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-052",
+    "title": "蚂蚁集团虚拟电厂跟工厂有啥关系",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-07",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-053",
+    "title": "选题2_兖矿能源164亿杀入售电",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-06",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  },
+  {
+    "id": "post-054",
+    "title": "通用汽车跨界钠电储能",
+    "contentType": "短视频",
+    "topic": "",
+    "audience": [],
+    "keywords": [
+      "AI算力",
+      "| L1-公域",
+      "| L2-细分",
+      "储能投资",
+      "工商业储能",
+      "投产比",
+      "通用汽车",
+      "钠电储能"
+    ],
+    "tags": {
+      "L1": [],
+      "L2": [],
+      "L3": []
+    },
+    "persona": "",
+    "publishedDate": "2026-06-12",
+    "metrics": {
+      "views": 0,
+      "likes": 0,
+      "comments": 0,
+      "shares": 0,
+      "saves": 0,
+      "followers": 0
+    },
+    "metricHistory": []
+  }
+];
+
+function initSeed() {
+  if (!loadState()) {
+    state.posts = SEED_POSTS.map(p => ({...p}));
+    state.version = 1;
+    state.lastUpdated = new Date().toISOString().split('T')[0];
+    saveState();
+  }
+}
+
+// ── Computations ──
+function totalMetric(key) {
+  return state.posts.reduce((s, p) => s + (p.metrics[key] || 0), 0);
+}
+
+function avgInteraction(post) {
+  const m = post.metrics;
+  if (!m.views || m.views === 0) return 0;
+  return ((m.likes||0) + (m.comments||0)*2 + (m.shares||0)*3 + (m.saves||0)*2) / m.views;
+}
+
+function avgInteractionAll() {
+  const withViews = state.posts.filter(p => p.metrics.views > 0);
+  if (!withViews.length) return 0;
+  return withViews.reduce((s, p) => s + avgInteraction(p), 0) / withViews.length;
+}
+
+// ── Word Cloud ──
+function buildWordCloudData() {
+  const kwMap = {};
+  state.posts.forEach(p => {
+    (p.keywords || []).forEach(kw => {
+      if (!kwMap[kw]) kwMap[kw] = { posts: [], totalViews: 0, totalInteraction: 0 };
+      kwMap[kw].posts.push(p);
+      kwMap[kw].totalViews += p.metrics.views || 0;
+      kwMap[kw].totalInteraction += avgInteraction(p);
+    });
+  });
+
+  const avgInt = avgInteractionAll();
+  const words = [];
+  Object.entries(kwMap).forEach(([kw, data]) => {
+    const hasData = data.totalViews > 0;
+    const rawWeight = hasData ? Math.log10(data.totalViews + 1) * 10 : (data.posts.length * 8 + 4);
+    const weight = Math.max(rawWeight, 6);
+    const intRate = data.posts.length > 0 ? data.totalInteraction / data.posts.length : 0;
+    let color = COLORS.gray;
+    if (avgInt > 0) {
+      const ratio = intRate / avgInt;
+      if (ratio > 1.5) color = COLORS.green;
+      else if (ratio < 0.5) color = COLORS.red;
+    }
+    words.push({ word: kw, weight, color, data, hasData });
+  });
+  return words.sort((a, b) => b.weight - a.weight);
+}
+
+function renderWordCloud() {
+  const container = document.getElementById('wordcloudDiv');
+  if (!container) return;
+  const words = buildWordCloudData();
+  if (!words.length) { container.innerHTML = '<div style="color:var(--muted)">暂无关键词数据</div>'; return; }
+
+  const maxW = Math.max(...words.map(w => w.weight));
+  const minW = Math.min(...words.map(w => w.weight));
+
+  container.innerHTML = words.map(w => {
+    // Map weight to font-size range 12px..48px
+    const range = maxW - minW || 1;
+    const fontSize = Math.round(12 + (w.weight - minW) / range * 36);
+    const opacity = 0.6 + (w.weight - minW) / range * 0.4;
+    const activeCls = filteredKeyword === w.word ? ' style="outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;"' : '';
+    return `<span class="wc-word" data-kw="${escAttr(w.word)}"
+      style="font-size:${fontSize}px;color:${w.color};opacity:${opacity.toFixed(2)};cursor:pointer;padding:2px 4px;transition:transform 0.15s;line-height:1.3;"
+      onmouseenter="showWcTooltip(event, '${escAttr(w.word)}', ${w.data.posts.length}, ${w.data.totalViews}, ${w.hasData})"
+      onmouseleave="hideWcTooltip()"
+      onclick="filterByKeyword('${escAttr(w.word)}')"
+      ${activeCls}
+    >${escHtml(w.word)}</span>`;
+  }).join('');
+}
+
+function escAttr(s) { return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+function showWcTooltip(e, word, count, totalViews, hasData) {
+  const tip = document.getElementById('wcTooltip');
+  tip.innerHTML = `<b>${escHtml(word)}</b><br>${count} 篇内容${hasData ? '<br>总播放 ' + fmtNum(totalViews) : '<br>暂无播放数据'}`;
+  tip.style.display = 'block';
+  const rect = e.target.getBoundingClientRect();
+  const container = document.getElementById('wordcloudDiv').getBoundingClientRect();
+  tip.style.left = (rect.left - container.left + rect.width/2) + 'px';
+  tip.style.top = (rect.top - container.top - 48) + 'px';
+}
+
+function hideWcTooltip() {
+  document.getElementById('wcTooltip').style.display = 'none';
+}
+
+function filterByKeyword(kw) {
+  if (filteredKeyword === kw) {
+    filteredKeyword = null;
+  } else {
+    filteredKeyword = kw;
+    document.getElementById('filterSearch').value = '';
+    document.getElementById('filterType').value = '';
+  }
+  renderWordCloud();
+  renderTable();
+}
+
+// ── Type comparison chart ──
+function renderTypeChart() {
+  if (charts.type) charts.type.destroy();
+  const types = {};
+  state.posts.forEach(p => {
+    const t = p.contentType || '其他';
+    if (!types[t]) types[t] = { views: [], likes: [], saves: [], count: 0 };
+    types[t].count++;
+    if (p.metrics.views > 0) {
+      types[t].views.push(p.metrics.views);
+      types[t].likes.push(p.metrics.likes || 0);
+      types[t].saves.push(p.metrics.saves || 0);
+    }
+  });
+
+  const labels = Object.keys(types);
+  const avg = (arr) => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+
+  const ctx = document.getElementById('chartType').getContext('2d');
+  charts.type = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '均播放', data: labels.map(l => Math.round(avg(types[l].views))), backgroundColor: COLORS.blue, borderRadius: 4 },
+        { label: '均赞', data: labels.map(l => Math.round(avg(types[l].likes))), backgroundColor: COLORS.accent, borderRadius: 4 },
+        { label: '均收藏', data: labels.map(l => Math.round(avg(types[l].saves))), backgroundColor: COLORS.green, borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: COLORS.gray } } },
+      scales: {
+        x: { ticks: { color: COLORS.muted, maxRotation: 30 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: COLORS.muted }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+// ── Topic chart ──
+function renderTopicChart() {
+  if (charts.topic) charts.topic.destroy();
+  const topics = {};
+  state.posts.forEach(p => {
+    const t = p.topic || '(无选题)';
+    if (!topics[t]) topics[t] = { posts: [], totalInt: 0 };
+    topics[t].posts.push(p);
+    topics[t].totalInt += avgInteraction(p);
+  });
+
+  const sorted = Object.entries(topics)
+    .map(([t, d]) => ({ topic: t.length > 25 ? t.slice(0,22)+'...' : t, rate: d.posts.length ? d.totalInt/d.posts.length : 0, count: d.posts.length }))
+    .filter(d => d.count >= 1)
+    .sort((a,b) => b.rate - a.rate)
+    .slice(0, 10);
+
+  const ctx = document.getElementById('chartTopic').getContext('2d');
+  charts.topic = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(d => d.topic),
+      datasets: [{
+        label: '均互动率', data: sorted.map(d => (d.rate*100).toFixed(1)),
+        backgroundColor: sorted.map((_,i) => {
+          const t = 1 - i/sorted.length;
+          return `rgba(200,144,80,${0.4 + t*0.5})`;
+        }),
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: COLORS.muted, callback:v=>v+'%' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: COLORS.muted, font:{size:11} }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+// ── Audience radar ──
+function renderAudienceChart() {
+  if (charts.audience) charts.audience.destroy();
+  const audMap = {};
+  state.posts.forEach(p => {
+    (p.audience || []).forEach(a => {
+      if (!audMap[a]) audMap[a] = { count: 0, totalInt: 0 };
+      audMap[a].count++;
+      audMap[a].totalInt += avgInteraction(p);
+    });
+  });
+
+  const entries = Object.entries(audMap);
+  const labels = entries.map(e => e[0]);
+  const counts = entries.map(e => e[1].count);
+  const rates = entries.map(e => e[1].count ? (e[1].totalInt/e[1].count*100).toFixed(1) : 0);
+
+  if (!labels.length) return;
+
+  const ctx = document.getElementById('chartAudience').getContext('2d');
+  charts.audience = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels,
+      datasets: [
+        { label: '内容数量', data: counts, borderColor: COLORS.blue, backgroundColor: 'rgba(74,142,181,0.15)', pointBackgroundColor: COLORS.blue },
+        { label: '均互动率%', data: rates, borderColor: COLORS.accent, backgroundColor: 'rgba(200,144,80,0.15)', pointBackgroundColor: COLORS.accent }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: COLORS.gray } } },
+      scales: { r: { ticks: { color: COLORS.muted, backdropColor:'transparent' }, grid: { color: 'rgba(255,255,255,0.1)' }, pointLabels: { color: COLORS.muted } } }
+    }
+  });
+}
+
+// ── Growth chart ──
+function renderGrowthChart(postId) {
+  if (charts.growth) charts.growth.destroy();
+  if (!postId) { return; }
+  const post = state.posts.find(p => p.id === postId);
+  if (!post || !post.metricHistory || post.metricHistory.length < 2) return;
+
+  const history = [...post.metricHistory].sort((a,b) => a.date.localeCompare(b.date));
+  const labels = history.map(h => h.date);
+  const ctx = document.getElementById('chartGrowth').getContext('2d');
+  charts.growth = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: '播放', data: history.map(h=>h.views), borderColor: COLORS.blue, tension: 0.3, fill: false },
+        { label: '点赞', data: history.map(h=>h.likes), borderColor: COLORS.accent, tension: 0.3, fill: false },
+        { label: '收藏', data: history.map(h=>h.saves), borderColor: COLORS.green, tension: 0.3, fill: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: COLORS.gray } } },
+      scales: {
+        x: { ticks: { color: COLORS.muted }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: COLORS.muted }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+// ── KPI cards ──
+function renderKPIs() {
+  const withData = state.posts.filter(p => p.metrics.views > 0);
+  const html = [
+    { val: state.posts.length, lbl: '总内容数' },
+    { val: withData.length, lbl: '有数据内容' },
+    { val: fmtNum(totalMetric('views')), lbl: '总播放' },
+    { val: fmtNum(totalMetric('likes')), lbl: '总点赞' },
+    { val: fmtNum(totalMetric('saves')), lbl: '总收藏' },
+    { val: (avgInteractionAll()*100).toFixed(1) + '%', lbl: '均互动率' }
+  ].map(k => `<div class="kpi"><div class="val">${k.val}</div><div class="lbl">${k.lbl}</div></div>`).join('');
+  document.getElementById('kpiRow').innerHTML = html;
+}
+
+function fmtNum(n) {
+  if (n >= 10000) return (n/10000).toFixed(1) + '万';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+  return n.toString();
+}
+
+// ── Table ──
+function renderTable() {
+  const typeFilter = document.getElementById('filterType').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+
+  let posts = [...state.posts];
+  if (filteredKeyword) {
+    posts = posts.filter(p => (p.keywords || []).includes(filteredKeyword));
+  }
+  if (typeFilter) {
+    posts = posts.filter(p => p.contentType === typeFilter);
+  }
+  if (search) {
+    posts = posts.filter(p =>
+      p.title.toLowerCase().includes(search) ||
+      (p.keywords||[]).some(k => k.toLowerCase().includes(search)) ||
+      (p.topic||'').toLowerCase().includes(search)
+    );
+  }
+
+  // Sort
+  if (sortCol) {
+    posts.sort((a,b) => {
+      let va, vb;
+      switch(sortCol) {
+        case 'title': va = a.title; vb = b.title; break;
+        case 'type': va = a.contentType; vb = b.contentType; break;
+        case 'date': va = a.publishedDate; vb = b.publishedDate; break;
+        case 'views': va = a.metrics.views||0; vb = b.metrics.views||0; break;
+        case 'likes': va = a.metrics.likes||0; vb = b.metrics.likes||0; break;
+        case 'comments': va = a.metrics.comments||0; vb = b.metrics.comments||0; break;
+        case 'shares': va = a.metrics.shares||0; vb = b.metrics.shares||0; break;
+        case 'saves': va = a.metrics.saves||0; vb = b.metrics.saves||0; break;
+        default: return 0;
+      }
+      if (typeof va === 'string') return va.localeCompare(vb) * sortDir;
+      return (va - vb) * sortDir;
+    });
+  }
+
+  document.getElementById('listCount').textContent = `(${posts.length}篇)`;
+
+  const headHtml = `<tr>
+    <th onclick="setSort('title')">标题 ${sortCol==='title'?(sortDir>0?'▲':'▼'):''}</th>
+    <th onclick="setSort('type')">类型 ${sortCol==='type'?(sortDir>0?'▲':'▼'):''}</th>
+    <th>关键词</th>
+    <th onclick="setSort('date')">日期 ${sortCol==='date'?(sortDir>0?'▲':'▼'):''}</th>
+    <th onclick="setSort('views')">播放 ${sortCol==='views'?(sortDir>0?'▲':'▼'):''}</th>
+    <th onclick="setSort('likes')">赞 ${sortCol==='likes'?(sortDir>0?'▲':'▼'):''}</th>
+    <th onclick="setSort('comments')">评 ${sortCol==='comments'?(sortDir>0?'▲':'▼'):''}</th>
+    <th onclick="setSort('shares')">转发 ${sortCol==='shares'?(sortDir>0?'▲':'▼'):''}</th>
+    <th onclick="setSort('saves')">收藏 ${sortCol==='saves'?(sortDir>0?'▲':'▼'):''}</th>
+    <th>操作</th>
+  </tr>`;
+  document.getElementById('tableHead').innerHTML = headHtml;
+
+  const bodyHtml = posts.map(p => {
+    const kws = (p.keywords||[]).slice(0,3).join(' ');
+    const cls = selectedPostId === p.id ? 'selected' : '';
+    return `<tr class="${cls}" onclick="selectPost('${p.id}')">
+      <td class="clickable">${escHtml(p.title.slice(0,40))}</td>
+      <td>${p.contentType}</td>
+      <td style="font-size:12px;color:var(--muted)">${escHtml(kws)}</td>
+      <td style="font-size:12px">${p.publishedDate}</td>
+      <td>${fmtNum(p.metrics.views)}</td>
+      <td>${fmtNum(p.metrics.likes)}</td>
+      <td>${p.metrics.comments||0}</td>
+      <td>${p.metrics.shares||0}</td>
+      <td>${fmtNum(p.metrics.saves)}</td>
+      <td><button class="small" onclick="event.stopPropagation();openFillMetrics('${p.id}')">填数据</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tableBody').innerHTML = bodyHtml || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px;">暂无内容</td></tr>';
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function setSort(col) {
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = -1; }
+  renderTable();
+}
+
+function clearFilter() {
+  filteredKeyword = null;
+  document.getElementById('filterSearch').value = '';
+  document.getElementById('filterType').value = '';
+  renderWordCloud();
+  renderTable();
+}
+
+function selectPost(id) {
+  selectedPostId = id;
+  renderTable();
+  renderGrowthChart(id);
+}
+
+// ── Modals ──
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function openAddPost() {
+  document.getElementById('modalPostTitle').textContent = '添加新内容';
+  ['mfTitle','mfTopic','mfAudience','mfKeywords','mfPersona'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('mfDate').value = new Date().toISOString().split('T')[0];
+  openModal('modalPost');
+}
+
+function savePost() {
+  const post = {
+    id: 'post-' + Date.now(),
+    title: document.getElementById('mfTitle').value || '未命名',
+    contentType: document.getElementById('mfType').value,
+    topic: document.getElementById('mfTopic').value,
+    audience: document.getElementById('mfAudience').value.split(/[,，、]/).map(s=>s.trim()).filter(Boolean),
+    keywords: document.getElementById('mfKeywords').value.split(/[,，、]/).map(s=>s.trim()).filter(Boolean),
+    tags: { L1: [], L2: [], L3: [] },
+    persona: document.getElementById('mfPersona').value,
+    publishedDate: document.getElementById('mfDate').value,
+    metrics: { views: 0, likes: 0, comments: 0, shares: 0, saves: 0, followers: 0 },
+    metricHistory: []
+  };
+  state.posts.unshift(post);
+  saveState();
+  closeModal('modalPost');
+  refreshAll();
+}
+
+function openFillMetrics(id) {
+  const post = state.posts.find(p => p.id === id);
+  if (!post) return;
+  selectedPostId = id;
+  document.getElementById('metricsPostTitle').textContent = post.title;
+  document.getElementById('mmViews').value = post.metrics.views || 0;
+  document.getElementById('mmLikes').value = post.metrics.likes || 0;
+  document.getElementById('mmComments').value = post.metrics.comments || 0;
+  document.getElementById('mmShares').value = post.metrics.shares || 0;
+  document.getElementById('mmSaves').value = post.metrics.saves || 0;
+  document.getElementById('mmFollowers').value = post.metrics.followers || 0;
+  document.getElementById('mmDate').value = new Date().toISOString().split('T')[0];
+  openModal('modalMetrics');
+}
+
+function saveMetrics() {
+  const post = state.posts.find(p => p.id === selectedPostId);
+  if (!post) return;
+  const date = document.getElementById('mmDate').value;
+  const entry = {
+    date,
+    views: parseInt(document.getElementById('mmViews').value) || 0,
+    likes: parseInt(document.getElementById('mmLikes').value) || 0,
+    comments: parseInt(document.getElementById('mmComments').value) || 0,
+    shares: parseInt(document.getElementById('mmShares').value) || 0,
+    saves: parseInt(document.getElementById('mmSaves').value) || 0,
+    followers: parseInt(document.getElementById('mmFollowers').value) || 0
+  };
+  // Update current metrics to latest
+  Object.assign(post.metrics, entry);
+  // Add/update history entry
+  const existingIdx = (post.metricHistory || []).findIndex(h => h.date === date);
+  if (existingIdx >= 0) {
+    post.metricHistory[existingIdx] = entry;
+  } else {
+    post.metricHistory.push(entry);
+  }
+  state.lastUpdated = new Date().toISOString().split('T')[0];
+  saveState();
+  closeModal('modalMetrics');
+  refreshAll();
+}
+
+// ── Export/Import ──
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `beidian-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+}
+
+function importJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.posts || !Array.isArray(data.posts)) throw new Error('Invalid format');
+      state = data;
+      state.version = state.version || 1;
+      saveState();
+      refreshAll();
+      alert(`导入成功：${data.posts.length} 篇内容`);
+    } catch(err) {
+      alert('导入失败：文件格式不正确');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// ── Init ──
+function refreshAll() {
+  renderKPIs();
+  renderWordCloud();
+  renderTypeChart();
+  renderTopicChart();
+  renderAudienceChart();
+  renderGrowthChart(selectedPostId);
+  renderTable();
+  // Update filter dropdown
+  const sel = document.getElementById('filterType');
+  sel.innerHTML = '<option value="">全部类型</option>' + CONTENT_TYPES.map(t => `<option>${t}</option>`).join('');
+}
+
+initSeed();
+refreshAll();
+</script>
+</body>
+</html>

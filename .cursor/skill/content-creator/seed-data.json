@@ -1,0 +1,1582 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-06-20",
+  "posts": [
+    {
+      "id": "post-001",
+      "title": "禅宗_借来的人生",
+      "contentType": "口播脚本",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-19",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-002",
+      "title": "虚拟电厂",
+      "contentType": "口播脚本",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "储能",
+        "滴滴",
+        "电力市场",
+        "虚拟电厂",
+        "行业观察"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-18",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-003",
+      "title": "亿纬锂能大幅预增看电池格局_v2",
+      "contentType": "A型图文",
+      "topic": "亿纬锂能半年报大幅预增 → 储能电池供不应求 → 三种电池技术路线行业格局",
+      "audience": [
+        "行业同行",
+        "工厂老板",
+        "关注新能源的人"
+      ],
+      "keywords": [
+        "亿纬锂能",
+        "储能电池",
+        "储能装机",
+        "半固态电池",
+        "新能源行业观察",
+        "电池技术路线"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-19",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-004",
+      "title": "亿纬锂能大幅预增看电池格局",
+      "contentType": "A型图文",
+      "topic": "亿纬锂能半年报大幅预增 → 储能电池供不应求 → 三种电池技术路线行业格局",
+      "audience": [
+        "关注新能源",
+        "储能的行业从业者",
+        "工厂老板",
+        "股民（只讲行业不荐股）"
+      ],
+      "keywords": [
+        "亿纬锂能",
+        "储能电池",
+        "储能电池为什么不够用",
+        "储能装机",
+        "储能需求",
+        "全固态电池",
+        "全固态电池进展",
+        "全固态还要多久",
+        "半固态什么时候量产",
+        "半固态电池",
+        "半固态电池量产",
+        "新能源行业观察",
+        "电池技术路线",
+        "磷酸铁锂天花板"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "刚入行研究新能源的CVC投资人",
+      "publishedDate": "2026-06-18",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-005",
+      "title": "储能电池行业三个坎",
+      "contentType": "A型图文",
+      "topic": "亿纬大幅预增 → 全行业都在增长 → 但钱从哪里来、能赚多久？逐层拆解储能电池行业",
+      "audience": [
+        "关注新能源的普通人和股民——先讲机会，再逐层深入"
+      ],
+      "keywords": [
+        "亿纬锂能",
+        "储能产能过剩",
+        "储能电池",
+        "储能电池有什么风险",
+        "储能装机",
+        "全固态电池",
+        "全固态电池进展",
+        "全固态还要多久",
+        "半固态什么时候量产",
+        "半固态电池",
+        "半固态电池量产",
+        "新能源行业观察",
+        "电池技术路线",
+        "电池行业风险",
+        "磷酸铁锂天花板"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "刚入行研究新能源的CVC投资人",
+      "publishedDate": "2026-06-18",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-006",
+      "title": "微电网_工厂老板的账",
+      "contentType": "A型图文",
+      "topic": "Q1工商业光伏暴跌61.5% -> 工厂老板的账变了 -> 四份文件打开的机会",
+      "audience": [
+        "工厂老板",
+        "行业同行",
+        "关注新能源的普通人"
+      ],
+      "keywords": [
+        "工厂老板",
+        "工商业光伏",
+        "微电网",
+        "行业观察"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-19",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-007",
+      "title": "微电网系列1_工厂老板的账算不过来了",
+      "contentType": "A型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "光伏储能",
+        "工厂老板",
+        "工商业光伏",
+        "微电网",
+        "行业观察"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-19",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-008",
+      "title": "微电网系列_四篇设计框架",
+      "contentType": "A型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-19",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-009",
+      "title": "新能源车下乡_v2",
+      "contentType": "A型图文",
+      "topic": "五部门新能源车下乡——表面卖车，实质重建乡村能源基础设施",
+      "audience": [
+        "工厂老板",
+        "想做项目的人",
+        "行业同行"
+      ],
+      "keywords": [
+        "乡村充电桩",
+        "光储充一体化",
+        "新能源车下乡",
+        "行业观察"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-19",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-010",
+      "title": "新能源车下乡_资方视角",
+      "contentType": "A型图文",
+      "topic": "五部门新能源车下乡——表面卖车，实质重建乡村能源基础设施。资方该看什么？",
+      "audience": [
+        "资方",
+        "想做项目的人",
+        "行业同行"
+      ],
+      "keywords": [
+        "乡村能源",
+        "光储充一体化",
+        "新能源车下乡",
+        "行业观察"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-19",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-011",
+      "title": "三种电池对比",
+      "contentType": "B型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "全钒液流",
+        "磷酸铁锂",
+        "钠离子电池"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-16",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-012",
+      "title": "储能产业链20大玩家",
+      "contentType": "B型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-13",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-013",
+      "title": "六张网20万亿",
+      "contentType": "B型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "储能",
+        "六张网",
+        "十五五",
+        "新型电网",
+        "行业研究"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-16",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-014",
+      "title": "售电交易流程",
+      "contentType": "B型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-12",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-015",
+      "title": "工商业储能投产比模型",
+      "contentType": "B型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-12",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-016",
+      "title": "市面所有水分类",
+      "contentType": "B型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-17",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-017",
+      "title": "液态半固态全固态电池对比",
+      "contentType": "B型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "全固态",
+        "半固态",
+        "固态电池",
+        "液态电池"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-17",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-018",
+      "title": "源网荷储一张图",
+      "contentType": "B型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "源网荷储"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-14",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-019",
+      "title": "绿证碳资产流程图",
+      "contentType": "B型图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-12",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-020",
+      "title": "AI视频耗电",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-17",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-021",
+      "title": "EMC从可选变必推",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "EMC合同能源管理",
+        "EMC政策2026",
+        "光伏储能",
+        "合同能源管理新规",
+        "居间人",
+        "居间人怎么做",
+        "工厂省电",
+        "工厂节能",
+        "工厂资源变现",
+        "工商业储能",
+        "有工厂资源怎么变现"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-10",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-022",
+      "title": "SNEC2026储能展3个趋势",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "SNEC 2026",
+        "储能",
+        "储能会不会降价",
+        "储能基金",
+        "储能要不要装",
+        "工厂省电",
+        "工厂配储能",
+        "工商业储能",
+        "钠离子电池",
+        "长时储能"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-08",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-023",
+      "title": "光伏并网红线取消",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-17",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-024",
+      "title": "六张网20万亿",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-16",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-025",
+      "title": "固态电池热胀冷缩",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-17",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-026",
+      "title": "电价储能一条讲清",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "储能",
+        "储能底薪怎么拿",
+        "容量电价",
+        "工商业储能",
+        "新能源",
+        "电价改革",
+        "虚拟电厂"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-15",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-027",
+      "title": "电力交易员薪资暴涨",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "15分钟动态电价",
+        "售电行业",
+        "售电行业前景",
+        "找工作",
+        "新职业",
+        "电价改革",
+        "电力交易员",
+        "电力交易员做什么的",
+        "电力市场化",
+        "能源行业",
+        "转行"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-10",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-028",
+      "title": "绿电消费核算指南",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "工厂光伏",
+        "工厂碳排放",
+        "工商业储能",
+        "碳交易",
+        "碳核算",
+        "碳核算怎么变",
+        "绿电",
+        "绿电消费核算",
+        "绿证",
+        "绿证交易",
+        "绿证怎么用",
+        "非化石能源电力核算"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-09",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-029",
+      "title": "绿证价格暴涨碳资产",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "出口企业碳关税",
+        "工厂买绿电",
+        "碳核算",
+        "碳资产",
+        "碳足迹",
+        "碳配额",
+        "绿电交易",
+        "绿证",
+        "绿证价格",
+        "绿证值不值钱",
+        "绿证入编",
+        "绿证怎么买",
+        "绿证有什么用"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-12",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-030",
+      "title": "蚂蚁集团虚拟电厂跟工厂有啥关系",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "光伏储能",
+        "制造业",
+        "工厂光伏储能",
+        "工厂电费怎么降",
+        "工厂省电",
+        "接入虚拟电厂要多少钱",
+        "虚拟电厂",
+        "虚拟电厂怎么接入",
+        "虚拟电厂案例",
+        "蚂蚁集团"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-07",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-031",
+      "title": "通用汽车跨界钠电储能",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "AI数据中心用电",
+        "AI算力",
+        "AI算力用电有多夸张",
+        "储能电站投资",
+        "储能能不能投",
+        "工业微电网",
+        "工厂光伏储能",
+        "工厂怎么靠储能赚钱",
+        "车企跨界储能",
+        "通用汽车",
+        "钠电储能",
+        "钠离子电池"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-12",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-032",
+      "title": "钠电CVC投资分析",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "大型储能电站",
+        "宁德时代钠电",
+        "电网侧储能",
+        "钠电产业链",
+        "钠电储能",
+        "钠电和锂电区别",
+        "钠电成本",
+        "钠电正极材料",
+        "钠电池投资",
+        "钠电能不能投",
+        "钠离子电池",
+        "高寒地区储能"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-11",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-033",
+      "title": "钠电正极材料三种路线",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "NFPP正极",
+        "储能正极材料",
+        "动力电池正极",
+        "层状氧化物",
+        "层状氧化物和聚阴离子区别",
+        "普鲁士蓝",
+        "普鲁士蓝能成吗",
+        "聚阴离子",
+        "钠电产业链",
+        "钠电正极哪条路线好",
+        "钠电正极材料",
+        "钠电正极材料厂商",
+        "钠电池正极材料技术路线"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-11",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-034",
+      "title": "高寒储能实地调研",
+      "contentType": "图文",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "-40℃储能",
+        "东北储能电站",
+        "低温储能",
+        "低温储能选什么电池",
+        "极寒储能电站",
+        "钠电低温性能",
+        "钠电储能",
+        "钠电冬天会不会衰减",
+        "钠电在东北能不能用",
+        "钠离子电池",
+        "风电配储",
+        "高寒储能",
+        "高寒地区储能"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-11",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-035",
+      "title": "源网荷储虚拟电厂微电网",
+      "contentType": "概念图谱",
+      "topic": "科普分析·框架拆解 | 创作者角色：刚入行的投资人（合伙人教的）",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-14",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-036",
+      "title": "储能行业隐形冠军。你知道几个？",
+      "contentType": "清单体口播",
+      "topic": "储能产业链各环节隐形冠军——不产电池、不做 pack，但在各自细分环节市占率第一",
+      "audience": [
+        "行业同行",
+        "想做居间人",
+        "关注新能源的泛人群"
+      ],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-19",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-037",
+      "title": "AI算力引爆储能新需求",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-09",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-038",
+      "title": "AI这笔账_投资人视角",
+      "contentType": "短视频",
+      "topic": "AI烧了几千亿——钱从哪回来？投资人告诉你钱在往哪流",
+      "audience": [],
+      "keywords": [
+        "AI取代工作",
+        "投资视角",
+        "新能源",
+        "深度思考",
+        "转行"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-12",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-039",
+      "title": "C07_光伏储能售电黄金组合",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-06",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-040",
+      "title": "互联网巨头跨界售电",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "互联网跨界",
+        "副业",
+        "华为",
+        "售电",
+        "售电公司",
+        "工厂省电",
+        "滴滴",
+        "电力交易"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-08",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-041",
+      "title": "储能容量电价来了",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-08",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-042",
+      "title": "光伏并网红线取消",
+      "contentType": "短视频",
+      "topic": "政策解读·反直觉认知 | 锚点：6月18日新政落地",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-17",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-043",
+      "title": "六张网新型电网12万亿",
+      "contentType": "短视频",
+      "topic": "事件分析 | 锚点：百度热搜第一 + 中央政治局4.28会议",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-16",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-044",
+      "title": "写给焦虑的计算机人",
+      "contentType": "短视频",
+      "topic": "深度观点/趋势洞察 | 角色：拆弹专家（过来人）",
+      "audience": [],
+      "keywords": [
+        "焦虑",
+        "程序员",
+        "计算机就业",
+        "转行"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-12",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-045",
+      "title": "售电公司不是二道贩子",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-08",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-046",
+      "title": "售电公司代运营储能",
+      "contentType": "短视频",
+      "topic": "投储能的人在大撤退，国家电网反而在往里进——为什么？",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-13",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-047",
+      "title": "售电行话6个词",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-07",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-048",
+      "title": "固态电池明年量产是骗局",
+      "contentType": "短视频",
+      "topic": "反直觉认知 | 创作者角色：刚入行CVC投行，研究新能源，翻译给大家听",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-16",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-049",
+      "title": "增元个人故事",
+      "contentType": "短视频",
+      "topic": "干了18年互联网，为什么转行做投资？",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-12",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-050",
+      "title": "* — 挑战型标题，匹配面试式快问快答。",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "储能",
+        "储能成本",
+        "储能知识",
+        "储能科普",
+        "工商业储能",
+        "新能源"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-18",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-051",
+      "title": "电价储能核心知识",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-15",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-052",
+      "title": "蚂蚁集团虚拟电厂跟工厂有啥关系",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-07",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-053",
+      "title": "选题2_兖矿能源164亿杀入售电",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-06",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    },
+    {
+      "id": "post-054",
+      "title": "通用汽车跨界钠电储能",
+      "contentType": "短视频",
+      "topic": "",
+      "audience": [],
+      "keywords": [
+        "AI算力",
+        "| L1-公域",
+        "| L2-细分",
+        "储能投资",
+        "工商业储能",
+        "投产比",
+        "通用汽车",
+        "钠电储能"
+      ],
+      "tags": {
+        "L1": [],
+        "L2": [],
+        "L3": []
+      },
+      "persona": "",
+      "publishedDate": "2026-06-12",
+      "metrics": {
+        "views": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0,
+        "followers": 0
+      },
+      "metricHistory": []
+    }
+  ]
+}
