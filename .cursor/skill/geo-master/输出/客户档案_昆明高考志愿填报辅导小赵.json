@@ -1,0 +1,84 @@
+{
+  "client_profile": {
+    "id": "CP-20260405-001",
+    "created_at": "2026-04-05",
+    "updated_at": "2026-04-05",
+    
+    "basic_info": {
+      "client_name": "昆明高考志愿填报辅导小赵",
+      "client_type": "service",
+      "client_type_detail": "本地生活服务-高考志愿填报辅导",
+      "industry": "教育服务",
+      "business_description": "昆明本地专业高考志愿填报辅导服务，帮助考生科学填报志愿、选对学校和专业"
+    },
+    
+    "geographic": {
+      "scope": "local",
+      "scope_detail": "仅服务昆明市区",
+      "local_focus": true,
+      "target_cities": ["昆明"],
+      "target_districts": ["昆明市区"]
+    },
+    
+    "brand": {
+      "personal_brand": true,
+      "personal_brand_detail": "创始人个人IP-小赵老师",
+      "company_brand": false,
+      "brand_priority": "personal",
+      "brand_name": "昆明高考志愿填报辅导小赵"
+    },
+    
+    "language_style": {
+      "primary_language": "mandarin",
+      "dialect_detail": "普通话",
+      "dialect_ratio": "100%普通话",
+      "target_audience_age": "mixed",
+      "special_needs": ""
+    },
+    
+    "product_service": {
+      "type": "solution",
+      "price_range": "medium_to_high",
+      "unit_price": "待确认",
+      "seasonal": true,
+      "seasonal_detail": "高考前后（6-7月）为旺季"
+    },
+    
+    "delivery": {
+      "mode": "online",
+      "frequency": "one_time",
+      "unit_price": ""
+    },
+    
+    "goals": {
+      "primary": "conversion",
+      "secondary": ["traffic", "brand"],
+      "timeline": "medium",
+      "budget_level": "medium"
+    },
+    
+    "resources": {
+      "has_team": false,
+      "team_size": "个人",
+      "content_frequency": "待确认",
+      "has_references": false,
+      "reference_accounts": []
+    },
+    
+    "content_style": {
+      "preferred_style": ["专业型", "知识分享型"],
+      "notes": "强调专业性和实用性，帮助家长和考生解决志愿填报困惑"
+    }
+  },
+  
+  "recommendations": {
+    "suggested_skill": "douyin-local",
+    "priority_keywords": ["高考志愿", "昆明高考", "志愿填报", "高考志愿填报", "昆明教育"],
+    "content_strategy": "本地化内容为主，强调专业性和真实案例分享",
+    "notes": [
+      "建议使用普通话增强专业感",
+      "重点打造小赵个人专家IP",
+      "强调昆明本地化服务和近年录取数据"
+    ]
+  }
+}
