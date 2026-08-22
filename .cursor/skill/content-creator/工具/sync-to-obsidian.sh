@@ -59,7 +59,7 @@ case "$TARGET" in
     sync_dir_incremental "$SRC_ROOT/知识库/案例库/爆款拆解" "$OBS_VAULT/13-内容创作/案例库/爆款拆解"
     sync_dir_incremental "$SRC_ROOT/知识库/方法论库" "$OBS_VAULT/13-内容创作/方法论"
     sync_file "$SRC_ROOT/skill.md" "$OBS_VAULT/13-内容创作/skill.md"
-    for proj in 备电 儿童成长 风水 职业规划; do
+    for proj in 备电 企业咨询 风水 职业规划; do
       if [ -d "$SRC_ROOT/项目/$proj" ]; then
         mkdir -p "$OBS_VAULT/12-项目/$proj"
         for f in config.md 个人档案.md 标杆映射表.md 选题池.md 运营规划方案.md; do
@@ -70,6 +70,9 @@ case "$TARGET" in
         fi
         if [ -d "$SRC_ROOT/项目/$proj/资产" ]; then
           sync_dir_incremental "$SRC_ROOT/项目/$proj/资产" "$OBS_VAULT/12-项目/$proj/资产"
+        fi
+        if [ -d "$SRC_ROOT/项目/$proj/素材库" ]; then
+          sync_dir_incremental "$SRC_ROOT/项目/$proj/素材库" "$OBS_VAULT/12-项目/$proj/素材库"
         fi
         echo "✓ 项目/$proj"
       fi
@@ -86,12 +89,15 @@ case "$TARGET" in
     sync_dir_incremental "$SRC_ROOT/知识库/方法论库" "$OBS_VAULT/13-内容创作/方法论"
     ;;
   项目)
-    for proj in 备电 儿童成长 风水 职业规划; do
+    for proj in 备电 企业咨询 风水 职业规划; do
       if [ -d "$SRC_ROOT/项目/$proj" ]; then
         mkdir -p "$OBS_VAULT/12-项目/$proj"
         for f in config.md 个人档案.md 标杆映射表.md 选题池.md 运营规划方案.md; do
           [ -f "$SRC_ROOT/项目/$proj/$f" ] && cp "$SRC_ROOT/项目/$proj/$f" "$OBS_VAULT/12-项目/$proj/$f"
         done
+        if [ -d "$SRC_ROOT/项目/$proj/素材库" ]; then
+          sync_dir_incremental "$SRC_ROOT/项目/$proj/素材库" "$OBS_VAULT/12-项目/$proj/素材库"
+        fi
         echo "✓ 项目/$proj"
       fi
     done
